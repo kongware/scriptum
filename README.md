@@ -58,7 +58,7 @@ There is no such thing as an untyped program, except an invalid one!
 # Research
 
 * Coyoneda and Free
-* F-Algebras
+* F-Algebras and trees
 * Purely functional data types
 
 # API

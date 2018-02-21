@@ -13,64 +13,91 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 
 /******************************************************************************
 *******************************************************************************
+*********************************[ CONSTANTS ]*********************************
+*******************************************************************************
+******************************************************************************/
+
+
+const augmented = true;
+
+
+/******************************************************************************
+*******************************************************************************
 *********************************[ DEBUGGING ]*********************************
 *******************************************************************************
 ******************************************************************************/
 
 
+/******************************************************************************
+******************************[ Virtualization ]*******************************
+******************************************************************************/
+
+
 // augment a curried function sequence
 // untyped
-export const aug = (name, f, log = []) => {
-  const aux = x => {
-    const argT = typeCheck(ArgTypeError)
-      (t => tErr => fromTo => `${name} received argument\n\n`
-      + `${t}\n`
-      + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
-      + `arguments must not be or include elements of type ${tErr}\n`) (x);
+export const aug = (name, f) => {
+  if (augmented) {
+    Reflect.defineProperty(f, "name", {value: name});
+    return new Proxy(f, handleF(name, f, []))
+  }
 
-    const r = f(x),
-      name_ = r && r.name || name;
+  else return f;
+};
 
-    const retT = typeCheck(ReturnTypeError)
-      (t => tErr => fromTo => `${name_} returned`
-      + `${t}\n`
-      + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
-      + `return values must not be or include elements of type ${tErr}\n`) (r);
 
-    if (typeof r === "function") {
-      const aux_ = aug(name_, r, log.concat(`${name}(${argT})`));
-      Object.defineProperties(aux_, {name: {value: name_}});
-      return aux_;
+// handle function
+// untyped
+const handleF = (name, f, log) => {
+  return {
+    apply: (g, _, args) => {
+      if (args.length !== 1) throw new ArityError(
+        `${name} expects one argument\n`
+        + `${args.length} arguments received`
+      );
+
+      const argType = typeCheck(ArgTypeError)
+        (t => illTyped => fromTo => `${name} received invalid argument\n\n`
+        + `${t}\n`
+        + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
+        + `${illTyped} is not allowed\n`) (args[0]);
+
+      const r = f(args[0]);
+
+      const retType = typeCheck(ReturnTypeError)
+        (t => illTyped => fromTo => `${name_} returned invalid value`
+        + `${t}\n`
+        + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
+        + `${illTyped} is not allowed\n`) (r);
+
+      if (typeof r === "function") {
+        const name_ = r.name || name;
+        Reflect.defineProperty(r, "name", {value: name_});
+        return new Proxy(r, handleF(name_, r, log.concat(`${name}(${argType})`)));
+      }
+
+      else return r;
+    },
+
+    get: (f, k, p) => {
+      switch (k) {
+        case "name": return name;
+        case "log": return log;
+      }
     }
-
-    else return r;
   };
+};
 
-  const ts = {name: introspect(name), f: getTypeTag(f), log: introspect(log)};
 
-  if (ts.name !== "String") throw new ArgTypeError(
-    "aug expects\n\n"
-    + "String, Function, [String]\n"
-    + `${underline([0, 6])}\n\n`
-    + `${ts.name} received\n`
-  );
+/******************************************************************************
+*******************************[ Introspection ]*******************************
+******************************************************************************/
 
-  else if (ts.f !== "Function") throw new ArgTypeError(
-    "aug expects\n\n"
-    + "String, Function, [String]\n"
-    + `${underline([8, 16])}\n\n`
-    + `${ts.f} received\n`
-  );
 
-  else if (ts.log !== "[String]" && ts.log !== "[]") throw new ArgTypeError(
-    "aug expects\n\n"
-    + "String, Function, [String]\n"
-    + `${underline([16, 26])}\n\n`
-    + `${ts.log} received\n`
-  );
-
-  Object.defineProperties(aux, {name: {value: name}, log: {value: log}});
-  return aux;
+// getTypeTag
+// a -> String
+export const getTypeTag = x => {
+  const tag = Object.prototype.toString.call(x);
+  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
 
 
@@ -90,14 +117,6 @@ const typeCheck = Cons => f => x => {
   }
 
   else return t;
-};
-
-
-// getTypeTag
-// a -> String
-export const getTypeTag = x => {
-  const tag = Object.prototype.toString.call(x);
-  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
 
 
@@ -219,12 +238,27 @@ const introspectSet = s => {
 };
 
 
+/******************************************************************************
+******************************[ Error Handling ]*******************************
+******************************************************************************/
+
+
 // ArgTypeError
 // String -> ArgTypeError
 class ArgTypeError extends Error {
   constructor(s) {
     super(s);
     Error.captureStackTrace(this, ArgTypeError);
+  }
+};
+
+
+// ArityError
+// String -> ArityError
+class ArityError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, ArityError);
   }
 };
 
@@ -247,7 +281,7 @@ const underline = ([n, m]) =>
 
 /******************************************************************************
 *******************************************************************************
-*********************************[ TYPECLASS ]*********************************
+********************************[ TYPECLASSES ]********************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -258,7 +292,7 @@ const classes = new Map();
 const instances = new Map();
 
 
-export const tclass = (_class, ...ops) => {
+export const typeclass = (_class, ...ops) => {
   if (classes.has(_class)) throw new TypeClassError(
     `${_class} already exists\n`
     + "typeclasses must not be overriden\n"
@@ -308,7 +342,7 @@ const createAccessors = _class => {
 
 
 // TypeClassError
-// String -> ArgTypeError
+// String -> TypeClassError
 class TypeClassError extends Error {
   constructor(s) {
     super(s);
@@ -321,6 +355,11 @@ class TypeClassError extends Error {
 *******************************************************************************
 ********************************[ PRIMITIVES ]*********************************
 *******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ Array ]***********************************
 ******************************************************************************/
 
 
@@ -625,19 +664,6 @@ export const Data = Tcons => prop => Dcons => {
 
   return Dcons(Data);
 };
-
-
-/******************************************************************************
-**********************************[ Tailrec ]**********************************
-******************************************************************************/
-
-
-
-
-
-/******************************************************************************
-*******************************[ Short Curcuit ]*******************************
-******************************************************************************/
 
 
 /******************************************************************************
