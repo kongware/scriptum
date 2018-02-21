@@ -51,3 +51,5 @@ scriptum makes the functional paradigm ready for production in Javascript.
 * Purely functional data types
 
 # API
+
+...
