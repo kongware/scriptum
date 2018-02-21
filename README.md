@@ -1,6 +1,4 @@
-<div>
-  <img src="https://i.stack.imgur.com/UqCPm.png?s=328&g=1" height="110" alt="ftor" align="left">
-</div>
+<img src="./scriptum.png" width="366" height="114" alt="scriptum"><br>
 
 # Status
 
