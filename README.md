@@ -6,7 +6,7 @@ This repo is experimental and still work in progress.
 
 # What
 
-An uncompromisingly functional programming library with focus on types, purity, abstraction and debugging capabilities.
+An uncompromisingly functional library with a focus on types, purity, abstraction and debugging capabilities.
 
 # Why
 
@@ -22,7 +22,7 @@ There is no such thing as an untyped program, except an invalid one!
 
 ## Debugging
 
-* provides function type log
+* provides type logs for partially applied functions
 * excludes undefined/NaN
 * facilitates lambda debugging
 * warns of ill-typed data types
@@ -31,12 +31,13 @@ There is no such thing as an untyped program, except an invalid one!
 
 * mapping from types to implementations
 * avoids prototype system
-* class hierarchies
+* can express typeclass hierarchies
 
-## Flat Composition
+## Avoid Nesting
 
-* flat compostion
-* flat functorial, applicative and monadic computations
+* polyvariadic function sequences
+* flat function compostion
+* flat applicative and monadic computations
 
 ## Algebraic Data Types
 
@@ -48,7 +49,7 @@ There is no such thing as an untyped program, except an invalid one!
 # Upcoming Features
 
 * Fold with short circuiting
-* Monodial Transudcers
+* Monodial transudcer
 * Functional optics
 * List comprehension
 * Stack-safe recursion
