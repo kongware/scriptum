@@ -25,7 +25,7 @@ There is no such thing as an untyped program, except an invalid one!
 * provides type logs for partially applied functions
 * excludes undefined/NaN
 * facilitates lambda debugging
-* warns of ill-typed data types
+* warns of ill-typed data structures
 
 ## Typeclasses
 
