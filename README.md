@@ -1,14 +1,6 @@
-<pre>
-                           db             mm                                 
-                                          MM                                 
-,pP"Ybd  ,p6"bo `7Mb,od8 `7MM `7MMpdMAo.mmMMmm `7MM  `7MM  `7MMpMMMb.pMMMb.  
-8I   `" 6M'  OO   MM' "'   MM   MM   `Wb  MM     MM    MM    MM    MM    MM  
-`YMMMa. 8M        MM       MM   MM    M8  MM     MM    MM    MM    MM    MM  
-L.   I8 YM.    ,  MM       MM   MM   ,AP  MM     MM    MM    MM    MM    MM  
-M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
-                                MM                                           
-                              .JMML.                                         
-</pre>
+<div>
+  <img src="https://i.stack.imgur.com/UqCPm.png?s=328&g=1" height="110" alt="ftor" align="left">
+</div>
 
 # Status
 
