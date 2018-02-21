@@ -1,4 +1,4 @@
-<img src="./logo.png" width="366" height="114" alt="scriptum"><br><br>
+<img src="./logo.png" width="366" height="114" alt="scriptum"><br><br><br>
 
 # Status
 
