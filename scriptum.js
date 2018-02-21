@@ -328,7 +328,11 @@ const createAccessors = _class => {
 
       else {
         return Object.assign(acc,
-          {[op]: tag => instances.get(`${_class} ${tag}`) [op]}
+          {[op]: x => {
+            const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
+            if (typeof r === "function") return r(x);
+            else return r;
+          }}
         )
       }
     }, o);
