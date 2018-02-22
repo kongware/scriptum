@@ -74,6 +74,8 @@ const add = aug(
 
 app(add) (1).log; // ["app(λadd)", "app(Number)"]
 ```
+`λ` just indicates that the given argument is a function.
+
 ## Typeclasses
 
 Usually the prototype system is used to simulate the typeclass effect in Javascript. scriptum doesn't rely on this for two reasons.
