@@ -33,7 +33,7 @@ There is no such thing as an untyped program, except an invalid one!
 * avoids prototype system
 * can express typeclass hierarchies
 
-## Avoid Nesting
+## Linear Data Flow
 
 * polyvariadic function sequences
 * flat function compostion
@@ -55,12 +55,16 @@ There is no such thing as an untyped program, except an invalid one!
 * Stack-safe recursion
 * Indexed ranges
 * Memoization
+* `Eff`/`Aff` effect types (inspired by purescript)
+* `Behavior`/`Event` types and corresponding combinators
+
 
 # Research
 
 * Coyoneda and Free
 * F-Algebras and trees
 * Purely functional data types
+* Persistant data structures
 
 # API
 
