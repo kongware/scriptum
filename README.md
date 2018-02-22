@@ -78,13 +78,13 @@ app(add) (1).log; // ["app(λadd)", "app(Number)"]
 
 ## Typeclasses
 
-Usually the prototype system is used to simulate the typeclass effect in Javascript. scriptum doesn't rely on this for two reasons.
+Usually the prototype system is used to simulate the typeclass effect in Javascript. scriptum doesn't rely on this for two reasons:
 
-### Native Prototypes
+* Native Prototypes
 
 We want to define typeclasses for native types too, however, this would require to modify their prototypes. Modifying native prototypes is considered harmful.
 
-### Subtyping
+* Subtyping
 
 We want to be able to express typeclass hierarchies without introducing subtype relation. Subtyping is harmful because it entails co-/contra- and invariance and the corresponding effects, which are unintuitive and make it difficult to reason about types.
 
