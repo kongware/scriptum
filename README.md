@@ -30,11 +30,11 @@ A guarded function must neither receive nor return a value of type `undefined`/`
 
 ### Lambdas
 
-Functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally use the name of the respective function argument.
+Functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally adapt their names to the name of the respective function argument.
 
 ### Type Logs
 
-scriptum doesn't require explicit type annotations but rather provides a type log for each guarged function. A type log includes the type of each argument passed to the curried function sequence. This way you can retrospectively verify if an assumed function type matches its real type.
+scriptum doesn't require explicit type annotations but rather provides a type log for each guarged function. A type log includes the type of each argument passed to the curried function sequence. This way you can verify if an assumed function type matches its real type retrospectively.
 
 If you pass a composite value to a guarded function and the type check yields an invalid type, the type log uses a question mark to indicate this. For instance, if you pass a huge heterogeneous `Array`, the type log will contain an  `[?]` entry. Please understand this as an indication to choose a more appropriate type for the given data.
 
