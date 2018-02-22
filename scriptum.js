@@ -655,19 +655,19 @@ export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 // ADT with several data export constructors
 // untyped
-export const Type = Tcons => prop => Dcons => {
+export const Type = Tcons => Dcons => {
   const t = new Tcons();
-  t[prop] = cases => Dcons(cases);
+  t.run = cases => Dcons(cases);
   return t;
 };
 
 
 // ADT with single data export constructor
 // untyped
-export const Data = Tcons => prop => Dcons => {
+export const Data = Tcons => Dcons => {
   const Data = Dcons => {
     const t = new Tcons();
-    t[prop] = Dcons;
+    t.run = Dcons;
     return t;
   };
 
