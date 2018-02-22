@@ -566,6 +566,11 @@ export const guard = f => p => x => y => p(y) ? f(y) : x;
 export const id = x => x;
 
 
+// monadic join
+// (r -> r -> a) -> r -> a
+export const join = f => x => f(x) (x);
+
+
 // on
 // (b -> b -> c) -> (a -> b) -> a -> a -> c
 export const on = f => g => x => y => f(g(x)) (g(y));
