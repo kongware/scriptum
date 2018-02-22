@@ -40,9 +40,24 @@ If you pass a composite value to a guarded function and the type check yields an
 
 ## Typeclasses
 
-* mapping from types to implementations
-* avoids prototype system
-* can express typeclass hierarchies
+Usually the prototype system is used to simulate the typeclass effect in Javascript. scriptum avoids doesn't rely on this for two reasons.
+
+### Native Prototypes
+
+We want to define typeclasses for native types too, however, this would require to modify their prototypes. Modifying native prototypes is considered harmful.
+
+### Subtyping
+
+We want to be able to express typeclass hierarchies without introducing subtype relation. Subtyping is harmful because it entails co-/contra- and invariance and the corresponding effects, which are unintuitive and make it difficult to reason about types.
+
+### Alternative Approach
+
+scriptum uses a global `Map` structure to map types to implementations. Such a typeclass can adopt methods of none, one or several superclasses and hence form a typeclass hierarchy, without establishing any subtype relations.
+
+Compared to Haskell's wondeful typeclass implementation scriptum's approach suffers from limitations that also apply to Javascript's prototype system:
+
+* the ability to map certain types depends on the existance of values
+* there is no way to overload functions on their return values
 
 ## Linear Data Flow
 
