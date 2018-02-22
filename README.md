@@ -48,7 +48,7 @@ const app = aug(
 
 const add = aug(
   "add",
-  x => y => z => x + y + z
+  m => n => m + n
 );
 
 app(add).name; // app
@@ -69,7 +69,7 @@ const app = aug(
 
 const add = aug(
   "add",
-  x => y => z => x + y + z
+  m => n => m + n
 );
 
 app(add) (1).log; // ["app(λadd)", "app(Number)"]
@@ -93,7 +93,10 @@ scriptum uses a global `Map` structure to map types to implementations. Such a t
 Here is an example for the `Semigroup` typeclass that has an `append` operator. I use a little wrapper to abstract from the `Semigroup` namespace `Object`:
 
 ```Javascript
-const append = x => Semigroup.append(x);
+const append = aug(
+  "append",
+  x => Semigroup.append(x)
+);
 
 append(2) (3); // 5 (monoid under addition assumed)
 append("foo") ("bar"); // "foobar"
