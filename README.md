@@ -54,10 +54,12 @@ We want to be able to express typeclass hierarchies without introducing subtype 
 
 scriptum uses a global `Map` structure to map types to implementations. Such a typeclass can adopt methods of none, one or several superclasses and hence form a typeclass hierarchy, without establishing any subtype relations.
 
-Compared to Haskell's wondeful typeclass implementation scriptum's approach suffers from limitations that also apply to Javascript's prototype system:
+However, compared to Haskell's wondeful typeclass implementation scriptum's approach suffers from limitations:
 
 * the ability to map certain types depends on the existance of values
 * there is no way to overload functions on their return values
+
+These limitations also apply to Javascript's prototype system, though.
 
 ## Linear Data Flow
 
