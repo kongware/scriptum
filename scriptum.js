@@ -35,7 +35,7 @@ const augmented = true;
 
 // augment a curried function sequence
 // untyped
-export const aug = (name, f) => {
+export const Aug = (name, f) => {
   if (augmented) {
     Reflect.defineProperty(f, "name", {value: name});
     return new Proxy(f, handleF(name, f, []))
@@ -357,6 +357,35 @@ class TypeClassError extends Error {
 
 /******************************************************************************
 *******************************************************************************
+***************************[ ALGEBRAIC DATA TYPES ]****************************
+*******************************************************************************
+******************************************************************************/
+
+
+// ADT with several data export constructors
+// untyped
+export const Type = Tcons => Dcons => {
+  const t = new Tcons();
+  t.run = cases => Dcons(cases);
+  return t;
+};
+
+
+// ADT with single data export constructor
+// untyped
+export const Data = Tcons => Dcons => {
+  const Data = Dcons => {
+    const t = new Tcons();
+    t.run = Dcons;
+    return t;
+  };
+
+  return Dcons(Data);
+};
+
+
+/******************************************************************************
+*******************************************************************************
 ********************************[ PRIMITIVES ]*********************************
 *******************************************************************************
 ******************************************************************************/
@@ -646,33 +675,6 @@ export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
 ******************************************************************************/
-
-
-/******************************************************************************
-***************************[ Algebraic Data Types ]****************************
-******************************************************************************/
-
-
-// ADT with several data export constructors
-// untyped
-export const Type = Tcons => Dcons => {
-  const t = new Tcons();
-  t.run = cases => Dcons(cases);
-  return t;
-};
-
-
-// ADT with single data export constructor
-// untyped
-export const Data = Tcons => Dcons => {
-  const Data = Dcons => {
-    const t = new Tcons();
-    t.run = Dcons;
-    return t;
-  };
-
-  return Dcons(Data);
-};
 
 
 /******************************************************************************
