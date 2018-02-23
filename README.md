@@ -46,6 +46,7 @@ append([1, 2, 3]) ([4, NaN, 5]); // type error
 
 Functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally adapt their names to the name of the respective function argument.
 
+```Javascript
 const comp = Aug(
   "comp",
   f => g => x => f(g(x))
@@ -129,7 +130,6 @@ const Arr = {
 setInstance("Semigroup", "Number") ({append: Num.append});
 setInstance("Semigroup", "Array") ({append: Arr.append});
 
-
 setSubInstance("Semigroup") ("Monoid", "Number") ({empty: Num.empty});
 setSubInstance("Semigroup") ("Monoid", "Array") ({empty: Arr.empty});
 
@@ -142,7 +142,6 @@ const Monoid = createAccessors("Monoid");
 
 const append = x => Monoid.append(x);
 const empty = x => Monoid.empty(x);
-
 
 // here we go!
 
