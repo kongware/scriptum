@@ -374,9 +374,9 @@ export const Type = Tcons => Dcons => {
 // ADT with single data export constructor
 // untyped
 export const Data = Tcons => Dcons => {
-  const Data = Dcons => {
+  const Data = x => {
     const t = new Tcons();
-    t.run = Dcons;
+    t.run = x;
     return t;
   };
 
@@ -630,6 +630,29 @@ export const tap = f => x => (f(x), x);
 export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 
+/***[Tail Recursion]**********************************************************/
+
+
+// loop
+// no augmenation
+// untyped
+export const loop = f => {
+  let acc = f();
+
+  while (acc && acc.type === recur) {
+    acc = f(...acc.args);
+  }
+
+  return acc;
+};
+
+
+// recursive case
+// no augmenation
+// untyped
+export const recur = (...args) => ({type: recur, args});
+
+  
 /******************************************************************************
 ************************************[ Int ]************************************
 ******************************************************************************/

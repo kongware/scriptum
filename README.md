@@ -38,7 +38,7 @@ A guarded function must neither receive nor return a value of type `undefined`/`
 
 ```Javascript
 const append = Aug(
-  "apppend",
+  "append",
   xs => ys => xs.concat(ys)
 );
 
