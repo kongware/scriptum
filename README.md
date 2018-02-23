@@ -68,6 +68,8 @@ comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
 comp(add) (inc) (2) (3) // 6
 ```
+Since scriptum's augmentation feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
+
 ### Type Logs
 
 scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can verify if an assumed function type matches its real type retrospectively.
