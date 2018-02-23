@@ -20,7 +20,7 @@ There is no such thing as an untyped program, except an invalid one!
 
 # Features
 
-## Debugging Features
+## Debugging Toolset
 
 scriptum offers a function type proxy that transforms normal functions into guarded functions with additional behavior that is useful for debugging. Just use the `Aug` constructor to create such augmented functions:
 
