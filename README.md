@@ -114,7 +114,7 @@ Here is an example of how to declare the `Monoid` typeclass and its superclass `
 // namespaces
 
 const Num = {
-  append: m => n => m + n, // I take Sum as the default monoid for Number
+  append: m => n => m + n, // assumed monoid under addition
   empty: 0
   // ...
 };
@@ -149,7 +149,6 @@ append(2) (3); // 5
 append([1,2]) ([3,4]); // [1,2,3,4]
 empty(5); // 0
 empty([1, 2, 3, 4]); // []
-);
 ```
 ## Linear Data Flow
 
