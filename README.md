@@ -20,7 +20,7 @@ There is no such thing as an untyped program, except an invalid one!
 
 # Features
 
-## Debugging
+## Pluggable Debugging
 
 scriptum offers a function type proxy that transforms normal functions into guarded functions with additional behavior that is useful for debugging. Just use the `Aug` constructor to create such augmented functions:
 
@@ -30,6 +30,8 @@ const comp = Aug(
   f => g => x => f(g(x))
 );
 ```
+To safe the cost of function augmentation at runtime you can disable this feature for production environments by simply switching the `augmented` flag to `false`.
+
 ### Excluded Types
 
 A guarded function must neither receive nor return a value of type `undefined`/`NaN`. It will throw a type error instead. This applies to deeply nested element values of these types as well.
