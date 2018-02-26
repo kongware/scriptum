@@ -103,7 +103,7 @@ scriptum obtains the typeclass effect by using a global `Map` structure instead 
 ```Javascript
 // create a type dictionary
 
-Monoid = typeDict("Monoid");
+const Monoid = typeDict("Monoid");
 
 // deconstruct accessors for convenience
 
@@ -113,6 +113,7 @@ const {append, empty} = Monoid;
 
 append(2) (3); // 5
 append([1,2]) ([3,4]); // [1,2,3,4]
+
 empty(5); // 0
 empty([1, 2, 3, 4]); // []
 ```
