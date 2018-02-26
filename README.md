@@ -98,56 +98,18 @@ comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 
 ## Typeclasses
 
-Usually the prototype system is used to simulate the typeclass effect in Javascript. scriptum doesn't rely on this mechanism for two reasons:
-
-* Native Prototypes
-
-It should be possible to define typeclasses for native types without modifying their prototypes, because such procedure is considered harmful.
-
-* Subtyping
-
-It should be possible to form typeclass hierchies without introducing subtype relations, because co-, contra- and invariance and their corresponding effects are not desired.
-
-### Alternative Approach
-
-scriptum uses a global `Map` structure to map types to implementations. Such a typeclass can adopt methods of none, one or several superclasses by mixins and thus doesn't establish subtype relations.
-
-Here is an example of how to declare the `Monoid` typeclass and its superclass `Semigroup` from scratch. Please note that these typeclasses are predefined in scriptum:
+scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a type class you must create a corresponding type dictionary:
 
 ```Javascript
-// namespaces
+// create a type dictionary
 
-const Num = {
-  append: m => n => m + n, // assumed monoid under addition
-  empty: 0
-  // ...
-};
+Monoid = typeDict("Monoid");
 
-const Arr = {
-  append: xs => ys => xs.concat(ys),
-  empty: []
-  // ...
-};
+// deconstruct accessors for convenience
 
-// set typeclass instances
+const {append, empty} = Monoid;
 
-setInstance("Semigroup", "Number") ({append: Num.append});
-setInstance("Semigroup", "Array") ({append: Arr.append});
-
-setSubInstance("Semigroup") ("Monoid", "Number") ({empty: Num.empty});
-setSubInstance("Semigroup") ("Monoid", "Array") ({empty: Arr.empty});
-
-// create accessor functions
-
-const Semigroup = createAccessors("Semigroup");
-const Monoid = createAccessors("Monoid");
-
-// declare polymorphic functions
-
-const append = x => Monoid.append(x);
-const empty = x => Monoid.empty(x);
-
-// here we go!
+// use of the polymorphic functions
 
 append(2) (3); // 5
 append([1,2]) ([3,4]); // [1,2,3,4]

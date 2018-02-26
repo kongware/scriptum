@@ -21,6 +21,9 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 const augmented = true;
 
 
+const SYM_PREFIX = "github.com/kongware/scriptum";
+
+
 /******************************************************************************
 *******************************************************************************
 *********************************[ DEBUGGING ]*********************************
@@ -286,72 +289,36 @@ const underline = ([n, m]) =>
 ******************************************************************************/
 
 
-const classes = new Map();
+const typeclasses = new Map([
+  // built-in type classes
+  // ...
+  ["Monoid", ["append", "empty"]]
+  // ...
+]);
 
 
-const instances = new Map();
+const instances = new Map([
+  // built-in type class instances
+  // ...
+  ["Monoid Number", {append: Num.append, empty: Num.empty}],
+  ["Monoid Array", {append: Arr.append, empty: Arr.empty}]
+  // ...
+]);
 
 
-export const typeclass = (_class, ...ops) => {
-  if (classes.has(_class)) throw new TypeClassError(
-    `${_class} already exists\n`
-    + "typeclasses must not be overriden\n"
-  );
+export const typeDict = _class => {
+  const f = tag => instances.get(`${_class} ${tag}`),
+    ops = typeclasses.get(_class);
 
-  else classes.set(_class, ops);
-};
+  ops.forEach(op => {
+    f[op] = x => {
+      const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
+      if (typeof r === "function") return r(x);
+      else return r;
+    }
+  });
 
-
-export const subInstance = (..._super) => (_class, tag) => dict => {
-  instances.set(
-    `${_class} ${tag}`,
-    Object.assign(dict,
-      _super.reduce((acc, s) => Object.assign(acc,
-        instances.get(`${s} ${tag}`)
-      ), {})
-    )
-  );
-
-  return createAccessors(_class);
-};
-
-
-export const instance = subInstance();
-
-
-const createAccessors = _class => {
-  const o = tag => instances.get(`${_class} ${tag}`);
-
-  if (classes.has(_class)) {
-    return classes.get(_class).reduce((acc, op) => {
-      if (op in acc) return acc;
-
-      else {
-        return Object.assign(acc,
-          {[op]: x => {
-            const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
-            if (typeof r === "function") return r(x);
-            else return r;
-          }}
-        )
-      }
-    }, o);
-  }
-
-  else  throw new TypeClassError(
-    `${_class} doesn't exist\n`
-    + "typeclasses must be defined in the global repository\n"
-  );
-};
-
-
-// TypeClassError
-// String -> TypeClassError
-class TypeClassError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, TypeClassError);
-  }
+  return f;
 };
 
 
@@ -366,7 +333,8 @@ class TypeClassError extends Error {
 // untyped
 export const Type = Tcons => Dcons => {
   const t = new Tcons();
-  t.run = cases => Dcons(cases);
+  t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
+  t.tag = Dcons.constructor.name
   return t;
 };
 
@@ -376,7 +344,8 @@ export const Type = Tcons => Dcons => {
 export const Data = Tcons => Dcons => {
   const Data = x => {
     const t = new Tcons();
-    t.run = x;
+    t[`run${Dcons.constructor.name}`] = x;
+    t.tag = Dcons.constructor.name
     return t;
   };
 
@@ -634,7 +603,7 @@ export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 
 // loop
-// no augmenation
+// no augmentation
 // untyped
 export const loop = f => {
   let acc = f();
@@ -648,7 +617,7 @@ export const loop = f => {
 
 
 // recursive case
-// no augmenation
+// no augmentation
 // untyped
 export const recur = (...args) => ({type: recur, args});
 
@@ -698,6 +667,29 @@ export const recur = (...args) => ({type: recur, args});
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ Cont ]************************************
+******************************************************************************/
+
+
+// continuation
+// Function -> ((a -> r) -> r) -> Cont r a
+export const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
+
+
+// run continuation
+// Cont r a -> (a -> r) -> r
+export const runCont = tk => k => tk.runCont(k);
+
+
+/***[Chain]*******************************************************************/
+
+
+// chain
+// ((a -> r) -> r) -> (a -> ((b -> r) -> r)) -> ((b -> r) -> r)
+export const chain = tk => ft => Cont(k => tk.runCont(x => ft(x).runCont(k)));
 
 
 /******************************************************************************
