@@ -43,6 +43,7 @@ const append = Aug(
 );
 
 append([1, 2, 3]) ([4, NaN, 5]); // type error
+flatten([[1], [undefined], [3]]); // type error
 ```
 ### Lambdas
 
@@ -98,7 +99,7 @@ comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 
 ## Typeclasses
 
-scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a type class you must create a corresponding type dictionary:
+scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a typeclass you must create a corresponding type dictionary:
 
 ```Javascript
 // create a type dictionary
@@ -191,13 +192,12 @@ With Scott encoding we also can express products, sums of products, recursive an
 * Memoization
 * `Eff`/`Aff` effect types (inspired by purescript)
 * `Behavior`/`Event` types and corresponding combinators
-
+* Purely functional data types
 
 # Research
 
 * Coyoneda and Free
 * F-Algebras and trees
-* Purely functional data types
 * Persistant data structures
 
 # API
