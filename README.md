@@ -204,17 +204,13 @@ const Some = x => Option("Some", o => o.Some(x));
 const None = Option("None", o => o.None);
 const runOption = dict => tx => tx.run(dict);
 
-const safeHead = Aug(
-  "safeHead",
+const safeHead = 
   xs => xs.length === 0
     ? None
-    : Some(xs[0])
-);
+    : Some(xs[0]);
 
-const uc = Aug(
-  "uc",
-  s => s.toUpperCase()
-);
+const uc = s =>
+  s.toUpperCase();
 
 const xs = ["foo", "bar", "baz"],
   ys = [];
