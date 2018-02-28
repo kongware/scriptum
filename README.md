@@ -144,7 +144,7 @@ m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
 ```
 ## Stack-Safe Recursion
 
-Although specified in Ecmascript-6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies three different constructs to address the problem:
+Although specified in Ecmascript-6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies three different constructs to address the problem.
 
 ### Trampoline
 
@@ -157,8 +157,6 @@ Although specified in Ecmascript-6 most Javascript engines doesn't ship with tai
 ### Custom Call Stack with TCO
 
 ...
-
-* maintain an own stack with Tcons
 
 ## Algebraic Data Types
 
