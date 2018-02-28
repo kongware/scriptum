@@ -532,26 +532,35 @@ export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 /***[Tail Recursion]**********************************************************/
 
 
-// loop
-// no augmentation
-// untyped
-export const loop = f => {
-  let acc = f();
+// base case constructor
+// a => {value: a, done: Boolean}
+export const Base = x =>
+  ({value: x, done: false});
 
-  while (acc && acc.type === recur) {
-    acc = f(...acc.args);
-  }
 
-  return acc;
+// recursive case constructor
+// a => {value: a, done: Boolean}
+export const Rec = x =>
+  ({value: x, done: true});
+
+
+// tail recursive
+// trampoline
+// (Tuple -> {value: Tuple, done: Boolean}) -> ...Tuple ->
+export const tailRec = f => (...args) => {
+  let step = Rec(args);
+
+  do {
+    step = f(Base, Rec, step.value);
+  } while (!step.done);
+
+  return step.value;
 };
 
-
-// recursive case
-// no augmentation
-// untyped
-export const recur = (...args) => ({type: recur, args});
-
   
+/***[Non-Tail Recursion]******************************************************/
+
+
 /******************************************************************************
 ************************************[ Map ]************************************
 ******************************************************************************/
@@ -591,10 +600,10 @@ export const capitalize = s => s[0].toUpperCase() + s.slice(1);
 
 // ADT with several data export constructors
 // untyped
-export const Type = Tcons => Dcons => {
+export const Type = Tcons => (tag, Dcons) => {
   const t = new Tcons();
   t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
-  t.tag = Dcons.constructor.name
+  t.tag = tag
   return t;
 };
 

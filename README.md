@@ -144,34 +144,64 @@ m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
 ```
 ## Stack-Safe Recursion
 
-Although specified in Ecmascript-6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies three different constructs to address the problem.
+Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies two approaches to manage tail and non-tail recursion.
 
 ### Trampoline
 
-...
+I use a trampoline along with a tagged union simulated by two `Object` encodings to transform tail recursive functions into stack-safe versions. Usually I prefer Scott encoded ADTs for tasks like this, but the `Object` encoding is twice as fast and recursion is often a performance critical job.
 
+```Javascript
+const Loop = x =>
+  ({value: x, done: false});
+  
+const Done = x =>
+  ({value: x, done: true});
+
+// trampoline
+
+const tailRec = f => (...args) => {
+  let step = Loop(args);
+
+  do {
+    step = f(Loop, Done, step.value);
+  } while (!step.done);
+
+  return step.value;
+};
+
+// stack-safe function
+
+const repeat = n => f => x =>
+  tailRec((Loop, Done, [m, y]) => m === 0
+    ? Done(y)
+    : Loop([m - 1, f(y)])) (n, x);
+
+// run...
+
+const inc = n =>
+  n + 1;
+
+repeat(1e6) (inc) (0); // 1000000
+```
 ### Custom Call Stack
 
-...
-
-### Custom Call Stack with TCO
-
-...
+While we can handle tail recursive functions with the trampoline above, we still risk stack overflows for recursive functions whose recursive call is not in tail position. This applies to monadic recursion, for instance. To address this problem we need a construct that maintains its own stack structure, which is stored on the heap...
 
 ## Algebraic Data Types
 
 As an language without sum types we need to use an appropriate function encoding to implement them. scriptum uses the less common Scott encoding that relies on explicit recursion and functional pattern matching:
 
 ```Javascript
-const Type = Tcons => Dcons => {
+const Type = Tcons => (tag, Dcons) => {
   const t = new Tcons();
   t.run = cases => Dcons(cases);
+  t.tag = tag;
   return t;
 };
 
 const Option = Type(function Option() {});
-const Some = x => Option(o => o.Some(x));
-const None = Option(o => o.None);
+const Some = x => Option("Some", o => o.Some(x));
+const None = Option("None", o => o.None);
 const runOption = dict => tx => tx.run(dict);
 
 const safeHead = Aug(
