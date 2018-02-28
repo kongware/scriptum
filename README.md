@@ -6,7 +6,7 @@ This repo is experimental and still work in progress.
 
 # What
 
-A type-directed functional library with a focus on types, purity, abstraction and debugging capabilities.
+A type-directed functional library with a focus on purity, abstraction and a mature debugging toolset.
 
 # Why
 
@@ -20,7 +20,7 @@ There is no such thing as an untyped program, except an invalid one!
 
 # Features
 
-## Debugging Toolset
+## Debugging
 
 scriptum offers a function type proxy that transforms normal functions into guarded functions with additional behavior that is useful for debugging. Just use the `Aug` constructor to create such augmented functions:
 
@@ -110,7 +110,7 @@ const Monoid = typeDict("Monoid");
 
 const {append, empty} = Monoid;
 
-// use of the polymorphic functions
+// use of the ad-hoc polymorphic functions
 
 append(2) (3); // 5
 append([1,2]) ([3,4]); // [1,2,3,4]
@@ -142,6 +142,24 @@ const m = chainN(inc)
  
 m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
 ```
+## Stack-Safe Recursion
+
+Although specified in Ecmascript-6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies three different constructs to address the problem:
+
+### Trampoline
+
+...
+
+### Custom Call Stack
+
+...
+
+### Custom Call Stack with TCO
+
+...
+
+* maintain an own stack with Tcons
+
 ## Algebraic Data Types
 
 As an language without sum types we need to use an appropriate function encoding to implement them. scriptum uses the less common Scott encoding that relies on explicit recursion and functional pattern matching:
