@@ -63,7 +63,7 @@ To safe the cost of function augmentation at runtime you can disable this featur
 
 ### Type Invalidation
 
-A guarded function must neither receive nor return a value of type `undefined`/`NaN`:
+A guarded function must neither receive nor return a value of type `undefined`/`NaN`/`Infinity`:
 
 ```Javascript
 const append = $(
@@ -241,7 +241,7 @@ As an language without sum types we need to use an appropriate function encoding
 ```Javascript
 const Type = Tcons => (tag, Dcons) => {
   const t = new Tcons();
-  t.run = cases => Dcons(cases);
+  t[`run${Tcons.name}`] = cases => Dcons(cases);
   t.tag = tag;
   return t;
 };

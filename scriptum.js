@@ -682,8 +682,8 @@ const Type = $(
   "Type",
   Tcons => (tag, Dcons) => {
     const t = new Tcons();
-    t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
-    t.tag = tag
+    t[`run${Tcons.name}`] = cases => Dcons(cases);
+    t.tag = tag;
     return t;
   }
 );
@@ -696,8 +696,8 @@ const Data = $(
   Tcons => Dcons => {
     const Data = x => {
       const t = new Tcons();
-      t[`run${Dcons.constructor.name}`] = x;
-      t.tag = Dcons.constructor.name
+      t[`run${Tcons.name}`] = x;
+      t.tag = Tcons.name
       return t;
     };
 
@@ -722,8 +722,20 @@ const runCont = tk => k => tk.runCont(k);
 
 
 /******************************************************************************
-*********************************[ Ordering ]**********************************
+********************************[ Comparator ]*********************************
 ******************************************************************************/
+
+
+const Comparator = Type(function Comparator() {});
+
+
+const LT = Comparator("LT", cases => cases.LT);
+
+
+const EQ = Comparator("EQ", cases => cases.EQ);
+
+
+const GT = Comparator("GT", cases => cases.GT);
 
 
 /******************************************************************************
@@ -754,7 +766,10 @@ const Char = c => {
       + "\n");
 
   else return
-    ({run: k => k(c), [Symbol.toStringTag]: "Char"});
+    ({
+      runChar: $("runChar", k => k(c)),
+      [Symbol.toStringTag]: "Char"
+    });
 };
 
 
@@ -788,7 +803,10 @@ const Float = f => {
       + "\n");
 
   else return
-    ({run: k => k(f), [Symbol.toStringTag]: "Float"});
+    ({
+      runFloat: $("runFloat", k => k(f)),
+      [Symbol.toStringTag]: "Float"
+    });
 };
 
 
@@ -813,7 +831,10 @@ const Int = i => {
       + "\n");
 
   else return
-    ({run: k => k(i), [Symbol.toStringTag]: "Int"});
+    ({
+      runInt: $("runInt", k => k(i)),
+      [Symbol.toStringTag]: "Int"
+    });
 };
 
 
@@ -850,7 +871,7 @@ const Record = $(
 
     else {
       return ({
-        run: $("runRecord", k => k(o)),
+        runRecord: $("runRecord", k => k(o)),
         [Symbol.toStringTag]: "Record"
       });
     }
@@ -868,7 +889,7 @@ const Record = $(
 const Tuple = $(
   "Tuple",
   (...args) => ({
-    run: $("runTuple", k => k(...args)),
+    runTuple: $("runTuple", k => k(...args)),
     [Symbol.toStringTag]: "Tuple"
   })
 );
@@ -882,17 +903,16 @@ const Tuple = $(
 
 
 const typeClasses = new Map([
+  // built-in typeclasses
   ["Bounded", ["minBound", "maxBound"]]
 ]);
 
 
 const instances = new Map([
-  // built-in type class instances
-  //["Bounded Number", {minBound: 0, maxBound: Number.MAX_SAFE_INTEGER}]
-  // ...
-  //["Monoid Number", {append: Num.append, empty: Num.empty}],
-  //["Monoid Array", {append: Arr.append, empty: Arr.empty}]
-  // ...
+  // built-in typeclass instances
+  ["Bounded Boolean", {minBound: Boo.minBound, maxBound: Boo.maxBound}],
+  ["Bounded Char", {minBound: Char.minBound, maxBound: Char.maxBound}],
+  ["Bounded Int", {minBound: Int.minBound, maxBound: Int.maxBound}]
 ]);
 
 
@@ -972,15 +992,18 @@ Object.assign(
     curry,
     curry3,
     Data,
+    EQ,
     fix,
     flip,
     Float,
     guard,
+    GT,
     id,
     infix,
     Int,
     join,
     loop,
+    LT,
     omega,
     on,
     Record,
