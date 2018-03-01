@@ -285,8 +285,8 @@ As for ADTs scriptum uses a function encoding to define common primitives, but w
 ```Javascript
 const tup = Tuple(9, "foo", true);
 
-const run = f => t =>
-  t.run(f);
+const runTuple = f => t =>
+  t.runTuple(f);
 
 run((_, s) => s.toUpperCase()) // functional pattern matching
   (tup); // "FOO"
@@ -301,8 +301,8 @@ const person = Record({
   age: "✝"
 });
 
-const run = f => t =>
-  t.run(f);
+const runRecord = f => t =>
+  t.runRecord(f);
 
 run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
   (person); // "Stanley Kubrick"
@@ -311,6 +311,7 @@ run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
 
 * Fold with short circuiting
 * Monodial transudcer
+* Monad transformers
 * Functional optics
 * List comprehension
 * Stack-safe recursion
