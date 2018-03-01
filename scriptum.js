@@ -532,32 +532,20 @@ export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 /***[Tail Recursion]**********************************************************/
 
 
-// base case constructor
-// a => {value: a, done: Boolean}
-export const Base = x =>
-  ({value: x, done: false});
-
-
-// recursive case constructor
-// a => {value: a, done: Boolean}
-export const Rec = x =>
-  ({value: x, done: true});
-
-
-// tail recursive
-// trampoline
-// (Tuple -> {value: Tuple, done: Boolean}) -> ...Tuple ->
-export const tailRec = f => (...args) => {
-  let step = Rec(args);
-
-  do {
-    step = f(Base, Rec, step.value);
-  } while (!step.done);
-
-  return step.value;
-};
-
+export const recur = (...args) =>
+  ({type: recur, args});
   
+
+export const loop = f => {
+  let acc = f();
+
+  while (acc && acc.type === recur)
+    acc = f (...acc.args);
+
+  return acc;
+}
+
+
 /***[Non-Tail Recursion]******************************************************/
 
 
@@ -608,7 +596,7 @@ export const Type = Tcons => (tag, Dcons) => {
 };
 
 
-// ADT with single data export constructor
+// ADT with single data constructor
 // untyped
 export const Data = Tcons => Dcons => {
   const Data = x => {
