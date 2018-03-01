@@ -288,7 +288,7 @@ const tup = Tuple(9, "foo", true);
 const run = f => t =>
   t.run(f);
 
-run((_, s) => s.toUpperCase())
+run((_, s) => s.toUpperCase()) // functional pattern matching
   (tup); // "FOO"
 ```
 #### Records
@@ -304,7 +304,7 @@ const person = Record({
 const run = f => t =>
   t.run(f);
 
-run(({firstName, lastName}) => `${firstName} ${lastName}`)
+run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
   (person); // "Stanley Kubrick"
 ```
 # Upcoming Features
