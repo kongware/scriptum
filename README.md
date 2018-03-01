@@ -280,6 +280,33 @@ As for ADTs scriptum uses a function encoding to define common primitives, but w
 * Tuple
 * Record
 
+#### Tuple
+
+```Javascript
+const tup = Tuple(9, "foo", true);
+
+const run = f => t =>
+  t.run(f);
+
+run((_, s) => s.toUpperCase())
+  (tup); // "FOO"
+```
+#### Records
+
+```Javascript
+const person = Record({
+  lastName: "Kubrick",
+  firstName: "Stanley",
+  gender: "male",
+  age: "✝"
+});
+
+const run = f => t =>
+  t.run(f);
+
+run(({firstName, lastName}) => `${firstName} ${lastName}`)
+  (person); // "Stanley Kubrick"
+```
 # Upcoming Features
 
 * Fold with short circuiting
