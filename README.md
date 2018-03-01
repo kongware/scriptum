@@ -10,7 +10,7 @@ A type-directed functional library with a focus on purity, abstraction and a mat
 
 # Why
 
-Currently, functional programming in Javascript is a pain.
+Replacing short-term dynamic type convenience by long-term stability.
 
 # Mission
 
@@ -271,6 +271,8 @@ runOption({Some: uc, None: ""}) (y); // ""
 With Scott encoding we also can express products, sums of products, recursive and even mutual recursive types. If we manipulate them algebraically by obeying mathematical laws, sums of products are also called algebraic data types.
 
 ### Function Encodings
+
+As for ADTs scriptum uses a function encoding to define common primitives, but without the additional plumbing ADTs require. The following primitives are available:
 
 * Char
 * Float

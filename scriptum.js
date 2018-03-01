@@ -741,14 +741,14 @@ const runCont = tk => k => tk.runCont(k);
 // Char constructor
 // String -> Char
 const Char = c => {
-  if (typeof c !== "string")
-    throw new TypeError(
+  if (augmented && typeof c !== "string")
+    throw new ArgTypeError(
       "\n\nChar expects String literal"
-      + `\n${c} of type ${introspect(c)} received`
+      + `\nvalue of type ${introspect(c)} received`
       + "\n");
 
-  else if ([...c].length !== 1)
-    throw new TypeError(
+  else if (augmented && [...c].length !== 1)
+    throw new ArgTypeError(
       "\n\nChar expects single character"
       + `\n"${c}" of length ${c.length} received`
       + "\n");
@@ -781,16 +781,10 @@ Char.maxBound = Char("\u{10FFFF}");
 // Float constructor
 // Number -> Float
 const Float = f => {
-  if (typeof f !== "number")
-    throw new TypeError(
+  if (augmented && typeof f !== "number")
+    throw new ArgTypeError(
       "\n\nFloat expects Number literal"
-      + `\n${f} of type ${introspect(f)} received`
-      + "\n");
-
-  else if (f % 1 !== 0) 
-    throw new TypeError(
-      "\n\nFloat expects floating point literal"
-      + `\n"${f}" of type Int received`
+      + `\nvalue of type ${introspect(f)} received`
       + "\n");
 
   else return
@@ -806,14 +800,14 @@ const Float = f => {
 // Int constructor
 // Number -> Int
 const Int = i => {
-  if (typeof i !== "number")
-    throw new TypeError(
+  if (augmented && typeof i !== "number")
+    throw new ArgTypeError(
       "\n\nInt expects Number literal"
-      + `\n${i} of type ${introspect(i)} received`
+      + `\nvalue of type ${introspect(i)} received`
       + "\n");
 
-  else if (i % 1 !== 0)
-    throw new TypeError(
+  else if (augmented && i % 1 !== 0)
+    throw new ArgTypeError(
       "\n\nInt expects integer literal"
       + `\n"${i}" of type Float received`
       + "\n");
@@ -836,6 +830,48 @@ Int.minBound = Int(Number.MIN_SAFE_INTEGER);
 // constant
 // Int
 Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
+
+
+/******************************************************************************
+**********************************[ Record ]***********************************
+******************************************************************************/
+
+
+// Record constructor
+// Object -> Record
+const Record = $(
+  "Record",
+  o => {
+    if (augmented && (typeof o !== "object" || o === null)) 
+      throw new ArgTypeError(
+        "\n\nRecord expects Number literal"
+        + `\nvalue of type ${introspect(o)} received`
+        + "\n");
+
+    else {
+      return ({
+        run: $("runRecord", k => k(o)),
+        [Symbol.toStringTag]: "Record"
+      });
+    }
+  }
+);
+
+
+/******************************************************************************
+***********************************[ Tuple ]***********************************
+******************************************************************************/
+
+
+// Tuple constructor
+// (...Array) -> Tuple
+const Tuple = $(
+  "Tuple",
+  (...args) => ({
+    run: $("runTuple", k => k(...args)),
+    [Symbol.toStringTag]: "Tuple"
+  })
+);
 
 
 /******************************************************************************
@@ -947,10 +983,12 @@ Object.assign(
     loop,
     omega,
     on,
+    Record,
     recur,
     rotateL,
     rotateR,
     tap,
+    Tuple,
     Type,
     typeDict,
     uncurry,
