@@ -159,8 +159,8 @@ const loop = f => {
 const recur = (...args) =>
   ({type: recur, args});
 
-const repeat = m => g => y =>
-  loop ((n = m, f = g, x = y) => n === 0
+const repeat = n_ => f_ => x_ =>
+  loop ((n = n_, f = f_, x = x_) => n === 0
     ? x
     : recur (n - 1, f, f(x)));
 
