@@ -321,6 +321,11 @@ run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
 * `Behavior`/`Event` types and corresponding combinators
 * Purely functional data types
 
+# Todo
+
+[ ] create license
+[ ] create package.json
+
 # Research
 
 * Coyoneda and Free
