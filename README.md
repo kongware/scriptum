@@ -74,11 +74,23 @@ const append = $(
 append([{foo: 1}, {foo: 2}])
   ([{foo: NaN}, {foo: 4}]); // type error
 ```
-As you can see this applies to arbitrarily nested values.
+As you can see this applies to arbitrarily nested values too.
 
 ### Anonymous Functions
 
-In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally adapt their names to the name of the respective function argument.
+In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name.
+
+A first order function sequence carries the name of its initial function:
+
+```Javascript
+const add = $(
+    "add",
+    m => n => m + n
+  );
+
+add(2).name; // add
+```
+A higher order function sequence additionally adapts its name to the name of the repsective function argument:
 
 ```Javascript
 const comp = $(
