@@ -36,12 +36,13 @@ const SYM_PREFIX = "github.com/kongware/scriptum";
 ******************************************************************************/
 
 
-// augment a curried function sequence
+// augment a curried, multi-argument or variadic function
+// default export
 // untyped
-export const Aug = (name, f) => {
+const $ = (name, f) => {
   if (augmented) {
     Reflect.defineProperty(f, "name", {value: name});
-    return new Proxy(f, handleF(name, f, []))
+    return new Proxy(f, handleF(name, f, [], {nthCall: 0}))
   }
 
   else return f;
@@ -50,32 +51,33 @@ export const Aug = (name, f) => {
 
 // handle function
 // untyped
-const handleF = (name, f, log) => {
+const handleF = (name, f, log, {nthCall}) => {
   return {
     apply: (g, _, args) => {
-      if (args.length !== 1) throw new ArityError(
-        `\n\n${name} expects one argument\n`
-        + `${args.length} arguments received\n`
-      );
+      const argTypes = args.map((arg, nthArg) =>
+        typeCheck(ArgTypeError)
+          (t => illTyped => fromTo => `\n\n${name} received an argument of type`
+            + `\n\n${t}`
+            + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
+            + `\n\nin the ${nthCall + 1}. call of ${name}`
+            + `\nin the ${nthArg + 1}. argument of ${name}`
+            + `\n\ninvalid type`
+            + "\n") (arg))
+              .join(", ");
 
-      const argType = typeCheck(ArgTypeError)
-        (t => illTyped => fromTo => `${name} received invalid argument\n\n`
-        + `${t}\n`
-        + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
-        + `${illTyped} is not allowed\n`) (args[0]);
-
-      const r = f(args[0]);
+      const r = f(...args);
 
       const retType = typeCheck(ReturnTypeError)
-        (t => illTyped => fromTo => `${name_} returned invalid value`
-        + `${t}\n`
-        + (fromTo.length === 0 ? "\n" : `${underline(fromTo)}\n\n`)
-        + `${illTyped} is not allowed\n`) (r);
+        (t => illTyped => fromTo => `\n\n${name} returned a value of type`
+          + `\n\n${t}`
+          + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
+          + `\n\ninvalid type`
+          + "\n") (r);
 
       if (typeof r === "function") {
         const name_ = r.name || name;
         Reflect.defineProperty(r, "name", {value: name_});
-        return new Proxy(r, handleF(name_, r, log.concat(`${name}(${argType})`)));
+        return new Proxy(r, handleF(name_, r, log.concat(`${name}(${argTypes})`), {nthCall: nthCall + 1}));
       }
 
       else return r;
@@ -85,6 +87,7 @@ const handleF = (name, f, log) => {
       switch (k) {
         case "name": return name;
         case "log": return log;
+        default: return f[k];
       }
     }
   };
@@ -98,7 +101,7 @@ const handleF = (name, f, log) => {
 
 // getTypeTag
 // a -> String
-export const getTypeTag = x => {
+const getTypeTag = x => {
   const tag = Object.prototype.toString.call(x);
   return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
@@ -201,7 +204,7 @@ const introspectObj = o => tag => {
   if (tag === "Object") {
     const ks = Object.keys(o);
 
-    if (keys.length <= 16) {
+    if (ks.length <= 16) {
       const [s, ts] = ks.reduce(([s, ts], k) => {
         const v = introspect(o[k]);
         return [s.add(`${k}: ${v}`), ts.concat(`${k}: ${v}`)];
@@ -256,16 +259,6 @@ class ArgTypeError extends Error {
 };
 
 
-// ArityError
-// String -> ArityError
-class ArityError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, ArityError);
-  }
-};
-
-
 // ReturnTypeError
 // String -> ReturnTypeError
 class ReturnTypeError extends Error {
@@ -293,21 +286,21 @@ class ReturnTypeError extends Error {
 ******************************************************************************/
 
 
-//export const all = 
+//const all = 
 
 
 // conjunction
 // untyped
-export const and = x => y => x && y;
+const and = x => y => x && y;
 
 
-//export const any =
+//const any =
 
 
 // indeterministic conjunctions
 // TODO: loop/recur, traversable
 // untyped
-export const ands = xs => {
+const ands = xs => {
   const aux = n => xs[n] && (xs.length - 1 === n ? xs[n] : aux(n + 1));
   return aux(0);
 };
@@ -315,33 +308,33 @@ export const ands = xs => {
 
 // logical biconditional
 // a -> a -> Boolean
-export const bicond = x => y => !!(x && y) || !(x || y);
+const bicond = x => y => !!(x && y) || !(x || y);
 
 
 // logical implication
 // a -> a -> Boolean
-export const implies = x => y => !x || !!y;
+const implies = x => y => !x || !!y;
 
 
 // logical negation
 // a -> Boolean
-export const not = x => !x;
+const not = x => !x;
 
 
 // logical negated predicate
 // (a -> Boolean) -> a -> Boolean
-export const notp = p => x => !p(x);
+const notp = p => x => !p(x);
 
 
 // disjunction
 // untyped
-export const or = x => y => x || y;
+const or = x => y => x || y;
 
 
 // indeterministic disjunctions
 // TODO: loop/recur, traversable
 // untyped
-export const ors = xs => {
+const ors = xs => {
   const aux = n => xs[n] || (xs.length - 1 === n ? xs[n] : aux(n + 1));
   return aux(0);
 };
@@ -349,12 +342,12 @@ export const ors = xs => {
 
 // logical exclusive disjunction
 // a -> a -> Boolean
-export const xor = x => y => !!(x || y) && !(x && y);
+const xor = x => y => !!(x || y) && !(x && y);
 
 
 // xor with default value
 // untyped
-export const xor_ = z => x => y => !x === !y ? z : x ? x : y;
+const xor_ = z => x => y => !x === !y ? z : x ? x : y;
 
 
 /***[Namespace]***************************************************************/
@@ -379,174 +372,180 @@ Boo.maxBound = true;
 ******************************************************************************/
 
 
-// flip arguments
-// (a -> b -> c) -> b -> a -> c
-export const _ = f => y => x => f(x) (y);
-
-
-// infix applicator
-// a -> (a -> b -> c) -> b -> c
-export const $ = x => f => y => f(x) (y);
-
-
 // applicative
 // (a -> b -> c) -> (a -> b) -> a -> c
-export const ap = f => g => x => f(x) (g(x));
+const ap = f => g => x => f(x) (g(x));
 
 
 // applicator
 // (a -> b) -> a -> b
-export const app = f => x => f(x);
+const app = f => x => f(x);
 
 
 // monadic chain
 // (a -> b) -> (b -> a -> c) -> a -> c
-export const chain = g => f => x => f(g(x)) (x);
+const chain = g => f => x => f(g(x)) (x);
 
 
 // reversed monadic chain
 // (b -> a -> c) -> (a -> b) -> a -> c
-export const chainR = f => g => x => f(g(x)) (x);
+const chainR = f => g => x => f(g(x)) (x);
 
 
 // variadic monadic chain
 // untyped
-export const chainN = g => Object.assign(f => chainN(x => f(g(x)) (x)), {run: g});
+const chainN = g => Object.assign(f => chainN(x => f(g(x)) (x)), {run: g});
 
 
-// export constant
+// constant
 // a -> b -> a
-export const co = x => y => x;
+const co = x => y => x;
 
 
-// export constant in 2nd argument
+// constant in 2nd argument
 // a -> b -> a
-export const co2 = x => y => x;
+const co2 = x => y => x;
 
 
 // function composition
 // (b -> c) -> (a -> b) -> a -> c
-export const comp = f => g => x => f(g(x));
+const comp = f => g => x => f(g(x));
 
 
 // function composition of inner binary function
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
-export const comp2 = f => g => x => y => f(g(x) (y));
+const comp2 = f => g => x => y => f(g(x) (y));
 
 
 // variadic function composition
 // untyped
-export const compN = f => Object.assign(g => $(x => f(g(x))), {run: f});
+const compN = f => Object.assign(g => $(x => f(g(x))), {run: f});
 
 
 // composition in both arguments
 // (b -> c -> d) -> (a -> b) -> (a -> c) -> a -> d
-export const compBoth = f => g => h => x => f(g(x)) (h(x));
+const compBoth = f => g => h => x => f(g(x)) (h(x));
 
 
 // function compostion in the second argument
 // (a -> c -> d) -> a -> (b -> c) -> b -> d
-export const compSnd = f => x => g => y => f(x) (g(y));
+const compSnd = f => x => g => y => f(x) (g(y));
 
 
 // first class conditional operator
 // a -> a -> Boolean -> a
-export const cond = x => y => b => b ? x : y;
+const cond = x => y => b => b ? x : y;
 
 
 // contramap
 // (a -> b) -> (b -> c) -> a -> c
-export const contra = f => g => x => g(f(x));
+const contra = f => g => x => g(f(x));
 
 
 // continuation
 // a -> (a -> b) -> b
-export const cont = x => f => f(x);
+const cont = x => f => f(x);
 
 
 // curry
 // ((a, b) -> c) -> a -> b -> c
-export const curry = f => x => y => f(x, y);
+const curry = f => x => y => f(x, y);
 
 
 // curry3
 // ((a, b, c) -> d) -> a -> b -> c -> d
-export const curry3 = f => x => y => z => f(x, y, z);
+const curry3 = f => x => y => z => f(x, y, z);
 
 
 // fix combinator
 // ((a -> b) a -> b) -> a -> b
-export const fix = f => x => f(fix(f)) (x);
+const fix = f => x => f(fix(f)) (x);
 
 
-// omega combinator
-// untyped
-export const fix_ = f => f(f);
+// flip arguments
+// (a -> b -> c) -> b -> a -> c
+const flip = f => y => x => f(x) (y);
 
 
 // guarded function
 // (a -> b) -> (a -> Boolean) -> b -> a -> b
-export const guard = f => p => x => y => p(y) ? f(y) : x;
+const guard = f => p => x => y => p(y) ? f(y) : x;
 
 
 // identity function
 // a -> a
-export const id = x => x;
+const id = x => x;
+
+
+// infix applicator
+// a -> (a -> b -> c) -> b -> c
+const infix = x => f => y => f(x) (y);
 
 
 // monadic join
 // (r -> r -> a) -> r -> a
-export const join = f => x => f(x) (x);
+const join = f => x => f(x) (x);
+
+
+// omega combinator
+// untyped
+const omega = f => f(f);
 
 
 // on
 // (b -> b -> c) -> (a -> b) -> a -> a -> c
-export const on = f => g => x => y => f(g(x)) (g(y));
+const on = f => g => x => y => f(g(x)) (g(y));
 
 
 // rotate left
 // a -> b -> c -> d) -> b -> c -> a -> d
-export const rotatel = f => y => z => x => f(x) (y) (z);
+const rotatel = f => y => z => x => f(x) (y) (z);
 
 
 // rotate right
 // (a -> b -> c -> d) -> c -> a -> b -> d
-export const rotater = f => z => x => y => f(x) (y) (z);
+const rotater = f => z => x => y => f(x) (y) (z);
 
 
 // uncurry
 // (a -> b -> c) -> (a, b) -> c
-export const uncurry = f => (x, y) => f(x) (y);
+const uncurry = f => (x, y) => f(x) (y);
 
 
 // tap
 // (a -> b) -> a -> b)
-export const tap = f => x => (f(x), x);
+const tap = f => x => (f(x), x);
 
 
 // uncurry
 // (a -> b -> c -> d) -> (a, b, c) -> d
-export const uncurry3 = f => (x, y, z) => f(x) (y) (z);
+const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 
 /***[Tail Recursion]**********************************************************/
 
 
-export const recur = (...args) =>
+// loop
+// trampoline
+// untyped
+const loop = $(
+  "loop",
+  f => {
+    let acc = f();
+
+    while (acc && acc.type === recur)
+      acc = f(...acc.args);
+
+    return acc;
+  }
+);
+
+
+// recursive call
+// not augmented
+// untyped
+const recur = (...args) =>
   ({type: recur, args});
-  
-
-export const loop = f => {
-  let acc = f();
-
-  while (acc && acc.type === recur)
-    acc = f (...acc.args);
-
-  return acc;
-}
-
-
-/***[Non-Tail Recursion]******************************************************/
 
 
 /******************************************************************************
@@ -576,7 +575,7 @@ export const loop = f => {
 
 // capitalize
 // String -> String
-export const capitalize = s => s[0].toUpperCase() + s.slice(1);
+const capitalize = s => s[0].toUpperCase() + s.slice(1);
 
 
 /******************************************************************************
@@ -586,9 +585,9 @@ export const capitalize = s => s[0].toUpperCase() + s.slice(1);
 ******************************************************************************/
 
 
-// ADT with several data export constructors
+// ADT with several data constructors
 // untyped
-export const Type = Tcons => (tag, Dcons) => {
+const Type = Tcons => (tag, Dcons) => {
   const t = new Tcons();
   t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
   t.tag = tag
@@ -598,7 +597,7 @@ export const Type = Tcons => (tag, Dcons) => {
 
 // ADT with single data constructor
 // untyped
-export const Data = Tcons => Dcons => {
+const Data = Tcons => Dcons => {
   const Data = x => {
     const t = new Tcons();
     t[`run${Dcons.constructor.name}`] = x;
@@ -617,12 +616,12 @@ export const Data = Tcons => Dcons => {
 
 // continuation
 // Function -> ((a -> r) -> r) -> Cont r a
-export const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
+const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
 
 
 // run continuation
 // Cont r a -> (a -> r) -> r
-export const runCont = tk => k => tk.runCont(k);
+const runCont = tk => k => tk.runCont(k);
 
 
 /***[Chain]*******************************************************************/
@@ -630,7 +629,7 @@ export const runCont = tk => k => tk.runCont(k);
 
 // chain
 // ((a -> r) -> r) -> (a -> ((b -> r) -> r)) -> ((b -> r) -> r)
-//export const chain = tk => ft => Cont(k => tk.runCont(x => ft(x).runCont(k)));
+//const chain = tk => ft => Cont(k => tk.runCont(x => ft(x).runCont(k)));
 
 
 /******************************************************************************
@@ -645,7 +644,7 @@ export const runCont = tk => k => tk.runCont(k);
 ******************************************************************************/
 
 
-export class Char extends String {
+class Char extends String {
   constructor(c) {
     super(c);
 
@@ -751,7 +750,7 @@ const instances = new Map([
 ]);
 
 
-export const typeDict = _class => {
+const typeDict = _class => {
   const f = tag => instances.get(`${_class} ${tag}`),
     ops = typeclasses.get(_class);
 
@@ -781,22 +780,22 @@ export const typeDict = _class => {
 
 // logical negated conjunction
 // a -> a -> Boolean
-export const nand = comp2(not) (and);
+const nand = comp2(not) (and);
 
 
 // logical negated indeterministic conjunctions
 // [a] -> Boolean
-export const nands = comp(not) (ands);
+const nands = comp(not) (ands);
 
 
 // logical negated disjunction
 // a -> a -> Boolean
-export const nor = comp2(not) (or);
+const nor = comp2(not) (or);
 
 
 // logical negated indeterministic disjunctions
 // a -> a -> Boolean
-export const nors = comp(not) (ors);
+const nors = comp(not) (ors);
 
 
 /******************************************************************************
@@ -821,3 +820,16 @@ const stringify = x => {
 // [Number] -> String
 const underline = ([n, m]) =>
   Array(n + 1).join(" ") + Array(m - n + 1).join("^");
+
+
+/******************************************************************************
+*******************************************************************************
+**********************************[ EXPORT ]***********************************
+*******************************************************************************
+******************************************************************************/
+
+
+$.id = id;
+
+
+export default $;

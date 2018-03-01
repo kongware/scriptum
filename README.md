@@ -18,56 +18,86 @@ scriptum encourages you to program in a type-directed style and to consider func
 
 There is no such thing as an untyped program, except an invalid one!
 
+# Import
+
+Just import scriptum's default export:
+
+```Javascript
+import $ from "./scriptum.js";
+```
+`$` is now both a special operator and namespace for all of scriptum's combinators and functions.
+
 # Features
 
 ## Debugging
 
-scriptum offers a function type proxy that transforms normal functions into guarded functions with additional behavior that is useful for debugging. Just use the `Aug` constructor to create such augmented functions:
+At its core scriptum offers a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs.
+
+You can easily augment curried functions sequences:
 
 ```Javascript
-const comp = Aug(
-  "comp",
-  f => g => x => f(g(x))
-);
+const comp = $(
+    "comp",
+    f => g => x => f(g(x))
+  );
 ```
-To safe the cost of function augmentation at runtime you can disable this feature for production environments by simply switching the `augmented` flag to `false`.
 
-### Excluded Types
-
-A guarded function must neither receive nor return a value of type `undefined`/`NaN`. It will throw a type error instead. This applies to deeply nested element values of these types as well.
+Or multi-argument functions:
 
 ```Javascript
-const append = Aug(
-  "append",
-  xs => ys => xs.concat(ys)
-);
-
-append([1, 2, 3]) ([4, NaN, 5]); // type error
-flatten([[1], [undefined], [3]]); // type error
+const add = $(
+    "add",
+    (m, n) => m + n
+  );
 ```
-### Lambdas
 
-Functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally adapt their names to the name of the respective function argument.
+Or variadic ones:
 
 ```Javascript
-const comp = Aug(
-  "comp",
-  f => g => x => f(g(x))
-);
+const sum = $(
+    "sum",
+    (...ns) => ns.reduce((acc, n) => acc + n, 0);
+  );
+```
+To safe the cost of function augmentation at runtime you can disable this feature for production environments by simply setting the `augmented` flag to `false`.
 
-const add = Aug(
-  "add",
-  m => n => m + n
-);
+### Type Invalidation
 
-const inc = Aug(
-  "inc",
-  n => n + 1
-);
+A guarded function must neither receive nor return a value of type `undefined`/`NaN`:
+
+```Javascript
+const append = $(
+    "append",
+    xs => ys => xs.concat(ys)
+  );
+
+append([{foo: 1}, {foo: 2}])
+  ([{foo: NaN}, {foo: 4}]); // type error
+```
+As you can see this applies to arbitrarily nested values.
+
+### Anonymous Functions
+
+In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name. First order function sequences carry the name of its initial function. Higher order function sequences additionally adapt their names to the name of the respective function argument.
+
+```Javascript
+const comp = $(
+    "comp",
+    f => g => x => f(g(x))
+  );
+
+const add = $(
+    "add",
+    m => n => m + n
+  );
+
+const inc = $(
+    "inc",
+    n => n + 1
+  );
 
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
-comp(add) (inc) (2) (3) // 6
 ```
 Since scriptum's augmentation feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
 
@@ -75,27 +105,48 @@ Since scriptum's augmentation feature can be disabled you must not create depend
 
 scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can verify if an assumed function type matches its real type retrospectively.
 
-If you pass a composite value to a guarded function and the type check yields an invalid type, the type log uses a question mark to indicate this. For instance, if you pass a huge heterogeneous `Array`, the type log will contain an  `[?]` entry. Please understand this as an indication to choose a more appropriate type for the given data.
-
 ```Javascript
-const comp = Aug(
-  "comp",
-  f => g => x => f(g(x))
-);
+const comp = $(
+    "comp",
+    f => g => x => f(g(x))
+  );
 
-const add = Aug(
-  "add",
-  m => n => m + n
-);
+const add = $(
+    "add",
+    m => n => m + n
+  );
 
-const inc = Aug(
-  "inc",
-  n => n + 1
-);
+const inc = $(
+    "inc",
+    n => n + 1
+  );
 
 comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
 `λ` just indicates that the given argument is a function.
+
+If you pass a composite value to a guarded function and the type check yields an improper type, the type log uses a question mark to highlight this improper usage:
+
+```Javascript
+const append = $(
+    "append",
+    xs => ys => xs.concat(ys)
+  );
+  
+const inc = $(
+    "inc",
+    n => n + 1
+  );
+
+const xs = Array(100)
+  .fill(0)
+  .concat("foo");
+
+append(xs).log; // ["append([?])"]
+
+map(inc) (append(xs) (ys)); // type error
+```
+`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance.
 
 ## Typeclasses
 
