@@ -323,8 +323,8 @@ run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
 
 # Todo
 
-[ ] create license
-[ ] create package.json
+* [ ] create license
+* [ ] create package.json
 
 # Research
 
