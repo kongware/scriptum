@@ -249,7 +249,7 @@ const Type = Tcons => (tag, Dcons) => {
 const Option = Type(function Option() {});
 const Some = x => Option("Some", o => o.Some(x));
 const None = Option("None", o => o.None);
-const runOption = dict => tx => tx.run(dict);
+const runOption = dict => tx => tx.runOption(dict);
 
 const safeHead = 
   xs => xs.length === 0
