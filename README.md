@@ -37,27 +37,27 @@ You can easily augment curried functions sequences:
 
 ```Javascript
 const comp = $(
-    "comp",
-    f => g => x => f(g(x))
-  );
+  "comp",
+  f => g => x => f(g(x))
+);
 ```
 
 Or multi-argument functions:
 
 ```Javascript
 const add = $(
-    "add",
-    (m, n) => m + n
-  );
+  "add",
+  (m, n) => m + n
+);
 ```
 
 Or variadic ones:
 
 ```Javascript
 const sum = $(
-    "sum",
-    (...ns) => ns.reduce((acc, n) => acc + n, 0);
-  );
+  "sum",
+  (...ns) => ns.reduce((acc, n) => acc + n, 0);
+);
 ```
 To safe the cost of function augmentation at runtime you can disable this feature for production environments by simply setting the `augmented` flag to `false`.
 
@@ -67,9 +67,9 @@ A guarded function must neither receive nor return a value of type `undefined`/`
 
 ```Javascript
 const append = $(
-    "append",
-    xs => ys => xs.concat(ys)
-  );
+  "append",
+  xs => ys => xs.concat(ys)
+);
 
 append([{foo: 1}, {foo: 2}])
   ([{foo: NaN}, {foo: 4}]); // type error
@@ -84,9 +84,9 @@ A first order function sequence carries the name of its initial function:
 
 ```Javascript
 const add = $(
-    "add",
-    m => n => m + n
-  );
+  "add",
+  m => n => m + n
+);
 
 add(2).name; // add
 ```
@@ -94,19 +94,19 @@ A higher order function sequence additionally adapts its name to the name of the
 
 ```Javascript
 const comp = $(
-    "comp",
-    f => g => x => f(g(x))
-  );
+  "comp",
+  f => g => x => f(g(x))
+);
 
 const add = $(
-    "add",
-    m => n => m + n
-  );
+  "add",
+  m => n => m + n
+);
 
 const inc = $(
-    "inc",
-    n => n + 1
-  );
+  "inc",
+  n => n + 1
+);
 
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
@@ -119,19 +119,19 @@ scriptum doesn't require explicit type annotations but rather provides a type lo
 
 ```Javascript
 const comp = $(
-    "comp",
-    f => g => x => f(g(x))
-  );
+  "comp",
+  f => g => x => f(g(x))
+);
 
 const add = $(
-    "add",
-    m => n => m + n
-  );
+  "add",
+  m => n => m + n
+);
 
 const inc = $(
-    "inc",
-    n => n + 1
-  );
+  "inc",
+  n => n + 1
+);
 
 comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
@@ -141,14 +141,14 @@ If you pass a composite value to a guarded function and the type check yields an
 
 ```Javascript
 const append = $(
-    "append",
-    xs => ys => xs.concat(ys)
-  );
+  "append",
+  xs => ys => xs.concat(ys)
+);
   
 const inc = $(
-    "inc",
-    n => n + 1
-  );
+  "inc",
+  n => n + 1
+);
 
 const xs = Array(100)
   .fill(0)
