@@ -50,6 +50,7 @@ const $ = (name, f) => {
 
 
 // handle function
+// proxy handler
 // untyped
 const handleF = (name, f, log, {nthCall}) => {
   return {
@@ -112,7 +113,8 @@ const getTypeTag = x => {
 const typeCheck = Cons => f => x => {
   const t = introspect(x),
     undef = t.search(/\bUndefined\b/),
-    nan = t.search(/\bNaN\b/);
+    nan = t.search(/\bNaN\b/),
+    inf = t.search(/\bInfinity\b/);
 
   if (undef !== -1) {
     throw new Cons(f(t) ("Undefined") ([undef, undef + 9]));
@@ -120,6 +122,10 @@ const typeCheck = Cons => f => x => {
 
   else if (nan !== -1) {
     throw new Cons(f(t) ("NaN") ([nan, nan + 3]));
+  }
+
+  else if (inf !== -1) {
+    throw new Cons(f(t) ("Infinity") ([nan, nan + 3]));
   }
 
   else return t;
@@ -245,7 +251,7 @@ const introspectSet = s => {
 
 
 /******************************************************************************
-******************************[ Error Handling ]*******************************
+****************************[ Augmentation Errors ]****************************
 ******************************************************************************/
 
 
@@ -281,73 +287,17 @@ class ReturnTypeError extends Error {
 ******************************************************************************/
 
 
+/***[Namespace]***************************************************************/
+
+
+// Array namespace
+// Object
+const Arr = {};
+
+
 /******************************************************************************
 **********************************[ Boolean ]**********************************
 ******************************************************************************/
-
-
-//const all = 
-
-
-// conjunction
-// untyped
-const and = x => y => x && y;
-
-
-//const any =
-
-
-// indeterministic conjunctions
-// TODO: loop/recur, traversable
-// untyped
-const ands = xs => {
-  const aux = n => xs[n] && (xs.length - 1 === n ? xs[n] : aux(n + 1));
-  return aux(0);
-};
-
-
-// logical biconditional
-// a -> a -> Boolean
-const bicond = x => y => !!(x && y) || !(x || y);
-
-
-// logical implication
-// a -> a -> Boolean
-const implies = x => y => !x || !!y;
-
-
-// logical negation
-// a -> Boolean
-const not = x => !x;
-
-
-// logical negated predicate
-// (a -> Boolean) -> a -> Boolean
-const notp = p => x => !p(x);
-
-
-// disjunction
-// untyped
-const or = x => y => x || y;
-
-
-// indeterministic disjunctions
-// TODO: loop/recur, traversable
-// untyped
-const ors = xs => {
-  const aux = n => xs[n] || (xs.length - 1 === n ? xs[n] : aux(n + 1));
-  return aux(0);
-};
-
-
-// logical exclusive disjunction
-// a -> a -> Boolean
-const xor = x => y => !!(x || y) && !(x && y);
-
-
-// xor with default value
-// untyped
-const xor_ = z => x => y => !x === !y ? z : x ? x : y;
 
 
 /***[Namespace]***************************************************************/
@@ -355,7 +305,7 @@ const xor_ = z => x => y => !x === !y ? z : x ? x : y;
 
 // Boolean namespace
 // Object
-const Boo = {}
+const Boo = {};
 
 
 /***[Bounded]*****************************************************************/
@@ -374,152 +324,242 @@ Boo.maxBound = true;
 
 // applicative
 // (a -> b -> c) -> (a -> b) -> a -> c
-const ap = f => g => x => f(x) (g(x));
+const ap = $(
+  "ap",
+  f => g => x => f(x) (g(x))
+);
 
 
 // applicator
 // (a -> b) -> a -> b
-const app = f => x => f(x);
+const apply = $(
+  "apply",
+  f => x => f(x)
+);
 
 
 // monadic chain
 // (a -> b) -> (b -> a -> c) -> a -> c
-const chain = g => f => x => f(g(x)) (x);
+const chain = $(
+  "chain",
+  g => f => x => f(g(x)) (x)
+);
 
 
-// reversed monadic chain
+// flipped monadic chain
 // (b -> a -> c) -> (a -> b) -> a -> c
-const chainR = f => g => x => f(g(x)) (x);
+const chain_ = $(
+  "chain_",
+  f => g => x => f(g(x)) (x)
+);
 
 
 // variadic monadic chain
 // untyped
-const chainN = g => Object.assign(f => chainN(x => f(g(x)) (x)), {run: g});
+const chainN = $(
+  "chainN",
+  g => Object.assign(f => chainN(x => f(g(x)) (x)), {run: g})
+);
 
 
 // constant
 // a -> b -> a
-const co = x => y => x;
+const co = $(
+  "co",
+  x => y => x
+);
 
 
 // constant in 2nd argument
 // a -> b -> a
-const co2 = x => y => x;
+const co2 = $(
+  "co2",
+  x => y => x
+);
 
 
 // function composition
 // (b -> c) -> (a -> b) -> a -> c
-const comp = f => g => x => f(g(x));
+const comp = $(
+  "comp",
+  f => g => x => f(g(x))
+);
 
 
 // function composition of inner binary function
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
-const comp2 = f => g => x => y => f(g(x) (y));
+const comp2 = $(
+  "comp2",
+  f => g => x => y => f(g(x) (y))
+);
 
 
 // variadic function composition
 // untyped
-const compN = f => Object.assign(g => $(x => f(g(x))), {run: f});
+const compN = $(
+  "compN",
+  f => Object.assign(g => $(x => f(g(x))), {run: f})
+);
 
 
 // composition in both arguments
 // (b -> c -> d) -> (a -> b) -> (a -> c) -> a -> d
-const compBoth = f => g => h => x => f(g(x)) (h(x));
+const compBoth = $(
+  "compBoth",
+  f => g => h => x => f(g(x)) (h(x))
+)
 
 
 // function compostion in the second argument
 // (a -> c -> d) -> a -> (b -> c) -> b -> d
-const compSnd = f => x => g => y => f(x) (g(y));
+const compSnd = $(
+  "compSnd",
+  f => x => g => y => f(x) (g(y))
+);
 
 
 // first class conditional operator
 // a -> a -> Boolean -> a
-const cond = x => y => b => b ? x : y;
+const cond = $(
+  "cond",
+  x => y => b => b ? x : y
+);
 
 
 // contramap
 // (a -> b) -> (b -> c) -> a -> c
-const contra = f => g => x => g(f(x));
+const contra = $(
+  "contra",
+  f => g => x => g(f(x))
+);
 
 
 // continuation
 // a -> (a -> b) -> b
-const cont = x => f => f(x);
+const cont = $(
+  "cont",
+  x => f => f(x)
+);
 
 
 // curry
 // ((a, b) -> c) -> a -> b -> c
-const curry = f => x => y => f(x, y);
+const curry = $(
+  "curry",
+  f => x => y => f(x, y)
+);
 
 
 // curry3
 // ((a, b, c) -> d) -> a -> b -> c -> d
-const curry3 = f => x => y => z => f(x, y, z);
+const curry3 = $(
+  "curry3",
+  f => x => y => z => f(x, y, z)
+);
 
 
 // fix combinator
 // ((a -> b) a -> b) -> a -> b
-const fix = f => x => f(fix(f)) (x);
+const fix = $(
+  "fix",
+  f => x => f(fix(f)) (x)
+);
 
 
 // flip arguments
 // (a -> b -> c) -> b -> a -> c
-const flip = f => y => x => f(x) (y);
+const flip = $(
+  "flip",
+  f => y => x => f(x) (y)
+);
 
 
 // guarded function
 // (a -> b) -> (a -> Boolean) -> b -> a -> b
-const guard = f => p => x => y => p(y) ? f(y) : x;
+const guard = $(
+  "guard",
+  f => p => x => y => p(y) ? f(y) : x
+);
 
 
 // identity function
 // a -> a
-const id = x => x;
+const id = $(
+  "id",
+  x => x
+);
 
 
 // infix applicator
 // a -> (a -> b -> c) -> b -> c
-const infix = x => f => y => f(x) (y);
+const infix = $(
+  "infix",
+  x => f => y => f(x) (y)
+);
 
 
 // monadic join
 // (r -> r -> a) -> r -> a
-const join = f => x => f(x) (x);
+const join = $(
+  "join",
+  f => x => f(x) (x)
+);
 
 
 // omega combinator
 // untyped
-const omega = f => f(f);
+const omega = $(
+  "omega",
+  f => f(f)
+);
 
 
 // on
 // (b -> b -> c) -> (a -> b) -> a -> a -> c
-const on = f => g => x => y => f(g(x)) (g(y));
+const on = $(
+  "on",
+  f => g => x => y => f(g(x)) (g(y))
+);
 
 
 // rotate left
 // a -> b -> c -> d) -> b -> c -> a -> d
-const rotatel = f => y => z => x => f(x) (y) (z);
+const rotateL = $(
+  "rotateL",
+  f => y => z => x => f(x) (y) (z)
+);
 
 
 // rotate right
 // (a -> b -> c -> d) -> c -> a -> b -> d
-const rotater = f => z => x => y => f(x) (y) (z);
-
-
-// uncurry
-// (a -> b -> c) -> (a, b) -> c
-const uncurry = f => (x, y) => f(x) (y);
+const rotateR = $(
+  "rotateR",
+  f => z => x => y => f(x) (y) (z)
+);
 
 
 // tap
 // (a -> b) -> a -> b)
-const tap = f => x => (f(x), x);
+const tap = $(
+  "tap",
+  f => x => (f(x), x)
+);
 
 
 // uncurry
+// (a -> b -> c) -> (a, b) -> c
+const uncurry = $(
+  "uncurry",
+  f => (x, y) => f(x) (y)
+);
+
+
+// uncurry 3
 // (a -> b -> c -> d) -> (a, b, c) -> d
-const uncurry3 = f => (x, y, z) => f(x) (y) (z);
+const uncurry3 = $(
+  "uncurry3",
+  f => (x, y, z) => f(x) (y) (z)
+);
 
 
 /***[Tail Recursion]**********************************************************/
@@ -548,9 +588,25 @@ const recur = (...args) =>
   ({type: recur, args});
 
 
+/***[Namespace]***************************************************************/
+
+
+// Function namespace
+// Object
+const Fun = {};
+
+
 /******************************************************************************
 ************************************[ Map ]************************************
 ******************************************************************************/
+
+
+/***[Namespace]***************************************************************/
+
+
+// Map namespace
+// Object
+const _Map = {};
 
 
 /******************************************************************************
@@ -558,14 +614,38 @@ const recur = (...args) =>
 ******************************************************************************/
 
 
+/***[Namespace]***************************************************************/
+
+
+// Number namespace
+// Object
+const Num = {};
+
+
 /******************************************************************************
 **********************************[ Object ]***********************************
 ******************************************************************************/
 
 
+/***[Namespace]***************************************************************/
+
+
+// Object namespace
+// Object
+const Obj = {};
+
+
 /******************************************************************************
 ************************************[ Set ]************************************
 ******************************************************************************/
+
+
+/***[Namespace]***************************************************************/
+
+
+// Set namespace
+// Object
+const _Set = {};
 
 
 /******************************************************************************
@@ -575,7 +655,18 @@ const recur = (...args) =>
 
 // capitalize
 // String -> String
-const capitalize = s => s[0].toUpperCase() + s.slice(1);
+const capitalize = $(
+  "capitalize",
+  s => s[0].toUpperCase() + s.slice(1)
+);
+
+
+/***[Namespace]***************************************************************/
+
+
+// String namespace
+// Object
+const Str = {};
 
 
 /******************************************************************************
@@ -587,26 +678,32 @@ const capitalize = s => s[0].toUpperCase() + s.slice(1);
 
 // ADT with several data constructors
 // untyped
-const Type = Tcons => (tag, Dcons) => {
-  const t = new Tcons();
-  t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
-  t.tag = tag
-  return t;
-};
+const Type = $(
+  "Type",
+  Tcons => (tag, Dcons) => {
+    const t = new Tcons();
+    t[`run${Dcons.constructor.name}`] = cases => Dcons(cases);
+    t.tag = tag
+    return t;
+  }
+);
 
 
 // ADT with single data constructor
 // untyped
-const Data = Tcons => Dcons => {
-  const Data = x => {
-    const t = new Tcons();
-    t[`run${Dcons.constructor.name}`] = x;
-    t.tag = Dcons.constructor.name
-    return t;
-  };
+const Data = $(
+  "Data",
+  Tcons => Dcons => {
+    const Data = x => {
+      const t = new Tcons();
+      t[`run${Dcons.constructor.name}`] = x;
+      t.tag = Dcons.constructor.name
+      return t;
+    };
 
-  return Dcons(Data);
-};
+    return Dcons(Data);
+  }
+);
 
 
 /******************************************************************************
@@ -624,17 +721,14 @@ const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
 const runCont = tk => k => tk.runCont(k);
 
 
-/***[Chain]*******************************************************************/
-
-
-// chain
-// ((a -> r) -> r) -> (a -> ((b -> r) -> r)) -> ((b -> r) -> r)
-//const chain = tk => ft => Cont(k => tk.runCont(x => ft(x).runCont(k)));
+/******************************************************************************
+*********************************[ Ordering ]**********************************
+******************************************************************************/
 
 
 /******************************************************************************
 *******************************************************************************
-*********************************[ SUBTYPING ]*********************************
+****************************[ FUNCTION ENCODINGS ]*****************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -644,36 +738,23 @@ const runCont = tk => k => tk.runCont(k);
 ******************************************************************************/
 
 
-class Char extends String {
-  constructor(c) {
-    super(c);
+// Char constructor
+// String -> Char
+const Char = c => {
+  if (typeof c !== "string")
+    throw new TypeError(
+      "\n\nChar expects String literal"
+      + `\n${c} of type ${introspect(c)} received`
+      + "\n");
 
-    if (typeof c !== "string") throw new TypeError(
-      "\n\nChar expect String literal\n"
-      + `${c} of type ${typeof c} received\n`
-    );
+  else if ([...c].length !== 1)
+    throw new TypeError(
+      "\n\nChar expects single character"
+      + `\n"${c}" of length ${c.length} received`
+      + "\n");
 
-    else if ([...c].length !== 1) throw new TypeError(
-      "\n\nChar expect single character\n"
-      + `"${c}" of length ${c.length} received\n`
-    );
-  }
-} {
-  const Char_ = Char;
-
-  Char = function(c) {
-    return new Char_(c);
-  };
-
-  Char.prototype = Char_.prototype;
-}
-
-
-Char.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    `\n\nChar is coerced to ${capitalize(hint)}\n`
-    + "illegal implicit type conversion\n"
-  );
+  else return
+    ({run: k => k(c), [Symbol.toStringTag]: "Char"});
 };
 
 
@@ -692,10 +773,29 @@ Char.minBound = Char("\u{0}");
 Char.maxBound = Char("\u{10FFFF}");
 
 
-
 /******************************************************************************
 ***********************************[ Float ]***********************************
 ******************************************************************************/
+
+
+// Float constructor
+// Number -> Float
+const Float = f => {
+  if (typeof f !== "number")
+    throw new TypeError(
+      "\n\nFloat expects Number literal"
+      + `\n${f} of type ${introspect(f)} received`
+      + "\n");
+
+  else if (f % 1 !== 0) 
+    throw new TypeError(
+      "\n\nFloat expects floating point literal"
+      + `\n"${f}" of type Int received`
+      + "\n");
+
+  else return
+    ({run: k => k(f), [Symbol.toStringTag]: "Float"});
+};
 
 
 /******************************************************************************
@@ -703,29 +803,39 @@ Char.maxBound = Char("\u{10FFFF}");
 ******************************************************************************/
 
 
-/******************************************************************************
-***********************************[ Record ]**********************************
-******************************************************************************/
+// Int constructor
+// Number -> Int
+const Int = i => {
+  if (typeof i !== "number")
+    throw new TypeError(
+      "\n\nInt expects Number literal"
+      + `\n${i} of type ${introspect(i)} received`
+      + "\n");
 
+  else if (i % 1 !== 0)
+    throw new TypeError(
+      "\n\nInt expects integer literal"
+      + `\n"${i}" of type Float received`
+      + "\n");
 
-/******************************************************************************
-***********************************[ Tuple ]***********************************
-******************************************************************************/
-
-
-/******************************************************************************
-***********************************[ Misc ]************************************
-******************************************************************************/
-
-
-// TypeCoercionError
-// String -> TypeCoercionError
-class TypeCoercionError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, TypeCoercionError);
-  }
+  else return
+    ({run: k => k(i), [Symbol.toStringTag]: "Int"});
 };
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// constant
+// Int
+Int.minBound = Int(Number.MIN_SAFE_INTEGER);
+
+
+// maximal bound
+// constant
+// Int
+Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 
 /******************************************************************************
@@ -735,7 +845,7 @@ class TypeCoercionError extends Error {
 ******************************************************************************/
 
 
-const typeclasses = new Map([
+const typeClasses = new Map([
   ["Bounded", ["minBound", "maxBound"]]
 ]);
 
@@ -752,7 +862,7 @@ const instances = new Map([
 
 const typeDict = _class => {
   const f = tag => instances.get(`${_class} ${tag}`),
-    ops = typeclasses.get(_class);
+    ops = typeClasses.get(_class);
 
   ops.forEach(op => {
     f[op] = x => {
@@ -774,33 +884,8 @@ const typeDict = _class => {
 
 
 /******************************************************************************
-**********************************[ Boolean ]**********************************
-******************************************************************************/
-
-
-// logical negated conjunction
-// a -> a -> Boolean
-const nand = comp2(not) (and);
-
-
-// logical negated indeterministic conjunctions
-// [a] -> Boolean
-const nands = comp(not) (ands);
-
-
-// logical negated disjunction
-// a -> a -> Boolean
-const nor = comp2(not) (or);
-
-
-// logical negated indeterministic disjunctions
-// a -> a -> Boolean
-const nors = comp(not) (ors);
-
-
-/******************************************************************************
 *******************************************************************************
-*********************************[ INTERNAL ]**********************************
+***********************************[ MISC ]************************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -829,7 +914,49 @@ const underline = ([n, m]) =>
 ******************************************************************************/
 
 
-$.id = id;
+Object.assign(
+  $,
+  {
+    ap,
+    apply,
+    chain,
+    chain_,
+    chainN,
+    Char,
+    co,
+    co2,
+    comp,
+    comp2,
+    compN,
+    compBoth,
+    compSnd,
+    cond,
+    contra,
+    cont,
+    curry,
+    curry3,
+    Data,
+    fix,
+    flip,
+    Float,
+    guard,
+    id,
+    infix,
+    Int,
+    join,
+    loop,
+    omega,
+    on,
+    recur,
+    rotateL,
+    rotateR,
+    tap,
+    Type,
+    typeDict,
+    uncurry,
+    uncurry3
+  }
+);
 
 
 export default $;

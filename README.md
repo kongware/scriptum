@@ -232,7 +232,9 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
-## Algebraic Data Types
+## Custom Types
+
+### Algebraic Data Types
 
 As an language without sum types we need to use an appropriate function encoding to implement them. scriptum uses the less common Scott encoding that relies on explicit recursion and functional pattern matching:
 
@@ -267,6 +269,14 @@ runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
 With Scott encoding we also can express products, sums of products, recursive and even mutual recursive types. If we manipulate them algebraically by obeying mathematical laws, sums of products are also called algebraic data types.
+
+### Function Encodings
+
+* Char
+* Float
+* Int
+* Tuple
+* Record
 
 # Upcoming Features
 
