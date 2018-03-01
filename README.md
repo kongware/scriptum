@@ -158,7 +158,7 @@ append(xs).log; // ["append([?])"]
 
 map(inc) (append(xs) (ys)); // type error
 ```
-`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance.
+`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. For this reason please consider `[?]` as an indicator that your code is more likely to break.
 
 ## Typeclasses
 
