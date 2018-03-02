@@ -33,7 +33,7 @@ import $ from "./scriptum.js";
 
 At its core scriptum offers a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs.
 
-You can easily augment curried functions sequences:
+You can easily guard curried functions sequences:
 
 ```Javascript
 const comp = $(
@@ -59,7 +59,7 @@ const sum = $(
   (...ns) => ns.reduce((acc, n) => acc + n, 0);
 );
 ```
-To safe the cost of function augmentation at runtime you can disable this feature for production environments by simply setting the `augmented` flag to `false`.
+To safe the cost of function guarding at runtime you can disable this feature for production environments by simply setting the `guarded` flag to `false`.
 
 ### Type Invalidation
 
@@ -111,7 +111,7 @@ const inc = $(
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
 ```
-Since scriptum's augmentation feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
+Since scriptum's guarding feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
 
 ### Type Logs
 
@@ -320,16 +320,17 @@ run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
 * `Eff`/`Aff` effect types (inspired by purescript)
 * `Behavior`/`Event` types and corresponding combinators
 * Purely functional data types
+* Cata-, ana- and hylomorphisms
 
 # Todo
 
-* [ ] create license
-* [ ] create package.json
+* [ ] add license
+* [ ] add package.json
 
 # Research
 
 * Coyoneda and Free
-* F-Algebras and trees
+* Comonads
 * Persistant data structures
 
 # API

@@ -18,7 +18,7 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
-const augmented = true;
+const guarded = true;
 
 
 const SYM_PREFIX = "github.com/kongware/scriptum";
@@ -872,7 +872,7 @@ const Record = $(
     else {
       return ({
         runRecord: $("runRecord", k => k(o)),
-        [Symbol.toStringTag]: "Record"
+        [Symbol.toStringTag]: augmented ? `Record<${introspect(o).slice(1, -1)}>` : "Record"
       });
     }
   }
@@ -890,7 +890,7 @@ const Tuple = $(
   "Tuple",
   (...args) => ({
     runTuple: $("runTuple", k => k(...args)),
-    [Symbol.toStringTag]: "Tuple"
+    [Symbol.toStringTag]: augmented ? `Tuple<${introspect(o).slice(1, -1)}>` : "Record"
   })
 );
 
