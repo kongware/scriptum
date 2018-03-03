@@ -16,8 +16,6 @@ Replacing short-term dynamic type convenience by long-term stability.
 
 scriptum encourages you to program in a type-directed style and to consider functional programs as mathematical equations that you can manipulate algebraically. This style facilitates equational reasoning and formal proof.
 
-There is no such thing as an untyped program, except an invalid one!
-
 # Import
 
 Just import scriptum's default export:
@@ -160,6 +158,143 @@ map(inc) (append(xs) (ys)); // type error
 ```
 `xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. For this reason please consider `[?]` as an indicator that your code is more likely to break.
 
+## Extended Types
+
+scriptum introduces a (still growing) number of new data types:
+
+* Char
+* Int
+* Tup (tuple)
+* Rec (record)
+* Arr (homogeneous `Array`)
+* _Map (homogeneous `Map`)
+* _Set (homogeneous `Set`)
+
+These types offer more type safety, but also entail properties that are rather unusual in Javascript. It is entirely up to you if you rely on the built-in types, scriptum's extended types or both.
+
+### Type Coersion
+
+When an extended data type is implicitly coerced, it throws a type error. Explicit type conversions are allowed, though:
+
+```Javascript
+const t = Tup(1, "foo");
+t + ""; // type error
+t.toString() + ""; // "1,foo"
+```
+### Restricted Mutability
+
+Extended types are either immutable
+
+```Javascript
+const t = Tup(1, "foo");
+
+t + ""; // type error
+t.toString() + ""; // "1,foo"
+```
+or are restricted mutable.
+
+```Javascript
+const xs = Arr([1, 2, 3]);
+
+xs[0] = 0; // OK
+xs[3] = 4; // OK
+
+xs[0] = "0"; // type error
+xs[3] = "4"; // type error
+xs[10] = 4; // type error (index gap)
+
+delete xs[2]; // OK
+delete xs[0]; // type error (index gap)
+```
+## Custom Types
+
+There are three ways to define your own data types:
+
+* Function Encoding
+* Algebraic Data Types
+* Subtyping
+
+### Function Encoding
+
+You can utilize the continuation passing style to create arbitrarily data types:
+
+```Javascript
+const Tuple = (...args) =>
+  ({runTuple: k => k(...args)});
+
+const runTuple = f => t =>
+  t.runTuple(f);
+
+const tup = Tuple(9, "foo", true);
+
+runTuple((_, s) => s.toUpperCase()) // functional pattern matching
+  (tup); // "FOO"
+```
+However, with function encodings you lose a lot of language constructs like destructuring assignment or bracket/dot notation and as a result your code is less idiomatic. For this reason scriptum tries to avoid function encodings when more common encodings are available.
+
+### Algebraic Data Types
+
+Javascript doesn't provide unions, hence we have to define them ourselves. scriptum uses a function encoding (namely Scott encoding) to simulate tagged unions, which can be handled almost exactly like their native counterparts:
+
+```Javascript
+const Type = Tcons => (tag, Dcons) => {
+  const t = new Tcons();
+  t[`run${Tcons.name}`] = cases => Dcons(cases);
+  t.tag = tag;
+  return t;
+};
+
+const Option = Type(function Option() {});
+const Some = x => Option("Some", o => o.Some(x));
+const None = Option("None", o => o.None);
+const runOption = dict => tx => tx.runOption(dict);
+
+const safeHead = 
+  xs => xs.length === 0
+    ? None
+    : Some(xs[0]);
+
+const uc = s =>
+  s.toUpperCase();
+
+const xs = ["foo", "bar", "baz"],
+  ys = [];
+
+const x = safeHead(xs), // Some("foo")
+  y = safeHead(ys); // None
+
+runOption({Some: uc, None: ""}) (x); // "FOO"
+runOption({Some: uc, None: ""}) (y); // ""
+```
+With Scott encoded tagged unions we can also express products, sums of products, recursive and even mutual recursive types. If we treat and manipulate them algebraically by obeying some mathematical laws, they are also called algebraic data types.
+
+### Subtyping
+
+When you need a custom type that includes exotic `Object` behavior you need to fall back to subtyping:
+
+```Javascript
+class Nat extends Number {
+  constructor(n) {
+    super(n);
+
+    if (typeof n !== "number"
+    || n % 1 !== 0
+    || n < 0)
+      throw new TypeError("Natural number expected");
+
+  }
+} {
+  const Nat_ = Nat;
+
+  Nat = function(c) {
+    return new Nat_(c);
+  };
+
+  Nat.prototype = Nat_.prototype;
+}
+```
+The above pattern is used to avoid the use of `new`.
+
 ## Typeclasses
 
 scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a typeclass you must create a corresponding type dictionary:
@@ -234,79 +369,6 @@ repeat(1e6) (inc) (0); // 1000000
 ```
 ## Custom Types
 
-### Algebraic Data Types
-
-As an language without sum types we need to use an appropriate function encoding to implement them. scriptum uses the less common Scott encoding that relies on explicit recursion and functional pattern matching:
-
-```Javascript
-const Type = Tcons => (tag, Dcons) => {
-  const t = new Tcons();
-  t[`run${Tcons.name}`] = cases => Dcons(cases);
-  t.tag = tag;
-  return t;
-};
-
-const Option = Type(function Option() {});
-const Some = x => Option("Some", o => o.Some(x));
-const None = Option("None", o => o.None);
-const runOption = dict => tx => tx.runOption(dict);
-
-const safeHead = 
-  xs => xs.length === 0
-    ? None
-    : Some(xs[0]);
-
-const uc = s =>
-  s.toUpperCase();
-
-const xs = ["foo", "bar", "baz"],
-  ys = [];
-
-const x = safeHead(xs), // Some("foo")
-  y = safeHead(ys); // None
-
-runOption({Some: uc, None: ""}) (x); // "FOO"
-runOption({Some: uc, None: ""}) (y); // ""
-```
-With Scott encoding we also can express products, sums of products, recursive and even mutual recursive types. If we manipulate them algebraically by obeying mathematical laws, sums of products are also called algebraic data types.
-
-### Function Encodings
-
-As for ADTs scriptum uses a function encoding to define common primitives, but without the additional plumbing ADTs require. The following primitives are available:
-
-* Char
-* Float
-* Int
-* Tuple
-* Record
-
-#### Tuple
-
-```Javascript
-const tup = Tuple(9, "foo", true);
-
-const runTuple = f => t =>
-  t.runTuple(f);
-
-run((_, s) => s.toUpperCase()) // functional pattern matching
-  (tup); // "FOO"
-```
-#### Records
-
-```Javascript
-const person = Record({
-  lastName: "Kubrick",
-  firstName: "Stanley",
-  gender: "male",
-  age: "✝"
-});
-
-const runRecord = f => t =>
-  t.runRecord(f);
-
-run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
-  (person); // "Stanley Kubrick"
-```
 # Upcoming Features
 
 * Fold with short circuiting
@@ -326,12 +388,16 @@ run(({firstName, lastName}) => `${firstName} ${lastName}`)  // destructuring
 
 * [ ] add license
 * [ ] add package.json
+* [ ] add `List` type
+* [ ] implement general Trie functionality from which persistant types can be derived
 
 # Research
 
 * Coyoneda and Free
 * Comonads
-* Persistant data structures
+* Trees (Red-Black Tree, Finger Tree, AVL-Trees, Patricia Tree, Radix Tree, Tries)
+* Lists (Random Access List, Catenable List)
+* Double Generalized Queues (Deque)
 
 # API
 

@@ -18,7 +18,7 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
-const guarded = true;
+const GUARDED = true;
 
 
 const SYM_PREFIX = "github.com/kongware/scriptum";
@@ -40,7 +40,7 @@ const SYM_PREFIX = "github.com/kongware/scriptum";
 // default export
 // untyped
 const $ = (name, f) => {
-  if (augmented) {
+  if (GUARDED) {
     Reflect.defineProperty(f, "name", {value: name});
     return new Proxy(f, handleF(name, f, [], {nthCall: 0}))
   }
@@ -251,7 +251,7 @@ const introspectSet = s => {
 
 
 /******************************************************************************
-****************************[ Augmentation Errors ]****************************
+******************************[ Guarding Errors ]******************************
 ******************************************************************************/
 
 
@@ -474,7 +474,7 @@ const flip = $(
 );
 
 
-// guarded function
+// GUARDED function
 // (a -> b) -> (a -> Boolean) -> b -> a -> b
 const guard = $(
   "guard",
@@ -582,7 +582,7 @@ const loop = $(
 
 
 // recursive call
-// not augmented
+// not GUARDED
 // untyped
 const recur = (...args) =>
   ({type: recur, args});
@@ -738,6 +738,21 @@ const EQ = Comparator("EQ", cases => cases.EQ);
 const GT = Comparator("GT", cases => cases.GT);
 
 
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// constant
+// Comparator
+Comparator.minBound = LT;
+
+
+// maximal bound
+// constant
+// Comparator
+Comparator.maxBound = GT;
+
+
 /******************************************************************************
 *******************************************************************************
 ****************************[ FUNCTION ENCODINGS ]*****************************
@@ -750,26 +765,38 @@ const GT = Comparator("GT", cases => cases.GT);
 ******************************************************************************/
 
 
-// Char constructor
+// char constructor
 // String -> Char
-const Char = c => {
-  if (augmented && typeof c !== "string")
-    throw new ArgTypeError(
+class Char extends String {
+  constructor(c) {
+    super(c);
+
+    if (guarded && typeof c !== "string") throw new ArgTypeError(
       "\n\nChar expects String literal"
       + `\nvalue of type ${introspect(c)} received`
       + "\n");
 
-  else if (augmented && [...c].length !== 1)
-    throw new ArgTypeError(
+    else if (guarded && [...c].length !== 1) throw new ArgTypeError(
       "\n\nChar expects single character"
       + `\n"${c}" of length ${c.length} received`
       + "\n");
+  }
+} {
+  const Char_ = Char;
 
-  else return
-    ({
-      runChar: $("runChar", k => k(c)),
-      [Symbol.toStringTag]: "Char"
-    });
+  Char = function(c) {
+    return new Char_(c);
+  };
+
+  Char.prototype = Char_.prototype;
+}
+
+
+Char.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    `\n\nChar is coerced to ${capitalize(hint)}`
+    + "\nillegal implicit type conversion"
+    + "\n");
 };
 
 
@@ -796,7 +823,7 @@ Char.maxBound = Char("\u{10FFFF}");
 // Float constructor
 // Number -> Float
 const Float = f => {
-  if (augmented && typeof f !== "number")
+  if (GUARDED && typeof f !== "number")
     throw new ArgTypeError(
       "\n\nFloat expects Number literal"
       + `\nvalue of type ${introspect(f)} received`
@@ -818,13 +845,13 @@ const Float = f => {
 // Int constructor
 // Number -> Int
 const Int = i => {
-  if (augmented && typeof i !== "number")
+  if (GUARDED && typeof i !== "number")
     throw new ArgTypeError(
       "\n\nInt expects Number literal"
       + `\nvalue of type ${introspect(i)} received`
       + "\n");
 
-  else if (augmented && i % 1 !== 0)
+  else if (GUARDED && i % 1 !== 0)
     throw new ArgTypeError(
       "\n\nInt expects integer literal"
       + `\n"${i}" of type Float received`
@@ -860,23 +887,38 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 // Record constructor
 // Object -> Record
-const Record = $(
-  "Record",
-  o => {
-    if (augmented && (typeof o !== "object" || o === null)) 
-      throw new ArgTypeError(
-        "\n\nRecord expects Number literal"
-        + `\nvalue of type ${introspect(o)} received`
-        + "\n");
+class Tup extends Array {
+  constructor(o) {
+    if (args.length === 1) {
+      if (typeof args[0] === "number") {
+        super(1);
+        this[0] = args[0];
+      }
 
-    else {
-      return ({
-        runRecord: $("runRecord", k => k(o)),
-        [Symbol.toStringTag]: augmented ? `Record<${introspect(o).slice(1, -1)}>` : "Record"
-      });
-    }
+      else super(...args);
+    } 
+
+    else super(...args);
+
+    Object.freeze(this);
   }
-);
+} {
+  const Tup_ = Tup;
+
+  Tup = function(...args) {
+    return new Tup_(...args);
+  };
+
+  Tup.prototype = Tup_.prototype;
+}
+
+
+Tup.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    `\n\nTup is coerced to ${capitalize(hint)}`
+    + "\nillegal implicit type conversion"
+    + "\n");
+};
 
 
 /******************************************************************************
@@ -885,14 +927,39 @@ const Record = $(
 
 
 // Tuple constructor
-// (...Array) -> Tuple
-const Tuple = $(
-  "Tuple",
-  (...args) => ({
-    runTuple: $("runTuple", k => k(...args)),
-    [Symbol.toStringTag]: augmented ? `Tuple<${introspect(o).slice(1, -1)}>` : "Record"
-  })
-);
+// (...Array) -> Tup
+class Tup extends Array {
+  constructor(...args) {
+    if (args.length === 1) {
+      if (typeof args[0] === "number") {
+        super(1);
+        this[0] = args[0];
+      }
+
+      else super(...args);
+    } 
+
+    else super(...args);
+
+    Object.freeze(this);
+  }
+} {
+  const Tup_ = Tup;
+
+  Tup = function(...args) {
+    return new Tup_(...args);
+  };
+
+  Tup.prototype = Tup_.prototype;
+}
+
+
+Tup.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    `\n\nTup is coerced to ${capitalize(hint)}`
+    + "\nillegal implicit type conversion"
+    + "\n");
+};
 
 
 /******************************************************************************
@@ -912,6 +979,7 @@ const instances = new Map([
   // built-in typeclass instances
   ["Bounded Boolean", {minBound: Boo.minBound, maxBound: Boo.maxBound}],
   ["Bounded Char", {minBound: Char.minBound, maxBound: Char.maxBound}],
+  ["Bounded Comparator", {minBound: Comparator.minBound, maxBound: Comparator.maxBound}],
   ["Bounded Int", {minBound: Int.minBound, maxBound: Int.maxBound}]
 ]);
 
