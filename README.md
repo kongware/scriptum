@@ -174,7 +174,7 @@ These types offer more type safety, but also entail properties that are rather u
 
 ### Type Coersion
 
-When an extended data type is implicitly coerced, it throws a type error. Explicit type conversions are allowed, though:
+When an extended data type is coerced, it throws a type error. Explicit type conversions are allowed, though:
 
 ```Javascript
 const t = Tup(1, "foo");
@@ -192,7 +192,7 @@ t[0] = 2; // type error
 delete t[0]; // type error
 t[2] = true; // type error
 ```
-or are restricted mutable.
+or restricted mutable:
 
 ```Javascript
 const xs = Arr([1, 2, 3]);
@@ -209,7 +209,7 @@ delete xs[0]; // type error (index gap)
 ```
 ## Custom Types
 
-There are three ways to define your own data types:
+There are three ways to define your own data type:
 
 * Function Encoding
 * Algebraic Data Types
@@ -221,7 +221,7 @@ You can utilize the continuation passing style to create arbitrarily data types:
 
 ```Javascript
 const Tuple = (...args) =>
-  ({runTuple: k => k(...args)});
+  ({runTuple: k => k(...args), [Symbol.toStringTag]: "Tup"});
 
 const runTuple = f => t =>
   t.runTuple(f);
@@ -294,7 +294,7 @@ class Nat extends Number {
   Nat.prototype = Nat_.prototype;
 }
 ```
-The above pattern is used to avoid the use of `new`.
+The above pattern is used to avoid the use of `new` during instantiation.
 
 ## Typeclasses
 

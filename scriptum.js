@@ -771,15 +771,17 @@ class Char extends String {
   constructor(c) {
     super(c);
 
-    if (guarded && typeof c !== "string") throw new ArgTypeError(
-      "\n\nChar expects String literal"
-      + `\nvalue of type ${introspect(c)} received`
-      + "\n");
+    if (GUARDED) {
+      if (typeof c !== "string") throw new ArgTypeError(
+        "\n\nChar expects String literal"
+        + `\nvalue of type ${introspect(c)} received`
+        + "\n");
 
-    else if (guarded && [...c].length !== 1) throw new ArgTypeError(
-      "\n\nChar expects single character"
-      + `\n"${c}" of length ${c.length} received`
-      + "\n");
+      else if ([...c].length !== 1) throw new ArgTypeError(
+        "\n\nChar expects single character"
+        + `\n"${c}" of length ${c.length} received`
+        + "\n");
+    }
   }
 } {
   const Char_ = Char;
@@ -822,18 +824,33 @@ Char.maxBound = Char("\u{10FFFF}");
 
 // Float constructor
 // Number -> Float
-const Float = f => {
-  if (GUARDED && typeof f !== "number")
-    throw new ArgTypeError(
-      "\n\nFloat expects Number literal"
-      + `\nvalue of type ${introspect(f)} received`
-      + "\n");
+class Float extends Number {
+  constructor(n) {
+    super(n);
 
-  else return
-    ({
-      runFloat: $("runFloat", k => k(f)),
-      [Symbol.toStringTag]: "Float"
-    });
+    if (GUARDED) {
+      if (typeof n !== "number") throw new ArgTypeError(
+        "\n\nFloat expects Number literal"
+        + `\nvalue of type ${introspect(n)} received`
+        + "\n");
+    }
+  }
+} {
+  const Float_ = Float;
+
+  Float = function(n) {
+    return new Float_(n);
+  };
+
+  Float.prototype = Float_.prototype;
+}
+
+
+Float.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    `\n\nFloat is coerced to ${capitalize(hint)}`
+    + "\nillegal implicit type conversion"
+    + "\n");
 };
 
 
@@ -844,24 +861,38 @@ const Float = f => {
 
 // Int constructor
 // Number -> Int
-const Int = i => {
-  if (GUARDED && typeof i !== "number")
-    throw new ArgTypeError(
-      "\n\nInt expects Number literal"
-      + `\nvalue of type ${introspect(i)} received`
-      + "\n");
+class Int extends Number {
+  constructor(n) {
+    super(n);
 
-  else if (GUARDED && i % 1 !== 0)
-    throw new ArgTypeError(
-      "\n\nInt expects integer literal"
-      + `\n"${i}" of type Float received`
-      + "\n");
+    if (GUARDED) {
+      if (typeof n !== "number") throw new ArgTypeError(
+        "\n\nInt expects Number literal"
+        + `\nvalue of type ${introspect(n)} received`
+        + "\n");
 
-  else return
-    ({
-      runInt: $("runInt", k => k(i)),
-      [Symbol.toStringTag]: "Int"
-    });
+      else if (n % 1 !== 0) throw new ArgTypeError(
+        "\n\nInt expects integer literal"
+        + `\nvalue of type ${introspect(n)} received`
+        + "\n");
+    }
+  }
+} {
+  const Int_ = Int;
+
+  Int = function(n) {
+    return new Int_(n);
+  };
+
+  Int.prototype = Int_.prototype;
+}
+
+
+Int.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    `\n\nInt is coerced to ${capitalize(hint)}`
+    + "\nillegal implicit type conversion"
+    + "\n");
 };
 
 
@@ -887,35 +918,33 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 // Record constructor
 // Object -> Record
-class Tup extends Array {
+class Rec extends Object {
   constructor(o) {
-    if (args.length === 1) {
-      if (typeof args[0] === "number") {
-        super(1);
-        this[0] = args[0];
-      }
+    super(o);
 
-      else super(...args);
-    } 
+    if (GUARDED) {
+      if (typeof o !== "object" || o === null) throw new ArgTypeError(
+        "\n\nRec expects Object type"
+        + `\nvalue of type ${introspect(o)} received`
+        + "\n");
 
-    else super(...args);
-
-    Object.freeze(this);
+      Object.freeze(this);
+    }
   }
 } {
-  const Tup_ = Tup;
+  const Rec_ = Rec;
 
-  Tup = function(...args) {
-    return new Tup_(...args);
+  Tup = function(o) {
+    return new Rec_(o);
   };
 
-  Tup.prototype = Tup_.prototype;
+  Rec.prototype = Rec_.prototype;
 }
 
 
-Tup.prototype[Symbol.toPrimitive] = hint => {
+Rec.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nTup is coerced to ${capitalize(hint)}`
+    `\n\nRec is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
     + "\n");
 };
@@ -941,7 +970,8 @@ class Tup extends Array {
 
     else super(...args);
 
-    Object.freeze(this);
+    if (GUARDED)
+      Object.freeze(this);
   }
 } {
   const Tup_ = Tup;
@@ -1012,6 +1042,16 @@ const typeDict = _class => {
 ***********************************[ MISC ]************************************
 *******************************************************************************
 ******************************************************************************/
+
+
+// TypeCoercionError
+// String -> TypeCoercionError
+class TypeCoercionError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, TypeCoercionError);
+  }
+};
 
 
 // stringify
