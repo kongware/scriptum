@@ -287,12 +287,7 @@ class ReturnTypeError extends Error {
 ******************************************************************************/
 
 
-/***[Namespace]***************************************************************/
-
-
-// Array namespace
-// Object
-const Arr = {};
+// see Proxies --> Arr
 
 
 /******************************************************************************
@@ -604,9 +599,7 @@ const Fun = {};
 /***[Namespace]***************************************************************/
 
 
-// Map namespace
-// Object
-const _Map = {};
+// see Proxies --> _Map
 
 
 /******************************************************************************
@@ -643,9 +636,7 @@ const Obj = {};
 /***[Namespace]***************************************************************/
 
 
-// Set namespace
-// Object
-const _Set = {};
+// see Proxies --> _Set
 
 
 /******************************************************************************
@@ -667,90 +658,6 @@ const capitalize = $(
 // String namespace
 // Object
 const Str = {};
-
-
-/******************************************************************************
-*******************************************************************************
-***************************[ ALGEBRAIC DATA TYPES ]****************************
-*******************************************************************************
-******************************************************************************/
-
-
-// ADT with several data constructors
-// untyped
-const Type = $(
-  "Type",
-  Tcons => (tag, Dcons) => {
-    const t = new Tcons();
-    t[`run${Tcons.name}`] = cases => Dcons(cases);
-    t.tag = tag;
-    return t;
-  }
-);
-
-
-// ADT with single data constructor
-// untyped
-const Data = $(
-  "Data",
-  Tcons => Dcons => {
-    const Data = x => {
-      const t = new Tcons();
-      t[`run${Tcons.name}`] = x;
-      t.tag = Tcons.name
-      return t;
-    };
-
-    return Dcons(Data);
-  }
-);
-
-
-/******************************************************************************
-***********************************[ Cont ]************************************
-******************************************************************************/
-
-
-// continuation
-// Function -> ((a -> r) -> r) -> Cont r a
-const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
-
-
-// run continuation
-// Cont r a -> (a -> r) -> r
-const runCont = tk => k => tk.runCont(k);
-
-
-/******************************************************************************
-********************************[ Comparator ]*********************************
-******************************************************************************/
-
-
-const Comparator = Type(function Comparator() {});
-
-
-const LT = Comparator("LT", cases => cases.LT);
-
-
-const EQ = Comparator("EQ", cases => cases.EQ);
-
-
-const GT = Comparator("GT", cases => cases.GT);
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// constant
-// Comparator
-Comparator.minBound = LT;
-
-
-// maximal bound
-// constant
-// Comparator
-Comparator.maxBound = GT;
 
 
 /******************************************************************************
@@ -994,6 +901,203 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 
 /******************************************************************************
 *******************************************************************************
+**********************************[ PROXIES ]**********************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+************************************[ Arr ]************************************
+******************************************************************************/
+
+
+const Arr = xs => {
+  if (GUARDED) {
+    if (!Array.isArray(xs)) throw new ArgTypeError(
+      "\n\nArr expects Array type"
+      + `\nvalue of type ${introspect(xs)} received`
+      + "\n");
+
+    const t = introspect(xs);
+
+    if (replaceNestedTypes(t).search(/\?|,/) !== -1) throw new ArgTypeError(
+      "\n\nArr expects homogeneous Array"
+      + `\nvalue of type ${introspect(xs)} received`
+      + "\n");
+
+    else return new Proxy(xs, handleArr(t));
+  }
+  
+  else return xs;
+};
+
+
+const handleArr = t => ({
+  get: (xs, i, p) => {
+    switch (i) {
+      case Symbol.toPrimitive: return hint => {
+        throw new TypeCoercionError(
+          `\n\nArr is coerced to ${capitalize(hint)}`
+          + "\nillegal implicit type conversion"
+          + "\n");
+      };
+
+      default: return xs[i];
+    }
+  },
+
+  deleteProperty: (xs, i) => {
+    if (String(Number(i)) === i) {
+      if (Number(i) !== xs.length - 1) throw new ArgTypeError(
+        "\n\nillegal element deletion of"
+        + `\n\n${t}`
+        + `\n\nat index #${i}`
+        + `\nArr must not contain index gaps`
+        + "\n");
+    }
+
+    delete xs[i];
+    return xs;
+  },
+
+  set: (xs, i, v) => setArr(xs, i, {value: v}, t, {mode: "set"}),
+
+  defineProperty: (xs, i, d) => setArr(xs, i, d, t, {mode: "def"})
+});
+
+
+const setArr = (xs, i, d, t, {mode}) => {
+  if (String(Number(i)) === i) {
+    if (Number(i) > xs.length) throw new ArgTypeError(
+      "\n\nillegal element setting of"
+      + `\n\n${t}`
+      + `\n\nat index #${i}`
+      + `\nArr must not contain index gaps`
+      + "\n");
+
+    else if (t !== `[${introspect(d.value)}]`) throw new ArgTypeError(
+      "\n\nillegal element setting of"
+      + `\n\n${t}`
+      + `\n${underline([1, t.length - 1])}`
+      + `\n\n${introspect(d.value)} at index #${i} received`
+      + "\nArr must be homogeneous"
+      + "\n");
+  }
+
+  if (mode === "set") xs[i] = d.value;
+  else Reflect.defineProperty(xs, i, d);
+  return xs;
+};
+
+
+/******************************************************************************
+***********************************[ _Map ]************************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+*******************************************************************************
+***************************[ ALGEBRAIC DATA TYPES ]****************************
+*******************************************************************************
+******************************************************************************/
+
+
+// ADT with several data constructors
+// untyped
+const Type = $(
+  "Type",
+  Tcons => (tag, Dcons) => {
+    const t = new Tcons();
+    t[`run${Tcons.name}`] = cases => Dcons(cases);
+    t.tag = tag;
+    return t;
+  }
+);
+
+
+// ADT with single data constructor
+// untyped
+const Data = $(
+  "Data",
+  Tcons => Dcons => {
+    const Data = x => {
+      const t = new Tcons();
+      t[`run${Tcons.name}`] = x;
+      t.tag = Tcons.name
+      return t;
+    };
+
+    return Dcons(Data);
+  }
+);
+
+
+/******************************************************************************
+************************************[ Aff ]************************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+********************************[ Comparator ]*********************************
+******************************************************************************/
+
+
+const Comparator = Type(function Comparator() {});
+
+
+const LT = Comparator("LT", cases => cases.LT);
+
+
+const EQ = Comparator("EQ", cases => cases.EQ);
+
+
+const GT = Comparator("GT", cases => cases.GT);
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// constant
+// Comparator
+Comparator.minBound = LT;
+
+
+// maximal bound
+// constant
+// Comparator
+Comparator.maxBound = GT;
+
+
+/******************************************************************************
+************************************[ Eff ]************************************
+******************************************************************************/
+
+
+// synchronous effect type
+// Function -> a -> Eff a
+const Eff = Data(function Eff() {}) (Eff => thunk => Eff(thunk));
+
+
+// run effect
+// Eff (() -> a) -> (a -> b) -> b
+const runEff = tf => f => tf.runEff(f);
+
+
+/***[Functor]*****************************************************************/
+
+
+Eff.map = f => tx => Eff(() => tx.runEff(g => f(g())));
+
+
+/******************************************************************************
+*******************************************************************************
 ********************************[ TYPECLASSES ]********************************
 *******************************************************************************
 ******************************************************************************/
@@ -1054,6 +1158,24 @@ class TypeCoercionError extends Error {
 };
 
 
+// replace nested types
+// String -> String
+const replaceNestedTypes = s => {
+  const aux = s_ => {
+    const t = s_.replace(/\[[^\[\]]*\]/g, "_")
+      .replace(/\{[^{}}]*\}/g, "_")
+      .replace(/\<[^<>]*\>/g, "_");
+
+    if (t === s_) return t;
+    else return aux(t);
+  };
+
+  const xs = s.match(/^[\[{<]|[\]}>]$/g);
+  if (xs.length === 0) return aux(s);
+  else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
+};
+
+
 // stringify
 // internal
 // a -> String
@@ -1083,6 +1205,7 @@ Object.assign(
   {
     ap,
     apply,
+    Arr,
     chain,
     chain_,
     chainN,
@@ -1100,6 +1223,7 @@ Object.assign(
     curry,
     curry3,
     Data,
+    Eff,
     EQ,
     fix,
     flip,

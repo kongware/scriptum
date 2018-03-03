@@ -160,17 +160,20 @@ map(inc) (append(xs) (ys)); // type error
 
 ## Extended Types
 
-scriptum introduces a (still growing) number of new data types:
+scriptum introduces a (still growing) number of new data types. Types that are cheap in construction are implemented as subtypes with smart constructors:
 
 * Char
 * Int
 * Tup (tuple)
 * Rec (record)
+
+Types with potentially many elements are implemented as `Proxy`s to save the extensive conversion:
+
 * Arr (homogeneous `Array`)
 * _Map (homogeneous `Map`)
 * _Set (homogeneous `Set`)
 
-These types offer more type safety, but also entail properties that are rather unusual in Javascript. It is entirely up to you if you rely on the built-in types, scriptum's extended types or both.
+sriptum's extended types offer more safety, but also entail properties that are rather unusual for Javascript. It is entirely up to you if you rely on the built-in types, scriptum's extended types or any combination of both.
 
 ### Type Coersion
 
@@ -192,7 +195,7 @@ t[0] = 2; // type error
 delete t[0]; // type error
 t[2] = true; // type error
 ```
-or restricted mutable:
+or restrictedly mutable:
 
 ```Javascript
 const xs = Arr([1, 2, 3]);
@@ -207,15 +210,17 @@ xs[10] = 4; // type error (index gap)
 delete xs[2]; // OK
 delete xs[0]; // type error (index gap)
 ```
+Please note that scriptum's combinators and functions always treat data as immutable and hence are compatible with both mutable and immutable types.
+
 ## Custom Types
 
 There are three ways to define your own data type:
 
-* Function Encoding
+* Function Encodings
 * Algebraic Data Types
 * Subtyping
 
-### Function Encoding
+### Function Encodings
 
 You can utilize the continuation passing style to create arbitrarily data types:
 
@@ -271,7 +276,7 @@ With Scott encoded tagged unions we can also express products, sums of products,
 
 ### Subtyping
 
-When you need a custom type that includes exotic `Object` behavior you need to fall back to subtyping:
+When you need a custom type that includes exotic `Object` behavior you need to fall back to subtyping and smart constructors:
 
 ```Javascript
 class Nat extends Number {
