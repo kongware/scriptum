@@ -188,8 +188,9 @@ Extended types are either immutable
 ```Javascript
 const t = Tup(1, "foo");
 
-t + ""; // type error
-t.toString() + ""; // "1,foo"
+t[0] = 2; // type error
+delete t[0]; // type error
+t[2] = true; // type error
 ```
 or are restricted mutable.
 
