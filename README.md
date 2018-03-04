@@ -244,13 +244,6 @@ delete xs[0]; // type error (index gap)
 You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
 
 ```Javascript
-const Type = Tcons => (tag, Dcons) => {
-  const t = new Tcons();
-  t[`run${Tcons.name}`] = cases => Dcons(cases);
-  t.tag = tag;
-  return t;
-};
-
 const Option = Type(function Option() {});
 const Some = x => Option("Some", o => o.Some(x));
 const None = Option("None", o => o.None);
@@ -301,6 +294,17 @@ class Nat extends Number {
 }
 ```
 The above pattern is used to avoid the use of `new` during instantiation.
+
+## Handling Effects
+
+scriptum's stategy to handle effects in a safer manner consists of two approaches:
+
+* defer effectful computations at the last possible moment
+* wrap each individual effect into its own type
+
+The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset you are a perferct match for this job.
+
+There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O. I will either use CPS transformer along with an error monad or a certain type `Aff` specifically for asynchronous effects.
 
 ## Typeclasses
 
