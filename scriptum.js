@@ -1189,9 +1189,19 @@ const runEff = f => tf => f(tf.runEff());
 Eff.map = f => tx => Eff(() => f(tx.runEff()));
 
 
+/***[Applicative]*************************************************************/
+
+
+// apply
+// Eff (() -> (a -> b)) -> Eff (() -> a) -> Eff (() -> b)
+Eff.ap = tf => tx => Eff(() => tf.runEff() (tx.runEff()));
+
+
 /***[Chain]*******************************************************************/
 
 
+// chain
+// Eff (() -> a) -> (a -> Eff (() -> b)) -> Eff (() -> b)
 Eff.chain = mx => fm => Eff(() => fm(mx.runEff()).runEff());
 
 
