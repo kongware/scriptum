@@ -1080,7 +1080,10 @@ const Type = $(
   Tcons => {
     const Type = (tag, Dcons) => {
       const t = new Tcons();
-      t[`run${Tcons.name}`] = cases => Dcons(cases);
+      
+      t[`run${Tcons.name}`] =
+        $(`run${Tcons.name}`, cases => Dcons(cases));
+      
       t.tag = tag;
       return t;
     };

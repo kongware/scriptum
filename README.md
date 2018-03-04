@@ -160,24 +160,47 @@ map(inc) (append(xs) (ys)); // type error
 
 ## Extended Types
 
-scriptum introduces a (still growing) number of new data types. Types that are cheap in construction are implemented as subtypes with smart constructors:
+scriptum introduces a couple of new data types through various techniques.
+
+### Subtyping
+
+The following extended types are subtypes that inherit exotic behavior of their native prototypes. They are constructed by smart constrcutors:
 
 * Char
 * Int
-* Tup (tuple)
 * Rec (record)
+* Tup (tuple)
 
-Types with potentially many elements are implemented as `Proxy`s to save the extensive conversion:
+### Proxies
+
+The following extended types appear to Javascript's runtime type system like the corresponding native types but contain augmented behavior through `Proxy`s. In this way we can save conversion effort:
 
 * Arr (homogeneous `Array`)
 * _Map (homogeneous `Map`)
 * _Set (homogeneous `Set`)
 
-sriptum's extended types offer more safety, but also entail properties that are rather unusual for Javascript. It is entirely up to you if you rely on the built-in types, scriptum's extended types or any combination of both.
+### Algebraic Data Types
+
+The following extended types are function encoded and simulate ADTs. scriptum uses the less known Scott encoding:
+
+* Const (constant computation)
+* Cont (continuation)
+* DCont (delimited continuation)
+* Defer (deferred computation)
+* Eff (effectful computation)
+* Either (convergent computation)
+* Err (computation that may throw an error)
+* Id (effectless computation)
+* List (undeterministic computation)
+* Option (computation that may fail silently)
+* Reader (computations that shares global constants)
+* State (computations that share global state)
+* Unique (computation that produces a unique value)
+* Writer (computations that share a global log)
 
 ### Type Coersion
 
-When an extended data type is coerced, it throws a type error. Explicit type conversions are allowed, though:
+When an extended data type is implicitly converted, it throws a type error. Explicit type conversions are allowed, though:
 
 ```Javascript
 const t = Tup(1, "foo");
@@ -210,37 +233,9 @@ xs[10] = 4; // type error (index gap)
 delete xs[2]; // OK
 delete xs[0]; // type error (index gap)
 ```
-Please note that scriptum's combinators and functions always treat data as immutable and hence are compatible with both mutable and immutable types.
-
 ## Custom Types
 
-There are three ways to define your own data type:
-
-* Function Encodings
-* Algebraic Data Types
-* Subtyping
-
-### Function Encodings
-
-You can utilize the continuation passing style to create arbitrarily data types:
-
-```Javascript
-const Tuple = (...args) =>
-  ({runTuple: k => k(...args), [Symbol.toStringTag]: "Tup"});
-
-const runTuple = f => t =>
-  t.runTuple(f);
-
-const tup = Tuple(9, "foo", true);
-
-runTuple((_, s) => s.toUpperCase()) // functional pattern matching
-  (tup); // "FOO"
-```
-However, with function encodings you lose a lot of language constructs like destructuring assignment or bracket/dot notation and as a result your code is less idiomatic. For this reason scriptum tries to avoid function encodings when more common encodings are available.
-
-### Algebraic Data Types
-
-Javascript doesn't provide unions, hence we have to define them ourselves. scriptum uses a function encoding (namely Scott encoding) to simulate tagged unions, which can be handled almost exactly like their native counterparts:
+You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the latter can express sums of products the former can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
 
 ```Javascript
 const Type = Tcons => (tag, Dcons) => {
