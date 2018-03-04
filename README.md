@@ -160,9 +160,9 @@ map(inc) (append(xs) (ys)); // type error
 
 ## Extended Types
 
-scriptum introduces a couple of new data types through various techniques.
+scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them and demonstrate two of their properties that are rather uncommon for untyped Javascript.
 
-### Subtyping
+### By Subtyping
 
 The following extended types are subtypes that inherit exotic behavior of their native prototypes. They are constructed by smart constrcutors:
 
@@ -171,7 +171,7 @@ The following extended types are subtypes that inherit exotic behavior of their 
 * Rec (record)
 * Tup (tuple)
 
-### Proxies
+### By Proxies
 
 The following extended types appear to Javascript's runtime type system like the corresponding native types but contain augmented behavior through `Proxy`s. In this way we can save conversion effort:
 
@@ -179,9 +179,9 @@ The following extended types appear to Javascript's runtime type system like the
 * _Map (homogeneous `Map`)
 * _Set (homogeneous `Set`)
 
-### Algebraic Data Types
+### By Function Encodings
 
-The following extended types are function encoded and simulate ADTs. scriptum uses the less known Scott encoding:
+The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
 * Const (constant computation)
 * Cont (continuation)
@@ -200,11 +200,17 @@ The following extended types are function encoded and simulate ADTs. scriptum us
 
 ### Type Coersion
 
-When an extended data type is implicitly converted, it throws a type error. Explicit type conversions are allowed, though:
+When an extended type is implicitly converted, it throws a type error:
 
 ```Javascript
 const t = Tup(1, "foo");
 t + ""; // type error
+```
+
+Explicit type conversions are allowed, though:
+
+```Javascript
+const t = Tup(1, "foo");
 t.toString() + ""; // "1,foo"
 ```
 ### Restricted Mutability
@@ -235,7 +241,7 @@ delete xs[0]; // type error (index gap)
 ```
 ## Custom Types
 
-You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the latter can express sums of products the former can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
+You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
 
 ```Javascript
 const Type = Tcons => (tag, Dcons) => {
