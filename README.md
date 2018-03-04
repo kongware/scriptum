@@ -268,43 +268,36 @@ runOption({Some: uc, None: ""}) (y); // ""
 ```
 With Scott encoded tagged unions we can also express products, sums of products, recursive and even mutual recursive types. If we treat and manipulate them algebraically by obeying some mathematical laws, they are also called algebraic data types.
 
-### Subtyping
-
-When you need a custom type that includes exotic `Object` behavior you need to fall back to subtyping and smart constructors:
-
-```Javascript
-class Nat extends Number {
-  constructor(n) {
-    super(n);
-
-    if (typeof n !== "number"
-    || n % 1 !== 0
-    || n < 0)
-      throw new TypeError("Natural number expected");
-
-  }
-} {
-  const Nat_ = Nat;
-
-  Nat = function(c) {
-    return new Nat_(c);
-  };
-
-  Nat.prototype = Nat_.prototype;
-}
-```
-The above pattern is used to avoid the use of `new` during instantiation.
-
 ## Handling Effects
 
-scriptum's stategy to handle effects in a safer manner consists of two approaches:
+scriptum's stategy to handle effects in a safer manner comprises two approaches:
 
 * defer effectful computations at the last possible moment
 * wrap each individual effect into its own type
 
 The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset, which are a perferct match for this job.
 
-There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O. I will either use CPS transformer along with an error monad or a certain type `Aff` specifically for asynchronous effects.
+There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O, though. I will either use a CPS transformer along with an error monad or a particular type `Aff` specifically for asynchronous effects.
+
+Here is a contrieved example for a syncrhnous real world interaction:
+
+```Javascript
+const append = s => t =>
+  s.concat(t);
+
+const id = x => x;
+
+const prompt = Eff(() => window.prompt());
+
+const tx = ap(
+  map(append) (prompt))
+    (prompt);
+    
+// run the effectul computation
+
+runEff(id) (tx);
+```
+The computation collects two user inputs and concatenates them. The program remains pure until we actually run the effectful portion.
 
 ## Typeclasses
 
