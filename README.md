@@ -302,7 +302,7 @@ scriptum's stategy to handle effects in a safer manner consists of two approache
 * defer effectful computations at the last possible moment
 * wrap each individual effect into its own type
 
-The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset you are a perferct match for this job.
+The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset, which are a perferct match for this job.
 
 There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O. I will either use CPS transformer along with an error monad or a certain type `Aff` specifically for asynchronous effects.
 
