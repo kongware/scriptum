@@ -1177,8 +1177,8 @@ const Eff = Data(function Eff() {}) (Eff => thunk => Eff(thunk));
 
 
 // run effect
-// Eff (() -> a) -> (a -> b) -> b
-const runEff = tf => f => tf.runEff(f);
+// (a -> b) -> Eff (() -> a) -> b
+const runEff = f => tf => f(tf.runEff());
 
 
 /***[Functor]*****************************************************************/
@@ -1186,7 +1186,13 @@ const runEff = tf => f => tf.runEff(f);
 
 // map
 // (a -> b) -> Eff (() -> a) -> Eff (() -> b)
-Eff.map = f => tx => Eff(() => tx.runEff(g => f(g())));
+Eff.map = f => tx => Eff(() => f(tx.runEff()));
+
+
+/***[Chain]*******************************************************************/
+
+
+Eff.chain = mx => fm => Eff(() => fm(mx.runEff()).runEff());
 
 
 /******************************************************************************
@@ -1341,6 +1347,7 @@ Object.assign(
     recur,
     rotateL,
     rotateR,
+    runEff,
     tap,
     Tup,
     Type,
