@@ -18,9 +18,23 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
+// guarded flag
+// Boolean
 const GUARDED = true;
 
 
+// maximal record size
+// Number
+const MAX_REC_SIZE = 16;
+
+
+// maximal tuple size
+// Number
+const MAX_TUP_SIZE = 8;
+
+
+// symbol prefix
+// String
 const SYM_PREFIX = "github.com/kongware/scriptum";
 
 
@@ -36,7 +50,7 @@ const SYM_PREFIX = "github.com/kongware/scriptum";
 ******************************************************************************/
 
 
-// augment a curried, multi-argument or variadic function
+// guard function
 // default export
 // untyped
 const $ = (name, f) => {
@@ -49,7 +63,7 @@ const $ = (name, f) => {
 };
 
 
-// handle function
+// handle guarded function
 // proxy handler
 // untyped
 const handleF = (name, f, log, {nthCall}) => {
@@ -100,7 +114,7 @@ const handleF = (name, f, log, {nthCall}) => {
 ******************************************************************************/
 
 
-// getTypeTag
+// get type constructor
 // a -> String
 const getTypeTag = x => {
   const tag = Object.prototype.toString.call(x);
@@ -108,7 +122,7 @@ const getTypeTag = x => {
 };
 
 
-// typeCheck
+// type check
 // untyped
 const typeCheck = Cons => f => x => {
   const t = introspect(x),
@@ -152,7 +166,9 @@ const introspect = x => {
         case "Array": return introspectArr(x);
         case "Map": return introspectMap(x);
         case "Null": return tag;
+        case "Record": return introspectRec(x);
         case "Set": return introspectSet(x);
+        case "Tuple": return introspectTup(x);
         default: return introspectObj(x) (tag);
       }
     }
@@ -164,10 +180,10 @@ const introspect = x => {
 };
 
 
-// introspect Array
+// introspect array
 // Array -> String
 const introspectArr = xs => {
-  if (xs.length <= 8) {
+  if (xs.length <= MAX_TUP_SIZE) {
     const [s, ts] = xs.reduce(([s, ts], x) => {
       x = introspect(x);
       return [s.add(x), ts.concat(x)];
@@ -189,7 +205,7 @@ const introspectArr = xs => {
 };
 
 
-// introspect Map
+// introspect map
 // Map -> String
 const introspectMap = m => {
   const s = new Set();
@@ -204,13 +220,13 @@ const introspectMap = m => {
 };
 
 
-// introspect Object
+// introspect object
 // Object -> String
 const introspectObj = o => tag => {
   if (tag === "Object") {
     const ks = Object.keys(o);
 
-    if (ks.length <= 16) {
+    if (ks.length <= MAX_REC_SIZE) {
       const [s, ts] = ks.reduce(([s, ts], k) => {
         const v = introspect(o[k]);
         return [s.add(`${k}: ${v}`), ts.concat(`${k}: ${v}`)];
@@ -235,7 +251,22 @@ const introspectObj = o => tag => {
 };
 
 
-// introspect Set
+// introspect record
+// Record -> String
+const introspectRec = r => {
+  if (r.length > MAX_REC_SIZE) return "Record<?>";
+
+  else {
+    const r_ = Object.keys(r)
+      .map(k => introspect(`${k}: ${r[k]}`)
+      .join(", "));
+
+    return `Record<${r_}>`;
+  }
+};
+
+
+// introspect set
 // Set -> String
 const introspectSet = s => {
   const s_ = new Set();
@@ -250,12 +281,20 @@ const introspectSet = s => {
 };
 
 
+// introspect tuple
+// Tuple -> String
+const introspectTup = t => {
+  if (t.length > MAX_TUP_SIZE) return "Tuple<?>";
+  else return `Tuple<${t.map(t_ => introspect(t_).join(", "))}>`;
+};
+
+
 /******************************************************************************
 ******************************[ Guarding Errors ]******************************
 ******************************************************************************/
 
 
-// ArgTypeError
+// argument type error
 // String -> ArgTypeError
 class ArgTypeError extends Error {
   constructor(s) {
@@ -265,7 +304,7 @@ class ArgTypeError extends Error {
 };
 
 
-// ReturnTypeError
+// return type error
 // String -> ReturnTypeError
 class ReturnTypeError extends Error {
   constructor(s) {
@@ -298,17 +337,21 @@ class ReturnTypeError extends Error {
 /***[Namespace]***************************************************************/
 
 
-// Boolean namespace
+// boolean namespace
 // Object
 const Boo = {};
 
 
 /***[Bounded]*****************************************************************/
 
-  
+
+// minimal bound
+// Boolean
 Boo.minBound = false;
   
 
+// maximal bound
+// Boolean
 Boo.maxBound = true;
 
 
@@ -586,7 +629,7 @@ const recur = (...args) =>
 /***[Namespace]***************************************************************/
 
 
-// Function namespace
+// function namespace
 // Object
 const Fun = {};
 
@@ -610,7 +653,7 @@ const Fun = {};
 /***[Namespace]***************************************************************/
 
 
-// Number namespace
+// number namespace
 // Object
 const Num = {};
 
@@ -623,7 +666,7 @@ const Num = {};
 /***[Namespace]***************************************************************/
 
 
-// Object namespace
+// object namespace
 // Object
 const Obj = {};
 
@@ -655,7 +698,7 @@ const capitalize = $(
 /***[Namespace]***************************************************************/
 
 
-// String namespace
+// string namespace
 // Object
 const Str = {};
 
@@ -701,6 +744,9 @@ class Char extends String {
 }
 
 
+Char.prototype[Symbol.toStringTag] = "Char";
+
+
 Char.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nChar is coerced to ${capitalize(hint)}`
@@ -713,14 +759,12 @@ Char.prototype[Symbol.toPrimitive] = hint => {
 
 
 // minimal bound
-// constant
-// String
+// Char
 Char.minBound = Char("\u{0}");
 
 
 // maximal bound
-// constant
-// String
+// Char
 Char.maxBound = Char("\u{10FFFF}");
 
 
@@ -729,7 +773,7 @@ Char.maxBound = Char("\u{10FFFF}");
 ******************************************************************************/
 
 
-// Float constructor
+// float constructor
 // Number -> Float
 class Float extends Number {
   constructor(n) {
@@ -753,6 +797,9 @@ class Float extends Number {
 }
 
 
+Float.prototype[Symbol.toStringTag] = "Float";
+
+
 Float.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nFloat is coerced to ${capitalize(hint)}`
@@ -766,7 +813,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 ******************************************************************************/
 
 
-// Int constructor
+// integer constructor
 // Number -> Int
 class Int extends Number {
   constructor(n) {
@@ -795,6 +842,9 @@ class Int extends Number {
 }
 
 
+Int.prototype[Symbol.toStringTag] = "Int";
+
+
 Int.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nInt is coerced to ${capitalize(hint)}`
@@ -807,13 +857,11 @@ Int.prototype[Symbol.toPrimitive] = hint => {
 
 
 // minimal bound
-// constant
 // Int
 Int.minBound = Int(Number.MIN_SAFE_INTEGER);
 
 
 // maximal bound
-// constant
 // Int
 Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
@@ -823,7 +871,7 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 ******************************************************************************/
 
 
-// Record constructor
+// record constructor
 // Object -> Record
 class Rec extends Object {
   constructor(o) {
@@ -849,6 +897,9 @@ class Rec extends Object {
 }
 
 
+Rec.prototype[Symbol.toStringTag] = "Record";
+
+
 Rec.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nRec is coerced to ${capitalize(hint)}`
@@ -862,8 +913,8 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 ******************************************************************************/
 
 
-// Tuple constructor
-// (...Array) -> Tup
+// tuple constructor
+// (...Array) -> Tuple
 class Tup extends Array {
   constructor(...args) {
     if (args.length === 1) {
@@ -891,6 +942,9 @@ class Tup extends Array {
 }
 
 
+Tup.prototype[Symbol.toStringTag] = "Tuple";
+
+
 Tup.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nTup is coerced to ${capitalize(hint)}`
@@ -911,6 +965,8 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 ******************************************************************************/
 
 
+// homogeneous array contrcutor
+// Array -> Array
 const Arr = xs => {
   if (GUARDED) {
     if (!Array.isArray(xs)) throw new ArgTypeError(
@@ -932,6 +988,8 @@ const Arr = xs => {
 };
 
 
+// handle homogeneous array
+// String -> Proxy
 const handleArr = t => ({
   get: (xs, i, p) => {
     switch (i) {
@@ -966,6 +1024,8 @@ const handleArr = t => ({
 });
 
 
+// set array
+// ([a], Number, {value: a}, {mode: String} => [a]
 const setArr = (xs, i, d, t, {mode}) => {
   if (String(Number(i)) === i) {
     if (Number(i) > xs.length) throw new ArgTypeError(
@@ -999,38 +1059,60 @@ const setArr = (xs, i, d, t, {mode}) => {
 
 
 /******************************************************************************
+***********************************[ _Set ]************************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
 *******************************************************************************
 ***************************[ ALGEBRAIC DATA TYPES ]****************************
 *******************************************************************************
 ******************************************************************************/
 
 
-// ADT with several data constructors
+// adt with several data constructors
 // untyped
 const Type = $(
   "Type",
-  Tcons => (tag, Dcons) => {
-    const t = new Tcons();
-    t[`run${Tcons.name}`] = cases => Dcons(cases);
-    t.tag = tag;
-    return t;
+  Tcons => {
+    const Type = (tag, Dcons) => {
+      const t = new Tcons();
+      t[`run${Tcons.name}`] = cases => Dcons(cases);
+      t.tag = tag;
+      return t;
+    };
+
+    Tcons.prototype[Symbol.toStringTag] = Tcons.name;
+    return Type;
   }
 );
 
 
-// ADT with single data constructor
+// adt with single data constructor
 // untyped
 const Data = $(
   "Data",
-  Tcons => Dcons => {
-    const Data = x => {
-      const t = new Tcons();
-      t[`run${Tcons.name}`] = x;
-      t.tag = Tcons.name
-      return t;
+  Tcons => {
+    const Data = Dcons => {
+      const Data = x => {
+        const t = new Tcons();
+        t[`run${Tcons.name}`] = x;
+        t.tag = Tcons.name
+
+        if (GUARDED)
+          t.sig = `${Tcons.name}<${introspect(x)}>`;
+        
+        return t;
+      };
+
+      return Dcons(Data);
     };
 
-    return Dcons(Data);
+    Tcons.prototype[Symbol.toStringTag] = Tcons.name;
+    return Data;
   }
 );
 
@@ -1048,15 +1130,23 @@ const Data = $(
 ******************************************************************************/
 
 
+// comparator type constructor
+// Function -> Function
 const Comparator = Type(function Comparator() {});
 
 
+// lower than data constructor
+// Comparator
 const LT = Comparator("LT", cases => cases.LT);
 
 
+// equal data constructor
+// Comparator
 const EQ = Comparator("EQ", cases => cases.EQ);
 
 
+// greater than data constructor
+// Comparator
 const GT = Comparator("GT", cases => cases.GT);
 
 
@@ -1064,13 +1154,11 @@ const GT = Comparator("GT", cases => cases.GT);
 
 
 // minimal bound
-// constant
 // Comparator
 Comparator.minBound = LT;
 
 
 // maximal bound
-// constant
 // Comparator
 Comparator.maxBound = GT;
 
@@ -1093,6 +1181,8 @@ const runEff = tf => f => tf.runEff(f);
 /***[Functor]*****************************************************************/
 
 
+// map
+// (a -> b) -> Eff (() -> a) -> Eff (() -> b)
 Eff.map = f => tx => Eff(() => tx.runEff(g => f(g())));
 
 
@@ -1103,14 +1193,16 @@ Eff.map = f => tx => Eff(() => tx.runEff(g => f(g())));
 ******************************************************************************/
 
 
+// type classes
+// Map
 const typeClasses = new Map([
-  // built-in typeclasses
   ["Bounded", ["minBound", "maxBound"]]
 ]);
 
 
+// instances
+// Map
 const instances = new Map([
-  // built-in typeclass instances
   ["Bounded Boolean", {minBound: Boo.minBound, maxBound: Boo.maxBound}],
   ["Bounded Char", {minBound: Char.minBound, maxBound: Char.maxBound}],
   ["Bounded Comparator", {minBound: Comparator.minBound, maxBound: Comparator.maxBound}],
@@ -1118,6 +1210,8 @@ const instances = new Map([
 ]);
 
 
+// type dictionary
+// String -> String -> Function
 const typeDict = _class => {
   const f = tag => instances.get(`${_class} ${tag}`),
     ops = typeClasses.get(_class);
@@ -1148,7 +1242,7 @@ const typeDict = _class => {
 ******************************************************************************/
 
 
-// TypeCoercionError
+// type coercion error
 // String -> TypeCoercionError
 class TypeCoercionError extends Error {
   constructor(s) {
@@ -1228,11 +1322,13 @@ Object.assign(
     fix,
     flip,
     Float,
+    getTypeTag,
     guard,
     GT,
     id,
     infix,
     Int,
+    introspect,
     join,
     loop,
     LT,
