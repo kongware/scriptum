@@ -1225,6 +1225,7 @@ const Data = $(
         return t;
       };
 
+      // return $(Tcons.name, Dcons(Data)); ???
       return Dcons(Data);
     };
 
@@ -1292,7 +1293,10 @@ const Eff = Data(function Eff() {}) (Eff => thunk => Eff(thunk));
 
 // run effect
 // (a -> b) -> Eff (() -> a) -> b
-const runEff = f => tf => f(tf.runEff());
+const runEff = $(
+  "runEff",
+  f => tf => f(tf.runEff())
+);
 
 
 /***[Functor]*****************************************************************/
@@ -1300,7 +1304,11 @@ const runEff = f => tf => f(tf.runEff());
 
 // map
 // (a -> b) -> Eff (() -> a) -> Eff (() -> b)
-Eff.map = f => tx => Eff(() => f(tx.runEff()));
+Eff.map = $(
+  "map",
+  f => tx =>
+    Eff(() => f(tx.runEff()))
+);
 
 
 /***[Applicative]*************************************************************/
@@ -1308,7 +1316,11 @@ Eff.map = f => tx => Eff(() => f(tx.runEff()));
 
 // apply
 // Eff (() -> (a -> b)) -> Eff (() -> a) -> Eff (() -> b)
-Eff.ap = tf => tx => Eff(() => tf.runEff() (tx.runEff()));
+Eff.ap = $(
+  "ap",
+  tf => tx =>
+    Eff(() => tf.runEff() (tx.runEff()))
+);
 
 
 /***[Chain]*******************************************************************/
@@ -1316,7 +1328,11 @@ Eff.ap = tf => tx => Eff(() => tf.runEff() (tx.runEff()));
 
 // chain
 // Eff (() -> a) -> (a -> Eff (() -> b)) -> Eff (() -> b)
-Eff.chain = mx => fm => Eff(() => fm(mx.runEff()).runEff());
+Eff.chain = $(
+  "chain",
+  mx => fm =>
+    Eff(() => fm(mx.runEff()).runEff())
+);
 
 
 /******************************************************************************
@@ -1345,20 +1361,23 @@ const instances = new Map([
 
 // type dictionary
 // String -> String -> Function
-const typeDict = _class => {
-  const f = tag => instances.get(`${_class} ${tag}`),
-    ops = typeClasses.get(_class);
+const typeDict = $(
+  "typeDict",
+  _class => {
+    const f = tag => instances.get(`${_class} ${tag}`),
+      ops = typeClasses.get(_class);
 
-  ops.forEach(op => {
-    f[op] = x => {
-      const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
-      if (typeof r === "function") return r(x);
-      else return r;
-    }
-  });
+    ops.forEach(op => {
+      f[op] = x => {
+        const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
+        if (typeof r === "function") return r(x);
+        else return r;
+      }
+    });
 
-  return f;
-};
+    return f;
+  }
+);
 
 
 /******************************************************************************
@@ -1375,6 +1394,41 @@ const typeDict = _class => {
 ******************************************************************************/
 
 
+// replace nested types
+// String -> String
+const replaceNestedTypes = $(
+  "replaceNestedTypes",
+  s => {
+    const aux = s_ => {
+      const t = s_.replace(/\[[^\[\]]*\]/g, "_")
+        .replace(/\{[^{}}]*\}/g, "_")
+        .replace(/\<[^<>]*\>/g, "_");
+
+      if (t === s_) return t;
+      else return aux(t);
+    };
+
+    const xs = s.match(/^[\[{<]|[\]}>]$/g);
+    if (xs.length === 0) return aux(s);
+    else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
+  }
+);
+
+
+// stringify
+// internal
+// a -> String
+const stringify = $(
+  "stringify",
+  x => {
+    switch (typeof x) {
+      case "string": return `"${x}"`;
+      default: return String(x);
+    }
+  }
+);
+
+
 // type coercion error
 // String -> TypeCoercionError
 class TypeCoercionError extends Error {
@@ -1385,39 +1439,13 @@ class TypeCoercionError extends Error {
 };
 
 
-// replace nested types
-// String -> String
-const replaceNestedTypes = s => {
-  const aux = s_ => {
-    const t = s_.replace(/\[[^\[\]]*\]/g, "_")
-      .replace(/\{[^{}}]*\}/g, "_")
-      .replace(/\<[^<>]*\>/g, "_");
-
-    if (t === s_) return t;
-    else return aux(t);
-  };
-
-  const xs = s.match(/^[\[{<]|[\]}>]$/g);
-  if (xs.length === 0) return aux(s);
-  else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
-};
-
-
-// stringify
-// internal
-// a -> String
-const stringify = x => {
-  switch (typeof x) {
-    case "string": return `"${x}"`;
-    default: return String(x);
-  }
-};
-
-
 // underline
 // [Number] -> String
-const underline = ([n, m]) =>
-  Array(n + 1).join(" ") + Array(m - n + 1).join("^");
+const underline = $(
+  "underline",
+  ([n, m]) =>
+    Array(n + 1).join(" ") + Array(m - n + 1).join("^")
+);
 
 
 /******************************************************************************
