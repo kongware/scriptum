@@ -209,13 +209,8 @@ const introspectArr = xs => {
 // Map -> String
 const introspectMap = m => {
   const s = new Set();
-
-  m.forEach((v, k) => {
-    v = introspect(v);
-    s.add(`${k}, ${v}`);
-  });
-
-  if (m.size === 1) return `Map<${Array.from(s) [0]}>`;
+  m.forEach((v, k) => s.add(`${introspect(k)}, ${introspect(v)}`));
+  if (s.size === 1) return `Map<${Array.from(s) [0]}>`;
   else return `Map<?>`;
 };
 
@@ -270,12 +265,7 @@ const introspectRec = r => {
 // Set -> String
 const introspectSet = s => {
   const s_ = new Set();
-
-  s.forEach(k => {
-    k = introspect(k);
-    s_.add(k);
-  });
-
+  s.forEach(k => s_.add(introspect(k)));
   if (s_.size === 1) return `Set<${Array.from(s_) [0]}>`;
   else return `Set<?>`;
 };
@@ -965,8 +955,8 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 ******************************************************************************/
 
 
-// homogeneous array contrcutor
-// Array -> Array
+// homogeneous array constructor
+// Array -> Proxy
 const Arr = xs => {
   if (GUARDED) {
     if (!Array.isArray(xs)) throw new ArgTypeError(
@@ -978,7 +968,7 @@ const Arr = xs => {
 
     if (replaceNestedTypes(t).search(/\?|,/) !== -1) throw new ArgTypeError(
       "\n\nArr expects homogeneous Array"
-      + `\nvalue of type ${introspect(xs)} received`
+      + `\nvalue of type ${t} received`
       + "\n");
 
     else return new Proxy(xs, handleArr(t));
@@ -1035,7 +1025,7 @@ const setArr = (xs, i, d, t, {mode}) => {
       + `\nArr must not contain index gaps`
       + "\n");
 
-    else if (t !== `[${introspect(d.value)}]`) throw new ArgTypeError(
+    else if (`[${introspect(d.value)}]` !== t) throw new ArgTypeError(
       "\n\nillegal element setting of"
       + `\n\n${t}`
       + `\n${underline([1, t.length - 1])}`
@@ -1055,7 +1045,57 @@ const setArr = (xs, i, d, t, {mode}) => {
 ******************************************************************************/
 
 
-// TODO
+// homogeneous map constructor
+// Map -> Proxy
+const _Map = m => {
+  if (GUARDED) {
+    if (getTypeTag(m) !== "Map") throw new ArgTypeError(
+      "\n\n_Map expects Map type"
+      + `\nvalue of type ${introspect(m)} received`
+      + "\n");
+
+    const t = introspect(m);
+
+    if (t === "Map<?>") throw new ArgTypeError(
+      "\n\n_Map expects homogeneous Map"
+      + `\nvalue of type ${t} received`
+      + "\n");
+
+    else return new Proxy(m, handleMap(t));
+  }
+  
+  else return m;
+};
+
+
+// handle homogeneous map
+// String -> Proxy
+const handleMap = t => ({
+  get: (m, k, p) => {
+    switch (k) {
+      case Symbol.toPrimitive: return hint => {
+        throw new TypeCoercionError(
+          `\n\n_Map is coerced to ${capitalize(hint)}`
+          + "\nillegal implicit type conversion"
+          + "\n");
+      };
+
+      case "set": return (k, v) => {
+        if (`Map<${introspect(k)}, ${introspect(v)}>` !== t) throw new ArgTypeError(
+          "\n\nillegal element setting of"
+          + `\n\n${t}`
+          + `\n${underline([4, t.length - 1])}`
+          + `\n\n${introspect(v)} at key ${k} received`
+          + "\nMap must be homogeneous"
+          + "\n");
+
+        else return m.set(k, v);
+      }
+
+      default: return k => m.get(k);
+    }
+  },
+});
 
 
 /******************************************************************************
@@ -1063,7 +1103,57 @@ const setArr = (xs, i, d, t, {mode}) => {
 ******************************************************************************/
 
 
-// TODO
+// homogeneous set constructor
+// Set -> Proxy
+const _Set = s => {
+  if (GUARDED) {
+    if (getTypeTag(s) !== "Set") throw new ArgTypeError(
+      "\n\n_Set expects Set type"
+      + `\nvalue of type ${introspect(s)} received`
+      + "\n");
+
+    const t = introspect(s);
+
+    if (t === "Set<?>") throw new ArgTypeError(
+      "\n\n_Set expects homogeneous Set"
+      + `\nvalue of type ${t} received`
+      + "\n");
+
+    else return new Proxy(s, handleSet(t));
+  }
+  
+  else return s;
+};
+
+
+// handle homogeneous set
+// String -> Proxy
+const handleSet = t => ({
+  get: (s, k, p) => {
+    switch (i) {
+      case Symbol.toPrimitive: return hint => {
+        throw new TypeCoercionError(
+          `\n\n_Set is coerced to ${capitalize(hint)}`
+          + "\nillegal implicit type conversion"
+          + "\n");
+      };
+
+      case "set": return k => {
+        if (`Set<${introspect(k)}>` !== t) throw new ArgTypeError(
+          "\n\nillegal element setting of"
+          + `\n\n${t}`
+          + `\n${underline([1, t.length - 1])}`
+          + `\n\n${introspect(k)} received`
+          + "\nSet must be homogeneous"
+          + "\n");
+
+        else return s.add(k);
+      }
+
+      default: return k => s[k];
+    }
+  },
+});
 
 
 /******************************************************************************
@@ -1351,6 +1441,7 @@ Object.assign(
     join,
     loop,
     LT,
+    _Map,
     omega,
     on,
     Rec,
@@ -1358,6 +1449,7 @@ Object.assign(
     rotateL,
     rotateR,
     runEff,
+    _Set,
     tap,
     Tup,
     Type,

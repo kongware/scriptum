@@ -162,7 +162,7 @@ map(inc) (append(xs) (ys)); // type error
 
 scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them and demonstrate two of their key characteristics that are rather uncommon for untyped Javascript.
 
-### By Subtyping
+### Subtyping
 
 The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are constructed by smart constrcutors:
 
@@ -171,7 +171,7 @@ The following extended types are subtypes that inherit exotic behavior from thei
 * Rec (record)
 * Tup (tuple)
 
-### By Proxying
+### Proxying
 
 The following extended types appear to Javascript's runtime type system like the corresponding native types but contain augmented behavior through `Proxy`s. In this way we can save conversion effort:
 
@@ -179,7 +179,7 @@ The following extended types appear to Javascript's runtime type system like the
 * _Map (homogeneous `Map`)
 * _Set (homogeneous `Set`)
 
-### By Function Encoding
+### Function Encoding
 
 The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
