@@ -55,8 +55,15 @@ const SYM_PREFIX = "github.com/kongware/scriptum";
 // untyped
 const $ = (name, f) => {
   if (GUARDED) {
-    Reflect.defineProperty(f, "name", {value: name});
-    return new Proxy(f, handleF(name, f, [], {nthCall: 0}))
+    if (name.search(/\.\.\./) === 0) {
+      Reflect.defineProperty(f, "name", {value: name.slice(3)});
+      return new Proxy(f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0}));
+    }
+
+    else {
+      Reflect.defineProperty(f, "name", {value: name});
+      return new Proxy(f, handleF(name, f, [], {params: "fix", nthCall: 0}));
+    }
   }
 
   else return f;
@@ -66,9 +73,16 @@ const $ = (name, f) => {
 // handle guarded function
 // proxy handler
 // untyped
-const handleF = (name, f, log, {nthCall}) => {
+const handleF = (name, f, log, {params, nthCall}) => {
   return {
     apply: (g, _, args) => {
+      if (params === "fix" && g.length !== args.length) throw new ArityError(
+        `\n\n${name} expects ${g.length} argument(s)`
+        + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
+        + `\n\nin the ${nthCall + 1}. call of ${name}`
+        + `\n\ninvalid function call arity`
+        + "\n");
+
       const argTypes = args.map((arg, nthArg) =>
         typeCheck(ArgTypeError)
           (t => illTyped => fromTo => `\n\n${name} received an argument of type`
@@ -290,6 +304,16 @@ class ArgTypeError extends Error {
   constructor(s) {
     super(s);
     Error.captureStackTrace(this, ArgTypeError);
+  }
+};
+
+
+// arity error
+// String -> ArityError
+class ArityError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, ArityError);
   }
 };
 

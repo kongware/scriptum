@@ -53,7 +53,7 @@ Or variadic ones:
 
 ```Javascript
 const sum = $(
-  "sum",
+  "...sum",
   (...ns) => ns.reduce((acc, n) => acc + n, 0);
 );
 ```
@@ -74,6 +74,32 @@ append([{foo: 1}, {foo: 2}])
 ```
 As you can see this applies to arbitrarily nested values too.
 
+### Strict Arity
+
+scriptum enforces strict function call arity:
+
+```Javascript
+const add = $(
+  "add",
+  (m, n) => m + n
+);
+
+add(2); // type error
+add(2, 3); // 5
+add(2, 3, 4); // type error
+```
+If you want to declare variadic functions you can bypass strict arity checking by prefixing `...` to the function name:
+
+```Javascript
+const sum = $(
+  "...sum",
+  (...ns) => ns.reduce((acc, n) => acc + n, 0);
+);
+
+sum(); // 0
+sum(2); // 2
+sum(2, 3); // 5
+```
 ### Anonymous Functions
 
 In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name.
@@ -279,7 +305,7 @@ The first approach separates impure from pure computations and the second makes 
 
 There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O, though. I will either use a CPS transformer along with an error monad or a particular type `Aff` specifically for asynchronous effects.
 
-Here is a contrieved example for a syncrhnous real world interaction:
+Here is a contrieved example for a synchronous real world interaction:
 
 ```Javascript
 const append = s => t =>
@@ -297,7 +323,7 @@ const tx = ap(
 
 runEff(id) (tx);
 ```
-The computation collects two user inputs and concatenates them. The program remains pure until we actually run the effectful portion.
+The computation collects two user inputs and concatenates them. The program remains pure until the effectful portion is actually run.
 
 ## Typeclasses
 
