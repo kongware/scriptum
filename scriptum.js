@@ -184,14 +184,18 @@ const introspect = x => {
     case "object": {
       const tag = getTypeTag(x);
 
-      switch (tag) {
-        case "Array": return introspectArr(x);
-        case "Map": return introspectMap(x);
-        case "Null": return tag;
-        case "Record": return introspectRec(x);
-        case "Set": return introspectSet(x);
-        case "Tuple": return introspectTup(x);
-        default: return introspectObj(x) (tag);
+      if ("sig" in x) return x.sig;
+
+      else {
+        switch (tag) {
+          case "Array": return introspectArr(x);
+          case "Map": return introspectMap(x);
+          case "Null": return tag;
+          case "Record": return introspectRec(x);
+          case "Set": return introspectSet(x);
+          case "Tuple": return introspectTup(x);
+          default: return introspectObj(x) (tag);
+        }
       }
     }
 
@@ -1200,13 +1204,15 @@ const handleSet = t => ({
 const Type = $(
   "Type",
   Tcons => {
-    const Type = (tag, Dcons) => {
+    const Type = (tag, ...args) => Dcons => {
       const t = new Tcons();
       
-      t[`run${Tcons.name}`] =
-        $(`run${Tcons.name}`, cases => Dcons(cases));
-      
+      t[`run${Tcons.name}`] = $(`run${Tcons.name}`, cases => Dcons(cases));
       t.tag = tag;
+
+      if (GUARDED)
+        t.sig = `${Tcons.name}<${introspect(args).slice(1, -1)}>`;
+        
       return t;
     };
 

@@ -260,8 +260,8 @@ You can create your own algebraic data types with both the `Type` and the `Data`
 
 ```Javascript
 const Option = Type(function Option() {});
-const Some = x => Option("Some", o => o.Some(x));
-const None = Option("None", o => o.None);
+const Some = x => Option("Some", x) (o => o.Some(x));
+const None = Option("None") (o => o.None);
 const runOption = dict => tx => tx.runOption(dict);
 
 const safeHead = 
