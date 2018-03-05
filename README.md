@@ -4,30 +4,19 @@
 
 This repo is experimental and still work in progress.
 
-# What
+## What
 
 A type-directed functional library with a focus on purity, abstraction and a mature debugging toolset.
 
-# Why
+## Why
 
 Replacing short-term dynamic type convenience by long-term stability.
 
-# Mission
+## Mission
 
 scriptum encourages you to program in a type-directed style and to consider functional programs as mathematical equations that you can manipulate algebraically. This style facilitates equational reasoning and formal proof.
 
-# Import
-
-Just import scriptum's default export:
-
-```Javascript
-import $ from "./scriptum.js";
-```
-`$` is now both a special operator and namespace for all of scriptum's combinators and functions.
-
-# Features
-
-## Debugging
+# Debugging
 
 At its core scriptum offers a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs.
 
@@ -59,7 +48,7 @@ const sum = $(
 ```
 To safe the cost of function guarding at runtime you can disable this feature for production environments by simply setting the `guarded` flag to `false`.
 
-### Type Invalidation
+## Type Invalidation
 
 A guarded function must neither receive nor return a value of type `undefined`/`NaN`/`Infinity`:
 
@@ -74,7 +63,7 @@ append([{foo: 1}, {foo: 2}])
 ```
 As you can see this applies to arbitrarily nested values too.
 
-### Strict Arity
+## Strict Arity
 
 scriptum enforces strict function call arity:
 
@@ -100,7 +89,7 @@ sum(); // 0
 sum(2); // 2
 sum(2, 3); // 5
 ```
-### Anonymous Functions
+## Anonymous Functions
 
 In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name.
 
@@ -137,7 +126,7 @@ comp(add) (inc) (2).name; // add
 ```
 Since scriptum's guarding feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
 
-### Type Logs
+## Type Logs
 
 scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can verify if an assumed function type matches its real type retrospectively.
 
@@ -184,11 +173,11 @@ map(inc) (append(xs) (ys)); // type error
 ```
 `xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. For this reason please consider `[?]` as an indicator that your code is more likely to break.
 
-## Extended Types
+# Extended Types
 
 scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them and demonstrate two of their key characteristics that are rather uncommon for untyped Javascript.
 
-### Subtyping
+## Subtyping
 
 The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are constructed by smart constrcutors:
 
@@ -197,7 +186,7 @@ The following extended types are subtypes that inherit exotic behavior from thei
 * Rec (record)
 * Tup (tuple)
 
-### Proxying
+## Proxying
 
 The following extended types appear to Javascript's runtime type system like the corresponding native types but contain augmented behavior through `Proxy`s. In this way we can save conversion effort:
 
@@ -205,7 +194,7 @@ The following extended types appear to Javascript's runtime type system like the
 * _Map (homogeneous `Map`)
 * _Set (homogeneous `Set`)
 
-### Function Encoding
+## Function Encoding
 
 The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
@@ -224,7 +213,7 @@ The following extended types are function encoded and simulate algebraic data ty
 * Unique (computation that produces a unique value)
 * Writer (computations that share a global log)
 
-### Type Coersion
+## Type Coersion
 
 When an extended type is implicitly converted, it throws a type error:
 
@@ -239,7 +228,7 @@ Explicit type conversions are allowed, though:
 const t = Tup(1, "foo");
 t.toString() + ""; // "1,foo"
 ```
-### Restricted Mutability
+## Restricted Mutability
 
 Extended types are either immutable
 
@@ -265,7 +254,7 @@ xs[10] = 4; // type error (index gap)
 delete xs[2]; // OK
 delete xs[0]; // type error (index gap)
 ```
-## Custom Types
+# Custom Types
 
 You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
 
@@ -294,7 +283,7 @@ runOption({Some: uc, None: ""}) (y); // ""
 ```
 With Scott encoded tagged unions we can also express products, sums of products, recursive and even mutual recursive types. If we treat and manipulate them algebraically by obeying some mathematical laws, they are also called algebraic data types.
 
-## Handling Effects
+# Effect Handling
 
 scriptum's stategy to handle effects in a safer manner comprises two approaches:
 
@@ -325,7 +314,7 @@ runEff(id) (tx);
 ```
 The computation collects two user inputs and concatenates them. The program remains pure until the effectful portion is actually run.
 
-## Typeclasses
+# Typeclasses
 
 scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a typeclass you must create a corresponding type dictionary:
 
@@ -346,7 +335,7 @@ append([1,2]) ([3,4]); // [1,2,3,4]
 empty(5); // 0
 empty([1, 2, 3, 4]); // []
 ```
-## Linear Data Flow
+# Linear Data Flow
 
 scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
 
@@ -370,7 +359,7 @@ const m = chainN(inc)
  
 m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
 ```
-## Stack-Safe Recursion
+# Stack-Safe Recursion
 
 Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
 
@@ -397,7 +386,14 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
-## Custom Types
+# Import
+
+Just import scriptum's default export:
+
+```Javascript
+import $ from "./scriptum.js";
+```
+`$` is now both a special operator and namespace for all of scriptum's combinators and functions.
 
 # Upcoming Features
 
