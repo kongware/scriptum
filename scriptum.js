@@ -81,26 +81,34 @@ const handleF = (name, f, log, {params, nthCall}) => {
         + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
         + `\n\nin the ${nthCall + 1}. call of ${name}`
         + `\n\ninvalid function call arity`
+        + "\n\nTYPE LOG:"
+        + `\n\n${log}`
         + "\n");
 
       const argTypes = args.map((arg, nthArg) =>
         typeCheck(ArgTypeError)
-          (t => illTyped => fromTo => `\n\n${name} received an argument of type`
+          (t => illTyped => fromTo =>
+            `\n\n${name} received an argument of type`
             + `\n\n${t}`
             + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
             + `\n\nin the ${nthCall + 1}. call of ${name}`
             + `\nin the ${nthArg + 1}. argument of ${name}`
             + `\n\ninvalid type`
+            + "\n\nTYPE LOG:"
+            + `\n\n${log}`
             + "\n") (arg))
               .join(", ");
 
       const r = f(...args);
 
       const retType = typeCheck(ReturnTypeError)
-        (t => illTyped => fromTo => `\n\n${name} returned a value of type`
+        (t => illTyped => fromTo =>
+          `\n\n${name} returned a value of type`
           + `\n\n${t}`
           + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
           + `\n\ninvalid type`
+          + "\n\nTYPE LOG:"
+          + `\n\n${log}`
           + "\n") (r);
 
       if (typeof r === "function") {
