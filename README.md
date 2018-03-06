@@ -414,8 +414,6 @@ import $ from "./scriptum.js";
 
 * [ ] add license
 * [ ] add package.json
-* [ ] add `List` type
-* [ ] implement general Trie functionality from which persistant types can be derived
 
 # Research
 
