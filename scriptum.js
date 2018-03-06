@@ -394,12 +394,18 @@ Boo.maxBound = true;
 
 // equal
 // Boolean -> Boolean -> Boolean
-Boo.eq = b => c => b === c;
+Boo.eq = $(
+  "eq",
+  b => c => b === c
+);
 
 
 // not equal
 // Boolean -> Boolean -> Boolean
-Boo.neq = b => c => b !== c;
+Boo.neq = $(
+  "neq",
+  b => c => b !== c
+);
 
 
 /******************************************************************************
@@ -442,7 +448,7 @@ const chain_ = $(
 // variadic monadic chain
 // untyped
 const chainn = $(
-  "chainN",
+  "chainn",
   g => Object.assign(f => chainn(x => f(g(x)) (x)), {run: g})
 );
 
@@ -482,7 +488,7 @@ const comp2 = $(
 // variadic function composition
 // untyped
 const compn = $(
-  "compN",
+  "compn",
   f => Object.assign(g => $(x => f(g(x))), {run: f})
 );
 
@@ -610,7 +616,7 @@ const on = $(
 // rotate left
 // a -> b -> c -> d) -> b -> c -> a -> d
 const rotatel = $(
-  "rotateL",
+  "rotatel",
   f => y => z => x => f(x) (y) (z)
 );
 
@@ -618,7 +624,7 @@ const rotatel = $(
 // rotate right
 // (a -> b -> c -> d) -> c -> a -> b -> d
 const rotater = $(
-  "rotateR",
+  "rotater",
   f => z => x => y => f(x) (y) (z)
 );
 
@@ -707,12 +713,18 @@ const Num = {};
 
 // equal
 // Number -> Number -> Boolean
-Num.eq = m => n => m === n;
+Num.eq = $(
+  "eq",
+  m => n => m === n
+);
 
 
 // not equal
 // Number -> Number -> Boolean
-Num.neq = m => n => m !== n;
+Num.neq = $(
+  "neq",
+  m => n => m !== n
+);
 
 
 /******************************************************************************
@@ -757,12 +769,18 @@ const Str = {};
 
 // equal
 // String -> String -> Boolean
-Str.eq = s => t => s === t;
+Str.eq = $(
+  "eq",
+  s => t => s === t
+);
 
 
 // not equal
 // String -> String -> Boolean
-Str.neq = s => t => s !== t;
+Str.neq = $(
+  "neq",
+  s => t => s !== t
+);
 
 
 /******************************************************************************
@@ -835,12 +853,18 @@ Char.maxBound = Char("\u{10FFFF}");
 
 // equal
 // Char -> Char -> Boolean
-Char.eq = c => d => c === d;
+Char.eq = $(
+  "eq",
+  c => d => c === d
+);
 
 
 // not equal
 // Char -> Char -> Boolean
-Char.neq = c => d => c !== d;
+Char.neq = $(
+  "neq",
+  c => d => c !== d
+);
 
 
 /******************************************************************************
@@ -888,12 +912,18 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 
 // equal
 // Float -> Float -> Boolean
-Float.eq = f => g => f === g;
+Float.eq = $(
+  "eq",
+  f => g => f === g
+);
 
 
 // not equal
 // Float -> Float -> Boolean
-Float.neq = f => g => f !== g;
+Float.neq = $(
+  "neq",
+  f => g => f !== g
+);
 
 
 /******************************************************************************
@@ -959,12 +989,18 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 // equal
 // Int -> Int -> Boolean
-Int.eq = i => j => i === j;
+Int.eq = $(
+  "eq",
+  i => j => i === j
+);
 
 
 // not equal
 // Int -> Int -> Boolean
-Int.neq = i => j => i !== j;
+Int.neq = $(
+  "eq",
+  i => j => i !== j
+);
 
 
 /******************************************************************************
@@ -1027,17 +1063,20 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 
 // equal
 // Record -> Record -> Boolean
-Rec.eq = r => s => {
-  const ks = Object.keys(r),
-    ls = Object.keys(s);
+Rec.eq = $(
+  "eq",
+  r => s => {
+    const ks = Object.keys(r),
+      ls = Object.keys(s);
 
-  if (ks.length !== ls.length) return false;
+    if (ks.length !== ls.length) return false;
 
-  else return ks.every(k => {
-    if (!(k in ls)) return false;
-    else return eq(r[k]) (l[k]);
-  });
-}
+    else return ks.every(k => {
+      if (!(k in ls)) return false;
+      else return eq(r[k]) (l[k]);
+    });
+  }
+);
 
 
 // not equal
@@ -1108,13 +1147,16 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 
 // equal
 // Tuple -> Tuple -> Boolean
-Tup.eq = xs => ys => {
-  if (xs.length !== ys.length)
-    return false;
+Tup.eq = $(
+  "eq",
+  xs => ys => {
+    if (xs.length !== ys.length)
+      return false;
 
-  else return xs.every((x, n) =>
-    eq(x) (ys[n]));
-};
+    else return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+);
 
 
 // not equal
@@ -1153,12 +1195,18 @@ Null.maxBound = null;
 
 // equal
 // Null -> Null -> Boolean
-Null.eq = _ => __ => true;
+Null.eq = $(
+  "eq",
+  _ => __ => true
+);
 
 
 // not equal
 // Null -> Null -> Boolean
-Null.neq = _ => __ => false;
+Null.neq = $(
+  "neq",
+  _ => __ => false
+);
 
 
 /******************************************************************************
@@ -1263,17 +1311,20 @@ const setArr = (xs, i, d, t, {mode}) => {
 
 // equal
 // Array -> Array -> Boolean
-Arr.eq = xs => ys => {
-  if (xs.length !== ys.length) return false;
-  else if (xs.length === 0) return true;
+Arr.eq = $(
+  "eq",
+  xs => ys => {
+    if (xs.length !== ys.length) return false;
+    else if (xs.length === 0) return true;
 
-  else {
-    const {eq} = Eq(getTypeTag(xs[0]));
+    else {
+      const {eq} = Eq(getTypeTag(xs[0]));
 
-    return xs.every((x, n) =>
-      eq(x) (ys[n]));
+      return xs.every((x, n) =>
+        eq(x) (ys[n]));
+    }
   }
-};
+);
 
 
 // not equal
