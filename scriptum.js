@@ -360,6 +360,14 @@ class ReturnTypeError extends Error {
 ******************************************************************************/
 
 
+// not predicate
+// (a -> Boolean) -> a -> Boolean
+const notp = $(
+  "notp",
+  p => x => !p(x)
+);
+
+
 /***[Namespace]***************************************************************/
 
 
@@ -946,6 +954,19 @@ Int.minBound = Int(Number.MIN_SAFE_INTEGER);
 Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Int -> Int -> Boolean
+Int.eq = i => j => i === j;
+
+
+// not equal
+// Int -> Int -> Boolean
+Int.neq = i => j => i !== j;
+
+
 /******************************************************************************
 **********************************[ Record ]***********************************
 ******************************************************************************/
@@ -986,6 +1007,42 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
     + "\nillegal implicit type conversion"
     + "\n");
 };
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// Record
+//Rec.minBound = ...;
+
+
+// minimal bound
+// Record
+//Rec.maxBound = ...;
+
+
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Record -> Record -> Boolean
+Rec.eq = r => s => {
+  const ks = Object.keys(r),
+    ls = Object.keys(s);
+
+  if (ks.length !== ls.length) return false;
+
+  else return ks.every(k => {
+    if (!(k in ls)) return false;
+    else return eq(r[k]) (l[k]);
+  });
+}
+
+
+// not equal
+// Record -> Record -> Boolean
+Rec.neq = notp(Rec.eq);
 
 
 /******************************************************************************
@@ -1037,13 +1094,32 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 
 
 // minimal bound
-// [a, b]
+// Tuple
 //Tup.minBound = ...;
 
 
 // minimal bound
-// [a, b]
+// Tuple
 //Tup.maxBound = ...;
+
+
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Tuple -> Tuple -> Boolean
+Tup.eq = xs => ys => {
+  if (xs.length !== ys.length)
+    return false;
+
+  else return xs.every((x, n) =>
+    eq(x) (ys[n]));
+};
+
+
+// not equal
+// Tup -> Tup -> Boolean
+Tup.neq = notp(Tup.eq);
 
 
 /******************************************************************************
@@ -1056,7 +1132,7 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 
 // string namespace
 // Object
-const Unit = {};
+const Null = {};
 
 
 /***[Bounded]*****************************************************************/
@@ -1064,12 +1140,12 @@ const Unit = {};
 
 // minimal bound
 // Null
-Unit.minBound = null;
+Null.minBound = null;
 
 
 // minimal bound
 // Null
-Unit.maxBound = null;
+Null.maxBound = null;
 
 
 /***[Eq]**********************************************************************/
@@ -1077,12 +1153,12 @@ Unit.maxBound = null;
 
 // equal
 // Null -> Null -> Boolean
-Unit.eq = _ => __ => true;
+Null.eq = _ => __ => true;
 
 
 // not equal
 // Null -> Null -> Boolean
-Unit.neq = _ => __ => false;
+Null.neq = _ => __ => false;
 
 
 /******************************************************************************
@@ -1187,12 +1263,22 @@ const setArr = (xs, i, d, t, {mode}) => {
 
 // equal
 // Array -> Array -> Boolean
-//Arr.eq = xs => ys => ...;
+Arr.eq = xs => ys => {
+  if (xs.length !== ys.length) return false;
+  else if (xs.length === 0) return true;
+
+  else {
+    const {eq} = Eq(getTypeTag(xs[0]));
+
+    return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+};
 
 
 // not equal
 // Null -> Null -> Boolean
-//Arr.neq = xs => ys => ...;
+Arr.neq = notp(Arr.eq);
 
 
 /******************************************************************************
@@ -1461,7 +1547,23 @@ Eff.chain = $(
 
 
 /******************************************************************************
+***********************************[ Either ]**********************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
 ***********************************[ List ]************************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+***********************************[ Option ]**********************************
 ******************************************************************************/
 
 
@@ -1486,7 +1588,8 @@ Eff.chain = $(
 // type classes
 // Map
 const typeClasses = new Map([
-  ["Bounded", ["minBound", "maxBound"]]
+  ["Bounded", ["minBound", "maxBound"]],
+  ["Eq", ["eq", "neq"]]
 ]);
 
 
@@ -1496,7 +1599,17 @@ const instances = new Map([
   ["Bounded Boolean", {minBound: Boo.minBound, maxBound: Boo.maxBound}],
   ["Bounded Char", {minBound: Char.minBound, maxBound: Char.maxBound}],
   ["Bounded Comparator", {minBound: Comparator.minBound, maxBound: Comparator.maxBound}],
-  ["Bounded Int", {minBound: Int.minBound, maxBound: Int.maxBound}]
+  ["Bounded Int", {minBound: Int.minBound, maxBound: Int.maxBound}],
+  ["Bounded Null", {minBound: Null.minBound, maxBound: Null.maxBound}],
+
+  ["Eq Array", {eq: Arr.eq, neq: Arr.neq}],
+  ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
+  ["Eq Char", {eq: Char.eq, neq: Char.neq}],
+  ["Eq Int", {eq: Int.eq, neq: Int.neq}],
+  ["Eq Null", {eq: Null.eq, neq: Null.neq}],
+  ["Eq Record", {eq: Rec.eq, neq: Rec.neq}],
+  ["Eq String", {eq: Str.eq, neq: Str.neq}],
+  ["Eq Tuple", {eq: Tup.eq, neq: Tup.neq}]
 ]);
 
 
@@ -1519,6 +1632,24 @@ const typeDict = $(
     return f;
   }
 );
+
+
+/***[Bounded]*****************************************************************/
+
+
+const Bounded = typeDict("Bounded");
+
+
+const {minBound, maxBound} = Bounded;
+
+
+/***[Eq]**********************************************************************/
+
+
+const Eq = typeDict("Eq");
+
+
+const {eq, neq} = Eq;
 
 
 /******************************************************************************
@@ -1602,15 +1733,16 @@ Object.assign(
     ap,
     apply,
     Arr,
+    Bounded,
     chain,
     chain_,
-    chainN,
+    chainn,
     Char,
     co,
     co2,
     comp,
     comp2,
-    compN,
+    compn,
     compBoth,
     compSnd,
     cond,
@@ -1621,6 +1753,8 @@ Object.assign(
     Data,
     Eff,
     EQ,
+    Eq,
+    eq,
     fix,
     flip,
     Float,
@@ -1635,12 +1769,16 @@ Object.assign(
     loop,
     LT,
     _Map,
+    maxBound,
+    minBound,
+    neq,
+    notp,
     omega,
     on,
     Rec,
     recur,
-    rotateL,
-    rotateR,
+    rotatel,
+    rotater,
     runEff,
     _Set,
     tap,
