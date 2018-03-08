@@ -39,6 +39,20 @@ const SYM_PREFIX = "github.com/kongware/scriptum";
 
 
 /******************************************************************************
+**********************************[ Symbols ]**********************************
+******************************************************************************/
+
+
+// ADT tag symbol for pattern matching
+// Symbol
+const TAG = Symbol.for(`${SYM_PREFIX}/tag`);
+
+
+// ADT tag symbol for type signature
+const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
+
+
+/******************************************************************************
 *******************************************************************************
 *********************************[ DEBUGGING ]*********************************
 *******************************************************************************
@@ -413,8 +427,8 @@ Boo.neq = $(
 ******************************************************************************/
 
 
-// applicative
-// (a -> b -> c) -> (a -> b) -> a -> c
+// applicative compostion
+// (r -> a -> b) -> (r -> a) -> r -> b
 const ap = $(
   "ap",
   f => g => x => f(x) (g(x))
@@ -429,27 +443,19 @@ const apply = $(
 );
 
 
-// monadic chain
-// (a -> b) -> (b -> a -> c) -> a -> c
+// monadic composition
+// (r -> a) -> (a -> r -> b) -> r -> b
 const chain = $(
   "chain",
   g => f => x => f(g(x)) (x)
 );
 
 
-// flipped monadic chain
-// (b -> a -> c) -> (a -> b) -> a -> c
+// flipped monadic composition
+// (a -> r -> b) -> (r -> a) -> r -> b
 const chain_ = $(
   "chain_",
   f => g => x => f(g(x)) (x)
-);
-
-
-// variadic monadic chain
-// untyped
-const chainn = $(
-  "chainn",
-  g => Object.assign(f => chainn(x => f(g(x)) (x)), {run: g})
 );
 
 
@@ -477,19 +483,11 @@ const comp = $(
 );
 
 
-// function composition of inner binary function
+// binary function composition
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
 const comp2 = $(
   "comp2",
   f => g => x => y => f(g(x) (y))
-);
-
-
-// variadic function composition
-// untyped
-const compn = $(
-  "compn",
-  f => Object.assign(g => compn(x => f(g(x))), {run: f})
 );
 
 
@@ -501,7 +499,7 @@ const compBoth = $(
 )
 
 
-// function compostion in the second argument
+// compostion in the 2nd argument
 // (a -> c -> d) -> (b -> c) -> a -> b -> d
 const compSnd = $(
   "compSnd",
@@ -673,7 +671,7 @@ const loop = $(
 
 
 // recursive call
-// not GUARDED
+// not guarded
 // untyped
 const recur = (...args) =>
   ({type: recur, args});
@@ -685,6 +683,54 @@ const recur = (...args) =>
 // function namespace
 // Object
 const Fun = {};
+
+
+/***[Functor]*****************************************************************/
+
+
+// function composition
+// (b -> c) -> (a -> b) -> a -> c
+Fun.map = comp;
+
+
+// variadic function composition
+// untyped
+Fun.mapn = $(
+  "mapn",
+  f => Object.assign(g => Fun.mapn(x => f(g(x))), {run: f})
+);
+
+
+/***[Applicative]*************************************************************/
+
+
+// applicative compostion
+// (r -> a -> b) -> (r -> b) -> r -> b
+Fun.ap = ap;
+
+
+// variadic applicative compostion
+// untyped
+Fun.apn = $(
+  "...apn",
+  f => Object.assign(g => Fun.apn(x => g(x) (f(x))), {run: f})
+);
+
+
+/***[Monad]*******************************************************************/
+
+
+// monadic composition
+// (r -> a) -> (a -> r -> b) -> r -> b
+Fun.chain = chain;
+
+
+// variadic monadic composition (l2r)
+// untyped
+Fun.chainn = $(
+  "chainn",
+  f => Object.assign(g => Fun.chainn(x => g(f(x)) (x)), {run: f})
+);
 
 
 /******************************************************************************
@@ -1464,10 +1510,10 @@ const Type = $(
       const t = new Tcons();
       
       t[`run${Tcons.name}`] = $(`run${Tcons.name}`, cases => Dcons(cases));
-      t.tag = tag;
+      t[TAG] = tag;
 
       if (GUARDED)
-        t.sig = `${Tcons.name}<${introspect(args).slice(1, -1)}>`;
+        t[SIG] = `${Tcons.name}<${introspect(args).slice(1, -1)}>`;
         
       return t;
     };
@@ -1482,25 +1528,21 @@ const Type = $(
 // untyped
 const Data = $(
   "Data",
-  Tcons => {
-    const Data = Dcons => {
-      const Data = x => {
-        const t = new Tcons();
-        t[`run${Tcons.name}`] = x;
-        t.tag = Tcons.name
+  Tcons => Dcons => {
+    const Data = x => {
+      const t = new Tcons();
+      t[`run${Tcons.name}`] = x;
+      t[Symbol.toStringTag] = Tcons.name;
+      t[TAG] = Tcons.name;
 
-        if (GUARDED)
-          t.sig = `${Tcons.name}<${introspect(x)}>`;
-        
-        return t;
-      };
-
-      // return $(Tcons.name, Dcons(Data)); ???
-      return Dcons(Data);
+      if (GUARDED)
+        t[SIG] = `${Tcons.name}<${introspect(x)}>`;
+      
+      return t;
     };
 
-    Tcons.prototype[Symbol.toStringTag] = Tcons.name;
-    return Data;
+    // return $(Tcons.name, Dcons(Data)); ???
+    return Dcons(Data);
   }
 );
 
@@ -1787,13 +1829,11 @@ Object.assign(
     Bounded,
     chain,
     chain_,
-    chainn,
     Char,
     co,
     co2,
     comp,
     comp2,
-    compn,
     compBoth,
     compSnd,
     cond,
@@ -1809,6 +1849,7 @@ Object.assign(
     fix,
     flip,
     Float,
+    Fun,
     getTypeTag,
     guard,
     GT,
