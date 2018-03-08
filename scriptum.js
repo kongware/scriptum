@@ -489,7 +489,7 @@ const comp2 = $(
 // untyped
 const compn = $(
   "compn",
-  f => Object.assign(g => $(x => f(g(x))), {run: f})
+  f => Object.assign(g => compn(x => f(g(x))), {run: f})
 );
 
 
@@ -502,10 +502,10 @@ const compBoth = $(
 
 
 // function compostion in the second argument
-// (a -> c -> d) -> a -> (b -> c) -> b -> d
+// (a -> c -> d) -> (b -> c) -> a -> b -> d
 const compSnd = $(
   "compSnd",
-  f => x => g => y => f(x) (g(y))
+  f => g => x => y => f(x) (g(y))
 );
 
 
