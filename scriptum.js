@@ -499,6 +499,14 @@ const compBoth = $(
 )
 
 
+// function composition from right to left
+// untyped
+const compn = $(
+  "...compn",
+  (f, ...fs) => x => f === undefined ? x : f(compn(...fs) (x))
+);
+
+
 // compostion in the 2nd argument
 // (a -> c -> d) -> (b -> c) -> a -> b -> d
 const compSnd = $(
@@ -608,6 +616,14 @@ const omega = $(
 const on = $(
   "on",
   f => g => x => y => f(g(x)) (g(y))
+);
+
+
+// function composition from left to right
+// untyped
+const pipe = $(
+  "...pipe",
+  (f, ...fs) => x => f === undefined ? x : pipe(fs) (f(x))
 );
 
 
@@ -1835,6 +1851,7 @@ Object.assign(
     comp,
     comp2,
     compBoth,
+    compn,
     compSnd,
     cond,
     contra,
@@ -1867,6 +1884,7 @@ Object.assign(
     notp,
     omega,
     on,
+    pipe,
     Rec,
     recur,
     rotatel,
