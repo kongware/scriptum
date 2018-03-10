@@ -69,14 +69,20 @@ const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
 // untyped
 const $ = (name, f) => {
   if (GUARDED) {
-    if (name.search(/\.\.\./) === 0) {
+    if (name.indexOf("...") === 0) {
       Reflect.defineProperty(f, "name", {value: name.slice(3)});
-      return new Proxy(f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0}));
+      
+      return new Proxy(
+        f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0})
+      );
     }
 
     else {
       Reflect.defineProperty(f, "name", {value: name});
-      return new Proxy(f, handleF(name, f, [], {params: "fix", nthCall: 0}));
+
+      return new Proxy(
+        f, handleF(name, f, [], {params: "fix", nthCall: 0})
+      );
     }
   }
 
@@ -90,45 +96,19 @@ const $ = (name, f) => {
 const handleF = (name, f, log, {params, nthCall}) => {
   return {
     apply: (g, _, args) => {
-      if (params === "fix" && g.length !== args.length) throw new ArityError(
-        `\n\n${name} expects ${g.length} argument(s)`
-        + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
-        + `\n\nin the ${nthCall + 1}. call of ${name}`
-        + `\n\ninvalid function call arity`
-        + "\n\nTYPE LOG:"
-        + `\n\n${log}`
-        + "\n");
-
-      const argTypes = args.map((arg, nthArg) =>
-        typeCheck(ArgTypeError)
-          (t => illTyped => fromTo =>
-            `\n\n${name} received an argument of type`
-            + `\n\n${t}`
-            + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-            + `\n\nin the ${nthCall + 1}. call of ${name}`
-            + `\nin the ${nthArg + 1}. argument of ${name}`
-            + `\n\ninvalid type`
-            + "\n\nTYPE LOG:"
-            + `\n\n${log}`
-            + "\n") (arg))
-              .join(", ");
+      verifyArity(g, args, name, params, nthCall, log);
+      const argTypes = verifyArgTypes(args, name, nthCall, log);
 
       const r = f(...args);
-
-      const retType = typeCheck(ReturnTypeError)
-        (t => illTyped => fromTo =>
-          `\n\n${name} returned a value of type`
-          + `\n\n${t}`
-          + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-          + `\n\ninvalid type`
-          + "\n\nTYPE LOG:"
-          + `\n\n${log}`
-          + "\n") (r);
+      verifyRetType(r, name, log);
 
       if (typeof r === "function") {
         const name_ = r.name || name;
         Reflect.defineProperty(r, "name", {value: name_});
-        return new Proxy(r, handleF(name_, r, log.concat(`${name}(${argTypes})`), {nthCall: nthCall + 1}));
+
+        return new Proxy(
+          r, handleF(name_, r, log.concat(`${name}(${argTypes})`), {nthCall: nthCall + 1})
+        );
       }
 
       else return r;
@@ -142,19 +122,6 @@ const handleF = (name, f, log, {params, nthCall}) => {
       }
     }
   };
-};
-
-
-/******************************************************************************
-*******************************[ Introspection ]*******************************
-******************************************************************************/
-
-
-// get type constructor
-// a -> String
-const getTypeTag = x => {
-  const tag = Object.prototype.toString.call(x);
-  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
 
 
@@ -179,6 +146,59 @@ const typeCheck = Cons => f => x => {
   }
 
   else return t;
+};
+
+
+const verifyArgTypes = (args, name, nthCall, log) => {
+  return args.map((arg, nthArg) =>
+    typeCheck(ArgTypeError)
+      (t => illTyped => fromTo =>
+        `\n\n${name} received an argument of type`
+        + `\n\n${t}`
+        + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
+        + `\n\nin the ${nthCall + 1}. call of ${name}`
+        + `\nin the ${nthArg + 1}. argument of ${name}`
+        + `\n\ninvalid type`
+        + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+        + "\n") (arg))
+          .join(", ");
+};
+
+
+const verifyArity = (g, args, name, params, nthCall, log) => {
+  if (params === "fix" && g.length !== args.length)
+    throw new ArityError(
+      `\n\n${name} expects ${g.length} argument(s)`
+      + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
+      + `\n\nin the ${nthCall + 1}. call of ${name}`
+      + `\n\ninvalid function call arity`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      + "\n");
+};
+
+
+const verifyRetType = (r, name, log) => {
+  return typeCheck(ReturnTypeError)
+    (t => illTyped => fromTo =>
+      `\n\n${name} returned a value of type`
+      + `\n\n${t}`
+      + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
+      + `\n\ninvalid type`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      + "\n") (r);
+};
+
+
+/******************************************************************************
+*******************************[ Introspection ]*******************************
+******************************************************************************/
+
+
+// get type constructor
+// a -> String
+const getTypeTag = x => {
+  const tag = Object.prototype.toString.call(x);
+  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
 
 
@@ -293,8 +313,8 @@ const introspectRec = r => {
 
   else {
     const r_ = Object.keys(r)
-      .map(k => introspect(`${k}: ${r[k]}`)
-      .join(", "));
+      .map(k => introspect(`${k}: ${r[k]}`))
+      .join(", ");
 
     return `Record<${r_}>`;
   }
@@ -1075,6 +1095,7 @@ Int.neq = $(
 class Rec extends Object {
   constructor(o) {
     super(o);
+    Object.assign(this, o);
 
     if (GUARDED) {
       if (typeof o !== "object" || o === null) throw new ArgTypeError(
@@ -1134,8 +1155,8 @@ Rec.eq = $(
     if (ks.length !== ls.length) return false;
 
     else return ks.every(k => {
-      if (!(k in ls)) return false;
-      else return eq(r[k]) (l[k]);
+      if (!(k in s)) return false;
+      else return eq(r[k]) (s[k]);
     });
   }
 );
@@ -1452,6 +1473,35 @@ const handleMap = t => ({
 });
 
 
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Map -> Map -> Boolean
+_Map.eq = $(
+  "eq",
+  m => n => {
+    if (m.size !== n.size) return false;
+
+    else {
+      const kvs = Array.from(m),
+        lws = Array.from(n);
+
+      return kvs.every(([k, v], n) => {
+        const [l, w] = lws[n];
+        if (k !== l || v !== w) return false;
+        else return eq(r[k]) (l[k]);
+      });
+    }
+  }
+);
+
+
+// not equal
+// Null -> Null -> Boolean
+Arr.neq = notp(Arr.eq);
+
+
 /******************************************************************************
 ***********************************[ _Set ]************************************
 ******************************************************************************/
@@ -1716,6 +1766,7 @@ const instances = new Map([
   ["Eq Char", {eq: Char.eq, neq: Char.neq}],
   ["Eq Int", {eq: Int.eq, neq: Int.neq}],
   ["Eq Null", {eq: Null.eq, neq: Null.neq}],
+  ["Eq Number", {eq: Num.eq, neq: Num.neq}],
   ["Eq Record", {eq: Rec.eq, neq: Rec.neq}],
   ["Eq String", {eq: Str.eq, neq: Str.neq}],
   ["Eq Tuple", {eq: Tup.eq, neq: Tup.neq}]
@@ -1732,7 +1783,16 @@ const typeDict = $(
 
     ops.forEach(op => {
       f[op] = x => {
-        const r = instances.get(`${_class} ${getTypeTag(x)}`) [op];
+        const t = getTypeTag(x);
+        let r = instances.get(`${_class} ${t}`);
+        
+        if (r === undefined) throw new TypeClassError(
+          `\n\ninvalid polymorphic function call`
+          + `\n\ntypeclass ${_class} contains no ${t} instance`
+          + "\n");
+
+        else r = r[op];
+
         if (typeof r === "function") return r(x);
         else return r;
       }
@@ -1808,6 +1868,16 @@ const stringify = $(
     }
   }
 );
+
+
+// typeclass error
+// String -> TypeClassError
+class TypeClassError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, TypeClassError);
+  }
+};
 
 
 // type coercion error
