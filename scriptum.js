@@ -35,7 +35,7 @@ const MAX_TUP_SIZE = 8;
 
 // symbol prefix
 // String
-const SYM_PREFIX = "github.com/kongware/scriptum";
+const SYM_PREFIX = "scriptum";
 
 
 /******************************************************************************
@@ -96,16 +96,17 @@ const $ = (name, f) => {
 const handleF = (name, f, log, {params, nthCall}) => {
   return {
     apply: (g, _, args) => {
-      // during debugging: skip function calls
+      // skip both calls
       verifyArity(g, args, name, params, nthCall, log);
       const argTypes = verifyArgTypes(args, name, nthCall, log);
 
-      // during debugging: step into function call
+      // step into call
       const r = f(...args);
 
-      // during debugging: skip function call
+      // skip call
       verifyRetType(r, name, log);
 
+      // skip statement
       if (typeof r === "function") {
         const name_ = r.name || name;
         Reflect.defineProperty(r, "name", {value: name_});
@@ -1483,7 +1484,9 @@ const handleMap = t => ({
         else return m.set(k, v);
       }
 
-      default: return k => m.get(k);
+      default: return typeof m[k] === "function"
+        ? m[k].bind(m)
+        : m[k];
     }
   },
 });
@@ -1505,8 +1508,8 @@ _Map.eq = $(
 
       return kvs.every(([k, v], n) => {
         const [l, w] = lws[n];
-        if (k !== l || v !== w) return false;
-        else return eq(r[k]) (l[k]);
+        if (!eq(k) (l)) return false;
+        else return eq(v) (w);
       });
     }
   }
@@ -1570,7 +1573,9 @@ const handleSet = t => ({
         else return s.add(k);
       }
 
-      default: return k => s[k];
+      default: return typeof m[k] === "function"
+        ? m[k].bind(m)
+        : m[k];
     }
   },
 });
@@ -1665,6 +1670,25 @@ Comparator.minBound = LT;
 // maximal bound
 // Comparator
 Comparator.maxBound = GT;
+
+
+/***[Eq]***********************************************************************/
+
+
+// equal
+// Comparator -> Comparator -> Boolean
+Comparator.eq = $(
+  "eq",
+  t => u => t[TAG] === u[TAG]
+);
+
+
+// not equal
+// Comparator -> Comparator -> Boolean
+Comparator.neq = $(
+  "neq",
+  t => u => t[TAG] !== u[TAG]
+);
 
 
 /******************************************************************************
@@ -1936,6 +1960,7 @@ Object.assign(
     co2,
     comp,
     comp2,
+    Comparator,
     compBoth,
     compn,
     compSnd,
@@ -1977,6 +2002,8 @@ Object.assign(
     rotater,
     runEff,
     _Set,
+    SIG,
+    TAG,
     tap,
     Tup,
     Type,
