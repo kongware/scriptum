@@ -96,10 +96,14 @@ const $ = (name, f) => {
 const handleF = (name, f, log, {params, nthCall}) => {
   return {
     apply: (g, _, args) => {
+      // during debugging: skip function calls
       verifyArity(g, args, name, params, nthCall, log);
       const argTypes = verifyArgTypes(args, name, nthCall, log);
 
+      // during debugging: step into function call
       const r = f(...args);
+
+      // during debugging: skip function call
       verifyRetType(r, name, log);
 
       if (typeof r === "function") {
@@ -335,7 +339,7 @@ const introspectSet = s => {
 // Tuple -> String
 const introspectTup = t => {
   if (t.length > MAX_TUP_SIZE) return "Tuple<?>";
-  else return `Tuple<${t.map(t_ => introspect(t_).join(", "))}>`;
+  else return `Tuple<${Array.from(t).map(t_ => introspect(t_)).join(", ")}>`;
 };
 
 
@@ -519,7 +523,8 @@ const compBoth = $(
 )
 
 
-// function composition from right to left
+// function composition
+// right-to-left
 // untyped
 const compn = $(
   "...compn",
@@ -639,7 +644,8 @@ const on = $(
 );
 
 
-// function composition from left to right
+// function composition
+// left-to-right
 // untyped
 const pipe = $(
   "...pipe",
@@ -724,48 +730,50 @@ const Fun = {};
 /***[Functor]*****************************************************************/
 
 
-// function composition
+// map
 // (b -> c) -> (a -> b) -> a -> c
 Fun.map = comp;
 
 
-// variadic function composition
+// variadic map
 // untyped
-Fun.mapn = $(
-  "mapn",
-  f => Object.assign(g => Fun.mapn(x => f(g(x))), {run: f})
+Fun.mapv = $(
+  "mapv",
+  f => Object.assign(g => Fun.mapv(x => f(g(x))), {run: f})
 );
 
 
 /***[Applicative]*************************************************************/
 
 
-// applicative compostion
+// apply
 // (r -> a -> b) -> (r -> b) -> r -> b
 Fun.ap = ap;
 
 
-// variadic applicative compostion
+// variadic apply
+// left-to-right
 // untyped
-Fun.apn = $(
-  "...apn",
-  f => Object.assign(g => Fun.apn(x => g(x) (f(x))), {run: f})
+Fun.apv = $(
+  "...apv",
+  f => Object.assign(g => Fun.apv(x => g(x) (f(x))), {run: f})
 );
 
 
-/***[Monad]*******************************************************************/
+/***[Chain]*******************************************************************/
 
 
-// monadic composition
+// chain
 // (r -> a) -> (a -> r -> b) -> r -> b
 Fun.chain = chain;
 
 
-// variadic monadic composition (l2r)
+// variadic chain
+// left-to-right
 // untyped
-Fun.chainn = $(
-  "chainn",
-  f => Object.assign(g => Fun.chainn(x => g(f(x)) (x)), {run: f})
+Fun.chainv = $(
+  "chainv",
+  f => Object.assign(g => Fun.chainv(x => g(f(x)) (x)), {run: f})
 );
 
 
@@ -937,7 +945,7 @@ Char.maxBound = Char("\u{10FFFF}");
 // Char -> Char -> Boolean
 Char.eq = $(
   "eq",
-  c => d => c === d
+  c => d => c.valueOf() === d.valueOf()
 );
 
 
@@ -945,7 +953,7 @@ Char.eq = $(
 // Char -> Char -> Boolean
 Char.neq = $(
   "neq",
-  c => d => c !== d
+  c => d => c.valueOf() !== d.valueOf()
 );
 
 
@@ -996,7 +1004,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 // Float -> Float -> Boolean
 Float.eq = $(
   "eq",
-  f => g => f === g
+  f => g => f.valueOf() === g.valueOf()
 );
 
 
@@ -1004,7 +1012,7 @@ Float.eq = $(
 // Float -> Float -> Boolean
 Float.neq = $(
   "neq",
-  f => g => f !== g
+  f => g => f.valueOf() !== g.valueOf()
 );
 
 
@@ -1073,7 +1081,7 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 // Int -> Int -> Boolean
 Int.eq = $(
   "eq",
-  i => j => i === j
+  i => j => i.valueOf() === j.valueOf()
 );
 
 
@@ -1081,7 +1089,7 @@ Int.eq = $(
 // Int -> Int -> Boolean
 Int.neq = $(
   "eq",
-  i => j => i !== j
+  i => j => i.valueOf() !== j.valueOf()
 );
 
 
@@ -1201,7 +1209,12 @@ class Tup extends Array {
 }
 
 
-Tup.prototype[Symbol.toStringTag] = "Tuple";
+Tup.prototype.map = () => {
+  throw new TypeError(
+    "\n\nTup must not be used as an Array"
+    + "\nillegal map operation"
+    + "\n");
+};
 
 
 Tup.prototype[Symbol.toPrimitive] = hint => {
@@ -1210,6 +1223,9 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
     + "\nillegal implicit type conversion"
     + "\n");
 };
+
+
+Tup.prototype[Symbol.toStringTag] = "Tuple";
 
 
 /***[Bounded]*****************************************************************/
