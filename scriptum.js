@@ -645,6 +645,14 @@ const on = $(
 );
 
 
+// parial
+// untyped
+const partial = $(
+  "...partial",
+  (f, ...args) => (...args_) => f(...args, ...args_)
+);
+
+
 // function composition
 // left-to-right
 // untyped
@@ -2094,6 +2102,7 @@ Object.assign(
     notp,
     omega,
     on,
+    partial,
     pipe,
     Rec,
     recur,
