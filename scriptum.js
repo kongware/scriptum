@@ -1137,19 +1137,6 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Record
-//Rec.minBound = ...;
-
-
-// minimal bound
-// Record
-//Rec.maxBound = ...;
-
-
 /***[Eq]**********************************************************************/
 
 
@@ -1227,19 +1214,6 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 
 
 Tup.prototype[Symbol.toStringTag] = "Tuple";
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Tuple
-//Tup.minBound = ...;
-
-
-// minimal bound
-// Tuple
-//Tup.maxBound = ...;
 
 
 /***[Eq]**********************************************************************/
@@ -1428,7 +1402,7 @@ Arr.eq = $(
 
 
 // not equal
-// Null -> Null -> Boolean
+// Array -> Array -> Boolean
 Arr.neq = notp(Arr.eq);
 
 
@@ -1517,8 +1491,8 @@ _Map.eq = $(
 
 
 // not equal
-// Null -> Null -> Boolean
-Arr.neq = notp(Arr.eq);
+// Map -> Map -> Boolean
+_Map.neq = notp(_Map.eq);
 
 
 /******************************************************************************
@@ -1553,7 +1527,7 @@ const _Set = s => {
 // String -> Proxy
 const handleSet = t => ({
   get: (s, k, p) => {
-    switch (i) {
+    switch (k) {
       case Symbol.toPrimitive: return hint => {
         throw new TypeCoercionError(
           `\n\n_Set is coerced to ${capitalize(hint)}`
@@ -1573,12 +1547,39 @@ const handleSet = t => ({
         else return s.add(k);
       }
 
-      default: return typeof m[k] === "function"
-        ? m[k].bind(m)
-        : m[k];
+      default: return typeof s[k] === "function"
+        ? s[k].bind(s)
+        : s[k];
     }
   },
 });
+
+
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Set -> Set -> Boolean
+_Set.eq = $(
+  "eq",
+  s => t => {
+    if (s.size !== t.size) return false;
+
+    else {
+      const ks = Array.from(s),
+        ls = Array.from(t);
+
+      return ks.every((k, n) => {
+        return eq(k) (ls[n]);
+      });
+    }
+  }
+);
+
+
+// not equal
+// Set -> Set -> Boolean
+_Set.neq = notp(_Set.eq);
 
 
 /******************************************************************************
@@ -1805,10 +1806,12 @@ const instances = new Map([
   ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
   ["Eq Char", {eq: Char.eq, neq: Char.neq}],
   ["Eq Int", {eq: Int.eq, neq: Int.neq}],
+  ["Eq Map", {eq: _Map.eq, neq: _Map.neq}],
   ["Eq Null", {eq: Null.eq, neq: Null.neq}],
   ["Eq Number", {eq: Num.eq, neq: Num.neq}],
   ["Eq Record", {eq: Rec.eq, neq: Rec.neq}],
   ["Eq String", {eq: Str.eq, neq: Str.neq}],
+  ["Eq Set", {eq: _Set.eq, neq: _Set.neq}],
   ["Eq Tuple", {eq: Tup.eq, neq: Tup.neq}]
 ]);
 
