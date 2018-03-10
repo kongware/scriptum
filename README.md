@@ -414,6 +414,8 @@ import $ from "./scriptum.js";
 
 * [ ] add license
 * [ ] add package.json
+* [ ] select `Future`/`Task` proxy or `Cont`/`ErrorT`
+* [ ] add partial combinator
 
 # Research
 
