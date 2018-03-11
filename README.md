@@ -295,9 +295,9 @@ scriptum's stategy to handle effects in a safer manner comprises two approaches:
 
 The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset, which are a perferct match for this job.
 
-There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O, though. I will either use a CPS transformer along with an error monad or a particular type `Aff` specifically for asynchronous effects.
+## Synchronous
 
-scriptum subsumes the following effects  under `Eff`:
+There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. scriptum subsumes the following synchronous effects  under `Eff`:
 
 * Console IO
 * DOM IO
@@ -326,6 +326,18 @@ const tx = ap(
 runEff(id) (tx);
 ```
 The computation collects two user inputs and concatenates them. The program remains pure until the effectful portion is actually run.
+
+## Asynchronous
+
+Asynchronous effects are handled with `Task`, which subsumes the following effects:
+
+* Asynchronous (AJAX, file, network)
+* Fetch API
+* WebSocket API
+
+## Promise Interop
+
+...
 
 # Typeclasses
 
