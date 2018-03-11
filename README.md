@@ -209,7 +209,6 @@ The following extended types are function encoded and simulate algebraic data ty
 * Memoize (computation that memoize previous results)
 * Option (computation that may fail silently)
 * Reader (computation that shares global constants)
-* Ref (computation with referential identity)
 * State (computation that share global state)
 * Unique (computation that produces a unique value)
 * Task (asynchronous computation)
@@ -297,6 +296,16 @@ scriptum's stategy to handle effects in a safer manner comprises two approaches:
 The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset, which are a perferct match for this job.
 
 There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. I am not sure yet how to handle asynchronous I/O, though. I will either use a CPS transformer along with an error monad or a particular type `Aff` specifically for asynchronous effects.
+
+scriptum subsumes the following effects  under `Eff`:
+
+* Console IO
+* DOM IO
+* Exceptions
+* Local storage
+* Random number generation
+* Reference identity
+* Time related
 
 Here is a contrieved example for a synchronous real world interaction:
 
