@@ -1597,7 +1597,8 @@ _Set.neq = notp(_Set.eq);
 ******************************************************************************/
 
 
-// adt with several data constructors
+// type
+// adt with several constructors/fields
 // untyped
 const Type = $(
   "Type",
@@ -1620,7 +1621,8 @@ const Type = $(
 );
 
 
-// adt with single data constructor
+// data
+// adt with single constructor/field
 // untyped
 const Data = $(
   "Data",
@@ -1639,6 +1641,54 @@ const Data = $(
 
     // return $(Tcons.name, Dcons(Data)); ???
     return Dcons(Data);
+  }
+);
+
+
+// data 2
+// adt with single constructor and two fields
+// untyped
+const Data2 = $(
+  "Data",
+  Tcons => Dcons => {
+    const Data2 = x => y => {
+      const t = new Tcons();
+      t[`run${Tcons.name}`] = k => k(x) (y);
+      t[Symbol.toStringTag] = Tcons.name;
+      t[TAG] = Tcons.name;
+
+      if (GUARDED)
+        t[SIG] = `${Tcons.name}<${introspect(x)}, ${introspect(y)}>`;
+      
+      return t;
+    };
+
+    // return $(Tcons.name, Dcons(Data2)); ???
+    return Dcons(Data2);
+  }
+);
+
+
+// data 3
+// adt with single constructor and three fields
+// untyped
+const Data3 = $(
+  "Data",
+  Tcons => Dcons => {
+    const Data3 = x => y => z => {
+      const t = new Tcons();
+      t[`run${Tcons.name}`] = k => k(x) (y) (z);
+      t[Symbol.toStringTag] = Tcons.name;
+      t[TAG] = Tcons.name;
+
+      if (GUARDED)
+        t[SIG] = `${Tcons.name}<${introspect(x)}, ${introspect(y)}, ${introspect(z)}>`;
+      
+      return t;
+    };
+
+    // return $(Tcons.name, Dcons(Data3)); ???
+    return Dcons(Data3);
   }
 );
 
@@ -1701,36 +1751,32 @@ Comparator.neq = $(
 
 
 /******************************************************************************
-*********************************[ Constant ]**********************************
+***********************************[ Cont ]************************************
 ******************************************************************************/
 
 
-const Const = Data(function Const() {}) (Const => x => Const(x));
-
-
-/******************************************************************************
-*******************************[ Continuation ]********************************
-******************************************************************************/
-
-
+// continuation
+ // Function -> ((a -> r) -> r) -> Cont r a
 const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
 
 
 /******************************************************************************
-**********************************[ Effect ]***********************************
+************************************[ Eff ]************************************
 ******************************************************************************/
 
 
-// synchronous effect type
-// Function -> a -> Eff a
+// effect
+// synchronous
+// Function -> (() -> a) -> Eff a
 const Eff = Data(function Eff() {}) (Eff => thunk => Eff(thunk));
 
 
 // run effect
-// (a -> b) -> Eff (() -> a) -> b
+// unsafe
+// Eff a -> a
 const runEff = $(
   "runEff",
-  f => tf => f(tf.runEff())
+  tx => tx.runEff()
 );
 
 
@@ -1738,7 +1784,7 @@ const runEff = $(
 
 
 // map
-// (a -> b) -> Eff (() -> a) -> Eff (() -> b)
+// (a -> b) -> Eff a -> Eff b
 Eff.map = $(
   "map",
   f => tx =>
@@ -1750,7 +1796,7 @@ Eff.map = $(
 
 
 // apply
-// Eff (() -> (a -> b)) -> Eff (() -> a) -> Eff (() -> b)
+// Eff (a -> b) -> Eff a -> Eff b
 Eff.ap = $(
   "ap",
   tf => tx =>
@@ -1762,7 +1808,7 @@ Eff.ap = $(
 
 
 // chain
-// Eff (() -> a) -> (a -> Eff (() -> b)) -> Eff (() -> b)
+// Eff a -> (a -> Eff b) -> Eff b
 Eff.chain = $(
   "chain",
   mx => fm =>
@@ -1775,28 +1821,52 @@ Eff.chain = $(
 ******************************************************************************/
 
 
+// either
+// Function -> ((a -> r) -> (b -> r) -> r) -> Either a b
 const Either = Type(function Either() {});
 
 
-const Left = x => Either("Left") (cases => cases.Left(x));
+// left
+// a -> Either a b
+const Left = x => Either("Left", x) (cases => cases.Left(x));
 
 
-const Right = x => Either("Right") (cases => cases.Right(x));
+// right
+// b -> Either a b
+const Right = x => Either("Right", x) (cases => cases.Right(x));
+
+
+/***[Eq]*******************************************************************/
+
 
 
 /******************************************************************************
-***********************************[ Error ]***********************************
+**********************************[ Except ]***********************************
 ******************************************************************************/
 
 
-const Err = Data(function Err() {}) (Err => x => Err(x));
+// exception
+// Function -> ((e -> r) -> (a -> r) -> r) -> Except e a
+const Except = Type(function Except() {});
+
+
+// error
+// e -> Except e a
+const Err = e => Except("Err", e) (cases => cases.Err(e));
+
+
+// okay
+// a -> Except e a
+const Ok = x => Except("Ok", x) (cases => cases.Ok(x));
 
 
 /******************************************************************************
-*********************************[ Identity ]**********************************
+************************************[ Id ]*************************************
 ******************************************************************************/
 
 
+// identity
+// Function -> a -> Id a
 const Id = Data(function Id() {}) (Id => x => Id(x));
 
 
@@ -1805,12 +1875,18 @@ const Id = Data(function Id() {}) (Id => x => Id(x));
 ******************************************************************************/
 
 
+// list
+// Function -> ((a -> List a -> r) -> r -> r) -> List a
 const List = Type(function List() {});
 
 
-const Cons = x => tx => List("Cons") (cases => cases.Cons(x) (tx));
+// construct
+// a -> List a -> List a
+const Cons = x => tx => List("Cons", x) (cases => cases.Cons(x) (tx));
 
 
+// not in list
+// List a
 const Nil = List("Nil") (cases => cases.Nil);
 
 
@@ -1819,29 +1895,19 @@ const Nil = List("Nil") (cases => cases.Nil);
 ******************************************************************************/
 
 
+// option
+// Function -> ((a -> r) -> r -> r) -> Option a
 const Option = Type(function Option() {});
 
 
-const Some = x => Option("Some") (cases => cases.Some(x));
+// some
+// a -> Option a
+const Some = x => Option("Some", x) (cases => cases.Some(x));
 
 
+// none
+// Option a
 const None = Option("None") (cases => cases.None);
-
-
-/******************************************************************************
-*********************************[ Rose Tree ]*********************************
-******************************************************************************/
-
-
-const Rose = Data(function Rose() {}) (Rose => roses => Rose(roses));
-
-
-/******************************************************************************
-***********************************[ State ]***********************************
-******************************************************************************/
-
-
-const State = Data(function State() {}) (State => pair => State(pair));
 
 
 /******************************************************************************
@@ -1849,13 +1915,17 @@ const State = Data(function State() {}) (State => pair => State(pair));
 ******************************************************************************/
 
 
-const Tree = Type(function Tree() {});
+// multi-way tree
+// Function -> ((a -> [Tree a] -> r) -> r) -> Tree a
+const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest));
 
 
-const Branch = trees => Branch("Branch") (cases => cases.Branch(trees));
+/******************************************************************************
+***********************************[ State ]***********************************
+******************************************************************************/
 
 
-const Leaf = x => Leaf("Leaf") (cases => cases.Leaf(x));
+//const State = Data(function State() {}) (State => pair => State(pair));
 
 
 /******************************************************************************
@@ -1863,15 +1933,15 @@ const Leaf = x => Leaf("Leaf") (cases => cases.Leaf(x));
 ******************************************************************************/
 
 
-const Unique = Data(function Unique() {}) (Unique => x => Unique(x));
+//const Unique = Data(function Unique() {}) (Unique => x => Unique(x));
 
 
 /******************************************************************************
-********************************[ Validation ]*********************************
+***********************************[ Valid ]***********************************
 ******************************************************************************/
 
 
-const Validation = Data(function Validation() {}) (Validation => x => Validation(x));
+//const Valid = Data(function Valid() {}) (Valid => x => Valid(x));
 
 
 /******************************************************************************
@@ -1879,7 +1949,7 @@ const Validation = Data(function Validation() {}) (Validation => x => Validation
 ******************************************************************************/
 
 
-const Writer = Data(function Writer() {}) (Writer => x => Writer(x));
+//const Writer = Data(function Writer() {}) (Writer => x => Writer(x));
 
 
 /******************************************************************************
@@ -2072,15 +2142,20 @@ Object.assign(
     compn,
     compSnd,
     cond,
+    Cont,
     contra,
     cont,
     curry,
     curry3,
     Data,
+    Data2,
+    Data3,
     Eff,
+    Either,
     EQ,
     Eq,
     eq,
+    Except,
     fix,
     flip,
     Float,
@@ -2088,11 +2163,13 @@ Object.assign(
     getTypeTag,
     guard,
     GT,
+    Id,
     id,
     infix,
     Int,
     introspect,
     join,
+    List,
     loop,
     LT,
     _Map,
@@ -2102,6 +2179,7 @@ Object.assign(
     notp,
     omega,
     on,
+    Option,
     partial,
     pipe,
     Rec,
@@ -2113,6 +2191,7 @@ Object.assign(
     SIG,
     TAG,
     tap,
+    Tree,
     Tup,
     Type,
     typeDict,

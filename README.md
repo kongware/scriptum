@@ -405,7 +405,6 @@ import $ from "./scriptum.js";
 * Stack-safe recursion
 * Indexed ranges
 * Memoization
-* `Eff`/`Aff` effect types (inspired by purescript)
 * `Behavior`/`Event` types and corresponding combinators
 * Purely functional data types
 * Cata-, ana- and hylomorphisms
@@ -415,16 +414,16 @@ import $ from "./scriptum.js";
 * [ ] add license
 * [ ] add package.json
 * [ ] select `Future`/`Task` proxy or `Cont`/`ErrorT`
-* [ ] add partial combinator
 
 # Research
 
 * Coyoneda and Free
 * Comonads
-* Trees (Red-Black Tree, Finger Tree, AVL-Trees, Patricia Tree, Radix Tree, Tries)
+* Trees (BST, Heaps, Red-Black, Finger, AVL, Tries)
+* Graphs
 * Lists (Random Access List, Catenable List)
 * Double Generalized Queues (Deque)
 
 # API
 
-...
+Prepare a Wiki...
