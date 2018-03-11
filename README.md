@@ -200,7 +200,7 @@ The following extended types are function encoded and simulate algebraic data ty
 
 * Comparator (type for ordering)
 * Cont (continuation/delimited)
-* Defer (deferred computation - type synonym of Eff)
+* Defer (deferred computation - newtype of Eff)
 * Eff (effectful synchronous computation)
 * Either (convergent computation)
 * Except (computation that may throw an error)
