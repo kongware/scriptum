@@ -198,20 +198,24 @@ The following extended types appear to Javascript's runtime type system like the
 
 The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
-* Const (constant computation)
-* Cont (continuation)
-* DCont (delimited continuation)
+* Comparator (type for ordering)
+* Cont (continuation/delimited)
 * Defer (deferred computation)
-* Eff (effectful computation)
+* Eff (effectful synchronous computation)
 * Either (convergent computation)
-* Err (computation that may throw an error)
+* Except (computation that may throw an error)
 * Id (effectless computation)
 * List (undeterministic computation)
+* Memoize (computation that memoize previous results)
 * Option (computation that may fail silently)
-* Reader (computations that shares global constants)
-* State (computations that share global state)
+* Reader (computation that shares global constants)
+* Ref (computation with referential identity)
+* State (computation that share global state)
 * Unique (computation that produces a unique value)
-* Writer (computations that share a global log)
+* Task (asynchronous computation)
+* Tree (type for multi-way trees)
+* Valid (type for error collections)
+* Writer (computation that share a global log)
 
 ## Type Coersion
 
@@ -397,23 +401,23 @@ import $ from "./scriptum.js";
 
 # Upcoming Features
 
+* Several type classes
 * Fold with short circuiting
 * Monodial transudcer
 * Monad transformers
 * Functional optics
+* Zippers
 * List comprehension
 * Stack-safe recursion
 * Indexed ranges
-* Memoization
+* Memoization as a type
 * `Behavior`/`Event` types and corresponding combinators
-* Purely functional data types
 * Cata-, ana- and hylomorphisms
 
 # Todo
 
 * [ ] add license
 * [ ] add package.json
-* [ ] select `Future`/`Task` proxy or `Cont`/`ErrorT`
 
 # Research
 
