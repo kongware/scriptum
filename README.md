@@ -10,7 +10,7 @@ A type-directed functional library with a focus on purity, abstraction and a mat
 
 ## Why
 
-Take functional programming in Javascript seriously.
+Replacing short-term dynamic type convenience with long-term reliability and predictability.
 
 ## Mission
 
