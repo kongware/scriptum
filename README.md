@@ -366,7 +366,7 @@ There is an applicative and monadic instance, of course, so that you can chain m
 
 ## Promise Interop
 
-There will be probably a `Deferred` type that simulates lazy promises and is still compatible with the native `Promise` and hence can utilize the extensive infrastructure including `async`/`await`:
+There will probably be a `Deferred` type that simulates lazy futures and is still compatible with native `Promise`s. As a consequence you can utilize the extensive `Promise` infrastructure including `async`/`await`:
 
 ```Javascript
 class Deferred {
