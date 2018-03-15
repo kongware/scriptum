@@ -349,18 +349,18 @@ const fetch = url => (e, k) => {
 const fetchT = url =>
   Task((k, e) => fetch(url) (e, k));
 
-const t1 = map(comp(inc) (get("value")))
+const task = map(comp(inc) (get("value")))
   (fetchT("http://..."));
 
-const cancel1 = t1.runTask(console.log, console.error);
+const cancel = task.runTask(console.log, console.error);
 
 // since a Task is unicast you can cancel it without causing side effects
 
-cancel1(); // cancelled
+cancel(); // cancelled
 
 // since a Task has no state you can run it multiple times
 
-t1.runTask(console.log, console.error); // yields 6
+task.runTask(console.log, console.error); // yields 6
 ```
 There is an applicative ad monadic instance, of course, so that you can chain multiple asynchronous effects.
 
