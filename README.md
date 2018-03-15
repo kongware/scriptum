@@ -362,7 +362,7 @@ cancel(); // cancelled
 
 task.runTask(console.log, console.error); // yields 6
 ```
-There is an applicative ad monadic instance, of course, so that you can chain multiple asynchronous effects.
+There is an applicative and monadic instance, of course, so that you can chain multiple asynchronous effects sequencially.
 
 ## Promise Interop
 
