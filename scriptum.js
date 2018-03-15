@@ -662,19 +662,11 @@ const pipe = $(
 );
 
 
-// rotate left
-// a -> b -> c -> d) -> b -> c -> a -> d
-const rotatel = $(
-  "rotatel",
-  f => y => z => x => f(x) (y) (z)
-);
-
-
-// rotate right
-// (a -> b -> c -> d) -> c -> a -> b -> d
-const rotater = $(
-  "rotater",
-  f => z => x => y => f(x) (y) (z)
+// swap
+// ((a, b) -> c) -> (a, b) -> c
+const swap = $(
+  "swap",
+  f => (x, y) => f(y, x)
 );
 
 
@@ -1924,8 +1916,34 @@ const None = Option("None") (cases => cases.None);
 ******************************************************************************/
 
 
-// TODO
-//const Task = Data(function Task() {}) (Task => x => Task(x));
+const Task = Data(function Task() {}) (Task => k => Task(k));
+
+
+/***[Functor]*****************************************************************/
+
+
+// map
+// ...
+const map = f => tk =>
+  Task((k, e) => tk.runTask(x => k(f(x)), e));
+
+
+/***[Applicative]*************************************************************/
+
+
+// applicative
+// ...
+const ap = tf => tk =>
+  Task((k, e) => tf.runTask(f => tk.runTask(x => k(f(x)), e), e));
+
+
+/***[Chain]*******************************************************************/
+
+
+// chain
+// ...
+const chain = mk => fm =>
+  Task((k, e) => mk.runTask(x => fm(x).runTask(k, e), e));
 
 
 /******************************************************************************

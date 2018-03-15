@@ -18,7 +18,7 @@ scriptum encourages you to program in a type-directed style and to consider func
 
 # Debugging
 
-At its core scriptum offers a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs.
+scriptum provides a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs. Please note that `$` is also intended to be scriptum's namespace.
 
 You can easily guard curried functions sequences:
 
@@ -77,7 +77,7 @@ add(2); // type error
 add(2, 3); // 5
 add(2, 3, 4); // type error
 ```
-If you want to declare variadic functions you can bypass strict arity checking by prefixing `...` to the function name:
+If you want to declare variadic functions you can bypass strict arity checking by prefixing the function name with `...`:
 
 ```Javascript
 const sum = $(
@@ -124,11 +124,11 @@ const inc = $(
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
 ```
-Since scriptum's guarding feature can be disabled you must not create dependencies on the `name` property, which, by the way, you should never do, because depending on function names is metaprogramming.
+Since scriptum's function guarding can be disabled you must not create dependencies on the `name` property, which is best practice anyway.
 
 ## Type Logs
 
-scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can verify if an assumed function type matches its real type retrospectively.
+scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can retrospectively verify if an assumed function type matches its real type.
 
 ```Javascript
 const comp = $(
@@ -150,7 +150,7 @@ comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
 `λ` just indicates that the given argument is a function.
 
-If you pass a composite value to a guarded function and the type check yields an improper type, the type log uses a question mark to highlight this improper usage:
+If you pass a composite value to a guarded function and the type check recognizes an improper use of that type, it uses a question mark within the type signature to highlight this misuse:
 
 ```Javascript
 const append = $(
@@ -171,11 +171,11 @@ append(xs).log; // ["append([?])"]
 
 map(inc) (append(xs) (ys)); // type error
 ```
-`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. For this reason please consider `[?]` as an indicator that your code is more likely to break.
+`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
 
 # Extended Types
 
-scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them and demonstrate two of their key characteristics that are rather uncommon for untyped Javascript.
+scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them. Additionally, some characteristics of these extended types that are rather uncommon for untyped Javascript are illustrated.
 
 ## Subtyping
 
@@ -208,13 +208,14 @@ The following extended types are function encoded and simulate algebraic data ty
 * List (undeterministic computation)
 * Memoize (computation that memoize previous results)
 * Option (computation that may fail silently)
-* Reader (computation that shares global constants)
 * State (computation that share global state)
 * Unique (computation that produces a unique value)
 * Task (asynchronous computation)
 * Tree (type for multi-way trees)
 * Valid (type for error collections)
 * Writer (computation that share a global log)
+
+The `Reader` type is called `Function` in scriptum according to the native prototype.
 
 ## Type Coersion
 
@@ -259,7 +260,7 @@ delete xs[0]; // type error (index gap)
 ```
 # Custom Types
 
-You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter can only express single constructor/field types. Here is an example of the built-in `Option` ADT:
+You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter restricted to single constructor/field types. Here is an example of the built-in `Option` ADT:
 
 ```Javascript
 const Option = Type(function Option() {});
@@ -284,20 +285,20 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
-With Scott encoded tagged unions we can also express products, sums of products, recursive and even mutual recursive types. If we treat and manipulate them algebraically by obeying some mathematical laws, they are also called algebraic data types.
+The underlying encoding is called Scott and based on higher order functions. Provided you treat these custom types algebraically by obeying the relevant mathematical laws, they can be considered proper algebraic data types.
 
 # Effect Handling
 
 scriptum's stategy to handle effects in a safer manner comprises two approaches:
 
 * defer effectful computations at the last possible moment
-* wrap each individual effect into its own type
+* wrap synchrnous and asynchronous effects respectively into its own, distinct types
 
 The first approach separates impure from pure computations and the second makes them explicit. As functional programmers we want to construct these lazy evaluated, effectful computations from smaller ones, that is we need means to compose them. Fortunately, we have functors, applicatives and monads in our toolset, which are a perferct match for this job.
 
 ## Synchronous
 
-There is a special effect type `Eff` to interact with the real world like the `Console` or the `DOM`. scriptum subsumes the following synchronous effects  under `Eff`:
+There is a special effect type `Eff` to synchronously interact with the real world like the `Console` or the `DOM`. scriptum subsumes the following effects  under `Eff`:
 
 * Console IO
 * DOM IO
@@ -329,16 +330,57 @@ The computation collects two user inputs and concatenates them. The program rema
 
 ## Asynchronous
 
-Asynchronous effects are handled with `Task`, which subsumes the following effects:
+Asynchronous effects, that is to say mostly IO are handled with the `Task` type, which is based on the continuation monad along with an `Either`-like type. Here is a first sketch of its use, but keep in mind that the code and the API is still under heavy construction and probably will change in future versions:
 
-* Asynchronous (AJAX, file, network)
-* Fetch API
-* WebSocket API
+```Javascript
+// pseudo asynchronous fetch function
+
+const fetch = url => (e, k) => {
+  const id = setTimeout(s => {
+    if (typeof s === "string") k({value: 5});
+    else e(Error("url expected"));
+  }, 0, url);
+
+  return () => clearTimeout(id);
+}
+
+// transform it into an action that returns a Task
+
+const fetchT = url =>
+  Task((k, e) => fetch(url) (e, k));
+
+const t1 = map(comp(inc) (get("value")))
+  (fetchT("http://..."));
+
+const t2 = map(comp(inc) (get("value")))
+  (fetchT("http://..."));
+
+const cancel1 = t1.runTask(console.log, console.error);
+cancel1(); // cancelled
+
+const cancel1 = t2.runTask(console.log, console.error); // yields 6
+```
+There is an applicative ad monadic instance, of course, so that you can chain multiple asynchronous effects.
 
 ## Promise Interop
 
-...
+There will be probably a `Deferred` type that simulates lazy promises and is still compatible with the native `Promise` and hence can utilize the extensive infrastructure including `async`/`await`:
 
+```Javascript
+class Deferred {
+  constructor() {
+    this.promise = new Promise((r, e) => {
+      // arrows use this of their surrounding scope
+      this.resolve = r;
+      this.reject = e;
+    });
+
+    this.then = this.promise.then.bind(this.promise);
+    this.catch = this.promise.catch.bind(this.promise);
+    this.finally = this.promise.finally.bind(this.promise);
+  }
+}
+```
 # Typeclasses
 
 scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a typeclass you must create a corresponding type dictionary:
