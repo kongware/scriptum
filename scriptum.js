@@ -1747,8 +1747,8 @@ Comparator.neq = $(
 ******************************************************************************/
 
 
-// continuation
- // Function -> ((a -> r) -> r) -> Cont r a
+// delimited continuation
+// Function -> ((a -> r) -> r) -> Cont r a
 const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
 
 
@@ -1830,6 +1830,8 @@ const Right = x => Either("Right", x) (cases => cases.Right(x));
 
 /***[Eq]*******************************************************************/
 
+
+//const eq = tx => ty => tx[TAG] === ty[TAG] && tx.
 
 
 /******************************************************************************
@@ -1916,14 +1918,16 @@ const None = Option("None") (cases => cases.None);
 ******************************************************************************/
 
 
-const Task = Data(function Task() {}) (Task => k => Task(k));
+// task
+// Function -> ((a -> r) -> r, (e -> r) -> r) -> Task a e
+const Task = Data(function Task() {}) (Task => ks => Task(ks));
 
 
 /***[Functor]*****************************************************************/
 
 
 // map
-// ...
+// (a -> b) -> Task a e -> Task b e
 const map = f => tk =>
   Task((k, e) => tk.runTask(x => k(f(x)), e));
 
@@ -1932,7 +1936,7 @@ const map = f => tk =>
 
 
 // applicative
-// ...
+// Task (a -> b) e -> Task a e -> Task b e
 const ap = tf => tk =>
   Task((k, e) => tf.runTask(f => tk.runTask(x => k(f(x)), e), e));
 
@@ -1941,9 +1945,17 @@ const ap = tf => tk =>
 
 
 // chain
-// ...
+// Task a e -> a -> Task b e -> Task b e
 const chain = mk => fm =>
   Task((k, e) => mk.runTask(x => fm(x).runTask(k, e), e));
+
+
+/***[Monad]*******************************************************************/
+
+
+// of
+// a -> Task a e
+const of = x => Task((k, e) => k(x));
 
 
 /******************************************************************************

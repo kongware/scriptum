@@ -335,11 +335,11 @@ Asynchronous effects, that is to say mostly IO are handled with the `Task` type,
 ```Javascript
 // pseudo asynchronous fetch function
 
-const fetch = url => (e, k) => {
+const fetch = id => (e, k) => {
   const id = setTimeout(s => {
-    if (typeof s === "string") k({value: 5});
-    else e(Error("url expected"));
-  }, 0, url);
+    if (id === 1) k({value: 5});
+    else e(Error("unknown id"));
+  }, 0, id);
 
   return () => clearTimeout(id);
 }
@@ -349,24 +349,36 @@ const fetch = url => (e, k) => {
 const fetchT = url =>
   Task((k, e) => fetch(url) (e, k));
 
-const task = map(comp(inc) (get("value")))
-  (fetchT("http://..."));
+const task1 = map(comp(inc) (get("value")))
+  (fetchT(1));
 
-const cancel = task.runTask(console.log, console.error);
+const task2 = map(comp(inc) (get("value")))
+  (fetchT(2));
 
-// since a Task is unicast you can cancel it without causing side effects
+// run the tasks
 
-cancel(); // cancelled
+const cancel = task1.runTask(console.log, console.error); // A
 
-// since a Task has no state you can run it multiple times
+task.runTask(console.log, console.error); // B
 
-task.runTask(console.log, console.error); // yields 6
+cancel(); // C
+
+task2.runTask(console.log, console.error); // D
+
+// A logs nothing
+// B logs 6
+// D logs Error "unknown id"
 ```
+* Until `runTask` is called the first time the program remains pure (A)
+* Since a `Task` has no state it can be run multiple times (B)
+* Because a `Task` is unicast it can be cancled without causing side effects (C)
+* If a `Task` is rejected due to an error the computation can be recovered (D)
+
 There is an applicative and monadic instance, of course, so that you can chain multiple asynchronous effects sequencially.
 
 ## Promise Interop
 
-There will probably be a `Deferred` type that simulates lazy futures and is still compatible with native `Promise`s. As a consequence you can utilize the extensive `Promise` infrastructure including `async`/`await`:
+There will probably be a `Deferred` type that "lazy promises" and is still fully compatible, that is you can utilize the extensive `Promise` infrastructure including `async`/`await`:
 
 ```Javascript
 class Deferred {
