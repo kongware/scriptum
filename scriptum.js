@@ -1831,7 +1831,16 @@ const Right = x => Either("Right", x) (cases => cases.Right(x));
 /***[Eq]*******************************************************************/
 
 
-//const eq = tx => ty => tx[TAG] === ty[TAG] && tx.
+/*Either.eq = $(
+  "eq",
+  tx => ty =>
+    tx.runEither({
+      Left: x => ty.runEither({Left: y => eq(x) (y)),
+      Right: x => ty.runEither({Left: y => eq(x) (y))
+    }));
+
+
+Either.neq = notp(Either.eq);*/
 
 
 /******************************************************************************
@@ -1849,9 +1858,9 @@ const Except = Type(function Except() {});
 const Err = e => Except("Err", e) (cases => cases.Err(e));
 
 
-// okay
+// success
 // a -> Except e a
-const Ok = x => Except("Ok", x) (cases => cases.Ok(x));
+const Suc = x => Except("Suc", x) (cases => cases.Suc(x));
 
 
 /******************************************************************************
@@ -1862,6 +1871,11 @@ const Ok = x => Except("Ok", x) (cases => cases.Ok(x));
 // identity
 // Function -> a -> Id a
 const Id = Data(function Id() {}) (Id => x => Id(x));
+
+
+/***[Eq]*******************************************************************/
+
+
 
 
 /******************************************************************************
@@ -1882,6 +1896,9 @@ const Cons = x => tx => List("Cons", x) (cases => cases.Cons(x) (tx));
 // not in list
 // List a
 const Nil = List("Nil") (cases => cases.Nil);
+
+
+/***[Eq]*******************************************************************/
 
 
 /******************************************************************************
@@ -1928,7 +1945,7 @@ const Task = Data(function Task() {}) (Task => ks => Task(ks));
 
 // map
 // (a -> b) -> Task a e -> Task b e
-const map = f => tk =>
+Task.map = f => tk =>
   Task((k, e) => tk.runTask(x => k(f(x)), e));
 
 
@@ -1937,7 +1954,7 @@ const map = f => tk =>
 
 // applicative
 // Task (a -> b) e -> Task a e -> Task b e
-const ap = tf => tk =>
+Task.ap = tf => tk =>
   Task((k, e) => tf.runTask(f => tk.runTask(x => k(f(x)), e), e));
 
 
@@ -1946,7 +1963,7 @@ const ap = tf => tk =>
 
 // chain
 // Task a e -> a -> Task b e -> Task b e
-const chain = mk => fm =>
+Task.chain = mk => fm =>
   Task((k, e) => mk.runTask(x => fm(x).runTask(k, e), e));
 
 
@@ -1955,7 +1972,7 @@ const chain = mk => fm =>
 
 // of
 // a -> Task a e
-const of = x => Task((k, e) => k(x));
+Task.of = x => Task((k, e) => k(x));
 
 
 /******************************************************************************
@@ -2031,6 +2048,7 @@ const instances = new Map([
   ["Eq Array", {eq: Arr.eq, neq: Arr.neq}],
   ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
   ["Eq Char", {eq: Char.eq, neq: Char.neq}],
+  ["Eq Either", {eq: Either.eq, neq: Either.neq}],
   ["Eq Int", {eq: Int.eq, neq: Int.neq}],
   ["Eq Map", {eq: _Map.eq, neq: _Map.neq}],
   ["Eq Null", {eq: Null.eq, neq: Null.neq}],
@@ -2189,11 +2207,11 @@ Object.assign(
     co2,
     comp,
     comp2,
-    Comparator,
     compBoth,
     compn,
     compSnd,
     cond,
+    Cons,
     Cont,
     contra,
     cont,
@@ -2203,11 +2221,10 @@ Object.assign(
     Data2,
     Data3,
     Eff,
-    Either,
     EQ,
     Eq,
     eq,
-    Except,
+    Err,
     fix,
     flip,
     Float,
@@ -2221,28 +2238,33 @@ Object.assign(
     Int,
     introspect,
     join,
-    List,
+    Left,
     loop,
     LT,
     _Map,
     maxBound,
     minBound,
     neq,
+    Nil,
+    None,
     notp,
+    Null,
     omega,
     on,
-    Option,
     partial,
     pipe,
     Rec,
+    Right,
     recur,
-    rotatel,
-    rotater,
     runEff,
     _Set,
     SIG,
+    Some,
+    Suc,
+    swap,
     TAG,
     tap,
+    Task,
     Tree,
     Tup,
     Type,

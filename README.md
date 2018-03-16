@@ -336,12 +336,12 @@ Asynchronous effects, that is to say mostly IO are handled with the `Task` type,
 // pseudo asynchronous fetch function
 
 const fetch = id => (e, k) => {
-  const id = setTimeout(s => {
+  const id_ = setTimeout(s => {
     if (id === 1) k({value: 5});
     else e(Error("unknown id"));
   }, 0, id);
 
-  return () => clearTimeout(id);
+  return () => clearTimeout(id_);
 }
 
 // transform it into an action that returns a Task
