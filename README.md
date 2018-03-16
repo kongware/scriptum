@@ -349,6 +349,8 @@ const fetch = id => (e, k) => {
 const fetchT = url =>
   Task((k, e) => fetch(url) (e, k));
 
+// define mappings without acutally running them
+
 const task1 = map(comp(inc) (get("value")))
   (fetchT(1));
 
@@ -359,7 +361,7 @@ const task2 = map(comp(inc) (get("value")))
 
 const cancel = task1.runTask(console.log, console.error); // A
 
-task.runTask(console.log, console.error); // B
+task1.runTask(console.log, console.error); // B
 
 cancel(); // C
 
