@@ -410,7 +410,7 @@ const notp = $(
 /***[Namespace]***************************************************************/
 
 
-// boolean namespace
+// boolean
 // Object
 const Boo = {};
 
@@ -452,35 +452,11 @@ Boo.neq = $(
 ******************************************************************************/
 
 
-// applicative compostion
-// (r -> a -> b) -> (r -> a) -> r -> b
-const ap = $(
-  "ap",
-  f => g => x => f(x) (g(x))
-);
-
-
 // applicator
 // (a -> b) -> a -> b
 const apply = $(
   "apply",
   f => x => f(x)
-);
-
-
-// monadic composition
-// (r -> a) -> (a -> r -> b) -> r -> b
-const chain = $(
-  "chain",
-  g => f => x => f(g(x)) (x)
-);
-
-
-// flipped monadic composition
-// (a -> r -> b) -> (r -> a) -> r -> b
-const chain_ = $(
-  "chain_",
-  f => g => x => f(g(x)) (x)
 );
 
 
@@ -493,18 +469,10 @@ const co = $(
 
 
 // constant in 2nd argument
-// a -> b -> a
+// a -> b -> b
 const co2 = $(
   "co2",
-  x => y => x
-);
-
-
-// function composition
-// (b -> c) -> (a -> b) -> a -> c
-const comp = $(
-  "comp",
-  f => g => x => f(g(x))
+  x => y => y
 );
 
 
@@ -720,64 +688,6 @@ const recur = (...args) =>
   ({type: recur, args});
 
 
-/***[Namespace]***************************************************************/
-
-
-// function namespace
-// Object
-const Fun = {};
-
-
-/***[Functor]*****************************************************************/
-
-
-// map
-// (b -> c) -> (a -> b) -> a -> c
-Fun.map = comp;
-
-
-// variadic map
-// untyped
-Fun.mapv = $(
-  "mapv",
-  f => Object.assign(g => Fun.mapv(x => f(g(x))), {run: f})
-);
-
-
-/***[Applicative]*************************************************************/
-
-
-// apply
-// (r -> a -> b) -> (r -> b) -> r -> b
-Fun.ap = ap;
-
-
-// variadic apply
-// left-to-right
-// untyped
-Fun.apv = $(
-  "...apv",
-  f => Object.assign(g => Fun.apv(x => g(x) (f(x))), {run: f})
-);
-
-
-/***[Chain]*******************************************************************/
-
-
-// chain
-// (r -> a) -> (a -> r -> b) -> r -> b
-Fun.chain = chain;
-
-
-// variadic chain
-// left-to-right
-// untyped
-Fun.chainv = $(
-  "chainv",
-  f => Object.assign(g => Fun.chainv(x => g(f(x)) (x)), {run: f})
-);
-
-
 /******************************************************************************
 ************************************[ Map ]************************************
 ******************************************************************************/
@@ -794,7 +704,7 @@ Fun.chainv = $(
 /***[Namespace]***************************************************************/
 
 
-// number namespace
+// number
 // Object
 const Num = {};
 
@@ -823,7 +733,10 @@ Num.neq = $(
 ******************************************************************************/
 
 
-// not supported
+const destructiveDel = k => o => (delete o[k], o);
+
+
+const destructiveSet = (k, v) => o => (o[k] = v, o);
 
 
 /******************************************************************************
@@ -850,7 +763,7 @@ const capitalize = $(
 /***[Namespace]***************************************************************/
 
 
-// string namespace
+// string
 // Object
 const Str = {};
 
@@ -1246,7 +1159,7 @@ Tup.neq = notp(Tup.eq);
 /***[Namespace]***************************************************************/
 
 
-// string namespace
+// string
 // Object
 const Null = {};
 
@@ -1831,16 +1744,17 @@ const Right = x => Either("Right", x) (cases => cases.Right(x));
 /***[Eq]*******************************************************************/
 
 
-/*Either.eq = $(
+Either.eq = $(
   "eq",
   tx => ty =>
-    tx.runEither({
-      Left: x => ty.runEither({Left: y => eq(x) (y)),
-      Right: x => ty.runEither({Left: y => eq(x) (y))
-    }));
+    tx[TAG] === ty[TAG]
+      && tx.runEither({
+        Left: x => ty.runEither({Left: y => eq(x) (y)}),
+        Right: x => ty.runEither({Right: y => eq(x) (y)})
+      }));
 
 
-Either.neq = notp(Either.eq);*/
+Either.neq = notp(Either.eq);
 
 
 /******************************************************************************
@@ -1931,6 +1845,82 @@ const None = Option("None") (cases => cases.None);
 
 
 /******************************************************************************
+**********************************[ Reader ]***********************************
+******************************************************************************/
+
+
+const Reader = Data(function Reader() {}) (Reader => f => Reader(f));
+
+
+/***[Functor]*****************************************************************/
+
+
+// map
+// (b -> c) -> (a -> b) -> a -> c
+Reader.map = $(
+  "map",
+  f => g => x => f(g(x))
+);
+
+
+// variadic map
+// untyped
+Reader.mapv = $(
+  "mapv",
+  f => Object.assign(g => Reader.mapv(x => f(g(x))), {run: f})
+);
+
+
+/***[Applicative]*************************************************************/
+
+
+// applicative compostion
+// (r -> a -> b) -> (r -> a) -> r -> b
+Reader.ap = $(
+  "ap",
+  f => g => x => f(x) (g(x))
+);
+
+
+// variadic apply
+// left-to-right
+// untyped
+Reader.apv = $(
+  "...apv",
+  f => Object.assign(g => Reader.apv(x => g(x) (f(x))), {run: f})
+);
+
+
+/***[Monad]*******************************************************************/
+
+
+// monadic composition
+// (r -> a) -> (a -> r -> b) -> r -> b
+Reader.chain = $(
+  "chain",
+  g => f => x => f(g(x)) (x)
+);
+
+
+// variadic chain
+// left-to-right
+// untyped
+Reader.chainv = $(
+  "chainv",
+  f => Object.assign(g => Reader.chainv(x => g(f(x)) (x)), {run: f})
+);
+
+
+/******************************************************************************
+***********************************[ State ]***********************************
+******************************************************************************/
+
+
+// TODO
+//const State = Data(function State() {}) (State => pair => State(pair));
+
+
+/******************************************************************************
 ***********************************[ Task ]************************************
 ******************************************************************************/
 
@@ -1983,15 +1973,6 @@ Task.of = x => Task((k, e) => k(x));
 // multi-way tree
 // Function -> ((a -> [Tree a] -> r) -> r) -> Tree a
 const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest));
-
-
-/******************************************************************************
-***********************************[ State ]***********************************
-******************************************************************************/
-
-
-// TODO
-//const State = Data(function State() {}) (State => pair => State(pair));
 
 
 /******************************************************************************
@@ -2116,6 +2097,16 @@ const {eq, neq} = Eq;
 
 
 /******************************************************************************
+*********************************[ Function ]**********************************
+******************************************************************************/
+
+
+// function composition
+// (b -> c) -> (a -> b) -> a -> c
+const comp = Reader.map;
+
+
+/******************************************************************************
 *******************************************************************************
 ***********************************[ MISC ]************************************
 *******************************************************************************
@@ -2193,15 +2184,11 @@ const underline = $(
 ******************************************************************************/
 
 
-Object.assign(
-  $,
+Object.assign($,
   {
-    ap,
     apply,
     Arr,
     Bounded,
-    chain,
-    chain_,
     Char,
     co,
     co2,
@@ -2228,7 +2215,6 @@ Object.assign(
     fix,
     flip,
     Float,
-    Fun,
     getTypeTag,
     guard,
     GT,
@@ -2253,9 +2239,10 @@ Object.assign(
     on,
     partial,
     pipe,
+    Reader,
     Rec,
-    Right,
     recur,
+    Right,
     runEff,
     _Set,
     SIG,
@@ -2275,4 +2262,4 @@ Object.assign(
 );
 
 
-export default $;
+module.exports = $;
