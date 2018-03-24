@@ -501,14 +501,6 @@ const compn = $(
 );
 
 
-// compostion in the 2nd argument
-// (a -> c -> d) -> (b -> c) -> a -> b -> d
-const compSnd = $(
-  "compSnd",
-  f => g => x => y => f(x) (g(y))
-);
-
-
 // first class conditional operator
 // a -> a -> Boolean -> a
 const cond = $(
@@ -550,7 +542,7 @@ const curry3 = $(
 
 
 // fix combinator
-// ((a -> b) a -> b) -> a -> b
+// ((a -> b) -> a -> b) -> a -> b
 const fix = $(
   "fix",
   f => x => f(fix(f)) (x)
@@ -565,14 +557,6 @@ const flip = $(
 );
 
 
-// GUARDED function
-// (a -> b) -> (a -> Boolean) -> b -> a -> b
-const guard = $(
-  "guard",
-  f => p => x => y => p(y) ? f(y) : x
-);
-
-
 // identity function
 // a -> a
 const id = $(
@@ -582,10 +566,10 @@ const id = $(
 
 
 // infix applicator
-// a -> (a -> b -> c) -> b -> c
+// (a, (a -> b -> c), b) -> c
 const infix = $(
   "infix",
-  x => f => y => f(x) (y)
+  (x, f, y) => f(x) (y)
 );
 
 
@@ -626,12 +610,28 @@ const partial = $(
 // untyped
 const pipe = $(
   "...pipe",
-  (f, ...fs) => x => f === undefined ? x : pipe(fs) (f(x))
+  (f, ...fs) => x => f === undefined ? x : pipe(...fs) (f(x))
+);
+
+
+// rotate left
+// a -> b -> c -> d) -> b -> c -> a -> d
+const rotl = $(
+  "rotl",
+  f => y => z => x => f(x) (y) (z)
+);
+
+
+// rotate right
+// (a -> b -> c -> d) -> c -> a -> b -> d
+const rotr = $(
+  "rotr",
+  f => z => x => y => f(x) (y) (z)
 );
 
 
 // swap
-// ((a, b) -> c) -> (a, b) -> c
+// ((a, b) -> c) -> (b, a) -> c
 const swap = $(
   "swap",
   f => (x, y) => f(y, x)
@@ -2196,7 +2196,6 @@ Object.assign($,
     comp2,
     compBoth,
     compn,
-    compSnd,
     cond,
     Cons,
     Cont,
@@ -2216,7 +2215,6 @@ Object.assign($,
     flip,
     Float,
     getTypeTag,
-    guard,
     GT,
     Id,
     id,
@@ -2243,6 +2241,8 @@ Object.assign($,
     Rec,
     recur,
     Right,
+    rotl,
+    rotr,
     runEff,
     _Set,
     SIG,
