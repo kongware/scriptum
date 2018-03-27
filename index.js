@@ -223,7 +223,7 @@ const introspect = x => {
     case "object": {
       const tag = getTypeTag(x);
 
-      if ("sig" in x) return x.sig;
+      if (tag !== "Null" && "sig" in x) return x.sig;
 
       else {
         switch (tag) {
@@ -404,6 +404,14 @@ class ReturnTypeError extends Error {
 const notp = $(
   "notp",
   p => x => !p(x)
+);
+
+
+// binary not predicate
+// (a -> Boolean) -> a -> Boolean
+const notp2 = $(
+  "notp2",
+  p => x => y => !p(x) (y)
 );
 
 
@@ -654,7 +662,7 @@ const uncurry = $(
 );
 
 
-// uncurry 3
+// ternary uncurry
 // (a -> b -> c -> d) -> (a, b, c) -> d
 const uncurry3 = $(
   "uncurry3",
@@ -1008,6 +1016,53 @@ Int.neq = $(
 
 
 /******************************************************************************
+********************************[ Null (Unit) ]********************************
+******************************************************************************/
+
+
+/***[Namespace]***************************************************************/
+
+
+// string
+// Object
+const Null = {};
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// Null
+Null.minBound = null;
+
+
+// minimal bound
+// Null
+Null.maxBound = null;
+
+
+/***[Eq]**********************************************************************/
+
+
+// equal
+// Null -> Null -> Boolean
+// in a typed language just _ => _ => true
+Null.eq = $(
+  "eq",
+  n => o => n === o
+);
+
+
+// not equal
+// Null -> Null -> Boolean
+// in a typed language just _ => _ => false
+Null.neq = $(
+  "neq",
+  n => o => n !== o
+);
+
+
+/******************************************************************************
 **********************************[ Record ]***********************************
 ******************************************************************************/
 
@@ -1073,7 +1128,7 @@ Rec.eq = $(
 
 // not equal
 // Record -> Record -> Boolean
-Rec.neq = notp(Rec.eq);
+Rec.neq = notp2(Rec.eq);
 
 
 /******************************************************************************
@@ -1148,52 +1203,7 @@ Tup.eq = $(
 
 // not equal
 // Tup -> Tup -> Boolean
-Tup.neq = notp(Tup.eq);
-
-
-/******************************************************************************
-***********************************[ Unit ]************************************
-******************************************************************************/
-
-
-/***[Namespace]***************************************************************/
-
-
-// string
-// Object
-const Null = {};
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Null
-Null.minBound = null;
-
-
-// minimal bound
-// Null
-Null.maxBound = null;
-
-
-/***[Eq]**********************************************************************/
-
-
-// equal
-// Null -> Null -> Boolean
-Null.eq = $(
-  "eq",
-  _ => __ => true
-);
-
-
-// not equal
-// Null -> Null -> Boolean
-Null.neq = $(
-  "neq",
-  _ => __ => false
-);
+Tup.neq = notp2(Tup.eq);
 
 
 /******************************************************************************
@@ -1316,7 +1326,7 @@ Arr.eq = $(
 
 // not equal
 // Array -> Array -> Boolean
-Arr.neq = notp(Arr.eq);
+Arr.neq = notp2(Arr.eq);
 
 
 /******************************************************************************
@@ -1405,7 +1415,7 @@ _Map.eq = $(
 
 // not equal
 // Map -> Map -> Boolean
-_Map.neq = notp(_Map.eq);
+_Map.neq = notp2(_Map.eq);
 
 
 /******************************************************************************
@@ -1492,7 +1502,7 @@ _Set.eq = $(
 
 // not equal
 // Set -> Set -> Boolean
-_Set.neq = notp(_Set.eq);
+_Set.neq = notp2(_Set.eq);
 
 
 /******************************************************************************
@@ -1507,20 +1517,20 @@ _Set.neq = notp(_Set.eq);
 // untyped
 const Type = $(
   "Type",
-  Tcons => {
+  name => {
     const Type = (tag, ...args) => Dcons => {
       const t = new Tcons();
-      
-      t[`run${Tcons.name}`] = $(`run${Tcons.name}`, cases => Dcons(cases));
+      t[`run${name}`] = $(`run${name}`, Dcons);
       t[TAG] = tag;
 
       if (GUARDED)
-        t[SIG] = `${Tcons.name}<${introspect(args).slice(1, -1)}>`;
+        t[SIG] = `${name}<${introspect(args).slice(1, -1)}>`;
         
       return t;
     };
 
-    Tcons.prototype[Symbol.toStringTag] = Tcons.name;
+    const Tcons = Function(`return function ${name}() {}`) ();
+    Tcons.prototype[Symbol.toStringTag] = name;
     return Type;
   }
 );
@@ -1531,69 +1541,81 @@ const Type = $(
 // untyped
 const Data = $(
   "Data",
-  Tcons => Dcons => {
-    const Data = x => {
-      const t = new Tcons();
-      t[`run${Tcons.name}`] = x;
-      t[Symbol.toStringTag] = Tcons.name;
-      t[TAG] = Tcons.name;
+  name => {
+    const Data = Dcons => {
+      const Data = x => {
+        const t = new Tcons();
+        t[`run${name}`] = k => k(x);
+        t[Symbol.toStringTag] = name;
+        t[TAG] = name;
 
-      if (GUARDED)
-        t[SIG] = `${Tcons.name}<${introspect(x)}>`;
-      
-      return t;
+        if (GUARDED)
+          t[SIG] = `${name}<${introspect(x)}>`;
+        
+        return t;
+      };
+
+      return Dcons(Data);
     };
 
-    // return $(Tcons.name, Dcons(Data)); ???
-    return Dcons(Data);
+    const Tcons = Function(`return function ${name}() {}`) ();
+    return Data;
   }
 );
 
 
-// data 2
+// binary data
 // adt with single constructor and two fields
 // untyped
 const Data2 = $(
-  "Data",
-  Tcons => Dcons => {
-    const Data2 = x => y => {
-      const t = new Tcons();
-      t[`run${Tcons.name}`] = k => k(x) (y);
-      t[Symbol.toStringTag] = Tcons.name;
-      t[TAG] = Tcons.name;
+  "Data2",
+  name => {
+    const Data2 = Dcons => {
+      const Data2 = x => y => {
+        const t = new Tcons();
+        t[`run${name}`] = k => k(x) (y);
+        t[Symbol.toStringTag] = name;
+        t[TAG] = name;
 
-      if (GUARDED)
-        t[SIG] = `${Tcons.name}<${introspect(x)}, ${introspect(y)}>`;
-      
-      return t;
+        if (GUARDED)
+          t[SIG] = `${name}<${introspect(x)}>`;
+        
+        return t;
+      };
+
+      return Dcons(Data2);
     };
 
-    // return $(Tcons.name, Dcons(Data2)); ???
-    return Dcons(Data2);
+    const Tcons = Function(`return function ${name}() {}`) ();
+    return Data2;
   }
 );
 
 
-// data 3
+// ternary data
 // adt with single constructor and three fields
 // untyped
 const Data3 = $(
-  "Data",
-  Tcons => Dcons => {
-    const Data3 = x => y => z => {
-      const t = new Tcons();
-      t[`run${Tcons.name}`] = k => k(x) (y) (z);
-      t[Symbol.toStringTag] = Tcons.name;
-      t[TAG] = Tcons.name;
+  "Data3",
+  name => {
+    const Data3 = Dcons => {
+      const Data3 = x => y => z => {
+        const t = new Tcons();
+        t[`run${name}`] = k => k(x) (y) (z);
+        t[Symbol.toStringTag] = name;
+        t[TAG] = name;
 
-      if (GUARDED)
-        t[SIG] = `${Tcons.name}<${introspect(x)}, ${introspect(y)}, ${introspect(z)}>`;
-      
-      return t;
+        if (GUARDED)
+          t[SIG] = `${name}<${introspect(x)}>`;
+        
+        return t;
+      };
+
+      return Dcons(Data3);
     };
 
-    // return $(Tcons.name, Dcons(Data3)); ???
-    return Dcons(Data3);
+    const Tcons = Function(`return function ${name}() {}`) ();
+    return Data3;
   }
 );
 
@@ -1605,7 +1627,7 @@ const Data3 = $(
 
 // comparator type constructor
 // Function -> Function
-const Comparator = Type(function Comparator() {});
+const Comparator = Type("Comparator");
 
 
 // lower than data constructor
@@ -1662,7 +1684,7 @@ Comparator.neq = $(
 
 // delimited continuation
 // Function -> ((a -> r) -> r) -> Cont r a
-const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
+const Cont = Data("Cont") (Cont => k => Cont(k));
 
 
 /******************************************************************************
@@ -1673,7 +1695,7 @@ const Cont = Data(function Cont() {}) (Cont => k => Cont(k));
 // effect
 // synchronous
 // Function -> (() -> a) -> Eff a
-const Eff = Data(function Eff() {}) (Eff => thunk => Eff(thunk));
+const Eff = Data("Eff") (Eff => thunk => Eff(thunk));
 
 
 // run effect
@@ -1728,7 +1750,7 @@ Eff.chain = $(
 
 // either
 // Function -> ((a -> r) -> (b -> r) -> r) -> Either a b
-const Either = Type(function Either() {});
+const Either = Type("Either");
 
 
 // left
@@ -1754,7 +1776,7 @@ Either.eq = $(
       }));
 
 
-Either.neq = notp(Either.eq);
+Either.neq = notp2(Either.eq);
 
 
 /******************************************************************************
@@ -1764,7 +1786,7 @@ Either.neq = notp(Either.eq);
 
 // exception
 // Function -> ((e -> r) -> (a -> r) -> r) -> Except e a
-const Except = Type(function Except() {});
+const Except = Type("Except");
 
 
 // error
@@ -1784,12 +1806,7 @@ const Suc = x => Except("Suc", x) (cases => cases.Suc(x));
 
 // identity
 // Function -> a -> Id a
-const Id = Data(function Id() {}) (Id => x => Id(x));
-
-
-/***[Eq]*******************************************************************/
-
-
+const Id = Data("Id") (Id => x => Id(x));
 
 
 /******************************************************************************
@@ -1799,7 +1816,7 @@ const Id = Data(function Id() {}) (Id => x => Id(x));
 
 // list
 // Function -> ((a -> List a -> r) -> r -> r) -> List a
-const List = Type(function List() {});
+const List = Type("List");
 
 
 // construct
@@ -1812,16 +1829,13 @@ const Cons = x => tx => List("Cons", x) (cases => cases.Cons(x) (tx));
 const Nil = List("Nil") (cases => cases.Nil);
 
 
-/***[Eq]*******************************************************************/
-
-
 /******************************************************************************
 **********************************[ Memoize ]**********************************
 ******************************************************************************/
 
 
 // TODO
-//const Memoize = Data(function Memoize() {}) (Memoize => x => Memoize(x));
+//const Memoize = Data("Memoize") (Memoize => x => Memoize(x));
 
 
 /******************************************************************************
@@ -1831,7 +1845,7 @@ const Nil = List("Nil") (cases => cases.Nil);
 
 // option
 // Function -> ((a -> r) -> r -> r) -> Option a
-const Option = Type(function Option() {});
+const Option = Type("Option");
 
 
 // some
@@ -1849,7 +1863,7 @@ const None = Option("None") (cases => cases.None);
 ******************************************************************************/
 
 
-const Reader = Data(function Reader() {}) (Reader => f => Reader(f));
+const Reader = Data("Reader") (Reader => f => Reader(f));
 
 
 /***[Functor]*****************************************************************/
@@ -1917,7 +1931,7 @@ Reader.chainv = $(
 
 
 // TODO
-//const State = Data(function State() {}) (State => pair => State(pair));
+//const State = Data("State") (State => pair => State(pair));
 
 
 /******************************************************************************
@@ -1927,7 +1941,7 @@ Reader.chainv = $(
 
 // task
 // Function -> ((a -> r) -> r, (e -> r) -> r) -> Task a e
-const Task = Data(function Task() {}) (Task => ks => Task(ks));
+const Task = Data("Task") (Task => ks => Task(ks));
 
 
 /***[Functor]*****************************************************************/
@@ -1971,8 +1985,40 @@ Task.of = x => Task((k, e) => k(x));
 
 
 // multi-way tree
-// Function -> ((a -> [Tree a] -> r) -> r) -> Tree a
-const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest));
+const Tree = Data2("Tree") (Tree => x => forest => Tree(x) (forest));
+
+
+const Forest = Data("Forest") (Forest => (...trees) => Forest(trees));
+
+
+/***[Eq]*******************************************************************/
+
+
+/*Node.eq = tx => ty => {
+  const rec = ([x, childrenx], [y, childreny], stackx, stacky) => {
+    if (neq(x) (y)) return false;
+    else if (childrenx.length !== childreny.length) return false;
+
+    else if (childrenx.length > 0) {
+      stackx.unshift(...childrenx);
+      stacky.unshift(...childreny);
+      return rec(stackx.shift(), stacky.shift(), stackx, stacky);
+    }
+
+    else {
+      if (stackx.length > 0) {
+        const nodex = stackx.shift(),
+          nodey = stacky.shift();
+
+        return rec(nodex, nodey, stackx, stacky);
+      }
+
+      else return true;
+    }
+  };
+
+  return rec(tx, ty, [], []);
+};*/
 
 
 /******************************************************************************
@@ -1981,7 +2027,7 @@ const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest))
 
 
 // TODO
-//const Unique = Data(function Unique() {}) (Unique => x => Unique(x));
+//const Unique = Data("Unique") (Unique => x => Unique(x));
 
 
 /******************************************************************************
@@ -1990,7 +2036,7 @@ const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest))
 
 
 // TODO
-//const Valid = Data(function Valid() {}) (Valid => x => Valid(x));
+//const Valid = Data("Valid") (Valid => x => Valid(x));
 
 
 /******************************************************************************
@@ -1999,7 +2045,7 @@ const Tree = Data2(function Tree() {}) (Tree => x => forest => Tree(x) (forest))
 
 
 // TODO
-//const Writer = Data(function Writer() {}) (Writer => x => Writer(x));
+//const Writer = Data("Writer") (Writer => x => Writer(x));
 
 
 /******************************************************************************
@@ -2030,6 +2076,7 @@ const instances = new Map([
   ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
   ["Eq Char", {eq: Char.eq, neq: Char.neq}],
   ["Eq Either", {eq: Either.eq, neq: Either.neq}],
+  ["Eq Float", {eq: Float.eq, neq: Float.neq}],
   ["Eq Int", {eq: Int.eq, neq: Int.neq}],
   ["Eq Map", {eq: _Map.eq, neq: _Map.neq}],
   ["Eq Null", {eq: Null.eq, neq: Null.neq}],
@@ -2214,6 +2261,7 @@ Object.assign($,
     fix,
     flip,
     Float,
+    Forest,
     getTypeTag,
     GT,
     Id,
@@ -2232,6 +2280,7 @@ Object.assign($,
     Nil,
     None,
     notp,
+    notp2,
     Null,
     omega,
     on,
