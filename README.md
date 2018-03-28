@@ -488,15 +488,6 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
-# Import
-
-Just import scriptum's default export:
-
-```Javascript
-import $ from "./scriptum.js";
-```
-`$` is now both a special operator and namespace for all of scriptum's combinators and functions.
-
 # Upcoming Features
 
 * Several type classes
@@ -515,7 +506,7 @@ import $ from "./scriptum.js";
 # Research
 
 * Coyoneda and Free
-* Trees (BST, Heaps, Red-Black, Finger, AVL, Tries)
+* Trees (Multi-way, Binary Search, Heap, Red-Black, Finger, AVL, Trie)
 * Graphs
 * Lists (Random Access List, Catenable List)
 * Double Generalized Queues (Deque)
