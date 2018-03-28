@@ -292,7 +292,7 @@ runOption({Some: uc, None: ""}) (y); // ""
 ```
 To provide additional debug information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
 
-The `Data` constrcutor can define a single data constructor with one field:
+The `Data` constructor can define a single constructor with one field:
 
 ```Javascript
 const Reader = Data("Reader") (Reader => f => Reader(f));
