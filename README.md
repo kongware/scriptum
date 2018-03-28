@@ -268,7 +268,7 @@ delete xs[0]; // type error (index gap)
 You can create your own algebraic data types with both the `Type` and the arity-dependent `Data` constructors. The `Type` constrcutor can define tagged unions:
 
 ```Javascript
-const Option = Type(function Option() {});
+const Option = Type("Option");
 const Some = x => Option("Some", x) (o => o.Some(x));
 const None = Option("None") (o => o.None);
 const runOption = dict => tx => tx.runOption(dict);
@@ -290,12 +290,16 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
+To provide additional debugging information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
+
 The `Data` constrcutor can define a single data constructor with one field:
 
 ```Javascript
 const Reader = Data("Reader") (Reader => f => Reader(f));
 ```
-And the `Data2` constructor can define a single data constructor with two fields:
+Please note that the first argument of the passed function argument is always the data constructor itself (`Reader => f => Reader(f)`).
+
+Accordingly, the `Data2` constructor can define a single data constructor with two fields:
 
 ```Javascript
 const Tree = Data("Node") (Node => x => children => Node(x) (children));
