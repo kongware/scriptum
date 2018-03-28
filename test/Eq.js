@@ -55,6 +55,15 @@ describe("eq", function() {
     // mocha bug
   });
 
+  describe("Comparator", function() {
+    it("should return false", function() {
+      assert.equal(
+        $.eq($.Arr([1,2,3])) ($.Arr([1,2,3,4])),
+        false
+      );
+    });
+  });
+
   describe("Float", function() {
     // mocha bug
   });
@@ -278,6 +287,8 @@ describe("eq", function() {
     });
   });
 });
+
+/*********************************** neq *************************************/
 
 describe("neq", function() {
   describe("Array", function() {

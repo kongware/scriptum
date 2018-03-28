@@ -10,7 +10,7 @@ A type-directed functional library with a focus on purity, abstraction and a mat
 
 ## Why
 
-Replacing short-term dynamic type convenience with long-term reliability and predictability.
+scriptum is the attempt to reconcile programming in an dynamically typed environment with the requirements of modern software development like correctness, predictability and resuablility.
 
 ## Mission
 
@@ -18,7 +18,7 @@ scriptum encourages you to program in a type-directed style and to consider func
 
 # Debugging
 
-scriptum provides a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs. Please note that `$` is also intended to be scriptum's namespace.
+scriptum provides a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs. Please note that `$` also serves as a library namespace.
 
 You can easily guard curried functions sequences:
 
@@ -46,7 +46,7 @@ const sum = $(
   (...ns) => ns.reduce((acc, n) => acc + n, 0);
 );
 ```
-To safe the cost of function guarding at runtime you can disable this feature for production environments by simply setting the `guarded` flag to `false`.
+To safe the cost of function guardance at runtime you can disable this feature for production environments by simply setting the `GUARDED` flag to `false`.
 
 ## Type Invalidation
 
@@ -173,6 +173,10 @@ map(inc) (append(xs) (ys)); // type error
 ```
 `xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
 
+## Shortcommings
+
+At first scriptum establishes another level of indirection around every guarded function. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. On the other hand, the additional guarantees and debug information should outweigh these extra effort by far, in particular for larger projects. Additionally, scriptum guides you through the step-by-step debug process by indicating which expressions can be skipped.
+
 # Extended Types
 
 scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them. Additionally, some characteristics of these extended types that are rather uncommon for untyped Javascript are illustrated.
@@ -198,24 +202,25 @@ The following extended types appear to Javascript's runtime type system like the
 
 The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
-* Comparator (type for ordering)
-* Cont (continuation/delimited)
-* Defer (deferred computation - newtype of Eff)
+* Behavior (continuous time series value)
+* Comparator (ordering value)
+* Cont (delimited continuation)
 * Eff (effectful synchronous computation)
 * Either (convergent computation)
-* Except (computation that may throw an error)
+* Except (first class exception)
 * Id (effectless computation)
+* Lazy (lazy evaluation - type synonym of Eff)
 * List (undeterministic computation)
-* Memoize (computation that memoize previous results)
-* Option (computation that may fail silently)
-* State (computation that share global state)
-* Unique (computation that produces a unique value)
-* Task (asynchronous computation)
-* Tree (type for multi-way trees)
-* Valid (type for error collections)
-* Writer (computation that share a global log)
-
-The `Reader` type is called `Function` in scriptum according to the native prototype.
+* Memoize (memoziation)
+* Option (short curcuiting)
+* Reader (compuation depending on a shared read-only environment)
+* State (computation depending on shared state)
+* Stream (discrete time series value)
+* Task (effectful asynchronous computation)
+* Tree/Forest (schematic multi-way tree implementation)
+* Unique (unique value)
+* Valid (validation)
+* Writer (computation depending on a shared write-only environment)
 
 ## Type Coersion
 
@@ -260,7 +265,7 @@ delete xs[0]; // type error (index gap)
 ```
 # Custom Types
 
-You can create your own algebraic data types with both the `Type` and the `Data` constructor. While the former can express sums of products the latter restricted to single constructor/field types. Here is an example of the built-in `Option` ADT:
+You can create your own algebraic data types with both the `Type` and the arity-dependent `Data` constructors. The `Type` constrcutor can define tagged unions:
 
 ```Javascript
 const Option = Type(function Option() {});
@@ -285,7 +290,17 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
-The underlying encoding is called Scott and based on higher order functions. Provided you treat these custom types algebraically by obeying the relevant mathematical laws, they can be considered proper algebraic data types.
+The `Data` constrcutor can define a single data constructor with one field:
+
+```Javascript
+const Reader = Data("Reader") (Reader => f => Reader(f));
+```
+And the `Data2` constructor can define a single data constructor with two fields:
+
+```Javascript
+const Tree = Data("Node") (Node => x => children => Node(x) (children));
+```
+The underlying encoding is called Scott and based on higher order functions. We can consider these custom types as algebraic data types provided we manually obey the relevant algebraic laws.
 
 # Effect Handling
 
@@ -493,15 +508,9 @@ import $ from "./scriptum.js";
 * `Behavior`/`Event` types and corresponding combinators
 * Cata-, ana- and hylomorphisms
 
-# Todo
-
-* [ ] add license
-* [ ] add package.json
-
 # Research
 
 * Coyoneda and Free
-* Comonads
 * Trees (BST, Heaps, Red-Black, Finger, AVL, Tries)
 * Graphs
 * Lists (Random Access List, Catenable List)
@@ -509,4 +518,4 @@ import $ from "./scriptum.js";
 
 # API
 
-Prepare a Wiki...
+Until there is a wiki you can inspect the unit tests to get a notion for use cases and application of various combinators.
