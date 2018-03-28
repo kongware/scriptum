@@ -290,7 +290,7 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
-To provide additional debugging information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
+To provide additional debug information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
 
 The `Data` constrcutor can define a single data constructor with one field:
 
