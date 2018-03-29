@@ -292,14 +292,14 @@ runOption({Some: uc, None: ""}) (y); // ""
 ```
 To provide additional debug information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
 
-The `Data` constructor can define a single constructor with one field:
+With the `Data` constructor you can conveniently define single constructor types restricted to one field:
 
 ```Javascript
 const Reader = Data("Reader") (Reader => f => Reader(f));
 ```
 Please note that the first argument of the passed function argument is always the data constructor itself (`Reader => f => Reader(f)`).
 
-The `Data2`/`Data3` constructors define single data constructors with two/three fields, respectively:
+The `Data2`/`Data3` constructors define single constructor types with two/three fields, respectively:
 
 ```Javascript
 const Foo = Data2("Foo")
