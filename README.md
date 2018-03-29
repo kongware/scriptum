@@ -214,6 +214,7 @@ The following extended types are function encoded and simulate algebraic data ty
 * Memoize (memoziation)
 * Option (short curcuiting)
 * Reader (compuation depending on a shared read-only environment)
+* Ref (referential identity)
 * State (computation depending on shared state)
 * Stream (discrete time series value)
 * Task (effectful asynchronous computation)

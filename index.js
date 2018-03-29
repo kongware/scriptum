@@ -154,8 +154,8 @@ const typeCheck = Cons => f => x => {
 };
 
 
-const verifyArgTypes = (args, name, nthCall, log) => {
-  return args.map((arg, nthArg) =>
+const verifyArgTypes = (args, name, nthCall, log) =>
+  args.map((arg, nthArg) =>
     typeCheck(ArgTypeError)
       (t => illTyped => fromTo =>
         `\n\n${name} received an argument of type`
@@ -166,24 +166,25 @@ const verifyArgTypes = (args, name, nthCall, log) => {
         + `\n\ninvalid type`
         + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
         + "\n") (arg))
-          .join(", ");
-};
+        .join(", ");
 
 
 const verifyArity = (g, args, name, params, nthCall, log) => {
-  if (params === "fix" && g.length !== args.length)
+  if (params === "fix" && g.length !== args.length) {
     throw new ArityError(
       `\n\n${name} expects ${g.length} argument(s)`
       + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
       + `\n\nin the ${nthCall + 1}. call of ${name}`
       + `\n\ninvalid function call arity`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
-      + "\n");
+      + "\n"
+    );
+  }
 };
 
 
-const verifyRetType = (r, name, log) => {
-  return typeCheck(ReturnTypeError)
+const verifyRetType = (r, name, log) =>
+  typeCheck(ReturnTypeError)
     (t => illTyped => fromTo =>
       `\n\n${name} returned a value of type`
       + `\n\n${t}`
@@ -191,7 +192,6 @@ const verifyRetType = (r, name, log) => {
       + `\n\ninvalid type`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
       + "\n") (r);
-};
 
 
 /******************************************************************************
@@ -403,16 +403,14 @@ class ReturnTypeError extends Error {
 // (a -> Boolean) -> a -> Boolean
 const notp = $(
   "notp",
-  p => x => !p(x)
-);
+  p => x => !p(x));
 
 
 // binary not predicate
 // (a -> Boolean) -> a -> Boolean
 const notp2 = $(
   "notp2",
-  p => x => y => !p(x) (y)
-);
+  p => x => y => !p(x) (y));
 
 
 /***[Namespace]***************************************************************/
@@ -443,16 +441,14 @@ Boo.maxBound = true;
 // Boolean -> Boolean -> Boolean
 Boo.eq = $(
   "eq",
-  b => c => b === c
-);
+  b => c => b === c);
 
 
 // not equal
 // Boolean -> Boolean -> Boolean
 Boo.neq = $(
   "neq",
-  b => c => b !== c
-);
+  b => c => b !== c);
 
 
 /******************************************************************************
@@ -464,40 +460,35 @@ Boo.neq = $(
 // (a -> b) -> a -> b
 const apply = $(
   "apply",
-  f => x => f(x)
-);
+  f => x => f(x));
 
 
 // constant
 // a -> b -> a
 const co = $(
   "co",
-  x => y => x
-);
+  x => y => x);
 
 
 // constant in 2nd argument
 // a -> b -> b
 const co2 = $(
   "co2",
-  x => y => y
-);
+  x => y => y);
 
 
 // binary function composition
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
 const comp2 = $(
   "comp2",
-  f => g => x => y => f(g(x) (y))
-);
+  f => g => x => y => f(g(x) (y)));
 
 
 // composition in both arguments
 // (b -> c -> d) -> (a -> b) -> (a -> c) -> a -> d
 const compBoth = $(
   "compBoth",
-  f => g => h => x => f(g(x)) (h(x))
-)
+  f => g => h => x => f(g(x)) (h(x)));
 
 
 // function composition
@@ -505,112 +496,112 @@ const compBoth = $(
 // untyped
 const compn = $(
   "...compn",
-  (f, ...fs) => x => f === undefined ? x : f(compn(...fs) (x))
-);
+  (f, ...fs) => x =>
+    f === undefined
+      ? x
+      : f(compn(...fs) (x)));
 
 
 // first class conditional operator
 // a -> a -> Boolean -> a
 const cond = $(
   "cond",
-  x => y => b => b ? x : y
-);
+  x => y => b =>
+    b ? x : y);
 
 
 // contramap
 // (a -> b) -> (b -> c) -> a -> c
 const contra = $(
   "contra",
-  f => g => x => g(f(x))
-);
+  f => g => x =>
+    g(f(x)));
 
 
 // continuation
 // a -> (a -> b) -> b
 const cont = $(
   "cont",
-  x => f => f(x)
-);
+  x => f =>
+    f(x));
 
 
 // curry
 // ((a, b) -> c) -> a -> b -> c
 const curry = $(
   "curry",
-  f => x => y => f(x, y)
-);
+  f => x => y =>
+    f(x, y));
 
 
 // curry3
 // ((a, b, c) -> d) -> a -> b -> c -> d
 const curry3 = $(
   "curry3",
-  f => x => y => z => f(x, y, z)
-);
+  f => x => y => z =>
+    f(x, y, z));
 
 
 // fix combinator
 // ((a -> b) -> a -> b) -> a -> b
 const fix = $(
   "fix",
-  f => x => f(fix(f)) (x)
-);
+  f => x =>
+    f(fix(f)) (x));
 
 
 // flip arguments
 // (a -> b -> c) -> b -> a -> c
 const flip = $(
   "flip",
-  f => y => x => f(x) (y)
-);
+  f => y => x =>
+    f(x) (y));
 
 
 // identity function
 // a -> a
 const id = $(
   "id",
-  x => x
-);
+  x => x);
 
 
 // infix applicator
 // (a, (a -> b -> c), b) -> c
 const infix = $(
   "infix",
-  (x, f, y) => f(x) (y)
-);
+  (x, f, y) =>
+    f(x) (y));
 
 
 // monadic join
 // (r -> r -> a) -> r -> a
 const join = $(
   "join",
-  f => x => f(x) (x)
-);
+  f => x =>
+    f(x) (x));
 
 
 // omega combinator
 // untyped
 const omega = $(
   "omega",
-  f => f(f)
-);
+  f => f(f));
 
 
 // on
 // (b -> b -> c) -> (a -> b) -> a -> a -> c
 const on = $(
   "on",
-  f => g => x => y => f(g(x)) (g(y))
-);
+  f => g => x => y =>
+    f(g(x)) (g(y)));
 
 
 // parial
 // untyped
 const partial = $(
   "...partial",
-  (f, ...args) => (...args_) => f(...args, ...args_)
-);
+  (f, ...args) => (...args_) =>
+    f(...args, ...args_));
 
 
 // function composition
@@ -618,56 +609,58 @@ const partial = $(
 // untyped
 const pipe = $(
   "...pipe",
-  (f, ...fs) => x => f === undefined ? x : pipe(...fs) (f(x))
-);
+  (f, ...fs) => x =>
+    f === undefined
+      ? x
+      : pipe(...fs) (f(x)));
 
 
 // rotate left
 // a -> b -> c -> d) -> b -> c -> a -> d
 const rotl = $(
   "rotl",
-  f => y => z => x => f(x) (y) (z)
-);
+  f => y => z => x =>
+    f(x) (y) (z));
 
 
 // rotate right
 // (a -> b -> c -> d) -> c -> a -> b -> d
 const rotr = $(
   "rotr",
-  f => z => x => y => f(x) (y) (z)
-);
+  f => z => x => y =>
+    f(x) (y) (z));
 
 
 // swap
 // ((a, b) -> c) -> (b, a) -> c
 const swap = $(
   "swap",
-  f => (x, y) => f(y, x)
-);
+  f => (x, y) =>
+    f(y, x));
 
 
 // tap
 // (a -> b) -> a -> b)
 const tap = $(
   "tap",
-  f => x => (f(x), x)
-);
+  f => x =>
+    (f(x), x));
 
 
 // uncurry
 // (a -> b -> c) -> (a, b) -> c
 const uncurry = $(
   "uncurry",
-  f => (x, y) => f(x) (y)
-);
+  f => (x, y) =>
+    f(x) (y));
 
 
 // ternary uncurry
 // (a -> b -> c -> d) -> (a, b, c) -> d
 const uncurry3 = $(
   "uncurry3",
-  f => (x, y, z) => f(x) (y) (z)
-);
+  f => (x, y, z) =>
+    f(x) (y) (z));
 
 
 /***[Tail Recursion]**********************************************************/
@@ -724,16 +717,16 @@ const Num = {};
 // Number -> Number -> Boolean
 Num.eq = $(
   "eq",
-  m => n => m === n
-);
+  m => n =>
+    m === n);
 
 
 // not equal
 // Number -> Number -> Boolean
 Num.neq = $(
   "neq",
-  m => n => m !== n
-);
+  m => n =>
+    m !== n);
 
 
 /******************************************************************************
@@ -741,10 +734,12 @@ Num.neq = $(
 ******************************************************************************/
 
 
-const destructiveDel = k => o => (delete o[k], o);
+const destructiveDel = k => o =>
+  (delete o[k], o);
 
 
-const destructiveSet = (k, v) => o => (o[k] = v, o);
+const destructiveSet = (k, v) => o =>
+  (o[k] = v, o);
 
 
 /******************************************************************************
@@ -764,8 +759,7 @@ const destructiveSet = (k, v) => o => (o[k] = v, o);
 // String -> String
 const capitalize = $(
   "capitalize",
-  s => s[0].toUpperCase() + s.slice(1)
-);
+  s => s[0].toUpperCase() + s.slice(1));
 
 
 /***[Namespace]***************************************************************/
@@ -783,16 +777,16 @@ const Str = {};
 // String -> String -> Boolean
 Str.eq = $(
   "eq",
-  s => t => s === t
-);
+  s => t =>
+    s === t);
 
 
 // not equal
 // String -> String -> Boolean
 Str.neq = $(
   "neq",
-  s => t => s !== t
-);
+  s => t =>
+    s !== t);
 
 
 /******************************************************************************
@@ -817,12 +811,14 @@ class Char extends String {
       if (typeof c !== "string") throw new ArgTypeError(
         "\n\nChar expects String literal"
         + `\nvalue of type ${introspect(c)} received`
-        + "\n");
+        + "\n"
+      );
 
       else if ([...c].length !== 1) throw new ArgTypeError(
         "\n\nChar expects single character"
         + `\n"${c}" of length ${c.length} received`
-        + "\n");
+        + "\n"
+      );
     }
   }
 } {
@@ -843,7 +839,8 @@ Char.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nChar is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -867,16 +864,16 @@ Char.maxBound = Char("\u{10FFFF}");
 // Char -> Char -> Boolean
 Char.eq = $(
   "eq",
-  c => d => c.valueOf() === d.valueOf()
-);
+  c => d =>
+    c.valueOf() === d.valueOf());
 
 
 // not equal
 // Char -> Char -> Boolean
 Char.neq = $(
   "neq",
-  c => d => c.valueOf() !== d.valueOf()
-);
+  c => d =>
+    c.valueOf() !== d.valueOf());
 
 
 /******************************************************************************
@@ -894,7 +891,8 @@ class Float extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "\n\nFloat expects Number literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n");
+        + "\n"
+      );
     }
   }
 } {
@@ -915,7 +913,8 @@ Float.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nFloat is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -926,16 +925,16 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 // Float -> Float -> Boolean
 Float.eq = $(
   "eq",
-  f => g => f.valueOf() === g.valueOf()
-);
+  f => g =>
+    f.valueOf() === g.valueOf());
 
 
 // not equal
 // Float -> Float -> Boolean
 Float.neq = $(
   "neq",
-  f => g => f.valueOf() !== g.valueOf()
-);
+  f => g =>
+    f.valueOf() !== g.valueOf());
 
 
 /******************************************************************************
@@ -953,12 +952,14 @@ class Int extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "\n\nInt expects Number literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n");
+        + "\n"
+      );
 
       else if (n % 1 !== 0) throw new ArgTypeError(
         "\n\nInt expects integer literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n");
+        + "\n"
+      );
     }
   }
 } {
@@ -979,7 +980,8 @@ Int.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nInt is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -1003,16 +1005,16 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 // Int -> Int -> Boolean
 Int.eq = $(
   "eq",
-  i => j => i.valueOf() === j.valueOf()
-);
+  i => j =>
+    i.valueOf() === j.valueOf());
 
 
 // not equal
 // Int -> Int -> Boolean
 Int.neq = $(
   "eq",
-  i => j => i.valueOf() !== j.valueOf()
-);
+  i => j =>
+    i.valueOf() !== j.valueOf());
 
 
 /******************************************************************************
@@ -1049,8 +1051,8 @@ Null.maxBound = null;
 // in a typed language just _ => _ => true
 Null.eq = $(
   "eq",
-  n => o => n === o
-);
+  n => o =>
+    n === o);
 
 
 // not equal
@@ -1058,8 +1060,8 @@ Null.eq = $(
 // in a typed language just _ => _ => false
 Null.neq = $(
   "neq",
-  n => o => n !== o
-);
+  n => o =>
+    n !== o);
 
 
 /******************************************************************************
@@ -1078,7 +1080,8 @@ class Rec extends Object {
       if (typeof o !== "object" || o === null) throw new ArgTypeError(
         "\n\nRec expects Object type"
         + `\nvalue of type ${introspect(o)} received`
-        + "\n");
+        + "\n"
+      );
 
       Object.freeze(this);
     }
@@ -1101,7 +1104,8 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nRec is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -1116,12 +1120,12 @@ Rec.eq = $(
     const ks = Object.keys(r),
       ls = Object.keys(s);
 
-    if (ks.length !== ls.length) return false;
+    if (ks.length !== ls.length)
+      return false;
 
-    else return ks.every(k => {
-      if (!(k in s)) return false;
-      else return eq(r[k]) (s[k]);
-    });
+    else return ks.every(k => !(k in s)
+      ? false
+      : eq(r[k]) (s[k]));
   }
 );
 
@@ -1169,7 +1173,8 @@ Tup.prototype.map = () => {
   throw new TypeError(
     "\n\nTup must not be used as an Array"
     + "\nillegal map operation"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -1177,7 +1182,8 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nTup is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n");
+    + "\n"
+  );
 };
 
 
@@ -1191,14 +1197,11 @@ Tup.prototype[Symbol.toStringTag] = "Tuple";
 // Tuple -> Tuple -> Boolean
 Tup.eq = $(
   "eq",
-  xs => ys => {
-    if (xs.length !== ys.length)
-      return false;
-
-    else return xs.every((x, n) =>
-      eq(x) (ys[n]));
-  }
-);
+  xs => ys =>
+    xs.length !== ys.length
+      ? false
+      : xs.every((x, n) =>
+        eq(x) (ys[n])));
 
 
 // not equal
@@ -1225,14 +1228,16 @@ const Arr = xs => {
     if (!Array.isArray(xs)) throw new ArgTypeError(
       "\n\nArr expects Array type"
       + `\nvalue of type ${introspect(xs)} received`
-      + "\n");
+      + "\n"
+    );
 
     const t = introspect(xs);
 
     if (replaceNestedTypes(t).search(/\?|,/) !== -1) throw new ArgTypeError(
       "\n\nArr expects homogeneous Array"
       + `\nvalue of type ${t} received`
-      + "\n");
+      + "\n"
+    );
 
     else return new Proxy(xs, handleArr(t));
   }
@@ -1250,7 +1255,8 @@ const handleArr = t => ({
         throw new TypeCoercionError(
           `\n\nArr is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n");
+          + "\n"
+        );
       };
 
       default: return xs[i];
@@ -1264,7 +1270,8 @@ const handleArr = t => ({
         + `\n\n${t}`
         + `\n\nat index #${i}`
         + `\nArr must not contain index gaps`
-        + "\n");
+        + "\n"
+      );
     }
 
     delete xs[i];
@@ -1286,7 +1293,8 @@ const setArr = (xs, i, d, t, {mode}) => {
       + `\n\n${t}`
       + `\n\nat index #${i}`
       + `\nArr must not contain index gaps`
-      + "\n");
+      + "\n"
+    );
 
     else if (`[${introspect(d.value)}]` !== t) throw new ArgTypeError(
       "\n\nillegal element setting of"
@@ -1294,7 +1302,8 @@ const setArr = (xs, i, d, t, {mode}) => {
       + `\n${underline([1, t.length - 1])}`
       + `\n\n${introspect(d.value)} at index #${i} received`
       + "\nArr must be homogeneous"
-      + "\n");
+      + "\n"
+    );
   }
 
   if (mode === "set") xs[i] = d.value;
@@ -1311,8 +1320,11 @@ const setArr = (xs, i, d, t, {mode}) => {
 Arr.eq = $(
   "eq",
   xs => ys => {
-    if (xs.length !== ys.length) return false;
-    else if (xs.length === 0) return true;
+    if (xs.length !== ys.length)
+      return false;
+
+    else if (xs.length === 0)
+      return true;
 
     else {
       const {eq} = Eq(getTypeTag(xs[0]));
@@ -1341,14 +1353,16 @@ const _Map = m => {
     if (getTypeTag(m) !== "Map") throw new ArgTypeError(
       "\n\n_Map expects Map type"
       + `\nvalue of type ${introspect(m)} received`
-      + "\n");
+      + "\n"
+    );
 
     const t = introspect(m);
 
     if (t === "Map<?>") throw new ArgTypeError(
       "\n\n_Map expects homogeneous Map"
       + `\nvalue of type ${t} received`
-      + "\n");
+      + "\n"
+    );
 
     else return new Proxy(m, handleMap(t));
   }
@@ -1366,7 +1380,8 @@ const handleMap = t => ({
         throw new TypeCoercionError(
           `\n\n_Map is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n");
+          + "\n"
+        );
       };
 
       case "set": return (k, v) => {
@@ -1376,7 +1391,8 @@ const handleMap = t => ({
           + `\n${underline([4, t.length - 1])}`
           + `\n\n${introspect(v)} at key ${k} received`
           + "\nMap must be homogeneous"
-          + "\n");
+          + "\n"
+        );
 
         else return m.set(k, v);
       }
@@ -1430,14 +1446,16 @@ const _Set = s => {
     if (getTypeTag(s) !== "Set") throw new ArgTypeError(
       "\n\n_Set expects Set type"
       + `\nvalue of type ${introspect(s)} received`
-      + "\n");
+      + "\n"
+    );
 
     const t = introspect(s);
 
     if (t === "Set<?>") throw new ArgTypeError(
       "\n\n_Set expects homogeneous Set"
       + `\nvalue of type ${t} received`
-      + "\n");
+      + "\n"
+    );
 
     else return new Proxy(s, handleSet(t));
   }
@@ -1455,7 +1473,8 @@ const handleSet = t => ({
         throw new TypeCoercionError(
           `\n\n_Set is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n");
+          + "\n"
+        );
       };
 
       case "set": return k => {
@@ -1465,7 +1484,8 @@ const handleSet = t => ({
           + `\n${underline([1, t.length - 1])}`
           + `\n\n${introspect(k)} received`
           + "\nSet must be homogeneous"
-          + "\n");
+          + "\n"
+        );
 
         else return s.add(k);
       }
@@ -1523,13 +1543,20 @@ const Type = $(
       t[`run${name}`] = $(`run${name}`, Dcons);
       t[TAG] = tag;
 
-      if (GUARDED)
-        t[SIG] = `${name}<${introspect(args).slice(1, -1)}>`;
+      if (GUARDED) {
+        if (args.length === 0) {
+          t[SIG] = `${name}<${introspect(args).slice(1, -1)}>`;
+        }
+
+        else t[SIG] = `${name}`;
+      }
         
       return t;
     };
 
-    const Tcons = Function(`return function ${name}() {}`) ();
+    const Tcons =
+      Function(`return function ${name}() {}`) ();
+
     Tcons.prototype[Symbol.toStringTag] = name;
     return Type;
   }
@@ -1558,7 +1585,9 @@ const Data = $(
       return Dcons(Data);
     };
 
-    const Tcons = Function(`return function ${name}() {}`) ();
+    const Tcons =
+      Function(`return function ${name}() {}`) ();
+
     return Data;
   }
 );
@@ -1586,7 +1615,9 @@ const Data2 = $(
       return Dcons(Data2);
     };
 
-    const Tcons = Function(`return function ${name}() {}`) ();
+    const Tcons =
+      Function(`return function ${name}() {}`) ();
+
     return Data2;
   }
 );
@@ -1614,7 +1645,9 @@ const Data3 = $(
       return Dcons(Data3);
     };
 
-    const Tcons = Function(`return function ${name}() {}`) ();
+    const Tcons =
+      Function(`return function ${name}() {}`) ();
+
     return Data3;
   }
 );
@@ -1634,23 +1667,26 @@ const Data3 = $(
 
 
 // comparator type constructor
-// Function -> Function
+// ({LT: r, EQ: r, GT: r} -> r) -> Comparator
 const Comparator = Type("Comparator");
 
 
 // lower than data constructor
 // Comparator
-const LT = Comparator("LT") (cases => cases.LT);
+const LT = Comparator("LT")
+  (cases => cases.LT);
 
 
 // equal data constructor
 // Comparator
-const EQ = Comparator("EQ") (cases => cases.EQ);
+const EQ = Comparator("EQ")
+  (cases => cases.EQ);
 
 
 // greater than data constructor
 // Comparator
-const GT = Comparator("GT") (cases => cases.GT);
+const GT = Comparator("GT")
+  (cases => cases.GT);
 
 
 /***[Bounded]*****************************************************************/
@@ -1673,16 +1709,16 @@ Comparator.maxBound = GT;
 // Comparator -> Comparator -> Boolean
 Comparator.eq = $(
   "eq",
-  t => u => t[TAG] === u[TAG]
-);
+  t => u =>
+    t[TAG] === u[TAG]);
 
 
 // not equal
 // Comparator -> Comparator -> Boolean
 Comparator.neq = $(
   "neq",
-  t => u => t[TAG] !== u[TAG]
-);
+  t => u =>
+    t[TAG] !== u[TAG]);
 
 
 /******************************************************************************
@@ -1691,8 +1727,9 @@ Comparator.neq = $(
 
 
 // delimited continuation
-// Function -> ((a -> r) -> r) -> Cont r a
-const Cont = Data("Cont") (Cont => k => Cont(k));
+// ((a -> r) -> r) -> Cont<r, a>
+const Cont = Data("Cont")
+  (Cont => k => Cont(k));
 
 
 /******************************************************************************
@@ -1702,53 +1739,50 @@ const Cont = Data("Cont") (Cont => k => Cont(k));
 
 // effect
 // synchronous
-// Function -> (() -> a) -> Eff a
-const Eff = Data("Eff") (Eff => thunk => Eff(thunk));
+// (() -> a) -> Eff<a>
+const Eff = Data("Eff")
+  (Eff => thunk => Eff(thunk));
 
 
 // run effect
 // unsafe
-// Eff a -> a
+// Eff<a> -> () -> a
 const runEff = $(
   "runEff",
-  tx => tx.runEff()
-);
+  tx => tx.runEff());
 
 
 /***[Functor]*****************************************************************/
 
 
-// map
-// (a -> b) -> Eff a -> Eff b
+// functorial composition
+// (a -> b) -> Eff<a> -> Eff<b>
 Eff.map = $(
   "map",
   f => tx =>
-    Eff(() => f(tx.runEff()))
-);
+    Eff(() => f(tx.runEff())));
 
 
 /***[Applicative]*************************************************************/
 
 
-// apply
-// Eff (a -> b) -> Eff a -> Eff b
+// applicative composition
+// Eff<a -> b> -> Eff<a> -> Eff<b>
 Eff.ap = $(
   "ap",
   tf => tx =>
-    Eff(() => tf.runEff() (tx.runEff()))
-);
+    Eff(() => tf.runEff() (tx.runEff())));
 
 
 /***[Chain]*******************************************************************/
 
 
-// chain
-// Eff a -> (a -> Eff b) -> Eff b
+// monadic composition
+// Eff<a> -> (a -> Eff<b>) -> Eff<b>
 Eff.chain = $(
   "chain",
   mx => fm =>
-    Eff(() => fm(mx.runEff()).runEff())
-);
+    Eff(() => fm(mx.runEff()).runEff()));
 
 
 /******************************************************************************
@@ -1757,33 +1791,38 @@ Eff.chain = $(
 
 
 // either
-// Function -> ((a -> r) -> (b -> r) -> r) -> Either a b
+// ({Left: a -> r, Right: b -> r} -> r) -> Either<a, b>
 const Either = Type("Either");
 
 
 // left
-// a -> Either a b
-const Left = x => Either("Left", x) (cases => cases.Left(x));
+// a -> Either<a, b>
+const Left = x => Either("Left", x)
+  (cases => cases.Left(x));
 
 
 // right
-// b -> Either a b
-const Right = x => Either("Right", x) (cases => cases.Right(x));
+// b -> Either<a, b>
+const Right = x => Either("Right", x)
+  (cases => cases.Right(x));
 
 
 /***[Eq]*******************************************************************/
 
 
+// equal
+// Either<a, b> -> Either<a, b> -> Boolean
 Either.eq = $(
   "eq",
   tx => ty =>
     tx[TAG] === ty[TAG]
       && tx.runEither({
         Left: x => ty.runEither({Left: y => eq(x) (y)}),
-        Right: x => ty.runEither({Right: y => eq(x) (y)})
-      }));
+        Right: x => ty.runEither({Right: y => eq(x) (y)})}));
 
 
+// not equal
+// Either<a, b> -> Either<a, b> -> Boolean
 Either.neq = notp2(Either.eq);
 
 
@@ -1793,18 +1832,20 @@ Either.neq = notp2(Either.eq);
 
 
 // exception
-// Function -> ((e -> r) -> (a -> r) -> r) -> Except e a
+// ({Err: e -> r, Suc: a -> r} -> r) -> Except<e, a>
 const Except = Type("Except");
 
 
 // error
-// e -> Except e a
-const Err = e => Except("Err", e) (cases => cases.Err(e));
+// e -> Except<e, a>
+const Err = e => Except("Err", e)
+  (cases => cases.Err(e));
 
 
 // success
-// a -> Except e a
-const Suc = x => Except("Suc", x) (cases => cases.Suc(x));
+// a -> Except<e, a>
+const Suc = x => Except("Suc", x)
+  (cases => cases.Suc(x));
 
 
 /******************************************************************************
@@ -1813,8 +1854,12 @@ const Suc = x => Except("Suc", x) (cases => cases.Suc(x));
 
 
 // identity
-// Function -> a -> Id a
-const Id = Data("Id") (Id => x => Id(x));
+// a -> Id<a>
+const Id = Data("Id")
+  (Id => x => Id(x));
+
+
+/***[Eq]***********************************************************************/
 
 
 /******************************************************************************
@@ -1832,18 +1877,23 @@ const Lazy = Eff;
 
 
 // list
-// Function -> ((a -> List a -> r) -> r -> r) -> List a
+// ({Cons: a -> List<a> -> r, Nil: r} -> r) -> List<a>
 const List = Type("List");
 
 
 // construct
-// a -> List a -> List a
-const Cons = x => tx => List("Cons", x) (cases => cases.Cons(x) (tx));
+// a -> List<a> -> List<a>
+const Cons = x => tx => List("Cons", x)
+  (cases => cases.Cons(x) (tx));
 
 
 // not in list
-// List a
-const Nil = List("Nil") (cases => cases.Nil);
+// List<a>
+const Nil = List("Nil")
+  (cases => cases.Nil);
+
+
+/***[Eq]***********************************************************************/
 
 
 /******************************************************************************
@@ -1860,18 +1910,20 @@ const Nil = List("Nil") (cases => cases.Nil);
 
 
 // option
-// Function -> ((a -> r) -> r -> r) -> Option a
+// ({Some: a -> r, None: r} -> r) -> Option<a>
 const Option = Type("Option");
 
 
 // some
-// a -> Option a
-const Some = x => Option("Some", x) (cases => cases.Some(x));
+// a -> Option<a>
+const Some = x => Option("Some", x)
+  (cases => cases.Some(x));
 
 
 // none
-// Option a
-const None = Option("None") (cases => cases.None);
+// Option<a>
+const None = Option("None")
+  (cases => cases.None);
 
 
 /******************************************************************************
@@ -1879,66 +1931,81 @@ const None = Option("None") (cases => cases.None);
 ******************************************************************************/
 
 
-const Reader = Data("Reader") (Reader => f => Reader(f));
+// reader
+// (a -> b) -> Reader<a, b>
+const Reader = Data("Reader")
+  (Reader => f => Reader(f));
 
 
 /***[Functor]*****************************************************************/
 
 
-// map
-// (b -> c) -> (a -> b) -> a -> c
+// functorial composition
+// (a -> b) -> Reader<e, a> -> Reader<e, b>
 Reader.map = $(
   "map",
-  f => g => x => f(g(x))
-);
+  f => g => x =>
+    f(g(x)));
 
 
 // variadic map
 // untyped
 Reader.mapv = $(
   "mapv",
-  f => Object.assign(g => Reader.mapv(x => f(g(x))), {run: f})
-);
+  f => Object.assign(g =>
+    Reader.mapv(x =>
+      f(g(x))),
+      {run: f}));
 
 
 /***[Applicative]*************************************************************/
 
 
 // applicative compostion
-// (r -> a -> b) -> (r -> a) -> r -> b
+// Reader<e, a -> b> -> Reader<e, a> -> Reader<e, b>
 Reader.ap = $(
   "ap",
-  f => g => x => f(x) (g(x))
-);
+  f => g => x =>
+    f(x) (g(x)));
 
 
-// variadic apply
+// variadic applicative composition
 // left-to-right
 // untyped
 Reader.apv = $(
   "...apv",
-  f => Object.assign(g => Reader.apv(x => g(x) (f(x))), {run: f})
-);
+  f => Object.assign(g =>
+    Reader.apv(x =>
+      g(x) (f(x))), {run: f}));
 
 
 /***[Monad]*******************************************************************/
 
 
 // monadic composition
-// (r -> a) -> (a -> r -> b) -> r -> b
+// Reader<e, a> -> (a -> Reader<e, b>) -> Reader<e, b>
 Reader.chain = $(
   "chain",
   g => f => x => f(g(x)) (x)
 );
 
 
-// variadic chain
+// variadic monadic composition
 // left-to-right
 // untyped
 Reader.chainv = $(
   "chainv",
-  f => Object.assign(g => Reader.chainv(x => g(f(x)) (x)), {run: f})
-);
+  f => Object.assign(g =>
+    Reader.chainv(x =>
+      g(f(x)) (x)), {run: f}));
+
+
+/******************************************************************************
+************************************[ Ref ]************************************
+******************************************************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -1963,43 +2030,52 @@ Reader.chainv = $(
 
 
 // task
-// Function -> ((a -> r) -> r, (e -> r) -> r) -> Task a e
+// TODO: switch to node style
+// ((a -> r) -> r, (e -> r) -> r) -> Task<a, e>
 const Task = Data("Task") (Task => ks => Task(ks));
 
 
 /***[Functor]*****************************************************************/
 
 
-// map
-// (a -> b) -> Task a e -> Task b e
+// functorial composition
+// (a -> b) -> Task<a, e> -> Task<b, e>
 Task.map = f => tk =>
-  Task((k, e) => tk.runTask(x => k(f(x)), e));
+  Task((k, e) =>
+    tk.runTask(x =>
+      k(f(x)), e));
 
 
 /***[Applicative]*************************************************************/
 
 
-// applicative
-// Task (a -> b) e -> Task a e -> Task b e
+// applicative composition
+// Task<a -> b, e> -> Task<a, e> -> Task<b, e>
 Task.ap = tf => tk =>
-  Task((k, e) => tf.runTask(f => tk.runTask(x => k(f(x)), e), e));
+  Task((k, e) =>
+    tf.runTask(f =>
+      tk.runTask(x =>
+        k(f(x)), e), e));
 
 
 /***[Chain]*******************************************************************/
 
 
-// chain
-// Task a e -> a -> Task b e -> Task b e
+// monadic composition
+// Task<a, e> -> (a -> Task<b, e>) -> Task<b, e>
 Task.chain = mk => fm =>
-  Task((k, e) => mk.runTask(x => fm(x).runTask(k, e), e));
+  Task((k, e) =>
+    mk.runTask(x =>
+      fm(x).runTask(k, e), e));
 
 
 /***[Monad]*******************************************************************/
 
 
 // of
-// a -> Task a e
-Task.of = x => Task((k, e) => k(x));
+// a -> Task<a, e>
+Task.of = x =>
+  Task((k, e) => k(x));
 
 
 /******************************************************************************
@@ -2008,9 +2084,12 @@ Task.of = x => Task((k, e) => k(x));
 
 
 // multi-way tree
-const Tree = Data2("Tree") (Tree => x => forest => Tree(x) (forest));
+// a -> Forest<a> -> Tree<a>
+const Tree = Data2("Tree") (Tree => x => children => Tree(x) (children));
 
 
+// multi-way tree forest
+// [Tree<a>] -> Forest<a>
 const Forest = Data("Forest") (Forest => (...trees) => Forest(trees));
 
 
@@ -2095,6 +2174,7 @@ const instances = new Map([
   ["Eq Array", {eq: Arr.eq, neq: Arr.neq}],
   ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
   ["Eq Char", {eq: Char.eq, neq: Char.neq}],
+  ["Eq Comparator", {eq: Comparator.eq, neq: Comparator.neq}],
   ["Eq Either", {eq: Either.eq, neq: Either.neq}],
   ["Eq Float", {eq: Float.eq, neq: Float.neq}],
   ["Eq Int", {eq: Int.eq, neq: Int.neq}],
