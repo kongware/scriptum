@@ -206,6 +206,7 @@ The following extended types are function encoded and simulate algebraic data ty
 * Cont (delimited continuation)
 * Eff (effectful synchronous computation)
 * Either (convergent computation)
+* Event (discrete time series value)
 * Except (first class exception)
 * Id (effectless computation)
 * Lazy (lazy evaluation - type synonym of Eff)
@@ -215,7 +216,7 @@ The following extended types are function encoded and simulate algebraic data ty
 * Reader (compuation depending on a shared read-only environment)
 * Ref (referential identity)
 * State (computation depending on shared state)
-* Stream (discrete time series value)
+* Stream (data stream)
 * Task (effectful asynchronous computation)
 * Tree/Forest (schematic multi-way tree implementation)
 * Unique (unique value)
@@ -503,6 +504,71 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
+# Functional Reactive Programming
+
+scriptum distinguishes two types of time series values: `Behavior` and `Event`.
+
+## Behavior
+
+`Behavior`s are continuous values:
+
+```Javascript
+const mouseDown = Behavior(IsMouseDown => initialState => {
+  const state = initialState,
+    mouseDown = e => state.down = true,
+    mouseUp = e => state.down = false,
+    option = {capture: true};
+
+  // it is cancable
+  const cancel = {
+    cancel() {
+      document.removeEventListener(
+        "mousedown",
+        mouseDown,
+        option
+      );
+
+      document.removeEventListener(
+        "mouseup",
+        mouseUp,
+        option
+      );
+    }
+  };
+
+  document.addEventListener(
+    "mousedown",
+    mouseDown,
+    option
+  );
+
+  document.addEventListener(
+    "mouseup",
+    mouseUp,
+    option
+  );
+
+  return Object.assign(IsMouseDown(state), cancel);
+}) ({down: false});
+
+// helper
+
+const id = x => x;
+
+// run...
+
+new Promise(r => setTimeout(() => r(mouseDown.run(id)), 2000))
+  .then(x => console.log(x));
+
+// yields either {down: false} or {down: true}, depending on whether a mouse button is pressed or not.
+
+```
+## Event
+
+`Event`s represent event streams and are discrete values.
+
+...
+
 # Upcoming Features
 
 * Several type classes
