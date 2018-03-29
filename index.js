@@ -2085,12 +2085,14 @@ Task.of = x =>
 
 // multi-way tree
 // a -> Forest<a> -> Tree<a>
-const Tree = Data2("Tree") (Tree => x => children => Tree(x) (children));
+const Tree = Data2("Tree")
+  (Tree => x => children => Tree(x) (children));
 
 
 // multi-way tree forest
 // [Tree<a>] -> Forest<a>
-const Forest = Data("Forest") (Forest => (...trees) => Forest(trees));
+const Forest = Data("Forest")
+  (Forest => (...trees) => Forest(trees));
 
 
 /***[Eq]*******************************************************************/

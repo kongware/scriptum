@@ -25,8 +25,8 @@ You can easily guard curried functions sequences:
 ```Javascript
 const comp = $(
   "comp",
-  f => g => x => f(g(x))
-);
+  f => g => x =>
+    f(g(x)));
 ```
 
 Or multi-argument functions:
@@ -34,8 +34,8 @@ Or multi-argument functions:
 ```Javascript
 const add = $(
   "add",
-  (m, n) => m + n
-);
+  (m, n) =>
+    m + n);
 ```
 
 Or variadic ones:
@@ -43,8 +43,9 @@ Or variadic ones:
 ```Javascript
 const sum = $(
   "...sum",
-  (...ns) => ns.reduce((acc, n) => acc + n, 0);
-);
+  (...ns) =>
+    ns.reduce((acc, n) =>
+      acc + n, 0));
 ```
 To safe the cost of function guardance at runtime you can disable this feature for production environments by simply setting the `GUARDED` flag to `false`.
 
@@ -55,8 +56,8 @@ A guarded function must neither receive nor return a value of type `undefined`/`
 ```Javascript
 const append = $(
   "append",
-  xs => ys => xs.concat(ys)
-);
+  xs => ys =>
+    xs.concat(ys));
 
 append([{foo: 1}, {foo: 2}])
   ([{foo: NaN}, {foo: 4}]); // type error
@@ -70,8 +71,8 @@ scriptum enforces strict function call arity:
 ```Javascript
 const add = $(
   "add",
-  (m, n) => m + n
-);
+  (m, n) =>
+    m + n);
 
 add(2); // type error
 add(2, 3); // 5
@@ -82,8 +83,9 @@ If you want to declare variadic functions you can bypass strict arity checking b
 ```Javascript
 const sum = $(
   "...sum",
-  (...ns) => ns.reduce((acc, n) => acc + n, 0);
-);
+  (...ns) =>
+    ns.reduce((acc, n) =>
+      acc + n, 0));
 
 sum(); // 0
 sum(2); // 2
@@ -98,8 +100,8 @@ A first order function sequence carries the name of its initial function:
 ```Javascript
 const add = $(
   "add",
-  m => n => m + n
-);
+  m => n =>
+    m + n);
 
 add(2).name; // add
 ```
@@ -108,18 +110,17 @@ A higher order function sequence additionally adapts its name to the name of the
 ```Javascript
 const comp = $(
   "comp",
-  f => g => x => f(g(x))
-);
+  f => g => x =>
+    f(g(x)));
 
 const add = $(
   "add",
-  m => n => m + n
-);
+  m => n =>
+    m + n);
 
 const inc = $(
   "inc",
-  n => n + 1
-);
+  n => n + 1);
 
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
@@ -133,18 +134,17 @@ scriptum doesn't require explicit type annotations but rather provides a type lo
 ```Javascript
 const comp = $(
   "comp",
-  f => g => x => f(g(x))
-);
+  f => g => x =>
+    f(g(x)));
 
 const add = $(
   "add",
-  m => n => m + n
-);
+  m => n =>
+    m + n);
 
 const inc = $(
   "inc",
-  n => n + 1
-);
+  n => n + 1);
 
 comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
@@ -155,13 +155,12 @@ If you pass a composite value to a guarded function and the type check recognize
 ```Javascript
 const append = $(
   "append",
-  xs => ys => xs.concat(ys)
-);
+  xs => ys =>
+    xs.concat(ys));
   
 const inc = $(
   "inc",
-  n => n + 1
-);
+  n => n + 1);
 
 const xs = Array(100)
   .fill(0)
@@ -300,10 +299,25 @@ const Reader = Data("Reader") (Reader => f => Reader(f));
 ```
 Please note that the first argument of the passed function argument is always the data constructor itself (`Reader => f => Reader(f)`).
 
-Accordingly, the `Data2` constructor can define a single data constructor with two fields:
+The `Data2`/`Data3` constructors define single data constructors with two/three fields, respectively:
 
 ```Javascript
-const Tree = Data("Node") (Node => x => children => Node(x) (children));
+const Foo = Data2("Foo")
+  (Foo => x => y => Foo(x) (y));
+
+const Bar = Data2("Bar")
+  (Bar => x => y => Bar(x) (y));
+```
+This is the equivalent of a product. We can also define mutual recursive data types like the following tree definition:
+
+```Javascript
+// a -> Forest<a> -> Tree<a>
+const Tree = Data2("Tree")
+  (Tree => x => children => Tree(x) (children));
+
+// [Tree<a>] -> Forest<a>
+const Forest = Data("Forest")
+  (Forest => (...trees) => Forest(trees));
 ```
 The underlying encoding is called Scott and based on higher order functions. We can consider these custom types as algebraic data types provided we manually obey the relevant algebraic laws.
 
