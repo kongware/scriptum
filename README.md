@@ -305,7 +305,7 @@ The `Data2`/`Data3` constructors define single constructor types with two/three 
 const Foo = Data2("Foo")
   (Foo => x => y => Foo(x) (y));
 
-const Bar = Data2("Bar")
+const Bar = Data3("Bar")
   (Bar => x => y => Bar(x) (y));
 ```
 This is the equivalent of a product. We can also define mutual recursive data types like the following tree definition:
