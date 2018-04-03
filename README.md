@@ -515,7 +515,7 @@ scriptum distinguishes two types of time series values: `Behavior` and `Event`.
 ```Javascript
 // Behavior instance
 
-const Pressed = initialState => {
+const ButtonPressed = initialState => {
   let state = initialState;
 
   const cancelDown = subscribe({
@@ -534,20 +534,21 @@ const Pressed = initialState => {
 
   return Object.assign(
     Behavior((k, e) => k(state)),
-    {cancel: () => (cancelDown(), cancelUp())});
+    {cancel: () => (cancelDown(), cancelUp())}
+  );
 };
 
 // register Behavior
 
-const pressed = Pressed(false);
+const buttonPressed = ButtonPressed(false);
 
 // access the Behavior's value
 
-pressed.runBehavior(console.log);
+buttonPressed.runBehavior(console.log);
 
 // cancel the Behavior
 
-pressed.cancel();
+buttonPressed.cancel();
 ```
 The `Behavior` type is still experimental and may change in the future.
 
@@ -558,16 +559,16 @@ The `Behavior` type is still experimental and may change in the future.
 ```Javascript
 // Event instance
 
-const screenX = Event((k, e) => subscribe({
+const mouseCoords = Event((k, e) => subscribe({
   target: document,
   type: "mousemove",
-  listener: event => k(event.screenX),
+  listener: event => k({x: event.screenX, y: event.screenY}),
   options: {capture: true}
 }));
 
 // register Event and access event stream
 
-const cancel = screenX.runEvent(console.log);
+const cancel = mouseCoords.runEvent(console.log);
 
 // cancel the Event
 
