@@ -510,7 +510,7 @@ scriptum distinguishes two types of time series values: `Behavior` and `Event`.
 
 ## Behavior
 
-`Behavior`s are continuous time series values, that is they always have a value. They are pull based and events are eagerly registered.
+`Behavior`s are continuous time series values, that is they always have a value. They are pull based and the underlying DOM events are eagerly registered as soon as you pass an initial value.
 
 ```Javascript
 // Behavior instance
@@ -554,7 +554,7 @@ The `Behavior` type is still experimental and may change in the future.
 
 ## Event
 
-`Event`s are discrete time series values, that is they occasionally have a value. They are push based and events are lazily registered only when you call the `runEvent` method.
+`Event`s are discrete time series values, that is they occasionally have a value. They are push based and the underlying DOM events are lazily registered only when you call the `runEvent` method.
 
 ```Javascript
 // Event instance
