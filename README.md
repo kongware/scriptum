@@ -510,10 +510,10 @@ scriptum distinguishes two types of time series values: `Behavior` and `Event`.
 
 ## Behavior
 
-`Behavior`s are continuous time series values, that is they always have a value. They are pull based and events are eagerly subscribed.
+`Behavior`s are continuous time series values, that is they always have a value. They are pull based and events are eagerly registered.
 
 ```Javascript
-// Behavior
+// Behavior instance
 
 const Pressed = initialState => {
   let state = initialState;
@@ -537,15 +537,15 @@ const Pressed = initialState => {
     {cancel: () => (cancelDown(), cancelUp())});
 };
 
-// instance
+// register Behavior
 
 const pressed = Pressed(false);
 
-// access the value
+// access the Behavior's value
 
 pressed.runBehavior(console.log);
 
-// cancel the behavior
+// cancel the Behavior
 
 pressed.cancel();
 ```
@@ -553,10 +553,10 @@ The `Behavior` type is still experimental and may change in the future.
 
 ## Event
 
-`Event`s are discrete time series values, that is they occasionally have a value. They are push based and events are lazily subscribed.
+`Event`s are discrete time series values, that is they occasionally have a value. They are push based and events are lazily registered only when you call the `runEvent` method.
 
 ```Javascript
-// Event
+// Event instance
 
 const screenX = Event((k, e) => subscribe({
   target: document,
@@ -565,11 +565,11 @@ const screenX = Event((k, e) => subscribe({
   options: {capture: true}
 }));
 
-// access the event stream
+// register Event and access event stream
 
 const cancel = screenX.runEvent(console.log);
 
-// cancel the behavior
+// cancel the Event
 
 cancel();
 ```
