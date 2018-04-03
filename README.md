@@ -510,64 +510,70 @@ scriptum distinguishes two types of time series values: `Behavior` and `Event`.
 
 ## Behavior
 
-`Behavior`s are continuous values:
+`Behavior`s are continuous time series values, that is they always have a value. They are pull based and events are eagerly subscribed.
 
 ```Javascript
-const mouseDown = Behavior(IsMouseDown => initialState => {
-  const state = initialState,
-    mouseDown = e => state.down = true,
-    mouseUp = e => state.down = false,
-    option = {capture: true};
+// Behavior
 
-  // it is cancable
-  const cancel = {
-    cancel() {
-      document.removeEventListener(
-        "mousedown",
-        mouseDown,
-        option
-      );
+const Pressed = initialState => {
+  let state = initialState;
 
-      document.removeEventListener(
-        "mouseup",
-        mouseUp,
-        option
-      );
-    }
-  };
+  const cancelDown = subscribe({
+    target: document,
+    type: "mousedown",
+    listener: _ => state = true,
+    options: {capture: true}
+  });
 
-  document.addEventListener(
-    "mousedown",
-    mouseDown,
-    option
-  );
+  const cancelUp = subscribe({
+    target: document,
+    type: "mouseup",
+    listener: _ => state = false,
+    options: {capture: true}
+  });
 
-  document.addEventListener(
-    "mouseup",
-    mouseUp,
-    option
-  );
+  return Object.assign(
+    Behavior((k, e) => k(state)),
+    {cancel: () => (cancelDown(), cancelUp())});
+};
 
-  return Object.assign(IsMouseDown(state), cancel);
-}) ({down: false});
+// instance
 
-// helper
+const pressed = Pressed(false);
 
-const id = x => x;
+// access the value
 
-// run...
+pressed.runBehavior(console.log);
 
-new Promise(r => setTimeout(() => r(mouseDown.run(id)), 2000))
-  .then(x => console.log(x));
+// cancel the behavior
 
-// yields either {down: false} or {down: true}, depending on whether a mouse button is pressed or not.
-
+pressed.cancel();
 ```
+The `Behavior` type is still experimental and may change in the future.
+
 ## Event
 
-`Event`s represent event streams and are discrete values.
+`Event`s are discrete time series values, that is they occasionally have a value. They are push based and events are lazily subscribed.
 
-...
+```Javascript
+// Event
+
+const screenX = Event((k, e) => subscribe({
+  target: document,
+  type: "mousemove",
+  listener: event => k(event.screenX),
+  options: {capture: true}
+}));
+
+// access the event stream
+
+const cancel = screenX.runEvent(console.log);
+
+// cancel the behavior
+
+cancel();
+```
+The `Event` type is still experimental and may change in the future.
 
 # Upcoming Features
 

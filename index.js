@@ -1563,7 +1563,7 @@ const Type = $(
 );
 
 
-// data
+// data constructor
 // adt with single constructor/field
 // untyped
 const Data = $(
@@ -1593,7 +1593,7 @@ const Data = $(
 );
 
 
-// binary data
+// binary data constructor
 // adt with single constructor and two fields
 // untyped
 const Data2 = $(
@@ -1607,7 +1607,7 @@ const Data2 = $(
         t[TAG] = name;
 
         if (GUARDED)
-          t[SIG] = `${name}<${introspect(x)}>`;
+          t[SIG] = `${name}<${introspect(x)}, ${introspect(y)}>`;
         
         return t;
       };
@@ -1623,7 +1623,7 @@ const Data2 = $(
 );
 
 
-// ternary data
+// ternary data constructor
 // adt with single constructor and three fields
 // untyped
 const Data3 = $(
@@ -1637,7 +1637,7 @@ const Data3 = $(
         t[TAG] = name;
 
         if (GUARDED)
-          t[SIG] = `${name}<${introspect(x)}>`;
+          t[SIG] = `${name}<${introspect(x)}, ${introspect(y)}, ${introspect(z)}>`;
         
         return t;
       };
@@ -1653,15 +1653,64 @@ const Data3 = $(
 );
 
 
+// data constructor with explicit continuation
+// adt with single constructor/field
+// untyped
+const Datan = $(
+  "Datan",
+  name => {
+    const Datan = Dcons => {
+      const Datan = k => {
+        const t = new Tcons();
+        t[`run${name}`] = k;
+        t[Symbol.toStringTag] = name;
+        t[TAG] = name;
+
+        if (GUARDED)
+          t[SIG] = `${name}<${introspect(k)}>`;
+        
+        return t;
+      };
+
+      return Dcons(Datan);
+    };
+
+    const Tcons =
+      Function(`return function ${name}() {}`) ();
+
+    return Datan;
+  }
+);
+
+
 /******************************************************************************
 *********************************[ Behavior ]**********************************
 ******************************************************************************/
 
 
 // behavior
-// untyped
-// experimental
-const Behavior = Data("Behavior");
+// ...
+const Behavior = Datan("Behavior") (Behavior => k => Behavior(k));
+
+
+/***[Misc]********************************************************************/
+
+
+// subscribe
+// {target: Object, type: String, listener: Function, options: Object} -> Function
+const subscribe = o => {
+  o.target.addEventListener(
+    o.type,
+    o.listener,
+    o.options
+  );
+
+  return () => o.target.removeEventListener(
+    o.type,
+    o.listener,
+    o.options
+  );
+};
 
 
 /******************************************************************************
@@ -1834,7 +1883,9 @@ Either.neq = notp2(Either.eq);
 ******************************************************************************/
 
 
-// TODO
+// event stream
+// ...
+const Event = Datan("Event") (Event => k => Event(k));
 
 
 /******************************************************************************
@@ -2020,10 +2071,15 @@ Reader.chainv = $(
 
 
 const Ref = Data("Ref")
-  (Ref => (o) => Ref(o));
+  (Ref => o => Ref(o));
 
 
 /***[Eq]*******************************************************************/
+
+
+Ref.eq = to => tp =>
+  to.runRef(o =>
+    tp.runRef(p => o === p));
 
 
 /******************************************************************************
@@ -2050,7 +2106,7 @@ const Ref = Data("Ref")
 // task
 // TODO: switch to node style
 // ((a -> r) -> r, (e -> r) -> r) -> Task<a, e>
-const Task = Data("Task") (Task => ks => Task(ks));
+const Task = Datan("Task") (Task => k => Task(k));
 
 
 /***[Functor]*****************************************************************/
@@ -2374,6 +2430,7 @@ Object.assign($,
     Data,
     Data2,
     Data3,
+    Datan,
     Eff,
     EQ,
     Eq,
