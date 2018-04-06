@@ -66,7 +66,7 @@ As you can see this applies to arbitrarily nested values too.
 
 ## Strict Arity
 
-scriptum enforces strict function call arity:
+Guarded functions enforce a strict function call arity:
 
 ```Javascript
 const add = $(
@@ -78,7 +78,7 @@ add(2); // type error
 add(2, 3); // 5
 add(2, 3, 4); // type error
 ```
-Variadic functions offer only a less strict function call arity guarantee:
+Please note that variadic functions come along with a less strict guarantee:
 
 ```Javascript
 const sum = $(
@@ -93,7 +93,7 @@ sum(1) (2, 3); // 6
 sum() (2); // type error
 sum(1, 2) (3, 4); // 8 - ouch!
 ```
-scriptum cannot distinguish variadic from definitive arguments and consequently treats all arguments as variadic.
+The reason for this lies in sriptum's inability to distinguish variadic from fixed number of arguments.
 
 ## Anonymous Functions
 
@@ -180,9 +180,9 @@ map(inc) (append(xs) (ys)); // type error
 ```
 `xs` is a heterogeneous `Array` that could potentially cause an error in the future. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
 
-## Drawbacks
+## Trade-off
 
-At first glance scriptum's guarded function just establishe another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
+At first glance scriptum's guarded function just establish another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
 
 # Extended Types
 
