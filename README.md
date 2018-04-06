@@ -152,7 +152,7 @@ const inc = $(
 
 comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
-`λ` just indicates that the given argument is a function.
+`λ` just indicates that the given argument is a possibly anonymous function.
 
 If a function call results in a non-functional return value it isn't logged and hence you cannot introspect it as described above. In scriptum jargon this is a final function call. In order to log final function calls scriptum maintains a global type log that usually contains the last ten complete function calls including the final calls.
 
@@ -182,7 +182,7 @@ map(inc) (append(xs) (ys)); // type error
 
 ## Trade-off
 
-At first glance scriptum's guarded function just establish another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
+At first glance scriptum's guarded functions just establish another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
 
 # Extended Types
 
