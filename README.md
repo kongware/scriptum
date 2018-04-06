@@ -274,11 +274,35 @@ delete xs[0]; // type error (index gap)
 ```
 # Custom Types
 
-You can create your own algebraic data types with both the `Type` and the arity-dependent `Data` constructors. The `Type` constrcutor can define tagged unions:
+scriptum provides means to create custom algebraic data types. The simplest ADT includes a single data constructor and field:
+
+```Javascript
+const Foo = Data("Foo")
+  (Foo => x => Foo(k => k(x)));
+
+const foo = Foo("bar");
+foo.runFoo(x => x); // "bar"
+```
+The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves a the data constructor, that is the constructor that finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
+
+If you still wonder why a continuation is used, you should consider that ADTs are also capable of expressing product types:
+
+```Javascript
+const Bar = Data("Bar")
+  (Bar => x => y => z => Bar(k => k(x) (y) (z)));
+
+const bar = Bar(2) ("foo") (true);
+bar.runBar(x => y => z => y); // "foo"
+```
+It is totally up to you if you declare a curried or multi-argument getter. You can even pass an `Object` and utilize destructuring assignment.
+
+This expressiveness comes with a trade-off, though. The types of both examples above are `Foo<λrunFoo>` and `Bar<λrunBar>` respectively, instead of `Foo<Number>` and `Bar<Number, String, Boolean>`. The reaosn for this lies in the incapability of `Foo` and `Bar` to see the arguments of their preceding functions. I am not happy with this trade-off but don't see a better alternative at the moment.
+
+Here is an example of a more complex ADT with two data constructors, which defines a sum type:
 
 ```Javascript
 const Option = Type("Option");
-const Some = x => Option("Some", x) (o => o.Some(x));
+const Some = x => Option("Some") (o => o.Some(x));
 const None = Option("None") (o => o.None);
 const runOption = dict => tx => tx.runOption(dict);
 
@@ -299,36 +323,17 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
-To provide additional debug information for custom types you have to pass the respective tag and all arguments to the type constructor (`Option("Some", x)`/`Option("None")`).
 
-With the `Data` constructor you can conveniently define single constructor types restricted to one field:
-
-```Javascript
-const Reader = Data("Reader") (Reader => f => Reader(f));
-```
-Please note that the first argument of the passed function argument is always the data constructor itself (`Reader => f => Reader(f)`).
-
-The `Data2`/`Data3` constructors define single constructor types with two/three fields, respectively:
+We can also define recursive or mutual recursive data types like the following tree definition:
 
 ```Javascript
-const Foo = Data2("Foo")
-  (Foo => x => y => Foo(x) (y));
+const Tree = Data("Tree")
+  (Tree => x => children => Tree(k => k(x) (children)));
 
-const Bar = Data3("Bar")
-  (Bar => x => y => Bar(x) (y));
-```
-This is the equivalent of a product. We can also define mutual recursive data types like the following tree definition:
-
-```Javascript
-// a -> Forest<a> -> Tree<a>
-const Tree = Data2("Tree")
-  (Tree => x => children => Tree(x) (children));
-
-// [Tree<a>] -> Forest<a>
 const Forest = Data("Forest")
-  (Forest => (...trees) => Forest(trees));
+  (Forest => (...trees) => Forest(k => k(trees)));
 ```
-The underlying encoding is called Scott and based on higher order functions. We can consider these custom types as algebraic data types provided we manually obey the relevant algebraic laws.
+Calling this custom types algebraic data types is a bit daring in Javascript. In fact, they only become algebraic if we follow the corresponding algebraic rules.
 
 # Effect Handling
 

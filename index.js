@@ -13,8 +13,13 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 
 /******************************************************************************
 *******************************************************************************
-*********************************[ CONSTANTS ]*********************************
+**********************************[ GLOBALS ]**********************************
 *******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+*********************************[ Constants ]*********************************
 ******************************************************************************/
 
 
@@ -31,6 +36,11 @@ const GUARDED = true;
 // ADT log symbol for accessing the type log
 // Symbol
 const LOG = Symbol.for(`${SYM_PREFIX}/log`);
+
+
+// history log's length
+// Number
+const HISTORY_LEN = 10;
 
 
 // maximal record size
@@ -50,6 +60,26 @@ const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
 
 // ADT tag symbol for pattern matching
 const TAG = Symbol.for(`${SYM_PREFIX}/tag`);
+
+
+/******************************************************************************
+*********************************[ Variables ]*********************************
+******************************************************************************/
+
+
+// history log
+// [String]
+let history = [];
+
+
+// set history
+// String -> [String]
+const setHistory = s => {
+  history.unshift(s);
+
+  if (history.length > HISTORY_LEN)
+    history.pop();
+};
 
 
 /******************************************************************************
@@ -108,18 +138,21 @@ const handleF = (name, f, log, {params, nthCall}) => {
 
       // skip statement
       if (typeof r === "function") {
-        const name_ = r.name || name;
-        log.push(`${name}(${argTypes})`);
+        const name_ = r.name || name,
+          log_ = log.concat(`${name}(${argTypes})`);
 
         Reflect.defineProperty(r, "name", {value: name_});
-        Reflect.defineProperty(r, LOG, {value: log});
+        Reflect.defineProperty(r, LOG, {value: log_});
 
         return new Proxy(
-          r, handleF(name_, r, log, {params, nthCall: nthCall + 1})
+          r, handleF(name_, r, log_, {params, nthCall: nthCall + 1})
         );
       }
 
-      else return r;
+      else {
+        setHistory(log.concat(`${name}(${argTypes})`));
+        return r;
+      }
     },
 
     get: (f, k, p) => {
@@ -161,12 +194,12 @@ const verifyArgTypes = (args, name, nthCall, log) =>
   args.map((arg, nthArg) =>
     typeCheck(ArgTypeError)
       (t => illTyped => fromTo =>
-        `\n\n${name} received an argument of type`
+        "invalid argument type"
+        + `\n\n${name} received an argument of type`
         + `\n\n${t}`
         + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-        + `\n\nin the ${nthCall + 1}. call of ${name}`
-        + `\nin the ${nthArg + 1}. argument of ${name}`
-        + `\n\ninvalid type`
+        + `\n\nin its ${ordinal(nthCall + 1)} call`
+        + `\nin its ${ordinal(nthArg + 1)} argument`
         + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
         + "\n") (arg))
         .join(", ");
@@ -200,10 +233,10 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
 const verifyRetType = (r, name, log) =>
   typeCheck(ReturnTypeError)
     (t => illTyped => fromTo =>
-      `\n\n${name} returned a value of type`
+      "invalid return type"
+      + `\n\n${name} returned a value of type`
       + `\n\n${t}`
       + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-      + `\n\ninvalid type`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
       + "\n") (r);
 
@@ -825,14 +858,12 @@ class Char extends String {
       if (typeof c !== "string") throw new ArgTypeError(
         "\n\nChar expects String literal"
         + `\nvalue of type ${introspect(c)} received`
-        + "\n"
-      );
+        + "\n");
 
       else if ([...c].length !== 1) throw new ArgTypeError(
         "\n\nChar expects single character"
         + `\n"${c}" of length ${c.length} received`
-        + "\n"
-      );
+        + "\n");
     }
   }
 } {
@@ -853,8 +884,7 @@ Char.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nChar is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -905,8 +935,7 @@ class Float extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "\n\nFloat expects Number literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n"
-      );
+        + "\n");
     }
   }
 } {
@@ -927,8 +956,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nFloat is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -966,14 +994,12 @@ class Int extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "\n\nInt expects Number literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n"
-      );
+        + "\n");
 
       else if (n % 1 !== 0) throw new ArgTypeError(
         "\n\nInt expects integer literal"
         + `\nvalue of type ${introspect(n)} received`
-        + "\n"
-      );
+        + "\n");
     }
   }
 } {
@@ -994,8 +1020,7 @@ Int.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nInt is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -1094,8 +1119,7 @@ class Rec extends Object {
       if (typeof o !== "object" || o === null) throw new ArgTypeError(
         "\n\nRec expects Object type"
         + `\nvalue of type ${introspect(o)} received`
-        + "\n"
-      );
+        + "\n");
 
       Object.freeze(this);
     }
@@ -1118,8 +1142,7 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nRec is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -1187,8 +1210,7 @@ Tup.prototype.map = () => {
   throw new TypeError(
     "\n\nTup must not be used as an Array"
     + "\nillegal map operation"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -1196,8 +1218,7 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
     `\n\nTup is coerced to ${capitalize(hint)}`
     + "\nillegal implicit type conversion"
-    + "\n"
-  );
+    + "\n");
 };
 
 
@@ -1242,16 +1263,14 @@ const Arr = xs => {
     if (!Array.isArray(xs)) throw new ArgTypeError(
       "\n\nArr expects Array type"
       + `\nvalue of type ${introspect(xs)} received`
-      + "\n"
-    );
+      + "\n");
 
     const t = introspect(xs);
 
     if (replaceNestedTypes(t).search(/\?|,/) !== -1) throw new ArgTypeError(
       "\n\nArr expects homogeneous Array"
       + `\nvalue of type ${t} received`
-      + "\n"
-    );
+      + "\n");
 
     else return new Proxy(xs, handleArr(t));
   }
@@ -1269,8 +1288,7 @@ const handleArr = t => ({
         throw new TypeCoercionError(
           `\n\nArr is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n"
-        );
+          + "\n");
       };
 
       default: return xs[i];
@@ -1284,8 +1302,7 @@ const handleArr = t => ({
         + `\n\n${t}`
         + `\n\nat index #${i}`
         + `\nArr must not contain index gaps`
-        + "\n"
-      );
+        + "\n");
     }
 
     delete xs[i];
@@ -1307,8 +1324,7 @@ const setArr = (xs, i, d, t, {mode}) => {
       + `\n\n${t}`
       + `\n\nat index #${i}`
       + `\nArr must not contain index gaps`
-      + "\n"
-    );
+      + "\n");
 
     else if (`[${introspect(d.value)}]` !== t) throw new ArgTypeError(
       "\n\nillegal element setting of"
@@ -1316,8 +1332,7 @@ const setArr = (xs, i, d, t, {mode}) => {
       + `\n${underline([1, t.length - 1])}`
       + `\n\n${introspect(d.value)} at index #${i} received`
       + "\nArr must be homogeneous"
-      + "\n"
-    );
+      + "\n");
   }
 
   if (mode === "set") xs[i] = d.value;
@@ -1367,8 +1382,7 @@ const _Map = m => {
     if (getTypeTag(m) !== "Map") throw new ArgTypeError(
       "\n\n_Map expects Map type"
       + `\nvalue of type ${introspect(m)} received`
-      + "\n"
-    );
+      + "\n");
 
     const t = introspect(m);
 
@@ -1394,8 +1408,7 @@ const handleMap = t => ({
         throw new TypeCoercionError(
           `\n\n_Map is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n"
-        );
+          + "\n");
       };
 
       case "set": return (k, v) => {
@@ -1405,8 +1418,7 @@ const handleMap = t => ({
           + `\n${underline([4, t.length - 1])}`
           + `\n\n${introspect(v)} at key ${k} received`
           + "\nMap must be homogeneous"
-          + "\n"
-        );
+          + "\n");
 
         else return m.set(k, v);
       }
@@ -1460,16 +1472,14 @@ const _Set = s => {
     if (getTypeTag(s) !== "Set") throw new ArgTypeError(
       "\n\n_Set expects Set type"
       + `\nvalue of type ${introspect(s)} received`
-      + "\n"
-    );
+      + "\n");
 
     const t = introspect(s);
 
     if (t === "Set<?>") throw new ArgTypeError(
       "\n\n_Set expects homogeneous Set"
       + `\nvalue of type ${t} received`
-      + "\n"
-    );
+      + "\n");
 
     else return new Proxy(s, handleSet(t));
   }
@@ -1487,8 +1497,7 @@ const handleSet = t => ({
         throw new TypeCoercionError(
           `\n\n_Set is coerced to ${capitalize(hint)}`
           + "\nillegal implicit type conversion"
-          + "\n"
-        );
+          + "\n");
       };
 
       case "set": return k => {
@@ -1498,8 +1507,7 @@ const handleSet = t => ({
           + `\n${underline([1, t.length - 1])}`
           + `\n\n${introspect(k)} received`
           + "\nSet must be homogeneous"
-          + "\n"
-        );
+          + "\n");
 
         else return s.add(k);
       }
@@ -1546,23 +1554,19 @@ _Set.neq = notp2(_Set.eq);
 ******************************************************************************/
 
 
-// type
-// ADT with several constructors/fields
+// data constructor
+// ADT with any number of constructors and fields
 // untyped
 const Type = $(
   "Type",
   name => {
     const Type = tag => Dcons => {
       const t = new Tcons();
-      t[`run${name}`] = Dcons; // implicitly guarded? or should be guarded by the caller?
+      t[`run${name}`] = $(`run${name}`, Dcons);
       t[TAG] = tag;
 
-      if (GUARDED) {
-        /*if (args.length === 0)
-          t[SIG] = `${name}<${introspect(Dcons)}>`; // ?, maybe type hint
-
-        else t[SIG] = `${name}`;*/
-      }
+      if (GUARDED)
+        t[SIG] = `${name}<${introspect(Dcons)}>`;
         
       return t;
     };
@@ -1577,7 +1581,7 @@ const Type = $(
 
 
 // data constructor
-// adt with single constructor/field
+// ADT with single constructor and any number of fields
 // untyped
 const Data = $(
   "Data",
@@ -1585,18 +1589,17 @@ const Data = $(
     const Data = Dcons => {
       const Data = k => {
         const t = new Tcons();
-        t[`run${name}`] = k; // implicitly guarded? or should be guarded by the caller?
+        t[`run${name}`] = $(`run${name}`, k);
         t[Symbol.toStringTag] = name;
         t[TAG] = name;
 
         if (GUARDED)
-          t[SIG] = `${name}<${introspect(k)}>`; // ?, maybe type hint
+          t[SIG] = `${name}<${introspect(k)}>`;
         
         return t;
       };
 
       return $(name, Dcons(Data));
-      // return Dcons(Data);
     };
 
     const Tcons =
@@ -1832,13 +1835,13 @@ const Except = Type("Except");
 
 // error
 // e -> Except<e, a>
-const Err = e => Except("Err", e)
+const Err = e => Except("Err")
   (cases => cases.Err(e));
 
 
 // success
 // a -> Except<e, a>
-const Suc = x => Except("Suc", x)
+const Suc = x => Except("Suc")
   (cases => cases.Suc(x));
 
 
@@ -1877,7 +1880,7 @@ const List = Type("List");
 
 // construct
 // a -> List<a> -> List<a>
-const Cons = x => tx => List("Cons", x)
+const Cons = x => tx => List("Cons")
   (cases => cases.Cons(x) (tx));
 
 
@@ -1910,7 +1913,7 @@ const Option = Type("Option");
 
 // some
 // a -> Option<a>
-const Some = x => Option("Some", x)
+const Some = x => Option("Some")
   (cases => cases.Some(x));
 
 
@@ -2270,7 +2273,7 @@ const comp = Reader.map;
 
 /******************************************************************************
 *******************************************************************************
-***********************************[ MISC ]************************************
+*********************************[ INTERNAL ]**********************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -2280,12 +2283,10 @@ const comp = Reader.map;
 const ordinal = $(
   "ordinal",
   n => {
-    switch (n) {
-      case 1: return "1st";
-      case 2: return "2nd";
-      case 3: return "3rd";
-      default: return `${n}th`;
-    }
+    const s = ["th", "st", "nd", "rd"],
+      v = n % 100;
+
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
   });
 
 
@@ -2359,6 +2360,11 @@ const underline = $(
 ******************************************************************************/
 
 
+// reset history
+history = [];
+
+
+// initialize namespace
 Object.assign($,
   {
     apply,
@@ -2392,6 +2398,7 @@ Object.assign($,
     Forest,
     getTypeTag,
     GT,
+    history,
     Id,
     id,
     infix,
