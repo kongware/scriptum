@@ -56,9 +56,18 @@ describe("eq", function() {
   });
 
   describe("Comparator", function() {
+    it("should return true", function() {
+      assert.equal(
+        $.eq($.EQ) ($.EQ),
+        true
+      );
+    });
+  });
+
+  describe("Comparator", function() {
     it("should return false", function() {
       assert.equal(
-        $.eq($.Arr([1,2,3])) ($.Arr([1,2,3,4])),
+        $.eq($.LT) ($.GT),
         false
       );
     });
@@ -333,6 +342,24 @@ describe("neq", function() {
 
   describe("Char", function() {
     // mocha bug
+  });
+
+  describe("Comparator", function() {
+    it("should return true", function() {
+      assert.equal(
+        $.neq($.LT) ($.GT),
+        true
+      );
+    });
+  });
+
+  describe("Comparator", function() {
+    it("should return false", function() {
+      assert.equal(
+        $.neq($.LT) ($.LT),
+        false
+      );
+    });
   });
 
   describe("Float", function() {

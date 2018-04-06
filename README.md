@@ -10,44 +10,44 @@ A type-directed functional library with a focus on purity, abstraction and a mat
 
 ## Why
 
-scriptum is the attempt to reconcile programming in an dynamically typed environment with the requirements of modern software development like correctness, predictability and resuablility.
+scriptum is the attempt to reconcile Javascript's dynamical type convenience with the type safety of statically typed languages.
 
 ## Mission
 
-scriptum encourages you to program in a type-directed style and to consider functional programs as mathematical equations that you can manipulate algebraically. This style facilitates equational reasoning and formal proof.
+scriptum encourages you to program in a type-directed manner and to consider functional programs as mathematical equations that you can manipulate algebraically. This style facilitates equational reasoning and formal proof.
 
 # Debugging
 
-scriptum provides a special `$` operator that transforms normal functions into guarded ones. Guarded functions have additional behavior that is useful for debugging, as we will see in the subsequent paragraphs. Please note that `$` also serves as a library namespace.
+scriptum tries to avoid imposing explicit type annotations on the programmer. Instead of knowing the types upfront it provides as much debugging information as possible in hindsight.
 
-You can easily guard curried functions sequences:
+The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe.
+
+With the `$` operator you can guard curried, multi-argument and polyvariadic functions:
 
 ```Javascript
+// curried function
+
 const comp = $(
   "comp",
   f => g => x =>
     f(g(x)));
-```
 
-Or multi-argument functions:
+// multi-argument function
 
-```Javascript
 const add = $(
   "add",
   (m, n) =>
     m + n);
-```
 
-Or variadic ones:
+// variadic function
 
-```Javascript
 const sum = $(
   "...sum",
   (...ns) =>
     ns.reduce((acc, n) =>
       acc + n, 0));
 ```
-To safe the cost of function guardance at runtime you can disable this feature for production environments by simply setting the `GUARDED` flag to `false`.
+Function guarding is only useful during the development stage. To safe runtime costs for production environments you can deactivate this feature by setting the `GUARDED` flag to `false`.
 
 ## Type Invalidation
 
@@ -78,24 +78,28 @@ add(2); // type error
 add(2, 3); // 5
 add(2, 3, 4); // type error
 ```
-If you want to declare variadic functions you can bypass strict arity checking by prefixing the function name with `...`:
+Variadic functions offer only a less strict function call arity guarantee:
 
 ```Javascript
 const sum = $(
   "...sum",
-  (...ns) =>
-    ns.reduce((acc, n) =>
-      acc + n, 0));
+  n => (...ns) =>
+    ns.reduce((acc, m) =>
+      acc + m, n));
 
-sum(); // 0
-sum(2); // 2
-sum(2, 3); // 5
+sum(1) (); // 1
+sum(1) (2); // 3
+sum(1) (2, 3); // 6
+sum() (2); // type error
+sum(1, 2) (3, 4); // 8 - ouch!
 ```
+scriptum cannot distinguish variadic from definitive arguments and consequently treats all arguments as variadic.
+
 ## Anonymous Functions
 
-In the functional paradigm functions are usually curried, that is declared as sequences of unary anonymous functions. These lambdas are hard to distinguish and thus hard to debug. Guarded functions have always a name.
+The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. Guarded functions always have a name.
 
-A first order function sequence carries the name of its initial function:
+First order function sequences inherit the name of their initial function:
 
 ```Javascript
 const add = $(
@@ -105,7 +109,7 @@ const add = $(
 
 add(2).name; // add
 ```
-A higher order function sequence additionally adapts its name to the name of the repsective function argument:
+Higher order function sequences additionally inherit their name from the last function returned:
 
 ```Javascript
 const comp = $(
@@ -125,11 +129,11 @@ const inc = $(
 comp(add) (inc).name; // comp
 comp(add) (inc) (2).name; // add
 ```
-Since scriptum's function guarding can be disabled you must not create dependencies on the `name` property, which is best practice anyway.
+Since scriptum's function guarding feature varies between development and production stage you must not establish dependencies on it.
 
 ## Type Logs
 
-scriptum doesn't require explicit type annotations but rather provides a type log for each guarded function. A type log includes the type of each argument passed to the curried function sequence. This way you can retrospectively verify if an assumed function type matches its real type.
+scriptum provides a type log for each guarded function:
 
 ```Javascript
 const comp = $(
@@ -150,7 +154,11 @@ comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
 `λ` just indicates that the given argument is a function.
 
-If you pass a composite value to a guarded function and the type check recognizes an improper use of that type, it uses a question mark within the type signature to highlight this misuse:
+If a function call results in a non-functional return value it isn't logged and hence you cannot introspect it as described above. In scriptum jargon this is a final function call. In order to log final function calls scriptum maintains a global type log that usually contains the last ten complete function calls including the final calls.
+
+## Type Misuse
+
+If you pass a composite value to a guarded function and the type check recognizes misuse of that type, it uses a question mark within the type signature to indicate the incorrect usage:
 
 ```Javascript
 const append = $(
@@ -170,11 +178,11 @@ append(xs).log; // ["append([?])"]
 
 map(inc) (append(xs) (ys)); // type error
 ```
-`xs` is a heterogeneous `Array` that will produce a `NaN` the next time you map over it, for instance. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
+`xs` is a heterogeneous `Array` that could potentially cause an error in the future. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
 
-## Shortcommings
+## Drawbacks
 
-At first scriptum establishes another level of indirection around every guarded function. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. On the other hand, the additional guarantees and debug information should outweigh these extra effort by far, in particular for larger projects. Additionally, scriptum guides you through the step-by-step debug process by indicating which expressions can be skipped.
+At first glance scriptum's guarded function just establishe another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
 
 # Extended Types
 

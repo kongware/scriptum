@@ -18,9 +18,19 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
+// symbol prefix
+// String
+const SYM_PREFIX = "scriptum";
+
+
 // guarded flag
 // Boolean
 const GUARDED = true;
+
+
+// ADT log symbol for accessing the type log
+// Symbol
+const LOG = Symbol.for(`${SYM_PREFIX}/log`);
 
 
 // maximal record size
@@ -33,23 +43,13 @@ const MAX_REC_SIZE = 16;
 const MAX_TUP_SIZE = 8;
 
 
-// symbol prefix
-// String
-const SYM_PREFIX = "scriptum";
-
-
-/******************************************************************************
-**********************************[ Symbols ]**********************************
-******************************************************************************/
+// ADT tag symbol for accessing the type signature
+// Symbol
+const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
 
 
 // ADT tag symbol for pattern matching
-// Symbol
 const TAG = Symbol.for(`${SYM_PREFIX}/tag`);
-
-
-// ADT tag symbol for type signature
-const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
 
 
 /******************************************************************************
@@ -64,7 +64,7 @@ const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
 ******************************************************************************/
 
 
-// guard function
+// function guard
 // default export
 // untyped
 const $ = (name, f) => {
@@ -109,10 +109,13 @@ const handleF = (name, f, log, {params, nthCall}) => {
       // skip statement
       if (typeof r === "function") {
         const name_ = r.name || name;
+        log.push(`${name}(${argTypes})`);
+
         Reflect.defineProperty(r, "name", {value: name_});
+        Reflect.defineProperty(r, LOG, {value: log});
 
         return new Proxy(
-          r, handleF(name_, r, log.concat(`${name}(${argTypes})`), {nthCall: nthCall + 1})
+          r, handleF(name_, r, log, {params, nthCall: nthCall + 1})
         );
       }
 
@@ -122,7 +125,7 @@ const handleF = (name, f, log, {params, nthCall}) => {
     get: (f, k, p) => {
       switch (k) {
         case "name": return name;
-        case "log": return log;
+        case LOG: return log;
         default: return f[k];
       }
     }
@@ -172,11 +175,22 @@ const verifyArgTypes = (args, name, nthCall, log) =>
 const verifyArity = (g, args, name, params, nthCall, log) => {
   if (params === "fix" && g.length !== args.length) {
     throw new ArityError(
-      `\n\n${name} expects ${g.length} argument(s)`
-      + `\n\n${args.length} of type ${introspect(args).slice(1, -1)} received`
-      + `\n\nin the ${nthCall + 1}. call of ${name}`
-      + `\n\ninvalid function call arity`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      "invalid function call arity"
+      + `\n\n${name} expects ${g.length} argument(s)`
+      + `\n\nin its ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length} received`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
+      + "\n"
+    );
+  }
+
+  else if (params === "var" && g.length > args.length) {
+    throw new ArityError(
+      "invalid function call arity"
+      + `\n\n${name} expects at least ${g.length} argument(s)`
+      + `\n\nin its ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length} received`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
       + "\n"
     );
   }
@@ -434,7 +448,7 @@ Boo.minBound = false;
 Boo.maxBound = true;
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -710,7 +724,7 @@ const recur = (...args) =>
 const Num = {};
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -770,7 +784,7 @@ const capitalize = $(
 const Str = {};
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -857,7 +871,7 @@ Char.minBound = Char("\u{0}");
 Char.maxBound = Char("\u{10FFFF}");
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -918,7 +932,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -998,7 +1012,7 @@ Int.minBound = Int(Number.MIN_SAFE_INTEGER);
 Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -1043,7 +1057,7 @@ Null.minBound = null;
 Null.maxBound = null;
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -1109,7 +1123,7 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -1190,7 +1204,7 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 Tup.prototype[Symbol.toStringTag] = "Tuple";
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -1312,7 +1326,7 @@ const setArr = (xs, i, d, t, {mode}) => {
 };
 
 
-/***[Eq]**********************************************************************/
+/***[Setoid]******************************************************************/
 
 
 // equal
@@ -1533,22 +1547,21 @@ _Set.neq = notp2(_Set.eq);
 
 
 // type
-// adt with several constructors/fields
+// ADT with several constructors/fields
 // untyped
 const Type = $(
   "Type",
   name => {
-    const Type = (tag, ...args) => Dcons => {
+    const Type = tag => Dcons => {
       const t = new Tcons();
-      t[`run${name}`] = $(`run${name}`, Dcons);
+      t[`run${name}`] = Dcons; // implicitly guarded? or should be guarded by the caller?
       t[TAG] = tag;
 
       if (GUARDED) {
-        if (args.length === 0) {
-          t[SIG] = `${name}<${introspect(args).slice(1, -1)}>`;
-        }
+        /*if (args.length === 0)
+          t[SIG] = `${name}<${introspect(Dcons)}>`; // ?, maybe type hint
 
-        else t[SIG] = `${name}`;
+        else t[SIG] = `${name}`;*/
       }
         
       return t;
@@ -1570,19 +1583,20 @@ const Data = $(
   "Data",
   name => {
     const Data = Dcons => {
-      const Data = x => {
+      const Data = k => {
         const t = new Tcons();
-        t[`run${name}`] = k => k(x);
+        t[`run${name}`] = k; // implicitly guarded? or should be guarded by the caller?
         t[Symbol.toStringTag] = name;
         t[TAG] = name;
 
         if (GUARDED)
-          t[SIG] = `${name}<${introspect(x)}>`;
+          t[SIG] = `${name}<${introspect(k)}>`; // ?, maybe type hint
         
         return t;
       };
 
-      return Dcons(Data);
+      return $(name, Dcons(Data));
+      // return Dcons(Data);
     };
 
     const Tcons =
@@ -1593,104 +1607,22 @@ const Data = $(
 );
 
 
-// binary data constructor
-// adt with single constructor and two fields
-// untyped
-const Data2 = $(
-  "Data2",
-  name => {
-    const Data2 = Dcons => {
-      const Data2 = x => y => {
-        const t = new Tcons();
-        t[`run${name}`] = k => k(x) (y);
-        t[Symbol.toStringTag] = name;
-        t[TAG] = name;
-
-        if (GUARDED)
-          t[SIG] = `${name}<${introspect(x)}, ${introspect(y)}>`;
-        
-        return t;
-      };
-
-      return Dcons(Data2);
-    };
-
-    const Tcons =
-      Function(`return function ${name}() {}`) ();
-
-    return Data2;
-  }
-);
-
-
-// ternary data constructor
-// adt with single constructor and three fields
-// untyped
-const Data3 = $(
-  "Data3",
-  name => {
-    const Data3 = Dcons => {
-      const Data3 = x => y => z => {
-        const t = new Tcons();
-        t[`run${name}`] = k => k(x) (y) (z);
-        t[Symbol.toStringTag] = name;
-        t[TAG] = name;
-
-        if (GUARDED)
-          t[SIG] = `${name}<${introspect(x)}, ${introspect(y)}, ${introspect(z)}>`;
-        
-        return t;
-      };
-
-      return Dcons(Data3);
-    };
-
-    const Tcons =
-      Function(`return function ${name}() {}`) ();
-
-    return Data3;
-  }
-);
-
-
-// data constructor with explicit continuation
-// adt with single constructor/field
-// untyped
-const Datan = $(
-  "Datan",
-  name => {
-    const Datan = Dcons => {
-      const Datan = k => {
-        const t = new Tcons();
-        t[`run${name}`] = k;
-        t[Symbol.toStringTag] = name;
-        t[TAG] = name;
-
-        if (GUARDED)
-          t[SIG] = `${name}<${introspect(k)}>`;
-        
-        return t;
-      };
-
-      return Dcons(Datan);
-    };
-
-    const Tcons =
-      Function(`return function ${name}() {}`) ();
-
-    return Datan;
-  }
-);
-
-
 /******************************************************************************
 *********************************[ Behavior ]**********************************
 ******************************************************************************/
 
 
 // behavior
-// ...
-const Behavior = Datan("Behavior") (Behavior => k => Behavior(k));
+// ((a -> r) -> r, (e -> r) -> r) -> Behavior<a, e>
+const Behavior = Data("Behavior")
+  (Behavior => k => Behavior(k)); // everything guarded by Data except k?
+
+
+// run behavior
+// (a -> r, e -> r) -> Behavior<a, e> -> r
+const runBehavior = $(
+  "runBehavior",
+  f => tk => tk.runBehavior(f));
 
 
 /***[Misc]********************************************************************/
@@ -1849,13 +1781,13 @@ const Either = Type("Either");
 
 // left
 // a -> Either<a, b>
-const Left = x => Either("Left", x)
+const Left = x => Either("Left") // Left should be guarded, is cases => cases.Left(x) implicitly guarded?
   (cases => cases.Left(x));
 
 
 // right
 // b -> Either<a, b>
-const Right = x => Either("Right", x)
+const Right = x => Either("Right") // Right should be guarded, is cases => cases.Right(x) implicitly guarded?
   (cases => cases.Right(x));
 
 
@@ -1885,7 +1817,7 @@ Either.neq = notp2(Either.eq);
 
 // event stream
 // ...
-const Event = Datan("Event") (Event => k => Event(k));
+const Event = Data("Event") (Event => k => Event(k));
 
 
 /******************************************************************************
@@ -2020,7 +1952,7 @@ Reader.mapv = $(
   f => Object.assign(g =>
     Reader.mapv(x =>
       f(g(x))),
-      {run: f}));
+      {runReader: f}));
 
 
 /***[Applicative]*************************************************************/
@@ -2041,7 +1973,7 @@ Reader.apv = $(
   "...apv",
   f => Object.assign(g =>
     Reader.apv(x =>
-      g(x) (f(x))), {run: f}));
+      g(x) (f(x))), {runReader: f}));
 
 
 /***[Monad]*******************************************************************/
@@ -2062,14 +1994,15 @@ Reader.chainv = $(
   "chainv",
   f => Object.assign(g =>
     Reader.chainv(x =>
-      g(f(x)) (x)), {run: f}));
+      g(f(x)) (x)), {runReader: f}));
 
 
 /******************************************************************************
 ************************************[ Ref ]************************************
 ******************************************************************************/
 
-
+// reference
+// Object -> Ref<Object>
 const Ref = Data("Ref")
   (Ref => o => Ref(o));
 
@@ -2080,6 +2013,11 @@ const Ref = Data("Ref")
 Ref.eq = to => tp =>
   to.runRef(o =>
     tp.runRef(p => o === p));
+
+
+Ref.neq = to => tp =>
+  to.runRef(o =>
+    tp.runRef(p => o !== p));
 
 
 /******************************************************************************
@@ -2106,7 +2044,7 @@ Ref.eq = to => tp =>
 // task
 // TODO: switch to node style
 // ((a -> r) -> r, (e -> r) -> r) -> Task<a, e>
-const Task = Datan("Task") (Task => k => Task(k));
+const Task = Data("Task") (Task => k => Task(k));
 
 
 /***[Functor]*****************************************************************/
@@ -2159,7 +2097,7 @@ Task.of = x =>
 
 // multi-way tree
 // a -> Forest<a> -> Tree<a>
-const Tree = Data2("Tree")
+const Tree = Data("Tree")
   (Tree => x => children => Tree(x) (children));
 
 
@@ -2258,6 +2196,7 @@ const instances = new Map([
   ["Eq Null", {eq: Null.eq, neq: Null.neq}],
   ["Eq Number", {eq: Num.eq, neq: Num.neq}],
   ["Eq Record", {eq: Rec.eq, neq: Rec.neq}],
+  ["Eq Ref", {eq: Ref.eq, neq: Ref.neq}],
   ["Eq String", {eq: Str.eq, neq: Str.neq}],
   ["Eq Set", {eq: _Set.eq, neq: _Set.neq}],
   ["Eq Tuple", {eq: Tup.eq, neq: Tup.neq}]
@@ -2336,6 +2275,20 @@ const comp = Reader.map;
 ******************************************************************************/
 
 
+// ordinal number
+// Number -> String
+const ordinal = $(
+  "ordinal",
+  n => {
+    switch (n) {
+      case 1: return "1st";
+      case 2: return "2nd";
+      case 3: return "3rd";
+      default: return `${n}th`;
+    }
+  });
+
+
 // replace nested types
 // String -> String
 const replaceNestedTypes = $(
@@ -2396,8 +2349,7 @@ class TypeCoercionError extends Error {
 const underline = $(
   "underline",
   ([n, m]) =>
-    Array(n + 1).join(" ") + Array(m - n + 1).join("^")
-);
+    Array(n + 1).join(" ") + Array(m - n + 1).join("^"));
 
 
 /******************************************************************************
@@ -2428,14 +2380,12 @@ Object.assign($,
     curry,
     curry3,
     Data,
-    Data2,
-    Data3,
-    Datan,
     Eff,
     EQ,
     Eq,
     eq,
     Err,
+    Event,
     fix,
     flip,
     Float,
@@ -2468,6 +2418,7 @@ Object.assign($,
     Reader,
     Rec,
     recur,
+    Ref,
     Right,
     rotl,
     rotr,
@@ -2475,6 +2426,7 @@ Object.assign($,
     _Set,
     SIG,
     Some,
+    subscribe,
     Suc,
     swap,
     TAG,
