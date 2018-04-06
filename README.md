@@ -20,7 +20,7 @@ scriptum encourages you to program in a type-directed manner and to consider fun
 
 scriptum tries to avoid imposing explicit type annotations on the programmer. Instead of knowing the types upfront it provides as much debugging information as possible in hindsight.
 
-The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe.
+The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe and easer to debug.
 
 With the `$` operator you can guard curried, multi-argument and polyvariadic functions:
 
