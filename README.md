@@ -283,9 +283,9 @@ const Foo = Data("Foo")
 const foo = Foo("bar");
 foo.runFoo(x => x); // "bar"
 ```
-The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves a the data constructor, that is the constructor that finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
+The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, that is the constructor that finally constructs a value. Since there is only a single data constructor, data and type constructor can have the same name.
 
-If you still wonder why a continuation is used, you should consider that ADTs are also capable of expressing product types:
+If you still wonder why a continuation is used as a getter, you should consider that ADTs are also capable of expressing product types and only continuations can handle multiple return values:
 
 ```Javascript
 const Bar = Data("Bar")
