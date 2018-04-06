@@ -591,18 +591,18 @@ The `Event` type is still experimental and may change in the future.
 
 # Upcoming Features
 
-* Several type classes
+* Various type classes
 * Fold with short circuiting
 * Monodial transudcer
 * Monad transformers
 * Functional optics
+* Contravariant predicates/comparisons
 * Zippers
 * List comprehension
 * Stack-safe recursion
 * Indexed ranges
-* Memoization as a type
-* `Behavior`/`Event` types and corresponding combinators
-* Cata-, ana- and hylomorphisms
+* Comonads
+* Cata-, ana-, apo- and hylomorphisms
 
 # Research
 
