@@ -93,7 +93,7 @@ sum(1) (2, 3); // 6
 sum() (2); // type error
 sum(1, 2) (3, 4); // 8 - ouch!
 ```
-The reason for this lies in sriptum's inability to distinguish variadic from fixed number of arguments.
+The reason for this lies in sriptum's inability to distinguish variadic from deterministic arguments.
 
 ## Anonymous Functions
 
