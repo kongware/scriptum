@@ -356,7 +356,7 @@ The `Cons` data constructor has two fields and hence is a product type. Addition
 
 ```Javascript
 const Tree = Data("Tree")
-  (Tree => x => children => Tree(k => k(x) (children)));
+  (Tree => x => forest => Tree(k => k(x) (forest)));
 
 const Forest = Data("Forest")
   (Forest => (...trees) => Forest(k => k(trees)));
