@@ -28,17 +28,22 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 const SYM_PREFIX = "scriptum";
 
 
-// guarded flag
+// invalid types
+// [String]
+const INVALID_TYPES = new Set(["Undefined", "NaN", "Infinity"]);
+
+
+// flag for controling function guarding
 // Boolean
 const GUARDED = true;
 
 
-// ADT log symbol for accessing the type log
+// property for accessing a function type log
 // Symbol
-const LOG = Symbol.for(`${SYM_PREFIX}/log`);
+const LOG = Symbol.for(`${SYM_PREFIX}/LOG`);
 
 
-// history log's length
+// length of global history log
 // Number
 const HISTORY_LEN = 10;
 
@@ -53,13 +58,13 @@ const MAX_REC_SIZE = 16;
 const MAX_TUP_SIZE = 8;
 
 
-// ADT tag symbol for accessing the type signature
+// property for accessing type signatures
 // Symbol
-const SIG = Symbol.for(`${SYM_PREFIX}/sig`);
+const SIG = Symbol.for(`${SYM_PREFIX}/SIG`);
 
 
-// ADT tag symbol for pattern matching
-const TAG = Symbol.for(`${SYM_PREFIX}/tag`);
+// property for pattern matching
+const TAG = Symbol.for(`${SYM_PREFIX}/TAG`);
 
 
 /******************************************************************************
@@ -99,6 +104,22 @@ const setHistory = s => {
 // untyped
 const $ = (name, f) => {
   if (GUARDED) {
+    if (getTypeTag(name) !== "String") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\n$ expects an argument of type String"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(name)} received`
+      + "\n");
+
+    else if (getTypeTag(f) !== "Function") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\n$ expects an argument of type Function"
+      + `\n\non the 1st call`
+      + `\n\nin the 2nd argument`
+      + `\n\nbut ${introspect(f)} received`
+      + "\n");
+
     if (name.indexOf("...") === 0) {
       Reflect.defineProperty(f, "name", {value: name.slice(3)});
       
@@ -175,43 +196,43 @@ const typeCheck = Cons => f => x => {
     inf = t.search(/\bInfinity\b/);
 
   if (undef !== -1) {
-    throw new Cons(f(t) ("Undefined") ([undef, undef + 9]));
+    throw new Cons(f(t) ("Undefined"));
   }
 
   else if (nan !== -1) {
-    throw new Cons(f(t) ("NaN") ([nan, nan + 3]));
+    throw new Cons(f(t) ("NaN"));
   }
 
   else if (inf !== -1) {
-    throw new Cons(f(t) ("Infinity") ([nan, nan + 3]));
+    throw new Cons(f(t) ("Infinity"));
   }
 
   else return t;
 };
 
 
-const verifyArgTypes = (args, name, nthCall, log) =>
-  args.map((arg, nthArg) =>
-    typeCheck(ArgTypeError)
-      (t => illTyped => fromTo =>
-        "invalid argument type"
-        + `\n\n${name} received an argument of type`
-        + `\n\n${t}`
-        + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-        + `\n\nin its ${ordinal(nthCall + 1)} call`
-        + `\nin its ${ordinal(nthArg + 1)} argument`
-        + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
-        + "\n") (arg))
-        .join(", ");
+const verifyArgTypes = (args, name, nthCall, log) => 
+  args.map((arg, nthArg) => {
+    const t = introspect(arg);
+
+    if (INVALID_TYPES.has(t)) throw new ArgTypeError(
+      "invalid argument type"
+      + `\n\n${name} received an argument of type ${t}`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\nin the ${ordinal(nthArg + 1)} argument`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      + "\n");
+  }).join(", ");
+  
 
 
 const verifyArity = (g, args, name, params, nthCall, log) => {
   if (params === "fix" && g.length !== args.length) {
     throw new ArityError(
       "invalid function call arity"
-      + `\n\n${name} expects ${g.length} argument(s)`
-      + `\n\nin its ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length} received`
+      + `\n\n${name} expects ${g.length}-ary Function`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length}-ary Function received`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
       + "\n"
     );
@@ -220,9 +241,9 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
   else if (params === "var" && g.length > args.length) {
     throw new ArityError(
       "invalid function call arity"
-      + `\n\n${name} expects at least ${g.length} argument(s)`
-      + `\n\nin its ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length} received`
+      + `\n\n${name} expects at least ${g.length}-ary Function`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length}-ary Function received`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
       + "\n"
     );
@@ -230,15 +251,17 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
 };
 
 
-const verifyRetType = (r, name, log) =>
-  typeCheck(ReturnTypeError)
-    (t => illTyped => fromTo =>
-      "invalid return type"
-      + `\n\n${name} returned a value of type`
-      + `\n\n${t}`
-      + (fromTo.length === 0 ? "\n" : `\n${underline(fromTo)}`)
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
-      + "\n") (r);
+const verifyRetType = (r, name, log) => {
+  const t = introspect(r);
+
+  if (INVALID_TYPES.has(t)) throw new ReturnTypeError(
+    "invalid return type"
+    + `\n\n${name} returned a value of type ${t}`
+    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+    + "\n");
+
+  return t;
+};
 
 
 /******************************************************************************
@@ -270,7 +293,7 @@ const introspect = x => {
     case "object": {
       const tag = getTypeTag(x);
 
-      if (tag !== "Null" && "sig" in x) return x.sig;
+      if (tag !== "Null" && SIG in x) return x[SIG];
 
       else {
         switch (tag) {
@@ -402,6 +425,16 @@ class ArgTypeError extends Error {
   constructor(s) {
     super(s);
     Error.captureStackTrace(this, ArgTypeError);
+  }
+};
+
+
+// argument value error
+// String -> ArgValueError
+class ArgValueError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, ArgValueError);
   }
 };
 
@@ -544,8 +577,8 @@ const compBoth = $(
 const compn = $(
   "...compn",
   (f, ...fs) => x =>
-    f === undefined
-      ? x
+    fs.length === 0
+      ? f(x)
       : f(compn(...fs) (x)));
 
 
@@ -657,8 +690,8 @@ const partial = $(
 const pipe = $(
   "...pipe",
   (f, ...fs) => x =>
-    f === undefined
-      ? x
+    fs.length === 0
+      ? f(x)
       : pipe(...fs) (f(x)));
 
 
@@ -856,13 +889,19 @@ class Char extends String {
 
     if (GUARDED) {
       if (typeof c !== "string") throw new ArgTypeError(
-        "\n\nChar expects String literal"
-        + `\nvalue of type ${introspect(c)} received`
+        "invalid argument type"
+        + "\n\nChar expects an argument of type String"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(c)} received`
         + "\n");
 
-      else if ([...c].length !== 1) throw new ArgTypeError(
-        "\n\nChar expects single character"
-        + `\n"${c}" of length ${c.length} received`
+      else if ([...c].length !== 1) throw new ArgValueError(
+        "invalid argument value"
+        + "\n\nChar expects a single character"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${c} received`
         + "\n");
     }
   }
@@ -882,8 +921,9 @@ Char.prototype[Symbol.toStringTag] = "Char";
 
 Char.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nChar is coerced to ${capitalize(hint)}`
-    + "\nillegal implicit type conversion"
+    "illegal type coercion"
+    + "\n\nChar must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
 
@@ -933,8 +973,11 @@ class Float extends Number {
 
     if (GUARDED) {
       if (typeof n !== "number") throw new ArgTypeError(
-        "\n\nFloat expects Number literal"
-        + `\nvalue of type ${introspect(n)} received`
+        "invalid argument type"
+        + "\n\nFloat expects an argument of type Number"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(n)} received`
         + "\n");
     }
   }
@@ -954,8 +997,9 @@ Float.prototype[Symbol.toStringTag] = "Float";
 
 Float.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nFloat is coerced to ${capitalize(hint)}`
-    + "\nillegal implicit type conversion"
+    "illegal type coercion"
+    + "\n\nFloat must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
 
@@ -992,13 +1036,19 @@ class Int extends Number {
 
     if (GUARDED) {
       if (typeof n !== "number") throw new ArgTypeError(
-        "\n\nInt expects Number literal"
-        + `\nvalue of type ${introspect(n)} received`
+        "invalid argument type"
+        + "\n\nInt expects an argument of type Number"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(n)} received`
         + "\n");
 
-      else if (n % 1 !== 0) throw new ArgTypeError(
-        "\n\nInt expects integer literal"
-        + `\nvalue of type ${introspect(n)} received`
+      else if (n % 1 !== 0) throw new ArgValueError(
+        "invalid argument value"
+        + "\n\nInt expects a natural Number"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${c} received`
         + "\n");
     }
   }
@@ -1018,8 +1068,9 @@ Int.prototype[Symbol.toStringTag] = "Int";
 
 Int.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nInt is coerced to ${capitalize(hint)}`
-    + "\nillegal implicit type conversion"
+    "illegal type coercion"
+    + "\n\nInt must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
 
@@ -1117,8 +1168,11 @@ class Rec extends Object {
 
     if (GUARDED) {
       if (typeof o !== "object" || o === null) throw new ArgTypeError(
-        "\n\nRec expects Object type"
-        + `\nvalue of type ${introspect(o)} received`
+        "invalid argument type"
+        + "\n\nRec expects an argument of type Object"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(o)} received`
         + "\n");
 
       Object.freeze(this);
@@ -1140,8 +1194,9 @@ Rec.prototype[Symbol.toStringTag] = "Record";
 
 Rec.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nRec is coerced to ${capitalize(hint)}`
-    + "\nillegal implicit type conversion"
+    "illegal type coercion"
+    + "\n\nRec must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
 
@@ -1208,16 +1263,18 @@ class Tup extends Array {
 
 Tup.prototype.map = () => {
   throw new TypeError(
-    "\n\nTup must not be used as an Array"
-    + "\nillegal map operation"
+    "illegal operation"
+    + "\n\nTup must not used as an Array"
+    + `\n\nbut attempt to map over received`
     + "\n");
 };
 
 
 Tup.prototype[Symbol.toPrimitive] = hint => {
   throw new TypeCoercionError(
-    `\n\nTup is coerced to ${capitalize(hint)}`
-    + "\nillegal implicit type conversion"
+    "illegal type coercion"
+    + "\n\nTup must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
 
@@ -1261,15 +1318,21 @@ Tup.neq = notp2(Tup.eq);
 const Arr = xs => {
   if (GUARDED) {
     if (!Array.isArray(xs)) throw new ArgTypeError(
-      "\n\nArr expects Array type"
-      + `\nvalue of type ${introspect(xs)} received`
+      "invalid argument type"
+      + "\n\nArr expects an argument of type Array"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(xs)} received`
       + "\n");
 
     const t = introspect(xs);
 
-    if (replaceNestedTypes(t).search(/\?|,/) !== -1) throw new ArgTypeError(
-      "\n\nArr expects homogeneous Array"
-      + `\nvalue of type ${t} received`
+    if (replaceNestings(t).search(/\?|,/) !== -1) throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\nArr expects an homogeneous Array"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(xs)} received`
       + "\n");
 
     else return new Proxy(xs, handleArr(t));
@@ -1286,8 +1349,9 @@ const handleArr = t => ({
     switch (i) {
       case Symbol.toPrimitive: return hint => {
         throw new TypeCoercionError(
-          `\n\nArr is coerced to ${capitalize(hint)}`
-          + "\nillegal implicit type conversion"
+          "illegal type coercion"
+          + "\n\nArr must maintain its type"
+          + `\n\nbut type coercion to ${capitalize(hint)} received`
           + "\n");
       };
 
@@ -1297,11 +1361,11 @@ const handleArr = t => ({
 
   deleteProperty: (xs, i) => {
     if (String(Number(i)) === i) {
-      if (Number(i) !== xs.length - 1) throw new ArgTypeError(
-        "\n\nillegal element deletion of"
-        + `\n\n${t}`
-        + `\n\nat index #${i}`
-        + `\nArr must not contain index gaps`
+      if (Number(i) !== xs.length - 1) throw new TypeError(
+        "illegal operation"
+        + "\n\nArr must maintain a coherent index"
+        + `\n\nbut delete operation would lead to an index gap`
+        + `\n\nat the ${ordinal(i)} position`
         + "\n");
     }
 
@@ -1319,19 +1383,18 @@ const handleArr = t => ({
 // ([a], Number, {value: a}, {mode: String} => [a]
 const setArr = (xs, i, d, t, {mode}) => {
   if (String(Number(i)) === i) {
-    if (Number(i) > xs.length) throw new ArgTypeError(
-      "\n\nillegal element setting of"
-      + `\n\n${t}`
-      + `\n\nat index #${i}`
-      + `\nArr must not contain index gaps`
+    if (Number(i) > xs.length) throw new TypeError(
+      "illegal operation"
+      + "\n\nArr must maintain a coherent index"
+      + `\n\nbut add operationwould lead to an index gap`
+      + `\n\nat the ${ordinal(i)} position`
       + "\n");
 
-    else if (`[${introspect(d.value)}]` !== t) throw new ArgTypeError(
-      "\n\nillegal element setting of"
-      + `\n\n${t}`
-      + `\n${underline([1, t.length - 1])}`
-      + `\n\n${introspect(d.value)} at index #${i} received`
-      + "\nArr must be homogeneous"
+    else if (`[${introspect(d.value)}]` !== t) throw new TypeError(
+      "illegal operation"
+      + `\n\nArr of type ${introspect(xs)} must remain homogeneous`
+      + `\n\nbut set operation would lead to a heterogeneous Arr`
+      + `\n\nwith element of type ${introspect(d.value)}`
       + "\n");
   }
 
@@ -1380,17 +1443,22 @@ Arr.neq = notp2(Arr.eq);
 const _Map = m => {
   if (GUARDED) {
     if (getTypeTag(m) !== "Map") throw new ArgTypeError(
-      "\n\n_Map expects Map type"
-      + `\nvalue of type ${introspect(m)} received`
+      "invalid argument type"
+      + "\n\n_Map expects an argument of type Map"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(m)} received`
       + "\n");
 
     const t = introspect(m);
 
     if (t === "Map<?>") throw new ArgTypeError(
-      "\n\n_Map expects homogeneous Map"
-      + `\nvalue of type ${t} received`
-      + "\n"
-    );
+      "invalid argument type"
+      + "\n\n_Map expects an homogeneous Map"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${t} received`
+      + "\n");
 
     else return new Proxy(m, handleMap(t));
   }
@@ -1406,18 +1474,18 @@ const handleMap = t => ({
     switch (k) {
       case Symbol.toPrimitive: return hint => {
         throw new TypeCoercionError(
-          `\n\n_Map is coerced to ${capitalize(hint)}`
-          + "\nillegal implicit type conversion"
+          "illegal type coercion"
+          + "\n\n_Map must maintain its type"
+          + `\n\nbut type coercion to ${capitalize(hint)} received`
           + "\n");
       };
 
       case "set": return (k, v) => {
-        if (`Map<${introspect(k)}, ${introspect(v)}>` !== t) throw new ArgTypeError(
-          "\n\nillegal element setting of"
-          + `\n\n${t}`
-          + `\n${underline([4, t.length - 1])}`
-          + `\n\n${introspect(v)} at key ${k} received`
-          + "\nMap must be homogeneous"
+        if (`Map<${introspect(k)}, ${introspect(v)}>` !== t) throw new TypeError(
+          "illegal operation"
+          + `\n\n_Map of type ${introspect(m)} must remain homogeneous`
+          + `\n\nbut set operation would lead to a heterogeneous _Map`
+          + `\n\nwith pair of type ${introspect(k)}/${introspect(v)}`
           + "\n");
 
         else return m.set(k, v);
@@ -1470,15 +1538,21 @@ _Map.neq = notp2(_Map.eq);
 const _Set = s => {
   if (GUARDED) {
     if (getTypeTag(s) !== "Set") throw new ArgTypeError(
-      "\n\n_Set expects Set type"
-      + `\nvalue of type ${introspect(s)} received`
+      "invalid argument type"
+      + "\n\n_Set expects an argument of type Set"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(m)} received`
       + "\n");
 
     const t = introspect(s);
 
     if (t === "Set<?>") throw new ArgTypeError(
-      "\n\n_Set expects homogeneous Set"
-      + `\nvalue of type ${t} received`
+      "invalid argument type"
+      + "\n\n_Set expects a homogeneous Set"
+      + `\n\non the 1st call`
+      + `\n\nin the 1st argument`
+      + `\n\nbut ${introspect(m)} received`
       + "\n");
 
     else return new Proxy(s, handleSet(t));
@@ -1495,18 +1569,18 @@ const handleSet = t => ({
     switch (k) {
       case Symbol.toPrimitive: return hint => {
         throw new TypeCoercionError(
-          `\n\n_Set is coerced to ${capitalize(hint)}`
-          + "\nillegal implicit type conversion"
+          "illegal type coercion"
+          + "\n\n_Set must maintain its type"
+          + `\n\nbut type coercion to ${capitalize(hint)} received`
           + "\n");
       };
 
       case "set": return k => {
         if (`Set<${introspect(k)}>` !== t) throw new ArgTypeError(
-          "\n\nillegal element setting of"
-          + `\n\n${t}`
-          + `\n${underline([1, t.length - 1])}`
-          + `\n\n${introspect(k)} received`
-          + "\nSet must be homogeneous"
+          "illegal operation"
+          + `\n\n_Set of type ${introspect(s)} must remain homogeneous`
+          + `\n\nbut set operation would lead to a heterogeneous _Set`
+          + `\n\nwith key of type ${introspect(k)}`
           + "\n");
 
         else return s.add(k);
@@ -1555,59 +1629,166 @@ _Set.neq = notp2(_Set.eq);
 
 
 // data constructor
-// ADT with any number of constructors and fields
+// ADTs with any number of constructors and fields
 // untyped
-const Type = $(
-  "Type",
-  name => {
-    const Type = tag => Dcons => {
+const Type = name => {
+  const Type = tag => {
+    const Type = Dcons => {
       const t = new Tcons();
+
+      if (GUARDED) {
+        if (getTypeTag(Dcons) !== "Function") 
+          throw new ArgTypeError(
+            "invalid argument type"
+            + `\n\n${name} expects an argument of type Function`
+            + "\n\non the 2nd call"
+            + "\nin the 1st argument"
+            + `\n\nbut ${introspect(Dcons)} received`
+            + "\n");
+
+        else if (Dcons.length !== 1) 
+          throw new ArityError(
+            "invalid function call arity"
+            + `\n\n${name} expects an 1-ary Function`
+            + "\n\non the 2nd call"
+            + "\nin the 1st argument"
+            + `\n\nbut ${Dcons.length}-ary Function received`
+            + "\n");
+
+        else t[SIG] = `${name}<λ>`;
+      }
+        
       t[`run${name}`] = $(`run${name}`, Dcons);
       t[TAG] = tag;
-
-      if (GUARDED)
-        t[SIG] = `${name}<${introspect(Dcons)}>`;
-        
       return t;
     };
 
-    const Tcons =
-      Function(`return function ${name}() {}`) ();
+    if (GUARDED) {
+      if (getTypeTag(tag) !== "String")
+        throw new ArgTypeError(
+          "invalid argument type"
+          + "\n\nType expects an argument of type String"
+          + "\n\non the 2nd call"
+          + "\nin the 1st argument"
+          + `\n\nbut ${introspect(tag)} received`
+          + "\n");
 
-    Tcons.prototype[Symbol.toStringTag] = name;
+      else if (tag[0].toLowerCase() === tag[0])
+        throw new ArgValueError(
+          "invalid argument value"
+          + "\n\nType expects a capitalized String"
+          + "\n\non the 2nd call"
+          + "\nin the 1st argument"
+          + `\n\nbut ${tag} received`
+          + "\n");
+    }
+
     return Type;
+  };
+
+  if (GUARDED) {
+    if (getTypeTag(name) !== "String")
+      throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nType expects an argument of type String"
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
+        + `\n\nbut ${introspect(name)} received`
+        + "\n");
+
+    else if (name[0].toLowerCase() === name[0])
+      throw new ArgValueError(
+        "invalid argument value"
+        + "\n\nType expects a capitalized String"
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
+        + `\n\nbut ${name} received`
+        + "\n");
   }
-);
+
+  const Tcons =
+    Function(`return function ${name}() {}`) ();
+
+  Tcons.prototype[Symbol.toStringTag] = name;
+  return Type;
+};
 
 
 // data constructor
-// ADT with single constructor and any number of fields
+// ADTs with single constructor and any number of fields
 // untyped
-const Data = $(
-  "Data",
-  name => {
-    const Data = Dcons => {
-      const Data = k => {
-        const t = new Tcons();
-        t[`run${name}`] = $(`run${name}`, k);
-        t[Symbol.toStringTag] = name;
-        t[TAG] = name;
+const Data = name => {
+  const Data = Dcons => {
+    const Data = k => {
+      const t = new Tcons();
 
-        if (GUARDED)
-          t[SIG] = `${name}<${introspect(k)}>`;
-        
-        return t;
-      };
+      if (GUARDED) {
+        if (getTypeTag(k) !== "Function")
+          throw new ArgTypeError(
+            "invalid argument type"
+            + `\n\n${name} expects an argument of type Function`
+            + "\n\non the 3rd call"
+            + "\nin the 1st argument"
+            + `\n\nbut ${introspect(k)} received`
+            + "\n");
 
-      return $(name, Dcons(Data));
+        t[SIG] = `${name}<λ>`;
+      }
+      
+      t[`run${name}`] = $(`run${name}`, k);
+      t[Symbol.toStringTag] = name;
+      t[TAG] = name;
+      return t;
     };
 
-    const Tcons =
-      Function(`return function ${name}() {}`) ();
+    if (GUARDED) {
+      if (getTypeTag(Dcons) !== "Function") 
+        throw new ArgTypeError(
+          "invalid argument type"
+          + `\n\n${name} expects an argument of type Function`
+          + "\n\non the 2nd call"
+          + "\nin the 1st argument"
+          + `\n\nbut ${introspect(Dcons)} received`
+          + "\n");
 
-    return Data;
+      else if (Dcons.length !== 1) 
+        throw new ArityError(
+          "invalid function call arity"
+          + `\n\n${name} expects an 1-ary Function`
+          + "\n\non the 2nd call"
+          + "\nin the 1st argument"
+          + `\n\nbut ${Dcons.length}-ary Function received`
+          + "\n");
+    }
+
+    return $(name, Dcons(Data));
+  };
+
+  if (GUARDED) {
+    if (getTypeTag(name) !== "String")
+      throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nData expects an argument of type String"
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
+        + `\n\nbut ${introspect(name)} received`
+        + "\n");
+
+    else if (name[0].toLowerCase() === name[0])
+      throw new ArgValueError(
+        "invalid argument value"
+        + "\n\nData expects a capitalized String"
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
+        + `\n\nbut ${name} received`
+        + "\n");
   }
-);
+
+  const Tcons =
+    Function(`return function ${name}() {}`) ();
+
+  return Data;
+};
 
 
 /******************************************************************************
@@ -1618,7 +1799,7 @@ const Data = $(
 // behavior
 // ((a -> r) -> r, (e -> r) -> r) -> Behavior<a, e>
 const Behavior = Data("Behavior")
-  (Behavior => k => Behavior(k)); // everything guarded by Data except k?
+  (Behavior => k => Behavior(k));
 
 
 // run behavior
@@ -1784,14 +1965,18 @@ const Either = Type("Either");
 
 // left
 // a -> Either<a, b>
-const Left = x => Either("Left") // Left should be guarded, is cases => cases.Left(x) implicitly guarded?
-  (cases => cases.Left(x));
+const Left = $(
+  "Left",
+  x => Either("Left")
+    (cases => cases.Left(x)));
 
 
 // right
 // b -> Either<a, b>
-const Right = x => Either("Right") // Right should be guarded, is cases => cases.Right(x) implicitly guarded?
-  (cases => cases.Right(x));
+const Right = $(
+  "Right",
+  x => Either("Right")
+    (cases => cases.Right(x)));
 
 
 /***[Eq]*******************************************************************/
@@ -1819,8 +2004,9 @@ Either.neq = notp2(Either.eq);
 
 
 // event stream
-// ...
-const Event = Data("Event") (Event => k => Event(k));
+// TODO: type signature
+const Event = Data("Event")
+  (Event => k => Event(k));
 
 
 /******************************************************************************
@@ -1835,14 +2021,18 @@ const Except = Type("Except");
 
 // error
 // e -> Except<e, a>
-const Err = e => Except("Err")
-  (cases => cases.Err(e));
+const Err = $(
+  "Err",
+  e => Except("Err")
+    (cases => cases.Err(e)));
 
 
 // success
 // a -> Except<e, a>
-const Suc = x => Except("Suc")
-  (cases => cases.Suc(x));
+const Suc = $(
+  "Suc",
+  x => Except("Suc")
+    (cases => cases.Suc(x)));
 
 
 /******************************************************************************
@@ -1853,7 +2043,7 @@ const Suc = x => Except("Suc")
 // identity
 // a -> Id<a>
 const Id = Data("Id")
-  (Id => x => Id(x));
+  (Id => x => Id(k => k(x)));
 
 
 /***[Eq]***********************************************************************/
@@ -1880,8 +2070,10 @@ const List = Type("List");
 
 // construct
 // a -> List<a> -> List<a>
-const Cons = x => tx => List("Cons")
-  (cases => cases.Cons(x) (tx));
+const Cons = $(
+  "Cons",
+  x => tx => List("Cons")
+    (cases => cases.Cons(x) (tx)));
 
 
 // not in list
@@ -1913,8 +2105,10 @@ const Option = Type("Option");
 
 // some
 // a -> Option<a>
-const Some = x => Option("Some")
-  (cases => cases.Some(x));
+const Some = $(
+  "Some",
+  x => Option("Some")
+    (cases => cases.Some(x)));
 
 
 // none
@@ -2007,7 +2201,7 @@ Reader.chainv = $(
 // reference
 // Object -> Ref<Object>
 const Ref = Data("Ref")
-  (Ref => o => Ref(o));
+  (Ref => o => Ref(k => k(o)));
 
 
 /***[Eq]*******************************************************************/
@@ -2047,7 +2241,8 @@ Ref.neq = to => tp =>
 // task
 // TODO: switch to node style
 // ((a -> r) -> r, (e -> r) -> r) -> Task<a, e>
-const Task = Data("Task") (Task => k => Task(k));
+const Task = Data("Task")
+  (Task => k => Task(k));
 
 
 /***[Functor]*****************************************************************/
@@ -2101,13 +2296,13 @@ Task.of = x =>
 // multi-way tree
 // a -> Forest<a> -> Tree<a>
 const Tree = Data("Tree")
-  (Tree => x => children => Tree(x) (children));
+  (Tree => x => children => Tree(k => k(x) (children)));
 
 
 // multi-way tree forest
 // [Tree<a>] -> Forest<a>
 const Forest = Data("Forest")
-  (Forest => (...trees) => Forest(trees));
+  (Forest => (...trees) => Forest(k => k(trees)));
 
 
 /***[Eq]*******************************************************************/
@@ -2290,10 +2485,10 @@ const ordinal = $(
   });
 
 
-// replace nested types
+// replace nestings
 // String -> String
-const replaceNestedTypes = $(
-  "replaceNestedTypes",
+const replaceNestings = $(
+  "replaceNestings",
   s => {
     const aux = s_ => {
       const t = s_.replace(/\[[^\[\]]*\]/g, "_")
@@ -2312,7 +2507,6 @@ const replaceNestedTypes = $(
 
 
 // stringify
-// internal
 // a -> String
 const stringify = $(
   "stringify",
@@ -2343,14 +2537,6 @@ class TypeCoercionError extends Error {
     Error.captureStackTrace(this, TypeCoercionError);
   }
 };
-
-
-// underline
-// [Number] -> String
-const underline = $(
-  "underline",
-  ([n, m]) =>
-    Array(n + 1).join(" ") + Array(m - n + 1).join("^"));
 
 
 /******************************************************************************
