@@ -309,13 +309,14 @@ This expressiveness comes at a price, though. The types of both examples above a
 Let's define a more complex ADT with two data constructors, also known as sum types:
 
 ```Javascript
-const Option = Type("Option");
+const Option = Type("Option", "None", "Some");
+
+const None = Option("None")
+  (o => o.None);
 
 const Some = x =>
   Option("Some") (o => o.Some(x));
   
-const None = Option("None") (o => o.None);
-
 const runOption = dict => tx =>
   tx.runOption(dict);
 
@@ -336,16 +337,15 @@ const x = safeHead(xs), // Some("foo")
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
 ```
+As you can see you have to pass the tags `"None"`/`"Some"` twice, first to the `Option` type constructor and later to the value constructors. This is necessary so that scriptum can ensure that all cases are covered.
+
 You can also compose sums and products to get sums of products:
 
 ```Javascript
-const List = Type("List");
+const List = Type("List", "Cons", "Nil");
 
-const Cons = $(
-  "Cons",
-  x => tx => List("Cons")
-    (cases => cases.Cons(x) (tx)));
-
+const Cons = x => tx =>
+  List("Cons") (cases => cases.Cons(x) (tx)));
 
 const Nil = List("Nil")
   (cases => cases.Nil);
