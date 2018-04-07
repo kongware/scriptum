@@ -293,7 +293,7 @@ foo.runFoo(x => x); // "bar"
 ```
 The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, which finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
 
-The next example is a single data constructor with several fields, also known as a product type. Now it becomes apparent why continuations are used as getters - only contuinuations can handle several return values:
+The next example is a single data constructor with several fields, also known as a product type. Now it becomes apparent why continuations are used as getters - only contuinuations can handle several values:
 
 ```Javascript
 const Bar = Data("Bar")
