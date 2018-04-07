@@ -350,7 +350,7 @@ const Cons = $(
 const Nil = List("Nil")
   (cases => cases.Nil);
 ```
-The `Cons` data constructor has two fields and hence a product type. Additionally, `Cons` takes a `List<a>` as its second argument, that is to say it is a recursive type. Here is a mutual recursive type declaration:
+The `Cons` data constructor has two fields and hence is a product type. Additionally, `Cons` takes a `List<a>` as its second argument, that is to say it is a recursive type. Here is a mutual recursive type declaration:
 
 ```Javascript
 const Tree = Data("Tree")
