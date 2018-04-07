@@ -187,80 +187,46 @@ const handleF = (name, f, log, {params, nthCall}) => {
 };
 
 
-// type check
-// untyped
-const typeCheck = Cons => f => x => {
-  const t = introspect(x),
-    undef = t.search(/\bUndefined\b/),
-    nan = t.search(/\bNaN\b/),
-    inf = t.search(/\bInfinity\b/);
+const guardSum = (name, f, tags) => {
+  if (GUARDED) {
+    return cases => {
+      if (getTypeTag(cases) !== "Object") throw new ArgTypeError(
+        "invalid argument type"
+        + `\n\n${name} expects an argument of type Object`
+        + `\n\non the 1st call`
+        + `\nin the 1st argument`
+        + `\n\nbut ${introspect(cases)} received`
+        + "\n");
 
-  if (undef !== -1) {
-    throw new Cons(f(t) ("Undefined"));
+      const s = new Set(Object.keys(cases));
+
+      tags.forEach(tag => {
+        if (s.has(tag)) s.delete(tag);
+
+        else throw new ArgValueError(
+          "invalid argument value"
+          + `\n\n${name} expects an Object including the following cases`
+          + `\n\n${tags.join(", ")}`
+          + `\n\non the 1st call`
+          + `\nin the 1st argument`
+          + `\n\nbut ${tag} was not received`
+          + "\n");
+      });
+
+      if (s.size > 0) throw new ArgValueError(
+        "invalid argument value"
+        + `\n\n${name} expects an Object including the following cases`
+        + `\n\n${tags.join(", ")}`
+        + `\n\non the 1st call`
+        + `\nin the 1st argument`
+        + `\n\nbut additionally ${Array.from(s.values()).join(", ")} received`
+        + "\n");
+
+      return f(cases);
+    };
   }
 
-  else if (nan !== -1) {
-    throw new Cons(f(t) ("NaN"));
-  }
-
-  else if (inf !== -1) {
-    throw new Cons(f(t) ("Infinity"));
-  }
-
-  else return t;
-};
-
-
-const verifyArgTypes = (args, name, nthCall, log) => 
-  args.map((arg, nthArg) => {
-    const t = introspect(arg);
-
-    if (INVALID_TYPES.has(t)) throw new ArgTypeError(
-      "invalid argument type"
-      + `\n\n${name} received an argument of type ${t}`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\nin the ${ordinal(nthArg + 1)} argument`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
-      + "\n");
-  }).join(", ");
-  
-
-
-const verifyArity = (g, args, name, params, nthCall, log) => {
-  if (params === "fix" && g.length !== args.length) {
-    throw new ArityError(
-      "invalid function call arity"
-      + `\n\n${name} expects ${g.length}-ary Function`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
-      + "\n"
-    );
-  }
-
-  else if (params === "var" && g.length > args.length) {
-    throw new ArityError(
-      "invalid function call arity"
-      + `\n\n${name} expects at least ${g.length}-ary Function`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
-      + "\n"
-    );
-  }
-};
-
-
-const verifyRetType = (r, name, log) => {
-  const t = introspect(r);
-
-  if (INVALID_TYPES.has(t)) throw new ReturnTypeError(
-    "invalid return type"
-    + `\n\n${name} returned a value of type ${t}`
-    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
-    + "\n");
-
-  return t;
+  else return f;
 };
 
 
@@ -411,6 +377,83 @@ const introspectSet = s => {
 const introspectTup = t => {
   if (t.length > MAX_TUP_SIZE) return "Tuple<?>";
   else return `Tuple<${Array.from(t).map(t_ => introspect(t_)).join(", ")}>`;
+};
+
+
+// type check
+// untyped
+const typeCheck = Cons => f => x => {
+  const t = introspect(x),
+    undef = t.search(/\bUndefined\b/),
+    nan = t.search(/\bNaN\b/),
+    inf = t.search(/\bInfinity\b/);
+
+  if (undef !== -1) {
+    throw new Cons(f(t) ("Undefined"));
+  }
+
+  else if (nan !== -1) {
+    throw new Cons(f(t) ("NaN"));
+  }
+
+  else if (inf !== -1) {
+    throw new Cons(f(t) ("Infinity"));
+  }
+
+  else return t;
+};
+
+
+const verifyArgTypes = (args, name, nthCall, log) => 
+  args.map((arg, nthArg) => {
+    const t = introspect(arg);
+
+    if (INVALID_TYPES.has(t)) throw new ArgTypeError(
+      "invalid argument type"
+      + `\n\n${name} received an argument of type ${t}`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\nin the ${ordinal(nthArg + 1)} argument`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      + "\n");
+  }).join(", ");
+  
+
+
+const verifyArity = (g, args, name, params, nthCall, log) => {
+  if (params === "fix" && g.length !== args.length) {
+    throw new ArityError(
+      "invalid function call arity"
+      + `\n\n${name} expects ${g.length}-ary Function`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length}-ary Function received`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
+      + "\n"
+    );
+  }
+
+  else if (params === "var" && g.length > args.length) {
+    throw new ArityError(
+      "invalid function call arity"
+      + `\n\n${name} expects at least ${g.length}-ary Function`
+      + `\n\non the ${ordinal(nthCall + 1)} call`
+      + `\n\nbut ${args.length}-ary Function received`
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
+      + "\n"
+    );
+  }
+};
+
+
+const verifyRetType = (r, name, log) => {
+  const t = introspect(r);
+
+  if (INVALID_TYPES.has(t)) throw new ReturnTypeError(
+    "invalid return type"
+    + `\n\n${name} returned a value of type ${t}`
+    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+    + "\n");
+
+  return t;
 };
 
 
@@ -1631,7 +1674,7 @@ _Set.neq = notp2(_Set.eq);
 // data constructor
 // ADTs with any number of constructors and fields
 // untyped
-const Type = name => {
+const Type = (name, ...tags) => {
   const Type = tag => {
     const Type = Dcons => {
       const t = new Tcons();
@@ -1641,7 +1684,7 @@ const Type = name => {
           throw new ArgTypeError(
             "invalid argument type"
             + `\n\n${name} expects an argument of type Function`
-            + "\n\non the 2nd call"
+            + "\n\non the 3rd call"
             + "\nin the 1st argument"
             + `\n\nbut ${introspect(Dcons)} received`
             + "\n");
@@ -1650,7 +1693,7 @@ const Type = name => {
           throw new ArityError(
             "invalid function call arity"
             + `\n\n${name} expects an 1-ary Function`
-            + "\n\non the 2nd call"
+            + "\n\non the 3rd call"
             + "\nin the 1st argument"
             + `\n\nbut ${Dcons.length}-ary Function received`
             + "\n");
@@ -1658,13 +1701,13 @@ const Type = name => {
         else t[SIG] = `${name}<λ>`;
       }
         
-      t[`run${name}`] = $(`run${name}`, Dcons);
+      t[`run${name}`] = guardSum(`run${name}`, Dcons, tags);
       t[TAG] = tag;
       return t;
     };
 
     if (GUARDED) {
-      if (getTypeTag(tag) !== "String")
+      if (getTypeTag(tag) !== "String") 
         throw new ArgTypeError(
           "invalid argument type"
           + "\n\nType expects an argument of type String"
@@ -1673,10 +1716,10 @@ const Type = name => {
           + `\n\nbut ${introspect(tag)} received`
           + "\n");
 
-      else if (tag[0].toLowerCase() === tag[0])
+      else if (!tags.includes(tag)) 
         throw new ArgValueError(
           "invalid argument value"
-          + "\n\nType expects a capitalized String"
+          + "\n\nType expects a known tag"
           + "\n\non the 2nd call"
           + "\nin the 1st argument"
           + `\n\nbut ${tag} received`
@@ -1687,23 +1730,25 @@ const Type = name => {
   };
 
   if (GUARDED) {
-    if (getTypeTag(name) !== "String")
-      throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nType expects an argument of type String"
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut ${introspect(name)} received`
-        + "\n");
+    [name, ...tags].forEach((arg, nthArg) => {
+      if (getTypeTag(arg) !== "String")
+        throw new ArgTypeError(
+          "invalid argument type"
+          + "\n\nType expects an argument of type String"
+          + "\n\non the 1st call"
+          + `\nin the ${ntgArg + 1} argument`
+          + `\n\nbut ${introspect(arg)} received`
+          + "\n");
 
-    else if (name[0].toLowerCase() === name[0])
-      throw new ArgValueError(
-        "invalid argument value"
-        + "\n\nType expects a capitalized String"
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut ${name} received`
-        + "\n");
+      else if (arg[0].toLowerCase() === arg[0])
+        throw new ArgValueError(
+          "invalid argument value"
+          + "\n\nType expects a capitalized String"
+          + "\n\non the 1st call"
+          + `\nin the ${ntgArg + 1} argument`
+          + `\n\nbut ${arg} received`
+          + "\n");
+    });
   }
 
   const Tcons =
@@ -1836,7 +1881,7 @@ const subscribe = o => {
 
 // comparator type constructor
 // ({LT: r, EQ: r, GT: r} -> r) -> Comparator
-const Comparator = Type("Comparator");
+const Comparator = Type("Comparator", "LT", "EQ", "GT");
 
 
 // lower than data constructor
@@ -1960,7 +2005,7 @@ Eff.chain = $(
 
 // either
 // ({Left: a -> r, Right: b -> r} -> r) -> Either<a, b>
-const Either = Type("Either");
+const Either = Type("Either", "Left", "Right");
 
 
 // left
@@ -2016,7 +2061,7 @@ const Event = Data("Event")
 
 // exception
 // ({Err: e -> r, Suc: a -> r} -> r) -> Except<e, a>
-const Except = Type("Except");
+const Except = Type("Except", "Err", "Suc");
 
 
 // error
@@ -2065,7 +2110,7 @@ const Lazy = Eff;
 
 // list
 // ({Cons: a -> List<a> -> r, Nil: r} -> r) -> List<a>
-const List = Type("List");
+const List = Type("List", "Cons", "Nil");
 
 
 // construct
@@ -2100,7 +2145,13 @@ const Nil = List("Nil")
 
 // option
 // ({Some: a -> r, None: r} -> r) -> Option<a>
-const Option = Type("Option");
+const Option = Type("Option", "None", "Some");
+
+
+// none
+// Option<a>
+const None = Option("None")
+  (cases => cases.None);
 
 
 // some
@@ -2109,12 +2160,6 @@ const Some = $(
   "Some",
   x => Option("Some")
     (cases => cases.Some(x)));
-
-
-// none
-// Option<a>
-const None = Option("None")
-  (cases => cases.None);
 
 
 /***[Eq]*******************************************************************/
