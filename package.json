@@ -1,6 +1,6 @@
 {
   "name": "scriptum",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "A type-directed functional library with a focus on purity, abstraction and a mature debugging toolset.",
   "main": "index.js",
   "scripts": {

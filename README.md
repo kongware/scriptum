@@ -278,16 +278,20 @@ scriptum provides algebraic data types as the preferred path to create your own 
 
 Since there is no native support for ADTs scriptum uses a function encoding to express them. ADTs are immutable and the wrapped value can only be accessed through a continuation. A continuation is just a closure that expects a function and calls this function argument with one or more free varibales. Btw., calling these custom types algebraic data types is a bit daring in Javascript. In fact, they only become algebraic if we follow the corresponding algebraic rules.
 
-The simplest ADT includes a single data constructor and field:
+There are two functions to define ADTs in scriptum:
+* `Data` for single data constructor ADTs
+* `Type` for multple data constructor ADTs
+
+The simplest ADT includes a single data constructor and one field:
 
 ```Javascript
 const Foo = Data("Foo")
   (Foo => x => Foo(k => k(x)));
 
-const foo = Foo("bar");
+const foo = Foo("bar"); // Foo {runFoo: f, ...}
 foo.runFoo(x => x); // "bar"
 ```
-The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, that is the constructor that finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
+The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, which finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
 
 The next example is a single data constructor with several fields, also known as a product type. Now it becomes apparent why continuations are used as getters - only contuinuations can handle several return values:
 
