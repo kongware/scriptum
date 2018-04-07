@@ -336,6 +336,8 @@ const x = safeHead(xs), // Some("foo")
 
 runOption({Some: uc, None: ""}) (x); // "FOO"
 runOption({Some: uc, None: ""}) (y); // ""
+runOption({Some: uc}) (x); // type error
+runOption({Some: uc, None: "", Foo: x => x}) (x); // type error
 ```
 As you can see you have to pass the tags `"None"`/`"Some"` twice, first to the `Option` type constructor and later to the value constructors. This is necessary so that scriptum can ensure that all cases are covered.
 
