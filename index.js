@@ -104,7 +104,7 @@ const setHistory = s => {
 // untyped
 const $ = (name, f) => {
   if (GUARDED) {
-    if (getTypeTag(name) !== "String") throw new ArgTypeError(
+    if (typeof name !== "string") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n$ expects an argument of type String"
       + `\n\non the 1st call`
@@ -112,7 +112,7 @@ const $ = (name, f) => {
       + `\n\nbut ${introspect(name)} received`
       + "\n");
 
-    else if (getTypeTag(f) !== "Function") throw new ArgTypeError(
+    else if (typeof f !== "function") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n$ expects an argument of type Function"
       + `\n\non the 1st call`
@@ -222,7 +222,8 @@ const guardSum = (name, f, tags) => {
         + `\n\nbut additionally ${Array.from(s.values()).join(", ")} received`
         + "\n");
 
-      return f(cases);
+      const r = f(cases);
+      return typeof r === "function" ? $(`run${name}`, r) : r;
     };
   }
 
@@ -1680,7 +1681,7 @@ const Type = (name, ...tags) => {
       const t = new Tcons();
 
       if (GUARDED) {
-        if (getTypeTag(Dcons) !== "Function") 
+        if (typeof Dcons !== "function") 
           throw new ArgTypeError(
             "invalid argument type"
             + `\n\n${name} expects an argument of type Function`
@@ -1707,7 +1708,7 @@ const Type = (name, ...tags) => {
     };
 
     if (GUARDED) {
-      if (getTypeTag(tag) !== "String") 
+      if (typeof tag !== "string") 
         throw new ArgTypeError(
           "invalid argument type"
           + "\n\nType expects an argument of type String"
@@ -1731,7 +1732,7 @@ const Type = (name, ...tags) => {
 
   if (GUARDED) {
     [name, ...tags].forEach((arg, nthArg) => {
-      if (getTypeTag(arg) !== "String")
+      if (typeof arg !== "string")
         throw new ArgTypeError(
           "invalid argument type"
           + "\n\nType expects an argument of type String"
@@ -1768,7 +1769,7 @@ const Data = name => {
       const t = new Tcons();
 
       if (GUARDED) {
-        if (getTypeTag(k) !== "Function")
+        if (typeof k !== "function")
           throw new ArgTypeError(
             "invalid argument type"
             + `\n\n${name} expects an argument of type Function`
@@ -1787,7 +1788,7 @@ const Data = name => {
     };
 
     if (GUARDED) {
-      if (getTypeTag(Dcons) !== "Function") 
+      if (typeof Dcons !== "function") 
         throw new ArgTypeError(
           "invalid argument type"
           + `\n\n${name} expects an argument of type Function`
@@ -1810,7 +1811,7 @@ const Data = name => {
   };
 
   if (GUARDED) {
-    if (getTypeTag(name) !== "String")
+    if (typeof name !== "string")
       throw new ArgTypeError(
         "invalid argument type"
         + "\n\nData expects an argument of type String"
