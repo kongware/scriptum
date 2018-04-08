@@ -14,7 +14,7 @@ scriptum is the attempt to reconcile Javascript's dynamical type convenience wit
 
 ## Why not just Flowtype?
 
-Haskell is a purely functional language designed around a parametric, bounded and higher kinded polymorphic type system. Still the language comes alogn with dozens of extensions for its type machinery: FlexibleContexts, FunctionalDependencies, GADTs, KindSignatures, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TypeFamilies, etc. This is for a good reason: A good type system must be advanced enough so that it does not exclude too many useful programs, because it is not expressive enough.
+Haskell is a purely functional language designed around a parametric, bounded and higher kinded polymorphic type system. Still the language comes along with dozens of extensions for its type machinery: FlexibleContexts, FunctionalDependencies, GADTs, KindSignatures, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TypeFamilies, etc. This is for a good reason: A good type system must be advanced enough so that it does not exclude too many useful programs, because it is not expressive enough.
 
 Javascript isn't designed around a type system and it is imposible to build one retrospectively. Such an attempt will always result in poor soundness and code littered with awkward type annotations. You cannot patch a type system. But that is exactly what Flowtype is trying to do. Sure, you can type simple functions and data structures. However, as soon as you try to type highly generalized functional idioms it looks like this:
 
@@ -24,10 +24,10 @@ class HKT<F, A> {}
 interface Functor<F> {
   map<A, B>(f: (a: A) => B, fa: HKT<F, A>): HKT<F, B>
 }
-
-[Read the full story](https://medium.com/@gcanti/higher-kinded-types-in-flow-275b657992b7)
 ```
 Instances of this functor class must implement specific getter and setter functions to get the value in and out of the functor respectively. If you want static type guarantees, use an appropriate language that compiles to Javascript.
+
+[Read the full story](https://medium.com/@gcanti/higher-kinded-types-in-flow-275b657992b7).
 
 ## Mission
 
