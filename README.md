@@ -25,9 +25,7 @@ interface Functor<F> {
   map<A, B>(f: (a: A) => B, fa: HKT<F, A>): HKT<F, B>
 }
 ```
-Instances of this functor class must implement specific getter and setter functions to get the value in and out of the functor respectively. If you want static type guarantees, use an appropriate language that compiles to Javascript.
-
-[Read the full story](https://medium.com/@gcanti/higher-kinded-types-in-flow-275b657992b7).
+Instances of this functor class must implement specific getter and setter functions to get the value in and out of the functor respectively. [Read the full story](https://medium.com/@gcanti/higher-kinded-types-in-flow-275b657992b7). If you want static type guarantees, use an appropriate language that compiles to Javascript.
 
 ## Mission
 
