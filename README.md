@@ -376,6 +376,52 @@ const Tree = Data("Tree")
 const Forest = Data("Forest")
   (Forest => (...trees) => Forest(k => k(trees)));
 ```
+# Typeclasses
+
+scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. The following typeclasses will be implemented:
+
+* Alternative
+* Apply
+* Applicative
+* Alt
+* Bifunctor
+* Chain
+* ChainRec
+* Comonad
+* Contravariant
+* Extend
+* Filterable
+* Foldable
+* Functor
+* Generator
+* Group
+* Monad
+* Monoid
+* Ord
+* Plus
+* Profunctor
+* Semigroup
+* Setoid
+* Traversable
+
+Here is an example of the Setoid typeclass:
+
+```Javascript
+// primitive types
+eq("foo") ("foo"); // true
+
+// composite types
+eq([1, 2, 3]) ([1, 2, 3]); // true
+
+// reference types
+eq(Ref({foo: true})) ((Ref({foo: true}))); // false
+
+// custom types
+eq(Some({foo: true})) (Some({foo: true})); // true
+eq(None)) (None); // true
+```
+In a future version there will be means to define your own type classes, but for the time being this is not possible.
+
 # Effect Handling
 
 scriptum's stategy to handle effects in a safer manner comprises two approaches:
@@ -486,52 +532,6 @@ class Deferred {
   }
 }
 ```
-# Typeclasses
-
-scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. The following typeclasses will be implemented:
-
-* Alternative
-* Apply
-* Applicative
-* Alt
-* Bifunctor
-* Chain
-* ChainRec
-* Comonad
-* Contravariant
-* Extend
-* Filterable
-* Foldable
-* Functor
-* Generator
-* Group
-* Monad
-* Monoid
-* Ord
-* Plus
-* Profunctor
-* Semigroup
-* Setoid
-* Traversable
-
-Here is an example of the Setoid typeclass:
-
-```Javascript
-// primitive types
-eq("foo") ("foo"); // true
-
-// composite types
-eq([1, 2, 3]) ([1, 2, 3]); // true
-
-// reference types
-eq(Ref({foo: true})) ((Ref({foo: true}))); // false
-
-// custom types
-eq(Some({foo: true})) (Some({foo: true})); // true
-eq(None)) (None); // true
-```
-In a future version there will be means to define your own type classes, but for the time being this is not possible.
-
 # Linear Data Flow
 
 scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
