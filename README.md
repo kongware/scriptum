@@ -488,25 +488,50 @@ class Deferred {
 ```
 # Typeclasses
 
-scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. To actually use a typeclass you must create a corresponding type dictionary:
+scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. The following typeclasses will be implemented:
+
+* Alternative
+* Apply
+* Applicative
+* Alt
+* Bifunctor
+* Chain
+* ChainRec
+* Comonad
+* Contravariant
+* Extend
+* Filterable
+* Foldable
+* Functor
+* Generator
+* Group
+* Monad
+* Monoid
+* Ord
+* Plus
+* Profunctor
+* Semigroup
+* Setoid
+* Traversable
+
+Here is an example of the Setoid typeclass:
 
 ```Javascript
-// create a type dictionary
+// primitive types
+eq("foo") ("foo"); // true
 
-const Monoid = typeDict("Monoid");
+// composite types
+eq([1, 2, 3]) ([1, 2, 3]); // true
 
-// deconstruct accessors for convenience
+// reference types
+eq(Ref({foo: true})) ((Ref({foo: true}))); // false
 
-const {append, empty} = Monoid;
-
-// use of the ad-hoc polymorphic functions
-
-append(2) (3); // 5
-append([1,2]) ([3,4]); // [1,2,3,4]
-
-empty(5); // 0
-empty([1, 2, 3, 4]); // []
+// custom types
+eq(Some({foo: true})) (Some({foo: true})); // true
+eq(None)) (None); // true
 ```
+In a future version there will be means to define your own type classes, but for the time being this is not possible.
+
 # Linear Data Flow
 
 scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
