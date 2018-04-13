@@ -23,11 +23,6 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
-// symbol prefix
-// String
-const SYM_PREFIX = "scriptum";
-
-
 // invalid types
 // [String]
 const INVALID_TYPES = new Set(["Undefined", "NaN", "Infinity"]);
@@ -36,35 +31,6 @@ const INVALID_TYPES = new Set(["Undefined", "NaN", "Infinity"]);
 // flag for controling function guarding
 // Boolean
 const GUARDED = true;
-
-
-// property for accessing a function type log
-// Symbol
-const LOG = Symbol.for(`${SYM_PREFIX}/LOG`);
-
-
-// length of global history log
-// Number
-const HISTORY_LEN = 10;
-
-
-// maximal record size
-// Number
-const MAX_REC_SIZE = 16;
-
-
-// maximal tuple size
-// Number
-const MAX_TUP_SIZE = 8;
-
-
-// property for accessing type signatures
-// Symbol
-const SIG = Symbol.for(`${SYM_PREFIX}/SIG`);
-
-
-// property for pattern matching
-const TAG = Symbol.for(`${SYM_PREFIX}/TAG`);
 
 
 /******************************************************************************
@@ -85,6 +51,21 @@ const setHistory = s => {
   if (history.length > HISTORY_LEN)
     history.pop();
 };
+
+
+// length of global history log
+// Number
+const HISTORY_LEN = 10;
+
+
+// function type log accessor
+// Symbol
+const LOG = Symbol("LOG");
+
+
+// property for accessing type signatures
+// Symbol
+const SIG = Symbol("SIG");
 
 
 /******************************************************************************
@@ -190,7 +171,7 @@ const handleF = (name, f, log, {params, nthCall}) => {
 const guardSum = (name, f, tags) => {
   if (GUARDED) {
     return cases => {
-      if (getTypeTag(cases) !== "Object") throw new ArgTypeError(
+      if (toTypeTag(cases) !== "Object") throw new ArgTypeError(
         "invalid argument type"
         + `\n\n${name} expects an argument of type Object`
         + `\n\non the 1st call`
@@ -238,7 +219,7 @@ const guardSum = (name, f, tags) => {
 
 // get type constructor
 // a -> String
-const getTypeTag = x => {
+const toTypeTag = x => {
   const tag = Object.prototype.toString.call(x);
   return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
@@ -258,7 +239,7 @@ const introspect = x => {
     }
 
     case "object": {
-      const tag = getTypeTag(x);
+      const tag = toTypeTag(x);
 
       if (tag !== "Null" && SIG in x) return x[SIG];
 
@@ -459,7 +440,7 @@ const verifyRetType = (r, name, log) => {
 
 
 /******************************************************************************
-******************************[ Guarding Errors ]******************************
+**********************************[ Errors ]***********************************
 ******************************************************************************/
 
 
@@ -503,6 +484,175 @@ class ReturnTypeError extends Error {
 };
 
 
+// type coercion error
+// String -> TypeCoercionError
+class TypeCoercionError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, TypeCoercionError);
+  }
+};
+
+
+/******************************************************************************
+********************************[ PrettyPrint ]********************************
+******************************************************************************/
+
+
+// ordinal number
+// Number -> String
+const ordinal = $(
+  "ordinal",
+  n => {
+    const s = ["th", "st", "nd", "rd"],
+      v = n % 100;
+
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  });
+
+
+// replace nestings
+// String -> String
+const replaceNestings = $(
+  "replaceNestings",
+  s => {
+    const aux = s_ => {
+      const t = s_.replace(/\[[^\[\]]*\]/g, "_")
+        .replace(/\{[^{}}]*\}/g, "_")
+        .replace(/\<[^<>]*\>/g, "_");
+
+      if (t === s_) return t;
+      else return aux(t);
+    };
+
+    const xs = s.match(/^[\[{<]|[\]}>]$/g);
+    if (xs.length === 0) return aux(s);
+    else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
+  }
+);
+
+
+// stringify
+// a -> String
+const stringify = $(
+  "stringify",
+  x => {
+    switch (typeof x) {
+      case "string": return `"${x}"`;
+      default: return String(x);
+    }
+  }
+);
+
+
+/******************************************************************************
+*******************************************************************************
+********************************[ OVERLOADING ]********************************
+*******************************************************************************
+******************************************************************************/
+
+
+// overloaded function
+// untyped
+const overload = (name, dispatch) => {
+  if (typeof name !== "string") throw new ArgTypeError(
+    "invalid argument type"
+    + "\n\noverload expects an argument of type String"
+    + `\n\non the 1st call`
+    + `\n\nin the 1st argument`
+    + `\n\nbut ${introspect(name)} received`
+    + "\n");
+
+  else if (typeof dispatch !== "function") throw new ArgTypeError(
+    "invalid argument type"
+    + "\n\noverload expects an argument of type Function"
+    + `\n\non the 1st call`
+    + `\n\nin the 2nd argument`
+    + `\n\nbut ${introspect(dispatch)} received`
+    + "\n");
+
+  const pairs = new Map();
+
+  return {
+    [`${name}Add`]: $(
+      `${name}Add`,
+      (k, v) =>
+        pairs.set(k, v)),
+
+    [name]: $(
+      `${name}`,
+      x => {
+        const r = pairs.get(dispatch(x));
+
+        if (r === undefined)
+          throw new OverloadError(
+            "invalid overloaded function call"
+            + `\n\n${name} cannot dispatch function/value for ${stringify(dispatch(x))}`
+            + "\n\non the 1st call"
+            + "\nin the 1st argument"
+            + `\n\nof type ${introspect(x)}`
+            + "\n");
+
+        else if (typeof r === "function")
+          return r(x);
+
+        else return r;
+      }
+    )
+  }
+};
+
+
+/******************************************************************************
+********************************[ Typeclasses ]********************************
+******************************************************************************/
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// a
+const {minBoundAdd, minBound} =
+  overload("minBound", o => o.name);
+
+
+// maximal bound
+// a
+const {maxBoundAdd, maxBound} =
+  overload("maxBound", o => o.name);
+
+
+/***[Eq]**********************************************************************/
+
+
+// equal
+// a -> a -> Boolean
+const {eqAdd, eq} =
+  overload("eq", toTypeTag);
+
+
+// not equal
+// a -> a -> Boolean
+const {neqAdd, neq} =
+  overload("neq", toTypeTag);
+
+
+/******************************************************************************
+**********************************[ Errors ]***********************************
+******************************************************************************/
+
+
+// type class error
+// String -> OverloadError
+class OverloadError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, OverloadError);
+  }
+};
+
+
 /******************************************************************************
 *******************************************************************************
 *********************************[ BUILT-INS ]*********************************
@@ -515,7 +665,7 @@ class ReturnTypeError extends Error {
 ******************************************************************************/
 
 
-// see Proxies --> Arr
+// see @Proxies/Arr
 
 
 /******************************************************************************
@@ -537,25 +687,17 @@ const notp2 = $(
   p => x => y => !p(x) (y));
 
 
-/***[Namespace]***************************************************************/
-
-
-// boolean
-// Object
-const Boo = {};
-
-
 /***[Bounded]*****************************************************************/
 
 
 // minimal bound
 // Boolean
-Boo.minBound = false;
+minBoundAdd("Boolean",false);
   
 
 // maximal bound
 // Boolean
-Boo.maxBound = true;
+maxBoundAdd("Boolean", true);
 
 
 /***[Setoid]******************************************************************/
@@ -563,15 +705,15 @@ Boo.maxBound = true;
 
 // equal
 // Boolean -> Boolean -> Boolean
-Boo.eq = $(
-  "eq",
+eqAdd(
+  "Boolean",
   b => c => b === c);
 
 
 // not equal
 // Boolean -> Boolean -> Boolean
-Boo.neq = $(
-  "neq",
+neqAdd(
+  "Boolean",
   b => c => b !== c);
 
 
@@ -613,6 +755,9 @@ const comp2 = $(
 const compBoth = $(
   "compBoth",
   f => g => h => x => f(g(x)) (h(x)));
+
+
+// comp see @Type Aliases
 
 
 // function composition
@@ -818,7 +963,7 @@ const recur = (...args) =>
 ******************************************************************************/
 
 
-// see Proxies --> _Map
+// see @Proxies/_Map
 
 
 /******************************************************************************
@@ -826,31 +971,21 @@ const recur = (...args) =>
 ******************************************************************************/
 
 
-/***[Namespace]***************************************************************/
-
-
-// number
-// Object
-const Num = {};
-
-
 /***[Setoid]******************************************************************/
 
 
 // equal
 // Number -> Number -> Boolean
-Num.eq = $(
-  "eq",
-  m => n =>
-    m === n);
+eqAdd(
+  "Number",
+  m => n => m === n);
 
 
 // not equal
 // Number -> Number -> Boolean
-Num.neq = $(
-  "neq",
-  m => n =>
-    m !== n);
+neqAdd(
+  "Number",
+  m => n => m !== n);
 
 
 /******************************************************************************
@@ -858,18 +993,21 @@ Num.neq = $(
 ******************************************************************************/
 
 
+// destructive delete
+// String -> Object -> Object
 const destructiveDel = k => o =>
   (delete o[k], o);
 
 
+// destructive set
+// (String, a) -> Object -> Object
 const destructiveSet = (k, v) => o =>
   (o[k] = v, o);
 
 
-/***[Namespace]***************************************************************/
-
-
-const Obj = {};
+// property getter
+// String -> Object -> a
+const prop = k => o => o[k];
 
 
 /***[Setoid]******************************************************************/
@@ -883,7 +1021,7 @@ const Obj = {};
 ******************************************************************************/
 
 
-// see Proxies --> _Set
+// see @Proxies/_Set
 
 
 /******************************************************************************
@@ -898,31 +1036,21 @@ const capitalize = $(
   s => s[0].toUpperCase() + s.slice(1));
 
 
-/***[Namespace]***************************************************************/
-
-
-// string
-// Object
-const Str = {};
-
-
 /***[Setoid]******************************************************************/
 
 
 // equal
 // String -> String -> Boolean
-Str.eq = $(
-  "eq",
-  s => t =>
-    s === t);
+eqAdd(
+  "String",
+  s => t => s === t);
 
 
 // not equal
 // String -> String -> Boolean
-Str.neq = $(
-  "neq",
-  s => t =>
-    s !== t);
+neqAdd(
+  "String",
+  s => t => s !== t);
 
 
 /******************************************************************************
@@ -1005,12 +1133,12 @@ Char.prototype[Symbol.toPrimitive] = hint => {
 
 // minimal bound
 // Char
-Char.minBound = Char("\u{0}");
+minBoundAdd("Char", Char("\u{0}"));
 
 
 // maximal bound
 // Char
-Char.maxBound = Char("\u{10FFFF}");
+maxBoundAdd("Char", Char("\u{10FFFF}"));
 
 
 /***[Setoid]******************************************************************/
@@ -1018,18 +1146,16 @@ Char.maxBound = Char("\u{10FFFF}");
 
 // equal
 // Char -> Char -> Boolean
-Char.eq = $(
-  "eq",
-  c => d =>
-    c.valueOf() === d.valueOf());
+eqAdd(
+  "Char",
+  c => d => c.valueOf() === d.valueOf());
 
 
 // not equal
 // Char -> Char -> Boolean
-Char.neq = $(
-  "neq",
-  c => d =>
-    c.valueOf() !== d.valueOf());
+neqAdd(
+  "Char",
+  c => d => c.valueOf() !== d.valueOf());
 
 
 /******************************************************************************
@@ -1081,18 +1207,16 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 
 // equal
 // Float -> Float -> Boolean
-Float.eq = $(
-  "eq",
-  f => g =>
-    f.valueOf() === g.valueOf());
+eqAdd(
+  "Float",
+  f => g => f.valueOf() === g.valueOf());
 
 
 // not equal
 // Float -> Float -> Boolean
-Float.neq = $(
-  "neq",
-  f => g =>
-    f.valueOf() !== g.valueOf());
+neqAdd(
+  "Float",
+  f => g => f.valueOf() !== g.valueOf());
 
 
 /******************************************************************************
@@ -1152,12 +1276,12 @@ Int.prototype[Symbol.toPrimitive] = hint => {
 
 // minimal bound
 // Int
-Int.minBound = Int(Number.MIN_SAFE_INTEGER);
+minBoundAdd("Int", Int(Number.MIN_SAFE_INTEGER));
 
 
 // maximal bound
 // Int
-Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
+maxBoundAdd("Int", Int(Number.MAX_SAFE_INTEGER));
 
 
 /***[Setoid]******************************************************************/
@@ -1165,18 +1289,16 @@ Int.maxBound = Int(Number.MAX_SAFE_INTEGER);
 
 // equal
 // Int -> Int -> Boolean
-Int.eq = $(
-  "eq",
-  i => j =>
-    i.valueOf() === j.valueOf());
+eqAdd(
+  "Int",
+  i => j => i.valueOf() === j.valueOf());
 
 
 // not equal
 // Int -> Int -> Boolean
-Int.neq = $(
-  "eq",
-  i => j =>
-    i.valueOf() !== j.valueOf());
+neqAdd(
+  "Int",
+  i => j => i.valueOf() !== j.valueOf());
 
 
 /******************************************************************************
@@ -1184,25 +1306,17 @@ Int.neq = $(
 ******************************************************************************/
 
 
-/***[Namespace]***************************************************************/
-
-
-// string
-// Object
-const Null = {};
-
-
 /***[Bounded]*****************************************************************/
 
 
 // minimal bound
 // Null
-Null.minBound = null;
+minBoundAdd("Null", null);
 
 
 // minimal bound
 // Null
-Null.maxBound = null;
+maxBoundAdd("Null", null);
 
 
 /***[Setoid]******************************************************************/
@@ -1211,19 +1325,17 @@ Null.maxBound = null;
 // equal
 // Null -> Null -> Boolean
 // in a typed language just _ => _ => true
-Null.eq = $(
-  "eq",
-  n => o =>
-    n === o);
+eqAdd(
+  "Null",
+  n => o => n === o);
 
 
 // not equal
 // Null -> Null -> Boolean
 // in a typed language just _ => _ => false
-Null.neq = $(
-  "neq",
-  n => o =>
-    n !== o);
+neqAdd(
+  "Null",
+  n => o => n !== o);
 
 
 /******************************************************************************
@@ -1273,30 +1385,37 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
+// maximal record size
+// Number
+const MAX_REC_SIZE = 16;
+
+
 /***[Setoid]******************************************************************/
+
+
+// auxiliary function
+// Record -> Record -> Boolean
+const eqRec = r => s => {
+  const ks = Object.keys(r),
+    ls = Object.keys(s);
+
+  if (ks.length !== ls.length)
+    return false;
+
+  else return ks.every(k => !(k in s)
+    ? false
+    : eq(r[k]) (s[k]));
+};
 
 
 // equal
 // Record -> Record -> Boolean
-Rec.eq = $(
-  "eq",
-  r => s => {
-    const ks = Object.keys(r),
-      ls = Object.keys(s);
-
-    if (ks.length !== ls.length)
-      return false;
-
-    else return ks.every(k => !(k in s)
-      ? false
-      : eq(r[k]) (s[k]));
-  }
-);
+eqAdd("Record", eqRec);
 
 
 // not equal
 // Record -> Record -> Boolean
-Rec.neq = notp2(Rec.eq);
+neqAdd("Record", notp2(eqRec));
 
 
 /******************************************************************************
@@ -1354,23 +1473,30 @@ Tup.prototype[Symbol.toPrimitive] = hint => {
 Tup.prototype[Symbol.toStringTag] = "Tuple";
 
 
+// maximal tuple size
+// Number
+const MAX_TUP_SIZE = 8;
+
+
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Tupple -> Tuple -> Boolean
+const eqTup = xs => ys =>
+  xs.length !== ys.length
+    ? false
+    : xs.every((x, n) =>
+      eq(x) (ys[n]))
+
 // equal
 // Tuple -> Tuple -> Boolean
-Tup.eq = $(
-  "eq",
-  xs => ys =>
-    xs.length !== ys.length
-      ? false
-      : xs.every((x, n) =>
-        eq(x) (ys[n])));
+eqAdd("Tuple", eqTup);
 
 
 // not equal
-// Tup -> Tup -> Boolean
-Tup.neq = notp2(Tup.eq);
+// Tuple -> Tuple -> Boolean
+neqAdd("Tuple", notp2(eqTup));
 
 
 /******************************************************************************
@@ -1495,29 +1621,30 @@ Arr.yield = $(
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// [a] -> [a] -> Boolean
+const eqArr = xs => ys => {
+  if (xs.length !== ys.length)
+    return false;
+
+  else if (xs.length === 0)
+    return true;
+
+  else {
+    return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+};
+
+
 // equal
 // Array -> Array -> Boolean
-Arr.eq = $(
-  "eq",
-  xs => ys => {
-    if (xs.length !== ys.length)
-      return false;
-
-    else if (xs.length === 0)
-      return true;
-
-    else {
-      const {eq} = Eq(getTypeTag(xs[0]));
-
-      return xs.every((x, n) =>
-        eq(x) (ys[n]));
-    }
-  });
+eqAdd("Array", eqArr);
 
 
 // not equal
 // Array -> Array -> Boolean
-Arr.neq = notp2(Arr.eq);
+neqAdd("Array", notp2(eqArr));
 
 
 /******************************************************************************
@@ -1529,7 +1656,7 @@ Arr.neq = notp2(Arr.eq);
 // Map -> Proxy
 const _Map = m => {
   if (GUARDED) {
-    if (getTypeTag(m) !== "Map") throw new ArgTypeError(
+    if (toTypeTag(m) !== "Map") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Map expects an argument of type Map"
       + `\n\non the 1st call`
@@ -1589,30 +1716,32 @@ const handleMap = t => ({
 /***[Setoid]******************************************************************/
 
 
-// equal
-// Map -> Map -> Boolean
-_Map.eq = $(
-  "eq",
-  m => n => {
-    if (m.size !== n.size) return false;
+// auxiliary function
+// Map<k, v> -> Map<k, v> -> Boolean
+const eqMap = m => n => {
+  if (m.size !== n.size) return false;
 
-    else {
-      const kvs = Array.from(m),
-        lws = Array.from(n);
+  else {
+    const kvs = Array.from(m),
+      lws = Array.from(n);
 
-      return kvs.every(([k, v], n) => {
-        const [l, w] = lws[n];
-        if (!eq(k) (l)) return false;
-        else return eq(v) (w);
-      });
-    }
+    return kvs.every(([k, v], n) => {
+      const [l, w] = lws[n];
+      if (!eq(k) (l)) return false;
+      else return eq(v) (w);
+    });
   }
-);
+};
+
+
+// equal
+// Map<k, v> -> Map<k, v> -> Boolean
+eqAdd("Map", eqMap);
 
 
 // not equal
-// Map -> Map -> Boolean
-_Map.neq = notp2(_Map.eq);
+// Map<k, v> -> Map<k, v> -> Boolean
+neqAdd("Map", notp2(eqMap));
 
 
 /******************************************************************************
@@ -1624,7 +1753,7 @@ _Map.neq = notp2(_Map.eq);
 // Set -> Proxy
 const _Set = s => {
   if (GUARDED) {
-    if (getTypeTag(s) !== "Set") throw new ArgTypeError(
+    if (toTypeTag(s) !== "Set") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Set expects an argument of type Set"
       + `\n\non the 1st call`
@@ -1684,28 +1813,30 @@ const handleSet = t => ({
 /***[Setoid]******************************************************************/
 
 
-// equal
-// Set -> Set -> Boolean
-_Set.eq = $(
-  "eq",
-  s => t => {
-    if (s.size !== t.size) return false;
+// auxiliary function
+// Set<a> -> Set<a> -> Boolean
+const eqSet = s => t => {
+  if (s.size !== t.size) return false;
 
-    else {
-      const ks = Array.from(s),
-        ls = Array.from(t);
+  else {
+    const ks = Array.from(s),
+      ls = Array.from(t);
 
-      return ks.every((k, n) => {
-        return eq(k) (ls[n]);
-      });
-    }
+    return ks.every((k, n) => {
+      return eq(k) (ls[n]);
+    });
   }
-);
+};
+
+
+// equal
+// Set<a> -> Set<a> -> Boolean
+eqAdd("Set", eqSet);
 
 
 // not equal
-// Set -> Set -> Boolean
-_Set.neq = notp2(_Set.eq);
+// Set<a> -> Set<a> -> Boolean
+neqAdd("Set", notp2(eqSet));
 
 
 /******************************************************************************
@@ -1880,6 +2011,11 @@ const Data = name => {
 };
 
 
+// property for pattern matching
+// Symbol
+const TAG = Symbol("TAG");
+
+
 /******************************************************************************
 *********************************[ Behavior ]**********************************
 ******************************************************************************/
@@ -1951,12 +2087,12 @@ const GT = Comparator("GT")
 
 // minimal bound
 // Comparator
-Comparator.minBound = LT;
+minBoundAdd("Comparator", LT);
 
 
 // maximal bound
 // Comparator
-Comparator.maxBound = GT;
+maxBoundAdd("Comparator", GT);
 
 
 /***[Setoid]******************************************************************/
@@ -1964,18 +2100,16 @@ Comparator.maxBound = GT;
 
 // equal
 // Comparator -> Comparator -> Boolean
-Comparator.eq = $(
-  "eq",
-  t => u =>
-    t[TAG] === u[TAG]);
+eqAdd(
+  "Comparator",
+  t => u => t[TAG] === u[TAG]);
 
 
 // not equal
 // Comparator -> Comparator -> Boolean
-Comparator.neq = $(
-  "neq",
-  t => u =>
-    t[TAG] !== u[TAG]);
+neqAdd(
+  "Comparator",
+  t => u => t[TAG] !== u[TAG]);
 
 
 /******************************************************************************
@@ -2071,20 +2205,23 @@ const Right = $(
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Either<a, b> -> Either<a, b> -> Boolean
+const eqEither = tx => ty =>
+  tx[TAG] === ty[TAG]
+    && tx.runEither({
+      Left: x => ty.runEither({Left: y => eq(x) (y)}),
+      Right: x => ty.runEither({Right: y => eq(x) (y)})});
+
+
 // equal
 // Either<a, b> -> Either<a, b> -> Boolean
-Either.eq = $(
-  "eq",
-  tx => ty =>
-    tx[TAG] === ty[TAG]
-      && tx.runEither({
-        Left: x => ty.runEither({Left: y => eq(x) (y)}),
-        Right: x => ty.runEither({Right: y => eq(x) (y)})}));
+eqAdd("Either", eqEither);
 
 
 // not equal
 // Either<a, b> -> Either<a, b> -> Boolean
-Either.neq = notp2(Either.eq);
+neqAdd("Either", notp2(eqEither));
 
 
 /******************************************************************************
@@ -2296,14 +2433,22 @@ const Ref = Data("Ref")
 /***[Setoid]******************************************************************/
 
 
-Ref.eq = to => tp =>
-  to.runRef(o =>
-    tp.runRef(p => o === p));
+// equal
+// Ref<Object> -> Ref<Object> -> Boolean
+eqAdd(
+  "Ref",
+  to => tp =>
+    to.runRef(o =>
+      tp.runRef(p => o === p)));
 
 
-Ref.neq = to => tp =>
-  to.runRef(o =>
-    tp.runRef(p => o !== p));
+// not equal
+// Ref<Object> -> Ref<Object> -> Boolean
+neqAdd(
+  "Ref",
+  to => tp =>
+    to.runRef(o =>
+      tp.runRef(p => o !== p)));
 
 
 /******************************************************************************
@@ -2450,182 +2595,14 @@ const Forest = Data("Forest")
 
 /******************************************************************************
 *******************************************************************************
-********************************[ TYPECLASSES ]********************************
+*******************************[ TYPE ALIASES ]********************************
 *******************************************************************************
-******************************************************************************/
-
-
-// type classes
-// Map
-const typeClasses = new Map([
-  ["Bounded", ["minBound", "maxBound"]],
-  ["Eq", ["eq", "neq"]]
-]);
-
-
-// instances
-// Map
-const instances = new Map([
-  ["Bounded Boolean", {minBound: Boo.minBound, maxBound: Boo.maxBound}],
-  ["Bounded Char", {minBound: Char.minBound, maxBound: Char.maxBound}],
-  ["Bounded Comparator", {minBound: Comparator.minBound, maxBound: Comparator.maxBound}],
-  ["Bounded Int", {minBound: Int.minBound, maxBound: Int.maxBound}],
-  ["Bounded Null", {minBound: Null.minBound, maxBound: Null.maxBound}],
-
-  ["Eq Array", {eq: Arr.eq, neq: Arr.neq}],
-  ["Eq Boolean", {eq: Boo.eq, neq: Boo.neq}],
-  ["Eq Char", {eq: Char.eq, neq: Char.neq}],
-  ["Eq Comparator", {eq: Comparator.eq, neq: Comparator.neq}],
-  ["Eq Either", {eq: Either.eq, neq: Either.neq}],
-  ["Eq Float", {eq: Float.eq, neq: Float.neq}],
-  ["Eq Int", {eq: Int.eq, neq: Int.neq}],
-  ["Eq Map", {eq: _Map.eq, neq: _Map.neq}],
-  ["Eq Null", {eq: Null.eq, neq: Null.neq}],
-  ["Eq Number", {eq: Num.eq, neq: Num.neq}],
-  ["Eq Record", {eq: Rec.eq, neq: Rec.neq}],
-  ["Eq Ref", {eq: Ref.eq, neq: Ref.neq}],
-  ["Eq String", {eq: Str.eq, neq: Str.neq}],
-  ["Eq Set", {eq: _Set.eq, neq: _Set.neq}],
-  ["Eq Tuple", {eq: Tup.eq, neq: Tup.neq}]
-]);
-
-
-// type dictionary
-// String -> String -> Function
-const typeDict = $(
-  "typeDict",
-  _class => {
-    const f = tag => instances.get(`${_class} ${tag}`),
-      ops = typeClasses.get(_class);
-
-    ops.forEach(op => {
-      f[op] = x => {
-        const t = getTypeTag(x);
-        let r = instances.get(`${_class} ${t}`);
-        
-        if (r === undefined) throw new TypeClassError(
-          `\n\ninvalid polymorphic function call`
-          + `\n\ntypeclass ${_class} contains no ${t} instance`
-          + "\n");
-
-        else r = r[op];
-
-        if (typeof r === "function") return r(x);
-        else return r;
-      }
-    });
-
-    return f;
-  }
-);
-
-
-/***[Bounded]*****************************************************************/
-
-
-const Bounded = typeDict("Bounded");
-
-
-const {minBound, maxBound} = Bounded;
-
-
-/***[Setoid]******************************************************************/
-
-
-const Eq = typeDict("Eq");
-
-
-const {eq, neq} = Eq;
-
-
-/******************************************************************************
-*******************************************************************************
-*******************************[ DERIVED TYPES ]*******************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-*********************************[ Function ]**********************************
 ******************************************************************************/
 
 
 // function composition
 // (b -> c) -> (a -> b) -> a -> c
 const comp = Reader.map;
-
-
-/******************************************************************************
-*******************************************************************************
-*********************************[ INTERNAL ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-// ordinal number
-// Number -> String
-const ordinal = $(
-  "ordinal",
-  n => {
-    const s = ["th", "st", "nd", "rd"],
-      v = n % 100;
-
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  });
-
-
-// replace nestings
-// String -> String
-const replaceNestings = $(
-  "replaceNestings",
-  s => {
-    const aux = s_ => {
-      const t = s_.replace(/\[[^\[\]]*\]/g, "_")
-        .replace(/\{[^{}}]*\}/g, "_")
-        .replace(/\<[^<>]*\>/g, "_");
-
-      if (t === s_) return t;
-      else return aux(t);
-    };
-
-    const xs = s.match(/^[\[{<]|[\]}>]$/g);
-    if (xs.length === 0) return aux(s);
-    else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
-  }
-);
-
-
-// stringify
-// a -> String
-const stringify = $(
-  "stringify",
-  x => {
-    switch (typeof x) {
-      case "string": return `"${x}"`;
-      default: return String(x);
-    }
-  }
-);
-
-
-// typeclass error
-// String -> TypeClassError
-class TypeClassError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, TypeClassError);
-  }
-};
-
-
-// type coercion error
-// String -> TypeCoercionError
-class TypeCoercionError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, TypeCoercionError);
-  }
-};
 
 
 /******************************************************************************
@@ -2645,7 +2622,6 @@ Object.assign($,
     apply,
     Arr,
     Behavior,
-    Bounded,
     Char,
     co,
     co2,
@@ -2663,15 +2639,15 @@ Object.assign($,
     Data,
     Eff,
     EQ,
-    Eq,
     eq,
+    eqAdd,
     Err,
     Event,
     fix,
     flip,
     Float,
     Forest,
-    getTypeTag,
+    toTypeTag,
     GT,
     history,
     Id,
@@ -2686,17 +2662,20 @@ Object.assign($,
     LT,
     _Map,
     maxBound,
+    maxBoundAdd,
     minBound,
+    minBoundAdd,
     neq,
     Nil,
     None,
     notp,
     notp2,
-    Null,
     omega,
     on,
+    overload,
     partial,
     pipe,
+    prop,
     Reader,
     Rec,
     recur,
@@ -2717,7 +2696,6 @@ Object.assign($,
     Tree,
     Tup,
     Type,
-    typeDict,
     uncurry,
     uncurry3
   }
