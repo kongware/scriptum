@@ -378,7 +378,7 @@ const Forest = Data("Forest")
 ```
 # Typeclasses
 
-Typeclasses are a common way to overload functions and values in statically typed languages. scriptum realizes overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Like typeclasses scriptums's approach allows for overloading of functions and values. As opposed to typeclasses you cannot overload the return type of a function. Return type polymorphism isn't a meaningful concept in dynamically typed languages, because the presence of a value is required to introspect its type.
+Typeclasses are a common way to overload functions and values in statically typed languages. scriptum realizes overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Like typeclasses scriptums's approach allows for overloading of functions and values. As opposed to typeclasses you cannot overload the return type of a function, though. Return type polymorphism isn't a meaningful concept in dynamically typed languages, because the presence of a value is required to introspect its type.
 
 scriptum offers a couple of overloaded functions that constitute for the following typeclasses:
 
