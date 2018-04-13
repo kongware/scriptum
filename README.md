@@ -387,10 +387,13 @@ scriptum offers a couple of overloaded functions that correspond to the followin
 * Applicative
 * Alt
 * Bifunctor
+* Bounded
 * Chain
 * ChainRec
 * Comonad
 * Contravariant
+* Enum
+* Eq
 * Extend
 * Filterable
 * Foldable
@@ -402,7 +405,9 @@ scriptum offers a couple of overloaded functions that correspond to the followin
 * Ord
 * Plus
 * Profunctor
+* Read
 * Semigroup
+* Show
 * Setoid
 * Traversable
 
