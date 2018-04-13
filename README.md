@@ -378,7 +378,7 @@ const Forest = Data("Forest")
 ```
 # Typeclasses
 
-Typeclasses are used in Haskell to reconcile Hindley-Milner type inference with function/value overloading. scriptum obtains overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need anymore to alter built-in prototypes. Like typeclasses scriptums's approach allows for overloading of functions and values, but not of return values. Return type polymorphism is generally not possible in dynamically typed languages, because the presence of value is required to introspect its type.
+Typeclasses are used in Haskell to reconcile Hindley-Milner type inference with function/value overloading. scriptum realizes overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Like typeclasses scriptums's approach allows for overloading of functions and values. As opposed to typeclasses you cannot overload the return type of a function. Return type polymorphism isn't a meaningful concept in dynamically typed languages, because the presence of a value is required to introspect its type.
 
 scriptum offers a couple of overloaded functions that constitute for the following typeclasses:
 
@@ -432,7 +432,7 @@ empty(String); // ""
 empty(Number); // 0
 empty(Array); // []
 ```
-Please note that functions cannot be overloaded on their return type and hence we have to pass the type (namely its constructor) explicity.
+`empty` demonstrates the lack of return type polymorphism: We have to pass the type (or its constructor) explicitly.
 
 # Effect Handling
 
