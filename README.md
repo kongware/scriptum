@@ -378,7 +378,9 @@ const Forest = Data("Forest")
 ```
 # Typeclasses
 
-scriptum obtains the typeclass effect by using a global `Map` structure instead of the prototype system. This design decision was made mostly because we want to declare instances of native types as well without modifying built-in prototypes. The following typeclasses will be implemented:
+Typeclasses are used in Haskell to reconcile Hindley-Milner type inference with function/value overloading. scriptum obtains overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need anymore to alter built-in prototypes. Like typeclasses scriptums's approach allows for overloading of functions and values, but not of return values. Return type polymorphism is generally not possible in dynamically typed languages, because the presence of value is required to introspect its type.
+
+scriptum offers a couple of overloaded functions that constitute for the following typeclasses:
 
 * Alternative
 * Apply
@@ -404,23 +406,33 @@ scriptum obtains the typeclass effect by using a global `Map` structure instead 
 * Setoid
 * Traversable
 
-Here is an example of the Setoid typeclass:
+Overloaded functions are open, that is you can always add functions to handle additional types.
+
+Let's define the overloaded `append` and `empty` functions to simulate the Monoid typeclass:
 
 ```Javascript
-// primitive types
-eq("foo") ("foo"); // true
+const {appendAdd, append} = overload("append", getTypeTag);
 
-// composite types
-eq([1, 2, 3]) ([1, 2, 3]); // true
+appendAdd("String", s => t => `${s}${t}`);
+appendAdd("Number", n => m => n + m);
+appendAdd("All", b => c => b && c);
+appendAdd("Array", xs => ys => xs.concat(ys));
 
-// reference types
-eq(Ref({foo: true})) ((Ref({foo: true}))); // false
+const {emptyAdd, empty} = overload("empty", get("name"));
 
-// custom types
-eq(Some({foo: true})) (Some({foo: true})); // true
-eq(None)) (None); // true
+emptyAdd("String", "");
+emptyAdd("Number", 0);
+emptyAdd("Array", []);
+
+append(2) (3); // 5
+append("foo") ("bar"); // "foobar"
+append([1,2]) ([3,4]); // [1,2,3,4]
+
+empty(String); // ""
+empty(Number); // 0
+empty(Array); // []
 ```
-In a future version there will be means to define your own type classes, but for the time being this is not possible.
+Please note that functions cannot be overloaded on their return type and hence we have to pass the type (namely its constructor) explicity.
 
 # Effect Handling
 
