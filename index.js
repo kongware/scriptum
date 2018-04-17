@@ -13,6 +13,13 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 
 /******************************************************************************
 *******************************************************************************
+********************************[ PREDEFINED ]*********************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+*******************************************************************************
 **********************************[ GLOBALS ]**********************************
 *******************************************************************************
 ******************************************************************************/
@@ -220,6 +227,7 @@ const guardSum = (name, f, tags) => {
 // get type constructor
 // a -> String
 const toTypeTag = x => {
+  // TODO: inspect x when guarded
   const tag = Object.prototype.toString.call(x);
   return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
@@ -656,7 +664,7 @@ const {maxBoundAdd, maxBound} =
 // empty
 // a
 const {emptyAdd, empty} =
-  overload("empty", prop("name"));
+  overload("empty", o => o.name);
 
 
 /***[Setoid]**********************************************************************/
@@ -701,7 +709,7 @@ const {appendAdd_, append_} =
 ******************************************************************************/
 
 
-// see @Proxies/Arr
+// @PROXIES/Arr
 
 
 /******************************************************************************
@@ -728,7 +736,7 @@ const notp2 = $(
 
 // minimal bound
 // Boolean
-minBoundAdd("Boolean",false);
+minBoundAdd("Boolean", false);
   
 
 // maximal bound
@@ -789,7 +797,7 @@ const compBoth = $(
   f => g => h => x => f(g(x)) (h(x)));
 
 
-// comp see @Type Aliases
+// comp @ALIASES
 
 
 // function composition
@@ -964,6 +972,20 @@ const uncurry3 = $(
     f(x) (y) (z));
 
 
+/***[Monoid]***************************************************************/
+
+
+// empty
+// All
+emptyAdd("Function", id);
+
+
+/***[Semigroup]***************************************************************/
+
+
+// appendAdd @ALIASES
+
+
 /***[Tail Recursion]**********************************************************/
 
 
@@ -995,7 +1017,7 @@ const recur = (...args) =>
 ******************************************************************************/
 
 
-// see @Proxies/_Map
+// @PROXIES/_Map
 
 
 /******************************************************************************
@@ -1049,7 +1071,7 @@ const prop = k => o => o[k];
 ******************************************************************************/
 
 
-// see @Proxies/_Set
+// @Proxies/_Set
 
 
 /******************************************************************************
@@ -1106,10 +1128,10 @@ class All extends Boolean {
     }
   }
 } {
-  const Any_ = All;
+  const All_ = All;
 
   All = function(b) {
-    return new Any_(b);
+    return new All_(b);
   };
 
   All.prototype = All_.prototype;
@@ -1130,6 +1152,11 @@ emptyAdd("All", All(true));
 // append
 // All -> All -> All
 appendAdd("All", a => b => All(a && b));
+
+
+// flipped append
+// All -> All -> All
+appendAdd_("All", b => a => All(a && b));
 
 
 /******************************************************************************
@@ -1178,6 +1205,11 @@ emptyAdd("Any", Any(false));
 // append
 // Any -> Any -> Any
 appendAdd("Any", a => b => Any(a || b));
+
+
+// append
+// Any -> Any -> Any
+appendAdd_("Any", b => a => Any(a || b));
 
 
 /******************************************************************************
@@ -2372,7 +2404,7 @@ const Id = Data("Id")
 // auxiliary function
 // Id<a> -> Id<a> -> Boolean
 const eqId = tx => ty =>
-    tx.runId(x => ty.runId(y => eq(x) (y))));
+    tx.runId(x => ty.runId(y => eq(x) (y)));
 
 
 // equal
@@ -2678,7 +2710,7 @@ const Forest = Data("Forest")
 
 /******************************************************************************
 *******************************************************************************
-*******************************[ TYPE ALIASES ]********************************
+**********************************[ ALIASES ]**********************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -2686,6 +2718,16 @@ const Forest = Data("Forest")
 // function composition
 // (b -> c) -> (a -> b) -> a -> c
 const comp = Reader.map;
+
+
+// append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendAdd("Function", comp);
+
+
+// flipped append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendAdd_("Function", contra);
 
 
 /******************************************************************************
@@ -2706,6 +2748,7 @@ Object.assign($,
     Any,
     append,
     appendAdd,
+    appendAdd_,
     apply,
     Arr,
     Behavior,
@@ -2726,7 +2769,7 @@ Object.assign($,
     Data,
     Eff,
     empty,
-    emptyAdd
+    emptyAdd,
     EQ,
     eq,
     eqAdd,
@@ -2755,6 +2798,7 @@ Object.assign($,
     minBound,
     minBoundAdd,
     neq,
+    neqAdd,
     Nil,
     None,
     notp,
