@@ -398,7 +398,6 @@ scriptum offers a couple of overloaded functions that correspond to the followin
 * Filterable
 * Foldable
 * Functor
-* Generator
 * Group
 * Monad
 * Monoid
