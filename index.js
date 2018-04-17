@@ -451,7 +451,7 @@ class ArgTypeError extends Error {
     super(s);
     Error.captureStackTrace(this, ArgTypeError);
   }
-};
+}
 
 
 // argument value error
@@ -461,7 +461,7 @@ class ArgValueError extends Error {
     super(s);
     Error.captureStackTrace(this, ArgValueError);
   }
-};
+}
 
 
 // arity error
@@ -471,7 +471,7 @@ class ArityError extends Error {
     super(s);
     Error.captureStackTrace(this, ArityError);
   }
-};
+}
 
 
 // return type error
@@ -481,7 +481,7 @@ class ReturnTypeError extends Error {
     super(s);
     Error.captureStackTrace(this, ReturnTypeError);
   }
-};
+}
 
 
 // type coercion error
@@ -491,7 +491,7 @@ class TypeCoercionError extends Error {
     super(s);
     Error.captureStackTrace(this, TypeCoercionError);
   }
-};
+}
 
 
 /******************************************************************************
@@ -604,8 +604,35 @@ const overload = (name, dispatch) => {
 
 
 /******************************************************************************
+**********************************[ Errors ]***********************************
+******************************************************************************/
+
+
+// type class error
+// String -> OverloadError
+class OverloadError extends Error {
+  constructor(s) {
+    super(s);
+    Error.captureStackTrace(this, OverloadError);
+  }
+}
+
+
+/******************************************************************************
 ********************************[ Typeclasses ]********************************
 ******************************************************************************/
+
+
+// equal
+// untyped
+const eq_ = x => y =>
+  x === y;
+
+
+// not equal
+// untyped
+const neq_ = x => y =>
+  x !== y;
 
 
 /***[Bounded]*****************************************************************/
@@ -623,7 +650,16 @@ const {maxBoundAdd, maxBound} =
   overload("maxBound", o => o.name);
 
 
-/***[Eq]**********************************************************************/
+/***[Monoid]******************************************************************/
+
+
+// empty
+// a
+const {emptyAdd, empty} =
+  overload("empty", prop("name"));
+
+
+/***[Setoid]**********************************************************************/
 
 
 // equal
@@ -638,19 +674,19 @@ const {neqAdd, neq} =
   overload("neq", toTypeTag);
 
 
-/******************************************************************************
-**********************************[ Errors ]***********************************
-******************************************************************************/
+/***[Simegroup]***************************************************************/
 
 
-// type class error
-// String -> OverloadError
-class OverloadError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, OverloadError);
-  }
-};
+// append
+// a -> a -> a
+const {appendAdd, append} =
+  overload("append", toTypeTag);
+
+
+// flipped append
+// a -> a -> a
+const {appendAdd_, append_} =
+  overload("append_", toTypeTag);
 
 
 /******************************************************************************
@@ -705,16 +741,12 @@ maxBoundAdd("Boolean", true);
 
 // equal
 // Boolean -> Boolean -> Boolean
-eqAdd(
-  "Boolean",
-  b => c => b === c);
+eqAdd("Boolean", eq_);
 
 
 // not equal
 // Boolean -> Boolean -> Boolean
-neqAdd(
-  "Boolean",
-  b => c => b !== c);
+neqAdd("Boolean", neq_);
 
 
 /******************************************************************************
@@ -976,16 +1008,12 @@ const recur = (...args) =>
 
 // equal
 // Number -> Number -> Boolean
-eqAdd(
-  "Number",
-  m => n => m === n);
+eqAdd("Number", eq_);
 
 
 // not equal
 // Number -> Number -> Boolean
-neqAdd(
-  "Number",
-  m => n => m !== n);
+neqAdd("Number", neq_);
 
 
 /******************************************************************************
@@ -1041,32 +1069,12 @@ const capitalize = $(
 
 // equal
 // String -> String -> Boolean
-eqAdd(
-  "String",
-  s => t => s === t);
+eqAdd("String", eq_);
 
 
 // not equal
 // String -> String -> Boolean
-neqAdd(
-  "String",
-  s => t => s !== t);
-
-
-/******************************************************************************
-*******************************************************************************
-*********************************[ ITERATOR ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-class Iterator {
-  constructor(done, value, next) {
-    this.done = done;
-    this.value = value;
-    this.next = next;
-  }
-}
+neqAdd("String", neq_);
 
 
 /******************************************************************************
@@ -1074,6 +1082,102 @@ class Iterator {
 *********************************[ SUBTYPING ]*********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+/******************************************************************************
+************************************[ All ]************************************
+******************************************************************************/
+
+
+// all
+// Boolean -> All
+class All extends Boolean {
+  constructor(b) {
+    super(b);
+
+    if (GUARDED) {
+      if (typeof b !== "boolean") throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nAny expects an argument of type Boolean"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(b)} received`
+        + "\n");
+    }
+  }
+} {
+  const Any_ = All;
+
+  All = function(b) {
+    return new Any_(b);
+  };
+
+  All.prototype = All_.prototype;
+};
+
+
+/***[Monoid]***************************************************************/
+
+
+// empty
+// All
+emptyAdd("All", All(true));
+
+
+/***[Semigroup]***************************************************************/
+
+
+// append
+// All -> All -> All
+appendAdd("All", a => b => All(a && b));
+
+
+/******************************************************************************
+************************************[ Any ]************************************
+******************************************************************************/
+
+
+// any
+// Boolean -> Any
+class Any extends Boolean {
+  constructor(b) {
+    super(b);
+
+    if (GUARDED) {
+      if (typeof b !== "boolean") throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nAny expects an argument of type Boolean"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(b)} received`
+        + "\n");
+    }
+  }
+} {
+  const Any_ = Any;
+
+  Any = function(b) {
+    return new Any_(b);
+  };
+
+  Any.prototype = Any_.prototype;
+};
+
+
+/***[Monoid]******************************************************************/
+
+
+// empty
+// Any
+emptyAdd("Any", Any(false));
+
+
+/***[Semigroup]***************************************************************/
+
+
+// append
+// Any -> Any -> Any
+appendAdd("Any", a => b => Any(a || b));
 
 
 /******************************************************************************
@@ -1113,7 +1217,7 @@ class Char extends String {
   };
 
   Char.prototype = Char_.prototype;
-}
+};
 
 
 Char.prototype[Symbol.toStringTag] = "Char";
@@ -1144,18 +1248,20 @@ maxBoundAdd("Char", Char("\u{10FFFF}"));
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Char -> Char -> Boolean
+const eqChar = c => d =>
+  c.valueOf() === d.valueOf()
+
+
 // equal
 // Char -> Char -> Boolean
-eqAdd(
-  "Char",
-  c => d => c.valueOf() === d.valueOf());
+eqAdd("Char", eqChar);
 
 
 // not equal
 // Char -> Char -> Boolean
-neqAdd(
-  "Char",
-  c => d => c.valueOf() !== d.valueOf());
+neqAdd("Char", notp2(eqChar));
 
 
 /******************************************************************************
@@ -1187,7 +1293,7 @@ class Float extends Number {
   };
 
   Float.prototype = Float_.prototype;
-}
+};
 
 
 Float.prototype[Symbol.toStringTag] = "Float";
@@ -1205,18 +1311,20 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Float -> Float -> Boolean
+const eqFloat = f => g =>
+  f.valueOf() === g.valueOf();
+
+
 // equal
 // Float -> Float -> Boolean
-eqAdd(
-  "Float",
-  f => g => f.valueOf() === g.valueOf());
+eqAdd("Float", eqFloat);
 
 
 // not equal
 // Float -> Float -> Boolean
-neqAdd(
-  "Float",
-  f => g => f.valueOf() !== g.valueOf());
+neqAdd("Float", notp2(eqFloat));
 
 
 /******************************************************************************
@@ -1256,7 +1364,7 @@ class Int extends Number {
   };
 
   Int.prototype = Int_.prototype;
-}
+};
 
 
 Int.prototype[Symbol.toStringTag] = "Int";
@@ -1287,18 +1395,20 @@ maxBoundAdd("Int", Int(Number.MAX_SAFE_INTEGER));
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Int -> Int -> Boolean
+const eqInt = i => j =>
+  i.valueOf() === j.valueOf();
+
+
 // equal
 // Int -> Int -> Boolean
-eqAdd(
-  "Int",
-  i => j => i.valueOf() === j.valueOf());
+eqAdd("Int", eqInt);
 
 
 // not equal
 // Int -> Int -> Boolean
-neqAdd(
-  "Int",
-  i => j => i.valueOf() !== j.valueOf());
+neqAdd("Int", notp2(eqInt));
 
 
 /******************************************************************************
@@ -1322,20 +1432,19 @@ maxBoundAdd("Null", null);
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Null -> Null -> Boolean
+const eqNull = _ => __ => true;
+
+
 // equal
 // Null -> Null -> Boolean
-// in a typed language just _ => _ => true
-eqAdd(
-  "Null",
-  n => o => n === o);
+eqAdd("Null", eqNull);
 
 
 // not equal
 // Null -> Null -> Boolean
-// in a typed language just _ => _ => false
-neqAdd(
-  "Null",
-  n => o => n !== o);
+neqAdd("Null", notp2(eqNull));
 
 
 /******************************************************************************
@@ -1370,7 +1479,7 @@ class Rec extends Object {
   };
 
   Rec.prototype = Rec_.prototype;
-}
+};
 
 
 Rec.prototype[Symbol.toStringTag] = "Record";
@@ -1449,7 +1558,7 @@ class Tup extends Array {
   };
 
   Tup.prototype = Tup_.prototype;
-}
+};
 
 
 Tup.prototype.map = () => {
@@ -1488,6 +1597,7 @@ const eqTup = xs => ys =>
     ? false
     : xs.every((x, n) =>
       eq(x) (ys[n]))
+
 
 // equal
 // Tuple -> Tuple -> Boolean
@@ -1600,22 +1710,6 @@ const setArr = (xs, i, d, t, {mode}) => {
   else Reflect.defineProperty(xs, i, d);
   return xs;
 };
-
-
-/***[Generator]***************************************************************/
-
-
-// array generator
-// Array -> Iterator
-Arr.yield = $(
-  "yield",
-  xs => {
-    const aux = i => i in xs
-      ? new Iterator(false, xs[i], () => aux(i + 1))
-      : new Iterator(true, null, null);
-
-    return aux(0);
-  });
 
 
 /***[Setoid]******************************************************************/
@@ -2275,6 +2369,23 @@ const Id = Data("Id")
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Id<a> -> Id<a> -> Boolean
+const eqId = tx => ty =>
+    tx.runId(x => ty.runId(y => eq(x) (y))));
+
+
+// equal
+// Id<a> -> Id<a> -> Boolean
+eqAdd("Id", eqId);
+  
+
+
+// not equal
+// Id<a> -> Id<a> -> Boolean
+neqAdd("Id", notp2(eqId));
+
+
 /******************************************************************************
 ***********************************[ Lazy ]************************************
 ******************************************************************************/
@@ -2433,22 +2544,21 @@ const Ref = Data("Ref")
 /***[Setoid]******************************************************************/
 
 
+// auxiliary function
+// Ref<Object> -> Ref<Object> -> Boolean
+const eqRef = to => tp =>
+  to.runRef(o =>
+    tp.runRef(p => o === p));
+
+
 // equal
 // Ref<Object> -> Ref<Object> -> Boolean
-eqAdd(
-  "Ref",
-  to => tp =>
-    to.runRef(o =>
-      tp.runRef(p => o === p)));
+eqAdd("Ref", eqRef);
 
 
 // not equal
 // Ref<Object> -> Ref<Object> -> Boolean
-neqAdd(
-  "Ref",
-  to => tp =>
-    to.runRef(o =>
-      tp.runRef(p => o !== p)));
+neqAdd("Ref", notp2(eqRef));
 
 
 /******************************************************************************
@@ -2542,33 +2652,6 @@ const Forest = Data("Forest")
 /***[Setoid]******************************************************************/
 
 
-/*Node.eq = tx => ty => {
-  const rec = ([x, childrenx], [y, childreny], stackx, stacky) => {
-    if (neq(x) (y)) return false;
-    else if (childrenx.length !== childreny.length) return false;
-
-    else if (childrenx.length > 0) {
-      stackx.unshift(...childrenx);
-      stacky.unshift(...childreny);
-      return rec(stackx.shift(), stacky.shift(), stackx, stacky);
-    }
-
-    else {
-      if (stackx.length > 0) {
-        const nodex = stackx.shift(),
-          nodey = stacky.shift();
-
-        return rec(nodex, nodey, stackx, stacky);
-      }
-
-      else return true;
-    }
-  };
-
-  return rec(tx, ty, [], []);
-};*/
-
-
 /******************************************************************************
 **********************************[ Unique ]***********************************
 ******************************************************************************/
@@ -2619,6 +2702,10 @@ history = [];
 // initialize namespace
 Object.assign($,
   {
+    All,
+    Any,
+    append,
+    appendAdd,
     apply,
     Arr,
     Behavior,
@@ -2638,6 +2725,8 @@ Object.assign($,
     curry3,
     Data,
     Eff,
+    empty,
+    emptyAdd
     EQ,
     eq,
     eqAdd,

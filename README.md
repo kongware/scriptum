@@ -416,7 +416,7 @@ Overloaded functions are open, that is you can always add function instances to 
 Let's define the overloaded `append` and `empty` functions to simulate the Monoid typeclass:
 
 ```Javascript
-const {appendAdd, append} = overload("append", getTypeTag);
+const {appendAdd, append} = overload("append", toTypeTag);
 
 appendAdd("String", s => t => `${s}${t}`);
 appendAdd("Number", n => m => n + m);
@@ -671,6 +671,21 @@ const cancel = mouseCoords.runEvent(console.log);
 cancel();
 ```
 The `Event` type is still experimental and may change in the future.
+
+## DOM Handling
+
+I think most UIs doesn't require virtual dom. DOM manipulation is better done with a bunch of specialized DOM combinators, which encapsulate quirks of the DOM API and maintain composability. Together with the `Event` and `Behavior` type and unidirectional data flow scriptum offers a basic but powerful toolset to build responsive views. I will provide the most important DOM combinators soon.
+
+Unidirectional data flow results in the following principles:
+
+* Only the program may manipulate the output display, never the user
+* User input is presented in the form of events
+* GUI elements generate events only in response to user input, never in response to program output
+
+# TODO
+
+- [ ] Unit tests
+- [ ] API documentation
 
 # Upcoming Features
 
