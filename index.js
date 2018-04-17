@@ -1071,7 +1071,14 @@ const prop = $(
 /***[Setoid]******************************************************************/
 
 
-// TODO
+// equal
+// Object -> Object -> Boolean
+eqAdd("Object", eqRec);
+
+
+// not equal
+// Object -> Object -> Boolean
+neqAdd("Object", notp2(eqRec));
 
 
 /******************************************************************************
@@ -1215,7 +1222,7 @@ emptyAdd("Any", Any(false));
 appendAdd("Any", a => b => Any(a || b));
 
 
-// append
+// flipped append
 // Any -> Any -> Any
 appendfAdd("Any", b => a => Any(a || b));
 
@@ -1289,6 +1296,7 @@ maxBoundAdd("Char", Char("\u{10FFFF}"));
 
 
 // auxiliary function
+// no function guarding necessary
 // Char -> Char -> Boolean
 const eqChar = c => d =>
   c.valueOf() === d.valueOf()
@@ -1352,6 +1360,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 
 
 // auxiliary function
+// no function guarding necessary
 // Float -> Float -> Boolean
 const eqFloat = f => g =>
   f.valueOf() === g.valueOf();
@@ -1436,6 +1445,7 @@ maxBoundAdd("Int", Int(Number.MAX_SAFE_INTEGER));
 
 
 // auxiliary function
+// no function guarding necessary
 // Int -> Int -> Boolean
 const eqInt = i => j =>
   i.valueOf() === j.valueOf();
@@ -1473,6 +1483,7 @@ maxBoundAdd("Null", null);
 
 
 // auxiliary function
+// no function guarding necessary
 // Null -> Null -> Boolean
 const eqNull = _ => __ => true;
 
@@ -1485,6 +1496,59 @@ eqAdd("Null", eqNull);
 // not equal
 // Null -> Null -> Boolean
 neqAdd("Null", notp2(eqNull));
+
+
+/******************************************************************************
+**********************************[ Product ]**********************************
+******************************************************************************/
+
+
+// product
+// Number -> Product
+class Product extends Number {
+  constructor(n) {
+    super(n);
+
+    if (GUARDED) {
+      if (toTypeTag(n) !== "Number") throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nProduct expects an argument of type Number"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(n)} received`
+        + "\n");
+    }
+  }
+} {
+  const Product_ = Product;
+
+  Product = function(n) {
+    return new Product_(n);
+  };
+
+  Product.prototype = Product_.prototype;
+};
+
+
+/***[Monoid]******************************************************************/
+
+
+// empty
+// Product
+emptyAdd("Product", Product(1));
+
+
+/***[Semigroup]***************************************************************/
+
+
+// append
+// Product -> Product -> Product
+appendAdd("Product", m => n => Product(m * n));
+
+
+// flipped append
+// Product -> Product -> Product
+appendfAdd("Product", n => m => Product(m * n));
 
 
 /******************************************************************************
@@ -1543,6 +1607,7 @@ const MAX_REC_SIZE = 16;
 
 
 // auxiliary function
+// no function guarding necessary
 // Record -> Record -> Boolean
 const eqRec = r => s => {
   const ks = Object.keys(r),
@@ -1565,6 +1630,59 @@ eqAdd("Record", eqRec);
 // not equal
 // Record -> Record -> Boolean
 neqAdd("Record", notp2(eqRec));
+
+
+/******************************************************************************
+************************************[ Sum ]************************************
+******************************************************************************/
+
+
+// sum
+// Number -> Sum
+class Sum extends Number {
+  constructor(n) {
+    super(n);
+
+    if (GUARDED) {
+      if (toTypeTag(n) !== "Number") throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nSum expects an argument of type Number"
+        + `\n\non the 1st call`
+        + `\n\nin the 1st argument`
+        + `\n\nbut ${introspect(n)} received`
+        + "\n");
+    }
+  }
+} {
+  const Sum_ = Sum;
+
+  Sum = function(n) {
+    return new Sum_(n);
+  };
+
+  Sum.prototype = Sum_.prototype;
+};
+
+
+/***[Monoid]******************************************************************/
+
+
+// empty
+// Sum
+emptyAdd("Sum", Sum(1));
+
+
+/***[Semigroup]***************************************************************/
+
+
+// append
+// Sum -> Sum -> Sum
+appendAdd("Sum", m => n => Sum(m + n));
+
+
+// flipped append
+// Sum -> Sum -> Sum
+appendfAdd("Sum", n => m => Sum(m + n));
 
 
 /******************************************************************************
@@ -1631,6 +1749,7 @@ const MAX_TUP_SIZE = 8;
 
 
 // auxiliary function
+// no function guarding necessary
 // Tupple -> Tuple -> Boolean
 const eqTup = xs => ys =>
   xs.length !== ys.length
@@ -1756,6 +1875,7 @@ const setArr = (xs, i, d, t, {mode}) => {
 
 
 // auxiliary function
+// no function guarding necessary
 // [a] -> [a] -> Boolean
 const eqArr = xs => ys => {
   if (xs.length !== ys.length)
@@ -1851,6 +1971,7 @@ const handleMap = t => ({
 
 
 // auxiliary function
+// no function guarding necessary
 // Map<k, v> -> Map<k, v> -> Boolean
 const eqMap = m => n => {
   if (m.size !== n.size) return false;
@@ -1948,6 +2069,7 @@ const handleSet = t => ({
 
 
 // auxiliary function
+// no function guarding necessary
 // Set<a> -> Set<a> -> Boolean
 const eqSet = s => t => {
   if (s.size !== t.size) return false;
@@ -2340,6 +2462,7 @@ const Right = $(
 
 
 // auxiliary function
+// no function guarding necessary
 // Either<a, b> -> Either<a, b> -> Boolean
 const eqEither = tx => ty =>
   tx[TAG] === ty[TAG]
@@ -2410,6 +2533,7 @@ const Id = Data("Id")
 
 
 // auxiliary function
+// no function guarding necessary
 // Id<a> -> Id<a> -> Boolean
 const eqId = tx => ty =>
     tx.runId(x => ty.runId(y => eq(x) (y)));
@@ -2585,6 +2709,7 @@ const Ref = Data("Ref")
 
 
 // auxiliary function
+// no function guarding necessary
 // Ref<Object> -> Ref<Object> -> Boolean
 const eqRef = to => tp =>
   to.runRef(o =>
@@ -2678,6 +2803,7 @@ Task.of = x =>
 
 
 // multi-way tree
+// TODO: change to non-mutual recursive adt?
 // a -> Forest<a> -> Tree<a>
 const Tree = Data("Tree")
   (Tree => x => children => Tree(k => k(x) (children)));
