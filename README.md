@@ -112,7 +112,7 @@ The reason for this lies in sriptum's inability to distinguish variadic from det
 
 ## Anonymous Functions
 
-The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. Guarded functions always have a name.
+The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. With guarded functions you can always access function names via the console. Guarded functions are virtualized by `Proxy`s where the `[[ProxyHandler]]` internal slot holds a name property with the respective function name.
 
 First order function sequences inherit the name of their initial function:
 
@@ -122,9 +122,9 @@ const add = $(
   m => n =>
     m + n);
 
-add(2).name; // add
+add(2); // [[ProxyHandler]] contains name: "add"
 ```
-Higher order function sequences additionally inherit their name from the last function returned:
+Higher order function sequences additionally adapt their name to the last function returned:
 
 ```Javascript
 const comp = $(
@@ -141,11 +141,9 @@ const inc = $(
   "inc",
   n => n + 1);
 
-comp(add) (inc).name; // comp
-comp(add) (inc) (2).name; // add
+comp(add) (inc); // [[ProxyHandler]] contains name: "comp"
+comp(add) (inc) (2); // [[ProxyHandler]] contains name: "add"
 ```
-Since scriptum's function guarding feature varies between development and production stage you must not establish dependencies on it.
-
 ## Type Logs
 
 scriptum provides a type log for each guarded function:

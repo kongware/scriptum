@@ -18,6 +18,15 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
+// to type tag
+// no function guarding necessary
+// a -> String
+const toTypeTag = x => {
+  const tag = Object.prototype.toString.call(x);
+  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
+};
+
+
 /******************************************************************************
 *******************************************************************************
 **********************************[ GLOBALS ]**********************************
@@ -108,21 +117,13 @@ const $ = (name, f) => {
       + `\n\nbut ${introspect(f)} received`
       + "\n");
 
-    if (name.indexOf("...") === 0) {
-      Reflect.defineProperty(f, "name", {value: name.slice(3)});
-      
+    if (name.indexOf("...") === 0)
       return new Proxy(
-        f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0})
-      );
-    }
+        f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0}));
 
-    else {
-      Reflect.defineProperty(f, "name", {value: name});
-
+    else
       return new Proxy(
-        f, handleF(name, f, [], {params: "fix", nthCall: 0})
-      );
-    }
+        f, handleF(name, f, [], {params: "fix", nthCall: 0}));
   }
 
   else return f;
@@ -134,6 +135,8 @@ const $ = (name, f) => {
 // untyped
 const handleF = (name, f, log, {params, nthCall}) => {
   return {
+    name, // in order to retrieve function names during debugging
+
     apply: (g, _, args) => {
       // skip both calls
       verifyArity(g, args, name, params, nthCall, log);
@@ -175,7 +178,9 @@ const handleF = (name, f, log, {params, nthCall}) => {
 };
 
 
-const guardSum = (name, f, tags) => {
+// sum type guard
+// untyped
+const $sum = (name, f, tags) => {
   if (GUARDED) {
     return cases => {
       if (toTypeTag(cases) !== "Object") throw new ArgTypeError(
@@ -211,7 +216,10 @@ const guardSum = (name, f, tags) => {
         + "\n");
 
       const r = f(cases);
-      return typeof r === "function" ? $(`run${name}`, r) : r;
+
+      return typeof r === "function"
+        ? $(`run${name}`, r)
+        : r;
     };
   }
 
@@ -224,16 +232,8 @@ const guardSum = (name, f, tags) => {
 ******************************************************************************/
 
 
-// get type constructor
-// a -> String
-const toTypeTag = x => {
-  // TODO: inspect x when guarded
-  const tag = Object.prototype.toString.call(x);
-  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
-};
-
-
 // introspect
+// no argument type checking necessary
 // a -> String
 const introspect = x => {
   switch (typeof x) {
@@ -370,30 +370,9 @@ const introspectTup = t => {
 };
 
 
-// type check
+// verify argument types
+// no argument type checking necessary
 // untyped
-const typeCheck = Cons => f => x => {
-  const t = introspect(x),
-    undef = t.search(/\bUndefined\b/),
-    nan = t.search(/\bNaN\b/),
-    inf = t.search(/\bInfinity\b/);
-
-  if (undef !== -1) {
-    throw new Cons(f(t) ("Undefined"));
-  }
-
-  else if (nan !== -1) {
-    throw new Cons(f(t) ("NaN"));
-  }
-
-  else if (inf !== -1) {
-    throw new Cons(f(t) ("Infinity"));
-  }
-
-  else return t;
-};
-
-
 const verifyArgTypes = (args, name, nthCall, log) => 
   args.map((arg, nthArg) => {
     const t = introspect(arg);
@@ -408,7 +387,9 @@ const verifyArgTypes = (args, name, nthCall, log) =>
   }).join(", ");
   
 
-
+// verify arity
+// no argument type checking necessary
+// untyped
 const verifyArity = (g, args, name, params, nthCall, log) => {
   if (params === "fix" && g.length !== args.length) {
     throw new ArityError(
@@ -417,8 +398,7 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
       + `\n\non the ${ordinal(nthCall + 1)} call`
       + `\n\nbut ${args.length}-ary Function received`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
-      + "\n"
-    );
+      + "\n");
   }
 
   else if (params === "var" && g.length > args.length) {
@@ -428,12 +408,14 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
       + `\n\non the ${ordinal(nthCall + 1)} call`
       + `\n\nbut ${args.length}-ary Function received`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
-      + "\n"
-    );
+      + "\n");
   }
 };
 
 
+// verify return type
+// no argument type checking necessary
+// untyped
 const verifyRetType = (r, name, log) => {
   const t = introspect(r);
 
@@ -536,8 +518,7 @@ const replaceNestings = $(
     const xs = s.match(/^[\[{<]|[\]}>]$/g);
     if (xs.length === 0) return aux(s);
     else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
-  }
-);
+  });
 
 
 // stringify
@@ -549,8 +530,7 @@ const stringify = $(
       case "string": return `"${x}"`;
       default: return String(x);
     }
-  }
-);
+  });
 
 
 /******************************************************************************
@@ -561,6 +541,7 @@ const stringify = $(
 
 
 // overloaded function
+// no function guarding necessary
 // untyped
 const overload = (name, dispatch) => {
   if (typeof name !== "string") throw new ArgTypeError(
@@ -632,12 +613,14 @@ class OverloadError extends Error {
 
 
 // equal
+// no function guarding necessary
 // untyped
 const eq_ = x => y =>
   x === y;
 
 
 // not equal
+// no function guarding necessary
 // untyped
 const neq_ = x => y =>
   x !== y;
@@ -783,6 +766,13 @@ const co2 = $(
   x => y => y);
 
 
+// function composition
+// (b -> c) -> (a -> b) -> a -> c
+const comp = $(
+  "comp",
+  f => g => x => f(g(x)));
+
+
 // binary function composition
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
 const comp2 = $(
@@ -795,9 +785,6 @@ const comp2 = $(
 const compBoth = $(
   "compBoth",
   f => g => h => x => f(g(x)) (h(x)));
-
-
-// comp @ALIASES
 
 
 // function composition
@@ -823,8 +810,8 @@ const cond = $(
 // (a -> b) -> (b -> c) -> a -> c
 const contra = $(
   "contra",
-  f => g => x =>
-    g(f(x)));
+  g => f => x =>
+    f(g(x)));
 
 
 // continuation
@@ -983,7 +970,19 @@ emptyAdd("Function", id);
 /***[Semigroup]***************************************************************/
 
 
-// appendAdd @ALIASES
+// append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendAdd(
+  "Function",
+  f => g => x => f(g(x)));
+
+
+// flipped append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendfAdd(
+  "Function",
+  g => f => x => f(g(x)));
+
 
 
 /***[Tail Recursion]**********************************************************/
@@ -1006,7 +1005,7 @@ const loop = $(
 
 
 // recursive call
-// not guarded
+// no function guarding necessary
 // untyped
 const recur = (...args) =>
   ({type: recur, args});
@@ -1045,19 +1044,28 @@ neqAdd("Number", neq_);
 
 // destructive delete
 // String -> Object -> Object
-const destructiveDel = k => o =>
-  (delete o[k], o);
+const destructiveDel = $(
+  "destructiveDel",
+  k => o =>
+    (delete o[k], o));
 
 
 // destructive set
 // (String, a) -> Object -> Object
-const destructiveSet = (k, v) => o =>
-  (o[k] = v, o);
+const destructiveSet = $(
+  "destructiveSet",
+  (k, v) => o =>
+    (o[k] = v, o));
 
 
 // property getter
 // String -> Object -> a
-const prop = k => o => o[k];
+const prop = $(
+  "prop",
+  k => o => o[k]);
+
+
+// toTypeTag @PREDEFINED
 
 
 /***[Setoid]******************************************************************/
@@ -2002,7 +2010,7 @@ const Type = (name, ...tags) => {
         else t[SIG] = `${name}<λ>`;
       }
         
-      t[`run${name}`] = guardSum(`run${name}`, Dcons, tags);
+      t[`run${name}`] = $sum(`run${name}`, Dcons, tags);
       t[TAG] = tag;
       return t;
     };
@@ -2710,28 +2718,6 @@ const Forest = Data("Forest")
 
 /******************************************************************************
 *******************************************************************************
-**********************************[ ALIASES ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-// function composition
-// (b -> c) -> (a -> b) -> a -> c
-const comp = Reader.map;
-
-
-// append
-// (a -> a) -> (a -> a) -> (a -> a)
-appendAdd("Function", comp);
-
-
-// flipped append
-// (a -> a) -> (a -> a) -> (a -> a)
-appendfAdd("Function", contra);
-
-
-/******************************************************************************
-*******************************************************************************
 **********************************[ EXPORT ]***********************************
 *******************************************************************************
 ******************************************************************************/
@@ -2767,6 +2753,8 @@ Object.assign($,
     curry,
     curry3,
     Data,
+    destructiveDel,
+    destructiveSet,
     Eff,
     empty,
     emptyAdd,
@@ -2779,7 +2767,6 @@ Object.assign($,
     flip,
     Float,
     Forest,
-    toTypeTag,
     GT,
     history,
     Id,
@@ -2826,6 +2813,7 @@ Object.assign($,
     TAG,
     tap,
     Task,
+    toTypeTag,
     Tree,
     Tup,
     Type,
