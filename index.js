@@ -693,8 +693,8 @@ const {appendAdd, append} =
 
 // flipped append
 // a -> a -> a
-const {appendAdd_, append_} =
-  overload("append_", toTypeTag);
+const {appendfAdd, appendf} =
+  overload("appendf", toTypeTag);
 
 
 /******************************************************************************
@@ -1156,7 +1156,7 @@ appendAdd("All", a => b => All(a && b));
 
 // flipped append
 // All -> All -> All
-appendAdd_("All", b => a => All(a && b));
+appendfAdd("All", b => a => All(a && b));
 
 
 /******************************************************************************
@@ -1209,7 +1209,7 @@ appendAdd("Any", a => b => Any(a || b));
 
 // append
 // Any -> Any -> Any
-appendAdd_("Any", b => a => Any(a || b));
+appendfAdd("Any", b => a => Any(a || b));
 
 
 /******************************************************************************
@@ -2727,7 +2727,7 @@ appendAdd("Function", comp);
 
 // flipped append
 // (a -> a) -> (a -> a) -> (a -> a)
-appendAdd_("Function", contra);
+appendfAdd("Function", contra);
 
 
 /******************************************************************************
@@ -2748,7 +2748,7 @@ Object.assign($,
     Any,
     append,
     appendAdd,
-    appendAdd_,
+    appendfAdd,
     apply,
     Arr,
     Behavior,
