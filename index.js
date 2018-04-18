@@ -18,6 +18,22 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
+// auxiliary function
+// no function guarding necessary
+// Record -> Record -> Boolean
+const eqRec = r => s => {
+  const ks = Object.keys(r),
+    ls = Object.keys(s);
+
+  if (ks.length !== ls.length)
+    return false;
+
+  else return ks.every(k => !(k in s)
+    ? false
+    : eq(r[k]) (s[k]));
+};
+
+
 // to type tag
 // no function guarding necessary
 // a -> String
@@ -1606,21 +1622,7 @@ const MAX_REC_SIZE = 16;
 /***[Setoid]******************************************************************/
 
 
-// auxiliary function
-// no function guarding necessary
-// Record -> Record -> Boolean
-const eqRec = r => s => {
-  const ks = Object.keys(r),
-    ls = Object.keys(s);
-
-  if (ks.length !== ls.length)
-    return false;
-
-  else return ks.every(k => !(k in s)
-    ? false
-    : eq(r[k]) (s[k]));
-};
-
+// eqRec @PREDEFINED
 
 // equal
 // Record -> Record -> Boolean
