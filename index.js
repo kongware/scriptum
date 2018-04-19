@@ -18,22 +18,6 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
-// auxiliary function
-// no function guarding necessary
-// Record -> Record -> Boolean
-const eqRec = r => s => {
-  const ks = Object.keys(r),
-    ls = Object.keys(s);
-
-  if (ks.length !== ls.length)
-    return false;
-
-  else return ks.every(k => !(k in s)
-    ? false
-    : eq(r[k]) (s[k]));
-};
-
-
 // to type tag
 // no function guarding necessary
 // a -> String
@@ -50,9 +34,7 @@ const toTypeTag = x => {
 ******************************************************************************/
 
 
-/******************************************************************************
-*********************************[ Constants ]*********************************
-******************************************************************************/
+/***[Constants]***************************************************************/
 
 
 // invalid types
@@ -65,9 +47,7 @@ const INVALID_TYPES = new Set(["Undefined", "NaN", "Infinity"]);
 const GUARDED = true;
 
 
-/******************************************************************************
-*********************************[ Variables ]*********************************
-******************************************************************************/
+/***[Variables]***************************************************************/
 
 
 // history log
@@ -107,9 +87,7 @@ const SIG = Symbol("SIG");
 ******************************************************************************/
 
 
-/******************************************************************************
-******************************[ Virtualization ]*******************************
-******************************************************************************/
+/***[Virtualization]**********************************************************/
 
 
 // function guard
@@ -243,9 +221,7 @@ const $sum = (name, f, tags) => {
 };
 
 
-/******************************************************************************
-*******************************[ Introspection ]*******************************
-******************************************************************************/
+/***[Introspection]***********************************************************/
 
 
 // introspect
@@ -445,9 +421,7 @@ const verifyRetType = (r, name, log) => {
 };
 
 
-/******************************************************************************
-**********************************[ Errors ]***********************************
-******************************************************************************/
+/***[Errors]******************************************************************/
 
 
 // argument type error
@@ -500,9 +474,7 @@ class TypeCoercionError extends Error {
 }
 
 
-/******************************************************************************
-********************************[ PrettyPrint ]********************************
-******************************************************************************/
+/***[Pretty Print]************************************************************/
 
 
 // ordinal number
@@ -557,6 +529,7 @@ const stringify = $(
 
 
 // overloaded function
+// dispatched on the first argument
 // no function guarding necessary
 // untyped
 const overload = (name, dispatch) => {
@@ -592,10 +565,10 @@ const overload = (name, dispatch) => {
         if (r === undefined)
           throw new OverloadError(
             "invalid overloaded function call"
-            + `\n\n${name} cannot dispatch function/value for ${stringify(dispatch(x))}`
+            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))}`
             + "\n\non the 1st call"
             + "\nin the 1st argument"
-            + `\n\nof type ${introspect(x)}`
+            + `\n\nfor the given value of type ${introspect(x)}`
             + "\n");
 
         else if (typeof r === "function")
@@ -608,9 +581,60 @@ const overload = (name, dispatch) => {
 };
 
 
-/******************************************************************************
-**********************************[ Errors ]***********************************
-******************************************************************************/
+// overloaded function
+// dispatched on the first and second argument
+// no function guarding necessary
+// untyped
+const overload2 = (name, dispatch) => {
+  if (typeof name !== "string") throw new ArgTypeError(
+    "invalid argument type"
+    + "\n\noverload expects an argument of type String"
+    + `\n\non the 1st call`
+    + `\n\nin the 1st argument`
+    + `\n\nbut ${introspect(name)} received`
+    + "\n");
+
+  else if (typeof dispatch !== "function") throw new ArgTypeError(
+    "invalid argument type"
+    + "\n\noverload expects an argument of type Function"
+    + `\n\non the 1st call`
+    + `\n\nin the 2nd argument`
+    + `\n\nbut ${introspect(dispatch)} received`
+    + "\n");
+
+  const pairs = new Map();
+
+  return {
+    [`${name}Add`]: $(
+      `${name}Add`,
+      (k, v) =>
+        pairs.set(k, v)),
+
+    [name]: $(
+      `${name}`,
+      x => y => {
+        const r = pairs.get(dispatch(x, y));
+
+        if (r === undefined)
+          throw new OverloadError(
+            "invalid overloaded function call"
+            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))} / ${stringify(dispatch(y))}`
+            + "\n\non the 1st/2nd call"
+            + "\nin the 1st argument"
+            + `\n\nfor the given values of type ${introspect(x)}/${introspect(y)}`
+            + "\n");
+
+        else if (typeof r === "function")
+          return r(x) (y);
+
+        else return r;
+      }
+    )
+  }
+};
+
+
+/***[Errors]******************************************************************/
 
 
 // type class error
@@ -621,79 +645,6 @@ class OverloadError extends Error {
     Error.captureStackTrace(this, OverloadError);
   }
 }
-
-
-/******************************************************************************
-********************************[ Typeclasses ]********************************
-******************************************************************************/
-
-
-// equal
-// no function guarding necessary
-// untyped
-const eq_ = x => y =>
-  x === y;
-
-
-// not equal
-// no function guarding necessary
-// untyped
-const neq_ = x => y =>
-  x !== y;
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// a
-const {minBoundAdd, minBound} =
-  overload("minBound", o => o.name);
-
-
-// maximal bound
-// a
-const {maxBoundAdd, maxBound} =
-  overload("maxBound", o => o.name);
-
-
-/***[Monoid]******************************************************************/
-
-
-// empty
-// a
-const {emptyAdd, empty} =
-  overload("empty", o => o.name);
-
-
-/***[Setoid]**********************************************************************/
-
-
-// equal
-// a -> a -> Boolean
-const {eqAdd, eq} =
-  overload("eq", toTypeTag);
-
-
-// not equal
-// a -> a -> Boolean
-const {neqAdd, neq} =
-  overload("neq", toTypeTag);
-
-
-/***[Simegroup]***************************************************************/
-
-
-// append
-// a -> a -> a
-const {appendAdd, append} =
-  overload("append", toTypeTag);
-
-
-// flipped append
-// a -> a -> a
-const {appendfAdd, appendf} =
-  overload("appendf", toTypeTag);
 
 
 /******************************************************************************
@@ -728,32 +679,6 @@ const notp = $(
 const notp2 = $(
   "notp2",
   p => x => y => !p(x) (y));
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Boolean
-minBoundAdd("Boolean", false);
-  
-
-// maximal bound
-// Boolean
-maxBoundAdd("Boolean", true);
-
-
-/***[Setoid]******************************************************************/
-
-
-// equal
-// Boolean -> Boolean -> Boolean
-eqAdd("Boolean", eq_);
-
-
-// not equal
-// Boolean -> Boolean -> Boolean
-neqAdd("Boolean", neq_);
 
 
 /******************************************************************************
@@ -975,32 +900,6 @@ const uncurry3 = $(
     f(x) (y) (z));
 
 
-/***[Monoid]***************************************************************/
-
-
-// empty
-// All
-emptyAdd("Function", id);
-
-
-/***[Semigroup]***************************************************************/
-
-
-// append
-// (a -> a) -> (a -> a) -> (a -> a)
-appendAdd(
-  "Function",
-  f => g => x => f(g(x)));
-
-
-// flipped append
-// (a -> a) -> (a -> a) -> (a -> a)
-appendfAdd(
-  "Function",
-  g => f => x => f(g(x)));
-
-
-
 /***[Tail Recursion]**********************************************************/
 
 
@@ -1040,19 +939,6 @@ const recur = (...args) =>
 ******************************************************************************/
 
 
-/***[Setoid]******************************************************************/
-
-
-// equal
-// Number -> Number -> Boolean
-eqAdd("Number", eq_);
-
-
-// not equal
-// Number -> Number -> Boolean
-neqAdd("Number", neq_);
-
-
 /******************************************************************************
 **********************************[ Object ]***********************************
 ******************************************************************************/
@@ -1084,19 +970,6 @@ const prop = $(
 // toTypeTag @PREDEFINED
 
 
-/***[Setoid]******************************************************************/
-
-
-// equal
-// Object -> Object -> Boolean
-eqAdd("Object", eqRec);
-
-
-// not equal
-// Object -> Object -> Boolean
-neqAdd("Object", notp2(eqRec));
-
-
 /******************************************************************************
 ************************************[ Set ]************************************
 ******************************************************************************/
@@ -1115,19 +988,6 @@ neqAdd("Object", notp2(eqRec));
 const capitalize = $(
   "capitalize",
   s => s[0].toUpperCase() + s.slice(1));
-
-
-/***[Setoid]******************************************************************/
-
-
-// equal
-// String -> String -> Boolean
-eqAdd("String", eq_);
-
-
-// not equal
-// String -> String -> Boolean
-neqAdd("String", neq_);
 
 
 /******************************************************************************
@@ -1166,28 +1026,20 @@ class All extends Boolean {
   };
 
   All.prototype = All_.prototype;
+}
+
+
+All.prototype[Symbol.toStringTag] = "All";
+
+
+All.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    "illegal type coercion"
+    + "\n\nAll must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
+    + "\n");
 };
 
-
-/***[Monoid]***************************************************************/
-
-
-// empty
-// All
-emptyAdd("All", All(true));
-
-
-/***[Semigroup]***************************************************************/
-
-
-// append
-// All -> All -> All
-appendAdd("All", a => b => All(a && b));
-
-
-// flipped append
-// All -> All -> All
-appendfAdd("All", b => a => All(a && b));
 
 
 /******************************************************************************
@@ -1219,28 +1071,19 @@ class Any extends Boolean {
   };
 
   Any.prototype = Any_.prototype;
+}
+
+
+Any.prototype[Symbol.toStringTag] = "Any";
+
+
+Any.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    "illegal type coercion"
+    + "\n\nAn must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
+    + "\n");
 };
-
-
-/***[Monoid]******************************************************************/
-
-
-// empty
-// Any
-emptyAdd("Any", Any(false));
-
-
-/***[Semigroup]***************************************************************/
-
-
-// append
-// Any -> Any -> Any
-appendAdd("Any", a => b => Any(a || b));
-
-
-// flipped append
-// Any -> Any -> Any
-appendfAdd("Any", b => a => Any(a || b));
 
 
 /******************************************************************************
@@ -1280,7 +1123,7 @@ class Char extends String {
   };
 
   Char.prototype = Char_.prototype;
-};
+}
 
 
 Char.prototype[Symbol.toStringTag] = "Char";
@@ -1293,39 +1136,6 @@ Char.prototype[Symbol.toPrimitive] = hint => {
     + `\n\nbut type coercion to ${capitalize(hint)} received`
     + "\n");
 };
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Char
-minBoundAdd("Char", Char("\u{0}"));
-
-
-// maximal bound
-// Char
-maxBoundAdd("Char", Char("\u{10FFFF}"));
-
-
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Char -> Char -> Boolean
-const eqChar = c => d =>
-  c.valueOf() === d.valueOf()
-
-
-// equal
-// Char -> Char -> Boolean
-eqAdd("Char", eqChar);
-
-
-// not equal
-// Char -> Char -> Boolean
-neqAdd("Char", notp2(eqChar));
 
 
 /******************************************************************************
@@ -1357,7 +1167,7 @@ class Float extends Number {
   };
 
   Float.prototype = Float_.prototype;
-};
+}
 
 
 Float.prototype[Symbol.toStringTag] = "Float";
@@ -1372,33 +1182,13 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Float -> Float -> Boolean
-const eqFloat = f => g =>
-  f.valueOf() === g.valueOf();
-
-
-// equal
-// Float -> Float -> Boolean
-eqAdd("Float", eqFloat);
-
-
-// not equal
-// Float -> Float -> Boolean
-neqAdd("Float", notp2(eqFloat));
-
-
 /******************************************************************************
-************************************[ Int ]************************************
+**********************************[ Integer ]**********************************
 ******************************************************************************/
 
 
 // integer constructor
-// Number -> Int
+// Number -> Integer
 class Int extends Number {
   constructor(n) {
     super(n);
@@ -1429,10 +1219,10 @@ class Int extends Number {
   };
 
   Int.prototype = Int_.prototype;
-};
+}
 
 
-Int.prototype[Symbol.toStringTag] = "Int";
+Int.prototype[Symbol.toStringTag] = "Integer";
 
 
 Int.prototype[Symbol.toPrimitive] = hint => {
@@ -1444,74 +1234,9 @@ Int.prototype[Symbol.toPrimitive] = hint => {
 };
 
 
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Int
-minBoundAdd("Int", Int(Number.MIN_SAFE_INTEGER));
-
-
-// maximal bound
-// Int
-maxBoundAdd("Int", Int(Number.MAX_SAFE_INTEGER));
-
-
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Int -> Int -> Boolean
-const eqInt = i => j =>
-  i.valueOf() === j.valueOf();
-
-
-// equal
-// Int -> Int -> Boolean
-eqAdd("Int", eqInt);
-
-
-// not equal
-// Int -> Int -> Boolean
-neqAdd("Int", notp2(eqInt));
-
-
 /******************************************************************************
 ********************************[ Null (Unit) ]********************************
 ******************************************************************************/
-
-
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Null
-minBoundAdd("Null", null);
-
-
-// minimal bound
-// Null
-maxBoundAdd("Null", null);
-
-
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Null -> Null -> Boolean
-const eqNull = _ => __ => true;
-
-
-// equal
-// Null -> Null -> Boolean
-eqAdd("Null", eqNull);
-
-
-// not equal
-// Null -> Null -> Boolean
-neqAdd("Null", notp2(eqNull));
 
 
 /******************************************************************************
@@ -1543,28 +1268,19 @@ class Product extends Number {
   };
 
   Product.prototype = Product_.prototype;
+}
+
+
+Product.prototype[Symbol.toStringTag] = "Product";
+
+
+Product.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    "illegal type coercion"
+    + "\n\nProduct must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
+    + "\n");
 };
-
-
-/***[Monoid]******************************************************************/
-
-
-// empty
-// Product
-emptyAdd("Product", Product(1));
-
-
-/***[Semigroup]***************************************************************/
-
-
-// append
-// Product -> Product -> Product
-appendAdd("Product", m => n => Product(m * n));
-
-
-// flipped append
-// Product -> Product -> Product
-appendfAdd("Product", n => m => Product(m * n));
 
 
 /******************************************************************************
@@ -1599,7 +1315,7 @@ class Rec extends Object {
   };
 
   Rec.prototype = Rec_.prototype;
-};
+}
 
 
 Rec.prototype[Symbol.toStringTag] = "Record";
@@ -1617,21 +1333,6 @@ Rec.prototype[Symbol.toPrimitive] = hint => {
 // maximal record size
 // Number
 const MAX_REC_SIZE = 16;
-
-
-/***[Setoid]******************************************************************/
-
-
-// eqRec @PREDEFINED
-
-// equal
-// Record -> Record -> Boolean
-eqAdd("Record", eqRec);
-
-
-// not equal
-// Record -> Record -> Boolean
-neqAdd("Record", notp2(eqRec));
 
 
 /******************************************************************************
@@ -1663,28 +1364,19 @@ class Sum extends Number {
   };
 
   Sum.prototype = Sum_.prototype;
+}
+
+
+Sum.prototype[Symbol.toStringTag] = "Sum";
+
+
+Sum.prototype[Symbol.toPrimitive] = hint => {
+  throw new TypeCoercionError(
+    "illegal type coercion"
+    + "\n\nSum must maintain its type"
+    + `\n\nbut type coercion to ${capitalize(hint)} received`
+    + "\n");
 };
-
-
-/***[Monoid]******************************************************************/
-
-
-// empty
-// Sum
-emptyAdd("Sum", Sum(1));
-
-
-/***[Semigroup]***************************************************************/
-
-
-// append
-// Sum -> Sum -> Sum
-appendAdd("Sum", m => n => Sum(m + n));
-
-
-// flipped append
-// Sum -> Sum -> Sum
-appendfAdd("Sum", n => m => Sum(m + n));
 
 
 /******************************************************************************
@@ -1718,7 +1410,7 @@ class Tup extends Array {
   };
 
   Tup.prototype = Tup_.prototype;
-};
+}
 
 
 Tup.prototype.map = () => {
@@ -1745,29 +1437,6 @@ Tup.prototype[Symbol.toStringTag] = "Tuple";
 // maximal tuple size
 // Number
 const MAX_TUP_SIZE = 8;
-
-
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Tupple -> Tuple -> Boolean
-const eqTup = xs => ys =>
-  xs.length !== ys.length
-    ? false
-    : xs.every((x, n) =>
-      eq(x) (ys[n]))
-
-
-// equal
-// Tuple -> Tuple -> Boolean
-eqAdd("Tuple", eqTup);
-
-
-// not equal
-// Tuple -> Tuple -> Boolean
-neqAdd("Tuple", notp2(eqTup));
 
 
 /******************************************************************************
@@ -1873,36 +1542,6 @@ const setArr = (xs, i, d, t, {mode}) => {
 };
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// [a] -> [a] -> Boolean
-const eqArr = xs => ys => {
-  if (xs.length !== ys.length)
-    return false;
-
-  else if (xs.length === 0)
-    return true;
-
-  else {
-    return xs.every((x, n) =>
-      eq(x) (ys[n]));
-  }
-};
-
-
-// equal
-// Array -> Array -> Boolean
-eqAdd("Array", eqArr);
-
-
-// not equal
-// Array -> Array -> Boolean
-neqAdd("Array", notp2(eqArr));
-
-
 /******************************************************************************
 ***********************************[ _Map ]************************************
 ******************************************************************************/
@@ -1969,38 +1608,6 @@ const handleMap = t => ({
 });
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Map<k, v> -> Map<k, v> -> Boolean
-const eqMap = m => n => {
-  if (m.size !== n.size) return false;
-
-  else {
-    const kvs = Array.from(m),
-      lws = Array.from(n);
-
-    return kvs.every(([k, v], n) => {
-      const [l, w] = lws[n];
-      if (!eq(k) (l)) return false;
-      else return eq(v) (w);
-    });
-  }
-};
-
-
-// equal
-// Map<k, v> -> Map<k, v> -> Boolean
-eqAdd("Map", eqMap);
-
-
-// not equal
-// Map<k, v> -> Map<k, v> -> Boolean
-neqAdd("Map", notp2(eqMap));
-
-
 /******************************************************************************
 ***********************************[ _Set ]************************************
 ******************************************************************************/
@@ -2065,36 +1672,6 @@ const handleSet = t => ({
     }
   },
 });
-
-
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Set<a> -> Set<a> -> Boolean
-const eqSet = s => t => {
-  if (s.size !== t.size) return false;
-
-  else {
-    const ks = Array.from(s),
-      ls = Array.from(t);
-
-    return ks.every((k, n) => {
-      return eq(k) (ls[n]);
-    });
-  }
-};
-
-
-// equal
-// Set<a> -> Set<a> -> Boolean
-eqAdd("Set", eqSet);
-
-
-// not equal
-// Set<a> -> Set<a> -> Boolean
-neqAdd("Set", notp2(eqSet));
 
 
 /******************************************************************************
@@ -2340,36 +1917,6 @@ const GT = Comparator("GT")
   (cases => cases.GT);
 
 
-/***[Bounded]*****************************************************************/
-
-
-// minimal bound
-// Comparator
-minBoundAdd("Comparator", LT);
-
-
-// maximal bound
-// Comparator
-maxBoundAdd("Comparator", GT);
-
-
-/***[Setoid]******************************************************************/
-
-
-// equal
-// Comparator -> Comparator -> Boolean
-eqAdd(
-  "Comparator",
-  t => u => t[TAG] === u[TAG]);
-
-
-// not equal
-// Comparator -> Comparator -> Boolean
-neqAdd(
-  "Comparator",
-  t => u => t[TAG] !== u[TAG]);
-
-
 /******************************************************************************
 ***********************************[ Cont ]************************************
 ******************************************************************************/
@@ -2460,29 +2007,6 @@ const Right = $(
     (cases => cases.Right(x)));
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Either<a, b> -> Either<a, b> -> Boolean
-const eqEither = tx => ty =>
-  tx[TAG] === ty[TAG]
-    && tx.runEither({
-      Left: x => ty.runEither({Left: y => eq(x) (y)}),
-      Right: x => ty.runEither({Right: y => eq(x) (y)})});
-
-
-// equal
-// Either<a, b> -> Either<a, b> -> Boolean
-eqAdd("Either", eqEither);
-
-
-// not equal
-// Either<a, b> -> Either<a, b> -> Boolean
-neqAdd("Either", notp2(eqEither));
-
-
 /******************************************************************************
 ***********************************[ Event ]***********************************
 ******************************************************************************/
@@ -2531,27 +2055,6 @@ const Id = Data("Id")
   (Id => x => Id(k => k(x)));
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Id<a> -> Id<a> -> Boolean
-const eqId = tx => ty =>
-    tx.runId(x => ty.runId(y => eq(x) (y)));
-
-
-// equal
-// Id<a> -> Id<a> -> Boolean
-eqAdd("Id", eqId);
-  
-
-
-// not equal
-// Id<a> -> Id<a> -> Boolean
-neqAdd("Id", notp2(eqId));
-
-
 /******************************************************************************
 ***********************************[ Lazy ]************************************
 ******************************************************************************/
@@ -2585,15 +2088,9 @@ const Nil = List("Nil")
   (cases => cases.Nil);
 
 
-/***[Setoid]******************************************************************/
-
-
 /******************************************************************************
 **********************************[ Memoize ]**********************************
 ******************************************************************************/
-
-
-// TODO
 
 
 /******************************************************************************
@@ -2618,9 +2115,6 @@ const Some = $(
   "Some",
   x => Option("Some")
     (cases => cases.Some(x)));
-
-
-/***[Setoid]******************************************************************/
 
 
 /******************************************************************************
@@ -2707,41 +2201,14 @@ const Ref = Data("Ref")
   (Ref => o => Ref(k => k(o)));
 
 
-/***[Setoid]******************************************************************/
-
-
-// auxiliary function
-// no function guarding necessary
-// Ref<Object> -> Ref<Object> -> Boolean
-const eqRef = to => tp =>
-  to.runRef(o =>
-    tp.runRef(p => o === p));
-
-
-// equal
-// Ref<Object> -> Ref<Object> -> Boolean
-eqAdd("Ref", eqRef);
-
-
-// not equal
-// Ref<Object> -> Ref<Object> -> Boolean
-neqAdd("Ref", notp2(eqRef));
-
-
 /******************************************************************************
 ***********************************[ State ]***********************************
 ******************************************************************************/
 
 
-// TODO
-
-
 /******************************************************************************
 **********************************[ Stream ]***********************************
 ******************************************************************************/
-
-
-// TODO
 
 
 /******************************************************************************
@@ -2817,15 +2284,9 @@ const Forest = Data("Forest")
   (Forest => (...trees) => Forest(k => k(trees)));
 
 
-/***[Setoid]******************************************************************/
-
-
 /******************************************************************************
 **********************************[ Unique ]***********************************
 ******************************************************************************/
-
-
-// TODO
 
 
 /******************************************************************************
@@ -2833,15 +2294,534 @@ const Forest = Data("Forest")
 ******************************************************************************/
 
 
-// TODO
-
-
 /******************************************************************************
 **********************************[ Writer ]***********************************
 ******************************************************************************/
 
 
-// TODO
+/******************************************************************************
+*******************************************************************************
+********************************[ TYPECLASSES ]********************************
+*******************************************************************************
+******************************************************************************/
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// a
+const {minBoundAdd, minBound} =
+  overload("minBound", o => o.name);
+
+
+// maximal bound
+// a
+const {maxBoundAdd, maxBound} =
+  overload("maxBound", o => o.name);
+
+
+/***[Monoid]******************************************************************/
+
+
+// empty
+// a
+const {emptyAdd, empty} =
+  overload("empty", o => o.name);
+
+
+/***[Setoid]**********************************************************************/
+
+
+// equal
+// a -> a -> Boolean
+const {eqAdd, eq} =
+  overload("eq", toTypeTag);
+
+
+// not equal
+// a -> a -> Boolean
+const {neqAdd, neq} =
+  overload("neq", toTypeTag);
+
+
+/***[Simegroup]***************************************************************/
+
+
+// append
+// a -> a -> a
+const {appendAdd, append} =
+  overload("append", toTypeTag);
+
+
+// flipped append
+// a -> a -> a
+const {appendfAdd, appendf} =
+  overload("appendf", toTypeTag);
+
+
+/******************************************************************************
+*********************************[ Instances ]*********************************
+******************************************************************************/
+
+
+/***[Auxiliary Functions]*****************************************************/
+
+
+// equal
+// no function guarding necessary
+// untyped
+const eq_ = x => y =>
+  x === y;
+
+
+// not equal
+// no function guarding necessary
+// untyped
+const neq_ = x => y =>
+  x !== y;
+
+
+// auxiliary function
+// no function guarding necessary
+// [a] -> [a] -> Boolean
+const eqArr = xs => ys => {
+  if (xs.length !== ys.length)
+    return false;
+
+  else if (xs.length === 0)
+    return true;
+
+  else {
+    return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+};
+
+
+// equal char
+// no function guarding necessary
+// Char -> Char -> Boolean
+const eqChar = c => d =>
+  c.valueOf() === d.valueOf()
+
+
+// equal either
+// no function guarding necessary
+// Either<a, b> -> Either<a, b> -> Boolean
+const eqEither = tx => ty =>
+  tx[TAG] === ty[TAG]
+    && tx.runEither({
+      Left: x => ty.runEither({Left: y => eq(x) (y)}),
+      Right: x => ty.runEither({Right: y => eq(x) (y)})});
+
+
+// equal float
+// no function guarding necessary
+// Float -> Float -> Boolean
+const eqFloat = f => g =>
+  f.valueOf() === g.valueOf();
+
+
+// equal id
+// no function guarding necessary
+// Id<a> -> Id<a> -> Boolean
+const eqId = tx => ty =>
+    tx.runId(x => ty.runId(y => eq(x) (y)));
+
+
+// equal int
+// no function guarding necessary
+// Integer -> Integer -> Boolean
+const eqInt = i => j =>
+  i.valueOf() === j.valueOf();
+
+
+// equal map
+// no function guarding necessary
+// Map<k, v> -> Map<k, v> -> Boolean
+const eqMap = m => n => {
+  if (m.size !== n.size) return false;
+
+  else {
+    const kvs = Array.from(m),
+      lws = Array.from(n);
+
+    return kvs.every(([k, v], n) => {
+      const [l, w] = lws[n];
+      if (!eq(k) (l)) return false;
+      else return eq(v) (w);
+    });
+  }
+};
+
+
+// equal null
+// no function guarding necessary
+// Null -> Null -> Boolean
+const eqNull = _ => __ => true;
+
+
+// equal record
+// no function guarding necessary
+// Record -> Record -> Boolean
+const eqRec = r => s => {
+  const ks = Object.keys(r),
+    ls = Object.keys(s);
+
+  if (ks.length !== ls.length)
+    return false;
+
+  else return ks.every(k => !(k in s)
+    ? false
+    : eq(r[k]) (s[k]));
+};
+
+
+// equal ref
+// no function guarding necessary
+// Ref<Object> -> Ref<Object> -> Boolean
+const eqRef = to => tp =>
+  to.runRef(o =>
+    tp.runRef(p => o === p));
+
+
+// equal set
+// no function guarding necessary
+// Set<a> -> Set<a> -> Boolean
+const eqSet = s => t => {
+  if (s.size !== t.size) return false;
+
+  else {
+    const ks = Array.from(s),
+      ls = Array.from(t);
+
+    return ks.every((k, n) => {
+      return eq(k) (ls[n]);
+    });
+  }
+};
+
+
+// equal tuple
+// no function guarding necessary
+// Tupple -> Tuple -> Boolean
+const eqTup = t => s =>
+  t.length !== s.length
+    ? false
+    : t.every((x, n) =>
+      eq(x) (s[n]))
+
+
+/***[Bounded]*****************************************************************/
+
+
+// minimal bound
+// Boolean
+minBoundAdd("Boolean", false);
+  
+
+// maximal bound
+// Boolean
+maxBoundAdd("Boolean", true);
+
+
+// minimal bound
+// Char
+minBoundAdd("Char", Char("\u{0}"));
+
+
+// maximal bound
+// Char
+maxBoundAdd("Char", Char("\u{10FFFF}"));
+
+
+// minimal bound
+// Comparator
+minBoundAdd("Comparator", LT);
+
+
+// maximal bound
+// Comparator
+maxBoundAdd("Comparator", GT);
+
+
+// minimal bound
+// Integer
+minBoundAdd("Integer", Int(Number.MIN_SAFE_INTEGER));
+
+
+// maximal bound
+// Integer
+maxBoundAdd("Integer", Int(Number.MAX_SAFE_INTEGER));
+
+
+// minimal bound
+// Null
+minBoundAdd("Null", null);
+
+
+// minimal bound
+// Null
+maxBoundAdd("Null", null);
+
+
+/***[Monoid]***************************************************************/
+
+
+// empty
+// All
+emptyAdd("All", All(true));
+
+
+// empty
+// Any
+emptyAdd("Any", Any(false));
+
+
+// empty
+// a -> a
+emptyAdd("Function", id);
+
+
+// empty
+// Product
+emptyAdd("Product", Product(1));
+
+
+// empty
+// Sum
+emptyAdd("Sum", Sum(1));
+
+
+/***[Semigroup]***************************************************************/
+
+
+// append
+// All -> All -> All
+appendAdd("All", a => b =>
+  All(a.valueOf() && b.valueOf()));
+
+
+// flipped append
+// All -> All -> All
+appendfAdd("All", b => a =>
+  All(a.valueOf() && b.valueOf()));
+
+
+// append
+// Any -> Any -> Any
+appendAdd("Any", a => b =>
+  Any(a.valueOf() || b.valueOf()));
+
+
+// flipped append
+// Any -> Any -> Any
+appendfAdd("Any", b => a =>
+  Any(a.valueOf() || b.valueOf()));
+
+
+// append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendAdd("Function", f => g => x => f(g(x)));
+
+
+// flipped append
+// (a -> a) -> (a -> a) -> (a -> a)
+appendfAdd("Function", g => f => x => f(g(x)));
+
+
+// append
+// Product -> Product -> Product
+appendAdd("Product", m => n => Product(m * n));
+
+
+// flipped append
+// Product -> Product -> Product
+appendfAdd("Product", n => m => Product(m * n));
+
+
+// append
+// Sum -> Sum -> Sum
+appendAdd("Sum", m => n => Sum(m + n));
+
+
+// flipped append
+// Sum -> Sum -> Sum
+appendfAdd("Sum", n => m => Sum(m + n));
+
+
+/***[Setoid]******************************************************************/
+
+
+// equal
+// Array -> Array -> Boolean
+eqAdd("Array", eqArr);
+
+
+// not equal
+// Array -> Array -> Boolean
+neqAdd("Array", notp2(eqArr));
+
+
+// equal
+// Boolean -> Boolean -> Boolean
+eqAdd("Boolean", eq_);
+
+
+// not equal
+// Boolean -> Boolean -> Boolean
+neqAdd("Boolean", neq_);
+
+
+// equal
+// Char -> Char -> Boolean
+eqAdd("Char", eqChar);
+
+
+// not equal
+// Char -> Char -> Boolean
+neqAdd("Char", notp2(eqChar));
+
+
+// equal
+// Comparator -> Comparator -> Boolean
+eqAdd("Comparator", t => u => t[TAG] === u[TAG]);
+
+
+// not equal
+// Comparator -> Comparator -> Boolean
+neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
+
+
+// equal
+// Either<a, b> -> Either<a, b> -> Boolean
+eqAdd("Either", eqEither);
+
+
+// not equal
+// Either<a, b> -> Either<a, b> -> Boolean
+neqAdd("Either", notp2(eqEither));
+
+
+// equal
+// Float -> Float -> Boolean
+eqAdd("Float", eqFloat);
+
+
+// not equal
+// Float -> Float -> Boolean
+neqAdd("Float", notp2(eqFloat));
+
+
+// equal
+// Id<a> -> Id<a> -> Boolean
+eqAdd("Id", eqId);
+  
+
+// not equal
+// Id<a> -> Id<a> -> Boolean
+neqAdd("Id", notp2(eqId));
+
+
+// equal
+// Integer -> Integer -> Boolean
+eqAdd("Integer", eqInt);
+
+
+// not equal
+// Integer -> Integer -> Boolean
+neqAdd("Integer", notp2(eqInt));
+
+
+// equal
+// Map<k, v> -> Map<k, v> -> Boolean
+eqAdd("Map", eqMap);
+
+
+// not equal
+// Map<k, v> -> Map<k, v> -> Boolean
+neqAdd("Map", notp2(eqMap));
+
+
+// equal
+// Null -> Null -> Boolean
+eqAdd("Null", eqNull);
+
+
+// not equal
+// Null -> Null -> Boolean
+neqAdd("Null", notp2(eqNull));
+
+
+// equal
+// Number -> Number -> Boolean
+eqAdd("Number", eq_);
+
+
+// not equal
+// Number -> Number -> Boolean
+neqAdd("Number", neq_);
+
+
+// equal
+// Object -> Object -> Boolean
+eqAdd("Object", eqRec);
+
+
+// not equal
+// Object -> Object -> Boolean
+neqAdd("Object", notp2(eqRec));
+
+
+// equal
+// Record -> Record -> Boolean
+eqAdd("Record", eqRec);
+
+
+// not equal
+// Record -> Record -> Boolean
+neqAdd("Record", notp2(eqRec));
+
+
+// equal
+// Ref<Object> -> Ref<Object> -> Boolean
+eqAdd("Ref", eqRef);
+
+
+// not equal
+// Ref<Object> -> Ref<Object> -> Boolean
+neqAdd("Ref", notp2(eqRef));
+
+
+// equal
+// Set<a> -> Set<a> -> Boolean
+eqAdd("Set", eqSet);
+
+
+// not equal
+// Set<a> -> Set<a> -> Boolean
+neqAdd("Set", notp2(eqSet));
+
+
+// equal
+// String -> String -> Boolean
+eqAdd("String", eq_);
+
+
+// not equal
+// String -> String -> Boolean
+neqAdd("String", neq_);
+
+
+// equal
+// Tuple -> Tuple -> Boolean
+eqAdd("Tuple", eqTup);
+
+
+// not equal
+// Tuple -> Tuple -> Boolean
+neqAdd("Tuple", notp2(eqTup));
 
 
 /******************************************************************************
@@ -2923,6 +2903,7 @@ Object.assign($,
     overload,
     partial,
     pipe,
+    Product,
     prop,
     Reader,
     Rec,
@@ -2937,6 +2918,7 @@ Object.assign($,
     Some,
     subscribe,
     Suc,
+    Sum,
     swap,
     TAG,
     tap,
