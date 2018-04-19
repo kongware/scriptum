@@ -380,14 +380,14 @@ const Forest = Data("Forest")
 ```
 # Overloading
 
-scriptum ports Clojure's multimethods to realize overloading at runtime and consequently bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Runtime overloading provides similar properties as typeclasses in statically typed languages. However, there is a crucial difference:
+scriptum ports Clojure's multimethods to realize overloading at runtime and thus bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Runtime overloading provides similar properties as typeclasses in statically typed languages. However, there are crucial differences:
 
 * multimethods introspect the types of values whereas typeclasses work soleley with types
 * multimethods introduce runtime costs whereas typeclasses are ereased at runtime
 
-The consequence of the former is that overloading by multimethods doesn't work on return types.
+The consequence of the former is that overloading through multimethods doesn't work on return types.
 
-Anyway, I am going to use the term typeclass from here on, because scriptum uses multimethods to mimic them. The following typeclasses are or will be supported in future versions:
+I am going to use the term typeclass from here on anyway, because scriptum uses multimethods to mimic them. The following typeclasses are or will be supported in future versions:
 
 * Alternative
 * Apply
