@@ -10,7 +10,7 @@ A type-directed functional library with a focus on purity, abstraction and a mat
 
 ## Why
 
-scriptum is the attempt to reconcile Javascript's dynamical type convenience with the type safety of statically typed languages.
+scriptum is an attempt to reconcile Javascript's dynamical type convenience with the type safety of statically typed languages.
 
 ## Why not just Flowtype?
 
@@ -203,11 +203,15 @@ scriptum introduces a couple of new data types using various techniques. The nex
 
 ## Subtyping
 
-The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are constructed by smart constrcutors:
+The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are created by smart constrcutors:
 
+* All
+* Any
 * Char
 * Int
+* Product
 * Rec (record)
+* Sum
 * Tup (tuple)
 
 ## Proxying
@@ -374,11 +378,16 @@ const Tree = Data("Tree")
 const Forest = Data("Forest")
   (Forest => (...trees) => Forest(k => k(trees)));
 ```
-# Typeclasses
+# Overloading
 
-Typeclasses are a common way to overload functions and values in statically typed languages. scriptum realizes overloading by porting Clojure's multimethods and hence bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Like typeclasses scriptums's approach allows for overloading functions and values. As opposed to typeclasses you cannot overload the return type of a function, though. Return type polymorphism isn't a meaningful concept in dynamically typed languages, because the presence of a value is required to introspect its type.
+scriptum ports Clojure's multimethods to realize overloading at runtime and consequently bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Runtime overloading provides similar properties as typeclasses in statically typed languages. However, there is a crucial difference:
 
-scriptum offers a couple of overloaded functions that correspond to the following typeclasses:
+* multimethods introspect the types of values whereas typeclasses work soleley with types
+* multimethods introduce runtime costs whereas typeclasses are ereased at runtime
+
+The consequence of the former is that overloading by multimethods doesn't work on return types.
+
+Anyway, I am going to use the term typeclass from here on, because scriptum uses multimethods to mimic them. The following typeclasses are or will be supported in future versions:
 
 * Alternative
 * Apply
@@ -408,7 +417,7 @@ scriptum offers a couple of overloaded functions that correspond to the followin
 * Setoid
 * Traversable
 
-Overloaded functions are open, that is you can always add function instances to handle additional types.
+Overloaded functions are open, that is you can always add function instances to handle your own types accordingly.
 
 Let's define the overloaded `append` and `empty` functions to simulate the Monoid typeclass:
 
