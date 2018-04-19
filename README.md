@@ -609,6 +609,22 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
+# Currying
+
+scriptum relies on function in curried form. For non-commutative binary functions both possible parameter orders are usually provided to avoid argument flipping and thus runtime costs:
+
+```Javascript
+const div = m => n =>
+  m / n;
+  
+const div_ = n => m =>
+  m / n;
+  
+```
+# Immutability and Persistent Data Structures
+
+Unfortunatelly, Javascript offers neither on the language level. You can construct your own data types with this qualities, but this renders your code incompatible with much of Javascript's ecosystem. For this reason scriptum embraces local mutations to avoid performance penalties due to repetitive copying of large data structures. Alternatively, scriptum will provide its own persistent data structures and means to convert them to built-in types.
+
 # Functional Reactive Programming
 
 scriptum distinguishes two types of time series values: `Behavior` and `Event`.
