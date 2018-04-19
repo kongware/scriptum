@@ -425,25 +425,28 @@ Let's define the overloaded `append` and `empty` functions to simulate the Monoi
 const {appendAdd, append} = overload("append", toTypeTag);
 
 appendAdd("String", s => t => `${s}${t}`);
-appendAdd("Number", n => m => n + m);
-appendAdd("All", b => c => b && c);
-appendAdd("Array", xs => ys => xs.concat(ys));
+appendAdd("Sum", n => m => Sum(n + m));
+appendAdd("All", b => c => All(b.valueOf() && c.valueOf()));
+appendAdd("Array", xs => ys => Arr(xs.concat(ys)));
 
 const {emptyAdd, empty} = overload("empty", get("name"));
 
 emptyAdd("String", "");
-emptyAdd("Number", 0);
+emptyAdd("Sum", Sum(0));
+emptyAdd("All", All(true));
 emptyAdd("Array", []);
 
-append(2) (3); // 5
 append("foo") ("bar"); // "foobar"
-append([1,2]) ([3,4]); // [1,2,3,4]
+append(Sum(2)) (Sum(3)); // Sum<5>
+append(All(true)) (All(false)); // All<false>
+append(Arr([1,2])) (Arr([3,4])); // [1,2,3,4]
 
 empty(String); // ""
-empty(Number); // 0
+empty(Sum); // 0
+empty(All); // true
 empty(Array); // []
 ```
-`empty` demonstrates the lack of return type polymorphism: We have to pass the type (or its constructor) explicitly.
+`empty` demonstrates the lack of return type polymorphism: We have to pass the constructor explicitly.
 
 # Effect Handling
 
