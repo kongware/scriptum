@@ -697,15 +697,21 @@ cancel();
 ```
 The `Event` type is still experimental and may change in the future.
 
-## DOM Handling
+## Reactive Principles
 
-I think most UIs doesn't require virtual dom. DOM manipulation is better done with a bunch of specialized DOM combinators, which encapsulate quirks of the DOM API and maintain composability. Together with the `Event` and `Behavior` type and unidirectional data flow scriptum offers a basic but powerful toolset to build responsive views. I will provide the most important DOM combinators soon.
-
-Unidirectional data flow results in the following principles:
+scriptum follows the following reative principles:
 
 * Only the program may manipulate the output display, never the user
 * User input is presented in the form of events
 * GUI elements generate events only in response to user input, never in response to program output
+
+## Reactive Combinators
+
+scriptum will provide a suit of combinators that renders template engines unnecessary and facilitate the work with various DOM APIs.
+
+## Incremental DOM Updates
+
+Instead of relying on virtual dom implementations scriptum favours incremental functions that patch DOM updates incrementally. Building specific incremental functions for a particular use case isn't that hard. The challenge consists rather in generalizing these functions so that they can be reused for different tasks. This is ongoing work.
 
 # TODO
 
