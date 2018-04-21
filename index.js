@@ -486,7 +486,8 @@ const ordinal = $(
       v = n % 100;
 
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  });
+  }
+);
 
 
 // replace nestings
@@ -506,7 +507,8 @@ const replaceNestings = $(
     const xs = s.match(/^[\[{<]|[\]}>]$/g);
     if (xs.length === 0) return aux(s);
     else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
-  });
+  }
+);
 
 
 // stringify
@@ -518,7 +520,8 @@ const stringify = $(
       case "string": return `"${x}"`;
       default: return String(x);
     }
-  });
+  }
+);
 
 
 /******************************************************************************
@@ -1385,7 +1388,7 @@ Sum.prototype[Symbol.toPrimitive] = hint => {
 
 
 // tuple constructor
-// (...Array) -> Tuple
+// (...[?]) -> Tuple
 class Tup extends Array {
   constructor(...args) {
     if (args.length === 1) {
@@ -2297,6 +2300,46 @@ const Forest = Data("Forest")
 /******************************************************************************
 **********************************[ Writer ]***********************************
 ******************************************************************************/
+
+
+/******************************************************************************
+*******************************************************************************
+***************************[ DOCUMENT OBJECT MODEL ]***************************
+*******************************************************************************
+******************************************************************************/
+
+
+// dom markup
+// String -> ...[Attr] -> ...[HTMLElement] -> HTMLElement
+const markup = $(
+  "markup"
+  name => (...attr) => (...children) => {
+    const el = document.createElement(name);
+
+    attr.forEach(
+      a => el.setAttributeNode(a));
+
+    children.forEach(child =>
+      el.appendChild(child));
+
+    return el;
+  }
+);
+
+
+// dom text
+// String -> Text
+const text = s =>
+  document.createTextNode(s);
+
+
+// dom attribute
+// (String, String) -> Attr
+const attr = (k, v) => {
+  const a = document.createAttribute(k);
+  a.value = v;
+  return a;
+};
 
 
 /******************************************************************************
