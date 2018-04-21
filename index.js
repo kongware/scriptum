@@ -2309,6 +2309,33 @@ const Forest = Data("Forest")
 ******************************************************************************/
 
 
+// append to parent node
+// Node -> Node -> Eff<>
+const appendNode = parent => child =>
+  Eff(() => parent.append(child));
+
+
+// dom attribute
+// (String, String) -> Attr
+const attr = (k, v) => {
+  const a = document.createAttribute(k);
+  a.value = v;
+  return a;
+};
+
+
+// insert after sibling node
+// Node -> Node -> Eff<>
+const insertAfter = predecessor => sibling =>
+  Eff(() => predecessor.insertBefore(sibling));
+
+
+// insert before sibling node
+// Node -> Node -> Eff<>
+const insertBefore = successor => sibling =>
+  Eff(() => successor.insertBefore(sibling));
+
+
 // dom markup
 // String -> ...[Attr] -> ...[HTMLElement] -> HTMLElement
 const markup = $(
@@ -2331,15 +2358,6 @@ const markup = $(
 // String -> Text
 const text = s =>
   document.createTextNode(s);
-
-
-// dom attribute
-// (String, String) -> Attr
-const attr = (k, v) => {
-  const a = document.createAttribute(k);
-  a.value = v;
-  return a;
-};
 
 
 /******************************************************************************
