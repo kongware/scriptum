@@ -2415,10 +2415,10 @@ const {appendAdd, append} =
   overload("append", toTypeTag);
 
 
-// flipped append
+// prepend
 // a -> a -> a
-const {appendfAdd, appendf} =
-  overload("appendf", toTypeTag);
+const {prependAdd, prepend} =
+  overload("prepend", toTypeTag);
 
 
 /******************************************************************************
@@ -2630,27 +2630,32 @@ maxBoundAdd("Null", null);
 /***[Monoid]***************************************************************/
 
 
-// empty
+// empty add
 // All
 emptyAdd("All", All(true));
 
 
-// empty
+// empty add
 // Any
 emptyAdd("Any", Any(false));
 
 
-// empty
+// empty add
 // a -> a
 emptyAdd("Function", id);
 
 
-// empty
+// empty add
 // Product
 emptyAdd("Product", Product(1));
 
 
-// empty
+// empty add
+// String
+emptyAdd("String", "");
+
+
+// empty add
 // Sum
 emptyAdd("Sum", Sum(1));
 
@@ -2658,58 +2663,64 @@ emptyAdd("Sum", Sum(1));
 /***[Semigroup]***************************************************************/
 
 
-// append
+// append add
 // All -> All -> All
-appendAdd("All", a => b =>
-  All(a.valueOf() && b.valueOf()));
+appendAdd("All", a => b => All(a.valueOf() && b.valueOf()));
 
 
-// flipped append
-// All -> All -> All
-appendfAdd("All", b => a =>
-  All(a.valueOf() && b.valueOf()));
-
-
-// append
+// append add
 // Any -> Any -> Any
-appendAdd("Any", a => b =>
-  Any(a.valueOf() || b.valueOf()));
+appendAdd("Any", a => b => Any(a.valueOf() || b.valueOf()));
 
 
-// flipped append
-// Any -> Any -> Any
-appendfAdd("Any", b => a =>
-  Any(a.valueOf() || b.valueOf()));
-
-
-// append
+// append add
 // (a -> a) -> (a -> a) -> (a -> a)
 appendAdd("Function", f => g => x => f(g(x)));
 
 
-// flipped append
-// (a -> a) -> (a -> a) -> (a -> a)
-appendfAdd("Function", g => f => x => f(g(x)));
-
-
-// append
+// append add
 // Product -> Product -> Product
 appendAdd("Product", m => n => Product(m * n));
 
 
-// flipped append
-// Product -> Product -> Product
-appendfAdd("Product", n => m => Product(m * n));
+// append add
+// String -> String -> String
+appendAdd("String", s => t => `${s}${t}`);
 
 
-// append
+// append add
 // Sum -> Sum -> Sum
 appendAdd("Sum", m => n => Sum(m + n));
 
 
-// flipped append
+// prepend add
+// All -> All -> All
+prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
+
+
+// prepend add
+// Any -> Any -> Any
+prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
+
+
+// prepend add
+// (a -> a) -> (a -> a) -> (a -> a)
+prependAdd("Function", g => f => x => f(g(x)));
+
+
+// prepend add
+// Product -> Product -> Product
+prependAdd("Product", n => m => Product(m * n));
+
+
+// append add
+// String -> String -> String
+prependAdd("String", t => s => `${s}${t}`);
+
+
+// prepend add
 // Sum -> Sum -> Sum
-appendfAdd("Sum", n => m => Sum(m + n));
+prependAdd("Sum", n => m => Sum(m + n));
 
 
 /***[Setoid]******************************************************************/
@@ -2903,9 +2914,10 @@ Object.assign($,
     Any,
     append,
     appendAdd,
-    appendfAdd,
+    appendNode,
     apply,
     Arr,
+    attr,
     Behavior,
     Char,
     co,
@@ -2941,6 +2953,8 @@ Object.assign($,
     Id,
     id,
     infix,
+    insertAfter,
+    insertBefore,
     Int,
     introspect,
     join,
@@ -2949,6 +2963,7 @@ Object.assign($,
     loop,
     LT,
     _Map,
+    markup,
     maxBound,
     maxBoundAdd,
     minBound,
@@ -2964,6 +2979,8 @@ Object.assign($,
     overload,
     partial,
     pipe,
+    prepend,
+    prependAdd,
     Product,
     prop,
     Reader,
@@ -2984,6 +3001,7 @@ Object.assign($,
     TAG,
     tap,
     Task,
+    text,
     toTypeTag,
     Tree,
     Tup,
