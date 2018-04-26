@@ -637,6 +637,20 @@ const overload2 = (name, dispatch) => {
 };
 
 
+// dispatcher
+// no function guarding necessary
+// untyped
+const dispatcher = x => {
+  if (typeof x === "function")
+    return x.name;
+
+  else {
+    const tag = Object.prototype.toString.call(x);
+    return tag.slice(tag.lastIndexOf(" ") + 1, -1);
+  }
+};
+
+
 /***[Errors]******************************************************************/
 
 
@@ -2339,7 +2353,7 @@ const insertBefore = successor => sibling =>
 // dom markup
 // String -> ...[Attr] -> ...[HTMLElement] -> HTMLElement
 const markup = $(
-  "markup"
+  "markup",
   name => (...attr) => (...children) => {
     const el = document.createElement(name);
 
@@ -2373,13 +2387,13 @@ const text = s =>
 // minimal bound
 // a
 const {minBoundAdd, minBound} =
-  overload("minBound", o => o.name);
+  overload("minBound", dispatcher);
 
 
 // maximal bound
 // a
 const {maxBoundAdd, maxBound} =
-  overload("maxBound", o => o.name);
+  overload("maxBound", dispatcher);
 
 
 /***[Monoid]******************************************************************/
@@ -2388,7 +2402,7 @@ const {maxBoundAdd, maxBound} =
 // empty
 // a
 const {emptyAdd, empty} =
-  overload("empty", o => o.name);
+  overload("empty", dispatcher);
 
 
 /***[Setoid]**********************************************************************/
@@ -2397,13 +2411,13 @@ const {emptyAdd, empty} =
 // equal
 // a -> a -> Boolean
 const {eqAdd, eq} =
-  overload("eq", toTypeTag);
+  overload("eq", dispatcher);
 
 
 // not equal
 // a -> a -> Boolean
 const {neqAdd, neq} =
-  overload("neq", toTypeTag);
+  overload("neq", dispatcher);
 
 
 /***[Simegroup]***************************************************************/
@@ -2412,13 +2426,13 @@ const {neqAdd, neq} =
 // append
 // a -> a -> a
 const {appendAdd, append} =
-  overload("append", toTypeTag);
+  overload("append", dispatcher);
 
 
 // prepend
 // a -> a -> a
 const {prependAdd, prepend} =
-  overload("prepend", toTypeTag);
+  overload("prepend", dispatcher);
 
 
 /******************************************************************************
@@ -2731,19 +2745,9 @@ prependAdd("Sum", n => m => Sum(m + n));
 eqAdd("Array", eqArr);
 
 
-// not equal
-// Array -> Array -> Boolean
-neqAdd("Array", notp2(eqArr));
-
-
 // equal
 // Boolean -> Boolean -> Boolean
 eqAdd("Boolean", eq_);
-
-
-// not equal
-// Boolean -> Boolean -> Boolean
-neqAdd("Boolean", neq_);
 
 
 // equal
@@ -2751,19 +2755,9 @@ neqAdd("Boolean", neq_);
 eqAdd("Char", eqChar);
 
 
-// not equal
-// Char -> Char -> Boolean
-neqAdd("Char", notp2(eqChar));
-
-
 // equal
 // Comparator -> Comparator -> Boolean
 eqAdd("Comparator", t => u => t[TAG] === u[TAG]);
-
-
-// not equal
-// Comparator -> Comparator -> Boolean
-neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
 
 
 // equal
@@ -2771,19 +2765,9 @@ neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
 eqAdd("Either", eqEither);
 
 
-// not equal
-// Either<a, b> -> Either<a, b> -> Boolean
-neqAdd("Either", notp2(eqEither));
-
-
 // equal
 // Float -> Float -> Boolean
 eqAdd("Float", eqFloat);
-
-
-// not equal
-// Float -> Float -> Boolean
-neqAdd("Float", notp2(eqFloat));
 
 
 // equal
@@ -2791,19 +2775,9 @@ neqAdd("Float", notp2(eqFloat));
 eqAdd("Id", eqId);
   
 
-// not equal
-// Id<a> -> Id<a> -> Boolean
-neqAdd("Id", notp2(eqId));
-
-
 // equal
 // Integer -> Integer -> Boolean
 eqAdd("Integer", eqInt);
-
-
-// not equal
-// Integer -> Integer -> Boolean
-neqAdd("Integer", notp2(eqInt));
 
 
 // equal
@@ -2811,19 +2785,9 @@ neqAdd("Integer", notp2(eqInt));
 eqAdd("Map", eqMap);
 
 
-// not equal
-// Map<k, v> -> Map<k, v> -> Boolean
-neqAdd("Map", notp2(eqMap));
-
-
 // equal
 // Null -> Null -> Boolean
 eqAdd("Null", eqNull);
-
-
-// not equal
-// Null -> Null -> Boolean
-neqAdd("Null", notp2(eqNull));
 
 
 // equal
@@ -2831,19 +2795,9 @@ neqAdd("Null", notp2(eqNull));
 eqAdd("Number", eq_);
 
 
-// not equal
-// Number -> Number -> Boolean
-neqAdd("Number", neq_);
-
-
 // equal
 // Object -> Object -> Boolean
 eqAdd("Object", eqRec);
-
-
-// not equal
-// Object -> Object -> Boolean
-neqAdd("Object", notp2(eqRec));
 
 
 // equal
@@ -2851,19 +2805,9 @@ neqAdd("Object", notp2(eqRec));
 eqAdd("Record", eqRec);
 
 
-// not equal
-// Record -> Record -> Boolean
-neqAdd("Record", notp2(eqRec));
-
-
 // equal
 // Ref<Object> -> Ref<Object> -> Boolean
 eqAdd("Ref", eqRef);
-
-
-// not equal
-// Ref<Object> -> Ref<Object> -> Boolean
-neqAdd("Ref", notp2(eqRef));
 
 
 // equal
@@ -2871,24 +2815,94 @@ neqAdd("Ref", notp2(eqRef));
 eqAdd("Set", eqSet);
 
 
-// not equal
-// Set<a> -> Set<a> -> Boolean
-neqAdd("Set", notp2(eqSet));
-
-
 // equal
 // String -> String -> Boolean
 eqAdd("String", eq_);
 
 
-// not equal
-// String -> String -> Boolean
-neqAdd("String", neq_);
-
-
 // equal
 // Tuple -> Tuple -> Boolean
 eqAdd("Tuple", eqTup);
+
+
+// not equal
+// Array -> Array -> Boolean
+neqAdd("Array", notp2(eqArr));
+
+
+// not equal
+// Boolean -> Boolean -> Boolean
+neqAdd("Boolean", neq_);
+
+
+// not equal
+// Char -> Char -> Boolean
+neqAdd("Char", notp2(eqChar));
+
+
+// not equal
+// Comparator -> Comparator -> Boolean
+neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
+
+
+// not equal
+// Either<a, b> -> Either<a, b> -> Boolean
+neqAdd("Either", notp2(eqEither));
+
+
+// not equal
+// Float -> Float -> Boolean
+neqAdd("Float", notp2(eqFloat));
+
+
+// not equal
+// Id<a> -> Id<a> -> Boolean
+neqAdd("Id", notp2(eqId));
+
+
+// not equal
+// Integer -> Integer -> Boolean
+neqAdd("Integer", notp2(eqInt));
+
+
+// not equal
+// Map<k, v> -> Map<k, v> -> Boolean
+neqAdd("Map", notp2(eqMap));
+
+
+// not equal
+// Null -> Null -> Boolean
+neqAdd("Null", notp2(eqNull));
+
+
+// not equal
+// Number -> Number -> Boolean
+neqAdd("Number", neq_);
+
+
+// not equal
+// Object -> Object -> Boolean
+neqAdd("Object", notp2(eqRec));
+
+
+// not equal
+// Record -> Record -> Boolean
+neqAdd("Record", notp2(eqRec));
+
+
+// not equal
+// Ref<Object> -> Ref<Object> -> Boolean
+neqAdd("Ref", notp2(eqRef));
+
+
+// not equal
+// Set<a> -> Set<a> -> Boolean
+neqAdd("Set", notp2(eqSet));
+
+
+// not equal
+// String -> String -> Boolean
+neqAdd("String", neq_);
 
 
 // not equal
@@ -2936,6 +2950,7 @@ Object.assign($,
     Data,
     destructiveDel,
     destructiveSet,
+    dispatcher,
     Eff,
     empty,
     emptyAdd,
