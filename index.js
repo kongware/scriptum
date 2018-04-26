@@ -2119,6 +2119,17 @@ const Right = $(
 
 
 /******************************************************************************
+***********************************[ Endo ]************************************
+******************************************************************************/
+
+
+// endomorphism
+// (a -> a) -> Endo<a>
+const Endo = Data("Endo")
+  (Endo => f => Endo(f));
+
+
+/******************************************************************************
 ***********************************[ Event ]***********************************
 ******************************************************************************/
 
@@ -2754,8 +2765,23 @@ emptyAdd("Array", []);
 
 
 // empty add
-// a -> a
-emptyAdd("Function", id);
+// Comparator
+emptyAdd("Comparator", EQ);
+
+
+// empty add
+// Endo<a>
+emptyAdd("Endo", id);
+
+
+// empty add
+// Monoid b => a -> b
+emptyAdd("Function", empty);
+
+
+// empty add
+// Id
+emptyAdd("Id", Id);
 
 
 // empty add
@@ -2798,8 +2824,21 @@ appendAdd("Array", xs => ys => xs.concat(ys));
 
 
 // append add
-// (a -> a) -> (a -> a) -> (a -> a)
-appendAdd("Function", f => g => x => f(g(x)));
+// Comparator -> Comparator -> Comparator
+appendAdd("Comparator", t => u =>
+  t[TAG] === "LT" ? LT
+    : t[TAG] === "EQ" ? u
+    : GT);
+
+
+// append add
+// Endo<a> -> Endo<a> -> Endo<a>
+appendAdd("Endo", f => g => Endo(x => f(g(x))));
+
+
+// append add
+// Monoid b => (a -> b) -> (a -> b) -> a -> b
+appendAdd("Function", f => g => x => append(f(x)) (g(x)));
 
 
 // append add
@@ -2833,9 +2872,14 @@ prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
 prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
 
 
-// append add
+// prepend add
 // Array -> Array -> Array
-appendAdd("Array", ys => xs => xs.concat(ys));
+prependAdd("Array", ys => xs => xs.concat(ys));
+
+
+// prepnd add
+// Endo<a> -> Endo<a> -> Endo<a>
+prependAdd("Endo", g => f => Endo(x => f(g(x))));
 
 
 // prepend add
@@ -3085,6 +3129,7 @@ Object.assign($,
     Eff,
     empty,
     emptyAdd,
+    Endo,
     EQ,
     eq,
     eqAdd,

@@ -399,6 +399,7 @@ I am going to use the term typeclass from here on anyway, because scriptum uses 
 * ChainRec
 * Comonad
 * Contravariant
+* Endo
 * Enum
 * Eq
 * Extend
