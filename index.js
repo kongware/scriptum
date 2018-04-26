@@ -356,9 +356,9 @@ const introspectSet = s => {
 
 // introspect tuple
 // Tuple -> String
-const introspectTup = t => {
-  if (t.length > MAX_TUP_SIZE) return "Tuple<?>";
-  else return `Tuple<${Array.from(t).map(t_ => introspect(t_)).join(", ")}>`;
+const introspectTup = xs => {
+  if (xs.length > MAX_TUP_SIZE) return "Tuple<?>";
+  else return `Tuple<${Array.from(xs).map(x => introspect(x)).join(", ")}>`;
 };
 
 
@@ -637,7 +637,10 @@ const overload2 = (name, dispatch) => {
 };
 
 
-// dispatcher
+/***[Dispatcher]**************************************************************/
+
+
+// default dispatcher
 // no function guarding necessary
 // untyped
 const dispatcher = x => {
@@ -954,6 +957,97 @@ const recur = (...args) =>
 /******************************************************************************
 **********************************[ Number ]***********************************
 ******************************************************************************/
+
+
+// add
+// Number -> Number -> Number
+const add = $(
+  "add",
+  m => n => m + n);
+
+
+// decrease
+// Number -> Number
+const dec = $(
+  "dec",
+  n => n - 1);
+
+
+// divide
+// Number -> Number -> Number
+const div = $(
+  "div",
+  m => n => m / n);
+
+
+// divide flipped
+// Number -> Number -> Number
+const divf = $(
+  "divf",
+  n => m => m / n);
+
+
+// exponentiate
+// Number -> Number -> Number
+const exp = $(
+  "exp",
+  m => n => m ** n);
+
+
+// exponentiate flipped
+// Number -> Number -> Number
+const expf = $(
+  "expf",
+  n => m => m ** n);
+
+
+// increase
+// Number -> Number
+const inc = $(
+  "inc",
+  n => n + 1);
+
+
+// multiply
+// Number -> Number -> Number
+const mul = $(
+  "mul",
+  m => n => m * n);
+
+
+// negate
+// Number -> Number
+const neg = $(
+  "neg",
+  n => -n);
+
+
+// remainder
+// Number -> Number -> Number
+const rem = $(
+  "rem",
+  m => n => m % n);
+
+
+// remainder
+// Number -> Number -> Number
+const remf = $(
+  "remf",
+  n => m => m % n);
+
+
+// sub
+// Number -> Number -> Number
+const sub = $(
+  "sub",
+  m => n => m - n);
+
+
+// sub flipped
+// Number -> Number -> Number
+const subf = $(
+  "subf",
+  n => m => m - n);
 
 
 /******************************************************************************
@@ -2581,11 +2675,11 @@ const eqSet = s => t => {
 // equal tuple
 // no function guarding necessary
 // Tupple -> Tuple -> Boolean
-const eqTup = t => s =>
-  t.length !== s.length
+const eqTup = xs => ys =>
+  xs.length !== ys.length
     ? false
-    : t.every((x, n) =>
-      eq(x) (s[n]))
+    : xs.every((x, n) =>
+      eq(x) (ys[n]));
 
 
 /***[Bounded]*****************************************************************/
@@ -2655,6 +2749,11 @@ emptyAdd("Any", Any(false));
 
 
 // empty add
+// Array
+emptyAdd("Array", []);
+
+
+// empty add
 // a -> a
 emptyAdd("Function", id);
 
@@ -2674,6 +2773,12 @@ emptyAdd("String", "");
 emptyAdd("Sum", Sum(1));
 
 
+// empty add
+// Tuple
+// TODO: replace with Tuple map
+// emptyAdd("Tuple", xs => xs.map(x => empty(x)));
+
+
 /***[Semigroup]***************************************************************/
 
 
@@ -2685,6 +2790,11 @@ appendAdd("All", a => b => All(a.valueOf() && b.valueOf()));
 // append add
 // Any -> Any -> Any
 appendAdd("Any", a => b => Any(a.valueOf() || b.valueOf()));
+
+
+// append add
+// Array -> Array -> Array
+appendAdd("Array", xs => ys => xs.concat(ys));
 
 
 // append add
@@ -2707,6 +2817,12 @@ appendAdd("String", s => t => `${s}${t}`);
 appendAdd("Sum", m => n => Sum(m + n));
 
 
+// append add
+// Tuple -> Tuple -> Tuple
+// TODO: replace with Tuple map
+// appendAdd("Tuple", xs => ys => xs.map((x, i) => append(x) (ys[i]));
+
+
 // prepend add
 // All -> All -> All
 prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
@@ -2715,6 +2831,11 @@ prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
 // prepend add
 // Any -> Any -> Any
 prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
+
+
+// append add
+// Array -> Array -> Array
+appendAdd("Array", ys => xs => xs.concat(ys));
 
 
 // prepend add
@@ -2735,6 +2856,12 @@ prependAdd("String", t => s => `${s}${t}`);
 // prepend add
 // Sum -> Sum -> Sum
 prependAdd("Sum", n => m => Sum(m + n));
+
+
+// prepend add
+// Tuple -> Tuple -> Tuple
+// TODO: replace with Tuple map
+// prependAdd("Tuple", ys => xs => xs.map((x, i) => prepend(x) (ys[i]));
 
 
 /***[Setoid]******************************************************************/
@@ -2924,6 +3051,7 @@ history = [];
 // initialize namespace
 Object.assign($,
   {
+    add,
     All,
     Any,
     append,
@@ -2948,15 +3076,20 @@ Object.assign($,
     curry,
     curry3,
     Data,
+    dec,
     destructiveDel,
     destructiveSet,
     dispatcher,
+    div,
+    divf,
     Eff,
     empty,
     emptyAdd,
     EQ,
     eq,
     eqAdd,
+    exp,
+    expf,
     Err,
     Event,
     fix,
@@ -2967,6 +3100,7 @@ Object.assign($,
     history,
     Id,
     id,
+    inc,
     infix,
     insertAfter,
     insertBefore,
@@ -2983,6 +3117,8 @@ Object.assign($,
     maxBoundAdd,
     minBound,
     minBoundAdd,
+    mul,
+    neg,
     neq,
     neqAdd,
     Nil,
@@ -3002,6 +3138,8 @@ Object.assign($,
     Rec,
     recur,
     Ref,
+    rem,
+    remf,
     Right,
     rotl,
     rotr,
@@ -3009,6 +3147,8 @@ Object.assign($,
     _Set,
     SIG,
     Some,
+    sub,
+    subf,
     subscribe,
     Suc,
     Sum,
