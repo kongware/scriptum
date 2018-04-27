@@ -35,7 +35,7 @@ scriptum encourages you to program in a type-directed manner and to consider fun
 
 scriptum tries to avoid imposing explicit type annotations on the programmer. Instead of knowing the types upfront it provides as much debugging information as possible in hindsight.
 
-The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe and easer to debug.
+The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe and easer to debug. This is achieved by `Proxy` virtualization, that is guarded functions are wrapped in `Proxy` objects.
 
 With the `$` operator you can guard curried, multi-argument and polyvariadic functions:
 
@@ -112,7 +112,7 @@ The reason for this lies in sriptum's inability to distinguish variadic from det
 
 ## Anonymous Functions
 
-The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. With guarded functions you can always access function names via the console. Guarded functions are virtualized by `Proxy`s where the `[[ProxyHandler]]` internal slot holds a name property with the respective function name.
+The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. With guarded functions you can always access function names while debugging. It is kept by the `Symbol(NAME)` property on the `[[ProxyHandler]]` internal slot.
 
 First order function sequences inherit the name of their initial function:
 
@@ -122,7 +122,7 @@ const add = $(
   m => n =>
     m + n);
 
-add(2); // [[ProxyHandler]] contains name: "add"
+add(2); // [[ProxyHandler]].Symbol(NAME) = "add"
 ```
 Higher order function sequences additionally adapt their name to the last function returned:
 
@@ -141,12 +141,12 @@ const inc = $(
   "inc",
   n => n + 1);
 
-comp(add) (inc); // [[ProxyHandler]] contains name: "comp"
-comp(add) (inc) (2); // [[ProxyHandler]] contains name: "add"
+comp(add) (inc); // [[ProxyHandler]].Symbol(NAME) = "comp"
+comp(add) (inc) (2); // [[ProxyHandler]].Symbol(NAME) = "add"
 ```
-## Type Logs
+## Function Call Logs
 
-scriptum provides a type log for each guarded function:
+scriptum maintains a call log for each guarded function, which is kept by the `Symbol(LOG)` property on the `[[ProxyHandler]]` internal slot.
 
 ```Javascript
 const comp = $(
@@ -163,11 +163,11 @@ const inc = $(
   "inc",
   n => n + 1);
 
-comp(add) (inc) (2).log; // ["comp(λadd)", "comp(λinc)", "comp(Number)"]
+comp(add) (inc) (2); // [[ProxyHandler]].Symbol(LOG) = ["comp(λadd)", "comp(λinc)", "comp(Number)"]
 ```
 `λ` just indicates that the given argument is a possibly anonymous function.
 
-If a function call results in a non-functional return value it isn't logged and hence you cannot introspect it as described above. In scriptum jargon this is a final function call. In order to log final function calls scriptum maintains a global type log that usually contains the last ten complete function calls including the final calls.
+If a guarded function call results in a non-functional return value it isn't logged. In scriptum jargon this is a final function call. In order to introspect final function calls scriptum maintains a global function call log that contains the last ten complete function calls including the final ones.
 
 ## Type Misuse
 

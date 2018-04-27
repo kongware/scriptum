@@ -50,29 +50,34 @@ const GUARDED = true;
 /***[Variables]***************************************************************/
 
 
-// history log
+// call log log
 // [String]
-let history = [];
+let callLog = [];
 
 
-// set history
+// enqueue call log
 // String -> [String]
-const setHistory = s => {
-  history.unshift(s);
+const enqueueCallLog = s => {
+  callLog.unshift(s);
 
-  if (history.length > HISTORY_LEN)
-    history.pop();
+  if (callLog.length > CALL_LOG_LEN)
+    callLog.pop();
 };
 
 
-// length of global history log
+// length of global call log
 // Number
-const HISTORY_LEN = 10;
+const CALL_LOG_LEN = 10;
 
 
 // function type log accessor
 // Symbol
 const LOG = Symbol("LOG");
+
+
+// function name accessor
+// Symbol
+const NAME = Symbol("NAME");
 
 
 // property for accessing type signatures
@@ -113,11 +118,11 @@ const $ = (name, f) => {
 
     if (name.indexOf("...") === 0)
       return new Proxy(
-        f, handleF(name.slice(3), f, [], {params: "var", nthCall: 0}));
+        f, handleF(name.slice(3), [], {arity: "var", nthCall: 0}));
 
     else
       return new Proxy(
-        f, handleF(name, f, [], {params: "fix", nthCall: 0}));
+        f, handleF(name, [], {arity: "fix", nthCall: 0}));
   }
 
   else return f;
@@ -127,13 +132,15 @@ const $ = (name, f) => {
 // handle guarded function
 // proxy handler
 // untyped
-const handleF = (name, f, log, {params, nthCall}) => {
+const handleF = (name, log, {arity, nthCall}) => {
   return {
-    name, // in order to retrieve function names during debugging
+    [NAME]: name,
 
-    apply: (g, _, args) => {
+    [LOG]: log,
+
+    apply: (f, _, args) => {
       // skip both calls
-      verifyArity(g, args, name, params, nthCall, log);
+      verifyArity(f, args, name, arity, nthCall, log);
       const argTypes = verifyArgTypes(args, name, nthCall, log);
 
       // step into call
@@ -147,23 +154,20 @@ const handleF = (name, f, log, {params, nthCall}) => {
         const name_ = r.name || name,
           log_ = log.concat(`${name}(${argTypes})`);
 
-        Reflect.defineProperty(r, "name", {value: name_});
-        Reflect.defineProperty(r, LOG, {value: log_});
-
         return new Proxy(
-          r, handleF(name_, r, log_, {params, nthCall: nthCall + 1})
+          r, handleF(name_, log_, {arity, nthCall: nthCall + 1})
         );
       }
 
       else {
-        setHistory(log.concat(`${name}(${argTypes})`));
+        enqueueCallLog(log.concat(`${name}(${argTypes})`));
         return r;
       }
     },
 
     get: (f, k, p) => {
       switch (k) {
-        case "name": return name;
+        case NAME: return name;
         case LOG: return log;
         default: return f[k];
       }
@@ -376,14 +380,16 @@ const verifyArgTypes = (args, name, nthCall, log) =>
       + `\nin the ${ordinal(nthArg + 1)} argument`
       + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
       + "\n");
+
+    else return t;
   }).join(", ");
   
 
 // verify arity
 // no argument type checking necessary
 // untyped
-const verifyArity = (g, args, name, params, nthCall, log) => {
-  if (params === "fix" && g.length !== args.length) {
+const verifyArity = (g, args, name, arity, nthCall, log) => {
+  if (arity === "fix" && g.length !== args.length) {
     throw new ArityError(
       "invalid function call arity"
       + `\n\n${name} expects ${g.length}-ary Function`
@@ -393,7 +399,7 @@ const verifyArity = (g, args, name, params, nthCall, log) => {
       + "\n");
   }
 
-  else if (params === "var" && g.length > args.length) {
+  else if (arity === "var" && g.length > args.length) {
     throw new ArityError(
       "invalid function call arity"
       + `\n\n${name} expects at least ${g.length}-ary Function`
@@ -3088,8 +3094,8 @@ neqAdd("Tuple", notp2(eqTup));
 ******************************************************************************/
 
 
-// reset history
-history = [];
+// reset call log
+callLog = [];
 
 
 // initialize namespace
@@ -3142,7 +3148,6 @@ Object.assign($,
     Float,
     Forest,
     GT,
-    history,
     Id,
     id,
     inc,
