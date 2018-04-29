@@ -512,6 +512,8 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 
 # TODO
 
+- [ ] add monoid instance for Ord<k> => Map<k, v>
+- [ ] add monoid instance for Ord<k> => Set<k>
 - [ ] Unit tests
 - [ ] API documentation
 

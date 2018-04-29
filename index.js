@@ -107,7 +107,6 @@ const overload2 = (name, dispatch) => {
 
 
 // default dispatcher
-// no function guarding necessary
 // untyped
 const dispatcher = (...args) => args.map(arg => {
   const tag = Object.prototype.toString.call(arg);
@@ -327,11 +326,51 @@ const recur = (...args) =>
 
 
 /******************************************************************************
-************************************[ Map ]************************************
+*********************************[ Generator ]*********************************
 ******************************************************************************/
 
 
-// @PROXIES/_Map
+// keys
+// Object -> Generator
+function* keys(o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
+
+
+// values
+// Object -> Generator
+function* values(o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
+
+
+// entries
+// Object -> Generator
+function* entries(o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+}
+
+
+/******************************************************************************
+*********************************[ Iterator ]**********************************
+******************************************************************************/
+
+
+const exhaust = f => ix => {
+  for (let x of ix) {
+    f(x)
+  }
+}
+
+/******************************************************************************
+************************************[ Map ]************************************
+******************************************************************************/
 
 
 /******************************************************************************
@@ -604,7 +643,12 @@ class Product extends Number {} {
 
 // record constructor
 // Object -> Record
-class Rec extends Object {} {
+class Rec extends Object {
+  constructor(o) {
+    super(o);
+    Object.assign(this, o);
+  }
+} {
   const Rec_ = Rec;
 
   Rec = function(o) {
@@ -1209,6 +1253,7 @@ const eqNull = _ => __ => true;
 
 
 // equal record
+// TODO: replace Object.keys with generator
 // Record -> Record -> Boolean
 const eqRec = r => s => {
   const ks = Object.keys(r),
@@ -1343,13 +1388,21 @@ emptyAdd("Function", co(empty));
 
 
 // empty add
-// Monoid a => Id<a>
-emptyAdd("Id", tx => tx.runId(x => Id(empty(x))));
+// Product
+emptyAdd("Product", Product(1));
 
 
 // empty add
-// Product
-emptyAdd("Product", Product(1));
+// Monoid a b => Record<String: a, String: b> // for instance
+emptyAdd("Record", o => {
+  const ix = entries(o),
+    p = {};
+
+  for (let [k, v] of ix)
+    p[k] = empty(v);
+
+  return Rec(p);
+});
 
 
 // empty add
@@ -1444,6 +1497,34 @@ appendAdd("Product/Product", m => n => Product(m * n));
 // prepend add
 // Product -> Product -> Product
 prependAdd("Product/Product", n => m => Product(m * n));
+
+
+// append add
+// Record -> Record -> Record
+appendAdd("Record/Record", o => p => {
+  const ix = entries(o),
+    q = {};
+
+  for (let [k, v] of ix) {
+    q[k] = append(v) (p[k]);
+  }
+
+  return Rec(q);
+});
+
+
+// prepend add
+// Record -> Record -> Record
+prependAdd("Record/Record", p => o => {
+  const ix = entries(o),
+    q = {};
+
+  for (let [k, v] of ix) {
+    q[k] = append(v) (p[k]);
+  }
+
+  return Rec(q);
+});
 
 
 // append add
@@ -1666,17 +1747,6 @@ const ordinal = n => {
 }
 
 
-
-// quote
-// a -> String
-const quote = x => {
-  switch (typeof x) {
-    case "string": return `"${x}"`;
-    default: return String(x);
-  }
-}
-
-
 /******************************************************************************
 *******************************************************************************
 **********************************[ EXPORT ]***********************************
@@ -1723,6 +1793,7 @@ Object.assign($,
     emptyAdd,
     emptyLookup,
     Endo,
+    entries,
     EQ,
     eq,
     eqAdd,
@@ -1744,6 +1815,7 @@ Object.assign($,
     insertBefore,
     Int,
     join,
+    keys,
     Lazy,
     Left,
     loop,
@@ -1800,7 +1872,8 @@ Object.assign($,
     Type,
     uncurry,
     uncurry3,
-    VALUE
+    VALUE,
+    values
   }
 );
 
