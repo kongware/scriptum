@@ -248,6 +248,8 @@ The following extended types are function encoded and simulate algebraic data ty
 * Valid (validation)
 * Writer (computation depending on a shared write-only environment)
 
+Please note that as in Haskell multi constructor ADTs are generally right-biased.
+
 ## Type Coersion
 
 When an extended type is implicitly converted, it throws a type error:

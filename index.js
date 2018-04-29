@@ -13,22 +13,6 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 
 /******************************************************************************
 *******************************************************************************
-********************************[ PREDEFINED ]*********************************
-*******************************************************************************
-******************************************************************************/
-
-
-// to type tag
-// no function guarding necessary
-// a -> String
-const toTypeTag = x => {
-  const tag = Object.prototype.toString.call(x);
-  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
-};
-
-
-/******************************************************************************
-*******************************************************************************
 **********************************[ GLOBALS ]**********************************
 *******************************************************************************
 ******************************************************************************/
@@ -39,7 +23,7 @@ const toTypeTag = x => {
 
 // invalid types
 // [String]
-const INVALID_TYPES = new Set(["Undefined", "NaN", "Infinity"]);
+const INVALID_TYPES = new RegExp(/\b(?:Undefined|NaN|Infinity)\b/);
 
 
 // flag for controling function guarding
@@ -70,19 +54,24 @@ const enqueueCallLog = s => {
 const CALL_LOG_LEN = 10;
 
 
-// function type log accessor
+// function call log property
 // Symbol
 const LOG = Symbol("LOG");
 
 
-// function name accessor
+// function name property
 // Symbol
 const NAME = Symbol("NAME");
 
 
-// property for accessing type signatures
+// type signatures property
 // Symbol
 const SIG = Symbol("SIG");
+
+
+// value indicator
+// Symbol
+const VALUE = Symbol("VALUE");
 
 
 /******************************************************************************
@@ -90,6 +79,15 @@ const SIG = Symbol("SIG");
 *********************************[ DEBUGGING ]*********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+// to type tag
+// no function guarding necessary
+// a -> String
+const toTypeTag = x => {
+  const tag = Object.prototype.toString.call(x);
+  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
+};
 
 
 /***[Virtualization]**********************************************************/
@@ -103,16 +101,16 @@ const $ = (name, f) => {
     if (typeof name !== "string") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n$ expects an argument of type String"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(name)} received`
       + "\n");
 
     else if (typeof f !== "function") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n$ expects an argument of type Function"
-      + `\n\non the 1st call`
-      + `\n\nin the 2nd argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 2nd argument"
       + `\n\nbut ${introspect(f)} received`
       + "\n");
 
@@ -152,7 +150,7 @@ const handleF = (name, log, {arity, nthCall}) => {
       // skip statement
       if (typeof r === "function") {
         const name_ = r.name || name,
-          log_ = log.concat(`${name}(${argTypes})`);
+          log_ = [`${name}(${argTypes})`].concat(log);
 
         return new Proxy(
           r, handleF(name_, log_, {arity, nthCall: nthCall + 1})
@@ -160,7 +158,7 @@ const handleF = (name, log, {arity, nthCall}) => {
       }
 
       else {
-        enqueueCallLog(log.concat(`${name}(${argTypes})`));
+        enqueueCallLog([`${name}(${argTypes})`].concat(log));
         return r;
       }
     },
@@ -184,8 +182,8 @@ const $sum = (name, f, tags) => {
       if (toTypeTag(cases) !== "Object") throw new ArgTypeError(
         "invalid argument type"
         + `\n\n${name} expects an argument of type Object`
-        + `\n\non the 1st call`
-        + `\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
         + `\n\nbut ${introspect(cases)} received`
         + "\n");
 
@@ -198,8 +196,8 @@ const $sum = (name, f, tags) => {
           "invalid argument value"
           + `\n\n${name} expects an Object including the following cases`
           + `\n\n${tags.join(", ")}`
-          + `\n\non the 1st call`
-          + `\nin the 1st argument`
+          + "\n\non the 1st call"
+          + "\nin the 1st argument"
           + `\n\nbut ${tag} was not received`
           + "\n");
       });
@@ -208,8 +206,8 @@ const $sum = (name, f, tags) => {
         "invalid argument value"
         + `\n\n${name} expects an Object including the following cases`
         + `\n\n${tags.join(", ")}`
-        + `\n\non the 1st call`
-        + `\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\nin the 1st argument"
         + `\n\nbut additionally ${Array.from(s.values()).join(", ")} received`
         + "\n");
 
@@ -373,12 +371,13 @@ const verifyArgTypes = (args, name, nthCall, log) =>
   args.map((arg, nthArg) => {
     const t = introspect(arg);
 
-    if (INVALID_TYPES.has(t)) throw new ArgTypeError(
+    if (t.search(INVALID_TYPES) !== -1) throw new ArgTypeError(
       "invalid argument type"
-      + `\n\n${name} received an argument of type ${t}`
+      + `\n\n${name} received an argument of type`
+      + `\n\n${t}`
       + `\n\non the ${ordinal(nthCall + 1)} call`
       + `\nin the ${ordinal(nthArg + 1)} argument`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log.join("\n")}`)
       + "\n");
 
     else return t;
@@ -395,7 +394,7 @@ const verifyArity = (g, args, name, arity, nthCall, log) => {
       + `\n\n${name} expects ${g.length}-ary Function`
       + `\n\non the ${ordinal(nthCall + 1)} call`
       + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join("\n")}]`)
       + "\n");
   }
 
@@ -405,7 +404,7 @@ const verifyArity = (g, args, name, arity, nthCall, log) => {
       + `\n\n${name} expects at least ${g.length}-ary Function`
       + `\n\non the ${ordinal(nthCall + 1)} call`
       + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join(", ")}]`)
+      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join("\n")}]`)
       + "\n");
   }
 };
@@ -417,10 +416,11 @@ const verifyArity = (g, args, name, arity, nthCall, log) => {
 const verifyRetType = (r, name, log) => {
   const t = introspect(r);
 
-  if (INVALID_TYPES.has(t)) throw new ReturnTypeError(
+  if (t.search(INVALID_TYPES) !== -1) throw new ReturnTypeError(
     "invalid return type"
-    + `\n\n${name} returned a value of type ${t}`
-    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log}`)
+    + `\n\n${name} returned a value of type`
+    + `\n\n${t}`
+    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log.join("\n")}`)
     + "\n");
 
   return t;
@@ -537,26 +537,28 @@ const stringify = $(
 ******************************************************************************/
 
 
-// overloaded function
-// dispatched on the first argument
+// overload unary function
+// dispatch on the first argument
 // no function guarding necessary
 // untyped
 const overload = (name, dispatch) => {
-  if (typeof name !== "string") throw new ArgTypeError(
-    "invalid argument type"
-    + "\n\noverload expects an argument of type String"
-    + `\n\non the 1st call`
-    + `\n\nin the 1st argument`
-    + `\n\nbut ${introspect(name)} received`
-    + "\n");
+  if (GUARDED) {
+    if (typeof name !== "string") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\noverload expects an argument of type String"
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
+      + `\n\nbut ${introspect(name)} received`
+      + "\n");
 
-  else if (typeof dispatch !== "function") throw new ArgTypeError(
-    "invalid argument type"
-    + "\n\noverload expects an argument of type Function"
-    + `\n\non the 1st call`
-    + `\n\nin the 2nd argument`
-    + `\n\nbut ${introspect(dispatch)} received`
-    + "\n");
+    else if (typeof dispatch !== "function") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\noverload expects an argument of type Function"
+      + "\n\non the 1st call"
+      + "\n\nin the 2nd argument"
+      + `\n\nbut ${introspect(dispatch)} received`
+      + "\n");
+  }
 
   const pairs = new Map();
 
@@ -565,6 +567,8 @@ const overload = (name, dispatch) => {
       `${name}Add`,
       (k, v) =>
         pairs.set(k, v)),
+
+    [`${name}Lookup`]: k => pairs.get(k),
 
     [name]: $(
       `${name}`,
@@ -577,7 +581,8 @@ const overload = (name, dispatch) => {
             + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))}`
             + "\n\non the 1st call"
             + "\nin the 1st argument"
-            + `\n\nfor the given value of type ${introspect(x)}`
+            + "\n\nfor the given value of type"
+            + `\n\n${introspect(x)}`
             + "\n");
 
         else if (typeof r === "function")
@@ -590,27 +595,29 @@ const overload = (name, dispatch) => {
 };
 
 
-// overloaded function
-// dispatched on the first and second argument
+// overload binary function
+// dispatch both on the first and second argument
 // no function guarding necessary
 // untyped
 const overload2 = (name, dispatch) => {
-  if (typeof name !== "string") throw new ArgTypeError(
-    "invalid argument type"
-    + "\n\noverload expects an argument of type String"
-    + `\n\non the 1st call`
-    + `\n\nin the 1st argument`
-    + `\n\nbut ${introspect(name)} received`
-    + "\n");
+  if (GUARDED) {
+    if (typeof name !== "string") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\noverload expects an argument of type String"
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
+      + `\n\nbut ${introspect(name)} received`
+      + "\n");
 
-  else if (typeof dispatch !== "function") throw new ArgTypeError(
-    "invalid argument type"
-    + "\n\noverload expects an argument of type Function"
-    + `\n\non the 1st call`
-    + `\n\nin the 2nd argument`
-    + `\n\nbut ${introspect(dispatch)} received`
-    + "\n");
-
+    else if (typeof dispatch !== "function") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\noverload expects an argument of type Function"
+      + "\n\non the 1st call"
+      + "\n\nin the 2nd argument"
+      + `\n\nbut ${introspect(dispatch)} received`
+      + "\n");  
+  }
+  
   const pairs = new Map();
 
   return {
@@ -619,18 +626,27 @@ const overload2 = (name, dispatch) => {
       (k, v) =>
         pairs.set(k, v)),
 
+    [`${name}Lookup`]: k => pairs.get(k),
+
     [name]: $(
       `${name}`,
       x => y => {
+        if (typeof x === "function" && (VALUE in x))
+          x = x(y);
+
+        else if (typeof y === "function" && (VALUE in y))
+          y = y(x);
+
         const r = pairs.get(dispatch(x, y));
 
         if (r === undefined)
           throw new OverloadError(
             "invalid overloaded function call"
-            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))} / ${stringify(dispatch(y))}`
+            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))}/${stringify(dispatch(y))}`
             + "\n\non the 1st/2nd call"
             + "\nin the 1st argument"
-            + `\n\nfor the given values of type ${introspect(x)}/${introspect(y)}`
+            + "\n\nfor the given values of type"
+            + `\n\n${introspect(x)}/${introspect(y)}`
             + "\n");
 
         else if (typeof r === "function")
@@ -649,15 +665,10 @@ const overload2 = (name, dispatch) => {
 // default dispatcher
 // no function guarding necessary
 // untyped
-const dispatcher = x => {
-  if (typeof x === "function")
-    return x.name;
-
-  else {
-    const tag = Object.prototype.toString.call(x);
-    return tag.slice(tag.lastIndexOf(" ") + 1, -1);
-  }
-};
+const dispatcher = (...args) => args.map(arg => {
+  const tag = Object.prototype.toString.call(arg);
+  return tag.slice(tag.lastIndexOf(" ") + 1, -1);
+}).join("/");
 
 
 /***[Errors]******************************************************************/
@@ -961,6 +972,11 @@ const recur = (...args) =>
 
 
 /******************************************************************************
+********************************[ Null (Unit) ]********************************
+******************************************************************************/
+
+
+/******************************************************************************
 **********************************[ Number ]***********************************
 ******************************************************************************/
 
@@ -1077,14 +1093,56 @@ const destructiveSet = $(
     (o[k] = v, o));
 
 
+// object factory
+// untyped
+const Factory = (name, ...fields) => {
+  if (GUARDED) {
+    if (typeof name !== "string") throw new ArgTypeError(
+      "invalid argument type"
+      + "\n\nFactory expects an argument of type String"
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
+      + `\n\nbut ${introspect(name)} received`
+      + "\n");
+
+    fields.forEach((field, n) => {
+      if (typeof field !== "string") throw new ArgTypeError(
+        "invalid argument type"
+        + "\n\nFactory expects an argument of type String"
+        + "\n\non the 1st call"
+        + "\n\nin the 2nd argument"
+        + `\n\nat the ${ordinal(i)} position`
+        + `\n\nbut ${introspect(field)} received`
+        + "\n");
+    });
+  }
+
+  const Cons =
+    Function(`return function ${name}() {}`) ();
+
+  Cons.prototype[Symbol.toStringTag] = name;
+
+  const rec = (o, n) => {
+    if (n === fields.length)
+      return Object.assign(new Cons(), o);
+
+    else return $(
+      name,
+      x => {
+        o[fields[n]] = x;
+        return rec(o, n + 1);
+      });
+  };
+
+  return rec({}, 0);
+};
+
+
 // property getter
 // String -> Object -> a
 const prop = $(
   "prop",
   k => o => o[k]);
-
-
-// toTypeTag @PREDEFINED
 
 
 /******************************************************************************
@@ -1129,8 +1187,8 @@ class All extends Boolean {
       if (typeof b !== "boolean") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nAny expects an argument of type Boolean"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(b)} received`
         + "\n");
     }
@@ -1143,20 +1201,17 @@ class All extends Boolean {
   };
 
   All.prototype = All_.prototype;
+
+  All_.prototype[Symbol.toStringTag] = "All";
+
+  All_.prototype[Symbol.toPrimitive] = hint => {
+    throw new TypeCoercionError(
+      "illegal type coercion"
+      + "\n\nAll must maintain its type"
+      + `\n\nbut type coercion to ${capitalize(hint)} received`
+      + "\n");
+  };
 }
-
-
-All.prototype[Symbol.toStringTag] = "All";
-
-
-All.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nAll must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
-
 
 
 /******************************************************************************
@@ -1174,8 +1229,8 @@ class Any extends Boolean {
       if (typeof b !== "boolean") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nAny expects an argument of type Boolean"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(b)} received`
         + "\n");
     }
@@ -1218,16 +1273,16 @@ class Char extends String {
       if (typeof c !== "string") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nChar expects an argument of type String"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(c)} received`
         + "\n");
 
       else if ([...c].length !== 1) throw new ArgValueError(
         "invalid argument value"
         + "\n\nChar expects a single character"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${c} received`
         + "\n");
     }
@@ -1270,8 +1325,8 @@ class Float extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nFloat expects an argument of type Number"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(n)} received`
         + "\n");
     }
@@ -1314,16 +1369,16 @@ class Int extends Number {
       if (typeof n !== "number") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nInt expects an argument of type Number"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(n)} received`
         + "\n");
 
       else if (n % 1 !== 0) throw new ArgValueError(
         "invalid argument value"
         + "\n\nInt expects a natural Number"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${c} received`
         + "\n");
     }
@@ -1352,11 +1407,6 @@ Int.prototype[Symbol.toPrimitive] = hint => {
 
 
 /******************************************************************************
-********************************[ Null (Unit) ]********************************
-******************************************************************************/
-
-
-/******************************************************************************
 **********************************[ Product ]**********************************
 ******************************************************************************/
 
@@ -1371,8 +1421,8 @@ class Product extends Number {
       if (toTypeTag(n) !== "Number") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nProduct expects an argument of type Number"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(n)} received`
         + "\n");
     }
@@ -1416,8 +1466,8 @@ class Rec extends Object {
       if (typeof o !== "object" || o === null) throw new ArgTypeError(
         "invalid argument type"
         + "\n\nRec expects an argument of type Object"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(o)} received`
         + "\n");
 
@@ -1467,8 +1517,8 @@ class Sum extends Number {
       if (toTypeTag(n) !== "Number") throw new ArgTypeError(
         "invalid argument type"
         + "\n\nSum expects an argument of type Number"
-        + `\n\non the 1st call`
-        + `\n\nin the 1st argument`
+        + "\n\non the 1st call"
+        + "\n\nin the 1st argument"
         + `\n\nbut ${introspect(n)} received`
         + "\n");
     }
@@ -1569,14 +1619,14 @@ const MAX_TUP_SIZE = 8;
 
 
 // homogeneous array constructor
-// Array -> Proxy
+// Array -> Arr
 const Arr = xs => {
   if (GUARDED) {
     if (!Array.isArray(xs)) throw new ArgTypeError(
       "invalid argument type"
       + "\n\nArr expects an argument of type Array"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(xs)} received`
       + "\n");
 
@@ -1585,8 +1635,8 @@ const Arr = xs => {
     if (replaceNestings(t).search(/\?|,/) !== -1) throw new ArgTypeError(
       "invalid argument type"
       + "\n\nArr expects an homogeneous Array"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(xs)} received`
       + "\n");
 
@@ -1598,7 +1648,7 @@ const Arr = xs => {
 
 
 // handle homogeneous array
-// String -> Proxy
+// String -> Object
 const handleArr = t => ({
   get: (xs, i, p) => {
     switch (i) {
@@ -1647,9 +1697,11 @@ const setArr = (xs, i, d, t, {mode}) => {
 
     else if (`[${introspect(d.value)}]` !== t) throw new TypeError(
       "illegal operation"
-      + `\n\nArr of type ${introspect(xs)} must remain homogeneous`
+      + "\n\nArr must remain the homogeneous type"
+      + `\n\n${introspect(xs)}`
       + `\n\nbut set operation would lead to a heterogeneous Arr`
-      + `\n\nwith element of type ${introspect(d.value)}`
+      + "\n\nwith element of type"
+      + `\n\n${introspect(d.value)}`
       + "\n");
   }
 
@@ -1665,14 +1717,14 @@ const setArr = (xs, i, d, t, {mode}) => {
 
 
 // homogeneous map constructor
-// Map -> Proxy
+// Map -> _Map
 const _Map = m => {
   if (GUARDED) {
     if (toTypeTag(m) !== "Map") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Map expects an argument of type Map"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(m)} received`
       + "\n");
 
@@ -1681,8 +1733,8 @@ const _Map = m => {
     if (t === "Map<?>") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Map expects an homogeneous Map"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${t} received`
       + "\n");
 
@@ -1694,7 +1746,7 @@ const _Map = m => {
 
 
 // handle homogeneous map
-// String -> Proxy
+// String -> Object
 const handleMap = t => ({
   get: (m, k, p) => {
     switch (k) {
@@ -1709,9 +1761,11 @@ const handleMap = t => ({
       case "set": return (k, v) => {
         if (`Map<${introspect(k)}, ${introspect(v)}>` !== t) throw new TypeError(
           "illegal operation"
-          + `\n\n_Map of type ${introspect(m)} must remain homogeneous`
+          + "\n\n_Map must remain the homogeneous type"
+          + `\n\n${introspect(m)}`
           + `\n\nbut set operation would lead to a heterogeneous _Map`
-          + `\n\nwith pair of type ${introspect(k)}/${introspect(v)}`
+          + "\n\nwith pair of type"
+          + `\n\n${introspect(k)}/${introspect(v)}`
           + "\n");
 
         else return m.set(k, v);
@@ -1731,14 +1785,14 @@ const handleMap = t => ({
 
 
 // homogeneous set constructor
-// Set -> Proxy
+// Set -> _Set
 const _Set = s => {
   if (GUARDED) {
     if (toTypeTag(s) !== "Set") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Set expects an argument of type Set"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(m)} received`
       + "\n");
 
@@ -1747,8 +1801,8 @@ const _Set = s => {
     if (t === "Set<?>") throw new ArgTypeError(
       "invalid argument type"
       + "\n\n_Set expects a homogeneous Set"
-      + `\n\non the 1st call`
-      + `\n\nin the 1st argument`
+      + "\n\non the 1st call"
+      + "\n\nin the 1st argument"
       + `\n\nbut ${introspect(m)} received`
       + "\n");
 
@@ -1760,7 +1814,7 @@ const _Set = s => {
 
 
 // handle homogeneous set
-// String -> Proxy
+// String -> Object
 const handleSet = t => ({
   get: (s, k, p) => {
     switch (k) {
@@ -1775,9 +1829,11 @@ const handleSet = t => ({
       case "set": return k => {
         if (`Set<${introspect(k)}>` !== t) throw new ArgTypeError(
           "illegal operation"
-          + `\n\n_Set of type ${introspect(s)} must remain homogeneous`
+          + "\n\n_Set must remain the homogeneous type"
+          + `\n\n${introspect(s)}`
           + `\n\nbut set operation would lead to a heterogeneous _Set`
-          + `\n\nwith key of type ${introspect(k)}`
+          + "\n\nwith key of type"
+          + `\n\n${introspect(k)}`
           + "\n");
 
         else return s.add(k);
@@ -2497,14 +2553,14 @@ const text = s =>
 
 // minimal bound
 // a
-const {minBoundAdd, minBound} =
-  overload("minBound", dispatcher);
+const {minBoundAdd, minBoundLookup, minBound} =
+  overload("minBound", toTypeTag);
 
 
 // maximal bound
 // a
-const {maxBoundAdd, maxBound} =
-  overload("maxBound", dispatcher);
+const {maxBoundAdd, maxBoundLookup, maxBound} =
+  overload("maxBound", toTypeTag);
 
 
 /***[Monoid]******************************************************************/
@@ -2512,8 +2568,11 @@ const {maxBoundAdd, maxBound} =
 
 // empty
 // a
-const {emptyAdd, empty} =
-  overload("empty", dispatcher);
+const {emptyAdd, emptyLookup, empty} =
+  overload("empty", toTypeTag);
+
+
+empty[VALUE] = "empty";
 
 
 /***[Setoid]**********************************************************************/
@@ -2521,14 +2580,14 @@ const {emptyAdd, empty} =
 
 // equal
 // a -> a -> Boolean
-const {eqAdd, eq} =
-  overload("eq", dispatcher);
+const {eqAdd, eqLookup, eq} =
+  overload("eq", toTypeTag);
 
 
 // not equal
 // a -> a -> Boolean
-const {neqAdd, neq} =
-  overload("neq", dispatcher);
+const {neqAdd, neqLookup, neq} =
+  overload("neq", toTypeTag);
 
 
 /***[Simegroup]***************************************************************/
@@ -2536,14 +2595,14 @@ const {neqAdd, neq} =
 
 // append
 // a -> a -> a
-const {appendAdd, append} =
-  overload("append", dispatcher);
+const {appendAdd, appendLookup, append} =
+  overload2("append", dispatcher);
 
 
 // prepend
 // a -> a -> a
-const {prependAdd, prepend} =
-  overload("prepend", dispatcher);
+const {prependAdd, prependLookup, prepend} =
+  overload2("prepend", dispatcher);
 
 
 /******************************************************************************
@@ -2691,7 +2750,7 @@ const eqSet = s => t => {
 
 // equal tuple
 // no function guarding necessary
-// Tupple -> Tuple -> Boolean
+// Tuple -> Tuple -> Boolean
 const eqTup = xs => ys =>
   xs.length !== ys.length
     ? false
@@ -2766,7 +2825,7 @@ emptyAdd("Any", Any(false));
 
 
 // empty add
-// Array
+// [a]
 emptyAdd("Array", []);
 
 
@@ -2786,8 +2845,8 @@ emptyAdd("Function", empty);
 
 
 // empty add
-// Id
-emptyAdd("Id", Id);
+// Monoid a => Id<a>
+emptyAdd("Id", tx => tx.runId(x => Id(empty(x))));
 
 
 // empty add
@@ -2802,13 +2861,18 @@ emptyAdd("String", "");
 
 // empty add
 // Sum
-emptyAdd("Sum", Sum(1));
+emptyAdd("Sum", Sum(0));
 
 
 // empty add
-// Tuple
+// Monoid a b => Tuple<a, b> // for instance
 // TODO: replace with Tuple map
 // emptyAdd("Tuple", xs => xs.map(x => empty(x)));
+
+
+// empty add
+// Monoid b => Either<a, b>
+emptyAdd("Either", tx => tx.runEither(x => Right(toTypeTag(x))));
 
 
 /***[Semigroup]***************************************************************/
@@ -2819,14 +2883,29 @@ emptyAdd("Sum", Sum(1));
 appendAdd("All", a => b => All(a.valueOf() && b.valueOf()));
 
 
+// prepend add
+// All -> All -> All
+prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
+
+
 // append add
 // Any -> Any -> Any
 appendAdd("Any", a => b => Any(a.valueOf() || b.valueOf()));
 
 
+// prepend add
+// Any -> Any -> Any
+prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
+
+
 // append add
 // Array -> Array -> Array
 appendAdd("Array", xs => ys => xs.concat(ys));
+
+
+// prepend add
+// Array -> Array -> Array
+prependAdd("Array", ys => xs => xs.concat(ys));
 
 
 // append add
@@ -2837,50 +2916,17 @@ appendAdd("Comparator", t => u =>
     : GT);
 
 
+// prepend add
+// Comparator -> Comparator -> Comparator
+appendAdd("Comparator", u => t =>
+  t[TAG] === "LT" ? LT
+    : t[TAG] === "EQ" ? u
+    : GT);
+
+
 // append add
 // Endo<a> -> Endo<a> -> Endo<a>
 appendAdd("Endo", f => g => Endo(x => f(g(x))));
-
-
-// append add
-// Monoid b => (a -> b) -> (a -> b) -> a -> b
-appendAdd("Function", f => g => x => append(f(x)) (g(x)));
-
-
-// append add
-// Product -> Product -> Product
-appendAdd("Product", m => n => Product(m * n));
-
-
-// append add
-// String -> String -> String
-appendAdd("String", s => t => `${s}${t}`);
-
-
-// append add
-// Sum -> Sum -> Sum
-appendAdd("Sum", m => n => Sum(m + n));
-
-
-// append add
-// Tuple -> Tuple -> Tuple
-// TODO: replace with Tuple map
-// appendAdd("Tuple", xs => ys => xs.map((x, i) => append(x) (ys[i]));
-
-
-// prepend add
-// All -> All -> All
-prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
-
-
-// prepend add
-// Any -> Any -> Any
-prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
-
-
-// prepend add
-// Array -> Array -> Array
-prependAdd("Array", ys => xs => xs.concat(ys));
 
 
 // prepnd add
@@ -2888,9 +2934,19 @@ prependAdd("Array", ys => xs => xs.concat(ys));
 prependAdd("Endo", g => f => Endo(x => f(g(x))));
 
 
+// append add
+// Monoid b => (a -> b) -> (a -> b) -> a -> b
+appendAdd("Function", f => g => x => append(f(x)) (g(x)));
+
+
 // prepend add
 // (a -> a) -> (a -> a) -> (a -> a)
 prependAdd("Function", g => f => x => f(g(x)));
+
+
+// append add
+// Product -> Product -> Product
+appendAdd("Product", m => n => Product(m * n));
 
 
 // prepend add
@@ -2900,12 +2956,28 @@ prependAdd("Product", n => m => Product(m * n));
 
 // append add
 // String -> String -> String
+appendAdd("String", s => t => `${s}${t}`);
+
+
+// prepend add
+// String -> String -> String
 prependAdd("String", t => s => `${s}${t}`);
+
+
+// append add
+// Sum -> Sum -> Sum
+appendAdd("Sum", m => n => Sum(m + n));
 
 
 // prepend add
 // Sum -> Sum -> Sum
 prependAdd("Sum", n => m => Sum(m + n));
+
+
+// append add
+// Tuple -> Tuple -> Tuple
+// TODO: replace with Tuple map
+// appendAdd("Tuple", xs => ys => xs.map((x, i) => append(x) (ys[i]));
 
 
 // prepend add
@@ -2922,89 +2994,14 @@ prependAdd("Sum", n => m => Sum(m + n));
 eqAdd("Array", eqArr);
 
 
-// equal
-// Boolean -> Boolean -> Boolean
-eqAdd("Boolean", eq_);
-
-
-// equal
-// Char -> Char -> Boolean
-eqAdd("Char", eqChar);
-
-
-// equal
-// Comparator -> Comparator -> Boolean
-eqAdd("Comparator", t => u => t[TAG] === u[TAG]);
-
-
-// equal
-// Either<a, b> -> Either<a, b> -> Boolean
-eqAdd("Either", eqEither);
-
-
-// equal
-// Float -> Float -> Boolean
-eqAdd("Float", eqFloat);
-
-
-// equal
-// Id<a> -> Id<a> -> Boolean
-eqAdd("Id", eqId);
-  
-
-// equal
-// Integer -> Integer -> Boolean
-eqAdd("Integer", eqInt);
-
-
-// equal
-// Map<k, v> -> Map<k, v> -> Boolean
-eqAdd("Map", eqMap);
-
-
-// equal
-// Null -> Null -> Boolean
-eqAdd("Null", eqNull);
-
-
-// equal
-// Number -> Number -> Boolean
-eqAdd("Number", eq_);
-
-
-// equal
-// Object -> Object -> Boolean
-eqAdd("Object", eqRec);
-
-
-// equal
-// Record -> Record -> Boolean
-eqAdd("Record", eqRec);
-
-
-// equal
-// Ref<Object> -> Ref<Object> -> Boolean
-eqAdd("Ref", eqRef);
-
-
-// equal
-// Set<a> -> Set<a> -> Boolean
-eqAdd("Set", eqSet);
-
-
-// equal
-// String -> String -> Boolean
-eqAdd("String", eq_);
-
-
-// equal
-// Tuple -> Tuple -> Boolean
-eqAdd("Tuple", eqTup);
-
-
 // not equal
 // Array -> Array -> Boolean
 neqAdd("Array", notp2(eqArr));
+
+
+// equal
+// Boolean -> Boolean -> Boolean
+eqAdd("Boolean", eq_);
 
 
 // not equal
@@ -3012,9 +3009,19 @@ neqAdd("Array", notp2(eqArr));
 neqAdd("Boolean", neq_);
 
 
+// equal
+// Char -> Char -> Boolean
+eqAdd("Char", eqChar);
+
+
 // not equal
 // Char -> Char -> Boolean
 neqAdd("Char", notp2(eqChar));
+
+
+// equal
+// Comparator -> Comparator -> Boolean
+eqAdd("Comparator", t => u => t[TAG] === u[TAG]);
 
 
 // not equal
@@ -3022,9 +3029,19 @@ neqAdd("Char", notp2(eqChar));
 neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
 
 
+// equal
+// Either<a, b> -> Either<a, b> -> Boolean
+eqAdd("Either", eqEither);
+
+
 // not equal
 // Either<a, b> -> Either<a, b> -> Boolean
 neqAdd("Either", notp2(eqEither));
+
+
+// equal
+// Float -> Float -> Boolean
+eqAdd("Float", eqFloat);
 
 
 // not equal
@@ -3032,9 +3049,19 @@ neqAdd("Either", notp2(eqEither));
 neqAdd("Float", notp2(eqFloat));
 
 
+// equal
+// Id<a> -> Id<a> -> Boolean
+eqAdd("Id", eqId);
+  
+
 // not equal
 // Id<a> -> Id<a> -> Boolean
 neqAdd("Id", notp2(eqId));
+
+
+// equal
+// Integer -> Integer -> Boolean
+eqAdd("Integer", eqInt);
 
 
 // not equal
@@ -3042,9 +3069,19 @@ neqAdd("Id", notp2(eqId));
 neqAdd("Integer", notp2(eqInt));
 
 
+// equal
+// Map<k, v> -> Map<k, v> -> Boolean
+eqAdd("Map", eqMap);
+
+
 // not equal
 // Map<k, v> -> Map<k, v> -> Boolean
 neqAdd("Map", notp2(eqMap));
+
+
+// equal
+// Null -> Null -> Boolean
+eqAdd("Null", eqNull);
 
 
 // not equal
@@ -3052,9 +3089,19 @@ neqAdd("Map", notp2(eqMap));
 neqAdd("Null", notp2(eqNull));
 
 
+// equal
+// Number -> Number -> Boolean
+eqAdd("Number", eq_);
+
+
 // not equal
 // Number -> Number -> Boolean
 neqAdd("Number", neq_);
+
+
+// equal
+// Object -> Object -> Boolean
+eqAdd("Object", eqRec);
 
 
 // not equal
@@ -3062,9 +3109,19 @@ neqAdd("Number", neq_);
 neqAdd("Object", notp2(eqRec));
 
 
+// equal
+// Record -> Record -> Boolean
+eqAdd("Record", eqRec);
+
+
 // not equal
 // Record -> Record -> Boolean
 neqAdd("Record", notp2(eqRec));
+
+
+// equal
+// Ref<Object> -> Ref<Object> -> Boolean
+eqAdd("Ref", eqRef);
 
 
 // not equal
@@ -3072,14 +3129,29 @@ neqAdd("Record", notp2(eqRec));
 neqAdd("Ref", notp2(eqRef));
 
 
+// equal
+// Set<a> -> Set<a> -> Boolean
+eqAdd("Set", eqSet);
+
+
 // not equal
 // Set<a> -> Set<a> -> Boolean
 neqAdd("Set", notp2(eqSet));
 
 
+// equal
+// String -> String -> Boolean
+eqAdd("String", eq_);
+
+
 // not equal
 // String -> String -> Boolean
 neqAdd("String", neq_);
+
+
+// equal
+// Tuple -> Tuple -> Boolean
+eqAdd("Tuple", eqTup);
 
 
 // not equal
@@ -3106,6 +3178,7 @@ Object.assign($,
     Any,
     append,
     appendAdd,
+    appendLookup,
     appendNode,
     apply,
     Arr,
@@ -3135,14 +3208,17 @@ Object.assign($,
     Eff,
     empty,
     emptyAdd,
+    emptyLookup,
     Endo,
     EQ,
     eq,
     eqAdd,
+    eqLookup,
     exp,
     expf,
     Err,
     Event,
+    Factory,
     fix,
     flip,
     Float,
@@ -3165,12 +3241,15 @@ Object.assign($,
     markup,
     maxBound,
     maxBoundAdd,
+    maxBoundLookup,
     minBound,
     minBoundAdd,
+    minBoundLookup,
     mul,
     neg,
     neq,
     neqAdd,
+    neqLookup,
     Nil,
     None,
     notp,
@@ -3182,6 +3261,7 @@ Object.assign($,
     pipe,
     prepend,
     prependAdd,
+    prependLookup,
     Product,
     prop,
     Reader,
@@ -3212,7 +3292,8 @@ Object.assign($,
     Tup,
     Type,
     uncurry,
-    uncurry3
+    uncurry3,
+    VALUE
   }
 );
 
