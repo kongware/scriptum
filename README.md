@@ -10,7 +10,7 @@ A gentle and type-directed functional library with a focus on purity, abstractio
 
 ## Why
 
-scriptum is an attempt to leverage the potential of functional programming in dynamically typed Javascript.
+scriptum is an attempt to leverage the potential of dynamically typed functional programming with Javascript.
 
 ## Mission
 
