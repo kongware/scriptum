@@ -37,14 +37,16 @@ scriptum comprises a couple of conventions instead of enforced idioms:
 * Use mostly pure functions and wrap impure code in the appropriate types
 * Model your data with algebraic data types
 * Treat data as immutable but don't be ashamed of local mutations
-* Use tail recursion instaed of loops
+* Use tail recursion instead of loops
 * Utilize persistant data structures and structural sharing
 * Avoid Javascript's prototype system
+* Curry your functions and avoid optional parameters
 * Encode binary functions in infix position to improve readability
+* Use Lisp style indentations to structure nested function calls
 
 # Extended Types
 
-scriptum introduces a couple of new data types using various techniques. The next paragraphs are going to list and briefly describe them. Additionally, some characteristics of these extended types that are rather uncommon for untyped Javascript are illustrated.
+scriptum introduces a couple of new data types using different techniques. The next paragraphs are going to list and briefly describe them.
 
 ## Subtyping
 
