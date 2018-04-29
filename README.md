@@ -35,7 +35,8 @@ There are often complaints in the community that there are no proper debugging t
 scriptum comprises a couple of conventions instead of enforced idioms:
 
 * Use mostly pure functions and wrap impure code in the appropriate types
-* Model your data with algebraic data types
+* Model your data with tagges unions rather than hierarchies
+* Treat your tagged unions as algebraic data types
 * Treat data as immutable but don't be ashamed of local mutations
 * Use tail recursion instead of loops
 * Utilize persistant data structures and structural sharing
