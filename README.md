@@ -24,11 +24,11 @@ scriptum encourages you to program in a type-directed manner and to consider fun
 
 # Type System
 
-It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language is build around it. However, it's a futile endeavor to do it the other way around. scriptum utilizes types extensivley, but only to help the programmer develop a mental model of their program's underlying data types. Simply put, they are merely decoration.
+It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language is build around it. However, it's a futile endeavor to do it the other way around. scriptum utilizes types extensivley, but only to help the programmer develop a mental model of their program's underlying data types. Simply put, they are merely decorative.
 
 # Debugging
 
-There are often complaints in the community that there are no proper debugging tools in Javascript, especially for the functional style. Sure, you can augment your functions and lambdas so that they carry around names and runtime types. But keep in mind that such an approach introduces another level of indirection to your program. You will eventually wind up stepping through your code line by line with a debugger and then at the latest you'll regret this additional code, because it renders debugging extremely cumbersome.
+I frequently hear complaints in the community that there are no proper debugging tools in Javascript, especially for the functional style. Sure, you can augment your functions and lambdas so that they carry around names and runtime types. But keep in mind that such an approach introduces another level of indirection to your program. You will eventually wind up stepping through your code line by line with a debugger and then at the latest you'll regret this additional code, because it renders debugging extremely cumbersome.
 
 # Coding by Convention
 
