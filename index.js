@@ -13,521 +13,17 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 
 /******************************************************************************
 *******************************************************************************
-**********************************[ GLOBALS ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-/***[Constants]***************************************************************/
-
-
-// invalid types
-// [String]
-const INVALID_TYPES = new RegExp(/\b(?:Undefined|NaN|Infinity)\b/);
-
-
-// flag for controling function guarding
-// Boolean
-const GUARDED = true;
-
-
-/***[Variables]***************************************************************/
-
-
-// call log log
-// [String]
-let callLog = [];
-
-
-// enqueue call log
-// String -> [String]
-const enqueueCallLog = s => {
-  callLog.unshift(s);
-
-  if (callLog.length > CALL_LOG_LEN)
-    callLog.pop();
-};
-
-
-// length of global call log
-// Number
-const CALL_LOG_LEN = 10;
-
-
-// function call log property
-// Symbol
-const LOG = Symbol("LOG");
-
-
-// function name property
-// Symbol
-const NAME = Symbol("NAME");
-
-
-// type signatures property
-// Symbol
-const SIG = Symbol("SIG");
-
-
-// value indicator
-// Symbol
-const VALUE = Symbol("VALUE");
-
-
-/******************************************************************************
-*******************************************************************************
-*********************************[ DEBUGGING ]*********************************
+*******************************[ INTROSPECTION ]*******************************
 *******************************************************************************
 ******************************************************************************/
 
 
 // to type tag
-// no function guarding necessary
 // a -> String
 const toTypeTag = x => {
   const tag = Object.prototype.toString.call(x);
   return tag.slice(tag.lastIndexOf(" ") + 1, -1);
 };
-
-
-/***[Virtualization]**********************************************************/
-
-
-// function guard
-// default export
-// untyped
-const $ = (name, f) => {
-  if (GUARDED) {
-    if (typeof name !== "string") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n$ expects an argument of type String"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(name)} received`
-      + "\n");
-
-    else if (typeof f !== "function") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n$ expects an argument of type Function"
-      + "\n\non the 1st call"
-      + "\n\nin the 2nd argument"
-      + `\n\nbut ${introspect(f)} received`
-      + "\n");
-
-    if (name.indexOf("...") === 0)
-      return new Proxy(
-        f, handleF(name.slice(3), [], {arity: "var", nthCall: 0}));
-
-    else
-      return new Proxy(
-        f, handleF(name, [], {arity: "fix", nthCall: 0}));
-  }
-
-  else return f;
-};
-
-
-// handle guarded function
-// proxy handler
-// untyped
-const handleF = (name, log, {arity, nthCall}) => {
-  return {
-    [NAME]: name,
-
-    [LOG]: log,
-
-    apply: (f, _, args) => {
-      // skip both calls
-      verifyArity(f, args, name, arity, nthCall, log);
-      const argTypes = verifyArgTypes(args, name, nthCall, log);
-
-      // step into call
-      const r = f(...args);
-
-      // skip call
-      verifyRetType(r, name, log);
-
-      // skip statement
-      if (typeof r === "function") {
-        const name_ = r.name || name,
-          log_ = [`${name}(${argTypes})`].concat(log);
-
-        return new Proxy(
-          r, handleF(name_, log_, {arity, nthCall: nthCall + 1})
-        );
-      }
-
-      else {
-        enqueueCallLog([`${name}(${argTypes})`].concat(log));
-        return r;
-      }
-    },
-
-    get: (f, k, p) => {
-      switch (k) {
-        case NAME: return name;
-        case LOG: return log;
-        default: return f[k];
-      }
-    }
-  };
-};
-
-
-// sum type guard
-// untyped
-const $sum = (name, f, tags) => {
-  if (GUARDED) {
-    return cases => {
-      if (toTypeTag(cases) !== "Object") throw new ArgTypeError(
-        "invalid argument type"
-        + `\n\n${name} expects an argument of type Object`
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut ${introspect(cases)} received`
-        + "\n");
-
-      const s = new Set(Object.keys(cases));
-
-      tags.forEach(tag => {
-        if (s.has(tag)) s.delete(tag);
-
-        else throw new ArgValueError(
-          "invalid argument value"
-          + `\n\n${name} expects an Object including the following cases`
-          + `\n\n${tags.join(", ")}`
-          + "\n\non the 1st call"
-          + "\nin the 1st argument"
-          + `\n\nbut ${tag} was not received`
-          + "\n");
-      });
-
-      if (s.size > 0) throw new ArgValueError(
-        "invalid argument value"
-        + `\n\n${name} expects an Object including the following cases`
-        + `\n\n${tags.join(", ")}`
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut additionally ${Array.from(s.values()).join(", ")} received`
-        + "\n");
-
-      const r = f(cases);
-
-      return typeof r === "function"
-        ? $(`run${name}`, r)
-        : r;
-    };
-  }
-
-  else return f;
-};
-
-
-/***[Introspection]***********************************************************/
-
-
-// introspect
-// no argument type checking necessary
-// a -> String
-const introspect = x => {
-  switch (typeof x) {
-    case "boolean": return "Boolean";
-    case "function": return `λ${x.name}`;
-
-    case "number": {
-      if (Number.isNaN(x)) return "NaN";
-      else if (!Number.isFinite(x)) return "Infinity";
-      else return "Number";
-    }
-
-    case "object": {
-      const tag = toTypeTag(x);
-
-      if (tag !== "Null" && SIG in x) return x[SIG];
-
-      else {
-        switch (tag) {
-          case "Array": return introspectArr(x);
-          case "Map": return introspectMap(x);
-          case "Null": return tag;
-          case "Record": return introspectRec(x);
-          case "Set": return introspectSet(x);
-          case "Tuple": return introspectTup(x);
-          default: return introspectObj(x) (tag);
-        }
-      }
-    }
-
-    case "string": return "String";
-    case "symbol": return "Symbol";
-    case "undefined": return "Undefined";
-  }
-};
-
-
-// introspect array
-// Array -> String
-const introspectArr = xs => {
-  if (xs.length <= MAX_TUP_SIZE) {
-    const [s, ts] = xs.reduce(([s, ts], x) => {
-      x = introspect(x);
-      return [s.add(x), ts.concat(x)];
-    }, [new Set(), []]);
-
-    if (s.size === 1) return `[${Array.from(s) [0]}]`;
-    else return `[${ts.join(", ")}]`;
-  }
-
-  else {
-    const s = xs.reduce((s, x) => {
-      x = introspect(x);
-      return s.add(x);
-    }, new Set());
-
-    if (s.size === 1) return `[${Array.from(s) [0]}]`;
-    else return "[?]";
-  }
-};
-
-
-// introspect map
-// Map -> String
-const introspectMap = m => {
-  const s = new Set();
-  m.forEach((v, k) => s.add(`${introspect(k)}, ${introspect(v)}`));
-  if (s.size === 1) return `Map<${Array.from(s) [0]}>`;
-  else return `Map<?>`;
-};
-
-
-// introspect object
-// Object -> String
-const introspectObj = o => tag => {
-  if (tag === "Object") {
-    const ks = Object.keys(o);
-
-    if (ks.length <= MAX_REC_SIZE) {
-      const [s, ts] = ks.reduce(([s, ts], k) => {
-        const v = introspect(o[k]);
-        return [s.add(`${k}: ${v}`), ts.concat(`${k}: ${v}`)];
-      }, [new Set(), []]);
-
-      if (s.size === 1) return `{String: ${Array.from(s) [0].split(": ") [1]}}`;
-      else return `{${ts.join(", ")}}`;
-    }
-
-    else {
-      const s = ks.reduce((s, k) => {
-        const v = introspect(o[k]);
-        return s.add(`${k}: ${v}`);
-      }, new Set());
-
-      if (s.size === 1) return `{String: ${Array.from(s) [0].split(": ") [1]}}`;
-      else return "{?}";
-    }
-  }
-
-  else return tag;
-};
-
-
-// introspect record
-// Record -> String
-const introspectRec = r => {
-  if (r.length > MAX_REC_SIZE) return "Record<?>";
-
-  else {
-    const r_ = Object.keys(r)
-      .map(k => introspect(`${k}: ${r[k]}`))
-      .join(", ");
-
-    return `Record<${r_}>`;
-  }
-};
-
-
-// introspect set
-// Set -> String
-const introspectSet = s => {
-  const s_ = new Set();
-  s.forEach(k => s_.add(introspect(k)));
-  if (s_.size === 1) return `Set<${Array.from(s_) [0]}>`;
-  else return `Set<?>`;
-};
-
-
-// introspect tuple
-// Tuple -> String
-const introspectTup = xs => {
-  if (xs.length > MAX_TUP_SIZE) return "Tuple<?>";
-  else return `Tuple<${Array.from(xs).map(x => introspect(x)).join(", ")}>`;
-};
-
-
-// verify argument types
-// no argument type checking necessary
-// untyped
-const verifyArgTypes = (args, name, nthCall, log) => 
-  args.map((arg, nthArg) => {
-    const t = introspect(arg);
-
-    if (t.search(INVALID_TYPES) !== -1) throw new ArgTypeError(
-      "invalid argument type"
-      + `\n\n${name} received an argument of type`
-      + `\n\n${t}`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\nin the ${ordinal(nthArg + 1)} argument`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log.join("\n")}`)
-      + "\n");
-
-    else return t;
-  }).join(", ");
-  
-
-// verify arity
-// no argument type checking necessary
-// untyped
-const verifyArity = (g, args, name, arity, nthCall, log) => {
-  if (arity === "fix" && g.length !== args.length) {
-    throw new ArityError(
-      "invalid function call arity"
-      + `\n\n${name} expects ${g.length}-ary Function`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join("\n")}]`)
-      + "\n");
-  }
-
-  else if (arity === "var" && g.length > args.length) {
-    throw new ArityError(
-      "invalid function call arity"
-      + `\n\n${name} expects at least ${g.length}-ary Function`
-      + `\n\non the ${ordinal(nthCall + 1)} call`
-      + `\n\nbut ${args.length}-ary Function received`
-      + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n[${log.join("\n")}]`)
-      + "\n");
-  }
-};
-
-
-// verify return type
-// no argument type checking necessary
-// untyped
-const verifyRetType = (r, name, log) => {
-  const t = introspect(r);
-
-  if (t.search(INVALID_TYPES) !== -1) throw new ReturnTypeError(
-    "invalid return type"
-    + `\n\n${name} returned a value of type`
-    + `\n\n${t}`
-    + (log.length === 0 ? "" : `\n\nCALL LOG:\n\n${log.join("\n")}`)
-    + "\n");
-
-  return t;
-};
-
-
-/***[Errors]******************************************************************/
-
-
-// argument type error
-// String -> ArgTypeError
-class ArgTypeError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, ArgTypeError);
-  }
-}
-
-
-// argument value error
-// String -> ArgValueError
-class ArgValueError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, ArgValueError);
-  }
-}
-
-
-// arity error
-// String -> ArityError
-class ArityError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, ArityError);
-  }
-}
-
-
-// return type error
-// String -> ReturnTypeError
-class ReturnTypeError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, ReturnTypeError);
-  }
-}
-
-
-// type coercion error
-// String -> TypeCoercionError
-class TypeCoercionError extends Error {
-  constructor(s) {
-    super(s);
-    Error.captureStackTrace(this, TypeCoercionError);
-  }
-}
-
-
-/***[Pretty Print]************************************************************/
-
-
-// ordinal number
-// Number -> String
-const ordinal = $(
-  "ordinal",
-  n => {
-    const s = ["th", "st", "nd", "rd"],
-      v = n % 100;
-
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  }
-);
-
-
-// replace nestings
-// String -> String
-const replaceNestings = $(
-  "replaceNestings",
-  s => {
-    const aux = s_ => {
-      const t = s_.replace(/\[[^\[\]]*\]/g, "_")
-        .replace(/\{[^{}}]*\}/g, "_")
-        .replace(/\<[^<>]*\>/g, "_");
-
-      if (t === s_) return t;
-      else return aux(t);
-    };
-
-    const xs = s.match(/^[\[{<]|[\]}>]$/g);
-    if (xs.length === 0) return aux(s);
-    else return `${xs[0]}${aux(s.slice(1, -1))}${xs[1]}`;
-  }
-);
-
-
-// stringify
-// a -> String
-const stringify = $(
-  "stringify",
-  x => {
-    switch (typeof x) {
-      case "string": return `"${x}"`;
-      default: return String(x);
-    }
-  }
-);
 
 
 /******************************************************************************
@@ -539,122 +35,70 @@ const stringify = $(
 
 // overload unary function
 // dispatch on the first argument
-// no function guarding necessary
 // untyped
 const overload = (name, dispatch) => {
-  if (GUARDED) {
-    if (typeof name !== "string") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\noverload expects an argument of type String"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(name)} received`
-      + "\n");
-
-    else if (typeof dispatch !== "function") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\noverload expects an argument of type Function"
-      + "\n\non the 1st call"
-      + "\n\nin the 2nd argument"
-      + `\n\nbut ${introspect(dispatch)} received`
-      + "\n");
-  }
-
   const pairs = new Map();
 
   return {
-    [`${name}Add`]: $(
-      `${name}Add`,
-      (k, v) =>
-        pairs.set(k, v)),
+    [`${name}Add`]: (k, v) => pairs.set(k, v),
 
     [`${name}Lookup`]: k => pairs.get(k),
 
-    [name]: $(
-      `${name}`,
-      x => {
-        const r = pairs.get(dispatch(x));
+    [name]: x => {
+      const r = pairs.get(dispatch(x));
 
-        if (r === undefined)
-          throw new OverloadError(
-            "invalid overloaded function call"
-            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))}`
-            + "\n\non the 1st call"
-            + "\nin the 1st argument"
-            + "\n\nfor the given value of type"
-            + `\n\n${introspect(x)}`
-            + "\n");
+      if (r === undefined)
+        throw new OverloadError(
+          "invalid overloaded function call"
+          + `\n\n${name} cannot dispatch on ${dispatch(x)}`
+          + "\n\non the 1st call"
+          + "\nin the 1st argument"
+          + `\n\nfor the given value of type ${toTypeTag(x)}`
+          + "\n");
 
-        else if (typeof r === "function")
-          return r(x);
+      else if (typeof r === "function")
+        return r(x);
 
-        else return r;
-      }
-    )
+      else return r;
+    }
   }
 };
 
 
 // overload binary function
 // dispatch both on the first and second argument
-// no function guarding necessary
 // untyped
 const overload2 = (name, dispatch) => {
-  if (GUARDED) {
-    if (typeof name !== "string") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\noverload expects an argument of type String"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(name)} received`
-      + "\n");
-
-    else if (typeof dispatch !== "function") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\noverload expects an argument of type Function"
-      + "\n\non the 1st call"
-      + "\n\nin the 2nd argument"
-      + `\n\nbut ${introspect(dispatch)} received`
-      + "\n");  
-  }
-  
   const pairs = new Map();
 
   return {
-    [`${name}Add`]: $(
-      `${name}Add`,
-      (k, v) =>
-        pairs.set(k, v)),
+    [`${name}Add`]: (k, v) => pairs.set(k, v),
 
     [`${name}Lookup`]: k => pairs.get(k),
 
-    [name]: $(
-      `${name}`,
-      x => y => {
-        if (typeof x === "function" && (VALUE in x))
-          x = x(y);
+    [name]: x => y => {
+      if (typeof x === "function" && (VALUE in x))
+        x = x(y);
 
-        else if (typeof y === "function" && (VALUE in y))
-          y = y(x);
+      else if (typeof y === "function" && (VALUE in y))
+        y = y(x);
 
-        const r = pairs.get(dispatch(x, y));
+      const r = pairs.get(dispatch(x, y));
 
-        if (r === undefined)
-          throw new OverloadError(
-            "invalid overloaded function call"
-            + `\n\n${name} cannot dispatch on ${stringify(dispatch(x))}/${stringify(dispatch(y))}`
-            + "\n\non the 1st/2nd call"
-            + "\nin the 1st argument"
-            + "\n\nfor the given values of type"
-            + `\n\n${introspect(x)}/${introspect(y)}`
-            + "\n");
+      if (r === undefined)
+        throw new OverloadError(
+          "invalid overloaded function call"
+          + `\n\n${name} cannot dispatch on ${dispatch(x)}/${dispatch(y)}`
+          + "\n\non the 1st/2nd call"
+          + "\nin the 1st argument"
+          + `\n\nfor the given values of type ${toTypeTag(x)}/${toTypeTag(y)}`
+          + "\n");
 
-        else if (typeof r === "function")
-          return r(x) (y);
+      else if (typeof r === "function")
+        return r(x) (y);
 
-        else return r;
-      }
-    )
+      else return r;
+    }
   }
 };
 
@@ -696,9 +140,6 @@ class OverloadError extends Error {
 ******************************************************************************/
 
 
-// @PROXIES/Arr
-
-
 /******************************************************************************
 **********************************[ Boolean ]**********************************
 ******************************************************************************/
@@ -706,16 +147,12 @@ class OverloadError extends Error {
 
 // not predicate
 // (a -> Boolean) -> a -> Boolean
-const notp = $(
-  "notp",
-  p => x => !p(x));
+const notp = p => x => !p(x);
 
 
 // binary not predicate
 // (a -> Boolean) -> a -> Boolean
-const notp2 = $(
-  "notp2",
-  p => x => y => !p(x) (y));
+const notp2 = p => x => y => !p(x) (y);
 
 
 /******************************************************************************
@@ -723,218 +160,148 @@ const notp2 = $(
 ******************************************************************************/
 
 
+// infix applicator
+// (a, (a -> b -> c), b) -> c
+const $ = (x, f, y) => f(x) (y);
+
+
 // applicator
 // (a -> b) -> a -> b
-const apply = $(
-  "apply",
-  f => x => f(x));
+const apply = f => x => f(x);
 
 
 // constant
 // a -> b -> a
-const co = $(
-  "co",
-  x => y => x);
+const co = x => y => x;
 
 
 // constant in 2nd argument
 // a -> b -> b
-const co2 = $(
-  "co2",
-  x => y => y);
+const co2 = x => y => y;
 
 
 // function composition
 // (b -> c) -> (a -> b) -> a -> c
-const comp = $(
-  "comp",
-  f => g => x => f(g(x)));
+const comp = f => g => x => f(g(x));
 
 
 // binary function composition
 // (c -> d) -> (a -> b -> c) -> a -> -> b -> d
-const comp2 = $(
-  "comp2",
-  f => g => x => y => f(g(x) (y)));
+const comp2 = f => g => x => y => f(g(x) (y));
 
 
 // composition in both arguments
 // (b -> c -> d) -> (a -> b) -> (a -> c) -> a -> d
-const compBoth = $(
-  "compBoth",
-  f => g => h => x => f(g(x)) (h(x)));
+const compBoth = f => g => h => x => f(g(x)) (h(x));
 
 
 // function composition
 // right-to-left
 // untyped
-const compn = $(
-  "...compn",
-  (f, ...fs) => x =>
-    fs.length === 0
-      ? f(x)
-      : f(compn(...fs) (x)));
+const compn = (f, ...fs) => x =>
+  fs.length === 0
+    ? f(x)
+    : f(compn(...fs) (x));
 
 
 // first class conditional operator
 // a -> a -> Boolean -> a
-const cond = $(
-  "cond",
-  x => y => b =>
-    b ? x : y);
+const cond = x => y => b => b ? x : y;
 
 
 // contramap
 // (a -> b) -> (b -> c) -> a -> c
-const contra = $(
-  "contra",
-  g => f => x =>
-    f(g(x)));
+const contra = g => f => x => f(g(x));
 
 
 // continuation
 // a -> (a -> b) -> b
-const cont = $(
-  "cont",
-  x => f =>
-    f(x));
+const cont = x => f => f(x);
 
 
 // curry
 // ((a, b) -> c) -> a -> b -> c
-const curry = $(
-  "curry",
-  f => x => y =>
-    f(x, y));
+const curry = f => x => y => f(x, y);
 
 
 // curry3
 // ((a, b, c) -> d) -> a -> b -> c -> d
-const curry3 = $(
-  "curry3",
-  f => x => y => z =>
-    f(x, y, z));
+const curry3 = f => x => y => z => f(x, y, z);
 
 
 // fix combinator
 // ((a -> b) -> a -> b) -> a -> b
-const fix = $(
-  "fix",
-  f => x =>
-    f(fix(f)) (x));
+const fix = f => x => f(fix(f)) (x);
 
 
 // flip arguments
 // (a -> b -> c) -> b -> a -> c
-const flip = $(
-  "flip",
-  f => y => x =>
-    f(x) (y));
+const flip = f => y => x => f(x) (y);
 
 
 // identity function
 // a -> a
-const id = $(
-  "id",
-  x => x);
-
-
-// infix applicator
-// (a, (a -> b -> c), b) -> c
-const infix = $(
-  "infix",
-  (x, f, y) =>
-    f(x) (y));
+const id = x => x;
 
 
 // monadic join
 // (r -> r -> a) -> r -> a
-const join = $(
-  "join",
-  f => x =>
-    f(x) (x));
+const join = f => x => f(x) (x);
 
 
 // omega combinator
 // untyped
-const omega = $(
-  "omega",
-  f => f(f));
+const omega = f => f(f);
 
 
 // on
 // (b -> b -> c) -> (a -> b) -> a -> a -> c
-const on = $(
-  "on",
-  f => g => x => y =>
-    f(g(x)) (g(y)));
+const on = f => g => x => y => f(g(x)) (g(y));
 
 
 // parial
 // untyped
-const partial = $(
-  "...partial",
-  (f, ...args) => (...args_) =>
-    f(...args, ...args_));
+const partial = (f, ...args) => (...args_) =>
+  f(...args, ...args_);
 
 
 // function composition
 // left-to-right
 // untyped
-const pipe = $(
-  "...pipe",
-  (f, ...fs) => x =>
-    fs.length === 0
-      ? f(x)
-      : pipe(...fs) (f(x)));
+const pipe = (f, ...fs) => x =>
+  fs.length === 0
+    ? f(x)
+    : pipe(...fs) (f(x));
 
 
 // rotate left
 // a -> b -> c -> d) -> b -> c -> a -> d
-const rotl = $(
-  "rotl",
-  f => y => z => x =>
-    f(x) (y) (z));
+const rotl = f => y => z => x => f(x) (y) (z);
 
 
 // rotate right
 // (a -> b -> c -> d) -> c -> a -> b -> d
-const rotr = $(
-  "rotr",
-  f => z => x => y =>
-    f(x) (y) (z));
+const rotr = f => z => x => y => f(x) (y) (z);
 
 
 // swap
 // ((a, b) -> c) -> (b, a) -> c
-const swap = $(
-  "swap",
-  f => (x, y) =>
-    f(y, x));
+const swap = f => (x, y) => f(y, x);
 
 
 // tap
 // (a -> b) -> a -> b)
-const tap = $(
-  "tap",
-  f => x =>
-    (f(x), x));
+const tap = f => x => (f(x), x);
 
 
 // uncurry
 // (a -> b -> c) -> (a, b) -> c
-const uncurry = $(
-  "uncurry",
-  f => (x, y) =>
-    f(x) (y));
+const uncurry = f => (x, y) => f(x) (y);
 
 
 // ternary uncurry
 // (a -> b -> c -> d) -> (a, b, c) -> d
-const uncurry3 = $(
-  "uncurry3",
-  f => (x, y, z) =>
-    f(x) (y) (z));
+const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 
 /***[Tail Recursion]**********************************************************/
@@ -943,21 +310,17 @@ const uncurry3 = $(
 // loop
 // trampoline
 // untyped
-const loop = $(
-  "loop",
-  f => {
-    let acc = f();
+const loop = f => {
+  let acc = f();
 
-    while (acc && acc.type === recur)
-      acc = f(...acc.args);
+  while (acc && acc.type === recur)
+    acc = f(...acc.args);
 
-    return acc;
-  }
-);
+  return acc;
+};
 
 
 // recursive call
-// no function guarding necessary
 // untyped
 const recur = (...args) =>
   ({type: recur, args});
@@ -983,93 +346,67 @@ const recur = (...args) =>
 
 // add
 // Number -> Number -> Number
-const add = $(
-  "add",
-  m => n => m + n);
+const add = m => n => m + n;
 
 
 // decrease
 // Number -> Number
-const dec = $(
-  "dec",
-  n => n - 1);
+const dec = n => n - 1;
 
 
 // divide
 // Number -> Number -> Number
-const div = $(
-  "div",
-  m => n => m / n);
+const div = m => n => m / n;
 
 
 // divide flipped
 // Number -> Number -> Number
-const divf = $(
-  "divf",
-  n => m => m / n);
+const divf = n => m => m / n;
 
 
 // exponentiate
 // Number -> Number -> Number
-const exp = $(
-  "exp",
-  m => n => m ** n);
+const exp = m => n => m ** n;
 
 
 // exponentiate flipped
 // Number -> Number -> Number
-const expf = $(
-  "expf",
-  n => m => m ** n);
+const expf = n => m => m ** n;
 
 
 // increase
 // Number -> Number
-const inc = $(
-  "inc",
-  n => n + 1);
+const inc = n => n + 1;
 
 
 // multiply
 // Number -> Number -> Number
-const mul = $(
-  "mul",
-  m => n => m * n);
+const mul = m => n => m * n;
 
 
 // negate
 // Number -> Number
-const neg = $(
-  "neg",
-  n => -n);
+const neg = n => -n;
 
 
 // remainder
 // Number -> Number -> Number
-const rem = $(
-  "rem",
-  m => n => m % n);
+const rem = m => n => m % n;
 
 
 // remainder
 // Number -> Number -> Number
-const remf = $(
-  "remf",
-  n => m => m % n);
+const remf = n => m => m % n;
 
 
 // sub
 // Number -> Number -> Number
-const sub = $(
-  "sub",
-  m => n => m - n);
+const sub = m => n => m - n;
 
 
 // sub flipped
 // Number -> Number -> Number
-const subf = $(
-  "subf",
-  n => m => m - n);
+const subf = n => m => m - n;
 
 
 /******************************************************************************
@@ -1079,44 +416,17 @@ const subf = $(
 
 // destructive delete
 // String -> Object -> Object
-const destructiveDel = $(
-  "destructiveDel",
-  k => o =>
-    (delete o[k], o));
+const destructiveDel = k => o => (delete o[k], o);
 
 
 // destructive set
 // (String, a) -> Object -> Object
-const destructiveSet = $(
-  "destructiveSet",
-  (k, v) => o =>
-    (o[k] = v, o));
+const destructiveSet = (k, v) => o => (o[k] = v, o);
 
 
 // object factory
 // untyped
 const Factory = (name, ...fields) => {
-  if (GUARDED) {
-    if (typeof name !== "string") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\nFactory expects an argument of type String"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(name)} received`
-      + "\n");
-
-    fields.forEach((field, n) => {
-      if (typeof field !== "string") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nFactory expects an argument of type String"
-        + "\n\non the 1st call"
-        + "\n\nin the 2nd argument"
-        + `\n\nat the ${ordinal(i)} position`
-        + `\n\nbut ${introspect(field)} received`
-        + "\n");
-    });
-  }
-
   const Cons =
     Function(`return function ${name}() {}`) ();
 
@@ -1126,12 +436,10 @@ const Factory = (name, ...fields) => {
     if (n === fields.length)
       return Object.assign(new Cons(), o);
 
-    else return $(
-      name,
-      x => {
-        o[fields[n]] = x;
-        return rec(o, n + 1);
-      });
+    else return x => {
+      o[fields[n]] = x;
+      return rec(o, n + 1);
+    };
   };
 
   return rec({}, 0);
@@ -1140,17 +448,12 @@ const Factory = (name, ...fields) => {
 
 // property getter
 // String -> Object -> a
-const prop = $(
-  "prop",
-  k => o => o[k]);
+const prop = k => o => o[k];
 
 
 /******************************************************************************
 ************************************[ Set ]************************************
 ******************************************************************************/
-
-
-// @Proxies/_Set
 
 
 /******************************************************************************
@@ -1160,9 +463,7 @@ const prop = $(
 
 // capitalize
 // String -> String
-const capitalize = $(
-  "capitalize",
-  s => s[0].toUpperCase() + s.slice(1));
+const capitalize = s => s[0].toUpperCase() + s.slice(1);
 
 
 /******************************************************************************
@@ -1179,21 +480,7 @@ const capitalize = $(
 
 // all
 // Boolean -> All
-class All extends Boolean {
-  constructor(b) {
-    super(b);
-
-    if (GUARDED) {
-      if (typeof b !== "boolean") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nAny expects an argument of type Boolean"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(b)} received`
-        + "\n");
-    }
-  }
-} {
+class All extends Boolean {} {
   const All_ = All;
 
   All = function(b) {
@@ -1203,14 +490,6 @@ class All extends Boolean {
   All.prototype = All_.prototype;
 
   All_.prototype[Symbol.toStringTag] = "All";
-
-  All_.prototype[Symbol.toPrimitive] = hint => {
-    throw new TypeCoercionError(
-      "illegal type coercion"
-      + "\n\nAll must maintain its type"
-      + `\n\nbut type coercion to ${capitalize(hint)} received`
-      + "\n");
-  };
 }
 
 
@@ -1221,21 +500,7 @@ class All extends Boolean {
 
 // any
 // Boolean -> Any
-class Any extends Boolean {
-  constructor(b) {
-    super(b);
-
-    if (GUARDED) {
-      if (typeof b !== "boolean") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nAny expects an argument of type Boolean"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(b)} received`
-        + "\n");
-    }
-  }
-} {
+class Any extends Boolean {} {
   const Any_ = Any;
 
   Any = function(b) {
@@ -1243,19 +508,9 @@ class Any extends Boolean {
   };
 
   Any.prototype = Any_.prototype;
+
+  Any_.prototype[Symbol.toStringTag] = "Any";
 }
-
-
-Any.prototype[Symbol.toStringTag] = "Any";
-
-
-Any.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nAn must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1267,25 +522,7 @@ Any.prototype[Symbol.toPrimitive] = hint => {
 // String -> Char
 class Char extends String {
   constructor(c) {
-    super(c);
-
-    if (GUARDED) {
-      if (typeof c !== "string") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nChar expects an argument of type String"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(c)} received`
-        + "\n");
-
-      else if ([...c].length !== 1) throw new ArgValueError(
-        "invalid argument value"
-        + "\n\nChar expects a single character"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${c} received`
-        + "\n");
-    }
+    super(c[0]);
   }
 } {
   const Char_ = Char;
@@ -1295,19 +532,9 @@ class Char extends String {
   };
 
   Char.prototype = Char_.prototype;
+
+  Char_.prototype[Symbol.toStringTag] = "Char";
 }
-
-
-Char.prototype[Symbol.toStringTag] = "Char";
-
-
-Char.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nChar must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1317,21 +544,7 @@ Char.prototype[Symbol.toPrimitive] = hint => {
 
 // float constructor
 // Number -> Float
-class Float extends Number {
-  constructor(n) {
-    super(n);
-
-    if (GUARDED) {
-      if (typeof n !== "number") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nFloat expects an argument of type Number"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(n)} received`
-        + "\n");
-    }
-  }
-} {
+class Float extends Number {} {
   const Float_ = Float;
 
   Float = function(n) {
@@ -1339,19 +552,9 @@ class Float extends Number {
   };
 
   Float.prototype = Float_.prototype;
+
+  Float_.prototype[Symbol.toStringTag] = "Float";
 }
-
-
-Float.prototype[Symbol.toStringTag] = "Float";
-
-
-Float.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nFloat must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1361,29 +564,7 @@ Float.prototype[Symbol.toPrimitive] = hint => {
 
 // integer constructor
 // Number -> Integer
-class Int extends Number {
-  constructor(n) {
-    super(n);
-
-    if (GUARDED) {
-      if (typeof n !== "number") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nInt expects an argument of type Number"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(n)} received`
-        + "\n");
-
-      else if (n % 1 !== 0) throw new ArgValueError(
-        "invalid argument value"
-        + "\n\nInt expects a natural Number"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${c} received`
-        + "\n");
-    }
-  }
-} {
+class Int extends Number {} {
   const Int_ = Int;
 
   Int = function(n) {
@@ -1391,19 +572,9 @@ class Int extends Number {
   };
 
   Int.prototype = Int_.prototype;
+
+  Int_.prototype[Symbol.toStringTag] = "Integer";
 }
-
-
-Int.prototype[Symbol.toStringTag] = "Integer";
-
-
-Int.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nInt must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1413,21 +584,7 @@ Int.prototype[Symbol.toPrimitive] = hint => {
 
 // product
 // Number -> Product
-class Product extends Number {
-  constructor(n) {
-    super(n);
-
-    if (GUARDED) {
-      if (toTypeTag(n) !== "Number") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nProduct expects an argument of type Number"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(n)} received`
-        + "\n");
-    }
-  }
-} {
+class Product extends Number {} {
   const Product_ = Product;
 
   Product = function(n) {
@@ -1435,19 +592,9 @@ class Product extends Number {
   };
 
   Product.prototype = Product_.prototype;
+
+  Product_.prototype[Symbol.toStringTag] = "Product";
 }
-
-
-Product.prototype[Symbol.toStringTag] = "Product";
-
-
-Product.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nProduct must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1457,24 +604,7 @@ Product.prototype[Symbol.toPrimitive] = hint => {
 
 // record constructor
 // Object -> Record
-class Rec extends Object {
-  constructor(o) {
-    super(o);
-    Object.assign(this, o);
-
-    if (GUARDED) {
-      if (typeof o !== "object" || o === null) throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nRec expects an argument of type Object"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(o)} received`
-        + "\n");
-
-      Object.freeze(this);
-    }
-  }
-} {
+class Rec extends Object {} {
   const Rec_ = Rec;
 
   Rec = function(o) {
@@ -1482,24 +612,9 @@ class Rec extends Object {
   };
 
   Rec.prototype = Rec_.prototype;
+
+  Rec_.prototype[Symbol.toStringTag] = "Record";
 }
-
-
-Rec.prototype[Symbol.toStringTag] = "Record";
-
-
-Rec.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nRec must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
-
-
-// maximal record size
-// Number
-const MAX_REC_SIZE = 16;
 
 
 /******************************************************************************
@@ -1509,21 +624,7 @@ const MAX_REC_SIZE = 16;
 
 // sum
 // Number -> Sum
-class Sum extends Number {
-  constructor(n) {
-    super(n);
-
-    if (GUARDED) {
-      if (toTypeTag(n) !== "Number") throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nSum expects an argument of type Number"
-        + "\n\non the 1st call"
-        + "\n\nin the 1st argument"
-        + `\n\nbut ${introspect(n)} received`
-        + "\n");
-    }
-  }
-} {
+class Sum extends Number {} {
   const Sum_ = Sum;
 
   Sum = function(n) {
@@ -1531,19 +632,9 @@ class Sum extends Number {
   };
 
   Sum.prototype = Sum_.prototype;
+
+  Sum_.prototype[Symbol.toStringTag] = "Sum";
 }
-
-
-Sum.prototype[Symbol.toStringTag] = "Sum";
-
-
-Sum.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nSum must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
 
 
 /******************************************************************************
@@ -1565,9 +656,6 @@ class Tup extends Array {
     } 
 
     else super(...args);
-
-    if (GUARDED)
-      Object.freeze(this);
   }
 } {
   const Tup_ = Tup;
@@ -1577,274 +665,9 @@ class Tup extends Array {
   };
 
   Tup.prototype = Tup_.prototype;
+
+  Tup_.prototype[Symbol.toStringTag] = "Tuple";
 }
-
-
-Tup.prototype.map = () => {
-  throw new TypeError(
-    "illegal operation"
-    + "\n\nTup must not used as an Array"
-    + `\n\nbut attempt to map over received`
-    + "\n");
-};
-
-
-Tup.prototype[Symbol.toPrimitive] = hint => {
-  throw new TypeCoercionError(
-    "illegal type coercion"
-    + "\n\nTup must maintain its type"
-    + `\n\nbut type coercion to ${capitalize(hint)} received`
-    + "\n");
-};
-
-
-Tup.prototype[Symbol.toStringTag] = "Tuple";
-
-
-// maximal tuple size
-// Number
-const MAX_TUP_SIZE = 8;
-
-
-/******************************************************************************
-*******************************************************************************
-**********************************[ PROXIES ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-************************************[ Arr ]************************************
-******************************************************************************/
-
-
-// homogeneous array constructor
-// Array -> Arr
-const Arr = xs => {
-  if (GUARDED) {
-    if (!Array.isArray(xs)) throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\nArr expects an argument of type Array"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(xs)} received`
-      + "\n");
-
-    const t = introspect(xs);
-
-    if (replaceNestings(t).search(/\?|,/) !== -1) throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\nArr expects an homogeneous Array"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(xs)} received`
-      + "\n");
-
-    else return new Proxy(xs, handleArr(t));
-  }
-  
-  else return xs;
-};
-
-
-// handle homogeneous array
-// String -> Object
-const handleArr = t => ({
-  get: (xs, i, p) => {
-    switch (i) {
-      case Symbol.toPrimitive: return hint => {
-        throw new TypeCoercionError(
-          "illegal type coercion"
-          + "\n\nArr must maintain its type"
-          + `\n\nbut type coercion to ${capitalize(hint)} received`
-          + "\n");
-      };
-
-      default: return xs[i];
-    }
-  },
-
-  deleteProperty: (xs, i) => {
-    if (String(Number(i)) === i) {
-      if (Number(i) !== xs.length - 1) throw new TypeError(
-        "illegal operation"
-        + "\n\nArr must maintain a coherent index"
-        + `\n\nbut delete operation would lead to an index gap`
-        + `\n\nat the ${ordinal(i)} position`
-        + "\n");
-    }
-
-    delete xs[i];
-    return xs;
-  },
-
-  set: (xs, i, v) => setArr(xs, i, {value: v}, t, {mode: "set"}),
-
-  defineProperty: (xs, i, d) => setArr(xs, i, d, t, {mode: "def"})
-});
-
-
-// set array
-// ([a], Number, {value: a}, {mode: String} => [a]
-const setArr = (xs, i, d, t, {mode}) => {
-  if (String(Number(i)) === i) {
-    if (Number(i) > xs.length) throw new TypeError(
-      "illegal operation"
-      + "\n\nArr must maintain a coherent index"
-      + `\n\nbut add operationwould lead to an index gap`
-      + `\n\nat the ${ordinal(i)} position`
-      + "\n");
-
-    else if (`[${introspect(d.value)}]` !== t) throw new TypeError(
-      "illegal operation"
-      + "\n\nArr must remain the homogeneous type"
-      + `\n\n${introspect(xs)}`
-      + `\n\nbut set operation would lead to a heterogeneous Arr`
-      + "\n\nwith element of type"
-      + `\n\n${introspect(d.value)}`
-      + "\n");
-  }
-
-  if (mode === "set") xs[i] = d.value;
-  else Reflect.defineProperty(xs, i, d);
-  return xs;
-};
-
-
-/******************************************************************************
-***********************************[ _Map ]************************************
-******************************************************************************/
-
-
-// homogeneous map constructor
-// Map -> _Map
-const _Map = m => {
-  if (GUARDED) {
-    if (toTypeTag(m) !== "Map") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n_Map expects an argument of type Map"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(m)} received`
-      + "\n");
-
-    const t = introspect(m);
-
-    if (t === "Map<?>") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n_Map expects an homogeneous Map"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${t} received`
-      + "\n");
-
-    else return new Proxy(m, handleMap(t));
-  }
-  
-  else return m;
-};
-
-
-// handle homogeneous map
-// String -> Object
-const handleMap = t => ({
-  get: (m, k, p) => {
-    switch (k) {
-      case Symbol.toPrimitive: return hint => {
-        throw new TypeCoercionError(
-          "illegal type coercion"
-          + "\n\n_Map must maintain its type"
-          + `\n\nbut type coercion to ${capitalize(hint)} received`
-          + "\n");
-      };
-
-      case "set": return (k, v) => {
-        if (`Map<${introspect(k)}, ${introspect(v)}>` !== t) throw new TypeError(
-          "illegal operation"
-          + "\n\n_Map must remain the homogeneous type"
-          + `\n\n${introspect(m)}`
-          + `\n\nbut set operation would lead to a heterogeneous _Map`
-          + "\n\nwith pair of type"
-          + `\n\n${introspect(k)}/${introspect(v)}`
-          + "\n");
-
-        else return m.set(k, v);
-      }
-
-      default: return typeof m[k] === "function"
-        ? m[k].bind(m)
-        : m[k];
-    }
-  },
-});
-
-
-/******************************************************************************
-***********************************[ _Set ]************************************
-******************************************************************************/
-
-
-// homogeneous set constructor
-// Set -> _Set
-const _Set = s => {
-  if (GUARDED) {
-    if (toTypeTag(s) !== "Set") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n_Set expects an argument of type Set"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(m)} received`
-      + "\n");
-
-    const t = introspect(s);
-
-    if (t === "Set<?>") throw new ArgTypeError(
-      "invalid argument type"
-      + "\n\n_Set expects a homogeneous Set"
-      + "\n\non the 1st call"
-      + "\n\nin the 1st argument"
-      + `\n\nbut ${introspect(m)} received`
-      + "\n");
-
-    else return new Proxy(s, handleSet(t));
-  }
-  
-  else return s;
-};
-
-
-// handle homogeneous set
-// String -> Object
-const handleSet = t => ({
-  get: (s, k, p) => {
-    switch (k) {
-      case Symbol.toPrimitive: return hint => {
-        throw new TypeCoercionError(
-          "illegal type coercion"
-          + "\n\n_Set must maintain its type"
-          + `\n\nbut type coercion to ${capitalize(hint)} received`
-          + "\n");
-      };
-
-      case "set": return k => {
-        if (`Set<${introspect(k)}>` !== t) throw new ArgTypeError(
-          "illegal operation"
-          + "\n\n_Set must remain the homogeneous type"
-          + `\n\n${introspect(s)}`
-          + `\n\nbut set operation would lead to a heterogeneous _Set`
-          + "\n\nwith key of type"
-          + `\n\n${introspect(k)}`
-          + "\n");
-
-        else return s.add(k);
-      }
-
-      default: return typeof s[k] === "function"
-        ? s[k].bind(s)
-        : s[k];
-    }
-  },
-});
 
 
 /******************************************************************************
@@ -1857,82 +680,13 @@ const handleSet = t => ({
 // data constructor
 // ADTs with any number of constructors and fields
 // untyped
-const Type = (name, ...tags) => {
-  const Type = tag => {
-    const Type = Dcons => {
-      const t = new Tcons();
-
-      if (GUARDED) {
-        if (typeof Dcons !== "function") 
-          throw new ArgTypeError(
-            "invalid argument type"
-            + `\n\n${name} expects an argument of type Function`
-            + "\n\non the 3rd call"
-            + "\nin the 1st argument"
-            + `\n\nbut ${introspect(Dcons)} received`
-            + "\n");
-
-        else if (Dcons.length !== 1) 
-          throw new ArityError(
-            "invalid function call arity"
-            + `\n\n${name} expects an 1-ary Function`
-            + "\n\non the 3rd call"
-            + "\nin the 1st argument"
-            + `\n\nbut ${Dcons.length}-ary Function received`
-            + "\n");
-
-        else t[SIG] = `${name}<λ>`;
-      }
-        
-      t[`run${name}`] = $sum(`run${name}`, Dcons, tags);
-      t[TAG] = tag;
-      return t;
-    };
-
-    if (GUARDED) {
-      if (typeof tag !== "string") 
-        throw new ArgTypeError(
-          "invalid argument type"
-          + "\n\nType expects an argument of type String"
-          + "\n\non the 2nd call"
-          + "\nin the 1st argument"
-          + `\n\nbut ${introspect(tag)} received`
-          + "\n");
-
-      else if (!tags.includes(tag)) 
-        throw new ArgValueError(
-          "invalid argument value"
-          + "\n\nType expects a known tag"
-          + "\n\non the 2nd call"
-          + "\nin the 1st argument"
-          + `\n\nbut ${tag} received`
-          + "\n");
-    }
-
-    return Type;
+const Type = name => {
+  const Type = tag => Dcons => {
+    const t = new Tcons();
+    t[`run${name}`] = Dcons;
+    t[TAG] = tag;
+    return t;
   };
-
-  if (GUARDED) {
-    [name, ...tags].forEach((arg, nthArg) => {
-      if (typeof arg !== "string")
-        throw new ArgTypeError(
-          "invalid argument type"
-          + "\n\nType expects an argument of type String"
-          + "\n\non the 1st call"
-          + `\nin the ${ntgArg + 1} argument`
-          + `\n\nbut ${introspect(arg)} received`
-          + "\n");
-
-      else if (arg[0].toLowerCase() === arg[0])
-        throw new ArgValueError(
-          "invalid argument value"
-          + "\n\nType expects a capitalized String"
-          + "\n\non the 1st call"
-          + `\nin the ${ntgArg + 1} argument`
-          + `\n\nbut ${arg} received`
-          + "\n");
-    });
-  }
 
   const Tcons =
     Function(`return function ${name}() {}`) ();
@@ -1945,77 +699,19 @@ const Type = (name, ...tags) => {
 // data constructor
 // ADTs with single constructor and any number of fields
 // untyped
-const Data = name => {
-  const Data = Dcons => {
-    const Data = k => {
-      const t = new Tcons();
-
-      if (GUARDED) {
-        if (typeof k !== "function")
-          throw new ArgTypeError(
-            "invalid argument type"
-            + `\n\n${name} expects an argument of type Function`
-            + "\n\non the 3rd call"
-            + "\nin the 1st argument"
-            + `\n\nbut ${introspect(k)} received`
-            + "\n");
-
-        t[SIG] = `${name}<λ>`;
-      }
-      
-      t[`run${name}`] = $(`run${name}`, k);
-      t[Symbol.toStringTag] = name;
-      t[TAG] = name;
-      return t;
-    };
-
-    if (GUARDED) {
-      if (typeof Dcons !== "function") 
-        throw new ArgTypeError(
-          "invalid argument type"
-          + `\n\n${name} expects an argument of type Function`
-          + "\n\non the 2nd call"
-          + "\nin the 1st argument"
-          + `\n\nbut ${introspect(Dcons)} received`
-          + "\n");
-
-      else if (Dcons.length !== 1) 
-        throw new ArityError(
-          "invalid function call arity"
-          + `\n\n${name} expects an 1-ary Function`
-          + "\n\non the 2nd call"
-          + "\nin the 1st argument"
-          + `\n\nbut ${Dcons.length}-ary Function received`
-          + "\n");
-    }
-
-    return $(name, Dcons(Data));
+const Data = name => Dcons => {
+  const Data = k => {
+    const t = new Tcons();
+    t[`run${name}`] = k;
+    t[Symbol.toStringTag] = name;
+    t[TAG] = name;
+    return t;
   };
-
-  if (GUARDED) {
-    if (typeof name !== "string")
-      throw new ArgTypeError(
-        "invalid argument type"
-        + "\n\nData expects an argument of type String"
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut ${introspect(name)} received`
-        + "\n");
-
-    else if (name[0].toLowerCase() === name[0])
-      throw new ArgValueError(
-        "invalid argument value"
-        + "\n\nData expects a capitalized String"
-        + "\n\non the 1st call"
-        + "\nin the 1st argument"
-        + `\n\nbut ${name} received`
-        + "\n");
-  }
 
   const Tcons =
     Function(`return function ${name}() {}`) ();
 
-  return Data;
+  return Dcons(Data);
 };
 
 
@@ -2035,14 +731,7 @@ const Behavior = Data("Behavior")
   (Behavior => k => Behavior(k));
 
 
-// run behavior
-// (a -> r, e -> r) -> Behavior<a, e> -> r
-const runBehavior = $(
-  "runBehavior",
-  f => tk => tk.runBehavior(f));
-
-
-/***[Misc]********************************************************************/
+/***[Subscription]************************************************************/
 
 
 // subscribe
@@ -2069,25 +758,22 @@ const subscribe = o => {
 
 // comparator type constructor
 // ({LT: r, EQ: r, GT: r} -> r) -> Comparator
-const Comparator = Type("Comparator", "LT", "EQ", "GT");
+const Comparator = Type("Comparator");
 
 
 // lower than data constructor
 // Comparator
-const LT = Comparator("LT")
-  (cases => cases.LT);
+const LT = Comparator("LT") (cases => cases.LT);
 
 
 // equal data constructor
 // Comparator
-const EQ = Comparator("EQ")
-  (cases => cases.EQ);
+const EQ = Comparator("EQ") (cases => cases.EQ);
 
 
 // greater than data constructor
 // Comparator
-const GT = Comparator("GT")
-  (cases => cases.GT);
+const GT = Comparator("GT") (cases => cases.GT);
 
 
 /******************************************************************************
@@ -2097,8 +783,7 @@ const GT = Comparator("GT")
 
 // delimited continuation
 // ((a -> r) -> r) -> Cont<r, a>
-const Cont = Data("Cont")
-  (Cont => k => Cont(k));
+const Cont = Data("Cont") (Cont => k => Cont(k));
 
 
 /******************************************************************************
@@ -2109,49 +794,7 @@ const Cont = Data("Cont")
 // effect
 // synchronous
 // (() -> a) -> Eff<a>
-const Eff = Data("Eff")
-  (Eff => thunk => Eff(thunk));
-
-
-// run effect
-// unsafe
-// Eff<a> -> () -> a
-const runEff = $(
-  "runEff",
-  tx => tx.runEff());
-
-
-/***[Functor]*****************************************************************/
-
-
-// functorial composition
-// (a -> b) -> Eff<a> -> Eff<b>
-Eff.map = $(
-  "map",
-  f => tx =>
-    Eff(() => f(tx.runEff())));
-
-
-/***[Applicative]*************************************************************/
-
-
-// applicative composition
-// Eff<a -> b> -> Eff<a> -> Eff<b>
-Eff.ap = $(
-  "ap",
-  tf => tx =>
-    Eff(() => tf.runEff() (tx.runEff())));
-
-
-/***[Chain]*******************************************************************/
-
-
-// monadic composition
-// Eff<a> -> (a -> Eff<b>) -> Eff<b>
-Eff.chain = $(
-  "chain",
-  mx => fm =>
-    Eff(() => fm(mx.runEff()).runEff()));
+const Eff = Data("Eff") (Eff => thunk => Eff(thunk));
 
 
 /******************************************************************************
@@ -2161,23 +804,17 @@ Eff.chain = $(
 
 // either
 // ({Left: a -> r, Right: b -> r} -> r) -> Either<a, b>
-const Either = Type("Either", "Left", "Right");
+const Either = Type("Either");
 
 
 // left
 // a -> Either<a, b>
-const Left = $(
-  "Left",
-  x => Either("Left")
-    (cases => cases.Left(x)));
+const Left = x => Either("Left") (cases => cases.Left(x));
 
 
 // right
 // b -> Either<a, b>
-const Right = $(
-  "Right",
-  x => Either("Right")
-    (cases => cases.Right(x)));
+const Right = x => Either("Right") (cases => cases.Right(x));
 
 
 /******************************************************************************
@@ -2187,8 +824,7 @@ const Right = $(
 
 // endomorphism
 // (a -> a) -> Endo<a>
-const Endo = Data("Endo")
-  (Endo => f => Endo(f));
+const Endo = Data("Endo") (Endo => f => Endo(f));
 
 
 /******************************************************************************
@@ -2198,8 +834,7 @@ const Endo = Data("Endo")
 
 // event stream
 // TODO: type signature
-const Event = Data("Event")
-  (Event => k => Event(k));
+const Event = Data("Event") (Event => k => Event(k));
 
 
 /******************************************************************************
@@ -2209,23 +844,17 @@ const Event = Data("Event")
 
 // exception
 // ({Err: e -> r, Suc: a -> r} -> r) -> Except<e, a>
-const Except = Type("Except", "Err", "Suc");
+const Except = Type("Except");
 
 
 // error
 // e -> Except<e, a>
-const Err = $(
-  "Err",
-  e => Except("Err")
-    (cases => cases.Err(e)));
+const Err = e => Except("Err") (cases => cases.Err(e));
 
 
 // success
 // a -> Except<e, a>
-const Suc = $(
-  "Suc",
-  x => Except("Suc")
-    (cases => cases.Suc(x)));
+const Suc = x => Except("Suc") (cases => cases.Suc(x));
 
 
 /******************************************************************************
@@ -2235,8 +864,7 @@ const Suc = $(
 
 // identity
 // a -> Id<a>
-const Id = Data("Id")
-  (Id => x => Id(k => k(x)));
+const Id = Data("Id") (Id => x => Id(k => k(x)));
 
 
 /******************************************************************************
@@ -2255,21 +883,17 @@ const Lazy = Eff;
 
 // list
 // ({Cons: a -> List<a> -> r, Nil: r} -> r) -> List<a>
-const List = Type("List", "Cons", "Nil");
+const List = Type("List");
 
 
 // construct
 // a -> List<a> -> List<a>
-const Cons = $(
-  "Cons",
-  x => tx => List("Cons")
-    (cases => cases.Cons(x) (tx)));
+const Cons = x => tx => List("Cons") (cases => cases.Cons(x) (tx));
 
 
 // not in list
 // List<a>
-const Nil = List("Nil")
-  (cases => cases.Nil);
+const Nil = List("Nil") (cases => cases.Nil);
 
 
 /******************************************************************************
@@ -2284,21 +908,17 @@ const Nil = List("Nil")
 
 // option
 // ({Some: a -> r, None: r} -> r) -> Option<a>
-const Option = Type("Option", "None", "Some");
+const Option = Type("Option");
 
 
 // none
 // Option<a>
-const None = Option("None")
-  (cases => cases.None);
+const None = Option("None") (cases => cases.None);
 
 
 // some
 // a -> Option<a>
-const Some = $(
-  "Some",
-  x => Option("Some")
-    (cases => cases.Some(x)));
+const Some = x => Option("Some") (cases => cases.Some(x));
 
 
 /******************************************************************************
@@ -2308,71 +928,7 @@ const Some = $(
 
 // reader
 // (a -> b) -> Reader<a, b>
-const Reader = Data("Reader")
-  (Reader => f => Reader(f));
-
-
-/***[Functor]*****************************************************************/
-
-
-// functorial composition
-// (a -> b) -> Reader<e, a> -> Reader<e, b>
-Reader.map = $(
-  "map",
-  f => g => x =>
-    f(g(x)));
-
-
-// variadic map
-// untyped
-Reader.mapv = $(
-  "mapv",
-  f => Object.assign(g =>
-    Reader.mapv(x =>
-      f(g(x))),
-      {runReader: f}));
-
-
-/***[Applicative]*************************************************************/
-
-
-// applicative compostion
-// Reader<e, a -> b> -> Reader<e, a> -> Reader<e, b>
-Reader.ap = $(
-  "ap",
-  f => g => x =>
-    f(x) (g(x)));
-
-
-// variadic applicative composition
-// left-to-right
-// untyped
-Reader.apv = $(
-  "...apv",
-  f => Object.assign(g =>
-    Reader.apv(x =>
-      g(x) (f(x))), {runReader: f}));
-
-
-/***[Monad]*******************************************************************/
-
-
-// monadic composition
-// Reader<e, a> -> (a -> Reader<e, b>) -> Reader<e, b>
-Reader.chain = $(
-  "chain",
-  g => f => x => f(g(x)) (x)
-);
-
-
-// variadic monadic composition
-// left-to-right
-// untyped
-Reader.chainv = $(
-  "chainv",
-  f => Object.assign(g =>
-    Reader.chainv(x =>
-      g(f(x)) (x)), {runReader: f}));
+const Reader = Data("Reader") (Reader => f => Reader(f));
 
 
 /******************************************************************************
@@ -2381,8 +937,7 @@ Reader.chainv = $(
 
 // reference
 // Object -> Ref<Object>
-const Ref = Data("Ref")
-  (Ref => o => Ref(k => k(o)));
+const Ref = Data("Ref") (Ref => o => Ref(k => k(o)));
 
 
 /******************************************************************************
@@ -2403,51 +958,7 @@ const Ref = Data("Ref")
 // task
 // TODO: switch to node style
 // ((a -> r) -> r, (e -> r) -> r) -> Task<a, e>
-const Task = Data("Task")
-  (Task => k => Task(k));
-
-
-/***[Functor]*****************************************************************/
-
-
-// functorial composition
-// (a -> b) -> Task<a, e> -> Task<b, e>
-Task.map = f => tk =>
-  Task((k, e) =>
-    tk.runTask(x =>
-      k(f(x)), e));
-
-
-/***[Applicative]*************************************************************/
-
-
-// applicative composition
-// Task<a -> b, e> -> Task<a, e> -> Task<b, e>
-Task.ap = tf => tk =>
-  Task((k, e) =>
-    tf.runTask(f =>
-      tk.runTask(x =>
-        k(f(x)), e), e));
-
-
-/***[Chain]*******************************************************************/
-
-
-// monadic composition
-// Task<a, e> -> (a -> Task<b, e>) -> Task<b, e>
-Task.chain = mk => fm =>
-  Task((k, e) =>
-    mk.runTask(x =>
-      fm(x).runTask(k, e), e));
-
-
-/***[Monad]*******************************************************************/
-
-
-// of
-// a -> Task<a, e>
-Task.of = x =>
-  Task((k, e) => k(x));
+const Task = Data("Task") (Task => k => Task(k));
 
 
 /******************************************************************************
@@ -2492,8 +1003,7 @@ const Forest = Data("Forest")
 
 // append to parent node
 // Node -> Node -> Eff<>
-const appendNode = parent => child =>
-  Eff(() => parent.append(child));
+const appendNode = parent => child => Eff(() => parent.append(child));
 
 
 // dom attribute
@@ -2519,26 +1029,22 @@ const insertBefore = successor => sibling =>
 
 // dom markup
 // String -> ...[Attr] -> ...[HTMLElement] -> HTMLElement
-const markup = $(
-  "markup",
-  name => (...attr) => (...children) => {
-    const el = document.createElement(name);
+const markup = name => (...attr) => (...children) => {
+  const el = document.createElement(name);
 
-    attr.forEach(
-      a => el.setAttributeNode(a));
+  attr.forEach(
+    a => el.setAttributeNode(a));
 
-    children.forEach(child =>
-      el.appendChild(child));
+  children.forEach(child =>
+    el.appendChild(child));
 
-    return el;
-  }
-);
+  return el;
+};
 
 
 // dom text
 // String -> Text
-const text = s =>
-  document.createTextNode(s);
+const text = s => document.createTextNode(s);
 
 
 /******************************************************************************
@@ -2546,6 +1052,11 @@ const text = s =>
 ********************************[ TYPECLASSES ]********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+// value indicator
+// Symbol
+const VALUE = Symbol("VALUE");
 
 
 /***[Bounded]*****************************************************************/
@@ -2614,21 +1125,18 @@ const {prependAdd, prependLookup, prepend} =
 
 
 // equal
-// no function guarding necessary
 // untyped
 const eq_ = x => y =>
   x === y;
 
 
 // not equal
-// no function guarding necessary
 // untyped
 const neq_ = x => y =>
   x !== y;
 
 
 // auxiliary function
-// no function guarding necessary
 // [a] -> [a] -> Boolean
 const eqArr = xs => ys => {
   if (xs.length !== ys.length)
@@ -2645,14 +1153,12 @@ const eqArr = xs => ys => {
 
 
 // equal char
-// no function guarding necessary
 // Char -> Char -> Boolean
 const eqChar = c => d =>
   c.valueOf() === d.valueOf()
 
 
 // equal either
-// no function guarding necessary
 // Either<a, b> -> Either<a, b> -> Boolean
 const eqEither = tx => ty =>
   tx[TAG] === ty[TAG]
@@ -2662,28 +1168,24 @@ const eqEither = tx => ty =>
 
 
 // equal float
-// no function guarding necessary
 // Float -> Float -> Boolean
 const eqFloat = f => g =>
   f.valueOf() === g.valueOf();
 
 
 // equal id
-// no function guarding necessary
 // Id<a> -> Id<a> -> Boolean
 const eqId = tx => ty =>
     tx.runId(x => ty.runId(y => eq(x) (y)));
 
 
 // equal int
-// no function guarding necessary
 // Integer -> Integer -> Boolean
 const eqInt = i => j =>
   i.valueOf() === j.valueOf();
 
 
 // equal map
-// no function guarding necessary
 // Map<k, v> -> Map<k, v> -> Boolean
 const eqMap = m => n => {
   if (m.size !== n.size) return false;
@@ -2702,13 +1204,11 @@ const eqMap = m => n => {
 
 
 // equal null
-// no function guarding necessary
 // Null -> Null -> Boolean
 const eqNull = _ => __ => true;
 
 
 // equal record
-// no function guarding necessary
 // Record -> Record -> Boolean
 const eqRec = r => s => {
   const ks = Object.keys(r),
@@ -2724,7 +1224,6 @@ const eqRec = r => s => {
 
 
 // equal ref
-// no function guarding necessary
 // Ref<Object> -> Ref<Object> -> Boolean
 const eqRef = to => tp =>
   to.runRef(o =>
@@ -2732,7 +1231,6 @@ const eqRef = to => tp =>
 
 
 // equal set
-// no function guarding necessary
 // Set<a> -> Set<a> -> Boolean
 const eqSet = s => t => {
   if (s.size !== t.size) return false;
@@ -2749,7 +1247,6 @@ const eqSet = s => t => {
 
 
 // equal tuple
-// no function guarding necessary
 // Tuple -> Tuple -> Boolean
 const eqTup = xs => ys =>
   xs.length !== ys.length
@@ -2836,12 +1333,13 @@ emptyAdd("Comparator", EQ);
 
 // empty add
 // Endo<a>
-emptyAdd("Endo", id);
+emptyAdd("Endo", Endo(id));
 
 
 // empty add
-// Monoid b => a -> b
-emptyAdd("Function", empty);
+// TODO: verify
+// Monoid b => _ -> b
+emptyAdd("Function", co(empty));
 
 
 // empty add
@@ -2866,13 +1364,7 @@ emptyAdd("Sum", Sum(0));
 
 // empty add
 // Monoid a b => Tuple<a, b> // for instance
-// TODO: replace with Tuple map
-// emptyAdd("Tuple", xs => xs.map(x => empty(x)));
-
-
-// empty add
-// Monoid b => Either<a, b>
-emptyAdd("Either", tx => tx.runEither(x => Right(toTypeTag(x))));
+emptyAdd("Tuple", xs => xs.map(x => empty(x)));
 
 
 /***[Semigroup]***************************************************************/
@@ -2880,37 +1372,37 @@ emptyAdd("Either", tx => tx.runEither(x => Right(toTypeTag(x))));
 
 // append add
 // All -> All -> All
-appendAdd("All", a => b => All(a.valueOf() && b.valueOf()));
+appendAdd("All/All", a => b => All(a.valueOf() && b.valueOf()));
 
 
 // prepend add
 // All -> All -> All
-prependAdd("All", b => a => All(a.valueOf() && b.valueOf()));
+prependAdd("All/All", b => a => All(a.valueOf() && b.valueOf()));
 
 
 // append add
 // Any -> Any -> Any
-appendAdd("Any", a => b => Any(a.valueOf() || b.valueOf()));
+appendAdd("Any/Any", a => b => Any(a.valueOf() || b.valueOf()));
 
 
 // prepend add
 // Any -> Any -> Any
-prependAdd("Any", b => a => Any(a.valueOf() || b.valueOf()));
+prependAdd("Any/Any", b => a => Any(a.valueOf() || b.valueOf()));
 
 
 // append add
 // Array -> Array -> Array
-appendAdd("Array", xs => ys => xs.concat(ys));
+appendAdd("Array/Array", xs => ys => xs.concat(ys));
 
 
 // prepend add
 // Array -> Array -> Array
-prependAdd("Array", ys => xs => xs.concat(ys));
+prependAdd("Array/Array", ys => xs => xs.concat(ys));
 
 
 // append add
 // Comparator -> Comparator -> Comparator
-appendAdd("Comparator", t => u =>
+appendAdd("Comparator/Comparator", t => u =>
   t[TAG] === "LT" ? LT
     : t[TAG] === "EQ" ? u
     : GT);
@@ -2918,7 +1410,7 @@ appendAdd("Comparator", t => u =>
 
 // prepend add
 // Comparator -> Comparator -> Comparator
-appendAdd("Comparator", u => t =>
+appendAdd("Comparator/Comparator", u => t =>
   t[TAG] === "LT" ? LT
     : t[TAG] === "EQ" ? u
     : GT);
@@ -2926,64 +1418,62 @@ appendAdd("Comparator", u => t =>
 
 // append add
 // Endo<a> -> Endo<a> -> Endo<a>
-appendAdd("Endo", f => g => Endo(x => f(g(x))));
+appendAdd("Endo/Endo", tf => tg => Endo(x => tf.runEndo(tg.runEndo(x))));
 
 
 // prepnd add
 // Endo<a> -> Endo<a> -> Endo<a>
-prependAdd("Endo", g => f => Endo(x => f(g(x))));
+prependAdd("Endo/Endo", tg => tf => Endo(x => tf.runEndo(tg.runEndo(x))));
 
 
 // append add
 // Monoid b => (a -> b) -> (a -> b) -> a -> b
-appendAdd("Function", f => g => x => append(f(x)) (g(x)));
+appendAdd("Function/Function", f => g => x => append(f(x)) (g(x)));
 
 
 // prepend add
-// (a -> a) -> (a -> a) -> (a -> a)
-prependAdd("Function", g => f => x => f(g(x)));
+// Monoid b => (a -> b) -> (a -> b) -> a -> b
+prependAdd("Function/Function", g => f => x => append(f(x)) (g(x)));
 
 
 // append add
 // Product -> Product -> Product
-appendAdd("Product", m => n => Product(m * n));
+appendAdd("Product/Product", m => n => Product(m * n));
 
 
 // prepend add
 // Product -> Product -> Product
-prependAdd("Product", n => m => Product(m * n));
+prependAdd("Product/Product", n => m => Product(m * n));
 
 
 // append add
 // String -> String -> String
-appendAdd("String", s => t => `${s}${t}`);
+appendAdd("String/String", s => t => `${s}${t}`);
 
 
 // prepend add
 // String -> String -> String
-prependAdd("String", t => s => `${s}${t}`);
+prependAdd("String/String", t => s => `${s}${t}`);
 
 
 // append add
 // Sum -> Sum -> Sum
-appendAdd("Sum", m => n => Sum(m + n));
+appendAdd("Sum/Sum", m => n => Sum(m + n));
 
 
 // prepend add
 // Sum -> Sum -> Sum
-prependAdd("Sum", n => m => Sum(m + n));
+prependAdd("Sum/Sum", n => m => Sum(m + n));
 
 
 // append add
 // Tuple -> Tuple -> Tuple
-// TODO: replace with Tuple map
-// appendAdd("Tuple", xs => ys => xs.map((x, i) => append(x) (ys[i]));
+appendAdd("Tuple/Tuple", xs => ys => xs.map((x, i) => append(x) (ys[i])));
 
 
 // prepend add
 // Tuple -> Tuple -> Tuple
-// TODO: replace with Tuple map
-// prependAdd("Tuple", ys => xs => xs.map((x, i) => prepend(x) (ys[i]));
+prependAdd("Tuple/Tuple", ys => xs => xs.map((x, i) => prepend(x) (ys[i])));
 
 
 /***[Setoid]******************************************************************/
@@ -3161,13 +1651,37 @@ neqAdd("Tuple", notp2(eqTup));
 
 /******************************************************************************
 *******************************************************************************
-**********************************[ EXPORT ]***********************************
+*********************************[ INTERNAL ]**********************************
 *******************************************************************************
 ******************************************************************************/
 
 
-// reset call log
-callLog = [];
+// ordinal number
+// Number -> String
+const ordinal = n => {
+  const s = ["th", "st", "nd", "rd"],
+    v = n % 100;
+
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+
+
+// quote
+// a -> String
+const quote = x => {
+  switch (typeof x) {
+    case "string": return `"${x}"`;
+    default: return String(x);
+  }
+}
+
+
+/******************************************************************************
+*******************************************************************************
+**********************************[ EXPORT ]***********************************
+*******************************************************************************
+******************************************************************************/
 
 
 // initialize namespace
@@ -3181,7 +1695,6 @@ Object.assign($,
     appendLookup,
     appendNode,
     apply,
-    Arr,
     attr,
     Behavior,
     Char,
@@ -3227,17 +1740,14 @@ Object.assign($,
     Id,
     id,
     inc,
-    infix,
     insertAfter,
     insertBefore,
     Int,
-    introspect,
     join,
     Lazy,
     Left,
     loop,
     LT,
-    _Map,
     markup,
     maxBound,
     maxBoundAdd,
@@ -3273,9 +1783,6 @@ Object.assign($,
     Right,
     rotl,
     rotr,
-    runEff,
-    _Set,
-    SIG,
     Some,
     sub,
     subf,

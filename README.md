@@ -6,196 +6,41 @@ This repo is experimental and still work in progress.
 
 ## What
 
-A type-directed functional library with a focus on purity, abstraction and a mature debugging toolset.
+A gentle and type-directed functional library with a focus on purity, abstraction and patterns.
 
 ## Why
 
-scriptum is an attempt to reconcile Javascript's dynamical type convenience with the type safety of statically typed languages.
-
-## Why not just Flowtype?
-
-Haskell is a purely functional language designed around a parametric, bounded and higher kinded polymorphic type system. Still the language comes along with dozens of extensions for its type machinery: FlexibleContexts, FunctionalDependencies, GADTs, KindSignatures, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TypeFamilies, etc. This is for a good reason: A good type system must be advanced enough so that it does not exclude too many useful programs, because it is not expressive enough.
-
-Javascript isn't designed around a type system and it is imposible to build one retrospectively. Such an attempt will always result in poor soundness and code littered with awkward type annotations. You cannot patch a type system. But that is exactly what Flowtype is trying to do. Sure, you can type simple functions and data structures. However, as soon as you try to type highly generalized functional idioms it looks like this:
-
-```Javascript
-class HKT<F, A> {}
-
-interface Functor<F> {
-  map<A, B>(f: (a: A) => B, fa: HKT<F, A>): HKT<F, B>
-}
-```
-Instances of this functor class must implement weird getter and setter functions to get the value in and out of the functor respectively. Read the [full story](https://medium.com/@gcanti/higher-kinded-types-in-flow-275b657992b7). If you want static type guarantees, rather use an appropriate language that compiles to Javascript.
+scriptum is an attempt to leverage the potential of functional programming in dynamically typed Javascript.
 
 ## Mission
 
 scriptum encourages you to program in a type-directed manner and to consider functional programs as mathematical equations that you can manipulate algebraically. This style facilitates equational reasoning and formal proof.
 
+## Lessons Learned
+
+1. Embrace Javascript's dynamically typed nature instead of fighting it
+2. Translate idioms from statically typed language so that they adapt to Javascript and not vice versa
+3. Guide programmers through conventions, not coercion
+
+# Type System
+
+It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language is build around it. However, it's a futile endeavor to do it the other way around. scriptum utilizes types extensivley, but only to help the programmer develop a mental model of their program's underlying data types. Simply put, they are merely decoration.
+
 # Debugging
 
-scriptum tries to avoid imposing explicit type annotations on the programmer. Instead of knowing the types upfront it provides as much debugging information as possible in hindsight.
+There are often complaints in the community that there are no proper debugging tools in Javascript, especially for the functional style. Sure, you can augment your functions and lambdas so that they carry around names and runtime types. But keep in mind that such an approach introduces another level of indirection to your program. You will eventually wind up stepping through your code line by line with a debugger and then at the latest you'll regret this additional code, because it renders debugging extremely cumbersome.
 
-The `$` function object is both scriptum's namespace and its core debugging operator. It transforms normal functions into guarded ones. Guarded functions have additional behavior that makes them more type-safe and easer to debug. This is achieved by `Proxy` virtualization, that is guarded functions are wrapped in `Proxy` objects.
+# Coding by Convention
 
-With the `$` operator you can guard curried, multi-argument and polyvariadic functions:
+scriptum comprises a couple of conventions instead of enforced idioms:
 
-```Javascript
-// curried function
-
-const comp = $(
-  "comp",
-  f => g => x =>
-    f(g(x)));
-
-// multi-argument function
-
-const add = $(
-  "add",
-  (m, n) =>
-    m + n);
-
-// variadic function
-
-const sum = $(
-  "...sum",
-  (...ns) =>
-    ns.reduce((acc, n) =>
-      acc + n, 0));
-```
-Function guarding is only useful during the development stage. To safe runtime costs for production environments you can deactivate this feature by setting the `GUARDED` flag to `false`.
-
-## Type Invalidation
-
-A guarded function must neither receive nor return a value of type `undefined`/`NaN`/`Infinity`:
-
-```Javascript
-const append = $(
-  "append",
-  xs => ys =>
-    xs.concat(ys));
-
-append([{foo: 1}, {foo: 2}])
-  ([{foo: NaN}, {foo: 4}]); // type error
-```
-As you can see this applies to arbitrarily nested values too.
-
-## Strict Arity
-
-Guarded functions enforce a strict function call arity:
-
-```Javascript
-const add = $(
-  "add",
-  (m, n) =>
-    m + n);
-
-add(2); // type error
-add(2, 3); // 5
-add(2, 3, 4); // type error
-```
-Please note that variadic functions come along with a less strict guarantee:
-
-```Javascript
-const sum = $(
-  "...sum",
-  n => (...ns) =>
-    ns.reduce((acc, m) =>
-      acc + m, n));
-
-sum(1) (); // 1
-sum(1) (2); // 3
-sum(1) (2, 3); // 6
-sum() (2); // type error
-sum(1, 2) (3, 4); // 8 - ouch!
-```
-The reason for this lies in sriptum's inability to distinguish variadic from deterministic arguments.
-
-## Anonymous Functions
-
-The functional paradigm leads to partially applied curried functions scattered throughout your code base. These lambdas are hard to distinguish and thus hard to debug. With guarded functions you can always access function names while debugging. It is kept by the `Symbol(NAME)` property on the `[[ProxyHandler]]` internal slot.
-
-First order function sequences inherit the name of their initial function:
-
-```Javascript
-const add = $(
-  "add",
-  m => n =>
-    m + n);
-
-add(2); // [[ProxyHandler]].Symbol(NAME) = "add"
-```
-Higher order function sequences additionally adapt their name to the last function returned:
-
-```Javascript
-const comp = $(
-  "comp",
-  f => g => x =>
-    f(g(x)));
-
-const add = $(
-  "add",
-  m => n =>
-    m + n);
-
-const inc = $(
-  "inc",
-  n => n + 1);
-
-comp(add) (inc); // [[ProxyHandler]].Symbol(NAME) = "comp"
-comp(add) (inc) (2); // [[ProxyHandler]].Symbol(NAME) = "add"
-```
-## Function Call Logs
-
-scriptum maintains a call log for each guarded function, which is kept by the `Symbol(LOG)` property on the `[[ProxyHandler]]` internal slot.
-
-```Javascript
-const comp = $(
-  "comp",
-  f => g => x =>
-    f(g(x)));
-
-const add = $(
-  "add",
-  m => n =>
-    m + n);
-
-const inc = $(
-  "inc",
-  n => n + 1);
-
-comp(add) (inc) (2); // [[ProxyHandler]].Symbol(LOG) = ["comp(λadd)", "comp(λinc)", "comp(Number)"]
-```
-`λ` just indicates that the given argument is a possibly anonymous function.
-
-If a guarded function call results in a non-functional return value it isn't logged. In scriptum jargon this is a final function call. In order to introspect final function calls scriptum maintains a global function call log that contains the last ten complete function calls including the final ones.
-
-## Type Misuse
-
-If you pass a composite value to a guarded function and the type check recognizes misuse of that type, it uses a question mark within the type signature to indicate the incorrect usage:
-
-```Javascript
-const append = $(
-  "append",
-  xs => ys =>
-    xs.concat(ys));
-  
-const inc = $(
-  "inc",
-  n => n + 1);
-
-const xs = Array(100)
-  .fill(0)
-  .concat("foo");
-
-append(xs).log; // ["append([?])"]
-
-map(inc) (append(xs) (ys)); // type error
-```
-`xs` is a heterogeneous `Array` that could potentially cause an error in the future. Consider type signatures like `[?]` as an indicator that your code is more likely to break.
-
-## Trade-off
-
-At first glance scriptum's guarded functions just establish another level of indirection. When you debug your code you have to go through some extra steps, which makes the process somewhat more laborious. For larger projects the additional type-safety and debug information should outweigh these indirection by far. Apart from that, scriptum guides you through the step-by-step debugging process by indicating which lines can be skipped.
+* Use mostly pure functions and wrap impure code in the appropriate types
+* Model your data with algebraic data types
+* Treat data as immutable but don't be ashamed of local mutations
+* Use tail recursion instaed of loops
+* Utilize persistant data structures and structural sharing
+* Avoid Javascript's prototype system
+* Encode binary functions in infix position to improve readability
 
 # Extended Types
 
@@ -210,17 +55,9 @@ The following extended types are subtypes that inherit exotic behavior from thei
 * Char
 * Int
 * Product
-* Rec (record)
+* Record
 * Sum
-* Tup (tuple)
-
-## Proxying
-
-The following extended types appear to Javascript's runtime type system like the corresponding native types but contain augmented behavior through `Proxy`s. In this way we can save conversion effort:
-
-* Arr (homogeneous `Array`)
-* _Map (homogeneous `Map`)
-* _Set (homogeneous `Set`)
+* Tuple
 
 ## Function Encoding
 
@@ -231,6 +68,7 @@ The following extended types are function encoded and simulate algebraic data ty
 * Cont (delimited continuation)
 * Eff (effectful synchronous computation)
 * Either (convergent computation)
+* Endo (endomorphism)
 * Event (discrete time series value)
 * Except (first class exception)
 * Id (effectless computation)
@@ -248,49 +86,6 @@ The following extended types are function encoded and simulate algebraic data ty
 * Valid (validation)
 * Writer (computation depending on a shared write-only environment)
 
-Please note that as in Haskell multi constructor ADTs are generally right-biased.
-
-## Type Coersion
-
-When an extended type is implicitly converted, it throws a type error:
-
-```Javascript
-const t = Tup(1, "foo");
-t + ""; // type error
-```
-
-Explicit type conversions are allowed, though:
-
-```Javascript
-const t = Tup(1, "foo");
-t.toString() + ""; // "1,foo"
-```
-## Restricted Mutability
-
-Extended types are either immutable
-
-```Javascript
-const t = Tup(1, "foo");
-
-t[0] = 2; // type error
-delete t[0]; // type error
-t[2] = true; // type error
-```
-or restrictedly mutable:
-
-```Javascript
-const xs = Arr([1, 2, 3]);
-
-xs[0] = 0; // OK
-xs[3] = 4; // OK
-
-xs[0] = "0"; // type error
-xs[3] = "4"; // type error
-xs[10] = 4; // type error (index gap)
-
-delete xs[2]; // OK
-delete xs[0]; // type error (index gap)
-```
 # Custom Types
 
 scriptum provides algebraic data types as the preferred path to create your own types. With ADTs you can express both product and sum types as well as recursive types.
@@ -323,12 +118,10 @@ bar.runBar(x => y => z => y); // "foo"
 ```
 It is totally up to you if you declare a curried or multi-argument getter (`k => k(x, y, z))`). If the free variable is an `Object`, you can even utilize destructuring assignemnt.
 
-This expressiveness comes at a price, though. The types of both examples above are `Foo<λrunFoo>` and `Bar<λrunBar>` respectively. Maybe you would have expected `Foo<Number>` and `Bar<Number, String, Boolean>`. The reaosn for this lies in the incapability of `Foo` and `Bar` to see the arguments of their preceding functions. Javascript's type system is simply too primitive to infer function types. There is no escape.
-
 Let's define a more complex ADT with two data constructors, also known as sum types:
 
 ```Javascript
-const Option = Type("Option", "None", "Some");
+const Option = Type("Option");
 
 const None = Option("None")
   (o => o.None);
@@ -358,12 +151,10 @@ runOption({Some: uc, None: ""}) (y); // ""
 runOption({Some: uc}) (x); // type error
 runOption({Some: uc, None: "", Foo: x => x}) (x); // type error
 ```
-As you can see you have to pass the tags `"None"`/`"Some"` twice, first to the `Option` type constructor and later to the value constructors. This is necessary so that scriptum can ensure that all cases are covered.
-
-You can also compose sums and products to get sums of products:
+You can also compose sums of products:
 
 ```Javascript
-const List = Type("List", "Cons", "Nil");
+const List = Type("List");
 
 const Cons = x => tx =>
   List("Cons") (cases => cases.Cons(x) (tx)));
@@ -425,7 +216,7 @@ Overloaded functions are open, that is you can always add function instances to 
 Let's define the overloaded `append` and `empty` functions to simulate the Monoid typeclass:
 
 ```Javascript
-const {appendAdd, append} = overload("append", toTypeTag);
+const {appendAdd, appendLookup, append} = overload2("append", dispatcher);
 
 appendAdd("String", s => t => `${s}${t}`);
 appendAdd("Sum", n => m => Sum(n + m));
@@ -444,12 +235,12 @@ append(Sum(2)) (Sum(3)); // Sum<5>
 append(All(true)) (All(false)); // All<false>
 append(Arr([1,2])) (Arr([3,4])); // [1,2,3,4]
 
-empty(String); // ""
-empty(Sum); // 0
-empty(All); // true
-empty(Array); // []
+append("foo") (empty); // "foo"
+append(Sum(2)) (empty); // Sum<2>
+append(All(true)) (empty); // All<false>
+append(Arr([1,2])) (empty); // [1,2]
 ```
-`empty` demonstrates the lack of return type polymorphism: We have to pass the constructor explicitly.
+As you can see from `empty` scriptum allows value polymorphism and return type polymorphism along with overloaded binary functions. This is almost like Haskell.
 
 # Effect Handling
 
