@@ -197,6 +197,7 @@ I am going to use the term typeclass from here on anyway, because scriptum uses 
 * ChainRec
 * Comonad
 * Contravariant
+* Deserialize
 * Endo
 * Enum
 * Eq
@@ -210,9 +211,8 @@ I am going to use the term typeclass from here on anyway, because scriptum uses 
 * Ord
 * Plus
 * Profunctor
-* Read
 * Semigroup
-* Show
+* Serialize
 * Setoid
 * Traversable
 
@@ -514,8 +514,6 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 
 # TODO
 
-- [ ] add monoid instance for Ord<k> => Map<k, v>
-- [ ] add monoid instance for Ord<k> => Set<k>
 - [ ] Unit tests
 - [ ] API documentation
 
