@@ -1418,7 +1418,12 @@ const arrEq = xs => ys => {
   if (xs.length !== ys.length)
     return false;
 
+  else if (xs.length === 0)
+    return true;
+
   else {
+    const eq = eqLookup(toTypeTag(xs[0]));
+
     return xs.every((x, n) =>
       eq(x) (ys[n]));
   }
@@ -1495,17 +1500,23 @@ neqAdd("Id", tx => ty => neq(tx.getId) (ty.getId));
 
 
 // map equal
+// TODO: replace Array.from with generator
 // Map<k, v> -> Map<k, v> -> Boolean
 const mapEq = m => n => {
   if (m.size !== n.size) return false;
 
+  else if (m.size === 0)
+    return true;
+
   else {
     const kvs = Array.from(m),
-      lws = Array.from(n);
+      lws = Array.from(n),
+      neq = neqLookup(toTypeTag(kvs[0] [0])),
+      eq = eqLookup(toTypeTag(kvs[0] [1]));
 
     return kvs.every(([k, v], n) => {
       const [l, w] = lws[n];
-      if (!eq(k) (l)) return false;
+      if (neq(k) (l)) return false;
       else return eq(v) (w);
     });
   }
@@ -1589,13 +1600,18 @@ neqAdd("Ref", to => tp => to.getRef !== tp.getRef);
 
 
 // equal set
+// TODO: replace Array.from with generator
 // Set<a> -> Set<a> -> Boolean
 const eqSet = s => t => {
   if (s.size !== t.size) return false;
 
+  else if (s.size === 0)
+    return true;
+
   else {
     const ks = Array.from(s),
-      ls = Array.from(t);
+      ls = Array.from(t),
+      eq = eqLookup(toTypeTag(ks[0]));
 
     return ks.every((k, n) => {
       return eq(k) (ls[n]);
@@ -1622,6 +1638,19 @@ eqAdd("String", defaultEq);
 // not equal
 // String -> String -> Boolean
 neqAdd("String", defaultNeq);
+
+
+// tuple equal
+// Tuple -> Tuple -> Boolean
+const tupEq = xs => ys => {
+  if (xs.length !== ys.length)
+    return false;
+
+  else {
+    return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+};
 
 
 // equal

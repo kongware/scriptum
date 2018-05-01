@@ -176,16 +176,11 @@ const Tree = Data("Tree")
 const Forest = Data("Forest")
   (Forest => (...trees) => Forest(k => k(trees)));
 ```
-# Overloading
+# Overloading / Typeclasses
 
-scriptum ports Clojure's multimethods to realize overloading at runtime and thus bypasses Javascript's prototype system. As a result there is no need to alter built-in prototypes anymore. Runtime overloading provides similar properties as typeclasses in statically typed languages. However, there are crucial differences:
+Function overloading is a way to enable ad-hoc polymorphism in dynamically typed languages. scriptum uses a port of Clojure's multimethods. Ad-hoc polymorphism defines type equivalence for certain behavior. As opposed to typeclasses this approach doesn't allow return type and (non-functional) value polymorphism. scriptum tries to simulate parts of these properties with tagged functions (see code example).
 
-* multimethods introspect the types of values whereas typeclasses work soleley with types
-* multimethods introduce runtime costs whereas typeclasses are ereased at runtime
-
-The consequence of the former is that overloading through multimethods doesn't work on return types.
-
-I am going to use the term typeclass from here on anyway, because scriptum uses multimethods to mimic them. The following typeclasses are or will be supported in future versions:
+scriptum will ultimately support the following typeclasses:
 
 * Alternative
 * Apply
@@ -244,7 +239,7 @@ append(Sum(2)) (empty); // Sum<2>
 append(All(true)) (empty); // All<false>
 append(Arr([1,2])) (empty); // [1,2]
 ```
-As you can see from `empty` scriptum allows value polymorphism and return type polymorphism along with overloaded binary functions. This is almost like Haskell.
+`empty` is a tagged function and simulates value polymorphism in the context of overloaded binary functions.
 
 # Effect Handling
 
