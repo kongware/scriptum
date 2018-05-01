@@ -513,130 +513,6 @@ const capitalize = s => s[0].toUpperCase() + s.slice(1);
 
 
 /******************************************************************************
-************************************[ All ]************************************
-******************************************************************************/
-
-
-// all
-// Boolean -> All
-class All extends Boolean {} {
-  const All_ = All;
-
-  All = function(b) {
-    return new All_(b);
-  };
-
-  All.prototype = All_.prototype;
-
-  All_.prototype[Symbol.toStringTag] = "All";
-}
-
-
-/******************************************************************************
-************************************[ Any ]************************************
-******************************************************************************/
-
-
-// any
-// Boolean -> Any
-class Any extends Boolean {} {
-  const Any_ = Any;
-
-  Any = function(b) {
-    return new Any_(b);
-  };
-
-  Any.prototype = Any_.prototype;
-
-  Any_.prototype[Symbol.toStringTag] = "Any";
-}
-
-
-/******************************************************************************
-***********************************[ Char ]************************************
-******************************************************************************/
-
-
-// char constructor
-// String -> Char
-class Char extends String {
-  constructor(c) {
-    super(c[0]);
-  }
-} {
-  const Char_ = Char;
-
-  Char = function(c) {
-    return new Char_(c);
-  };
-
-  Char.prototype = Char_.prototype;
-
-  Char_.prototype[Symbol.toStringTag] = "Char";
-}
-
-
-/******************************************************************************
-***********************************[ Float ]***********************************
-******************************************************************************/
-
-
-// float constructor
-// Number -> Float
-class Float extends Number {} {
-  const Float_ = Float;
-
-  Float = function(n) {
-    return new Float_(n);
-  };
-
-  Float.prototype = Float_.prototype;
-
-  Float_.prototype[Symbol.toStringTag] = "Float";
-}
-
-
-/******************************************************************************
-**********************************[ Integer ]**********************************
-******************************************************************************/
-
-
-// integer constructor
-// Number -> Integer
-class Int extends Number {} {
-  const Int_ = Int;
-
-  Int = function(n) {
-    return new Int_(n);
-  };
-
-  Int.prototype = Int_.prototype;
-
-  Int_.prototype[Symbol.toStringTag] = "Integer";
-}
-
-
-/******************************************************************************
-**********************************[ Product ]**********************************
-******************************************************************************/
-
-
-// product
-// Number -> Product
-class Product extends Number {} {
-  const Product_ = Product;
-
-  Product = function(n) {
-    return new Product_(n);
-  };
-
-  Product.prototype = Product_.prototype;
-
-  Product_.prototype[Symbol.toStringTag] = "Product";
-}
-
-
-/******************************************************************************
 **********************************[ Record ]***********************************
 ******************************************************************************/
 
@@ -658,26 +534,6 @@ class Rec extends Object {
   Rec.prototype = Rec_.prototype;
 
   Rec_.prototype[Symbol.toStringTag] = "Record";
-}
-
-
-/******************************************************************************
-************************************[ Sum ]************************************
-******************************************************************************/
-
-
-// sum
-// Number -> Sum
-class Sum extends Number {} {
-  const Sum_ = Sum;
-
-  Sum = function(n) {
-    return new Sum_(n);
-  };
-
-  Sum.prototype = Sum_.prototype;
-
-  Sum_.prototype[Symbol.toStringTag] = "Sum";
 }
 
 
@@ -727,7 +583,12 @@ class Tup extends Array {
 const Type = name => {
   const Type = tag => Dcons => {
     const t = new Tcons();
-    t[`run${name}`] = Dcons;
+
+    Object.defineProperty(
+      t,
+      `run${name}`,
+      {value: Dcons});
+
     t[TAG] = tag;
     return t;
   };
@@ -744,9 +605,14 @@ const Type = name => {
 // ADTs with single constructor and any number of fields
 // untyped
 const Data = name => Dcons => {
-  const Data = k => {
+  const Data = x => {
     const t = new Tcons();
-    t[`run${name}`] = k;
+
+    Object.defineProperty(
+      t,
+      typeof x === "function" ? `run${name}` : `get${name}`,
+      {value: x});
+
     t[Symbol.toStringTag] = name;
     t[TAG] = name;
     return t;
@@ -762,6 +628,26 @@ const Data = name => Dcons => {
 // property for pattern matching
 // Symbol
 const TAG = Symbol("TAG");
+
+
+/******************************************************************************
+************************************[ All ]************************************
+******************************************************************************/
+
+
+// all
+// Boolean -> All
+const All = Data("All") (All => b => All(b));
+
+
+/******************************************************************************
+************************************[ Any ]************************************
+******************************************************************************/
+
+
+// any
+// Boolean -> Any
+const Any = Data("Any") (Any => b => Any(b));
 
 
 /******************************************************************************
@@ -793,6 +679,16 @@ const subscribe = o => {
     o.options
   );
 };
+
+
+/******************************************************************************
+***********************************[ Char ]************************************
+******************************************************************************/
+
+
+// character
+// String -> Char
+const Char = Data("Char") (Char => s => Char(s[0]));
 
 
 /******************************************************************************
@@ -902,13 +798,33 @@ const Suc = x => Except("Suc") (cases => cases.Suc(x));
 
 
 /******************************************************************************
+***********************************[ First ]***********************************
+******************************************************************************/
+
+
+// first
+// a -> First<a>
+const First = Data("First") (First => x => First(x));
+
+
+/******************************************************************************
 ************************************[ Id ]*************************************
 ******************************************************************************/
 
 
 // identity
 // a -> Id<a>
-const Id = Data("Id") (Id => x => Id(k => k(x)));
+const Id = Data("Id") (Id => x => Id(x));
+
+
+/******************************************************************************
+***********************************[ Last ]************************************
+******************************************************************************/
+
+
+// last
+// a -> Last<a>
+const Last = Data("Last") (Last => x => Last(x));
 
 
 /******************************************************************************
@@ -946,6 +862,26 @@ const Nil = List("Nil") (cases => cases.Nil);
 
 
 /******************************************************************************
+************************************[ Max ]************************************
+******************************************************************************/
+
+
+// max
+// (Ord<a>, Bounded<a>) => a -> Max<a>
+const Max = Data("Max") (Max => x => Max(x));
+
+
+/******************************************************************************
+************************************[ Min ]************************************
+******************************************************************************/
+
+
+// min
+// (Ord<a>, Bounded<a>) => a -> Min<a>
+const Min = Data("Min") (Min => x => Min(x));
+
+
+/******************************************************************************
 ***********************************[ Option ]**********************************
 ******************************************************************************/
 
@@ -963,6 +899,16 @@ const None = Option("None") (cases => cases.None);
 // some
 // a -> Option<a>
 const Some = x => Option("Some") (cases => cases.Some(x));
+
+
+/******************************************************************************
+***********************************[ Prod ]************************************
+******************************************************************************/
+
+
+// product
+// Number -> Prod
+const Prod = Data("Prod") (Prod => n => Prod(n));
 
 
 /******************************************************************************
@@ -992,6 +938,16 @@ const Ref = Data("Ref") (Ref => o => Ref(k => k(o)));
 /******************************************************************************
 **********************************[ Stream ]***********************************
 ******************************************************************************/
+
+
+/******************************************************************************
+************************************[ Sum ]************************************
+******************************************************************************/
+
+
+// sum
+// Number -> Sum
+const Sum = Data("Sum") (Sum => n => Sum(n));
 
 
 /******************************************************************************
@@ -1165,141 +1121,6 @@ const {prependAdd, prependLookup, prepend} =
 ******************************************************************************/
 
 
-/***[Auxiliary Functions]*****************************************************/
-
-
-// equal
-// untyped
-const eq_ = x => y =>
-  x === y;
-
-
-// not equal
-// untyped
-const neq_ = x => y =>
-  x !== y;
-
-
-// auxiliary function
-// [a] -> [a] -> Boolean
-const eqArr = xs => ys => {
-  if (xs.length !== ys.length)
-    return false;
-
-  else if (xs.length === 0)
-    return true;
-
-  else {
-    return xs.every((x, n) =>
-      eq(x) (ys[n]));
-  }
-};
-
-
-// equal char
-// Char -> Char -> Boolean
-const eqChar = c => d =>
-  c.valueOf() === d.valueOf()
-
-
-// equal either
-// Either<a, b> -> Either<a, b> -> Boolean
-const eqEither = tx => ty =>
-  tx[TAG] === ty[TAG]
-    && tx.runEither({
-      Left: x => ty.runEither({Left: y => eq(x) (y)}),
-      Right: x => ty.runEither({Right: y => eq(x) (y)})});
-
-
-// equal float
-// Float -> Float -> Boolean
-const eqFloat = f => g =>
-  f.valueOf() === g.valueOf();
-
-
-// equal id
-// Id<a> -> Id<a> -> Boolean
-const eqId = tx => ty =>
-    tx.runId(x => ty.runId(y => eq(x) (y)));
-
-
-// equal int
-// Integer -> Integer -> Boolean
-const eqInt = i => j =>
-  i.valueOf() === j.valueOf();
-
-
-// equal map
-// Map<k, v> -> Map<k, v> -> Boolean
-const eqMap = m => n => {
-  if (m.size !== n.size) return false;
-
-  else {
-    const kvs = Array.from(m),
-      lws = Array.from(n);
-
-    return kvs.every(([k, v], n) => {
-      const [l, w] = lws[n];
-      if (!eq(k) (l)) return false;
-      else return eq(v) (w);
-    });
-  }
-};
-
-
-// equal null
-// Null -> Null -> Boolean
-const eqNull = _ => __ => true;
-
-
-// equal record
-// TODO: replace Object.keys with generator
-// Record -> Record -> Boolean
-const eqRec = r => s => {
-  const ks = Object.keys(r),
-    ls = Object.keys(s);
-
-  if (ks.length !== ls.length)
-    return false;
-
-  else return ks.every(k => !(k in s)
-    ? false
-    : eq(r[k]) (s[k]));
-};
-
-
-// equal ref
-// Ref<Object> -> Ref<Object> -> Boolean
-const eqRef = to => tp =>
-  to.runRef(o =>
-    tp.runRef(p => o === p));
-
-
-// equal set
-// Set<a> -> Set<a> -> Boolean
-const eqSet = s => t => {
-  if (s.size !== t.size) return false;
-
-  else {
-    const ks = Array.from(s),
-      ls = Array.from(t);
-
-    return ks.every((k, n) => {
-      return eq(k) (ls[n]);
-    });
-  }
-};
-
-
-// equal tuple
-// Tuple -> Tuple -> Boolean
-const eqTup = xs => ys =>
-  xs.length !== ys.length
-    ? false
-    : xs.every((x, n) =>
-      eq(x) (ys[n]));
-
-
 /***[Bounded]*****************************************************************/
 
 
@@ -1334,16 +1155,6 @@ maxBoundAdd("Comparator", GT);
 
 
 // minimal bound
-// Integer
-minBoundAdd("Integer", Int(Number.MIN_SAFE_INTEGER));
-
-
-// maximal bound
-// Integer
-maxBoundAdd("Integer", Int(Number.MAX_SAFE_INTEGER));
-
-
-// minimal bound
 // Null
 minBoundAdd("Null", null);
 
@@ -1351,6 +1162,16 @@ minBoundAdd("Null", null);
 // minimal bound
 // Null
 maxBoundAdd("Null", null);
+
+
+// minimal bound
+// Number
+minBoundAdd("Number", Number.MIN_SAFE_INTEGER);
+
+
+// maximal bound
+// Number
+maxBoundAdd("Number", Number.MAX_SAFE_INTEGER);
 
 
 /***[Monoid]***************************************************************/
@@ -1560,34 +1381,57 @@ prependAdd("Tuple/Tuple", ys => xs => xs.map((x, i) => prepend(x) (ys[i])));
 /***[Setoid]******************************************************************/
 
 
+// default equal
+// untyped
+const defaultEq = x => y => x === y;
+
+
+// default not equal
+// untyped
+const defaultNeq = x => y => x !== y;
+
+
+// array equal
+// [a] -> [a] -> Boolean
+const arrEq = xs => ys => {
+  if (xs.length !== ys.length)
+    return false;
+
+  else {
+    return xs.every((x, n) =>
+      eq(x) (ys[n]));
+  }
+};
+
+
 // equal
 // Array -> Array -> Boolean
-eqAdd("Array", eqArr);
+eqAdd("Array", arrEq);
 
 
 // not equal
 // Array -> Array -> Boolean
-neqAdd("Array", notp2(eqArr));
+neqAdd("Array", notp2(arrEq));
 
 
 // equal
 // Boolean -> Boolean -> Boolean
-eqAdd("Boolean", eq_);
+eqAdd("Boolean", defaultEq);
 
 
 // not equal
 // Boolean -> Boolean -> Boolean
-neqAdd("Boolean", neq_);
+neqAdd("Boolean", defaultNeq);
 
 
 // equal
 // Char -> Char -> Boolean
-eqAdd("Char", eqChar);
+eqAdd("Char", tc => td => tc.getChar === td.getChar);
 
 
 // not equal
 // Char -> Char -> Boolean
-neqAdd("Char", notp2(eqChar));
+neqAdd("Char", tc => td => tc.getChar !== td.getChar);
 
 
 // equal
@@ -1600,104 +1444,143 @@ eqAdd("Comparator", t => u => t[TAG] === u[TAG]);
 neqAdd("Comparator", t => u => t[TAG] !== u[TAG]);
 
 
+// either equal
+// Either<a, b> -> Either<a, b> -> Boolean
+const eitherEq = tx => ty =>
+  tx[TAG] === ty[TAG]
+    && tx.runEither({
+      Left: x => ty.runEither({Left: y => eq(x) (y)}),
+      Right: x => ty.runEither({Right: y => eq(x) (y)})});
+
+
 // equal
 // Either<a, b> -> Either<a, b> -> Boolean
-eqAdd("Either", eqEither);
+eqAdd("Either", eitherEq);
 
 
 // not equal
 // Either<a, b> -> Either<a, b> -> Boolean
-neqAdd("Either", notp2(eqEither));
-
-
-// equal
-// Float -> Float -> Boolean
-eqAdd("Float", eqFloat);
-
-
-// not equal
-// Float -> Float -> Boolean
-neqAdd("Float", notp2(eqFloat));
+neqAdd("Either", notp2(eitherEq));
 
 
 // equal
 // Id<a> -> Id<a> -> Boolean
-eqAdd("Id", eqId);
+eqAdd("Id", tx => ty => eq(tx.getId) (ty.getId));
   
 
 // not equal
 // Id<a> -> Id<a> -> Boolean
-neqAdd("Id", notp2(eqId));
+neqAdd("Id", tx => ty => neq(tx.getId) (ty.getId));
 
 
-// equal
-// Integer -> Integer -> Boolean
-eqAdd("Integer", eqInt);
+// map equal
+// Map<k, v> -> Map<k, v> -> Boolean
+const mapEq = m => n => {
+  if (m.size !== n.size) return false;
 
+  else {
+    const kvs = Array.from(m),
+      lws = Array.from(n);
 
-// not equal
-// Integer -> Integer -> Boolean
-neqAdd("Integer", notp2(eqInt));
+    return kvs.every(([k, v], n) => {
+      const [l, w] = lws[n];
+      if (!eq(k) (l)) return false;
+      else return eq(v) (w);
+    });
+  }
+};
 
 
 // equal
 // Map<k, v> -> Map<k, v> -> Boolean
-eqAdd("Map", eqMap);
+eqAdd("Map", mapEq);
 
 
 // not equal
 // Map<k, v> -> Map<k, v> -> Boolean
-neqAdd("Map", notp2(eqMap));
+neqAdd("Map", notp2(mapEq));
 
 
 // equal
 // Null -> Null -> Boolean
-eqAdd("Null", eqNull);
+eqAdd("Null", _ => __ => true);
 
 
 // not equal
 // Null -> Null -> Boolean
-neqAdd("Null", notp2(eqNull));
+neqAdd("Null", _ => __ => false);
 
 
 // equal
 // Number -> Number -> Boolean
-eqAdd("Number", eq_);
+eqAdd("Number", defaultEq);
 
 
 // not equal
 // Number -> Number -> Boolean
-neqAdd("Number", neq_);
+neqAdd("Number", defaultNeq);
+
+
+// object equal
+// TODO: replace Object.keys with generator
+// Object -> Object -> Boolean
+const objEq = r => s => {
+  const ks = Object.keys(r),
+    ls = Object.keys(s);
+
+  if (ks.length !== ls.length)
+    return false;
+
+  else return ks.every(k => !(k in s)
+    ? false
+    : eq(r[k]) (s[k]));
+};
 
 
 // equal
 // Object -> Object -> Boolean
-eqAdd("Object", eqRec);
+eqAdd("Object", objEq);
 
 
 // not equal
 // Object -> Object -> Boolean
-neqAdd("Object", notp2(eqRec));
+neqAdd("Object", notp2(objEq));
 
 
 // equal
 // Record -> Record -> Boolean
-eqAdd("Record", eqRec);
+eqAdd("Record", objEq);
 
 
 // not equal
 // Record -> Record -> Boolean
-neqAdd("Record", notp2(eqRec));
+neqAdd("Record", notp2(objEq));
 
 
 // equal
 // Ref<Object> -> Ref<Object> -> Boolean
-eqAdd("Ref", eqRef);
+eqAdd("Ref", to => tp => to.getRef === tp.getRef);
 
 
 // not equal
 // Ref<Object> -> Ref<Object> -> Boolean
-neqAdd("Ref", notp2(eqRef));
+neqAdd("Ref", to => tp => to.getRef !== tp.getRef);
+
+
+// equal set
+// Set<a> -> Set<a> -> Boolean
+const eqSet = s => t => {
+  if (s.size !== t.size) return false;
+
+  else {
+    const ks = Array.from(s),
+      ls = Array.from(t);
+
+    return ks.every((k, n) => {
+      return eq(k) (ls[n]);
+    });
+  }
+};
 
 
 // equal
@@ -1712,22 +1595,22 @@ neqAdd("Set", notp2(eqSet));
 
 // equal
 // String -> String -> Boolean
-eqAdd("String", eq_);
+eqAdd("String", defaultEq);
 
 
 // not equal
 // String -> String -> Boolean
-neqAdd("String", neq_);
+neqAdd("String", defaultNeq);
 
 
 // equal
 // Tuple -> Tuple -> Boolean
-eqAdd("Tuple", eqTup);
+eqAdd("Tuple", arrEq);
 
 
 // not equal
 // Tuple -> Tuple -> Boolean
-neqAdd("Tuple", notp2(eqTup));
+neqAdd("Tuple", notp2(arrEq));
 
 
 /******************************************************************************
@@ -1805,7 +1688,6 @@ Object.assign($,
     Factory,
     fix,
     flip,
-    Float,
     Forest,
     GT,
     Id,
@@ -1813,7 +1695,6 @@ Object.assign($,
     inc,
     insertAfter,
     insertBefore,
-    Int,
     join,
     keys,
     Lazy,
@@ -1821,9 +1702,11 @@ Object.assign($,
     loop,
     LT,
     markup,
+    Max,
     maxBound,
     maxBoundAdd,
     maxBoundLookup,
+    Min,
     minBound,
     minBoundAdd,
     minBoundLookup,
@@ -1873,6 +1756,7 @@ Object.assign($,
     uncurry,
     uncurry3,
     VALUE,
+    Foo,
     values
   }
 );

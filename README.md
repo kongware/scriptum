@@ -53,19 +53,18 @@ scriptum introduces a couple of new data types using different techniques. The n
 
 The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are created by smart constrcutors:
 
-* All
-* Any
-* Char
-* Int
-* Product
 * Record
-* Sum
 * Tuple
+
+That is the only place where scriptum falls back to subtype polymorphism.
 
 ## Function Encoding
 
 The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
+* All (monoid under conjunction)
+* Any (monoid under disjunction)
+* Char (single character)
 * Behavior (continuous time series value)
 * Comparator (ordering value)
 * Cont (delimited continuation)
@@ -74,15 +73,21 @@ The following extended types are function encoded and simulate algebraic data ty
 * Endo (endomorphism)
 * Event (discrete time series value)
 * Except (first class exception)
+* First (monoid)
 * Id (effectless computation)
+* Last (monoid)
 * Lazy (lazy evaluation - type synonym of Eff)
 * List (undeterministic computation)
+* Max (monoid)
+* Min (monoid)
 * Memoize (memoziation)
 * Option (short curcuiting)
+* Product (monoid under multiplication)
 * Reader (compuation depending on a shared read-only environment)
 * Ref (referential identity)
 * State (computation depending on shared state)
 * Stream (data stream)
+* Sum (monoid under addition)
 * Task (effectful asynchronous computation)
 * Tree/Forest (schematic multi-way tree implementation)
 * Unique (unique value)
@@ -91,13 +96,10 @@ The following extended types are function encoded and simulate algebraic data ty
 
 # Custom Types
 
-scriptum provides algebraic data types as the preferred path to create your own types. With ADTs you can express both product and sum types as well as recursive types.
+scriptum provides the `Data` and `Type` constructors to express your own algebraic data types:
 
-Since there is no native support for ADTs scriptum uses a function encoding to express them. ADTs are immutable and the wrapped value can only be accessed through a continuation. A continuation is just a closure that expects a function and calls this function argument with one or more free varibales. Btw., calling these custom types algebraic data types is a bit daring in Javascript. In fact, they only become algebraic if we follow the corresponding algebraic rules.
-
-There are two functions to define ADTs in scriptum:
-* `Data` for single data constructor ADTs
-* `Type` for multple data constructor ADTs
+* `Data` creates single data constructor ADTs
+* `Type` creates multple data constructor ADTs
 
 The simplest ADT includes a single data constructor and one field:
 
@@ -110,7 +112,7 @@ foo.runFoo(x => x); // "bar"
 ```
 The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, which finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
 
-The next example is a single data constructor with several fields, also known as a product type. Now it becomes apparent why continuations are used as getters - only contuinuations can handle several values:
+The next example shows a single data constructor with several fields, also known as a product type. Please note that a consumer must pass a continuation to consume the fields:
 
 ```Javascript
 const Bar = Data("Bar")
@@ -119,7 +121,7 @@ const Bar = Data("Bar")
 const bar = Bar(2) ("foo") (true);
 bar.runBar(x => y => z => y); // "foo"
 ```
-It is totally up to you if you declare a curried or multi-argument getter (`k => k(x, y, z))`). If the free variable is an `Object`, you can even utilize destructuring assignemnt.
+However, the represantation of the fields is totally up to you. You can use a curried or multi-argument continuation (`k => k(x, y, z))`), an ordinary `Object` or just an `Array`.
 
 Let's define a more complex ADT with two data constructors, also known as sum types:
 
