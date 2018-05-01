@@ -209,6 +209,7 @@ scriptum will ultimately support the following typeclasses:
 * Serialize
 * Setoid
 * Traversable
+* Unfoldable
 
 Overloaded functions are open, that is you can always add function instances to handle your own types accordingly.
 
@@ -375,7 +376,9 @@ const m = chainN(inc)
  
 m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
 ```
-# Stack-Safe Recursion
+# Recursion
+
+## Stack-Safe
 
 Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
 
@@ -402,6 +405,10 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
+## Schemes
+
+Recursion schemes are patterns to factor recursion out of your data types. More on this soon.
+
 # Currying
 
 scriptum relies on function in curried form. For non-commutative binary functions both possible parameter orders are usually provided to avoid argument flipping and thus runtime costs:

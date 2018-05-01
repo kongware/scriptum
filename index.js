@@ -933,7 +933,7 @@ const Reader = Data("Reader") (Reader => f => Reader(f));
 
 // reference
 // Object -> Ref<Object>
-const Ref = Data("Ref") (Ref => o => Ref(k => k(o)));
+const Ref = Data("Ref") (Ref => o => Ref(o));
 
 
 /******************************************************************************
