@@ -198,7 +198,6 @@ I am going to use the term typeclass from here on anyway, because scriptum uses 
 * Comonad
 * Contravariant
 * Deserialize
-* Endo
 * Enum
 * Eq
 * Extend
