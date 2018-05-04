@@ -515,6 +515,8 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 
 # TODO
 
+- [ ] Extend Monoid by `mconcat`?
+- [ ] Add `Eff` instance for Monoid
 - [ ] Unit tests
 - [ ] API documentation
 

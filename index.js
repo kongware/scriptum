@@ -1060,7 +1060,7 @@ const text = s => document.createTextNode(s);
 ******************************************************************************/
 
 
-// value indicator
+// polymorphic value tag
 // Symbol
 const VALUE = Symbol("VALUE");
 
@@ -1086,14 +1086,46 @@ const {maxBoundAdd, maxBoundLookup, maxBound} =
 /***[Enum]********************************************************************/
 
 
+/***[Foldable]****************************************************************/
+
+
+// fold
+// (Foldable<t>, Monoid<m>) => t<m> -> m
+const {foldAdd, foldLookup, fold} =
+  overload("fold", toTypeTag);
+
+
+// foldl
+// Foldable<t> => (b -> a -> b) -> b -> t<a> -> b
+const {foldlAdd, foldlLookup, foldl} =
+  overload("foldl", toTypeTag);
+
+
+// foldr
+// Foldable<t> => (a -> b -> b) -> b -> t<a> -> b
+const {foldrAdd, foldrLookup, foldr} =
+  overload("foldr", toTypeTag);
+
+
+// concat
+// Foldable<t> => t<[a]> -> [a]
+const {concatAdd, concatLookup, concat} =
+  overload("concat", toTypeTag);
+
+
+// concat map
+// Foldable<t> => (a -> [b]) -> t<a> -> [b]
+const {concatMapAdd, concatMapLookup, concatMap} =
+  overload("concatMap", toTypeTag);
+
+
 /***[Monoid]******************************************************************/
 
 
-// empty
+// monoid empty
 // a
 const {emptyAdd, emptyLookup, empty} =
   overload("empty", toTypeTag);
-
 
 empty[VALUE] = "empty";
 
@@ -1219,6 +1251,11 @@ emptyAdd("Comparator", EQ);
 
 
 // empty add
+// Either<a, b>
+emptyAdd("Either", Left(empty));
+
+
+// empty add
 // Endo<a>
 emptyAdd("Endo", Endo(id));
 
@@ -1311,6 +1348,25 @@ appendAdd("Comparator/Comparator", u => t =>
     : GT);
 
 
+// either append
+// right biased
+// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
+const eitherAppend = tx => ty => tx.runEither({
+  Left: _ => ty,
+  Right: x => ty.runEither({
+    Left: _ => tx,
+    Right: y => Right(append(x) (y))})});
+
+
+// append add
+// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
+appendAdd("Either/Either", eitherAppend);
+
+// prepend add
+// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
+prependAdd("Either/Either", flip(eitherAppend));
+
+
 // append add
 // Endo<a> -> Endo<a> -> Endo<a>
 appendAdd("Endo/Endo", tf => tg => Endo(x => tf.runEndo(tg.runEndo(x))));
@@ -1341,9 +1397,9 @@ appendAdd("Product/Product", m => n => Product(m * n));
 prependAdd("Product/Product", n => m => Product(m * n));
 
 
-// append add
+// record append
 // Record -> Record -> Record
-appendAdd("Record/Record", o => p => {
+const recAppend = o => p => {
   const ix = entries(o),
     q = {};
 
@@ -1352,21 +1408,17 @@ appendAdd("Record/Record", o => p => {
   }
 
   return Rec(q);
-});
+};
+
+
+// append add
+// Record -> Record -> Record
+appendAdd("Record/Record", recAppend);
 
 
 // prepend add
 // Record -> Record -> Record
-prependAdd("Record/Record", p => o => {
-  const ix = entries(o),
-    q = {};
-
-  for (let [k, v] of ix) {
-    q[k] = append(v) (p[k]);
-  }
-
-  return Rec(q);
-});
+prependAdd("Record/Record", flip(recAppend));
 
 
 // append add
@@ -1677,7 +1729,7 @@ const ordinal = n => {
     v = n % 100;
 
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+};
 
 
 /******************************************************************************
