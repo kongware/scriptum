@@ -1251,7 +1251,7 @@ emptyAdd("Comparator", EQ);
 
 
 // empty add
-// Either<a, b>
+// Monoid<a> => Either<a, b>
 emptyAdd("Either", Left(empty));
 
 
@@ -1272,7 +1272,7 @@ emptyAdd("Product", Product(1));
 
 
 // empty add
-// Monoid a b => Record<String: a, String: b> // for instance
+// Record -> Record
 emptyAdd("Record", o => {
   const ix = entries(o),
     p = {};
@@ -1295,7 +1295,7 @@ emptyAdd("Sum", Sum(0));
 
 
 // empty add
-// Monoid a b => Tuple<a, b> // for instance
+// Tuple -> Tuple
 emptyAdd("Tuple", xs => xs.map(x => empty(x)));
 
 
@@ -1304,22 +1304,22 @@ emptyAdd("Tuple", xs => xs.map(x => empty(x)));
 
 // append add
 // All -> All -> All
-appendAdd("All/All", a => b => All(a.valueOf() && b.valueOf()));
+appendAdd("All/All", a => b => All(a.getAll && b.getAll));
 
 
 // prepend add
 // All -> All -> All
-prependAdd("All/All", b => a => All(a.valueOf() && b.valueOf()));
+prependAdd("All/All", b => a => All(a.getAll && b.getAll));
 
 
 // append add
 // Any -> Any -> Any
-appendAdd("Any/Any", a => b => Any(a.valueOf() || b.valueOf()));
+appendAdd("Any/Any", a => b => Any(a.getAny || b.getAny));
 
 
 // prepend add
 // Any -> Any -> Any
-prependAdd("Any/Any", b => a => Any(a.valueOf() || b.valueOf()));
+prependAdd("Any/Any", b => a => Any(a.getAny || b.getAny));
 
 
 // append add
@@ -1389,12 +1389,12 @@ prependAdd("Function/Function", g => f => x => append(f(x)) (g(x)));
 
 // append add
 // Product -> Product -> Product
-appendAdd("Product/Product", m => n => Product(m * n));
+appendAdd("Product/Product", m => n => Product(m.getProduct * n.getProduct));
 
 
 // prepend add
 // Product -> Product -> Product
-prependAdd("Product/Product", n => m => Product(m * n));
+prependAdd("Product/Product", n => m => Product(m.getProduct * n.getProduct));
 
 
 // record append
@@ -1433,12 +1433,12 @@ prependAdd("String/String", t => s => `${s}${t}`);
 
 // append add
 // Sum -> Sum -> Sum
-appendAdd("Sum/Sum", m => n => Sum(m + n));
+appendAdd("Sum/Sum", m => n => Sum(m.getSum + n.getSum));
 
 
 // prepend add
 // Sum -> Sum -> Sum
-prependAdd("Sum/Sum", n => m => Sum(m + n));
+prependAdd("Sum/Sum", n => m => Sum(m.getSum + n.getSum));
 
 
 // append add
