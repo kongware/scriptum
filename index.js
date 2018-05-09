@@ -1251,19 +1251,23 @@ emptyAdd("Comparator", EQ);
 
 
 // empty add
-// Monoid<a> => Either<a, b>
-emptyAdd("Either", Left(empty));
-
-
-// empty add
 // Endo<a>
 emptyAdd("Endo", Endo(id));
 
 
 // empty add
-// TODO: verify
-// Monoid b => _ -> b
+// First<a>
+emptyAdd("First", First(None));
+
+
+// empty add
+// Monoid b => a -> b
 emptyAdd("Function", co(empty));
+
+
+// empty add
+// Last<a>
+emptyAdd("Last", Last(None));
 
 
 // empty add
@@ -1348,25 +1352,6 @@ appendAdd("Comparator/Comparator", u => t =>
     : GT);
 
 
-// either append
-// right biased
-// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
-const eitherAppend = tx => ty => tx.runEither({
-  Left: _ => ty,
-  Right: x => ty.runEither({
-    Left: _ => tx,
-    Right: y => Right(append(x) (y))})});
-
-
-// append add
-// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
-appendAdd("Either/Either", eitherAppend);
-
-// prepend add
-// Semigroup<b> => Either<a, b> -> Either<a, b> -> Either<a, b>
-prependAdd("Either/Either", flip(eitherAppend));
-
-
 // append add
 // Endo<a> -> Endo<a> -> Endo<a>
 appendAdd("Endo/Endo", tf => tg => Endo(x => tf.runEndo(tg.runEndo(x))));
@@ -1375,6 +1360,22 @@ appendAdd("Endo/Endo", tf => tg => Endo(x => tf.runEndo(tg.runEndo(x))));
 // prepnd add
 // Endo<a> -> Endo<a> -> Endo<a>
 prependAdd("Endo/Endo", tg => tf => Endo(x => tf.runEndo(tg.runEndo(x))));
+
+
+// append add
+// First<a> -> First<a> -> First<a>
+appendAdd("First/First", tx => ty =>
+  tx.getFirst.runOption({
+    None: ty,
+    Some: _ => tx}));
+
+
+// prepend add
+// First<a> -> First<a> -> First<a>
+prependAdd("First/First", ty => tx =>
+  tx.getFirst.runOption({
+    None: ty,
+    Some: _ => tx}));
 
 
 // append add

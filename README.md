@@ -414,12 +414,13 @@ Recursion schemes are patterns to factor recursion out of your data types. More 
 scriptum relies on function in curried form. For non-commutative binary functions both possible parameter orders are usually provided to avoid argument flipping and thus runtime costs:
 
 ```Javascript
+// divide
 const div = m => n =>
   m / n;
   
-const div_ = n => m =>
+// divide flipped
+const divf = n => m =>
   m / n;
-  
 ```
 # Immutability and Persistent Data Structures
 
@@ -517,6 +518,7 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 
 - [ ] Extend Monoid by `mconcat`?
 - [ ] Add `Eff` instance for Monoid
+- [ ] Note that there is no Monoid instance for Either
 - [ ] Unit tests
 - [ ] API documentation
 
