@@ -1364,18 +1364,20 @@ prependAdd("Endo/Endo", tg => tf => Endo(x => tf.runEndo(tg.runEndo(x))));
 
 // append add
 // First<a> -> First<a> -> First<a>
-appendAdd("First/First", tx => ty =>
+const firstAppend = tx => ty =>
   tx.getFirst.runOption({
     None: ty,
-    Some: _ => tx}));
+    Some: _ => tx});
+
+
+// append add
+// First<a> -> First<a> -> First<a>
+appendAdd("First/First", firstAppend);
 
 
 // prepend add
 // First<a> -> First<a> -> First<a>
-prependAdd("First/First", ty => tx =>
-  tx.getFirst.runOption({
-    None: ty,
-    Some: _ => tx}));
+prependAdd("First/First", flip(firstAppend));
 
 
 // append add
@@ -1386,6 +1388,24 @@ appendAdd("Function/Function", f => g => x => append(f(x)) (g(x)));
 // prepend add
 // Monoid b => (a -> b) -> (a -> b) -> a -> b
 prependAdd("Function/Function", g => f => x => append(f(x)) (g(x)));
+
+
+// append add
+// Last<a> -> Last<a> -> Last<a>
+const lastAppend = tx => ty =>
+  ty.getLast.runOption({
+    None: tx,
+    Some: _ => ty});
+
+
+// append add
+// Last<a> -> Last<a> -> Last<a>
+appendAdd("Last/Last", lastAppend);
+
+
+// prepend add
+// Last<a> -> Last<a> -> Last<a>
+prependAdd("Last/Last", flip(lastAppend));
 
 
 // append add
