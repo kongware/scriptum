@@ -1266,6 +1266,11 @@ emptyAdd("Function", co(empty));
 
 
 // empty add
+// Monoid a => Id<a>
+emptyAdd("Id", tx => Id(empty(tx.getId)));
+
+
+// empty add
 // Last<a>
 emptyAdd("Last", Last(None));
 
@@ -1372,22 +1377,32 @@ const firstAppend = tx => ty =>
 
 // append add
 // First<a> -> First<a> -> First<a>
-appendAdd("First/First", firstAppend);
+appendAdd("First/First", First(firstAppend));
 
 
 // prepend add
 // First<a> -> First<a> -> First<a>
-prependAdd("First/First", flip(firstAppend));
+prependAdd("First/First", First(flip(firstAppend)));
 
 
 // append add
-// Monoid b => (a -> b) -> (a -> b) -> a -> b
+// Semigroup b => (a -> b) -> (a -> b) -> a -> b
 appendAdd("Function/Function", f => g => x => append(f(x)) (g(x)));
 
 
 // prepend add
-// Monoid b => (a -> b) -> (a -> b) -> a -> b
-prependAdd("Function/Function", g => f => x => append(f(x)) (g(x)));
+// Semigroup b => (a -> b) -> (a -> b) -> a -> b
+prependAdd("Function/Function", g => f => x => prepend(f(x)) (g(x)));
+
+
+// append add
+// Semigroup a => Id<a> -> Id<a> -> Id<a>
+appendAdd("Id/Id", tx => ty => Id(append(tx.getId) (ty.getId)));
+
+
+// prepend add
+// Semigroup a => Id<a> -> Id<a> -> Id<a>
+prependAdd("Id/Id", ty => tx => Id(prepend(tx.getId) (ty.getId)));
 
 
 // append add
@@ -1400,12 +1415,12 @@ const lastAppend = tx => ty =>
 
 // append add
 // Last<a> -> Last<a> -> Last<a>
-appendAdd("Last/Last", lastAppend);
+appendAdd("Last/Last", Last(lastAppend));
 
 
 // prepend add
 // Last<a> -> Last<a> -> Last<a>
-prependAdd("Last/Last", flip(lastAppend));
+prependAdd("Last/Last", Last(flip(lastAppend)));
 
 
 // append add
