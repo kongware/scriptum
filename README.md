@@ -26,9 +26,9 @@ scriptum encourages you to program in a type-directed manner and to consider fun
 
 It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language build around it. Doing it the other way around is often a futile endeavor. scriptum utilizes types extensivley, but only to help the programmer develop a mental model of their program's underlying data types. In a dynamically typed environment you need to fill in for the compiler anyway and scriptum helps you accomplish this task.
 
-# Debugging
+## Introspection
 
-I frequently hear complaints in the functioal Javascript community that the ecosystem doesn't include proper debugging tools. Sure, you can conduct introspection and other meta programming tricks. But keep in mind that such an approach introduces another level of indirection to your code. Even with a great deal of runtime introspection you will eventually wind up step through your code line by line with a debugger. By then at the latest the curse of the additional complexity will haunt you.
+I tried to achieve more type safety in Javascript by introspection and `Proxy` virtualization, several times. And failed. The problem is that such meta programming introduces another level of indirection to your code, without yielding a sound type system. Even with a lot of runtime introspection you will inevitably end up stepping through your code line by line with a debugger at some point. By then at the latest the curse of the additional complexity will haunt you and render the debugging process extremely cumbersome.
 
 # Coding by Convention
 
