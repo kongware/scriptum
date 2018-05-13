@@ -242,7 +242,7 @@ append(Arr([1,2])) (empty); // [1,2]
 
 # Recursion
 
-## Stack-Safe
+## Stack-Safety
 
 Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
 
@@ -269,6 +269,10 @@ const inc = n =>
 
 repeat(1e6) (inc) (0); // 1000000
 ```
+## Tail Recursion Modulo Cons
+
+What enables Tail Recursion Modulo Cons in Javascript is a thunk in Weak Head Normal Form. An expression in weak head normal form has been evaluated to the outermost data constructor, but contains sub-expressions that may not have been fully evaluated. In Javascript only thunks can prevent sub-expressions from being immediately evaluated. More on this in section "Lazy Evaluation/Lazy Getters".
+
 ## Schemes
 
 Recursion schemes are patterns to factor recursion out of your data types. More on this soon.
@@ -288,7 +292,7 @@ const divf = n => m =>
 ```
 ## Dual Monoid
 
-Instead of a dual Monoid scriptum ships with àn overloaded `append` and `prepend` function respectively.
+Instead of a dual Monoid scriptum ships with an overloaded `append` and `prepend` function respectively.
 
 # Immutability
 
@@ -300,7 +304,7 @@ scriptum will provide its own persistent data structures and means to convert th
 
 # Lazy Evaluation
 
-There are a couple of tools in Javascript that we can utilize to obtain the lazye evaluation effect.
+There are a couple of tools in Javascript that we can utilize to obtain the lazy evaluation effect.
 
 ## ETA Expansion
 
@@ -325,7 +329,7 @@ comp = f => g => x => f(g(x));
 ```
 ## Lazy Getters
 
-Lazy getters are thunks in weak head normal form. An expression in weak head normal form has been evaluated to the outermost data constructor, but contains sub-expressions that may not have been fully evaluated. In Javascript only thunks can prevent sub-expressions from being immediately evaluated.
+Lazy getters allow us to partially construct `Object`s and defer the evaluation of certain properties until they are actually needed. Getters are transparent during property access. In fact, they are the only lazy property of Javascript on the language level.
 
 ```Javascript
 const cons = (head, tail) => ({head, tail});
