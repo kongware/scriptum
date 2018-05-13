@@ -271,7 +271,7 @@ repeat(1e6) (inc) (0); // 1000000
 ```
 ## Tail Recursion Modulo Cons
 
-Tail recursion modulo cons goes beyond tail recursion in that it has constant stacke space for non-tail recursive calls, as long as these calls occur within a data constructor. A non-strict language automatically results in TRMC, because it allows fields of a data constructor to not have been fully evaluated yet. Such expressions are in weak head normal form, because there outermost constrcutor is fully evaluated, but their sub-expressions might not.
+Tail recursion modulo cons goes beyond tail recursion in that it has constant stack space for non-tail recursive calls, as long as these calls occur within a data constructor. A non-strict language automatically results in TRMC, because it allows fields of a data constructor to not have been fully evaluated yet. Such expressions are in weak head normal form, because their outermost constructor is fully evaluated, but their sub-expressions might not.
 
 In strict languages TRMC can be realized as a compiler optimization. Javascript doesn't support such an optimization but luckily ships with native lazy getters. Lazy getters are thunks within the `Object` constructor and thus render such `Objects` in weak head normal form, that is we get TRMC for free. More on this in section _Lazy Evaluation/Lazy Getters_.
 
