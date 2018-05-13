@@ -28,7 +28,7 @@ It requires great mastery to develop a type system that is sound and expressive 
 
 ## Introspection
 
-I tried to achieve more type safety in Javascript by introspection and `Proxy` virtualization, several times. And failed. The problem is that such meta programming introduces another level of indirection to your code, without yielding a sound type system. Even with a lot of runtime introspection you will inevitably end up stepping through your code line by line with a debugger at some point. By then at the latest the curse of the additional complexity will haunt you and render the debugging process extremely cumbersome.
+I tried to achieve more type safety in Javascript by introspection and `Proxy` virtualization, several times. And failed. The problem is that such meta programming introduces another level of indirection to your code, without yielding a sound type system. Even with a lot of runtime introspection you will inevitably end up stepping through your code line by line with a debugger at some point. By then at the latest the curse of this additional complexity will haunt you and render the debugging process extremely cumbersome.
 
 # Coding by Convention
 
@@ -47,20 +47,9 @@ scriptum comprises a couple of conventions instead of enforced idioms:
 
 # Extended Types
 
-scriptum introduces a couple of new data types using different techniques. The next paragraphs are going to list and briefly describe them.
+## Algebraic Data Types
 
-## Subtyping
-
-The following extended types are subtypes that inherit exotic behavior from their native prototypes. They are created by smart constrcutors:
-
-* Record
-* Tuple
-
-That is the only place where scriptum falls back to subtype polymorphism.
-
-## Function Encoding
-
-The following extended types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
+The following predefined types are function encoded and simulate algebraic data types. scriptum uses the less known Scott encoding:
 
 * All (monoid under conjunction)
 * Any (monoid under disjunction)
@@ -93,6 +82,15 @@ The following extended types are function encoded and simulate algebraic data ty
 * Unique (unique value)
 * Valid (validation)
 * Writer (computation depending on a shared write-only environment)
+
+## Subtyping
+
+For tuples and records I decided to rely on subtyping, since the exotic behavior of their native super types is desired:
+
+* Record
+* Tuple
+
+This is the only place where scriptum resorts to subtype polymorphism.
 
 # Custom Types
 
@@ -242,6 +240,167 @@ append(Arr([1,2])) (empty); // [1,2]
 ```
 `empty` is a tagged function and simulates value polymorphism in the context of overloaded binary functions.
 
+# Recursion
+
+## Stack-Safe
+
+Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
+
+```Javascript
+const loop = f => {
+  let acc = f();
+
+  while (acc && acc.type === recur)
+    acc = f (...acc.args);
+
+  return acc;
+}
+
+const recur = (...args) =>
+  ({type: recur, args});
+
+const repeat = n_ => f_ => x_ =>
+  loop ((n = n_, f = f_, x = x_) => n === 0
+    ? x
+    : recur (n - 1, f, f(x)));
+
+const inc = n =>
+  n + 1;
+
+repeat(1e6) (inc) (0); // 1000000
+```
+## Schemes
+
+Recursion schemes are patterns to factor recursion out of your data types. More on this soon.
+
+# Currying
+
+scriptum relies on function in curried form. For non-commutative binary functions both possible parameter orders are usually provided to avoid argument flipping and thus reduce runtime costs:
+
+```Javascript
+// divide
+const div = m => n =>
+  m / n;
+  
+// divide flipped
+const divf = n => m =>
+  m / n;
+```
+## Dual Monoid
+
+Instead of a dual Monoid scriptum ships with àn overloaded `append` and `prepend` function respectively.
+
+# Immutability
+
+Unfortunatelly, Javascript offers neither on the language level. You can construct your own data types with this qualities, but this renders your code incompatible with much of Javascript's ecosystem. For this reason scriptum embraces local mutations to avoid performance penalties due to repetitive copying of large data structures.
+
+## Persistent Data Structures
+
+scriptum will provide its own persistent data structures and means to convert them to built-in types.
+
+# Lazy Evaluation
+
+There are a couple of tools in Javascript that we can utilize to obtain the lazye evaluation effect.
+
+## ETA Expansion
+
+ETA expansion just means adding (unnecessary) abstaction over a function:
+
+```Javascript
+const fix = f => x => f(fix(f)) (x);
+//               ^              ^^^
+
+const fact = fix(
+  f => n => (n === 0) ? 1 : n * f(n - 1)); // stack safe
+
+fact(10); // 3628800
+```
+## Function Composition
+
+While composition is known to produce point-free code its ability to obtain the lazy evaluated argument effect is more important in strictly evaluated languages.
+
+```Javascript
+comp = f => g => x => f(g(x));
+//                      ^^^^
+```
+## Lazy Getters
+
+Lazy getters are thunks in weak head normal form. An expression in weak head normal form has been evaluated to the outermost data constructor, but contains sub-expressions that may not have been fully evaluated. In Javascript only thunks can prevent sub-expressions from being immediately evaluated.
+
+```Javascript
+const cons = (head, tail) => ({head, tail});
+
+let list;
+
+for (let i = 1e5; i > 0; i--)
+  list = cons(i, list);
+
+const take = n => ({head, tail}) =>
+  head === undefined || n === 0
+    ? {}
+    : {head, get tail() {return take(n - 1) (tail)}};
+//           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not yet evaluated sub-expression
+```
+## Deferred Type
+
+Finally, the `Defer` algebraic data type allos us to use normal-order evaluation whereever we need it:
+
+```Javascript
+const Defer = Data("Defer")
+  (Defer => thunk => Defer(thunk));
+
+Defer.map = f => tx => Defer(() => f(tx.runDefer()));
+Defer.ap = af => ax => Defer(() => af.runDefer() (ax.runDefer()));
+
+const add = m => n => m + n;
+const sqr = n => Defer(() => n * n);
+
+const z = Defer.ap(
+  Defer.map(add)
+    (sqr(5)))
+      (sqr(5));
+
+// nothing has been evaluated up to this point
+
+z.runDefer(); // 50
+```
+We can define and handle infinite streams like in lazy evaluated languages:
+
+```Javascript
+// we can express infinite streams like in Haskell
+
+const repeat = x => Defer(() => [x, repeat(x)]);
+
+
+Defer.map(
+  ([head, tail]) => [sqr(head), tail])
+    (repeat(5))
+      .runDefer(); // [25, Defer]
+```
+# Linear Data Flow
+
+scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
+
+```Javascript
+const f = compN(inc)
+  (inc)
+  (inc)
+  (inc)
+  (inc); // constructs x => inc(inc(inc(inc(inc(x)))))
+
+f.run(0); // 5
+```
+Since composition is a functorial computation on the function type, this works for all functors and also for applicative and monadic computations:
+
+```Javascript
+const m = chainN(inc)
+  (add)
+  (add)
+  (add)
+  (add); // creates x => add(add(add(add(inc(x)) (x)) (x)) (x)) (x)
+ 
+m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
+```
 # Effect Handling
 
 scriptum's stategy to handle effects in a safer manner comprises two approaches:
@@ -352,80 +511,6 @@ class Deferred {
   }
 }
 ```
-# Linear Data Flow
-
-scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
-
-```Javascript
-const f = compN(inc)
-  (inc)
-  (inc)
-  (inc)
-  (inc); // constructs x => inc(inc(inc(inc(inc(x)))))
-
-f.run(0); // 5
-```
-Since composition is a functorial computation on the function type, this works for all functors and also for applicative and monadic computations:
-
-```Javascript
-const m = chainN(inc)
-  (add)
-  (add)
-  (add)
-  (add); // creates x => add(add(add(add(inc(x)) (x)) (x)) (x)) (x)
- 
-m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
-```
-# Recursion
-
-## Stack-Safe
-
-Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
-
-```Javascript
-const loop = f => {
-  let acc = f();
-
-  while (acc && acc.type === recur)
-    acc = f (...acc.args);
-
-  return acc;
-}
-
-const recur = (...args) =>
-  ({type: recur, args});
-
-const repeat = n_ => f_ => x_ =>
-  loop ((n = n_, f = f_, x = x_) => n === 0
-    ? x
-    : recur (n - 1, f, f(x)));
-
-const inc = n =>
-  n + 1;
-
-repeat(1e6) (inc) (0); // 1000000
-```
-## Schemes
-
-Recursion schemes are patterns to factor recursion out of your data types. More on this soon.
-
-# Currying
-
-scriptum relies on function in curried form. For non-commutative binary functions both possible parameter orders are usually provided to avoid argument flipping and thus runtime costs:
-
-```Javascript
-// divide
-const div = m => n =>
-  m / n;
-  
-// divide flipped
-const divf = n => m =>
-  m / n;
-```
-# Immutability and Persistent Data Structures
-
-Unfortunatelly, Javascript offers neither on the language level. You can construct your own data types with this qualities, but this renders your code incompatible with much of Javascript's ecosystem. For this reason scriptum embraces local mutations to avoid performance penalties due to repetitive copying of large data structures. Alternatively, scriptum will provide its own persistent data structures and means to convert them to built-in types.
-
 # Functional Reactive Programming
 
 scriptum distinguishes two types of time series values: `Behavior` and `Event`.
@@ -518,6 +603,8 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 
 - [ ] Extend Monoid by `mconcat`?
 - [ ] Add `Eff` instance for Monoid
+- [ ] Add monoid instance for Ord<k> => Set<k>
+- [ ] Add monoid instance for Ord<k, v> => Map<k, v>
 - [ ] Note that there is no Monoid instance for Either
 - [ ] Unit tests
 - [ ] API documentation
@@ -540,6 +627,7 @@ Instead of relying on virtual dom implementations scriptum favours incremental f
 # Research
 
 * Coyoneda and Free
+* State Machines (DFA, NFA, NFA-to-DFA transformer)
 * Trees (Multi-way, Binary Search, Heap, Red-Black, Finger, AVL, Trie)
 * Graphs
 * Lists (Random Access List, Catenable List)

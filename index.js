@@ -362,18 +362,9 @@ function* entries(o) {
 ******************************************************************************/
 
 
-const exhaust = f => ix => {
-  for (let x of ix) {
-    f(x)
-  }
-}
-
 /******************************************************************************
 ************************************[ Map ]************************************
 ******************************************************************************/
-
-
-// TODO: add monoid instance for Ord<k, v> => Map<k, v>
 
 
 /******************************************************************************
@@ -436,7 +427,7 @@ const neg = n => -n;
 const rem = m => n => m % n;
 
 
-// remainder
+// remainder flipped
 // Number -> Number -> Number
 const remf = n => m => m % n;
 
@@ -496,9 +487,6 @@ const prop = k => o => o[k];
 /******************************************************************************
 ************************************[ Set ]************************************
 ******************************************************************************/
-
-
-// TODO: add monoid instance for Ord<k> => Set<k>
 
 
 /******************************************************************************
@@ -1276,6 +1264,11 @@ emptyAdd("Last", Last(None));
 
 
 // empty add
+// List<a>
+emptyAdd("List", Nil);
+
+
+// empty add
 // Product
 emptyAdd("Product", Product(1));
 
@@ -1421,6 +1414,14 @@ appendAdd("Last/Last", Last(lastAppend));
 // prepend add
 // Last<a> -> Last<a> -> Last<a>
 prependAdd("Last/Last", Last(flip(lastAppend)));
+
+
+// append add
+// List<a> -> List<a> -> List<a>
+appendAdd("List/List", tx => ty => tx.runList({
+  Nil: ty,
+  Cons: x => tx_ => Cons(x) (append(tx_) (ty))
+}));
 
 
 // append add
