@@ -242,9 +242,9 @@ append(Arr([1,2])) (empty); // [1,2]
 
 # Recursion
 
-## Stack-Safety
+## Tail Call Optimization
 
-Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum supplies clojure's `loop`/`recur` construct to transform recursive functions into their non-recursive counterparts:
+Although specified in Ecmascript 6 most Javascript engines doesn't ship with tail call optimization (TCO) to allow stack-safe recursive algorithms. For this reason scriptum uses a port of clojure's `loop`/`recur` construct to transform recursive functions into their loop counterparts:
 
 ```Javascript
 const loop = f => {
@@ -271,7 +271,9 @@ repeat(1e6) (inc) (0); // 1000000
 ```
 ## Tail Recursion Modulo Cons
 
-What enables Tail Recursion Modulo Cons in Javascript is a thunk in Weak Head Normal Form. An expression in weak head normal form has been evaluated to the outermost data constructor, but contains sub-expressions that may not have been fully evaluated. In Javascript only thunks can prevent sub-expressions from being immediately evaluated. More on this in section "Lazy Evaluation/Lazy Getters".
+Tail recursion modulo cons goes beyond tail recursion in that it has constant stacke space for non-tail recursive calls, as long as these calls occur within a data constructor. A non-strict language automatically results in TRMC, because it allows fields of a data constructor to not have been fully evaluated yet. Such expressions are in weak head normal form, because there outermost constrcutor is fully evaluated, but their sub-expressions might not.
+
+In strict languages TRMC can be realized as a compiler optimization. Javascript doesn't support such an optimization but luckily ships with native lazy getters. Lazy getters are thunks within the `Object` constructor and thus render such `Objects` in weak head normal form, that is we get TRMC for free. More on this in section _Lazy Evaluation/Lazy Getters_.
 
 ## Schemes
 
@@ -304,7 +306,7 @@ scriptum will provide its own persistent data structures and means to convert th
 
 # Lazy Evaluation
 
-There are a couple of tools in Javascript that we can utilize to obtain the lazy evaluation effect.
+There are a couple of tools applicable in Javascript that allows us to obtain the lazy evaluation effect.
 
 ## ETA Expansion
 
@@ -371,8 +373,6 @@ z.runDefer(); // 50
 We can define and handle infinite streams like in lazy evaluated languages:
 
 ```Javascript
-// we can express infinite streams like in Haskell
-
 const repeat = x => Defer(() => [x, repeat(x)]);
 
 
