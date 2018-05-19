@@ -85,7 +85,7 @@ The following predefined types are function encoded and simulate algebraic data 
 
 ## Subtyping
 
-For tuples and records I decided to rely on subtyping, since the exotic behavior of their native super types is desired:
+Tuples and records rely on subtyping, since the exotic behavior of their native super types is desired:
 
 * Record
 * Tuple
@@ -110,7 +110,7 @@ foo.runFoo(x => x); // "bar"
 ```
 The first argument `"Foo"` determines the name of the type constructor. The second argument is a function, whose first argument serves as the data constructor, which finally constructs a value. Since there is only a single data constructor, data and type constructor have the same name.
 
-The next example shows a single data constructor with several fields, also known as a product type. Please note that a consumer must pass a continuation to consume the fields:
+The next example shows a single data constructor with several fields, also known as a product type. One way to encode a getter for several values are continuations, which have the additional benefit of being immutable:
 
 ```Javascript
 const Bar = Data("Bar")
@@ -119,7 +119,7 @@ const Bar = Data("Bar")
 const bar = Bar(2) ("foo") (true);
 bar.runBar(x => y => z => y); // "foo"
 ```
-However, the represantation of the fields is totally up to you. You can use a curried or multi-argument continuation (`k => k(x, y, z))`), an ordinary `Object` or just an `Array`.
+However, with which data sturture the fields are made available is up to you. You can use a curried or multi-argument continuation (`k => k(x, y, z))`), an ordinary `Object` or just an `Array`.
 
 Let's define a more complex ADT with two data constructors, also known as sum types:
 
@@ -211,17 +211,25 @@ scriptum will ultimately support the following typeclasses:
 
 Overloaded functions are open, that is you can always add function instances to handle your own types accordingly.
 
-Let's define the overloaded `append` and `empty` functions to simulate the Monoid typeclass:
+Let's define the overloaded `append` and `empty` functions to simulate the Semigroup and Monoid typeclass respectively:
 
 ```Javascript
-const {appendAdd, appendLookup, append} = overload2("append", dispatcher);
+// Semigroup
+
+const {appendAdd, appendLookup, append} =
+  overload2("append", dispatcher);
 
 appendAdd("String", s => t => `${s}${t}`);
 appendAdd("Sum", n => m => Sum(n + m));
 appendAdd("All", b => c => All(b.valueOf() && c.valueOf()));
 appendAdd("Array", xs => ys => Arr(xs.concat(ys)));
 
-const {emptyAdd, empty} = overload("empty", get("name"));
+// Monoid
+
+const {emptyAdd, emptyLookup, empty} =
+  overload("empty", toTypeTag);
+
+empty[VALUE] = "empty";
 
 emptyAdd("String", "");
 emptyAdd("Sum", Sum(0));
@@ -238,9 +246,11 @@ append(Sum(2)) (empty); // Sum<2>
 append(All(true)) (empty); // All<false>
 append(Arr([1,2])) (empty); // [1,2]
 ```
-`empty` is a tagged function and simulates value polymorphism in the context of overloaded binary functions.
+`empty` is a tagged function and allows to simulate a limited form of value polymorphism, that is `empty` can only be used as an argument of `append` or other overloaded binary functions.
 
 # Recursion
+
+Fixed-size call stacks with an upper bound are a legacy from the 90's. It is not likely to happen that Javascript gets a dynamically growing one so we have to deal with this limitation. For functional programmers this can be really annoying.
 
 ## Tail Call Optimization
 
@@ -271,9 +281,9 @@ repeat(1e6) (inc) (0); // 1000000
 ```
 ## Tail Recursion Modulo Cons
 
-Tail recursion modulo cons goes beyond tail recursion in that it has constant stack space for non-tail recursive calls, as long as these calls occur within a data constructor. A non-strict language automatically results in TRMC, because it allows fields of a data constructor to not have been fully evaluated yet. Such expressions are in weak head normal form, because their outermost constructor is fully evaluated, but their sub-expressions might not.
+Tail recursion modulo cons goes beyond tail recursion in that it has constant stack space for non-tail recursive calls, as long as these calls occur in the context of a data constructor non-strict in its arguments. Such a data constructor is in weak header normal form, since the outermost constructor has already been evaluated, while its contained sub-expressions may not yet have been evaluated. 
 
-In strict languages TRMC can be realized as a compiler optimization. Javascript doesn't support such an optimization but luckily ships with native lazy getters. Lazy getters are thunks within the `Object` constructor and thus render such `Objects` in weak head normal form, that is we get TRMC for free. More on this in section _Lazy Evaluation/Lazy Getters_.
+Javascript is a strictly evaluated language and its interpreter doesn't conduct a TRMC optimization. However, with Ecmascript 2015 the language ships with lazy getters, that is `Object` types have TRMC for free. More on this in section _Lazy Evaluation/Lazy Getters_.
 
 ## Schemes
 
@@ -331,7 +341,7 @@ comp = f => g => x => f(g(x));
 ```
 ## Lazy Getters
 
-Lazy getters allow us to partially construct `Object`s and defer the evaluation of certain properties until they are actually needed. Getters are transparent during property access. In fact, they are the only lazy property of Javascript on the language level.
+Lazy getters allow us to partially construct `Object`s and defer the evaluation of certain properties until they are actually needed. This form is called weak head normal form and enables tail recursion modulo cons for free, at least for `Object` types:
 
 ```Javascript
 const cons = (head, tail) => ({head, tail});
@@ -349,61 +359,112 @@ const take = n => ({head, tail}) =>
 ```
 ## Deferred Type
 
-Finally, the `Defer` algebraic data type allos us to use normal-order evaluation whereever we need it:
+Finally, the `Defer` algebraic data type allows us to use normal-order evaluation whereever we need it:
 
 ```Javascript
-const Defer = Data("Defer")
-  (Defer => thunk => Defer(thunk));
+const foldr = f => acc => xs => {
+  const aux = (acc, i) =>
+    Defer(() => i === size
+      ? acc
+      : f(xs[i]) (aux(acc, i + 1)));
 
-Defer.map = f => tx => Defer(() => f(tx.runDefer()));
-Defer.ap = af => ax => Defer(() => af.runDefer() (ax.runDefer()));
+  const size = xs.length - 1;
+  return aux(acc, 0);
+};
 
-const add = m => n => m + n;
-const sqr = n => Defer(() => n * n);
+const lookup = x =>
+  foldr(y => z => x === y ? true : z) (false);
 
-const z = Defer.ap(
-  Defer.map(add)
-    (sqr(5)))
-      (sqr(5));
+const strict = x => {
+  while (x && x.tag && x.tag === "Defer")
+    x = x.runDefer();
 
-// nothing has been evaluated up to this point
+  return x;
+};
 
-z.runDefer(); // 50
+const sub = x => y => x - y;
+
+const xs = Array(1e6)
+  .fill(0)
+  .map((_, i) => i);
+
+strict(lookup(1000) (xs)); // true
+strict(lookup(-1) (xs)); // false
 ```
-We can define and handle infinite streams like in lazy evaluated languages:
+As you can see we can actually define a stack safe right-associative fold with `Defer`. This is very useful, because now we can utilize short circuiting, which arises naturally from lazy evaluation. `foldr`'s usage is a bit cumbersome, because we are compelled to call it with another combinator, namely `strict`, which is merely a trampoline.
+
+We can handle infinite streams like in lazy evaluated languages:
 
 ```Javascript
 const repeat = x => Defer(() => [x, repeat(x)]);
 
+const take = n => list => {
+  if (n === 0) return [];
 
-Defer.map(
-  ([head, tail]) => [sqr(head), tail])
-    (repeat(5))
-      .runDefer(); // [25, Defer]
+  else {
+    const list_ = list.runDefer();
+
+    return list_.length === 0
+      ? []
+      : [list_[0], take(n - 1) (list_[1])];
+  }
+};
+
+take(3) (repeat("x")); // ["x", ["x", ["x", []]]]
 ```
-# Linear Data Flow
+# Flat Syntax
 
-scriptum introduces a polyvariadic type that allows extensive function composition with a flat syntax. Here is a contrieved example:
+scriptum introduces a polyvariadic type that allows a flat syntax for otherwise nested code:
 
 ```Javascript
-const f = compN(inc)
+const sumv = m => Object.assign(n =>
+  sumv(m + n),
+  {runSum: m});
+
+const data = sumv(1)
+  (2)
+  (3)
+  (4)
+  (5); // constructs (m + (m + (m + (m + (m + n)))))
+
+data.runSum; // 15
+```
+`sumv` builds up a lazy, from left to right evaluated, nested computation. This works for functors too:
+
+```Javascript
+const compv = f => Object.assign(g =>
+  compv(x =>
+    g(f(x))),
+    {runComp: f});
+
+const inc = n => n + 1;
+
+const data = compv(inc)
   (inc)
   (inc)
   (inc)
   (inc); // constructs x => inc(inc(inc(inc(inc(x)))))
 
-f.run(0); // 5
+data.runComp(0); // 5
 ```
-Since composition is a functorial computation on the function type, this works for all functors and also for applicative and monadic computations:
+And for applicatives and monads as well:
 
 ```Javascript
-const m = chainN(inc)
+const chainv = f => Object.assign(g =>
+  chainv(x =>
+  g(f(x)) (x)), {runChain: f});
+
+const inc = n => n + 1;
+
+const add = m => n => m + n;
+
+const data = chainv(inc)
   (add)
   (add)
   (add)
   (add); // creates x => add(add(add(add(inc(x)) (x)) (x)) (x)) (x)
  
-m.run(2); // 2 + 1 + 2 + 2 + 2 + 2 = 11
+data.runChain(2); // (2 + (2 + (2 + (2 + (2 + 1))))) = 11
 ```
 # Effect Handling
 

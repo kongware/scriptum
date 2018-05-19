@@ -577,12 +577,7 @@ class Tup extends Array {
 const Type = name => {
   const Type = tag => Dcons => {
     const t = new Tcons();
-
-    Object.defineProperty(
-      t,
-      `run${name}`,
-      {value: Dcons});
-
+    t[`run${name}`] = Dcons;
     t[TAG] = tag;
     return t;
   };
@@ -601,12 +596,7 @@ const Type = name => {
 const Data = name => Dcons => {
   const Data = x => {
     const t = new Tcons();
-
-    Object.defineProperty(
-      t,
-      typeof x === "function" ? `run${name}` : `get${name}`,
-      {value: x});
-
+    t[typeof x === "function" ? `run${name}` : `get${name}`] = x;
     t[Symbol.toStringTag] = name;
     t[TAG] = name;
     return t;
@@ -1417,6 +1407,7 @@ prependAdd("Last/Last", Last(flip(lastAppend)));
 
 
 // append add
+// TODO: implement tail recursive modulo cons version
 // List<a> -> List<a> -> List<a>
 appendAdd("List/List", tx => ty => tx.runList({
   Nil: ty,
