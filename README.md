@@ -392,9 +392,9 @@ const xs = Array(1e6)
 strict(lookup(1000) (xs)); // true
 strict(lookup(-1) (xs)); // false
 ```
-As you can see we can actually define a stack safe right-associative fold with `Defer`. This is very useful, because now we can utilize short circuiting, which arises naturally from lazy evaluation. `foldr`'s usage is a bit cumbersome, because we are compelled to call it with another combinator, namely `strict`, which is merely a trampoline.
+As you can see we can actually define a stack safe right-associative fold with `Defer`. This is very useful, because now we can utilize short circuiting, which arises naturally from lazy evaluation. `foldr`'s usage is a bit cumbersome, because we are compelled to call it with a trampoline, namely `strict`.
 
-We can handle infinite streams like in lazy evaluated languages:
+Mor over we can handle infinite streams like in lazy evaluated languages:
 
 ```Javascript
 const repeat = x => Defer(() => [x, repeat(x)]);
