@@ -711,6 +711,28 @@ const Cont = Data("Cont") (Cont => k => Cont(k));
 
 
 /******************************************************************************
+***********************************[ Defer ]***********************************
+******************************************************************************/
+
+
+// deferred computation
+// synchronous
+// (() -> a) -> Defer<a>
+const Defer = Data("Defer") (Defer => thunk => Defer(thunk));
+
+
+/***[Evaluation]**************************************************************/
+
+
+const strict = x => {
+  while (x && x.tag && x.tag === "Defer")
+    x = x.runDefer();
+
+  return x;
+};
+
+
+/******************************************************************************
 ************************************[ Eff ]************************************
 ******************************************************************************/
 
@@ -831,8 +853,9 @@ const List = Type("List");
 
 
 // construct
-// a -> List<a> -> List<a>
-const Cons = x => tx => List("Cons") (cases => cases.Cons(x) (tx));
+// uncurried for performance reason
+// (a, List<a>) -> List<a>
+const Cons = (x, tx) => List("Cons") (cases => cases.Cons(x, tx));
 
 
 // not in list
@@ -1407,11 +1430,10 @@ prependAdd("Last/Last", Last(flip(lastAppend)));
 
 
 // append add
-// TODO: implement tail recursive modulo cons version
 // List<a> -> List<a> -> List<a>
 appendAdd("List/List", tx => ty => tx.runList({
   Nil: ty,
-  Cons: x => tx_ => Cons(x) (append(tx_) (ty))
+  Cons: (head, tail) => Cons(head, Defer(() => append(tail) (ty)))
 }));
 
 
@@ -1871,6 +1893,7 @@ Object.assign($,
     rotl,
     rotr,
     Some,
+    strict,
     sub,
     subf,
     subscribe,

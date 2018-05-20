@@ -57,6 +57,7 @@ The following predefined types are function encoded and simulate algebraic data 
 * Behavior (continuous time series value)
 * Comparator (ordering value)
 * Cont (delimited continuation)
+* Defer (deferred computation)
 * Eff (effectful synchronous computation)
 * Either (convergent computation)
 * Endo (endomorphism)
