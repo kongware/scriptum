@@ -24,7 +24,7 @@ scriptum encourages you to program in a type-directed manner and to consider fun
 
 # Type System
 
-It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language build around it. Doing it the other way around is often a futile endeavor. scriptum utilizes types extensivley, but only to help the programmer develop a mental model of their program's underlying data types. In a dynamically typed environment you need to fill in for the compiler anyway and scriptum helps you accomplish this task.
+It requires great mastery to develop a type system that is sound and expressive at the same time. Usually the type system is designed first and the language build around it. Doing it the other way around is often a futile endeavor. scriptum utilizes types extensively, but only to help the programmer develop a mental model of their program's underlying data types. In a dynamically typed environment you need to fill in for the compiler anyway and scriptum helps you accomplish this task.
 
 ## Introspection
 
