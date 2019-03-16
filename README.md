@@ -2,6 +2,8 @@
 
 # Status
 
+UPDATE: This repo is outdated. I've been learning so much in the last couple months and am in the beneficial position to actually apply the learned functonal patterns in my real work. Hence I probably will upload a major update in the future - bear with me!
+
 This repo is experimental and still work in progress.
 
 ## What
