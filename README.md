@@ -58,7 +58,7 @@ For the same reason scriptum facvors thunks to generators/iterators to obtain la
 
 scriptum doesn't rely on Javascript's prototype system. As a consequence, scriptum uses directory passing, i.e. typeclasses are passed as normal arguments to functions. As a convetion, typeclass arguments are placed leftmost in the argument list and if the function expects several typeclasses you can bundle them for a multiple argument function call. This is actually the only exception where scriptum allows multiple arguments.
 
-By the way, if you want method chaining you can do it without being ashamed, as long it depends on object factories.
+Directory passing is provided to allow for ad-hoc polymorphism in Javascript in a principled manner.
 
 ### Monadic Task over Promises
 
