@@ -103,7 +103,7 @@ scriptum ships with an alternative monadic type for asynchronous computations ca
 
 # Advanced Topics
 
-## Avoiding Parenthesis
+## Avoid Parenthesis
 
 ...
 
