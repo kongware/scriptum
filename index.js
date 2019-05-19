@@ -57,6 +57,9 @@ class ExtendableError extends Error {
 class ScriptumError extends ExtendableError {};
 
 
+class UnionError extends ScriptumError {};
+
+
 /******************************************************************************
 *******************************************************************************
 *******************************************************************************
@@ -172,7 +175,6 @@ const structMemo = type => cons => {
   const f = (thunk, args) => ({
     get ["run" + type] () {
       delete this["run" + type];
-      console.log("eval");
       return this["run" + type] = thunk();
     },
     [TYPE]: type
