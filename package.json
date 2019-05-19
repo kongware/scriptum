@@ -1,7 +1,7 @@
 {
   "name": "scriptum",
-  "version": "0.1.19",
-  "description": "A gentle and type-directed functional library with a focus on purity, abstraction and patterns.",
+  "version": "0.2.0",
+  "description": "A type-directed functional library that adapts well-known functional patterns to untyped Javascript.",
   "main": "index.js",
   "scripts": {
     "test": "mocha"
