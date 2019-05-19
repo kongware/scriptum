@@ -201,7 +201,7 @@ const structMemo = type => cons => {
 const app = f => x => f(x);
 
 
-const appr = (f, y) => x => f(x) (y);
+const appr = f => y => x => f(x) (y);
 
 
 const _const = x => y => x;
@@ -217,6 +217,157 @@ const infix = (x, f, y) => f(x) (y); // simulates function calls in infix positi
 
 
 const _let = f => f(); // simulates let binding as an expression
+
+
+/***[Composition]*************************************************************/
+
+
+const comp = f => g => x =>
+  f(g(x));
+
+
+const compn = (...fs) => x_ =>
+  loop((x = x_, i = fs.length - 1) =>
+    i < 0
+      ? x
+      : recur(fs[i] (x), i - 1));
+
+
+const compm = f =>
+  Object.assign(g => compm(x => f(g(x))), {runComp: f});
+
+
+const compKleisli = chain => fm => gm => x =>
+  chain(fm) (gm(x));
+
+
+const compKleislin = (chain, of) => (...fs) => x =>
+  loop((tx = of(x), i = fs.length - 1) =>
+      i < 0
+        ? tx
+        : recur(chain(fs[i]) (tx), i - 1));
+
+
+const compKleislim = chain => {
+  const go = f =>
+    Object.assign(g => go(x => chain(f) (g(x))), {runCompk: f});
+
+  return go;
+};
+
+
+const comp2nd = f => g => x => y =>
+  f(x) (g(y));
+
+
+const contra = g => f => x =>
+  f(g(x));
+
+
+const contran = (...fs) => x_ =>
+  loop((x = x_, i = 0) =>
+    i === fs.length
+      ? x
+      : recur(fs[i] (x), i + 1));
+
+
+const contram = g =>
+  Object.assign(f => pipem(x => f(g(x))), {runPipe: g});
+
+
+const contraKleisli = chain => gm => fm => x =>
+  chain(fm) (gm(x));
+
+
+const contraKleislin = (chain, of) => (...fs) => x =>
+  loop((tx = of(x), i = 0) =>
+      i === fs.length
+        ? tx
+        : recur(chain(fs[i]) (tx), i + 1));
+
+
+const contraKleislim = chain => {
+  const go = gm =>
+    Object.assign(fm => go(x => chain(fm) (gm(x))), {runPipek: gm});
+
+  return go;
+};
+
+
+const on = f => g => x => y =>
+  f(g(x)) (g(y));
+
+
+const pipe = contra;
+
+
+const pipen = contran;
+
+
+const pipem = contram;
+
+
+const pipeKleisli = contraKleisli;
+
+
+const pipeKleislin = contraKleislin;
+
+
+const pipeKleislim = contraKleislim;
+
+
+/***[Conditional Branching]***************************************************/
+
+
+const cond = x => y => b =>
+  b ? x : y;
+
+
+const cond_ = b => x => y =>
+  b ? x : y;
+
+
+const guard = p => f => x =>
+  p(x) ? f(x) : x;
+
+
+const select = p => f => g => x =>
+  p(x) ? f(x) : g(x);
+
+
+/***[Currying]****************************************************************/
+
+
+const curry = f => x => y =>
+  f(x, y);
+
+
+const curry3 = f => x => y => z =>
+  f(x, y, z);
+
+
+const curry4 = f => w => x => y => z =>
+  f(w, x, y, z);
+
+
+const curry5 = f => v => w => x => y => z =>
+  f(v, w, x, y, z);
+
+
+const uncurry = f => (x, y) =>
+  f(x) (y);
+
+
+const uncurry3 = f => (x, y, z) =>
+  f(x) (y) (z);
+
+
+const uncurry4 = f => (w, x, y, z) =>
+  f(w) (x) (y) (z);
+
+
+const uncurry5 = f => (v, w, x, y, z) =>
+  f(v) (w) (x) (y) (z);
 
 
 /***[Impure]******************************************************************/
@@ -245,6 +396,42 @@ const tryCatch = f => g => x => {
     return g([x, e]);
   }
 };
+
+
+/***[Partial Application]*****************************************************/
+
+
+const partial = (f, ...args) => (...args_) =>
+  f(...args, ...args_);
+
+
+const pcurry = (f, n, ...args) => {
+  const go = (acc, m) =>
+    m === 0
+      ? f(...args, ...acc)
+      : x => go((acc.push(x), acc), m - 1);
+
+  return go([], n);
+};
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const funAp = f => g => x =>
+  f(x) (g(x));
+
+
+const funChain = f => g => x =>
+  f(g(x)) (x);
+
+
+const funJoin = f => x =>
+  f(x) (x);
+
+
+const funLiftA2 = f => g => h => x =>
+  f(g(x)) (h(x));
 
 
 /******************************************************************************
