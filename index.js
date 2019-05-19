@@ -194,6 +194,56 @@ const structMemo = type => cons => {
 
 
 /******************************************************************************
+***********************************[ ARRAY ]***********************************
+******************************************************************************/
+
+
+/***[Foldable]****************************************************************/
+
+
+const arrFold = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (xs[i]);
+
+  return acc;
+};
+
+
+const arrFoldp = p => alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++) {
+    if (!p([xs[i], acc])) break;
+    acc = alg(acc) (xs[i]);
+  }
+
+  return acc;
+};
+
+
+/***[Monoid]******************************************************************/
+
+
+const arrAppend = xs => ys => xs.concat(ys);
+
+
+const arrPrepend = ys => xs => xs.concat(ys);
+
+
+/***[Transduce]***************************************************************/
+
+
+const arrTransduce = alg => reduce =>
+  arrFold(alg(reduce));
+
+
+const arrTransducep = p => alg => reduce =>
+  arrFoldp(p) (alg(reduce));
+
+
+/******************************************************************************
 *********************************[ FUNCTIONS ]*********************************
 ******************************************************************************/
 
@@ -413,6 +463,17 @@ const pcurry = (f, n, ...args) => {
 
   return go([], n);
 };
+
+
+/***[Transducer]**************************************************************/
+
+
+const mapper = f => reduce => acc => x =>
+  reduce(acc) (f(x));
+
+
+const filterer = p => reduce => acc => x =>
+  p(x) ? reduce(acc) (x) : acc;
 
 
 /***[Typeclasses]*************************************************************/
