@@ -289,26 +289,7 @@ const compn = (...fs) => x_ =>
 
 
 const compm = f =>
-  Object.assign(g => compm(x => f(g(x))), {runComp: f});
-
-
-const compKleisli = chain => fm => gm => x =>
-  chain(fm) (gm(x));
-
-
-const compKleislin = (chain, of) => (...fs) => x =>
-  loop((tx = of(x), i = fs.length - 1) =>
-      i < 0
-        ? tx
-        : recur(chain(fs[i]) (tx), i - 1));
-
-
-const compKleislim = chain => {
-  const go = f =>
-    Object.assign(g => go(x => chain(f) (g(x))), {runCompk: f});
-
-  return go;
-};
+  Object.assign(g => compm(x => f(g(x))), {runComp: f, [TYPE]: "Comp"});
 
 
 const comp2nd = f => g => x => y =>
@@ -327,23 +308,23 @@ const contran = (...fs) => x_ =>
 
 
 const contram = g =>
-  Object.assign(f => pipem(x => f(g(x))), {runPipe: g});
+  Object.assign(f => contram(x => f(g(x))), {runContra: g, , [TYPE]: "Contra"});
 
 
-const contraKleisli = chain => gm => fm => x =>
+const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const contraKleislin = (chain, of) => (...fs) => x =>
-  loop((tx = of(x), i = 0) =>
-      i === fs.length
+const kleislin = (chain, of) => (...fs) => x =>
+  loop((tx = of(x), i = fs.length - 1) =>
+      i < 0
         ? tx
-        : recur(chain(fs[i]) (tx), i + 1));
+        : recur(chain(fs[i]) (tx), i - 1));
 
 
-const contraKleislim = chain => {
-  const go = gm =>
-    Object.assign(fm => go(x => chain(fm) (gm(x))), {runPipek: gm});
+const kleislim = chain => { // TODO: trampoline
+  const go = f =>
+    Object.assign(g => go(x => chain(f) (g(x))), {runKleisli: f, [TYPE]: "Kleisli"});
 
   return go;
 };
@@ -351,24 +332,6 @@ const contraKleislim = chain => {
 
 const on = f => g => x => y =>
   f(g(x)) (g(y));
-
-
-const pipe = contra;
-
-
-const pipen = contran;
-
-
-const pipem = contram;
-
-
-const pipeKleisli = contraKleisli;
-
-
-const pipeKleislin = contraKleislin;
-
-
-const pipeKleislim = contraKleislim;
 
 
 /***[Conditional Branching]***************************************************/
