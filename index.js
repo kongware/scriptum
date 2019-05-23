@@ -185,6 +185,17 @@ const structMemo = type => cons => {
 ******************************************************************************/
 
 
+/***[Contravariant Functor]***************************************************/
+
+
+const contran = contra => {
+  const go = x =>
+    Object.assign(y => go(contra(x) (y)), {runContra: x, [TYPE]: "Contra"});
+
+  return go;
+};
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -207,6 +218,14 @@ const mapn = map => {
 
 const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
+
+
+const kleislin = chain => {
+  const go = f =>
+    Object.assign(g => go(x => chain(f) (g(x))), {runKleisli: f, [TYPE]: "Kleisli"});
+
+  return go;
+};
 
 
 /******************************************************************************
