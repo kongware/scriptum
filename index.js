@@ -196,6 +196,13 @@ const contran = contra => {
 };
 
 
+/***[Foldable]****************************************************************/
+
+
+const foldMap = (fold, append, empty) => f =>
+  fold(comp2nd(append) (f)) (empty);
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -502,6 +509,132 @@ const funMap = f => g => x => f(g(x));
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ LENS ]************************************
+******************************************************************************/
+
+
+const Lens = struct("Lens") (Lens => o => Lens(o));
+
+
+const objLens = k => Lens({
+  get: o =>
+    o[k],
+
+  set: v => o =>
+    Object.assign({}, o, {[k]: v}),
+
+  mod: f => o =>
+    Object.assign({}, o, {[k]: f(o[k])}),
+
+  del: o => {
+    const o_ = Object.assign({}, o);
+    delete o_[k];
+    return o_;
+  }
+});
+
+
+const arrLens = i => Lens({
+  get: xs =>
+    xs[i],
+
+  set: v => xs => {
+    const xs_ = xs.concat([]);
+    xs_[i] = v;
+    return xs_;
+  },
+
+  mod: f => xs => {
+    const xs_ = xs.concat([]);
+    xs_[i] = f(xs_[i]);
+    return xs_;
+  },
+
+  del: xs => {
+    const xs_ = xs.concat([]);
+    delete xs_[i]
+    return xs_;
+  }
+});
+
+
+const mapLens = k => Lens({
+  get: m =>
+    m.get(k),
+
+  set: v => m => {
+    const m_ = new Map(m);
+    return m_.set(k, v);
+  },
+
+  mod: f => m => {
+    const m_ = new Map(m);
+    return m_.set(k, f(v));
+  },
+
+  del: m => {
+    const m_ = new Map(m);
+    return m_.delete(k);
+  }
+});
+
+
+const setLens = k => Lens({
+  get: s =>
+    s.get(k),
+
+  set: v => s => {
+    const s_ = new Set(s);
+    return s_.add(k, v);
+  },
+
+  mod: f => s => {
+    const s_ = new Set(s);
+    return s_.add(k, f(v));
+  },
+
+  del: s => {
+    const s_ = new Set(s);
+    return s_.delete(k);
+  }
+});
+
+
+const strLens = i => Lens({
+  get: s =>
+    s[i],
+
+  set: v => s =>
+    strReplaceAt(i) (v) (s),
+
+  mod: f => s =>
+    strReplaceAtWith(i) (f) (s),
+
+  del: xs =>
+    strDeleteAt(i) (s)
+});
+
+
+/***[Combinators]*************************************************************/
+
+
+const lensGet2 = tx => ty => o =>
+  ty.runLens.get(tx.runLens.get(o));
+
+
+const lensSet2 = tx => ty => v => o =>
+  tx.runLens.set(ty.runLens.set(v) (tx.runLens.get(o))) (o);
+
+
+const lensMod2 = tx => ty => f => o =>
+  tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o),
+
+
+const lensDel2 = tx => ty => o =>
+  tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o)
 
 
 /******************************************************************************
