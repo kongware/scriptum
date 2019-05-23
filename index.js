@@ -680,3 +680,56 @@ const tChain = mx => fm =>
 
 const tChainf = fm => mx =>
   Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+
+
+module.exports = {
+  // CONSTANTS
+  
+  ARGS,
+  TAG,
+  TYPE,
+  
+  // INTROSPECTION
+  
+  introspect,
+  
+  // TRAMPOLINES
+  
+  loop,
+  recur,
+  tramp,
+  
+  // CONSTRUCTORS
+  
+  union,
+  match,
+  match2,
+  struct,
+  structMemo,
+  
+  // BUILT-IN TYPES
+  
+  // Array
+  
+  arrClone,
+  arrFold,
+  arrFoldp,
+  arrAppend,
+  arrPrepend,
+  arrTransduce,
+  arrTransducep,
+  
+  // Function
+  
+  app,
+  appr,
+  _const,
+  flip,
+  id,
+  infix,
+  _let,
+  comp,
+  compn,
+  compm,
+  
+}
