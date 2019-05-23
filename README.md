@@ -182,3 +182,7 @@ scriptum ships with an alternative monadic type for asynchronous computations ca
 ### Events
 
 ...
+
+# TODO
+
+[ ] replace `foo = (...args) =>` with `foo = args =>`
