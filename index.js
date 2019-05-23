@@ -861,6 +861,18 @@ module.exports = {
   struct,
   structMemo,
   
+  // TYPECLASS FUNCTIONS
+  
+  contran,
+  foldMap,
+  mapn,
+  liftAn,
+  kleisli,
+  kleislin,
+  chainn,
+  liftMn,
+  
+  
   // BUILT-IN TYPES
   
   // Array
@@ -882,16 +894,7 @@ module.exports = {
   id,
   infix,
   _let,
-  comp,
-  compn,
-  compm,
   comp2nd,
-  contra,
-  contran,
-  contram,
-  kleisli,
-  kleislin,
-  kleislim,
   on,
   cond,
   cond_,
@@ -915,10 +918,31 @@ module.exports = {
   filterer,
   funAp,
   funChain,
+  funContra,
   funJoin,
   funLiftA2,
+  funMap,
+  
+  // String
+  
+  strDeleteAt,
+  strReplaceAt,
+  strReplaceAtWith,
   
   // CUSTOM TYPES
+  
+  // Lens
+  
+  Lens,
+  arrLens,
+  objLens,
+  mapLens,
+  setLens,
+  strLens,
+  lensGetComp,
+  lensSetComp,
+  lensModComp,
+  lensDelComp,
   
   // Parallel
   
@@ -944,5 +968,5 @@ module.exports = {
   tCata,
   tMap,
   tChain,
-  tChainf,
+  tChainf
 }
