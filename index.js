@@ -545,18 +545,18 @@ const parOr = tf => tg => {
 };
 
 
-const parAny =
-  arrFold(acc => tf =>
-    parOr(acc) (tf))
-      (parEmpty);
-
-
 const parAll = ts => // eta abstraction to create a new tOf([]) for each invocation
   arrFold(acc => tf =>
     parMap(([xs, x]) =>
       (xs.push(x), xs))
         (parAnd(acc) (tf)))
           (parOf([])) (ts);
+
+
+const parAny =
+  arrFold(acc => tf =>
+    parOr(acc) (tf))
+      (parEmpty);
 
 
 /***[Functor]*****************************************************************/
@@ -694,5 +694,64 @@ module.exports = {
   comp,
   compn,
   compm,
+  comp2nd,
+  contra,
+  contran,
+  contram,
+  kleisli,
+  kleislin,
+  kleislim,
+  on,
+  cond,
+  cond_,
+  guard,
+  select,
+  curry,
+  curry3,
+  curry4,
+  curry5,
+  uncurry,
+  uncurry3,
+  uncurry4,
+  uncurry5,
+  eff,
+  memoThunk,
+  _throw,
+  tryCatch,
+  partial,
+  pcurry,
+  mapper,
+  filterer,
+  funAp,
+  funChain,
+  funJoin,
+  funLiftA2,
   
+  // CUSTOM TYPES
+  
+  // Parallel
+  
+  Parallel,
+  parCata,
+  parOf,
+  parAnd,
+  parOr,
+  parAll,
+  parAny,
+  parMap,
+  parEmpty,
+  parAppend,
+  parPrepend,
+  
+  // Task
+  
+  Task,
+  tAp,
+  tOf,
+  tAnd,
+  tAll,
+  tCata,
+  tMap,
+  tChain,
+  tChainf,
 }
