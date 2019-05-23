@@ -602,7 +602,7 @@ const parAny =
       (parEmpty);
 
 
-const parAll = ts =>
+const parAll = ts => // eta abstraction to create a new tOf([]) for each invocation
   arrFold(acc => tf =>
     parMap(([xs, x]) =>
       (xs.push(x), xs))
