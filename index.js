@@ -188,98 +188,24 @@ const structMemo = type => cons => {
 /***[Functor]*****************************************************************/
 
 
-/***[Applicative]*************************************************************/
+const mapn = map => {
+  const go = x =>
+    Object.assign(y => go(map(x) (y)), {runMap: x, [TYPE]: "Map"});
 
-
-const liftAn = (map, ap) => f => {
-  const go = ts =>
-    Object.assign(
-      t => (ts.push(t), go(ts)),
-      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"});
-
-  return go([]);
+  return go;
 };
 
 
-const liftA2 = (map, ap) => f => tx => ty =>
-  ap(map(f) (tx)) (ty);
+/***[Applicative]*************************************************************/
 
 
-const liftA3 = (map, ap) => f => tx => ty => tz =>
-  ap(ap(map(f) (tx)) (ty)) (tz);
-
-
-const liftA4 = (map, ap) => f => tw => tx => ty => tz =>
-  ap(ap(ap(map(f) (tw)) (tx)) (ty)) (tz);
-
-
-const liftA5 = (map, ap) => f => tv => tw => tx => ty => tz =>
-  ap(ap(ap(ap(map(f) (tv)) (tw)) (tx)) (ty)) (tz);
+// TODO
 
 
 /***[Monad]*******************************************************************/
 
 
-// TODO: chain2
-
-
-// TODO: chain3
-
-
-// TODO: chain4
-
-
-// TODO: chain5
-
-
-const chainn = chain => fm => {
-  const go = ms =>
-    Object.assign(
-      m => (ms.push(m), go(ms)),
-      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"});
-
-    return go([]);
-};
-
-
-const liftM2 = (chain, of) => f => mx => my =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      of(f(x) (y))))
-
-
-const liftM3 = (chain, of) => f => mx => my => mz =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      chain(mz) (z =>
-        of(f(x) (y) (z)))));
-
-
-const liftM4 = (chain, of) => f => mw => mx => my => mz =>
-  chain(mw) (w =>
-    chain(mx) (x =>
-      chain(my) (y =>
-        chain(mz) (z =>
-          of(f(w) (x) (y) (z))))));
-
-
-const liftM5 = (chain, of) => f => mv => mw => mx => my => mz =>
-  chain(mv) (v =>
-    chain(mw) (w =>
-      chain(mx) (x =>
-        chain(my) (y =>
-          chain(mz) (z =>
-            of(f(v) (w) (x) (y) (z)))))));
-
-
-const liftMn = (chain, of) => f => {
-  const go = args =>
-    Object.assign(
-      arg => (args.push(arg), go(args)),
-      {get runLiftM() {return liftMn(chain, of) (f) (...args)}, [TYPE]: "LiftM"});
-
-    return go([]);
-};
+// TODO
 
 
 /******************************************************************************
@@ -381,61 +307,7 @@ const _let = f => f(); // simulates let binding as an expression
 /***[Composition]*************************************************************/
 
 
-const comp = f => g => x =>
-  f(g(x));
-
-
-const compn = (...fs) => x_ =>
-  loop((x = x_, i = fs.length - 1) =>
-    i < 0
-      ? x
-      : recur(fs[i] (x), i - 1));
-
-
-const compm = f =>
-  Object.assign(g => compm(x => f(g(x))), {runComp: f, [TYPE]: "Comp"});
-
-
-const comp2nd = f => g => x => y =>
-  f(x) (g(y));
-
-
-const contra = g => f => x =>
-  f(g(x));
-
-
-const contran = (...fs) => x_ =>
-  loop((x = x_, i = 0) =>
-    i === fs.length
-      ? x
-      : recur(fs[i] (x), i + 1));
-
-
-const contram = g =>
-  Object.assign(f => contram(x => f(g(x))), {runContra: g, , [TYPE]: "Contra"});
-
-
-const kleisli = chain => fm => gm => x =>
-  chain(fm) (gm(x));
-
-
-const kleislin = (chain, of) => (...fs) => x =>
-  loop((tx = of(x), i = fs.length - 1) =>
-      i < 0
-        ? tx
-        : recur(chain(fs[i]) (tx), i - 1));
-
-
-const kleislim = chain => { // TODO: trampoline
-  const go = f =>
-    Object.assign(g => go(x => chain(f) (g(x))), {runKleisli: f, [TYPE]: "Kleisli"});
-
-  return go;
-};
-
-
-const on = f => g => x => y =>
-  f(g(x)) (g(y));
+// TODO
 
 
 /***[Conditional Branching]***************************************************/
