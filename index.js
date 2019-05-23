@@ -210,7 +210,14 @@ const mapn = map => {
 /***[Applicative]*************************************************************/
 
 
-// TODO
+const liftAn = (map, ap) => f => {
+  const go = ts =>
+    Object.assign(
+      t => (ts.push(t), go(ts)),
+      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"});
+
+  return go([]);
+};
 
 
 /***[Monad]*******************************************************************/
@@ -225,6 +232,26 @@ const kleislin = chain => {
     Object.assign(g => go(x => chain(f) (g(x))), {runKleisli: f, [TYPE]: "Kleisli"});
 
   return go;
+};
+
+
+const chainn = chain => fm => {
+  const go = ms =>
+    Object.assign(
+      m => (ms.push(m), go(ms)),
+      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"});
+
+    return go([]);
+};
+
+
+const liftMn = (chain, of) => f => {
+  const go = args =>
+    Object.assign(
+      arg => (args.push(arg), go(args)),
+      {get runLiftM() {return liftMn(chain, of) (f) (...args)}, [TYPE]: "LiftM"});
+
+    return go([]);
 };
 
 
@@ -327,7 +354,12 @@ const _let = f => f(); // simulates let binding as an expression
 /***[Composition]*************************************************************/
 
 
-// TODO
+const comp2nd = f => g => x => y =>
+  f(x) (g(y));
+
+
+const on = f => g => x => y =>
+  f(g(x)) (g(y));
 
 
 /***[Conditional Branching]***************************************************/
