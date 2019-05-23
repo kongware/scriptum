@@ -202,6 +202,19 @@ const structMemo = type => cons => {
 ******************************************************************************/
 
 
+/***[Clonable]****************************************************************/
+
+
+const arrClone = xs => {
+  const ys = [];
+
+  for (let i = 0; i < xs.length; i++)
+    ys[i] = xs[i];
+
+  return ys;
+};
+
+
 /***[Foldable]****************************************************************/
 
 
@@ -519,6 +532,106 @@ const Parallel = struct("Parallel")
   (Parallel => k => Parallel((res, rej) => k(res, rej)));
 
 
+/***[Foldable]****************************************************************/
+
+
+const parCata = alg => (res, rej) =>
+  tf.runParallel(res, rej);
+
+
+/***[Applicative]*************************************************************/
+
+
+// TODO: parAp
+
+
+const parOf = x => Parallel((res, rej) => res(x));
+
+
+/***[Combinators]*************************************************************/
+
+
+const parAnd = tf => tg => {
+  const r = []
+
+  const guard = (res, rej, i) => [
+    x => (
+      r[i] = x,
+      isRes || isRej || r[0] === undefined || r[1] === undefined
+        ? false
+        : (isRes = true, res(r))),
+    e =>
+      isRes || isRej
+        ? false
+        : (isRej = true, rej(e))];
+
+  let isRes = false,
+    isRej = false;
+
+  return Parallel(
+    (res, rej) => (
+      tf.runParallel(...guard(res, rej, 0)),
+      tg.runParallel(...guard(res, rej, 1))));
+};
+
+
+const parOr = tf => tg => {
+  const guard = (res, rej) => [
+    x => (
+      isRes || isRej
+        ? false
+        : (isRes = true, res(x))),
+    e =>
+        isRes || isRej
+          ? false
+          : (isRej = true, rej(e))];
+
+  let isRes = false,
+    isRej = false;
+
+  return Parallel(
+    (res, rej) => (
+      tf.runParallel(...guard(res, rej)),
+      tg.runParallel(...guard(res, rej))))
+};
+
+
+const parAny =
+  arrFold(acc => tf =>
+    parOr(acc) (tf))
+      (parEmpty);
+
+
+const parAll = ts =>
+  arrFold(acc => tf =>
+    parMap(([xs, x]) =>
+      (xs.push(x), xs))
+        (parAnd(acc) (tf)))
+          (parOf([])) (ts);
+
+
+/***[Functor]*****************************************************************/
+
+
+const parMap = f => tg =>
+  Parallel((res, rej) => tg.runParallel(x => res(f(x)), rej));
+
+
+/***[Monoid]******************************************************************/
+
+
+const parEmpty = Parallel((res, rej) => null);
+
+
+/***[Semigroup]***************************************************************/
+
+
+const parAppend = parOr;
+
+
+const parPrepend = parOr;
+
+
 /******************************************************************************
 ***********************************[ TASK ]************************************
 ******************************************************************************/
@@ -527,6 +640,60 @@ const Parallel = struct("Parallel")
 // asynchronous computations in sequence
 
 const Task = struct("Task") (Task => k => Task((res, rej) => k(res, rej)));
+
+
+/***[Applicative]*************************************************************/
+
+
+const tAp = tf => tg =>
+  Task((res, rej) => tf.runTask(f => tg.runTask(x => res(f(x)), rej), rej));
+
+
+const tOf = x => Task((res, rej) => res(x));
+
+
+/***[Combinators]*************************************************************/
+
+
+const tAnd = tf => tg =>
+  Task((res, rej) =>
+    tf.runTask(f =>
+      tg.runTask(g =>
+        res([f, g]), rej),
+        rej));
+
+
+const tAll = ts => // eta abstraction to create a new tOf([]) for each invocation
+  arrFold(acc => tf =>
+    tMap(([xs, x]) =>
+      (xs.push(x), xs))
+        (tAnd(acc) (tf)))
+          (tOf([])) (ts);
+
+
+/***[Foldable]****************************************************************/
+
+
+const tCata = alg => (res, rej) =>
+  tf.runTask(res, rej);
+
+
+/***[Functor]*****************************************************************/
+
+
+const tMap = f => tg =>
+  Task((res, rej) => tg.runTask(x => res(f(x)), rej));
+
+
+/***[Monad]*******************************************************************/
+
+
+const tChain = mx => fm =>
+  Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+
+
+const tChainf = fm => mx =>
+  Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
 
 
 /******************************************************************************
