@@ -185,4 +185,4 @@ scriptum ships with an alternative monadic type for asynchronous computations ca
 
 # TODO
 
-[ ] replace `foo = (...args) =>` with `foo = args =>`
+- [ ] replace `foo = (...args) =>` with `foo = args =>`
