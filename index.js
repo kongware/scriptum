@@ -180,6 +180,110 @@ const structMemo = type => cons => {
 
 /******************************************************************************
 *******************************************************************************
+****************************[ TYPECLASS FUNCTIONS ]****************************
+*******************************************************************************
+******************************************************************************/
+
+
+/***[Functor]*****************************************************************/
+
+
+/***[Applicative]*************************************************************/
+
+
+const liftAn = (map, ap) => f => {
+  const go = ts =>
+    Object.assign(
+      t => (ts.push(t), go(ts)),
+      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"});
+
+  return go([]);
+};
+
+
+const liftA2 = (map, ap) => f => tx => ty =>
+  ap(map(f) (tx)) (ty);
+
+
+const liftA3 = (map, ap) => f => tx => ty => tz =>
+  ap(ap(map(f) (tx)) (ty)) (tz);
+
+
+const liftA4 = (map, ap) => f => tw => tx => ty => tz =>
+  ap(ap(ap(map(f) (tw)) (tx)) (ty)) (tz);
+
+
+const liftA5 = (map, ap) => f => tv => tw => tx => ty => tz =>
+  ap(ap(ap(ap(map(f) (tv)) (tw)) (tx)) (ty)) (tz);
+
+
+/***[Monad]*******************************************************************/
+
+
+// TODO: chain2
+
+
+// TODO: chain3
+
+
+// TODO: chain4
+
+
+// TODO: chain5
+
+
+const chainn = chain => fm => {
+  const go = ms =>
+    Object.assign(
+      m => (ms.push(m), go(ms)),
+      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"});
+
+    return go([]);
+};
+
+
+const liftM2 = (chain, of) => f => mx => my =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      of(f(x) (y))))
+
+
+const liftM3 = (chain, of) => f => mx => my => mz =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      chain(mz) (z =>
+        of(f(x) (y) (z)))));
+
+
+const liftM4 = (chain, of) => f => mw => mx => my => mz =>
+  chain(mw) (w =>
+    chain(mx) (x =>
+      chain(my) (y =>
+        chain(mz) (z =>
+          of(f(w) (x) (y) (z))))));
+
+
+const liftM5 = (chain, of) => f => mv => mw => mx => my => mz =>
+  chain(mv) (v =>
+    chain(mw) (w =>
+      chain(mx) (x =>
+        chain(my) (y =>
+          chain(mz) (z =>
+            of(f(v) (w) (x) (y) (z)))))));
+
+
+const liftMn = (chain, of) => f => {
+  const go = args =>
+    Object.assign(
+      arg => (args.push(arg), go(args)),
+      {get runLiftM() {return liftMn(chain, of) (f) (...args)}, [TYPE]: "LiftM"});
+
+    return go([]);
+};
+
+
+/******************************************************************************
+*******************************************************************************
 ******************************[ BUILT-IN TYPES ]*******************************
 *******************************************************************************
 ******************************************************************************/
