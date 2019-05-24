@@ -36,9 +36,9 @@ scriptum doesn't rely on Javascript's prototype system. As a consequence, script
 
 Directory passing is provided to allow for ad-hoc polymorphism in Javascript in a principled manner.
 
-### Unions of Structs
+### Unions of Records
 
-You should model your business domain in the form of alternatives rather than static hierarchies. Hierarchies only allow to add information when you move from top to bottom. But the real world isn't assambled in such a mechanical way. Alternatives on the other hand are more flexible to represent a chaotic real world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or structures (record types).
+You should model your business domain in the form of alternatives rather than static hierarchies. Hierarchies only allow to add information when you move from top to bottom. But the real world isn't assambled in such a mechanical way. Alternatives on the other hand are more flexible to represent a chaotic real world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
 
 ### Defer impure computations
 
@@ -68,7 +68,11 @@ scriptum ships with an alternative monadic type for asynchronous computations ca
 
 # Custom Types
 
-...
+There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript object, which is augmented with some properties useful for reasoning and debugging.
+
+Additionally a `structMemo` is provided to allow for memoized getters.
+
+There are a couple of pre-defined custom types in order to use them with certain typeclass functions.
 
 # Typeclasses (a.k.a. Ad-hoc Polymorphism)
 
