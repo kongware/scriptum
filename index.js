@@ -675,7 +675,9 @@ const parCata = alg => (res, rej) =>
 /***[Applicative]*************************************************************/
 
 
-// TODO: parAp
+const parAp = tf => tx =>
+  Parallel((res, rej) =>
+    parAnd(tf) (tx).runParallel(([f, x]) => res(f(x)), rej));
 
 
 const parOf = x => Parallel((res, rej) => res(x));
