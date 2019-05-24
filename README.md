@@ -2,7 +2,7 @@
 
 # Status
 
-Experimental.
+Experimental and still work in progress.
 
 ## What
 
@@ -30,21 +30,19 @@ Expressions are good, because you can compose them and pass them around like dat
 
 scriptum prefers curried to multi-argument functions. This drastically simplifies function or rather partial application. However, as we have `curry` and `uncurry` in our toolset, which renders both forms isomorphic, you can use multi-argument functions when necessary.
 
+### Unions of Records
+
+You should model your business domain in the form of alternatives rather than static hierarchies. Hierarchies only allow to add information when you move from top to bottom. But the real world isn't assambled in such a mechanical way. Alternatives on the other hand are more flexible to represent a chaotic real world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
+
 ### Directory Passing over Prototypes
 
 scriptum doesn't rely on Javascript's prototype system. As a consequence, scriptum uses directory passing, i.e. typeclasses are passed as normal arguments to functions. As a convetion, typeclass arguments are placed leftmost in the argument list and if the function expects several typeclasses you can bundle them for a multiple argument function call. This is actually the only exception where scriptum allows multiple arguments.
 
 Directory passing is provided to allow for ad-hoc polymorphism in Javascript in a principled manner.
 
-### Unions of Records
+### Effect Handling
 
-You should model your business domain in the form of alternatives rather than static hierarchies. Hierarchies only allow to add information when you move from top to bottom. But the real world isn't assambled in such a mechanical way. Alternatives on the other hand are more flexible to represent a chaotic real world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
-
-### Defer impure computations
-
-If you wrap an impure expression into a function, you can not only generalize its use but also defer its evaluation. When you cannot further generalize a computation, i.e. you cannot abstract further arguments, then you still can wrap it in a thunk.
-
-scriptum uses thunks to defer the evaluation of impure computations. Thunks are pretty ugly though and we don't want them to fly around throughout our codebase. For that reason scriptum ships with an appropriate data type, which coincidentally implements the functor, applicative and monad typeclass.
+scriptum promotes effect handling through monads, monad transformer stacks and tagless final encodings. Impure computations themselves are wrapped in thunks so that their evaluation can be temporally deferred. This way we can sort of separate the pure from the impure part of our program, which is great for equational reasoning of the pure portion.
 
 ### Folds over Recursion over Loops
 
@@ -60,12 +58,6 @@ scriptum avoids the use of generators/iterators for most use cases. Instead, it 
 
 For the same reason scriptum facvors thunks to generators/iterators to obtain lazy evaluation.
 
-### Monadic Task over Promises
-
-`Promise`s are a strangly implemented and harmful data type. However, they are omnipresent and the foundation of even more harmful syntax like `async`/`await`. So it isn't easy to escape them.
-
-scriptum ships with an alternative monadic type for asynchronous computations called `Task` and means for `Promise` compliance, i.e. converting between `Promise` and `Task`.
-
 # Custom Types
 
 There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript object, which is augmented with some properties useful for reasoning and debugging.
@@ -74,7 +66,7 @@ Additionally a `structMemo` is provided to allow for memoized getters.
 
 There are a couple of pre-defined custom types in order to use them with certain typeclass functions.
 
-# Typeclasses (a.k.a. Ad-hoc Polymorphism)
+# Typeclass Functions
 
 * Alt
 * Applicative
