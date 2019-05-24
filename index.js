@@ -647,11 +647,11 @@ const lensSetComp = tx => ty => v => o =>
 
 
 const lensModComp = tx => ty => f => o =>
-  tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o),
+  tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o);
 
 
 const lensDelComp = tx => ty => o =>
-  tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o)
+  tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o);
 
 
 /******************************************************************************
