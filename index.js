@@ -668,8 +668,7 @@ const Parallel = struct("Parallel")
 /***[Foldable]****************************************************************/
 
 
-const parCata = alg => (res, rej) =>
-  tf.runParallel(res, rej);
+const parCata = alg => tf.runParallel;
 
 
 /***[Applicative]*************************************************************/
@@ -748,8 +747,8 @@ const parAny =
 /***[Functor]*****************************************************************/
 
 
-const parMap = f => tg =>
-  Parallel((res, rej) => tg.runParallel(x => res(f(x)), rej));
+const parMap = f => tx =>
+  Parallel((res, rej) => tx.runParallel(x => res(f(x)), rej));
 
 
 /***[Monoid]******************************************************************/
@@ -780,8 +779,8 @@ const Task = struct("Task") (Task => k => Task((res, rej) => k(res, rej)));
 /***[Applicative]*************************************************************/
 
 
-const tAp = tf => tg =>
-  Task((res, rej) => tf.runTask(f => tg.runTask(x => res(f(x)), rej), rej));
+const tAp = tf => tx =>
+  Task((res, rej) => tf.runTask(f => tx.runTask(x => res(f(x)), rej), rej));
 
 
 const tOf = x => Task((res, rej) => res(x));
@@ -809,15 +808,14 @@ const tAll = ts => // eta abstraction to create a new tOf([]) for each invocatio
 /***[Foldable]****************************************************************/
 
 
-const tCata = alg => (res, rej) =>
-  tf.runTask(res, rej);
+const tCata = alg => tf.runTask;
 
 
 /***[Functor]*****************************************************************/
 
 
-const tMap = f => tg =>
-  Task((res, rej) => tg.runTask(x => res(f(x)), rej));
+const tMap = f => tx =>
+  Task((res, rej) => tx.runTask(x => res(f(x)), rej));
 
 
 /***[Monad]*******************************************************************/
