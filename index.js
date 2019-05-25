@@ -179,14 +179,6 @@ const structMemo = type => cons => {
 /***[Contravariant Functor]***************************************************/
 
 
-const contran = contra => {
-  const go = x =>
-    Object.assign(y => go(contra(x) (y)), {runContra: x, [TYPE]: "Contra"});
-
-  return go;
-};
-
-
 /***[Foldable]****************************************************************/
 
 
@@ -195,14 +187,6 @@ const foldMap = (fold, append, empty) => f =>
 
 
 /***[Functor]*****************************************************************/
-
-
-const mapn = map => {
-  const go = x =>
-    Object.assign(y => go(map(x) (y)), {runMap: x, [TYPE]: "Map"});
-
-  return go;
-};
 
 
 /***[Applicative]*************************************************************/
@@ -360,8 +344,27 @@ const _let = f => f(); // simulates let binding as an expression
 /***[Composition]*************************************************************/
 
 
+const comp = f => g => x => f(g(x));
+
+
+const compm = f =>
+  Object.assign(
+    g => compm(x => f(g(x))),
+    {runComp: f, [TYPE]: "Comp"});
+
+
 const comp2nd = f => g => x => y =>
   f(x) (g(y));
+
+
+const contra = g => f => x =>
+  f(g(x));
+
+
+const contram = g =>
+  Object.assign(
+    f => pipem(x => f(g(x))),
+    {runContra: g, [TYPE]: "Contra"});
 
 
 const on = f => g => x => y =>
