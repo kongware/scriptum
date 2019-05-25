@@ -646,6 +646,15 @@ const strLens = i => Lens({
 });
 
 
+/***[Combinators]*************************************************************/
+
+
+const fromPath = lens => ks =>
+  arrFold(acc => k =>
+    (acc.push(lens(k)), acc))
+      ([]) (ks);
+
+
 /***[Composition]*************************************************************/
 
 
