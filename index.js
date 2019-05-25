@@ -253,10 +253,10 @@ const chainn = chain => fm => {
 
 
 const liftMn = (chain, of) => f => {
-  const go = args =>
+  const go = ms =>
     Object.assign(
-      arg => (args.push(arg), go(args)),
-      {get runLiftM() {return liftMn(chain, of) (f) (...args)}, [TYPE]: "LiftM"});
+      m => (ms.push(m), go(ms)),
+      {get runLiftM() {return liftMn(chain, of) (f) (...ms)}, [TYPE]: "LiftM"});
 
     return go([]);
 };
