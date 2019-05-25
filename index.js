@@ -370,11 +370,11 @@ const arrFoldEntries = alg => zero => xs => {
 };
 
 
-const arrFoldPred = p => alg => zero => xs => {
+const arrFoldWhile = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p(xs[i], acc)) break;
+    if (!p(acc, xs[i])) break;
     acc = alg(acc) (xs[i]);
   }
 
@@ -382,15 +382,108 @@ const arrFoldPred = p => alg => zero => xs => {
 };
 
 
-const arrFoldPredEntries = p => alg => zero => xs => {
+const arrFoldEntriesWhile = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p(i, xs[i], acc)) break;
+    if (!p(acc, i, xs[i])) break;
     acc = alg(acc) (i, xs[i]);
   }
 
   return acc;
+};
+
+
+const arrPara = alg => zero => xs => {
+  const ys = arrClone(xs);
+  
+  let acc = zero,
+    x;
+
+  while (x = ys.shift()) 
+    acc = alg(acc) (ys) (x);
+
+  return acc;
+};
+
+
+const arrParaEntries = alg => zero => xs => {
+  const ys = arrClone(xs);
+  
+  let acc = zero,
+    len = 0,
+    x;
+
+  while (x = ys.shift())
+    acc = alg(acc) (len++, ys) (x);
+
+  return acc;
+};
+
+
+const arrParaWhile = p => alg => zero => xs => {
+  const ys = arrClone(xs);
+  
+  let acc = zero,
+    x;
+
+  while (x = ys.shift()) {
+    if (!p(acc, ys, x)) break;
+    acc = alg(acc) (ys) (x);
+  }
+
+  return acc;
+};
+
+
+const arrParaEntriesWhile = p => alg => zero => xs => {
+  const ys = arrClone(xs);
+  
+  let acc = zero,
+    len = 0,
+    x;
+
+  while (x = ys.shift()) {
+    if (!p(acc, ys, len, x)) break;
+    acc = alg(acc) (ys) (len++, x);
+  }
+
+  return acc;
+};
+
+
+/***[Functor]*****************************************************************/
+
+
+const arrMap = f => xs =>
+  xs.map(x => f(x));
+
+
+const arrMapConst = x => xs => {
+  const f = _const(x);
+  return xs.map(f);
+};
+
+
+/***[Monad]*******************************************************************/
+
+
+const arrChain = fm => xs =>
+  xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
+
+
+const arrChainf = xs => fm =>
+  xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
+
+
+const arrJoin = xss => {
+  let xs = [];
+
+  for (let i = 0; i < xss.length; i++)
+    for (let j = 0; j < xss[i].length; j++)
+      xs.push(xss[i] [j]);
+
+  return xs;
 };
 
 
@@ -410,8 +503,8 @@ const arrTransduce = alg => reduce =>
   arrFold(alg(reduce));
 
 
-const arrTransducep = p => alg => reduce =>
-  arrFoldPred(p) (alg(reduce));
+const arrTransduceWhile = p => alg => reduce =>
+  arrFoldWhile(p) (alg(reduce));
 
 
 /******************************************************************************
