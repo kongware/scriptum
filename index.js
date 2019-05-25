@@ -141,15 +141,6 @@ const match = ({[TYPE]: type, tag}, o} =>
     : o[tag];
 
 
-const match2 = ({[TYPE]: type1, tag: tag1}, {[TYPE]: type2, tag: tag2}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(type2 in o) ? _throw(new UnionError("invalid type"))
-    : !(tag1 in o) ? _throw(new UnionError("invalid tag"))
-    : !(tag2 in o) ? _throw(new UnionError("invalid tag"))
-    : tag1 !== tag2 ? _throw(new UnionError("tag mismatch"))
-    : o[tag];
-
-
 /******************************************************************************
 ********************************[ RECORD TYPE ]********************************
 ******************************************************************************/
@@ -711,21 +702,8 @@ const optCata = none => some => tx =>
 const optChain = fm => mx =>
   match(mx, {
     type: "Option",
-    None: mx,
-    Some: fm(mx.runOption)
-  });
-
-
-/***[Monoid]******************************************************************/
-
-
-// lift an arbitrary semigroup into Option forming a monoid
-
-const optMonoid = append => tx => ty =>
-  match2(tx) (ty) ({
-    type: "Option",
     None: None,
-    get Some() {return Some(append(tx) (ty))}
+    Some: fm(mx.runOption)
   });
 
 
