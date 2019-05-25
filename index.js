@@ -135,13 +135,13 @@ const union = type => (tag, x) => ({
 });
 
 
-const match = ({[TYPE]: type, tag}) => o =>
+const match = ({[TYPE]: type, tag}, o} =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(tag in o) ? _throw(new UnionError("invalid tag"))
     : o[tag];
 
 
-const match2 = ({[TYPE]: type1, tag1}) => ({[TYPE]: type2, tag2}) => o =>
+const match2 = ({[TYPE]: type1, tag: tag1}, {[TYPE]: type2, tag: tag2}, o) =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(type2 in o) ? _throw(new UnionError("invalid type"))
     : !(tag1 in o) ? _throw(new UnionError("invalid tag"))
@@ -698,14 +698,25 @@ const Some = x =>
 
 
 const optCata = none => some => tx =>
-  match(tx) ({
+  match(tx, {
     type: "Option",
     None: none,
-    get Some() {return tx.runOption(some)}
+    get Some() {return some(tx.runOption)}
   });
 
 
-/***[Folding]*****************************************************************/
+/***[Monad]*******************************************************************/
+
+
+const optChain = fm => mx =>
+  match(mx, {
+    type: "Option",
+    None: mx,
+    Some: fm(mx.runOption)
+  });
+
+
+/***[Monoid]******************************************************************/
 
 
 // lift an arbitrary semigroup into Option forming a monoid
