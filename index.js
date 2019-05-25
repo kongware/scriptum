@@ -658,20 +658,23 @@ const fromPath = lens => ks =>
 /***[Composition]*************************************************************/
 
 
-const lensGetComp = tx => ty => o =>
-  ty.runLens.get(tx.runLens.get(o));
+const lensComp = tx => ty => Lens({
+  get: o =>
+    ty.runLens.get(tx.runLens.get(o)),
+
+  set: v => o =>
+    tx.runLens.set(ty.runLens.set(v) (tx.runLens.get(o))) (o),
+
+  mod: f => o =>
+    tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o),
+
+  del: o =>
+    tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o)
+});
 
 
-const lensSetComp = tx => ty => v => o =>
-  tx.runLens.set(ty.runLens.set(v) (tx.runLens.get(o))) (o);
-
-
-const lensModComp = tx => ty => f => o =>
-  tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o);
-
-
-const lensDelComp = tx => ty => o =>
-  tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o);
+const lensCompn = tx =>
+  Object.assign(ty => lensCompn(lensComp(tx) (ty)), {runLens: tx.runLens}, [TYPE]: "Lens");
 
 
 /******************************************************************************
