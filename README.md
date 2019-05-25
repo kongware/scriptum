@@ -212,3 +212,13 @@ and a growing number of other useful data types.
 - [ ] add functional optics (Iso, Fold, Traversal)
 - [ ] add array morphisms: ana/apo (dual of para)/hylo (ana + cata
 - [ ] add common transducer
+- [ ] add persistent data structure by hash array mapped trie (HAMT)
+- [ ] add List/Catenable List/Random Access List
+- [ ] add Rose Trees
+- [ ] add Zipper data type
+- [ ] add useful Comonads
+- [ ] add Monad Transformers
+- [ ] add Yoneda/Coyoneda
+- [ ] add Reference Type (value objects)
+- [ ] add Cont Monad + delimited continuations (shift/reset)
+- [ ] add arrApConst
