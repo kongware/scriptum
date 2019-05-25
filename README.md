@@ -164,6 +164,10 @@ and a growing number of other useful data types.
 
 ...
 
+## Asynchronous Computations
+
+...
+
 ## Lazy Evaluation
 
 ### Functions
