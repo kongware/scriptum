@@ -208,13 +208,15 @@ const mapn = map => {
 /***[Applicative]*************************************************************/
 
 
-const liftAn = (map, ap) => f => {
-  const go = ts =>
-    Object.assign(
-      t => (ts.push(t), go(ts)),
-      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"}); // TODO: fix bug
+const liftAn = (map, ap) => {
+  const go = tf => tx => {
+    const ty = ap(tf) (tx);
 
-  return go([]);
+    return Object.assign(
+      go(ty), {runAp: ty, [TYPE]: "Ap"});
+  };
+
+  return f => tx => go(map(f) (tx));
 };
 
 
