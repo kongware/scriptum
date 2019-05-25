@@ -344,6 +344,9 @@ const arrFilter = p => xs =>
   xs.filter(x => p(x) ? x : null);
 
 
+// TODO: add arrFilterEntries et al.
+
+
 /***[Foldable]****************************************************************/
 
 
@@ -357,7 +360,7 @@ const arrFold = alg => zero => xs => {
 };
 
 
-const arrFoldIdx = alg => zero => xs => {
+const arrFoldEntries = alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
@@ -371,7 +374,7 @@ const arrFoldPred = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p([xs[i], acc])) break;
+    if (!p(xs[i], acc)) break;
     acc = alg(acc) (xs[i]);
   }
 
@@ -379,11 +382,11 @@ const arrFoldPred = p => alg => zero => xs => {
 };
 
 
-const arrFoldIdxPred = p => alg => zero => xs => {
+const arrFoldPredEntries = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p([xs[i], acc])) break;
+    if (!p(i, xs[i], acc)) break;
     acc = alg(acc) (i, xs[i]);
   }
 
