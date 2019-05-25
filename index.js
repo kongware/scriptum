@@ -265,6 +265,46 @@ const liftMn = (chain, of) => {
 ******************************************************************************/
 
 
+/***[Applicative]*************************************************************/
+
+
+const arrAp = fs => xs =>
+  fs.reduce((acc, f) =>
+    acc.concat(xs.map(x => f(x))), []);
+
+
+const arrOf = x => [x];
+
+
+/***[ChainRec]****************************************************************/
+
+
+const arrChainRec = f => {
+  const stack = [],
+    acc = [];
+
+  let step = f();
+
+  if (step && step.type === recur)
+    arrPushFlat(stack) (step.arg);
+
+  else
+    arrPushFlat(acc) (step.arg);
+
+  while (stack.length > 0) {
+    step = f(stack.shift());
+
+    if (step && step.type === recur)
+      arrPushFlat(stack) (step.arg);
+
+    else
+      arrPushFlat(acc) (step);
+  }
+
+  return acc;
+};
+
+
 /***[Clonable]****************************************************************/
 
 
@@ -276,6 +316,32 @@ const arrClone = xs => {
 
   return ys;
 };
+
+
+/***[Combinators]*************************************************************/
+
+
+const arrPushFlat = xs => ys => {
+  ys.forEach(x =>
+    xs.push(x));
+
+  return ys;
+};
+
+
+const arrUnshiftFlat = xs => ys => {
+  ys.forEach(x =>
+    xs.unshift(x));
+
+  return ys;
+};
+
+
+/***[Filterable]**************************************************************/
+
+
+const arrFilter = p => xs =>
+  xs.filter(x => p(x) ? x : null);
 
 
 /***[Foldable]****************************************************************/
@@ -291,12 +357,34 @@ const arrFold = alg => zero => xs => {
 };
 
 
-const arrFoldp = p => alg => zero => xs => {
+const arrFoldIdx = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (i, xs[i]);
+
+  return acc;
+};
+
+
+const arrFoldPred = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
     if (!p([xs[i], acc])) break;
     acc = alg(acc) (xs[i]);
+  }
+
+  return acc;
+};
+
+
+const arrFoldIdxPred = p => alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++) {
+    if (!p([xs[i], acc])) break;
+    acc = alg(acc) (i, xs[i]);
   }
 
   return acc;
@@ -320,7 +408,7 @@ const arrTransduce = alg => reduce =>
 
 
 const arrTransducep = p => alg => reduce =>
-  arrFoldp(p) (alg(reduce));
+  arrFoldPred(p) (alg(reduce));
 
 
 /******************************************************************************
@@ -1040,7 +1128,7 @@ module.exports = {
   
   arrClone,
   arrFold,
-  arrFoldp,
+  arrFoldPred,
   arrAppend,
   arrPrepend,
   arrTransduce,
