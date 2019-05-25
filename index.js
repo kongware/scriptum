@@ -685,6 +685,26 @@ const Some = x =>
   Option("Some", x);
 
 
+/***[Applicative]*************************************************************/
+
+
+const optAp = tf => tx =>
+  match(tf, {
+    type: "Option",
+    None: None,
+    get Some() {
+      return match(tx, {
+        type: "Option",
+        None: None,
+        get Some() {return tf.runOption(tx.runOption)}
+      });
+    }
+  });
+
+
+const optOf = x => Some(x);
+
+
 /***[Folding]*****************************************************************/
 
 
@@ -703,7 +723,7 @@ const optChain = fm => mx =>
   match(mx, {
     type: "Option",
     None: None,
-    Some: fm(mx.runOption)
+    get Some() {return fm(mx.runOption)}
   });
 
 
