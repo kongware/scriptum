@@ -183,9 +183,6 @@ const foldMap = (fold, append, empty) => f =>
   fold(comp2nd(append) (f)) (empty);
 
 
-/***[Functor]*****************************************************************/
-
-
 /***[Applicative]*************************************************************/
 
 
@@ -522,10 +519,38 @@ const funMap = comp;
 ******************************************************************************/
 
 
+const invoke = (name, ...args) => o =>
+  o[name] (...args);
+
+
 const objPath = def => {
   go = o => Object.assign(k => go(o[k] || def), {runPath: o, [TYPE]: "Path"});
   return go;
 };
+
+
+/***[Iterators]**************************************************************/
+
+
+function* objEntries(o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+}
+
+
+function* objKeys(o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
+
+
+function* objValues(o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
 
 
 /******************************************************************************
