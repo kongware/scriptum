@@ -101,11 +101,24 @@ There are a couple of pre-defined custom types in order to use them with certain
 
 ## Avoid Nesting
 
-scriptum allows for a flat syntax without nested function calls and without dot-noation:
+scriptum allows for a flat syntax without nested function calls and (almost) without dot-noation:
 
 ```Javascript
-
+const inc = x => x + 1,
+  sqr = x => x * x;
+  
+compn(inc) (sqr) (inc) (inc) (inc).runComp(1); // 25
+pipen(inc) (inc) (inc) (inc) (sqr).runComp(1); // 25
 ```
+`compn`/`pipen` take an infinite number of functions and build up a growing function composition. Only if you call it by passing an argument to the `runComp`/`runPipe` property, the composition is actually evaluated. scriptum provides this flat syntax combinators for...
+
+* applicative lifting
+* monadic lifting
+* monadic chains
+* kleisli composition
+* Lens composition
+
+and a growing number of other useful data types.
 
 ## Structural Folding
 
