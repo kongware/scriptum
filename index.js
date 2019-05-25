@@ -754,14 +754,44 @@ const funMap = comp;
 ******************************************************************************/
 
 
+const abstractNew = cons => (...args) =>
+  new cons(...args);
+
+
+const factory = (...fields) => (...values) =>
+  values.reduce(
+    (acc, value, i) =>
+      (acc[fields[i]] = value, acc), {});
+
+
+const factory_ = entries =>
+  entries.reduce(
+    (acc, [k, v]) =>
+      (acc[k] = v, acc), {});
+
+
 const invoke = (name, ...args) => o =>
   o[name] (...args);
 
 
-const objPath = def => {
-  go = o => Object.assign(k => go(o[k] || def), {runPath: o, [TYPE]: "Path"});
+const path = def => {
+  go = o => Object.assign(
+    k => go(o[k] || def),
+    {runPath: o, [TYPE]: "Path"});
+  
   return go;
 };
+
+
+const omitProps = (...ks) => o =>
+  Object.keys(o).reduce(
+    (acc, k) => ks.includes(k)
+      ? acc
+      : (acc[k] = o[k], acc), {});
+
+
+const pickProps = (...ks) => o =>
+  ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
 /***[Iterators]**************************************************************/
@@ -810,6 +840,295 @@ const strReplaceAtWith = i => f => s =>
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
 ******************************************************************************/
+
+
+/******************************************************************************
+************************************[ ALL ]************************************
+******************************************************************************/
+
+
+const All = struct("All") (All => b => All(b));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const allAppend = tx => ty =>
+  All(tx.runAll || ty.runAll);
+
+
+const allPrepend = allAppend;
+
+
+const allEmpty = All(false);
+
+
+/******************************************************************************
+************************************[ ANY ]************************************
+******************************************************************************/
+
+
+const Any = struct("Any") (Any => b => Any(b));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const anyAppend = tx => ty =>
+  Any(tx.runAny || ty.runAny);
+
+
+const anyPrepend = anyAppend;
+
+
+const anyEmpty = Any(false);
+
+
+/******************************************************************************
+********************************[ COMPARATOR ]*********************************
+******************************************************************************/
+
+
+const Comparator = union("Comparator");
+
+
+const comparator = lt => eq => gt => tx =>
+  match(tx) ({
+    type: "Comparator",
+    get LT() {return lt()},
+    get EQ() {return eq()},
+    get GT() {return gt()}
+  });
+
+
+const LT = Object.assign(
+  Comparator("LT"), {valueOf: () => -1});
+
+
+const EQ = Object.assign(
+  Comparator("EQ"), {valueOf: () => 0});
+
+
+const GT = Object.assign(
+  Comparator("GT"), {valueOf: () => 1});
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const ctorAppend = tx => ty =>
+  comparator(_ => LT)
+    (_ => ty)
+      (_ => GT)
+        (tx);
+
+
+const ctorPrepend = ty => tx =>
+  comparator(_ => LT)
+    (_ => ty)
+      (_ => GT)
+        (tx);
+
+
+const ctorEmpty = EQ;
+
+
+/******************************************************************************
+**********************************[ COMPARE ]**********************************
+******************************************************************************/
+
+
+const Compare = struct("Compare") (Compare => f => Compare(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const compAppend = tf => tg =>
+  Compare(x => y =>
+    ctorAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
+
+
+const compPrepend = tg => tf =>
+  Compare(x => y =>
+    ctorPrepend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
+
+
+const compEmpty = Compare(x => y => EQ);
+
+
+const compContra = f => tf =>
+  Compare(on(tf.runCompare) (f));
+
+
+/******************************************************************************
+**********************************[ COMPOSE ]**********************************
+******************************************************************************/
+
+
+const Comp = struct("Comp") (Comp => ttx => Comp(ttx));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const compMap = (map1, map2) => f => ttx =>
+  Comp(map1(map2(f)) (ttx.runComp));
+
+
+const compOf = (of1, of2) => x =>
+  Comp(of1(of2(x)));
+
+
+const compAp = (map1, ap1, ap2) => ttf => ttx =>
+  Comp(ap1(map1(ap2) (ttf.runComp)) (ttx.runComp));
+
+
+/******************************************************************************
+***********************************[ CONST ]***********************************
+******************************************************************************/
+
+
+const Const = struct("Const") (Const => x => Const(x));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const constMap = f => tx =>
+  Const(tx.runConst);
+
+
+/******************************************************************************
+***********************************[ DEFER ]***********************************
+******************************************************************************/
+
+
+const Defer = struct("Defer") (Defer => thunk => Defer(thunk));
+
+
+/******************************************************************************
+**********************************[ EITHER ]***********************************
+******************************************************************************/
+
+
+const Either = union("Either");
+
+
+const Left = x =>
+  Either("Left", x);
+
+
+const Right = x =>
+  Either("Right", x);
+
+
+/******************************************************************************
+***********************************[ ENDO ]************************************
+******************************************************************************/
+
+
+const Endo = struct("Endo") (Endo => f => Endo(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const endoAppend = tf => tg => x =>
+  Endo(tf.runEndo(tg.runEndo(x)));
+
+
+const endoPrepend = tg => tf => x =>
+  Endo(tf.runEndo(tg.runEndo(x)));
+
+
+const endoEmpty = Endo(id);
+
+
+/******************************************************************************
+***********************************[ EQUIV ]***********************************
+******************************************************************************/
+
+
+const Equiv = struct("Equiv") (Equiv => p => Equiv(p));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const equivAppend = tf => tg =>
+  Equiv(x => y =>
+    tf.runEquiv(x) (y) && tg.runEquiv(x) (y));
+
+
+const equivPrepend = equivAppend;
+
+
+const equivEmpty = Equiv(x => y => true);
+
+
+const equivContra = f => tf =>
+  Equiv(on(tf.runEquiv) (f));
+
+
+/******************************************************************************
+***********************************[ FIRST ]***********************************
+******************************************************************************/
+
+
+const First = struct("First") (First => f => First(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const firstAppend = x => _ => x;
+
+
+const firstPrepend = lastAppend;
+
+
+/******************************************************************************
+************************************[ ID ]*************************************
+******************************************************************************/
+
+
+const Id = struct("Id") (Id => x => Id(x));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const idMap = f => tx =>
+  f(tx.runId);
+
+
+/******************************************************************************
+***********************************[ LAST ]************************************
+******************************************************************************/
+
+
+const Last = struct("Last") (Last => f => Last(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const lastAppend = _ => y => y;
+
+
+const LastPrepend = firstAppend;
+
+
+/******************************************************************************
+***********************************[ LAZY ]************************************
+******************************************************************************/
+
+
+// Defer with memoization
+
+const Lazy = structMemo("Lazy")
+  (Lazy => thunk => Lazy(thunk));
 
 
 /******************************************************************************
@@ -950,6 +1269,48 @@ const lensCompn = tx =>
   Object.assign(
     ty => lensCompn(lensComp(tx) (ty)),
     {runLens: tx.runLens}, [TYPE]: "Lens");
+
+
+/******************************************************************************
+************************************[ MAX ]************************************
+******************************************************************************/
+
+
+const Max = struct("Max") (Max => f => Max(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const maxAppend = max => x => y =>
+  max(x) (y);
+
+
+const maxPrepend = maxAppend;
+
+
+const maxEmpty = minBound => Max(minBound);
+
+
+/******************************************************************************
+************************************[ MIN ]************************************
+******************************************************************************/
+
+
+const Min = struct("Min") (Min => f => Min(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const minAppend = min => x => y =>
+  min(x) (y);
+
+
+const minPrepend = minAppend;
+
+
+const minEmpty = maxBound => Min(maxBound);
 
 
 /******************************************************************************
@@ -1133,6 +1494,31 @@ const parPrepend = parOr;
 
 
 /******************************************************************************
+***********************************[ PRED ]************************************
+******************************************************************************/
+
+
+const Pred = struct("Pred") (Pred => p => Pred(p));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const predAppend = tf => tg =>
+  Pred(x => tf.runPred(x) && tg.runPred(x));
+
+
+const predPrepend = predAppend;
+
+
+const predEmpty = Pred(x => true);
+
+
+const predContra = f => tf =>
+  x => Pred(tf.runPred(f(x)));
+
+
+/******************************************************************************
 ***********************************[ PRISM ]***********************************
 ******************************************************************************/
 
@@ -1160,6 +1546,129 @@ const objPrism = k => Prism({
     return o_;
   }
 });
+
+
+/******************************************************************************
+***********************************[ PROD ]************************************
+******************************************************************************/
+
+
+const Prod = struct("Prod") (Prod => n => Prod(n));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const prodAppend = tm => tn =>
+  Sum(tm.runProd * tn.runProd);
+
+
+const prodPrepend = prodAppend;
+
+
+const prodEmpty = Prod(0);
+
+
+/******************************************************************************
+**********************************[ READER ]***********************************
+******************************************************************************/
+
+
+const Reader = struct("Reader") (Reader => f => Reader(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const readAp = tf => tg =>
+  Reader(x => tf.runReader(x) (tg.runReader(x)));
+
+
+const ask = Reader(id);
+
+
+const asks = f =>
+  readChain(x => readOf(f(x))) (ask);
+
+
+const readChain = fm => mg =>
+  Reader(x => fm.runReader(mg.runReader(x)) (x));
+
+
+const readJoin = mmf =>
+  Reader(x => mmf.runReader(x).runReader(x));
+
+
+const local = f => tg =>
+  Reader(x => tg.runReader(f(x)));
+
+
+const readMap = f => tg =>
+  Reader(x => f(tg.runReader(x)));
+
+
+const readOf = x => Reader(_ => x);
+
+
+/******************************************************************************
+***********************************[ STATE ]***********************************
+******************************************************************************/
+
+
+const State = struct("State") (State => f => State(f));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const evalState = tf =>
+  y => tf.runState(y) [0];
+
+
+const execState = tf =>
+  y => tf.runState(y) [1];
+
+
+const gets = f =>
+  stateChain(y => stateOf(f(x))) (stateGet);
+
+
+const modify = f =>
+  stateChain(y => statePut(f(y))) (stateGet);
+
+
+const stateChain = fm => mg =>
+  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
+
+
+const stateGet = State(y => [y, y]);
+
+
+const stateOf = x => State(y => [x, y]);
+
+
+const statePut = y => State(_ => [null, y]);
+
+
+/******************************************************************************
+************************************[ SUM ]************************************
+******************************************************************************/
+
+
+const Sum = struct("Sum") (Sum => n => Sum(n));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const sumAppend = tm => tn =>
+  Sum(tm.runSum + tn.runSum);
+
+
+const sumPrepend = sumAppend;
+
+
+const endoEmpty = Prod(1);
 
 
 /******************************************************************************
@@ -1223,6 +1732,93 @@ const tChain = mx => fm =>
 
 const tChainf = fm => mx =>
   Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+
+
+/******************************************************************************
+***********************************[ THESE ]***********************************
+******************************************************************************/
+
+
+const These_ = union("These");
+
+
+const This = x =>
+  These_("This", x);
+
+
+const That = x =>
+  These_("That", x);
+
+
+const These = (x, y) =>
+  These_("These", [x, y]);
+
+
+const these = _this => that => these => tx =>
+  match(tx) ({
+    type: "These",
+    get This() {return _this(tx.runThese)},
+    get That() {return that(tx.runThese)},
+    get These() {return these(...tx.runThese)}
+  });
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const fromThese = (x, y) => tx =>
+  match(tx) ({
+    type: "These",
+    get This() {return [tx.runThese, y]},
+    get That() {return [x, tx.runThese]},
+    get These() {return tx.runThese}
+  });
+
+
+/******************************************************************************
+**********************************[ WRITER ]***********************************
+******************************************************************************/
+
+
+const Writer = struct("Writer") (Writer => (x, y) => Writer([x, y]));
+
+
+/***[Typeclasses]*************************************************************/
+
+
+const censor = f => mx =>
+  pass(mx.runWriter(pair => Writer(pair, f)));
+
+
+const evalWriter = tx =>
+  tx.runWriter(([x, y]) => x);
+
+
+const execWriter = tx =>
+  tx.runWriter(([x, y]) => y);
+
+
+const listen = tx =>
+  tx.runWriter(([x, y]) => Writer([x, y], y));
+
+
+const listens = f => mx =>
+  listen(mx).runWriter(([pair, y]) => Writer(pair, f(y)));
+
+
+const pass = tx =>
+  tx.runWriter(([[x, f], y]) => Writer([x, f(x)]));
+
+
+const tell = y => Writer(null, y);
+
+
+const writeChain = append => fm => mx =>
+  mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
+
+
+const writeOf = empty => x =>
+  Writer(x, empty);
 
 
 /******************************************************************************
