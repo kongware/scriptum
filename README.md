@@ -99,9 +99,13 @@ There are a couple of pre-defined custom types in order to use them with certain
 
 # Advanced Topics
 
-## Avoid Nesting and Parenthesis
+## Avoid Nesting
 
-...
+scriptum allows for a flat syntax without nested function calls and without dot-noation:
+
+```Javascript
+
+```
 
 ## Structural Folding
 
