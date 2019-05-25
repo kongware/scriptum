@@ -181,4 +181,6 @@ There are a couple of pre-defined custom types in order to use them with certain
 
 # TODO
 
-- [ ] replace `foo = (...args) =>` with `foo = args =>`
+- [ ] how to lift a semigroup into Option forming a monoid?
+- [ ] how to create a monoid under Applicative?
+- [ ] how to create a monoid under Alternative?
