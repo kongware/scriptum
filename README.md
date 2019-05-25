@@ -209,3 +209,4 @@ and a growing number of other useful data types.
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
+- [ ] add functional optics (Iso, Fold, Traversal)
