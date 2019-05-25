@@ -227,29 +227,35 @@ const kleisli = chain => fm => gm => x =>
 
 const kleislin = chain => {
   const go = f =>
-    Object.assign(g => go(x => chain(f) (g(x))), {runKleisli: f, [TYPE]: "Kleisli"});
+    Object.assign(
+      g => go(x => chain(f) (g(x))),
+      {runKleisli: f, [TYPE]: "Kleisli"});
 
   return go;
 };
 
 
-const chainn = chain => fm => {
-  const go = ms =>
-    Object.assign(
-      m => (ms.push(m), go(ms)),
-      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"}); // TODO: fix bug
+const chainn = chain => {
+  const go = fm => mx => {
+    const my = chain(fm) (mx);
 
-    return go([]);
+    return Object.assign(
+      go(my), {runChain: my, [TYPE]: "Chain"});
+  };
+
+  return go;
 };
 
 
-const liftMn = (chain, of) => f => {
-  const go = ms =>
-    Object.assign(
-      m => (ms.push(m), go(ms)),
-      {get runLiftM() {return liftMn(chain, of) (f) (...ms)}, [TYPE]: "LiftM"}); // TODO: fix bug
+const liftMn = (chain, of) => {
+  const go = f => mx => {
+    const my = chain(f) (mx);
 
-    return go([]);
+    return Object.assign(
+      go(my), {runChain: of(my), [TYPE]: "Chain"});
+  };
+
+  return go;
 };
 
 
