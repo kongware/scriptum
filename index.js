@@ -702,7 +702,7 @@ const optAp = tf => tx =>
       return match(tx, {
         type: "Option",
         None: None,
-        get Some() {return tf.runOption(tx.runOption)}
+        get Some() {return Some(tf.runOption(tx.runOption))}
       });
     }
   });
@@ -719,6 +719,17 @@ const optCata = none => some => tx =>
     type: "Option",
     None: none,
     get Some() {return some(tx.runOption)}
+  });
+
+
+/***[Functor]*****************************************************************/
+
+
+const optMap = f => tx =>
+  match(tx, {
+    type: "Option",
+    None: None,
+    get Some() {return Some(f(tx.runOption))}
   });
 
 
