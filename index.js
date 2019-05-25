@@ -674,7 +674,9 @@ const lensComp = tx => ty => Lens({
 
 
 const lensCompn = tx =>
-  Object.assign(ty => lensCompn(lensComp(tx) (ty)), {runLens: tx.runLens}, [TYPE]: "Lens");
+  Object.assign(
+    ty => lensCompn(lensComp(tx) (ty)),
+    {runLens: tx.runLens}, [TYPE]: "Lens");
 
 
 /******************************************************************************
