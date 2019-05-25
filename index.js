@@ -212,10 +212,24 @@ const kleisli = chain => fm => gm => x =>
 
 
 const kleislin = chain => {
-  const go = f =>
+  const go = fm =>
     Object.assign(
-      g => go(x => chain(f) (g(x))),
-      {runKleisli: f, [TYPE]: "Kleisli"});
+      gm => go(x => chain(fm) (gm(x))),
+      {runKleisli: fm, [TYPE]: "Kleisli"});
+
+  return go;
+};
+
+
+const kleisliContra = chain => gm => fm => x =>
+  chain(fm) (gm(x));
+
+
+const kleisliContran = chain => {
+  const go = gm =>
+    Object.assign(
+      fm => go(x => chain(fm) (gm(x))),
+      {runKleisli: gm, [TYPE]: "KleisliContra"});
 
   return go;
 };
