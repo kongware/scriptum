@@ -166,7 +166,7 @@ const struct = type => cons => {
 
 
 const structMemo = type => cons => {
-  const f = (thunk, args) => ({
+  const f = thunk => ({
     get ["run" + type] () {
       delete this["run" + type];
       return this["run" + type] = thunk();
@@ -221,7 +221,7 @@ const liftAn = (map, ap) => f => {
   const go = ts =>
     Object.assign(
       t => (ts.push(t), go(ts)),
-      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"});
+      {get runLiftA() {return liftAn(map, ap) (f) (...ts)}, [TYPE]: "LiftA"}); // TODO: fix bug
 
   return go([]);
 };
@@ -246,7 +246,7 @@ const chainn = chain => fm => {
   const go = ms =>
     Object.assign(
       m => (ms.push(m), go(ms)),
-      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"});
+      {get runChain() {return chainn(chain) (fm) (...ms)}, [TYPE]: "Chain"}); // TODO: fix bug
 
     return go([]);
 };
@@ -256,7 +256,7 @@ const liftMn = (chain, of) => f => {
   const go = ms =>
     Object.assign(
       m => (ms.push(m), go(ms)),
-      {get runLiftM() {return liftMn(chain, of) (f) (...ms)}, [TYPE]: "LiftM"});
+      {get runLiftM() {return liftMn(chain, of) (f) (...ms)}, [TYPE]: "LiftM"}); // TODO: fix bug
 
     return go([]);
 };
