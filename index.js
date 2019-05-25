@@ -176,9 +176,6 @@ const structMemo = type => cons => {
 ******************************************************************************/
 
 
-/***[Contravariant Functor]***************************************************/
-
-
 /***[Foldable]****************************************************************/
 
 
@@ -371,14 +368,14 @@ const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
 
-const contra = g => f => x =>
+const pipe = g => f => x =>
   f(g(x));
 
 
-const contram = g =>
+const pipem = g =>
   Object.assign(
     f => pipem(x => f(g(x))),
-    {runContra: g, [TYPE]: "Contra"});
+    {runContra: g, [TYPE]: "Pipe"});
 
 
 const on = f => g => x => y =>
@@ -506,7 +503,7 @@ const funChain = f => g => x =>
   f(g(x)) (x);
 
 
-const funContra = g => f => x => f(g(x));
+const funContra = pipe;
 
 
 const funJoin = f => x =>
@@ -517,7 +514,7 @@ const funLiftA2 = f => g => h => x =>
   f(g(x)) (h(x));
 
 
-const funMap = f => g => x => f(g(x));
+const funMap = comp;
 
 
 /******************************************************************************
