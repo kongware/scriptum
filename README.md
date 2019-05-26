@@ -210,7 +210,7 @@ and a growing number of other useful data types.
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
 - [ ] add functional optics (Iso, Fold, Traversal)
-- [ ] add array morphisms: ana/apo (dual of para)/hylo (ana + cata
+- [ ] add array morphisms: ana/apo/hylo/zygo/mutu/histo/futu (not joking :)
 - [ ] add common transducer
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access List
