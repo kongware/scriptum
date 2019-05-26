@@ -344,7 +344,7 @@ const arrFilter = p => xs =>
   xs.filter(x => p(x) ? x : null);
 
 
-// TODO: add arrFilterEntries et al.
+// TODO: derive filter from foldable
 
 
 /***[Foldable]****************************************************************/
@@ -459,6 +459,9 @@ const arrMap = f => xs =>
   xs.map(x => f(x));
 
 
+// TODO: derive map from foldable
+
+
 const arrMapConst = x => xs => {
   const f = _const(x);
   return xs.map(f);
@@ -488,6 +491,12 @@ const arrJoin = xss => {
 
 
 /***[Monoid]******************************************************************/
+
+
+const arrEmpty = [];
+
+
+/***[Semigroup]***************************************************************/
 
 
 const arrAppend = xs => ys => xs.concat(ys);
@@ -850,17 +859,20 @@ const strReplaceAtWith = i => f => s =>
 const All = struct("All") (All => b => All(b));
 
 
-/***[Typeclasses]*************************************************************/
-
-
-const allAppend = tx => ty =>
-  All(tx.runAll || ty.runAll);
-
-
-const allPrepend = allAppend;
+/***[Monoid]******************************************************************/
 
 
 const allEmpty = All(false);
+
+
+/***[Semigroup]***************************************************************/
+
+
+const allAppend = tx => ty =>
+  All(tx.runAll && ty.runAll);
+
+
+const allPrepend = allAppend;
 
 
 /******************************************************************************
@@ -871,7 +883,13 @@ const allEmpty = All(false);
 const Any = struct("Any") (Any => b => Any(b));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const anyEmpty = Any(false);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const anyAppend = tx => ty =>
@@ -881,24 +899,12 @@ const anyAppend = tx => ty =>
 const anyPrepend = anyAppend;
 
 
-const anyEmpty = Any(false);
-
-
 /******************************************************************************
 ********************************[ COMPARATOR ]*********************************
 ******************************************************************************/
 
 
 const Comparator = union("Comparator");
-
-
-const comparator = lt => eq => gt => tx =>
-  match(tx) ({
-    type: "Comparator",
-    get LT() {return lt()},
-    get EQ() {return eq()},
-    get GT() {return gt()}
-  });
 
 
 const LT = Object.assign(
@@ -913,24 +919,32 @@ const GT = Object.assign(
   Comparator("GT"), {valueOf: () => 1});
 
 
-/***[Typeclasses]*************************************************************/
+/***[Foldable]****************************************************************/
 
 
-const ctorAppend = tx => ty =>
-  comparator(_ => LT)
-    (_ => ty)
-      (_ => GT)
-        (tx);
+const ctorCata = lt => eq => gt => tx =>
+  match(tx, {
+    type: "Comparator",
+    LT: lt,
+    EQ: eq,
+    GT: gt
+  });
 
 
-const ctorPrepend = ty => tx =>
-  comparator(_ => LT)
-    (_ => ty)
-      (_ => GT)
-        (tx);
+/***[Monoid]******************************************************************/
 
 
 const ctorEmpty = EQ;
+
+
+/***[Semigroup]***************************************************************/
+
+
+const ctorAppend = tx => ty =>
+  ctorCata(LT) (ty) (GT) (tx);
+
+
+const ctorPrepend = ctorAppend;
 
 
 /******************************************************************************
@@ -941,7 +955,20 @@ const ctorEmpty = EQ;
 const Compare = struct("Compare") (Compare => f => Compare(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Contravariant Functor]***************************************************/
+
+
+const compContra = f => tf =>
+  Compare(on(tf.runCompare) (f));
+
+
+/***[Monoid]******************************************************************/
+
+
+const compEmpty = Compare(x => y => EQ);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const compAppend = tf => tg =>
@@ -954,13 +981,6 @@ const compPrepend = tg => tf =>
     ctorPrepend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
 
 
-const compEmpty = Compare(x => y => EQ);
-
-
-const compContra = f => tf =>
-  Compare(on(tf.runCompare) (f));
-
-
 /******************************************************************************
 **********************************[ COMPOSE ]**********************************
 ******************************************************************************/
@@ -969,11 +989,7 @@ const compContra = f => tf =>
 const Comp = struct("Comp") (Comp => ttx => Comp(ttx));
 
 
-/***[Typeclasses]*************************************************************/
-
-
-const compMap = (map1, map2) => f => ttx =>
-  Comp(map1(map2(f)) (ttx.runComp));
+/***[Applicative]*************************************************************/
 
 
 const compOf = (of1, of2) => x =>
@@ -984,6 +1000,13 @@ const compAp = (map1, ap1, ap2) => ttf => ttx =>
   Comp(ap1(map1(ap2) (ttf.runComp)) (ttx.runComp));
 
 
+/***[Functor]*****************************************************************/
+
+
+const compMap = (map1, map2) => f => ttx =>
+  Comp(map1(map2(f)) (ttx.runComp));
+
+
 /******************************************************************************
 ***********************************[ CONST ]***********************************
 ******************************************************************************/
@@ -992,7 +1015,7 @@ const compAp = (map1, ap1, ap2) => ttf => ttx =>
 const Const = struct("Const") (Const => x => Const(x));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Functor]*****************************************************************/
 
 
 const constMap = f => tx =>
@@ -1005,6 +1028,98 @@ const constMap = f => tx =>
 
 
 const Defer = struct("Defer") (Defer => thunk => Defer(thunk));
+
+
+/***[Alternative]*************************************************************/
+
+
+const defAlt = alt => tx => ty =>
+  Defer(() => alt(tx.runDefer()) (ty.runDefer()));
+
+
+const defZero = zero => defOf(zero);
+
+
+/***[Applicative]*************************************************************/
+
+
+const defAp = tf => tx =>
+  Defer(() => tf.runDefer() (tx.runDefer()));
+
+
+const defOf = x => Defer(() => x);
+
+
+const defSeqA = tx => ty =>
+  Defer(() => (tx.runDefer(), ty.runDefer()));
+
+
+/***[Chainrec]****************************************************************/
+
+
+const defChainRec = f =>
+  Defer(() => {
+    let step = f();
+
+    while(step && step.type === recur1)
+      step = f(step.arg.runDefer());
+
+    return step.runDefer();
+  });
+
+
+/***[Functor]*****************************************************************/
+
+
+const defMap = f => tx =>
+  Defer(() => f(tx.runDefer()));
+
+
+const defSeqF = x => ty =>
+  Defer(() => (ty.runDefer(), x));
+
+
+/***[Monad]*******************************************************************/
+
+
+const defChain = fm => mx =>
+  Defer(() => fm(mx.runDefer()).runDefer());
+
+
+const defChainf = mx => fm =>
+  Defer(() => fm(mx.runDefer()).runDefer());
+
+
+const defJoin = mmx =>
+  Defer(() => mmx.runDefer().runDefer());
+
+
+/***[Monoid]******************************************************************/
+
+
+const defEmpty = empty => defOf(empty);
+
+
+/***[Semigroup]***************************************************************/
+
+
+const defAppend = append => tx => ty =>
+  Defer(() => append(tx.runDefer()) (ty.runDefer()));
+
+
+const defPrepend = append => ty => tx =>
+  Defer(() => append(tx.runDefer()) (ty.runDefer()));
+
+
+/***[Traversable]*************************************************************/
+
+
+const defSeqT = map => tx =>
+  Defer(() => map(defOf) (id(tx.runDefer())));
+
+
+const defTraverse = map => fa => tx =>
+  Defer(() => map(defOf) (fa(tx.runDefer())));
 
 
 /******************************************************************************
@@ -1023,6 +1138,17 @@ const Right = x =>
   Either("Right", x);
 
 
+/***[Foldable]****************************************************************/
+
+
+const eithCata = left => right => tx =>
+  match(tx, {
+    type: "Either",
+    get Left() {return left(tx.runEither)},
+    get Right() {return right(tx.runEither)}
+  });
+
+
 /******************************************************************************
 ***********************************[ ENDO ]************************************
 ******************************************************************************/
@@ -1031,7 +1157,13 @@ const Right = x =>
 const Endo = struct("Endo") (Endo => f => Endo(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const endoEmpty = Endo(id);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const endoAppend = tf => tg => x =>
@@ -1042,9 +1174,6 @@ const endoPrepend = tg => tf => x =>
   Endo(tf.runEndo(tg.runEndo(x)));
 
 
-const endoEmpty = Endo(id);
-
-
 /******************************************************************************
 ***********************************[ EQUIV ]***********************************
 ******************************************************************************/
@@ -1053,7 +1182,20 @@ const endoEmpty = Endo(id);
 const Equiv = struct("Equiv") (Equiv => p => Equiv(p));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Contravariant Functor]***************************************************/
+
+
+const equivContra = f => tf =>
+  Equiv(on(tf.runEquiv) (f));
+
+
+/***[Monoid]******************************************************************/
+
+
+const equivEmpty = Equiv(x => y => true);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const equivAppend = tf => tg =>
@@ -1064,13 +1206,6 @@ const equivAppend = tf => tg =>
 const equivPrepend = equivAppend;
 
 
-const equivEmpty = Equiv(x => y => true);
-
-
-const equivContra = f => tf =>
-  Equiv(on(tf.runEquiv) (f));
-
-
 /******************************************************************************
 ***********************************[ FIRST ]***********************************
 ******************************************************************************/
@@ -1079,7 +1214,7 @@ const equivContra = f => tf =>
 const First = struct("First") (First => f => First(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Semigroup]***************************************************************/
 
 
 const firstAppend = x => _ => x;
@@ -1096,7 +1231,7 @@ const firstPrepend = lastAppend;
 const Id = struct("Id") (Id => x => Id(x));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Functor]*****************************************************************/
 
 
 const idMap = f => tx =>
@@ -1111,7 +1246,7 @@ const idMap = f => tx =>
 const Last = struct("Last") (Last => f => Last(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Semigroup]***************************************************************/
 
 
 const lastAppend = _ => y => y;
@@ -1279,7 +1414,13 @@ const lensCompn = tx =>
 const Max = struct("Max") (Max => f => Max(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const maxEmpty = minBound => Max(minBound);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const maxAppend = max => x => y =>
@@ -1287,9 +1428,6 @@ const maxAppend = max => x => y =>
 
 
 const maxPrepend = maxAppend;
-
-
-const maxEmpty = minBound => Max(minBound);
 
 
 /******************************************************************************
@@ -1300,7 +1438,13 @@ const maxEmpty = minBound => Max(minBound);
 const Min = struct("Min") (Min => f => Min(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const minEmpty = maxBound => Min(maxBound);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const minAppend = min => x => y =>
@@ -1308,9 +1452,6 @@ const minAppend = min => x => y =>
 
 
 const minPrepend = minAppend;
-
-
-const minEmpty = maxBound => Min(maxBound);
 
 
 /******************************************************************************
@@ -1501,7 +1642,20 @@ const parPrepend = parOr;
 const Pred = struct("Pred") (Pred => p => Pred(p));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Contravariant Functor]***************************************************/
+
+
+const predContra = f => tf =>
+  x => Pred(tf.runPred(f(x)));
+
+
+/***[Monoid]******************************************************************/
+
+
+const predEmpty = Pred(x => true);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const predAppend = tf => tg =>
@@ -1509,13 +1663,6 @@ const predAppend = tf => tg =>
 
 
 const predPrepend = predAppend;
-
-
-const predEmpty = Pred(x => true);
-
-
-const predContra = f => tf =>
-  x => Pred(tf.runPred(f(x)));
 
 
 /******************************************************************************
@@ -1556,7 +1703,13 @@ const objPrism = k => Prism({
 const Prod = struct("Prod") (Prod => n => Prod(n));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const prodEmpty = Prod(1);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const prodAppend = tm => tn =>
@@ -1564,9 +1717,6 @@ const prodAppend = tm => tn =>
 
 
 const prodPrepend = prodAppend;
-
-
-const prodEmpty = Prod(0);
 
 
 /******************************************************************************
@@ -1577,11 +1727,7 @@ const prodEmpty = Prod(0);
 const Reader = struct("Reader") (Reader => f => Reader(f));
 
 
-/***[Typeclasses]*************************************************************/
-
-
-const readAp = tf => tg =>
-  Reader(x => tf.runReader(x) (tg.runReader(x)));
+/***[Combinators]*************************************************************/
 
 
 const ask = Reader(id);
@@ -1589,6 +1735,30 @@ const ask = Reader(id);
 
 const asks = f =>
   readChain(x => readOf(f(x))) (ask);
+
+
+const local = f => tg =>
+  Reader(x => tg.runReader(f(x)));
+
+
+/***[Applicative]**************************************************************/
+
+
+const readAp = tf => tg =>
+  Reader(x => tf.runReader(x) (tg.runReader(x)));
+
+
+const readOf = x => Reader(_ => x);
+
+
+/***[Functor]******************************************************************/
+
+
+const readMap = f => tg =>
+  Reader(x => f(tg.runReader(x)));
+
+
+/***[Monad]********************************************************************/
 
 
 const readChain = fm => mg =>
@@ -1599,17 +1769,6 @@ const readJoin = mmf =>
   Reader(x => mmf.runReader(x).runReader(x));
 
 
-const local = f => tg =>
-  Reader(x => tg.runReader(f(x)));
-
-
-const readMap = f => tg =>
-  Reader(x => f(tg.runReader(x)));
-
-
-const readOf = x => Reader(_ => x);
-
-
 /******************************************************************************
 ***********************************[ STATE ]***********************************
 ******************************************************************************/
@@ -1618,7 +1777,13 @@ const readOf = x => Reader(_ => x);
 const State = struct("State") (State => f => State(f));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Applicative]*************************************************************/
+
+
+const stateOf = x => State(y => [x, y]);
+
+
+/***[Combinators]*************************************************************/
 
 
 const evalState = tf =>
@@ -1637,17 +1802,17 @@ const modify = f =>
   stateChain(y => statePut(f(y))) (stateGet);
 
 
-const stateChain = fm => mg =>
-  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
-
-
 const stateGet = State(y => [y, y]);
 
 
-const stateOf = x => State(y => [x, y]);
-
-
 const statePut = y => State(_ => [null, y]);
+
+
+/***[Monad]*******************************************************************/
+
+
+const stateChain = fm => mg =>
+  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
 
 
 /******************************************************************************
@@ -1658,7 +1823,13 @@ const statePut = y => State(_ => [null, y]);
 const Sum = struct("Sum") (Sum => n => Sum(n));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Monoid]******************************************************************/
+
+
+const sumEmpty = Sum(0);
+
+
+/***[Semigroup]***************************************************************/
 
 
 const sumAppend = tm => tn =>
@@ -1666,9 +1837,6 @@ const sumAppend = tm => tn =>
 
 
 const sumPrepend = sumAppend;
-
-
-const endoEmpty = Prod(1);
 
 
 /******************************************************************************
@@ -1754,16 +1922,7 @@ const These = (x, y) =>
   These_("These", [x, y]);
 
 
-const these = _this => that => these => tx =>
-  match(tx) ({
-    type: "These",
-    get This() {return _this(tx.runThese)},
-    get That() {return that(tx.runThese)},
-    get These() {return these(...tx.runThese)}
-  });
-
-
-/***[Typeclasses]*************************************************************/
+/***[Combinators]*************************************************************/
 
 
 const fromThese = (x, y) => tx =>
@@ -1775,6 +1934,18 @@ const fromThese = (x, y) => tx =>
   });
 
 
+/***[Foldable]****************************************************************/
+
+
+const theseCata = _this => that => these => tx =>
+  match(tx, {
+    type: "These",
+    get This() {return _this(tx.runThese)},
+    get That() {return that(tx.runThese)},
+    get These() {return these(...tx.runThese)}
+  });
+
+
 /******************************************************************************
 **********************************[ WRITER ]***********************************
 ******************************************************************************/
@@ -1783,7 +1954,14 @@ const fromThese = (x, y) => tx =>
 const Writer = struct("Writer") (Writer => (x, y) => Writer([x, y]));
 
 
-/***[Typeclasses]*************************************************************/
+/***[Applicative]*************************************************************/
+
+
+const writeOf = empty => x =>
+  Writer(x, empty);
+
+
+/***[Combinators]*************************************************************/
 
 
 const censor = f => mx =>
@@ -1813,12 +1991,11 @@ const pass = tx =>
 const tell = y => Writer(null, y);
 
 
+/***[Monad]*******************************************************************/
+
+
 const writeChain = append => fm => mx =>
   mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
-
-
-const writeOf = empty => x =>
-  Writer(x, empty);
 
 
 /******************************************************************************
