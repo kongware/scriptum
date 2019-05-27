@@ -134,6 +134,30 @@ and a growing number of other useful data types.
 
 ...
 
+### Apomorphism
+
+...
+
+### Hylomorphism
+
+...
+
+### Zygomorphism
+
+...
+
+### Mutumorphism
+
+...
+
+### Histomorphism
+
+...
+
+### Futumorphism
+
+...
+
 ## Tail and Mutual Recursion with Trampolines
 
 ...
