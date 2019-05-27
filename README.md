@@ -70,7 +70,7 @@ There are a couple of pre-defined custom types in order to use them with certain
 
 typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it also makes the respective constraints more obvious and is more powerful than implicit typclasses expressed through the prototype system.
 
-Here is a list of typeclasses scriptum does or will provide the necessary functions for its library specific data types:
+Here is a list of typeclasses scriptum does or will provide the necessary functions for:
 
 * Alt
 * Applicative
@@ -126,7 +126,7 @@ and a growing number of other useful data types.
 
 ### Catamorphism
 
-...
+A catamorphism is the generalization of a fold. So what is a fold? In its strict meaning it is a sequential reduction of a collection.  Catamorphisms go beyond folds by representing the notion of destructuring any non-primitive data type. You can think of a catamorphism as an elemination rule of its type, whereas the corresponding constructor is the introduction rule. What makes this distinction hard is that for some data types folds and catamorphisms coincide, whereas for others the catamorphism is more expressive and the fold is merely derived from it.
 
 ### Paramorphism
 
