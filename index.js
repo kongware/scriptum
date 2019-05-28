@@ -370,7 +370,7 @@ const arrFoldEntries = alg => zero => xs => {
 };
 
 
-const arrFoldWhile = p => alg => zero => xs => {
+const arrFoldWhile = p => alg => zero => xs => { // misconception, replace
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
@@ -382,7 +382,7 @@ const arrFoldWhile = p => alg => zero => xs => {
 };
 
 
-const arrFoldEntriesWhile = p => alg => zero => xs => {
+const arrFoldEntriesWhile = p => alg => zero => xs => { // misconception, replace
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
@@ -421,7 +421,7 @@ const arrParaEntries = alg => zero => xs => {
 };
 
 
-const arrParaWhile = p => alg => zero => xs => {
+const arrParaWhile = p => alg => zero => xs => { // misconception, replace
   const ys = arrClone(xs);
   
   let acc = zero,
@@ -436,7 +436,7 @@ const arrParaWhile = p => alg => zero => xs => {
 };
 
 
-const arrParaEntriesWhile = p => alg => zero => xs => {
+const arrParaEntriesWhile = p => alg => zero => xs => { // misconception, replace
   const ys = arrClone(xs);
   
   let acc = zero,
