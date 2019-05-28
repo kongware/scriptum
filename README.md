@@ -158,11 +158,14 @@ const arrFoldWhile = alg => zero => xs => {
   return acc;
 };
 
-const addWhile = x => y => x => y => x + y <= 9
-  ? [x + y, true]
-  : [x, false];
+const lte = y => x => x <= y;
 
-arrFoldWhile(addWhile) (0) ([1,2,3,4,5]); // 6
+const addWhile = p => x => y =>
+  p(x + y)
+    ? [x + y, true]
+    : [x, false];
+
+arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
 Maybe you've noticed that these are left associative folds. At least for `Array`s we don't need a right fold, because left and right associative folds are isomorphic along with the following combinators:
 
