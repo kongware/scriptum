@@ -126,7 +126,63 @@ and a growing number of other useful data types.
 
 ### Catamorphism
 
-A catamorphism is the generalization of a fold. So what is a fold? In its strict meaning it is a sequential reduction of a collection.  Catamorphisms go beyond folds by representing the notion of destructuring any non-primitive data type. You can think of a catamorphism as an elemination rule of its type, whereas the corresponding constructor is the introduction rule. What makes this distinction hard is that for some data types folds and catamorphisms coincide, whereas for others the catamorphism is more expressive and the fold is merely derived from it.
+A catamorphism is the generalization of a fold. For some data types though, this rule doesn't apply, because both the fold and the catamorphism coincide. As a result for some data types there exists a separate fold and catamorphism, whereas for others there is only a fold.
+
+scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, which has only a fold:
+
+```Javascript
+const arrFold = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (xs[i], i);
+
+  return acc;
+};
+
+const add = x => y => x + y;
+
+arrFold(add) (0) ([1,2,3,4,5]); // 15
+```
+There is also a fold with short circuit semantics:
+
+```Javascript
+const arrFoldWhile = alg => zero => xs => {
+  let acc = zero, b;
+
+  for (let i = 0; i < xs.length; i++) {
+    [acc, b] = alg(acc) (xs[i], i);
+    if (!b) break;
+  }
+
+  return acc;
+};
+
+const addWhile = x => y => x => y => x + y <= 9
+  ? [x + y, true]
+  : [x, false];
+
+arrFoldWhile(addWhile) (0) ([1,2,3,4,5]); // 6
+```
+Maybe you've noticed that these are left associative folds. At least for `Array`s we don't need a right fold, because left and right associative folds are isomorphic along with the following combinators:
+
+```Javascript
+const arrFold = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (xs[i], i);
+
+  return acc;
+};
+
+const flip = f => y => x => f(x) (y);
+const sub = x => y => x - y;
+
+arrFold(flip(sub)) (0) ([1,2,3,4,5]); // 3
+1 - (2 - (3 - (4 - (5 - 0)))); // 3
+```
+However, I don't know whether this transformation is also that trivial with more complex tree structures.
 
 ### Paramorphism
 
