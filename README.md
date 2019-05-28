@@ -144,6 +144,8 @@ const add = x => y => x + y;
 
 arrFold(add) (0) ([1,2,3,4,5]); // 15
 ```
+The second argument takes two arguments as the original `Array.prototype.reduce` does. This is a bit sloppy, but well, as I said there is no reason to be dogmatic - this is still untyped Javascript.
+
 There is also a fold with short circuit semantics:
 
 ```Javascript
@@ -167,25 +169,6 @@ const addWhile = p => x => y =>
 
 arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
-Maybe you've noticed that these are left associative folds. At least for `Array`s we don't need a right fold, because left and right associative folds are isomorphic along with the following combinators:
-
-```Javascript
-const arrFold = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i], i);
-
-  return acc;
-};
-
-const flip = f => y => x => f(x) (y);
-const sub = x => y => x - y;
-
-arrFold(flip(sub)) (0) ([1,2,3,4,5]); // 3
-1 - (2 - (3 - (4 - (5 - 0)))); // 3
-```
-However, I don't know whether this transformation is also that trivial with more complex tree structures.
 
 ### Paramorphism
 
