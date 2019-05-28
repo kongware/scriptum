@@ -374,7 +374,7 @@ const arrFoldWhile = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p(acc, xs[i])) break;
+    if (!p(acc) (xs[i])) break;
     acc = alg(acc) (xs[i]);
   }
 
@@ -386,7 +386,7 @@ const arrFoldEntriesWhile = p => alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p(acc, i, xs[i])) break;
+    if (!p(acc) (i, xs[i])) break;
     acc = alg(acc) (i, xs[i]);
   }
 
@@ -428,7 +428,7 @@ const arrParaWhile = p => alg => zero => xs => {
     x;
 
   while (x = ys.shift()) {
-    if (!p(acc, ys, x)) break;
+    if (!p(acc) (ys) (x)) break;
     acc = alg(acc) (ys) (x);
   }
 
@@ -444,7 +444,7 @@ const arrParaEntriesWhile = p => alg => zero => xs => {
     x;
 
   while (x = ys.shift()) {
-    if (!p(acc, ys, len, x)) break;
+    if (!p(acc) (ys) (len, x)) break;
     acc = alg(acc) (ys) (len++, x);
   }
 
