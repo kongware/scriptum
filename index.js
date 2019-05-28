@@ -354,40 +354,18 @@ const arrFold = alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i]);
+    acc = alg(acc) (xs[i], i);
 
   return acc;
 };
 
 
-const arrFoldEntries = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (i, xs[i]);
-
-  return acc;
-};
-
-
-const arrFoldWhile = p => alg => zero => xs => { // misconception, replace
-  let acc = zero;
+const arrFoldWhile = alg => zero => xs => {
+  let acc = zero, b;
 
   for (let i = 0; i < xs.length; i++) {
-    if (!p(acc) (xs[i])) break;
-    acc = alg(acc) (xs[i]);
-  }
-
-  return acc;
-};
-
-
-const arrFoldEntriesWhile = p => alg => zero => xs => { // misconception, replace
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++) {
-    if (!p(acc) (i, xs[i])) break;
-    acc = alg(acc) (i, xs[i]);
+    [acc, b] = alg(acc) (xs[i], i);
+    if (!b) break;
   }
 
   return acc;
@@ -398,54 +376,26 @@ const arrPara = alg => zero => xs => {
   const ys = arrClone(xs);
   
   let acc = zero,
+    len = 0,
     x;
 
   while (x = ys.shift()) 
-    acc = alg(acc) (ys) (x);
+    acc = alg(acc) (ys) (x, len++);
 
   return acc;
 };
 
 
-const arrParaEntries = alg => zero => xs => {
+const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
   
   let acc = zero,
     len = 0,
-    x;
-
-  while (x = ys.shift())
-    acc = alg(acc) (len++, ys) (x);
-
-  return acc;
-};
-
-
-const arrParaWhile = p => alg => zero => xs => { // misconception, replace
-  const ys = arrClone(xs);
-  
-  let acc = zero,
-    x;
+    x, b;
 
   while (x = ys.shift()) {
-    if (!p(acc) (ys) (x)) break;
-    acc = alg(acc) (ys) (x);
-  }
-
-  return acc;
-};
-
-
-const arrParaEntriesWhile = p => alg => zero => xs => { // misconception, replace
-  const ys = arrClone(xs);
-  
-  let acc = zero,
-    len = 0,
-    x;
-
-  while (x = ys.shift()) {
-    if (!p(acc) (ys) (len, x)) break;
-    acc = alg(acc) (ys) (len++, x);
+    [acc, b] = alg(acc) (ys) (x, len++);
+    if (!b) break;
   }
 
   return acc;
