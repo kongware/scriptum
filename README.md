@@ -50,7 +50,7 @@ Recursion is a big win compared to imperative loops. However, in Javascript we h
 
 What we want is a mechanism to abstract from direct recursion altogether. scriptum uses folds or more specifically catamorphisms et al. to separate the recursion from our algorithms and domain logic. These folds have to be implemented as a trampoline to each data type, though.
 
-### Loop Fusion over Generators/Iteratos
+### Loop Fusion over Generators/Iterators
 
 scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion either directly with function composition or with the help of the yoneda lemma. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with side effects.
 
