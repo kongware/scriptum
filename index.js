@@ -1856,6 +1856,10 @@ const tAp = tf => tx =>
   Task((res, rej) => tf.runTask(f => tx.runTask(x => res(f(x)), rej), rej));
 
 
+const tLiftA2 = f => tx => ty =>
+  tAp(tMap(f) (tx)) (ty);
+
+
 const tOf = x => Task((res, rej) => res(x));
 
 
@@ -1900,6 +1904,10 @@ const tChain = mx => fm =>
 
 const tChainf = fm => mx =>
   Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+
+
+const tLiftM2 = f => mx => my =>
+  tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
 
 
 /******************************************************************************
