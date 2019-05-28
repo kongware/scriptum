@@ -616,7 +616,7 @@ const pipe = g => f => x =>
 const pipen = g =>
   Object.assign(
     f => pipen(x => f(g(x))),
-    {runContra: g, [TYPE]: "Pipe"});
+    {runPipe: g, [TYPE]: "Pipe"});
 
 
 const on = f => g => x => y =>
