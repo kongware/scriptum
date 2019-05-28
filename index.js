@@ -599,9 +599,9 @@ const _let = f => f(); // simulates let binding as an expression
 const comp = f => g => x => f(g(x));
 
 
-const compm = f =>
+const compn = f =>
   Object.assign(
-    g => compm(x => f(g(x))),
+    g => compn(x => f(g(x))),
     {runComp: f, [TYPE]: "Comp"});
 
 
