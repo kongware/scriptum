@@ -126,9 +126,9 @@ and a growing number of other useful data types.
 
 ### Catamorphism
 
-A catamorphism is the generalization of a fold. For some data types though, this rule doesn't apply, because both the fold and the catamorphism coincide. As a result for some data types there exists a separate fold and catamorphism, whereas for others there is only a fold.
+A catamorphism is a generalization of a fold/reduction. For some data types though, this rule doesn't apply, because both the fold and the catamorphism coincide. Consequently, for these data types there only exists a fold. For any non-primitive type its catamorphisms is the dual of its constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Therefore catamorphisms represent the notion of destructuring data types.
 
-scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, which has only a fold:
+scriptum implements catamorphisms as trampolines mostly to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
 
 ```Javascript
 const arrFold = alg => zero => xs => {
