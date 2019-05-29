@@ -92,7 +92,7 @@ const union = type => (tag, x) => ({
 });
 
 
-const match = ({[TYPE]: type, tag}, o} =>
+const match = ({[TYPE]: type, tag}, o) =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(tag in o) ? _throw(new UnionError("invalid tag"))
     : o[tag];
@@ -361,14 +361,14 @@ const arrFold = alg => zero => xs => {
 
 
 const arrFoldWhile = alg => zero => xs => {
-  let acc = zero, b;
+  let acc = zero;
 
   for (let i = 0; i < xs.length; i++) {
-    [acc, b] = alg(acc) (xs[i], i);
-    if (!b) break;
+    acc = alg(acc) (xs[i], i);
+    if (acc && acc[TAG] === "Done") break;
   }
 
-  return acc;
+  return acc.runStep;
 };
 
 
@@ -390,15 +390,14 @@ const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
   
   let acc = zero,
-    len = 0,
-    x, b;
+    len = 0, x;
 
   while (x = ys.shift()) {
-    [acc, b] = alg(acc) (ys) (x, len++);
-    if (!b) break;
+    acc = alg(acc) (ys) (x, len++);
+    if (acc && acc[TAG] === "Done") break;
   }
 
-  return acc;
+  return acc.runStep;
 };
 
 
@@ -1787,6 +1786,20 @@ const sumAppend = tm => tn =>
 
 
 const sumPrepend = sumAppend;
+
+
+/******************************************************************************
+***********************************[ STEP ]************************************
+******************************************************************************/
+
+
+const Step = union("Step");
+
+
+const Loop = x => Step("Loop", x);
+
+
+const Done = x => Step("Done", x);
 
 
 /******************************************************************************
