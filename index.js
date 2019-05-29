@@ -465,6 +465,62 @@ const arrTransduceWhile = p => alg => reduce =>
   arrFoldWhile(p) (alg(reduce));
 
 
+/***[Unfoldable]**************************************************************/
+
+
+const arrUnfold = coalg => x => {
+  const acc = [];
+
+  while (true) {
+    let tx = coalg(x);
+
+    switch (tx[TAG]) {
+      case "None": return acc;
+      
+      case "Some": {
+        acc.push(tx.runOption[0]);
+        x = tx.runOption[1];
+        break;
+      }
+
+      default: throw new UnionError("invalid tag");
+    }
+  }
+};
+
+
+const arrApo = coalg => x => {
+  const acc = [];
+
+  while (true) {
+    let tx = coalg(x);
+
+    s1: switch (tx.tag) {
+      case "None": return acc;
+      
+      case "Some": {
+        switch (tx.runOption[1].tag) {
+          case "Left": {
+            arrPushFlat(acc) ((tx.runOption[1].runEither.push(tx.runOption[0]), tx.runOption[1].runEither));
+            return acc;
+          }
+
+          case "Right": {
+            acc.push(tx.runOption[0]);
+            x = tx.runOption[1].runEither;
+            break s1; // eww, the ugly flowers of imperative style
+          }
+
+          default: throw new Error("invalid tag");
+        }
+      }
+
+      default: throw new Error("invalid tag");
+    }
+  }
+};
+
+
 /******************************************************************************
 ***********************************[ DATE ]************************************
 ******************************************************************************/
