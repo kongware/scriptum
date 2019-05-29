@@ -401,6 +401,17 @@ const arrParaWhile = alg => zero => xs => {
 };
 
 
+const arrHylo = alg => zero => coalg =>
+  comp(arrFold(alg) (zero)) (arrAna(coalg));
+
+
+const arrZygo = alg1 => alg2 => zero => xs =>
+  comp(snd)
+    (arrFold(([y, z]) => x =>
+      [alg1(x) (y), alg2(x) (y) (z)])
+        ([zero, xs]));
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -463,6 +474,18 @@ const arrTransduce = alg => reduce =>
 
 const arrTransduceWhile = p => alg => reduce =>
   arrFoldWhile(p) (alg(reduce));
+
+
+/***[Tuple]*******************************************************************/
+
+
+const fst = ([x]) => x;
+
+
+const snd = ([x, y]) => y;
+
+
+const thd = ([x, y, z]) => z;
 
 
 /***[Unfoldable]**************************************************************/
