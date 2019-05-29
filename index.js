@@ -87,7 +87,7 @@ const introspect = x =>
 
 const union = type => (tag, x) => ({
   ["run" + type]: x,
-  tag,
+  [TAG]: tag,
   [TYPE]: type
 });
 
