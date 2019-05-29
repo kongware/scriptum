@@ -412,6 +412,13 @@ const arrZygo = alg1 => alg2 => zero => xs =>
         ([zero, xs]));
 
 
+const arrMutu = alg1 => alg2 => zero => xs =>
+  comp(snd)
+    (arrFold(([y, z]) => x =>
+      [alg1(x) (y) (z), alg2(x) (y) (z)])
+        ([zero, xs]));
+
+
 /***[Functor]*****************************************************************/
 
 
