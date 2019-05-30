@@ -580,6 +580,12 @@ const arrModOr = def => (i, f) => xs => {
 };
 
 
+const arrPartition = f => xs =>
+  xs.reduce((m, x) =>
+    _let((r = f(x), ys = m.get(r) || []) =>
+      m.set(r, (ys.push(x), ys))), new Map());
+
+
 const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
   loop((acc = [], x = x_, i = 0) =>
     i === xs.length
@@ -587,6 +593,51 @@ const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
       : recur(
         (acc.push(f(x) (xs[i])), acc),
         acc[acc.length - 1], i + 1));
+
+
+const arrSet = def => (i, x) => xs => {
+  const ys = arrClone(xs);
+  return (ys[i] = x, ys);
+};
+
+
+const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], n = n_, i = 0) => {
+    if (i >= xs.length)
+      return acc;
+
+    else
+      return recur((acc.push(xs.slice(i, i + n)), acc), n, i + n);
+  });
+
+
+const arrSplitWith = p => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], i = 0, j = 0) => {
+    if (i + j >= xs.length)
+      return (acc.push(xs.slice(i, i + j)), acc);
+
+    else if (p(xs[i + j]))
+      return recur((acc.push(xs.slice(i, i + j)), acc), i + j, 1)
+
+    else
+      return recur(acc, i, j + 1);
+  });
+
+
+const arrSplitAt = i => xs =>
+  [xs.slice(0, i), xs.slice(i)];
+
+
+const arrSplitAtWith = p => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], i = 0) =>
+    i === xs.length ? [acc, []]
+      : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
+      : [acc, xs.slice(i)]);
+
+
+const arrTranspose = matrix =>
+  matrix[0].map((_, i) =>
+    matrix.map(xs => xs[i]));
 
 
 const arrUnzip = xss => // TODO: Absract from recursion with fold
