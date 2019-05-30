@@ -565,6 +565,66 @@ const arrApo = coalg => x => {
 };
 
 
+/***[Combinators]*************************************************************/
+
+
+const arrModOr = def => (i, f) => xs => {
+  const ys = arrClone(xs);
+
+  if (i in ys)
+    ys[i] = f(ys[i]);
+
+  else ys[i] = def;
+
+  return ys;
+};
+
+
+const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], x = x_, i = 0) =>
+    i === xs.length
+      ? acc
+      : recur(
+        (acc.push(f(x) (xs[i])), acc),
+        acc[acc.length - 1], i + 1));
+
+
+const arrUnzip = xss => // TODO: Absract from recursion with fold
+  loop((acc = [[], []], i = 0) =>
+    i === xss.length
+      ? acc
+      : recur((
+          acc[0].push(xss[i] [0]),
+          acc[1].push(xss[i] [1]),
+          acc), i + 1));
+
+
+const arrZip = xs => ys => // TODO: Absract from recursion with fold
+  loop((acc = [], i = 0) => {
+    const x = xs[i], y = ys[i];
+
+    if (x === undefined || y === undefined)
+      return acc;
+
+    else
+      return recur(
+        (acc.push([xs[i], ys[i]]), acc), i + 1);
+  });
+
+
+const arrZipWith = f => xs => ys => // TODO: Absract from recursion with fold
+  loop((acc = [], i = 0) => {
+    const x = xs[i], y = ys[i];
+
+    if (x === undefined || y === undefined)
+      return acc;
+
+    else
+      return recur(
+        (acc.push(f(xs[i]) (ys[i])), acc), i + 1);
+  });
+
+
 /******************************************************************************
 ***********************************[ DATE ]************************************
 ******************************************************************************/
@@ -578,10 +638,22 @@ const formatDate = sep => (...fs) => date =>
     .join(sep);
 
 
+const getMonthDays = y => m =>
+  new Date(y, m, 0).getDate();
+
+
 const month = invoke("getMonth");
 
 
 const year = invoke("getFullYear");
+
+
+const verifyDate = y => m => d =>
+  typeof y !== "number" || typeof m !== "number" || typeof d !== "number" ? false
+    : Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)? false
+    : m <= 0 || m > 12 ? false
+    : d <= 0 || d > getMonthDays(y) (m) ? false
+    : true;
 
 
 /******************************************************************************
@@ -717,6 +789,16 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
+const orThrow = f => e => msg => x => {
+  const y = f(x);
+
+  if (y === undefined || y === null || Number.isNaN(y))
+    throw new e(msg);
+
+  else return y;
+};
+
+
 const _throw = e => {
   throw e;
 };
@@ -731,13 +813,6 @@ const tryCatch = f => g => x => {
     return g([x, e]);
   }
 };
-
-
-const orThrow = f => e => msg => x =>
-  _let((y = f(x)) =>
-    y === undefined || y === null || Number.isNaN(y)
-      ? _throw(new e(msg))
-      : y);
 
 
 /***[Partial Application]*****************************************************/
@@ -817,14 +892,17 @@ const funLiftA2 = f => g => h => x =>
 const funMap = comp;
 
 
-/***[Misc]********************************************************************/
+/***[Combinators]********************************************************************/
 
 
-const orDef = f => def => x =>
-  _let((y = f(x)) =>
-    y === undefined || y === null || Number.isNaN(y)
-      ? def
-      : y);
+const orDef = f => def => x => {
+  const y = f(x);
+    
+  if (y === undefined || y === null || Number.isNaN(y))
+    return def;
+
+  else return y;
+};
 
 
 /******************************************************************************
@@ -2087,6 +2165,34 @@ const tell = y => Writer(null, y);
 
 const writeChain = append => fm => mx =>
   mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
+
+
+/******************************************************************************
+*******************************************************************************
+************************************[ IO ]*************************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+********************************[ FILE SYSTEM ]********************************
+******************************************************************************/
+
+
+const fileRead  = enc => path =>
+  Task((res, rej) =>
+    fs.readFile(path, enc, (e, x) =>
+      e
+        ? rej(e)
+        : res(x)));
+
+
+const fileScanDir = path =>
+  Task((res, rej) =>
+    fs.readdir(path, (e, x) =>
+      e
+        ? rej(e)
+        : res(x)));
 
 
 /******************************************************************************
