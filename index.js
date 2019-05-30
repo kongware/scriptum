@@ -356,10 +356,10 @@ const arrFoldr = alg => zero => xs => {
 
 
 const arrFoldWhile = alg => zero => xs => {
-  let acc = zero;
+  let acc = Loop(zero);
 
   for (let i = 0; i < xs.length; i++) {
-    acc = alg(acc) (xs[i], i);
+    acc = alg(acc.runStep) (xs[i], i);
     if (acc && acc[TAG] === "Done") break;
   }
 
@@ -384,11 +384,11 @@ const arrPara = alg => zero => xs => {
 const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
   
-  let acc = zero,
+  let acc = Loop(zero),
     len = 0, x;
 
   while (x = ys.shift()) {
-    acc = alg(acc) (ys) (x, len++);
+    acc = alg(acc.runStep) (ys) (x, len++);
     if (acc && acc[TAG] === "Done") break;
   }
 
@@ -401,14 +401,14 @@ const arrHylo = alg => zero => coalg =>
 
 
 const arrZygo = alg1 => alg2 => zero => xs =>
-  comp(snd)
+  comp(_2)
     (arrFold(([y, z]) => x =>
       [alg1(x) (y), alg2(x) (y) (z)])
         ([zero, xs]));
 
 
 const arrMutu = alg1 => alg2 => zero => xs =>
-  comp(snd)
+  comp(_2)
     (arrFold(([y, z]) => x =>
       [alg1(x) (y) (z), alg2(x) (y) (z)])
         ([zero, xs]));
@@ -481,13 +481,13 @@ const arrTransduceWhile = p => alg => reduce =>
 /***[Tuple]*******************************************************************/
 
 
-const fst = ([x]) => x;
+const _1 = ([x]) => x;
 
 
-const snd = ([x, y]) => y;
+const _2 = ([x, y]) => y;
 
 
-const thd = ([x, y, z]) => z;
+const _3 = ([x, y, z]) => z;
 
 
 /***[Unfoldable]**************************************************************/
@@ -549,13 +549,27 @@ const arrApo = coalg => x => {
 /***[Combinators]*************************************************************/
 
 
-const arrInsert = (i, x) => xs => {
+const arrInsertAt = (i, x) => xs => {
   const ys = xs.slice(0, i);
 
   return arrPushFlat(
     (ys.push(x), ys))
       (xs.slice(i));
 };
+
+
+const arrInsertAtBy = p => y =>
+  arrParaWhile(acc => xs => (x, i) =>
+    p(x)
+      ? (acc.push(x, y), Done(arrPushFlat(acc) (xs)))
+      : (acc.push(x), Loop(acc))) ([]);
+
+
+const arrInsertBy = p => y =>
+  arrFold(acc => x =>
+    p(x)
+      ? (acc.push(x, y), acc)
+      : (acc.push(x), acc)) ([]);
 
 
 const arrModOr = def => (i, f) => xs => {
