@@ -294,3 +294,4 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 - [ ] add Cont Monad + delimited continuations (shift/reset)
 - [ ] add arrApConst
 - [ ] add arrFoldM
+- [ ] add mapAccum
