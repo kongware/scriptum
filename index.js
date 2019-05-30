@@ -1055,6 +1055,18 @@ const strDeleteAt = i => s =>
   t.slice(0, i) + t.slice(i + 1);
 
 
+const strPadl = n => c => s =>
+  c.repeat(n)
+    .concat(s)
+    .slice(-n);
+
+
+const strPadr = n => c => s =>
+  c.repeat(n)
+    .concat(s)
+    .slice(0, n);
+
+
 const strReplaceAt = i => s => t =>
   t.slice(0, i) + s + t.slice(i + 1);
 
