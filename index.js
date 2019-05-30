@@ -611,7 +611,7 @@ const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
   });
 
 
-const arrSplitWith = p => xs => // TODO: Absract from recursion with fold
+const arrSplitBy = p => xs => // TODO: Absract from recursion with fold
   loop((acc = [], i = 0, j = 0) => {
     if (i + j >= xs.length)
       return (acc.push(xs.slice(i, i + j)), acc);
@@ -628,7 +628,7 @@ const arrSplitAt = i => xs =>
   [xs.slice(0, i), xs.slice(i)];
 
 
-const arrSplitAtWith = p => xs => // TODO: Absract from recursion with fold
+const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
   loop((acc = [], i = 0) =>
     i === xs.length ? [acc, []]
       : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
@@ -663,7 +663,7 @@ const arrZip = xs => ys => // TODO: Absract from recursion with fold
   });
 
 
-const arrZipWith = f => xs => ys => // TODO: Absract from recursion with fold
+const arrZipBy = f => xs => ys => // TODO: Absract from recursion with fold
   loop((acc = [], i = 0) => {
     const x = xs[i], y = ys[i];
 
@@ -712,7 +712,7 @@ const verifyDate = y => m => d =>
 ******************************************************************************/
 
 
-const roundWith = k => places => fp => {
+const roundBy = k => places => fp => {
   let [n, ex] = `${fp < 0 ? Math.abs(fp) : fp}e`.split('e'),
     r = Math[k](`${n}e${Number(ex) + places}`);
 
@@ -730,13 +730,13 @@ const toFixedFloat = places => fp =>
 /***[Derived]*****************************************************************/
 
 
-const ceil = roundWith("ceil");
+const ceil = roundBy("ceil");
 
 
-const floor = roundWith("floor");
+const floor = roundBy("floor");
 
 
-const round = roundWith("round");
+const round = roundBy("round");
 
 
 /******************************************************************************
@@ -1038,7 +1038,7 @@ const strReplaceAt = i => s => t =>
   t.slice(0, i) + s + t.slice(i + 1);
 
 
-const strReplaceAtWith = i => f => s =>
+const strReplaceAtBy = i => f => s =>
   s.slice(0, i) + f(s[i]) + s.slice(i + 1);
 
 
@@ -1564,7 +1564,7 @@ const strLens = i => Lens({
     strReplaceAt(i) (v) (s),
 
   mod: f => s =>
-    strReplaceAtWith(i) (f) (s),
+    strReplaceAtBy(i) (f) (s),
 
   del: xs =>
     strDeleteAt(i) (s)
@@ -2344,7 +2344,7 @@ module.exports = {
   
   strDeleteAt,
   strReplaceAt,
-  strReplaceAtWith,
+  strReplaceAtBy,
   
   // CUSTOM TYPES
   
