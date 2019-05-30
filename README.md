@@ -171,7 +171,7 @@ arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
 `arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
 
-Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic together with `flip` applied to the algebra and `Array.prototype.reverse` to the consumed array, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
+Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic when you apply `flip` to the algebra and `Array.prototype.reverse` to the consumed array, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
 
 ### Paramorphism
 
