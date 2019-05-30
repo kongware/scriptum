@@ -617,29 +617,8 @@ const round = roundWith("round");
 
 
 /******************************************************************************
-*********************************[ FUNCTIONS ]*********************************
+*********************************[ FUNCTION ]**********************************
 ******************************************************************************/
-
-
-const app = f => x => f(x);
-
-
-const appr = f => y => x => f(x) (y);
-
-
-const _const = x => y => x;
-
-
-const flip = f => y => x => f(x) (y);
-
-
-const id = x => x;
-
-
-const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
-
-
-const _let = f => f(); // simulates let binding as an expression
 
 
 /***[Composition]*************************************************************/
@@ -754,6 +733,13 @@ const tryCatch = f => g => x => {
 };
 
 
+const orThrow = f => e => msg => x =>
+  _let((y = f(x)) =>
+    y === undefined || y === null || Number.isNaN(y)
+      ? _throw(new e(msg))
+      : y);
+
+
 /***[Partial Application]*****************************************************/
 
 
@@ -769,6 +755,30 @@ const pcurry = (f, n, ...args) => {
 
   return go([], n);
 };
+
+
+/***[Primitive]***************************************************************/
+
+
+const app = f => x => f(x);
+
+
+const appr = f => y => x => f(x) (y);
+
+
+const _const = x => y => x;
+
+
+const flip = f => y => x => f(x) (y);
+
+
+const id = x => x;
+
+
+const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
+
+
+const _let = f => f(); // simulates let binding as an expression
 
 
 /***[Transducer]**************************************************************/
@@ -805,6 +815,16 @@ const funLiftA2 = f => g => h => x =>
 
 
 const funMap = comp;
+
+
+/***[Misc]********************************************************************/
+
+
+const orDef = f => def => x =>
+  _let((y = f(x)) =>
+    y === undefined || y === null || Number.isNaN(y)
+      ? def
+      : y);
 
 
 /******************************************************************************
