@@ -293,3 +293,4 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 - [ ] add Reference Type (value objects)
 - [ ] add Cont Monad + delimited continuations (shift/reset)
 - [ ] add arrApConst
+- [ ] add arrFoldM
