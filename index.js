@@ -318,25 +318,6 @@ const arrClone = xs => {
 };
 
 
-/***[Combinators]*************************************************************/
-
-
-const arrPushFlat = xs => ys => {
-  ys.forEach(x =>
-    xs.push(x));
-
-  return ys;
-};
-
-
-const arrUnshiftFlat = xs => ys => {
-  ys.forEach(x =>
-    xs.unshift(x));
-
-  return ys;
-};
-
-
 /***[Filterable]**************************************************************/
 
 
@@ -568,6 +549,15 @@ const arrApo = coalg => x => {
 /***[Combinators]*************************************************************/
 
 
+const arrInsert = (i, x) => xs => {
+  const ys = xs.slice(0, i);
+
+  return arrPushFlat(
+    (ys.push(x), ys))
+      (xs.slice(i));
+};
+
+
 const arrModOr = def => (i, f) => xs => {
   const ys = arrClone(xs);
 
@@ -584,6 +574,14 @@ const arrPartition = f => xs =>
   xs.reduce((m, x) =>
     _let((r = f(x), ys = m.get(r) || []) =>
       m.set(r, (ys.push(x), ys))), new Map());
+
+
+const arrPushFlat = xs => ys => {
+  ys.forEach(x =>
+    xs.push(x));
+
+  return xs;
+};
 
 
 const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
@@ -638,6 +636,14 @@ const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
 const arrTranspose = matrix =>
   matrix[0].map((_, i) =>
     matrix.map(xs => xs[i]));
+
+
+const arrUnshiftFlat = xs => ys => {
+  ys.forEach(x =>
+    xs.unshift(x));
+
+  return xs;
+};
 
 
 const arrUnzip = xss => // TODO: Absract from recursion with fold
@@ -881,6 +887,21 @@ const pcurry = (f, n, ...args) => {
 
   return go([], n);
 };
+
+
+/***[Predicate]***************************************************************/
+
+
+const notp = p => x =>
+  !p(x);
+
+
+const notp2 = p => x => y =>
+  !p(x) (y);
+
+
+const notp3 = p => x => y => z =>
+  !p(x) (y) (z);  
 
 
 /***[Primitive]***************************************************************/
