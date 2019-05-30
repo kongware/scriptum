@@ -1012,8 +1012,8 @@ const factory_ = entries =>
       (acc[k] = v, acc), {});
 
 
-const invoke = (name, ...args) => o =>
-  o[name] (...args);
+const invoke = k => (...args) => o =>
+  o[k] (...args);
 
 
 const path = def => {
