@@ -558,17 +558,17 @@ const arrInsertAt = (i, x) => xs => {
 };
 
 
-const arrInsertAtBy = p => y =>
+const arrInsertAtBy = p => f => y =>
   arrParaWhile(acc => xs => (x, i) =>
     p(x)
-      ? (acc.push(x, y), Done(arrPushFlat(acc) (xs)))
+      ? (acc.push(...f(x, y)), Done(arrPushFlat(acc) (xs)))
       : (acc.push(x), Loop(acc))) ([]);
 
 
-const arrInsertBy = p => y =>
+const arrInsertBy = p => f => y =>
   arrFold(acc => x =>
     p(x)
-      ? (acc.push(x, y), acc)
+      ? (acc.push(...f(x, y)), acc)
       : (acc.push(x), acc)) ([]);
 
 
@@ -613,6 +613,17 @@ const arrSet = def => (i, x) => xs => {
 };
 
 
+const arrSplitAt = i => xs =>
+  [xs.slice(0, i), xs.slice(i)];
+
+
+const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], i = 0) =>
+    i === xs.length ? [acc, []]
+      : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
+      : [acc, xs.slice(i)]);
+
+
 const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
   loop((acc = [], n = n_, i = 0) => {
     if (i >= xs.length)
@@ -634,17 +645,6 @@ const arrSplitBy = p => xs => // TODO: Absract from recursion with fold
     else
       return recur(acc, i, j + 1);
   });
-
-
-const arrSplitAt = i => xs =>
-  [xs.slice(0, i), xs.slice(i)];
-
-
-const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
-  loop((acc = [], i = 0) =>
-    i === xs.length ? [acc, []]
-      : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
-      : [acc, xs.slice(i)]);
 
 
 const arrTranspose = matrix =>
@@ -933,6 +933,9 @@ const _const = x => y => x;
 const flip = f => y => x => f(x) (y);
 
 
+const fromMultiArg = (...args) => [...args];
+
+
 const id = x => x;
 
 
@@ -940,6 +943,9 @@ const infix = (x, f, y) => f(x) (y); // simulates function calls in infix positi
 
 
 const _let = f => f(); // simulates let binding as an expression
+
+
+const swapMultiArg = (x, y) => [y, x];
 
 
 /***[Transducer]**************************************************************/
