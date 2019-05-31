@@ -341,6 +341,20 @@ const arrFold = alg => zero => xs => { // aka catamorphism
 };
 
 
+const arrFoldr = alg => zero => xs => {
+  const stack = [];
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    stack.unshift(alg(xs[i]));
+
+  for (let i = 0; i < xs.length; i++)
+    acc = stack[i] (acc);
+
+  return acc;
+};
+
+
 const arrFoldWhile = alg => zero => xs => {
   let acc = Loop(zero);
 
