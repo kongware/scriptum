@@ -331,25 +331,11 @@ const arrFilter = p => xs =>
 /***[Foldable]****************************************************************/
 
 
-const arrFold = alg => zero => xs => {
+const arrFold = alg => zero => xs => { // aka catamorphism
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
     acc = alg(acc) (xs[i], i);
-
-  return acc;
-};
-
-
-const arrFoldr = alg => zero => xs => {
-  const stack = [];
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    stack.unshift(alg(xs[i]));
-
-  for (let i = 0; i < xs.length; i++)
-    acc = stack[i] (acc);
 
   return acc;
 };
@@ -407,24 +393,10 @@ const arrZygo = alg1 => alg2 => zero1 => zero2 =>
         ([zero1, zero2]));
 
 
-const arrZygor = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFoldr(x => ([acc1, acc2]) =>
-      [alg1(x) (acc1), alg2(x) (acc1) (acc2)])
-        ([zero1, zero2]));
-
-
 const arrMutu = alg1 => alg2 => zero1 => zero2 =>
   comp(snd)
     (arrFold(([acc1, acc2]) => x =>
       [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
-
-
-const arrMutur = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFoldr(x => ([acc1, acc2]) =>
-      [alg1(x) (acc1) (acc2), alg2(x) (acc1) (acc2)])
         ([zero1, zero2]));
 
 
@@ -488,8 +460,8 @@ const arrTransduce = alg => reduce =>
   arrFold(alg(reduce));
 
 
-const arrTransduceWhile = p => alg => reduce =>
-  arrFoldWhile(p) (alg(reduce));
+const arrTransduceWhile = alg => reduce =>
+  arrFoldWhile(alg(reduce));
 
 
 /***[Tuple]*******************************************************************/
@@ -507,7 +479,7 @@ const thd = ([x, y, z]) => z;
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = coalg => x => {
+const arrUnfold = coalg => x => { // aka anamorphism
   const acc = [];
 
   while (true) {
@@ -540,7 +512,10 @@ const arrApo = coalg => x => {
       case "Some": {
         switch (tx.runOption[1].tag) {
           case "Left": {
-            arrPushFlat(acc) ((tx.runOption[1].runEither.push(tx.runOption[0]), tx.runOption[1].runEither));
+            arrPushFlat(acc)
+              ((tx.runOption[1].runEither.push(tx.runOption[0]),
+                tx.runOption[1].runEither));
+            
             return acc;
           }
 
