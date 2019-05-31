@@ -414,6 +414,10 @@ const arrMutu = alg1 => alg2 => zero1 => zero2 =>
         ([zero1, zero2]));
 
 
+const arrHisto = alg => zero =>
+  comp(headH) (history(alg) (zero));
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -1475,6 +1479,34 @@ const firstAppend = x => _ => x;
 
 
 const firstPrepend = lastAppend;
+
+
+/******************************************************************************
+**********************************[ HISTORY ]**********************************
+******************************************************************************/
+
+
+const History = union("History");
+
+
+const Ancient = x => History("Ancient", x);
+
+
+const Age = x => y => History("Age", [x, y, z]);
+
+
+const history = alg => zero =>
+  arrFoldr(x => acc => Age(x) (alg(x) (acc)) (acc))
+    (Ancient(zero));
+
+
+const headH = tx => {
+  switch (tx[TAG]) {
+    case "Ancient": return tx.runHistory;
+    case "Age": return tx.runHistory[1];
+    default: throw new UnionError("invalid tag");
+  }
+};
 
 
 /******************************************************************************
