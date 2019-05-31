@@ -400,18 +400,32 @@ const arrHylo = alg => zero => coalg =>
   comp(arrFold(alg) (zero)) (arrAna(coalg));
 
 
-const arrZygo = alg1 => alg2 => zero => xs =>
-  comp(_2)
-    (arrFold(([y, z]) => x =>
-      [alg1(x) (y), alg2(x) (y) (z)])
-        ([zero, xs]));
+const arrZygo = alg1 => alg2 => zero1 => zero2 =>
+  comp(snd)
+    (arrFold(([acc1, acc2]) => x =>
+      [alg1(acc1) (x), alg2(acc1) (acc2) (x)])
+        ([zero1, zero2]));
 
 
-const arrMutu = alg1 => alg2 => zero => xs =>
-  comp(_2)
-    (arrFold(([y, z]) => x =>
-      [alg1(x) (y) (z), alg2(x) (y) (z)])
-        ([zero, xs]));
+const arrZygor = alg1 => alg2 => zero1 => zero2 =>
+  comp(snd)
+    (arrFoldr(x => ([acc1, acc2]) =>
+      [alg1(x) (acc1), alg2(x) (acc1) (acc2)])
+        ([zero1, zero2]));
+
+
+const arrMutu = alg1 => alg2 => zero1 => zero2 =>
+  comp(snd)
+    (arrFold(([acc1, acc2]) => x =>
+      [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
+        ([zero1, zero2]));
+
+
+const arrMutur = alg1 => alg2 => zero1 => zero2 =>
+  comp(snd)
+    (arrFoldr(x => ([acc1, acc2]) =>
+      [alg1(x) (acc1) (acc2), alg2(x) (acc1) (acc2)])
+        ([zero1, zero2]));
 
 
 /***[Functor]*****************************************************************/
@@ -481,13 +495,13 @@ const arrTransduceWhile = p => alg => reduce =>
 /***[Tuple]*******************************************************************/
 
 
-const _1 = ([x]) => x;
+const fst = ([x]) => x;
 
 
-const _2 = ([x, y]) => y;
+const snd = ([x, y]) => y;
 
 
-const _3 = ([x, y, z]) => z;
+const thd = ([x, y, z]) => z;
 
 
 /***[Unfoldable]**************************************************************/
