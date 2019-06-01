@@ -2050,11 +2050,11 @@ const readMap = f => tg =>
 
 
 const readChain = mg => fm =>
-  Reader(x => fm.runReader(mg.runReader(x)) (x));
+  Reader(x => fm(mg.runReader(x)).runReader(x));
 
 
 const readChainf = fm => mg =>
-  Reader(x => fm.runReader(mg.runReader(x)) (x));
+  Reader(x => fm(mg.runReader(x)).runReader(x));
 
 
 const readJoin = mmf =>
