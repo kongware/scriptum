@@ -531,7 +531,7 @@ const arrApo = coalg => x => {
         switch (tx.runOption[1].tag) {
           case "Left": {
             arrPushFlat(acc)
-              ((tx.runOption[1].runEither.push(tx.runOption[0]),
+              ((tx.runOption[1].runEither.unshift(tx.runOption[0]),
                 tx.runOption[1].runEither));
             
             return acc;
