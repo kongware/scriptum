@@ -2049,7 +2049,11 @@ const readMap = f => tg =>
 /***[Monad]********************************************************************/
 
 
-const readChain = fm => mg =>
+const readChain = mg => fm =>
+  Reader(x => fm.runReader(mg.runReader(x)) (x));
+
+
+const readChainf = fm => mg =>
   Reader(x => fm.runReader(mg.runReader(x)) (x));
 
 
