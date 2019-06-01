@@ -524,7 +524,7 @@ const arrApo = coalg => x => {
   while (true) {
     let tx = coalg(x);
 
-    s1: switch (tx.tag) {
+    switch (tx.tag) {
       case "None": return acc;
       
       case "Some": {
@@ -540,11 +540,13 @@ const arrApo = coalg => x => {
           case "Right": {
             acc.push(tx.runOption[0]);
             x = tx.runOption[1].runEither;
-            break s1; // eww, the ugly flowers of imperative style
+            break;
           }
 
           default: throw new Error("invalid tag");
         }
+        
+        break;
       }
 
       default: throw new Error("invalid tag");
