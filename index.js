@@ -806,6 +806,30 @@ const round = roundBy("round");
 ******************************************************************************/
 
 
+/***[Arguments]***************************************************************/
+
+
+const fromMultiArg = (...args) => [...args];
+
+
+const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
+
+
+const swapMultiArg = (x, y) => [y, x];
+
+
+const varArgs = f => {
+  const go = args =>
+    Object.defineProperties(
+      arg => go(args.concat(arg)), {
+        "runVarArgs": {get: function() {return f(args)}},
+        [TYPE]: {value: "VarArgs"}
+      });
+
+  return go([]);
+};
+
+
 /***[Composition]*************************************************************/
 
 
@@ -966,28 +990,16 @@ const notp3 = p => x => y => z =>
 const app = f => x => f(x);
 
 
-const appr = f => y => x => f(x) (y);
-
-
 const _const = x => y => x;
 
 
 const flip = f => y => x => f(x) (y);
 
 
-const fromMultiArg = (...args) => [...args];
-
-
 const id = x => x;
 
 
-const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
-
-
 const _let = f => f(); // simulates let binding as an expression
-
-
-const swapMultiArg = (x, y) => [y, x];
 
 
 /***[Transducer]**************************************************************/
