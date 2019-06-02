@@ -103,7 +103,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 ## Avoid Nesting
 
-scriptum allows for a flat syntax without nested function calls and (almost) without dot-noation:
+scriptum allows for a flat syntax without nested function calls and (almost) without dot-notation:
 
 ```Javascript
 const inc = x => x + 1,
@@ -118,10 +118,31 @@ pipen(inc) (inc) (inc) (inc) (sqr).runComp(1); // 25
 * monadic lifting
 * monadic chains
 * kleisli composition
-* Lens composition
+* optical composition
 
-and a growing number of other useful data types.
+Additionally, with the `varArgs` combinator you can easily create your own variadic functions:
 
+```Javascript
+const varArgs = f => {
+  const go = args =>
+    Object.defineProperties(
+      arg => go(args.concat(arg)), {
+        "runVarArgs": {get: function() {return f(args)}},
+        [TYPE]: {value: "VarArgs"}
+      });
+
+  return go([]);
+};
+
+const add = x => y => x + y;
+
+const sum = ns =>
+  ns.reduce((acc, n) => acc + n, 0);
+
+const varSum = varArgs(sum);
+
+varSum(1) (2) (3) (4).runVarArgs // 10
+```
 ## Structural Folding
 
 ### Catamorphism
@@ -171,7 +192,7 @@ arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
 `arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
 
-Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic when you apply `flip` to the algebra and `Array.prototype.reverse` to the consumed array, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
+Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic through `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
 
 ### Paramorphism
 
