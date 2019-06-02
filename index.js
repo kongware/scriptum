@@ -22,9 +22,6 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 ******************************************************************************/
 
 
-const ARGS = Symbol("args"); // used for debugging
-
-
 const TAG = Symbol("tag"); // the tag property of tagged unions
 
 
