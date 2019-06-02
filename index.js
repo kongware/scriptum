@@ -183,7 +183,7 @@ const foldMap = (fold, append, empty) => f =>
 /***[Applicative]*************************************************************/
 
 
-const liftAn = (map, ap) => {
+const varLiftA = (map, ap) => {
   const go = tf => tx => {
     const tg = ap(tf) (tx);
 
@@ -198,7 +198,7 @@ const liftAn = (map, ap) => {
 /***[Monad]*******************************************************************/
 
 
-const chainn = chain => fm => {
+const varChain = chain => fm => {
   const go = (ms, gm, i) =>
     i === ms.length
       ? gm
@@ -212,7 +212,7 @@ const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const kleislin = chain => {
+const varKleisli = chain => {
   const go = fm =>
     Object.assign(
       gm => go(x => chain(fm) (gm(x))),
@@ -226,7 +226,7 @@ const kleisliContra = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const kleisliContran = chain => {
+const varKleisliContra = chain => {
   const go = gm =>
     Object.assign(
       fm => go(x => chain(fm) (gm(x))),
@@ -236,7 +236,7 @@ const kleisliContran = chain => {
 };
 
 
-const liftMn = (chain, of) => f => {
+const varLiftM = (chain, of) => f => {
   const go = (ms, g, i) =>
     i === ms.length
       ? of(g)
