@@ -497,7 +497,7 @@ const thd = ([x, y, z]) => z;
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = coalg => x => { // aka anamorphism
+const arrUnfold = coalg => x => { // TODO: make non-strict
   const acc = [];
 
   while (true) {
@@ -518,7 +518,7 @@ const arrUnfold = coalg => x => { // aka anamorphism
 };
 
 
-const arrApo = coalg => x => {
+const arrApo = coalg => x => { // TODO: make non-strict
   const acc = [];
 
   while (true) {
@@ -550,6 +550,42 @@ const arrApo = coalg => x => {
       }
 
       default: throw new Error("invalid tag");
+    }
+  }
+};
+
+
+const arrFutu = coalg => x => { // TODO: make non-strict
+  const acc = [];
+
+  while (true) {
+    let optX = coalg(x);
+
+    switch (optX.tag) {
+      case "None": return acc;
+
+      case "Some": {
+        let [y, [ys, optX_]] = optX.runOption;
+
+        switch(optX_.tag) {
+          case "None": {
+            arrPushFlat(acc) ((ys.unshift(y), ys));
+            return acc;
+          }
+
+          case "Some": {
+            arrPushFlat(acc) ((ys.unshift(y), ys)); 
+            x = optX_.runOption;
+            break;
+          }
+
+          default: throw new UnionError("invalid tag");
+        }
+
+        break;
+      }
+
+      default: throw new UnionError("invalid tag");
     }
   }
 };
