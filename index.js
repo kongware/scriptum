@@ -188,10 +188,10 @@ const foldMap = (fold, append, empty) => f =>
 
 const liftAn = (map, ap) => {
   const go = tf => tx => {
-    const ty = ap(tf) (tx);
+    const tg = ap(tf) (tx);
 
     return Object.assign(
-      go(ty), {runAp: ty, [TYPE]: "Ap"});
+      go(tg), {runAp: tg, [TYPE]: "Ap"});
   };
 
   return f => tx => go(map(f) (tx));
