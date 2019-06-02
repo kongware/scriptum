@@ -183,7 +183,7 @@ const foldMap = (fold, append, empty) => f =>
 /***[Applicative]*************************************************************/
 
 
-const varLiftA = (map, ap) => {
+const varLiftA = (map, ap) => { // TODO: replace recursion with a fold
   const go = tf => tx => {
     const tg = ap(tf) (tx);
 
@@ -198,7 +198,7 @@ const varLiftA = (map, ap) => {
 /***[Monad]*******************************************************************/
 
 
-const varChain = chain => fm => {
+const varChain = chain => fm => { // TODO: replace recursion with a fold
   const go = (ms, gm, i) =>
     i === ms.length
       ? gm
@@ -236,7 +236,7 @@ const varKleisliContra = chain => {
 };
 
 
-const varLiftM = (chain, of) => f => {
+const varLiftM = (chain, of) => f => { // TODO: replace recursion with a fold
   const go = (ms, g, i) =>
     i === ms.length
       ? of(g)
@@ -832,12 +832,6 @@ const varArgs = f => {
 const comp = f => g => x => f(g(x));
 
 
-const compn = f =>
-  Object.assign(
-    g => compn(x => f(g(x))),
-    {runComp: f, [TYPE]: "Comp"});
-
-
 const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
@@ -846,14 +840,16 @@ const pipe = g => f => x =>
   f(g(x));
 
 
-const pipen = g =>
-  Object.assign(
-    f => pipen(x => f(g(x))),
-    {runPipe: g, [TYPE]: "Pipe"});
-
-
 const on = f => g => x => y =>
   f(g(x)) (g(y));
+
+
+const varComp = f =>
+  varArgs(arrFold(g => h => x => g(h(x))) (f));
+
+
+const varPipe = f =>
+  varArgs(arrFold(h => g => x => g(h(x))) (f));
 
 
 /***[Conditional Branching]***************************************************/
@@ -1017,6 +1013,10 @@ const funAp = f => g => x =>
 
 
 const funChain = f => g => x =>
+  f(g(x)) (x);
+
+
+const funChainf = g => f => x =>
   f(g(x)) (x);
 
 
@@ -1729,10 +1729,8 @@ const lensComp = tx => ty => Lens({
 });
 
 
-const lensCompn = tx =>
-  Object.assign(
-    ty => lensCompn(lensComp(tx) (ty)),
-    {runLens: tx.runLens}, [TYPE]: "Lens");
+const lensComp = tx =>
+  varArgs(arrFold(lensComp) (tx));
 
 
 /******************************************************************************
