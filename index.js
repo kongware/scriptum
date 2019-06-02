@@ -198,15 +198,13 @@ const liftAn = (map, ap) => {
 /***[Monad]*******************************************************************/
 
 
-const chainn = (chain, join, of, map) => {
-  const go = mf => mx => {
-    const mg = chain(mx) (x => map(f => f(x)) (mf));
+const chainn = chain => fm => {
+  const go = (ms, gm, i) =>
+    i === ms.length
+      ? gm
+      : chain(ms[i]) (x => go(ms, gm(x), i + 1));
 
-    return Object.assign(
-      go(mg), {get runChain() {return join(mg)}, [TYPE]: "Chain"});
-  };
-
-  return f => go(of(f));
+  return varArgs(ms => go(ms, fm, 0));
 };
 
 
@@ -238,15 +236,13 @@ const kleisliContran = chain => {
 };
 
 
-const liftMn = (chain, of, map) => {
-  const go = mf => mx => {
-    const mg = chain(mx) (x => map(f => f(x)) (mf));
+const liftMn = (chain, of) => f => {
+  const go = (ms, g, i) =>
+    i === ms.length
+      ? of(g)
+      : chain(ms[i]) (x => go(ms, g(x), i + 1));
 
-    return Object.assign(
-      go(mg), {runChain: mg, [TYPE]: "Chain"});
-  };
-
-  return f => go(of(f));
+  return varArgs(ms => go(ms, f, 0));
 };
 
 
