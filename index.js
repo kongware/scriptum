@@ -2248,6 +2248,10 @@ const tChainf = fm => mx =>
   Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
 
 
+const tJoin = mmx =>
+  Task((res, rej) => mmx.runTask(mx => mx.runTask(res, rej), rej));
+
+
 const tLiftM2 = f => mx => my =>
   tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
 
