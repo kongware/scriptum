@@ -56,7 +56,7 @@ What we want is a mechanism to abstract from direct recursion altogether. script
 
 scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion either directly with function composition or with the help of the yoneda lemma. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with side effects.
 
-### Thunks over Generators/Iteratos
+### Thunks over Generators/Iterators
 
 For the same reason scriptum facvors thunks to generators/iterators to obtain lazy evaluation.
 
