@@ -818,8 +818,8 @@ const varArgs = f => {
   const go = args =>
     Object.defineProperties(
       arg => go(args.concat(arg)), {
-        "runVarArgs": {get: function() {return f(args)}},
-        [TYPE]: {value: "VarArgs"}
+        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "VarArgs", enumerable: true}
       });
 
   return go([]);
