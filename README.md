@@ -24,7 +24,7 @@ Javascript lacks a non-trivial type system and all the guarantees that go along 
 
 scriptum relies heavily on coventions and it depends on the will and the discipline of the consumer to adhere to them.
 
-### Expresions over Statements
+### Expressions over Statements
 
 Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express everything as an expression. However, sometimes algorithms are more comprehensible if you have intermediate values and some structuring conditional statements. If statements are wrapped in functions and are thus local, you shouldn't be ashamed to use them.
 
