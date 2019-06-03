@@ -2369,14 +2369,14 @@ const writeChain = append => fm => mx =>
 
 const fileRead  = enc => path =>
   Task((res, rej) =>
-    fs.readFile(path, enc, (e, x) =>
-      e ? rej(e) : res(x)));
+    fs.readFile(path, enc, (e, s) =>
+      e ? rej(e) : res(s)));
 
 
 const fileScanDir = path =>
   Task((res, rej) =>
-    fs.readdir(path, (e, x) =>
-      e ? rej(e) : res(x)));
+    fs.readdir(path, (e, ss) =>
+      e ? rej(e) : res(ss)));
 
 
 /******************************************************************************
