@@ -1109,13 +1109,10 @@ const objUnion = o => p => {
 
 
 const objUnionx = o => p => {
-  for ([k, v] of objEntries(o))
-    q[k] = v;
-
   for ([k, v] of objEntries(p))
-    q[k] = v;
+    o[k] = v;
 
-  return q;
+  return p;
 };
 
 
