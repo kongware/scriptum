@@ -336,3 +336,4 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 - [ ] add arrApConst
 - [ ] add arrFoldM
 - [ ] add mapAccum
+- [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
