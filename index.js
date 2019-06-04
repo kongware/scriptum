@@ -1060,28 +1060,62 @@ const abstractNew = cons => (...args) =>
   new cons(...args);
 
 
-const factory = (...fields) => (...values) =>
+const invoke = k => (...args) => o =>
+  o[k] (...args);
+
+
+const objClone = o => {
+  const p = {};
+
+  for ([k, v] of objEntries(o))
+    p[k] = v;
+
+  return o;
+};
+
+
+const objFactory = (...fields) => (...values) =>
   values.reduce(
     (acc, value, i) =>
       (acc[fields[i]] = value, acc), {});
 
 
-const factory_ = entries =>
+const objFactory_ = entries =>
   entries.reduce(
     (acc, [k, v]) =>
       (acc[k] = v, acc), {});
 
 
-const invoke = k => (...args) => o =>
-  o[k] (...args);
-
-
-const path = def => {
+const objPath = def => { // TODO: revise
   go = o => Object.assign(
     k => go(o[k] || def),
     {runPath: o, [TYPE]: "Path"});
   
   return go;
+};
+
+
+const objUnion = o => p => {
+  const q = {};
+
+  for ([k, v] of objEntries(o))
+    q[k] = v;
+
+  for ([k, v] of objEntries(p))
+    q[k] = v;
+
+  return q;
+};
+
+
+const objUnionx = o => p => {
+  for ([k, v] of objEntries(o))
+    q[k] = v;
+
+  for ([k, v] of objEntries(p))
+    q[k] = v;
+
+  return q;
 };
 
 
