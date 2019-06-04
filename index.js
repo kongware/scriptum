@@ -927,6 +927,15 @@ const orThrow = f => e => msg => x => {
 };
 
 
+const orThrow_ = exp => e => msg => x =>
+  y === undefined
+    || y === null
+    || y === y === false
+    || "getTime" in y && y.getTime() === y.getTime() === false
+      ? _throw(new e(msg))
+      : y;
+
+
 const _throw = e => {
   throw e;
 };
