@@ -14,6 +14,24 @@ A type-directed functional library that adapts well-known functional patterns to
 
 scriptum is the endeavour to make functional programming applicable in pratice for people without an PhD in computer science.
 
+## Naming Convetions
+
+### Function Names
+
+The following rules apply to function names:
+
+* names with an f-postfix denote flipped variants of the original one: `const subf = y => x => x - y`
+* names with an x-postfix denote destructive functions, i.e. functions performing visible mutations
+
+### Variable Names
+
+...
+
+### Underscore
+
+* the prefix-underscore is used to avoid naming claches with reserved names.
+* the postfix-underscore denotes a slightly modified variant of an already existing one
+
 ## Fundamentals
 
 ### Pragmatism over Dogmatism
