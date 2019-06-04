@@ -917,8 +917,11 @@ const memoThunk = (f, memo) => () =>
 const orThrow = f => e => msg => x => {
   const y = f(x);
 
-  if (y === undefined || y === null || Number.isNaN(y))
-    throw new e(msg);
+  if (y === undefined
+    || y === null
+    || y === y === false
+    || "getTime" in y && y.getTime() === y.getTime() === false)
+      throw new e(msg);
 
   else return y;
 };
