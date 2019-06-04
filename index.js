@@ -914,26 +914,16 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
-const orThrow = f => e => msg => x => {
-  const y = f(x);
-
-  if (y === undefined
-    || y === null
-    || y === y === false
-    || y.getTime && y.getTime() === y.getTime() === false)
-      throw new e(msg);
-
-  else return y;
-};
+const orThrowAt = p => e => msg => x =>
+  p(x) ? _throw(new e(msg)) : x;
 
 
-const orThrow_ = e => msg => x =>
-  x === undefined
-    || x === null
-    || x === x === false
-    || x.getTime && x.getTime() === x.getTime() === false
-      ? _throw(new e(msg))
-      : x;
+const orThrowAtUnit = 
+  orThrowAt(x =>
+    x === undefined
+      || x === null
+      || x === x === false
+      || x.getTime && x.getTime() === x.getTime() === false;
 
 
 const _throw = e => {
