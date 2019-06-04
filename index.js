@@ -1127,7 +1127,7 @@ const pickProps = (...ks) => o =>
   ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
-const thisify => f => f({});
+const thisify => f => f({}); // mimics an implicit this operator
 
 
 /***[Iterators]**************************************************************/
