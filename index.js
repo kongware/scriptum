@@ -920,7 +920,7 @@ const orThrow = f => e => msg => x => {
   if (y === undefined
     || y === null
     || y === y === false
-    || "getTime" in y && y.getTime() === y.getTime() === false)
+    || y.getTime && y.getTime() === y.getTime() === false)
       throw new e(msg);
 
   else return y;
@@ -931,7 +931,7 @@ const orThrow_ = e => msg => x =>
   x === undefined
     || x === null
     || x === x === false
-    || "getTime" in x && x.getTime() === x.getTime() === false
+    || x.getTime && x.getTime() === x.getTime() === false
       ? _throw(new e(msg))
       : x;
 
