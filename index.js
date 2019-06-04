@@ -1127,6 +1127,9 @@ const pickProps = (...ks) => o =>
   ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
+const thisify => f => f({});
+
+
 /***[Iterators]**************************************************************/
 
 
