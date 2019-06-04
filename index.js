@@ -434,10 +434,6 @@ const arrChain = fm => xs =>
   xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
 
 
-const arrChainf = xs => fm =>
-  xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
-
-
 const arrJoin = xss => {
   let xs = [];
 
@@ -1016,10 +1012,6 @@ const funChain = f => g => x =>
   f(g(x)) (x);
 
 
-const funChainf = g => f => x =>
-  f(g(x)) (x);
-
-
 const funContra = pipe;
 
 
@@ -1384,10 +1376,6 @@ const defSeqF = x => ty =>
 
 
 const defChain = fm => mx =>
-  Defer(() => fm(mx.runDefer()).runDefer());
-
-
-const defChainf = mx => fm =>
   Defer(() => fm(mx.runDefer()).runDefer());
 
 
@@ -2088,11 +2076,7 @@ const readMap = f => tg =>
 /***[Monad]********************************************************************/
 
 
-const readChain = mg => fm =>
-  Reader(x => fm(mg.runReader(x)).runReader(x));
-
-
-const readChainf = fm => mg =>
+const readChain = fm => mg =>
   Reader(x => fm(mg.runReader(x)).runReader(x));
 
 
@@ -2243,12 +2227,14 @@ const tMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const tChain = mx => fm =>
+const tChain = fm => mx =>
   Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
 
 
-const tChainf = fm => mx =>
-  Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+const tChain2 = fm => mx => my =>
+  Task((res, rej) => mx.runTask(x =>
+    my.runTask(y =>
+      fm(x) (y).runTask(res, rej), rej), rej));
 
 
 const tJoin = mmx =>
