@@ -923,7 +923,7 @@ const orThrowAtUnit =
     x === undefined
       || x === null
       || x === x === false
-      || x.getTime && x.getTime() === x.getTime() === false;
+      || x.getTime && x.getTime() === x.getTime() === false);
 
 
 const _throw = e => {
