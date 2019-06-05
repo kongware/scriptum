@@ -76,15 +76,15 @@ scriptum promotes effect handling through monads, monad transformer stacks and t
 
 Recursion is a big win compared to imperative loops. However, in Javascript we have neither tail call optimization nor more advanced optimization strategies. So we are stuck with tail recursion implemented through trampolines, which are structurally just loops.
 
-What we want is a mechanism to abstract from direct recursion altogether. scriptum uses folds or more specifically catamorphisms et al. to separate the recursion from our algorithms and domain logic. These folds have to be implemented as a trampoline to each data type, though.
+What we want is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
 ### Loop Fusion over Generators/Iterators
 
-scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion either directly with function composition or with the help of the yoneda lemma. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with side effects.
+scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion either directly through function composition or with the yoneda lemma type. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with unwanted side effects.
 
-### Thunks over Generators/Iterators
+### Explicit Thunks over Generators/Iterators
 
-For the same reason scriptum facvors thunks to generators/iterators to obtain lazy evaluation.
+The same reason not to use generators/iterators applies to lazy evaluation. scriptum facilitates the use of explicit thunks inestead. Thunks are ultra fast and have a less clunky interface.
 
 # Custom Types
 
