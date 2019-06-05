@@ -88,15 +88,15 @@ The same reason not to use generators/iterators applies to lazy evaluation. scri
 
 # Custom Types
 
-There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript object, which is augmented with some properties useful for reasoning and debugging.
+There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
-Additionally a `structMemo` is provided to allow for memoized getters.
+Additionally a `structMemo` is provided to allow for memoized values.
 
-There are a couple of pre-defined custom types in order to use them with certain typeclass functions.
+There are a couple of pre-defined common types and typeclass function instances to use them polymorphically.
 
 # Typeclass Functions
 
-typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it also makes the respective constraints more obvious and is more powerful than implicit typclasses expressed through the prototype system.
+typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it makes the respective constraints explicit, which is mostly better than implicit.
 
 Here is a list of typeclasses scriptum does or will provide the necessary functions for:
 
@@ -326,6 +326,12 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 ### Events
 
 ...
+
+# Language Conflicts
+
+## `Object.assign`
+
+`Object.assign` calls every getter/setter strictly during copying. This is bad if you rely on their lazy evaluation property. There are a few combinators that replace the function adequately without notable performance penaalty.
 
 # TODO
 
