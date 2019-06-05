@@ -44,7 +44,7 @@ The following rules apply to function names:
 
 ### Pragmatism over Dogmatism
 
-Javascript lacks a non-trivial type system and all the guarantees that go along with it and it lacks functional data types. As a consequence mutations and reassignments are allowed and sometimes evene necessary, as long as they remain local, i.e. are not observable in the parent scope.
+Javascript lacks a non-trivial type system and all the guarantees that go along with it and it lacks functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
 
 ### Convention over Coercion
 
@@ -52,15 +52,15 @@ scriptum relies heavily on coventions and on the willingness and discipline of c
 
 ### Expressions over Statements
 
-Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branchers with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
+Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
 ### Everything is Curried
 
-scriptum prefers curried to multi-argument functions. This drastically simplifies function application, partial application in particular. However, we isomorphicly transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
+scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
 
 ### Unions of Records
 
-You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from the top to the bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
+You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
 
 ### Directory Passing over Prototypes
 
@@ -131,7 +131,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 ## Avoid Nesting
 
-scriptum allows for a flat syntax without nested function calls and (almost) without dot-notation:
+scriptum allows for a flat composition syntax without nested function calls and (almost) without dot-notation:
 
 ```Javascript
 const inc = x => x + 1,
@@ -140,15 +140,16 @@ const inc = x => x + 1,
 varComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
 varPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
 ```
-special `varComp`/`varPipe` lazily take an infinite number of function and compose them. Only if you invoke the `runVarComp` property, the composition is actually evaluated. scriptum provides such combinators specialized for...
+`varComp`/`varPipe` lazily take an infinite number of functions and compose them. Only when you invoke the `runVarComp` property, the composition is actually evaluated. scriptum provides such combinators specialized for...
 
+* function composition
 * applicative lifting
 * monadic lifting
 * monadic chains
 * kleisli composition
 * optical composition
 
-and probably more in the future.
+and probably others in the future.
 
 Additionally, you can easily create your own variadic functions by using the `varArgs` combinator:
 
