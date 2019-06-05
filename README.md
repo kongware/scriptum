@@ -64,13 +64,13 @@ You should consider modelling your business domain in the form of alternatives r
 
 ### Directory Passing over Prototypes
 
-scriptum doesn't rely on Javascript's prototype system. As a consequence, scriptum uses directory passing, i.e. typeclasses are passed as normal arguments to functions. As a convetion, typeclass arguments are placed leftmost in the argument list and if the function expects several typeclasses you can bundle them for a multiple argument function call. This is actually the only exception where scriptum allows multiple arguments.
+scriptum doesn't rely on Javascript's prototype system but allows for ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the argument list and if the function expects several typeclasses you can bundle them by a multiple argument function call.
 
-Directory passing is provided to allow for ad-hoc polymorphism in Javascript in a principled manner.
+You may interject that Javascript naturally contains ad-hoc polymorphism, since it is untyped. This is true, but it is an unprincipled sort of polymorphism and doesn't guide you during coding.
 
 ### Effect Handling
 
-scriptum promotes effect handling through monads, monad transformer stacks and tagless final encodings. Impure computations themselves are wrapped in thunks so that their evaluation can be temporally deferred. This way we can sort of separate the pure from the impure part of our program, which is great for equational reasoning of the pure portion.
+scriptum promotes effect handling through monads, monad transformer stacks and tagless final encodings. Impure computations themselves are wrapped in functions or thunks so that their evaluation can be temporally deferred. This way we can separate the pure from the impure part of our program, which enables equational reasoning for the pure parts.
 
 ### Folds over Recursion over Loops
 
