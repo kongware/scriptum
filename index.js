@@ -334,6 +334,10 @@ const arrFold = alg => zero => xs => { // aka catamorphism
 };
 
 
+const arrFoldM = (append, empty) =>
+  arrFold(append) (empty);
+
+
 const arrFoldr = alg => zero => xs => {
   const stack = [];
   let acc = zero;
@@ -358,6 +362,21 @@ const arrFoldWhile = alg => zero => xs => {
 
   return acc.runStep;
 };
+
+
+const arrHisto = alg => zero =>
+  comp(headH) (history(alg) (zero));
+
+
+const arrHylo = alg => zero => coalg =>
+  comp(arrFold(alg) (zero)) (arrAna(coalg));
+
+
+const arrMutu = alg1 => alg2 => zero1 => zero2 =>
+  comp(snd)
+    (arrFold(([acc1, acc2]) => x =>
+      [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
+        ([zero1, zero2]));
 
 
 const arrPara = alg => zero => xs => {
@@ -389,8 +408,7 @@ const arrParaWhile = alg => zero => xs => {
 };
 
 
-const arrHylo = alg => zero => coalg =>
-  comp(arrFold(alg) (zero)) (arrAna(coalg));
+const arrSum = arrFoldM(sumAppend, sumEmpty);
 
 
 const arrZygo = alg1 => alg2 => zero1 => zero2 =>
@@ -398,17 +416,6 @@ const arrZygo = alg1 => alg2 => zero1 => zero2 =>
     (arrFold(([acc1, acc2]) => x =>
       [alg1(acc1) (x), alg2(acc1) (acc2) (x)])
         ([zero1, zero2]));
-
-
-const arrMutu = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFold(([acc1, acc2]) => x =>
-      [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
-
-
-const arrHisto = alg => zero =>
-  comp(headH) (history(alg) (zero));
 
 
 /***[Functor]*****************************************************************/
