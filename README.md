@@ -178,9 +178,11 @@ varSum(1) (2) (3) (4).runVarArgs // 10
 
 ### Catamorphism
 
-A catamorphism is a generalization of a fold/reduction. For some data types though, this rule doesn't apply, because both the fold and the catamorphism coincide. Consequently, for these data types there only exists a fold. For any non-primitive type its catamorphisms is the dual of its constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Therefore catamorphisms represent the notion of destructuring data types.
+For some datatypes a catamorphism is a generalization of a fold/reduction (e.g. trees). For others both coincide (e.g. `Array`). And yet others don't have a fold at all (e.g. `Option`). 
 
-scriptum implements catamorphisms as trampolines mostly to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
+For any non-primitive type the associated catamorphism is the dual of the constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Hence catamorphisms represent the notion of destructuring data types.
+
+scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
 
 ```Javascript
 const arrFold = alg => zero => xs => {
@@ -223,7 +225,7 @@ arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
 `arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
 
-Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic through `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
+Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
 
 ### Paramorphism
 
@@ -267,6 +269,20 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 
 ## Functional Optics
 
+### Lense
+
+...
+
+### Prism
+
+...
+
+### Fold
+
+...
+
+### Traversal
+
 ...
 
 ## Effect Handling
@@ -279,11 +295,11 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 
 ...
 
-### Freer Monads
+### Tagless Final Encoding
 
 ...
 
-### Tagless Final Encoding
+### Freer Monads
 
 ...
 
@@ -309,11 +325,11 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 
 ...
 
-### Getter/Setter
+### Getters/Setters
 
 ...
 
-## Persistent Data Structure
+## Persistent Data Structures
 
 ...
 
@@ -351,6 +367,5 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 - [ ] add Reference Type (value objects)
 - [ ] add Cont Monad + delimited continuations (shift/reset)
 - [ ] add arrApConst
-- [ ] add arrFoldM
 - [ ] add mapAccum
 - [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
