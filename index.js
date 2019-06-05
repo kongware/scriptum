@@ -338,7 +338,7 @@ const arrFoldM = (append, empty) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => {
+const arrFoldr = alg => zero => xs => { // TODO: make non-strict
   const stack = [];
   let acc = zero;
 
@@ -1124,7 +1124,7 @@ const pickProps = (...ks) => o =>
   ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
-const thisify => f => f({}); // mimics an implicit this operator
+const thisify => f => f({}); // mimics this context
 
 
 /***[Iterators]**************************************************************/
