@@ -89,7 +89,7 @@ const union = type => (tag, x) => ({
 });
 
 
-const match = ({[TYPE]: type, tag}, o) =>
+const match = ({[TYPE]: type, [TAG]: tag}, o) =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(tag in o) ? _throw(new UnionError("invalid tag"))
     : o[tag];
@@ -183,22 +183,14 @@ const foldMap = (fold, append, empty) => f =>
 /***[Applicative]*************************************************************/
 
 
-const varLiftA = (map, ap) => { // TODO: replace recursion with a fold
-  const go = tf => tx => {
-    const tg = ap(tf) (tx);
-
-    return Object.assign(
-      go(tg), {runAp: tg, [TYPE]: "Ap"});
-  };
-
-  return f => tx => go(map(f) (tx));
-};
+const varLiftA = (map, ap) => f => tx =>
+  varArgs(arrFold(ap) (map(f) (tx)));
 
 
 /***[Monad]*******************************************************************/
 
 
-const varChain = chain => fm => { // TODO: replace recursion with a fold
+const varChain = chain => fm => { // TODO: derive from varArgs
   const go = (ms, gm, i) =>
     i === ms.length
       ? gm
@@ -212,7 +204,7 @@ const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisli = chain => {
+const varKleisli = chain => { // TODO: derive from varArgs
   const go = fm =>
     Object.assign(
       gm => go(x => chain(fm) (gm(x))),
@@ -226,7 +218,7 @@ const kleisliContra = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliContra = chain => {
+const varKleisliContra = chain => { // TODO: derive from varArgs
   const go = gm =>
     Object.assign(
       fm => go(x => chain(fm) (gm(x))),
@@ -236,7 +228,7 @@ const varKleisliContra = chain => {
 };
 
 
-const varLiftM = (chain, of) => f => { // TODO: replace recursion with a fold
+const varLiftM = (chain, of) => f => { // TODO: derive from varArgs
   const go = (ms, g, i) =>
     i === ms.length
       ? of(g)
