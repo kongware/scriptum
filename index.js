@@ -179,28 +179,24 @@ const tramp = f => (...args) => {
 /***[Foldable]****************************************************************/
 
 
-const foldMap = (fold, append, empty) => f =>
+const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 
 
 /***[Applicative]*************************************************************/
 
 
-const varLiftA = (map, ap) => f => tx =>
+const varLiftA = ({map, ap}) => f => tx =>
   varArgs(arrFold(ap) (map(f) (tx)));
 
 
 /***[Monad]*******************************************************************/
 
 
-const varChain = chain => fm => { // TODO: derive from varArgs
-  const go = (ms, gm, i) =>
-    i === ms.length
-      ? gm
-      : chain(ms[i]) (x => go(ms, gm(x), i + 1));
-
-  return varArgs(ms => go(ms, fm, 0));
-};
+const varChain = (map, of, chain, join) => fm =>
+  varArgs(xs =>
+    join(arrFold(mg => mx =>
+      chain(g => map(g) (mx)) (mg)) (of(fm)) (xs)));
 
 
 const kleisli = chain => fm => gm => x =>
@@ -231,14 +227,9 @@ const varKleisliContra = chain => { // TODO: derive from varArgs
 };
 
 
-const varLiftM = (chain, of) => f => { // TODO: derive from varArgs
-  const go = (ms, g, i) =>
-    i === ms.length
-      ? of(g)
-      : chain(ms[i]) (x => go(ms, g(x), i + 1));
-
-  return varArgs(ms => go(ms, f, 0));
-};
+const varLiftM = (map, of, chain) => f =>
+  varArgs(arrFold(mg => mx =>
+    chain(g => map(g) (mx)) (mg)) (of(f)));
 
 
 /******************************************************************************
@@ -329,7 +320,7 @@ const arrFold = alg => zero => xs => { // aka catamorphism
 };
 
 
-const arrFoldM = (append, empty) =>
+const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
@@ -951,7 +942,7 @@ const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
 
-const pcurry = (f, n, ...args) => {
+const pcurry = (f, n, ...args) => { // TODO: revise
   const go = (acc, m) =>
     m === 0
       ? f(...args, ...acc)
@@ -1323,18 +1314,18 @@ const Comp = struct("Comp") (Comp => ttx => Comp(ttx));
 /***[Applicative]*************************************************************/
 
 
-const compOf = (of1, of2) => x =>
+const compOf = ({of1, of2}) => x =>
   Comp(of1(of2(x)));
 
 
-const compAp = (map1, ap1, ap2) => ttf => ttx =>
+const compAp = ({map1, ap1, ap2}) => ttf => ttx =>
   Comp(ap1(map1(ap2) (ttf.runComp)) (ttx.runComp));
 
 
 /***[Functor]*****************************************************************/
 
 
-const compMap = (map1, map2) => f => ttx =>
+const compMap = ({map1, map2}) => f => ttx =>
   Comp(map1(map2(f)) (ttx.runComp));
 
 
@@ -1554,6 +1545,8 @@ const firstPrepend = lastAppend;
 **********************************[ HISTORY ]**********************************
 ******************************************************************************/
 
+
+// part of the histomorpishm
 
 const History = union("History");
 
