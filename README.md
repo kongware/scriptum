@@ -395,7 +395,7 @@ take(3)(list); // stack safe
 ```
 although `take` isn't tail recursive it is stack safe no matter how long the list is. Lazy getters give us tail call optimization modulo cons for free!
 
-scriptum utilizes lazy getters to allow for a simple form of pattern matching on tagged unions:
+scriptum utilizes lazy getters to allow for a simple yet concise form of pattern matching on tagged unions:
 
 ```Javascript
 const match = ({[TYPE]: type, [TAG]: tag}, o) =>
