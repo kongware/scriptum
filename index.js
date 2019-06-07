@@ -930,14 +930,8 @@ const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
 
-const pcurry = (f, n, ...args) => { // TODO: revise
-  const go = (acc, m) =>
-    m === 0
-      ? f(...args, ...acc)
-      : x => go((acc.push(x), acc), m - 1);
-
-  return go([], n);
-};
+const partialCurry = (f, ...args) =>
+  varArgs(args_ => f(...args, ...args_));
 
 
 /***[Predicate]***************************************************************/
