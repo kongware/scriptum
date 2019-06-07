@@ -66,8 +66,9 @@ The same reason not to use generators/iterators applies to lazy evaluation. scri
 
 The following rules apply to function names:
 
-* a name with an f-postfix denotes a function with its arguments flipped: `const subf = y => x => x - y`
-* a name with an x-postfix denotes a destructive function, i.e. one that performs mutations visible in the parent scope
+* a name with an `f`-postfix denotes a function with its arguments flipped: `const subf = y => x => x - y`
+* a name with an `x`-postfix denotes a destructive function, i.e. one that performs mutations visible in the parent scope
+* a function name with an `var`-prefix denotes most likely a variadic one
 
 ## Variable Names
 
