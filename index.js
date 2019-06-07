@@ -52,6 +52,9 @@ class ExtendableError extends Error {
 
 
 class ScriptumError extends ExtendableError {};
+    
+
+/***[Derived]*****************************************************************/
 
 
 class UnionError extends ScriptumError {};
