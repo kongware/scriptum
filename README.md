@@ -184,7 +184,7 @@ varSum(1) (2) (3) (4).runVarArgs // 10
 ```
 ## Structural Folding
 
-### Catamorphism
+### Catamorphism et al.
 
 For some datatypes a catamorphism is a generalization of a fold/reduction (e.g. trees). For others both coincide (e.g. `Array`). And yet others don't have a fold at all (e.g. `Option`). 
 
@@ -235,37 +235,17 @@ arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 
 Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
 
-### Paramorphism
+* Paramorphism
+* Hylomorphism
+* Zygomorphism
+* Mutumorphism
+* Histomorphism
 
+### Anamorphism et al.
 ...
 
-### Anamorphism
-
-...
-
-### Apomorphism
-
-...
-
-### Hylomorphism
-
-...
-
-### Zygomorphism
-
-...
-
-### Mutumorphism
-
-...
-
-### Histomorphism
-
-...
-
-### Futumorphism
-
-...
+* Apomorphism
+* Futumorphism
 
 ## Tail and Mutual Recursion with Trampolines
 
@@ -319,17 +299,43 @@ Maybe you've noticed that the given examples are based on a left fold, i.e. a le
 
 ### Functions
 
-...
+Functions generalize expressions by substituting subexpressions with arguments. As an effect such generalized expressions are only evaluated when all arguments are provided. While this is a simple form of lazy evaluation, the passed arguments are strictly evaluated.
 
-### ETA Conversion
+### ETA Abstraction
 
-...
+In a strictly evaluated language like Javascript ETA abstraction is a way to add some extra lazyness to expressions:
 
+```Javascript
+const fold = f => acc => xs =>
+  xs.reduce((acc_, x) => f(acc_) (x), acc);
+  
+const sum = fold(xs => y =>
+  (xs.push(y + xs[xs.length - 1]), xs)) ([0]);
+
+const sumEta = xs =>
+  fold(ys => y => (ys.push(y + ys[ys.length - 1]), ys)) ([0]) (xs);
+
+sum([1,2,3]); // [1,3,6]
+sum([1,2,3]); // [1,3,6,7,9,12]
+
+sumEta([1,2,3]); // [1,3,6]
+sumEta([1,2,3]); // [1,3,6]
+```
 ### Function Composition
 
 ...
 
+### Generators
+
+...
+
 ### Explicit Thunks
+
+#### With Memoization
+
+...
+
+#### Without Memoization
 
 ...
 
