@@ -351,19 +351,23 @@ const main = mapk(inck) ([1,2,3]); // still lazy
 
 main(id); // [2,3,4]
 ```
-With CPS we can define lazily evaluated function call trees. However, CPS encoded is also quickly convoluted and difficult to comprehend - well, unless you abstract it with a suitable monad or applicative respectively...
+With CPS we can define lazily evaluated function call trees. However, CPS encodings are also quickly convoluted and difficult to comprehend - well, unless you abstract it with a suitable monad or applicative respectively and there are a lot of instances based on one CPS form or another.
 
 ### Generators
 
-...
+Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible, because there is an alternative with a less clunky interface.
 
 ### Explicit Thunks
 
-#### With Memoization
+Explicit Thunks are the way to go to obtain real lazy evaluation in Javascript. Thunks are just functions without arguments. There is nothing special about them.
+
+scriptum deinfes two distinct types for lazy evaluation with explicit thunks: `Defer` and `Lazy`. Because both of them implement the applicative and monad typeclass thunks aren't really that explicit in scriptum but wrapped in a applicative or monadic type respectively.
+
+#### Non-Memoized Thunks with `Defer`
 
 ...
 
-#### Without Memoization
+#### Memoized Thunks with `Lazy`
 
 ...
 
