@@ -203,28 +203,16 @@ const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisli = chain => { // TODO: derive from varArgs
-  const go = fm =>
-    Object.assign(
-      gm => go(x => chain(fm) (gm(x))),
-      {runKleisli: fm, [TYPE]: "Kleisli"});
-
-  return go;
-};
+const varKleisli = chain => fm =>
+  varArgs(arrFold(gm => hm => x => chain(gm) (hm(x))) (fm));
 
 
 const kleisliContra = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliContra = chain => { // TODO: derive from varArgs
-  const go = gm =>
-    Object.assign(
-      fm => go(x => chain(fm) (gm(x))),
-      {runKleisli: gm, [TYPE]: "KleisliContra"});
-
-  return go;
-};
+const varKleisliContra = chain => fm =>
+  varArgs(arrFold(hm => gm => x => chain(gm) (hm(x))) (fm));
 
 
 const varLiftM = ({map, of, chain}) => f =>
