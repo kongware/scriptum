@@ -193,7 +193,7 @@ const varLiftA = ({map, ap}) => f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const varChain = (map, of, chain, join) => fm =>
+const varChain = ({map, of, chain, join}) => fm =>
   varArgs(xs =>
     join(arrFold(mg => mx =>
       chain(g => map(g) (mx)) (mg)) (of(fm)) (xs)));
@@ -227,7 +227,7 @@ const varKleisliContra = chain => { // TODO: derive from varArgs
 };
 
 
-const varLiftM = (map, of, chain) => f =>
+const varLiftM = ({map, of, chain}) => f =>
   varArgs(arrFold(mg => mx =>
     chain(g => map(g) (mx)) (mg)) (of(f)));
 
