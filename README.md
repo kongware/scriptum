@@ -373,9 +373,48 @@ scriptum deinfes two distinct types for lazy evaluation with explicit thunks: `D
 
 ### Getters/Setters
 
+Getters and setters are just thunks (and functions) and inherit their lazy traits. Why do they have their own section then? Because they allow us to introduce lazyness into Javascript without altering the calling side, because they are treated as normal properties:
+
+```Javascript
+const cons = (head, tail) => ({head, tail});
+
+const list = cons(1, cons(2, cons(3, cons(4, cons(5, null)))));
+
+const take = n =>
+  n === 0
+    ? xs => null
+    : xs => xs && {
+      head: xs.head,
+      get tail() {
+          delete this.tail;
+          return this.tail = take(n - 1) (xs.tail);
+      }
+};
+
+take(3)(list); // stack safe
+```
+although `take` isn't tail recursive it is stack safe no matter how long the list is. Lazy getters give us tail call optimization modulo cons for free!
+
+scriptum utilizes lazy getters to allow for a simple form of pattern matching on tagged unions:
+
+```Javascript
+const match = ({[TYPE]: type, [TAG]: tag}, o) =>
+  o.type !== type ? _throw(new UnionError("invalid type"))
+    : !(tag in o) ? _throw(new UnionError("invalid tag"))
+    : o[tag];
+    
+const optCata = none => some => tx =>
+  match(tx, {
+    type: "Option",
+    None: none,
+    get Some() {return some(tx.runOption)}
+  });
+```
+## Persistent Data Structures
+
 ...
 
-## Persistent Data Structures
+### Hash Array Mapped Trie (HAMT)
 
 ...
 
