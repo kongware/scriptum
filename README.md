@@ -10,7 +10,7 @@ This lib is based on my work, i.e. I am confident that it will be bullet proofed
 
 A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idiomatic for Javascript at some point.
 
-## Mission Statement
+## Mission Statementit 
 
 scriptum is the endeavour to make functional programming applicable in Javascript in pratice for normal people.
 
@@ -99,7 +99,7 @@ There are a couple of pre-defined common types and typeclass function instances 
 typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it makes the respective constraints explicit and thus more clearly.
 
 Typeclass constraints are always defined as the leftmost formal parameter and the corresponding argument is passed as a type dictionary: `const arrFoldMap = foldMap({arrFold, arrAppend, arrEmpty})`
-```
+
 Here is a list of typeclasses scriptum does or will provide the necessary functions for:
 
 * Alt
