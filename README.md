@@ -323,7 +323,35 @@ sumEta([1,2,3]); // [1,3,6]
 ```
 ### Function Composition
 
-...
+From another perspective you can think of a function composition as a function `f` that takes a lazily evaluated argument `g`, which is stuck in another function `x => f(g(x))` and thus only evaluated if the missing argument is passed:
+
+```Javascript
+const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the mechanism
+```
+In lazily evaluated languages with call by need or call by name evaluation strategy lazily evaluated arguments are the default.
+
+### Continuation Passing Style
+
+We can go beyond that by encoding functions in continuation passing style:
+
+```Javascript
+const inck = x => k => k(x + 1),
+  id = x => x;
+
+const mapk = f => xs => k => {
+  const go = (acc, i) =>
+    i === xs.length
+    ? acc
+    : f(xs[i]) (x => go(acc.concat(x), i + 1));
+  
+  return k(go([], 0));
+};
+
+const main = mapk(inck) ([1,2,3]); // still lazy
+
+main(id); // [2,3,4]
+```
+With CPS we can define lazily evaluated function call trees. However, CPS encoded is also quickly convoluted and difficult to comprehend - well, unless you abstract it with a suitable monad or applicative respectively...
 
 ### Generators
 
