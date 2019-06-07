@@ -98,7 +98,12 @@ There are a couple of pre-defined common types and typeclass function instances 
 
 typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it makes the respective constraints explicit and thus more clearly.
 
-Typeclass constraints are always defined as the leftmost formal parameter and the corresponding argument is passed as a type dictionary: `const arrFoldMap = foldMap({arrFold, arrAppend, arrEmpty})`
+Typeclass constraints of ad-hoc polymorphic functions are always defined as the leftmost formal parameter and the corresponding argument is passed as a type dictionary:
+
+```Javascript
+const arrFoldMap = foldMap({arrFold, arrAppend, arrEmpty})`;
+```
+As with any plain old Javascript `Object` the property order doesn't matter.
 
 Here is a list of typeclasses scriptum does or will provide the necessary functions for:
 
