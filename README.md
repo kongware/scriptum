@@ -251,7 +251,7 @@ More unfolds will follow:
 * Apomorphism (unfold with early termination)
 * Futumorphism (unfold with access to values still to be computed)
 
-## Tail and Mutual Recursion with Trampolines
+## Stack-Safe Recursion with Trampolines
 
 ### Direct Recursion in Tail Position
 
@@ -324,6 +324,10 @@ const odd = n =>
 trampoline(even) (1e6 + 1)); // false
 ```
 As you can see the trampoline API leaks on the calling site and there is nothing we can do about it. Stac-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
+
+### Non-Tail Recursion
+
+Handling non-tail recursive algorithms with trampolines and explicit stacks is a matter of research for me right now.
 
 ## Transducer
 
@@ -518,6 +522,48 @@ const optCata = none => some => tx =>
 
 ...
 
+## Various Combinators
+
+### `infix`
+
+...
+
+### `comp2nd`
+
+...
+
+### `memoThunk`
+
+...
+
+### `orThrowAt`
+
+...
+
+### `partial`/`partialCurry`
+
+...
+
+### `_let`
+
+...
+
+### `orDef`
+
+...
+
+### `invoke`
+
+...
+
+### `objPath`
+
+...
+
+### `thisify`
+
+...
+
 # Language Conflicts
 
 ## `Object.assign`
@@ -530,7 +576,6 @@ const optCata = none => some => tx =>
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
 - [ ] add functional optics (Iso, Fold, Traversal)
-- [ ] add array morphisms: ana/apo/hylo/zygo/mutu/histo/futu (not joking :)
 - [ ] add common transducer
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access List
@@ -538,9 +583,6 @@ const optCata = none => some => tx =>
 - [ ] add Zipper data type
 - [ ] add useful Comonads
 - [ ] add Monad Transformers
-- [ ] add Yoneda/Coyoneda
 - [ ] add Reference Type (value objects)
-- [ ] add Cont Monad + delimited continuations (shift/reset)
-- [ ] add arrApConst
 - [ ] add mapAccum
 - [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
