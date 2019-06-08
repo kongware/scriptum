@@ -586,3 +586,6 @@ const optCata = none => some => tx =>
 - [ ] add Reference Type (value objects)
 - [ ] add mapAccum
 - [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
+- [ ] add union/intersect/diff/leftDiff/rightDiff
+- [ ] add dedupe
+- [ ] add sort with `on` combinator
