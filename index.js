@@ -235,7 +235,7 @@ const varLiftM = ({map, of, chain}) => f =>
 /***[Applicative]*************************************************************/
 
 
-const arrAp = fs => xs =>
+const arrAp = fs => xs => // TODO: revise
   fs.reduce((acc, f) =>
     acc.concat(xs.map(x => f(x))), []);
 
@@ -405,7 +405,7 @@ const arrSeqF = x => xs => {
 /***[Monad]*******************************************************************/
 
 
-const arrChain = fm => xs =>
+const arrChain = fm => xs => // TODO: revise
   xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
 
 
@@ -593,7 +593,7 @@ const arrModOr = def => (i, f) => xs => {
 };
 
 
-const arrPartition = f => xs =>
+const arrPartition = f => xs => // TODO: revise
   xs.reduce((m, x) =>
     _let((r = f(x), ys = m.get(r) || []) =>
       m.set(r, (ys.push(x), ys))), new Map());
