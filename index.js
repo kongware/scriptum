@@ -1331,7 +1331,7 @@ const contAp = tf => tx =>
 
 
 const contLiftA2 = f => tx => ty =>
-  Cont(k => contAp(contMap(f) (tx)) (ty));
+  contAp(contMap(f) (tx)) (ty);
 
 
 const contOf = x => Cont(k => k(x));
@@ -1371,7 +1371,7 @@ const contJoin = mmx =>
 
 
 const contLiftM2 = f => mx => my =>
-  Cont(k => mx.runCont(x => ty.runCont(y => k(f(x) (y)))));
+  Cont(k => mx.runCont(x => my.runCont(y => k(f(x) (y)))));
 
 
 /******************************************************************************
