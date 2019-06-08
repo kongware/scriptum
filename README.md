@@ -351,7 +351,7 @@ const main = mapk(inck) ([1,2,3]); // still lazy
 
 main(id); // [2,3,4]
 ```
-With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this topic though.
+With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this promissing topic.
 
 ### Generators
 
@@ -368,10 +368,10 @@ For the time being scriptum offers two distinct types for non-strictly evaluated
 `Defer` wraps an expression in a thunk and evaluates it on each call:
 
 ```Javascript
-const lazyExp = Defer(() => (console.log("evaluate..."), 5 * 5));
+const deferredExp = Defer(() => (console.log("evaluate..."), 5 * 5));
 
-lazyExp.runDefer(); // evaluate...25
-lazyExp.runDefer(); // evaluate...25
+deferredExp.runDefer(); // evaluate...25
+deferredExp.runDefer(); // evaluate...25
 ```
 #### Memoized Thunks with `Lazy`
 
