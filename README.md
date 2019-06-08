@@ -422,6 +422,10 @@ const optCata = none => some => tx =>
     get Some() {return some(tx.runOption)}
   });
 ```
+## Delimited Continuations
+
+...
+
 ## Persistent Data Structures
 
 ...
