@@ -522,7 +522,7 @@ const optCata = none => some => tx =>
 
 ...
 
-## Various Combinators
+## Various Special Combinators
 
 ### `infix`
 
