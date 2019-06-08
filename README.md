@@ -528,42 +528,93 @@ const optCata = none => some => tx =>
 
 ...
 
+```Javascript
+```
+
 ### `comp2nd`
 
 ...
+
+```Javascript
+```
 
 ### `memoThunk`
 
 ...
 
+```Javascript
+```
+
 ### `orThrowAt`
 
 ...
+
+```Javascript
+```
 
 ### `partial`/`partialCurry`
 
 ...
 
+```Javascript
+```
+
 ### `_let`
 
-...
+mimics let bindings as expressions and thus leads to concise function bodies:
+
+```Javascript
+const orDef = f => def => x => {
+  const y = f(x);
+    
+  if (y === undefined || y === null || Number.isNaN(y))
+    return def;
+
+  else return y;
+};
+```
+becomes to
+
+```Javascript
+const orDef = f => def => x =>
+  _let((y = f(x)) => 
+    y === undefined || y === null || Number.isNaN(y)
+      ? def : y);
+```
 
 ### `orDef`
 
 ...
 
+```Javascript
+```
+
 ### `invoke`
 
 ...
+
+```Javascript
+```
 
 ### `objPath`
 
 ...
 
+```Javascript
+```
+
 ### `thisify`
 
-...
+Creates a `this`-like context for "methods" depending on other properties. Please recall that as decent functional programmers we don't depend on `this`/`new` directly:
 
+```Javascript
+const p = thisify(o => ({
+  o.foo = 2;
+  o.bar = x => x + o.foo;
+}));
+
+p.bar(3); // 5
+```
 # Language Conflicts
 
 ## `Object.assign`
