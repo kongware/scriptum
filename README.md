@@ -326,7 +326,7 @@ sumEta([1,2,3]); // [1,3,6]
 From another perspective you can think of a function composition as a function `f` that takes an argument `g`, which is stuck in another function `x => f(g(x))` and thus only evaluated if the final argument is passed:
 
 ```Javascript
-const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the mechanism
+const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the idea
 ```
 In lazily evaluated languages with call by need or call by name evaluation strategy such lazily evaluated arguments are the default.
 
@@ -351,26 +351,38 @@ const main = mapk(inck) ([1,2,3]); // still lazy
 
 main(id); // [2,3,4]
 ```
-With CPS we can define lazily evaluated function call trees. However, CPS encodings are also quickly convoluted and difficult to comprehend - well, unless you abstract them with a suitable monad or applicative respectively. There are actually a lot of instances based on a form of CPS.
+With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this topic though.
 
 ### Generators
 
-Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible, because there is an alternative with a less clunky interface.
+Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated structures.
 
 ### Explicit Thunks
 
-Explicit Thunks are the way to go to obtain real lazy evaluation in Javascript. Thunks are just functions without arguments. There is nothing special about them.
+There may be some rare cases where we need explicit thunks to stop an expression from being immediately evaluated. This is another topic I need to examine in depth.
 
-scriptum deinfes two distinct types for lazy evaluation with explicit thunks: `Defer` and `Lazy`. Because both of them implement the applicative and monad typeclass thunks aren't really that explicit in scriptum but wrapped in a applicative or monadic type respectively.
+For the time being scriptum offers two distinct types for non-strictly evaluated expressions.
 
 #### Non-Memoized Thunks with `Defer`
 
-...
+`Defer` wraps an expression in a thunk and evaluates it on each call:
 
+```Javascript
+const lazyExp = Defer(() => (console.log("evaluate..."), 5 * 5));
+
+lazyExp.runDefer(); // evaluate...25
+lazyExp.runDefer(); // evaluate...25
+```
 #### Memoized Thunks with `Lazy`
 
-...
+`Layz` wraps an expression in a thunk and evaluates it only once:
 
+```Javascript
+const lazyExp = Lazy(() => (console.log("evaluate..."), 5 * 5));
+
+lazyExp.runLazy; // evaluate...25
+lazyExp.runLazy; // 25
+```
 ### Getters/Setters
 
 Getters and setters are just thunks (and functions) and inherit their lazy traits. Why do they have their own section then? Because they allow us to introduce lazyness into Javascript without altering the calling side, because they are treated as normal properties:
