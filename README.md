@@ -157,8 +157,14 @@ varPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
 * kleisli composition
 * optical composition
 
-and probably others in the future.
+and probably others in the future. Here is another example for applicative lifting:
 
+```Javascript
+const add = x => y => x + y;
+
+varLiftA(add) (Some(2)) (Some(3)); // Some(5)
+varLiftA(add) (None) (Some(3)); // None
+```
 Additionally, you can easily create your own variadic functions by using the `varArgs` combinator:
 
 ```Javascript
@@ -247,7 +253,77 @@ More unfolds will follow:
 
 ## Tail and Mutual Recursion with Trampolines
 
-...
+### Direct Recursion in Tail Position
+
+scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline:
+
+```Javascript
+const loop = f => {
+  let step = f();
+
+  while (step && step.type === recur)
+    step = f(...step.args);
+
+  return step;
+};
+
+const recur = (...args) =>
+  ({type: recur, args});
+```
+Now we don't have to bother with stack overflows any longer but can utilize recursion when we see fit:
+
+```Javascript
+const stackSafeFold = f => acc_ => xs =>
+  loop((acc = acc_, i = 0) =>
+    i === xs.length
+      ? acc
+      : f(acc) (xs[i]) (acc_ => recur(acc_, i + 1)));
+
+const xs = Array(1e6)
+  .fill(0)
+  .map((x, i) => i);
+  
+const stackSafeSum = stackSafeFold(x => y => k => x < Infinity ? k(x + y) : x) (0);
+
+stackSafeSum(xs); // 499999500000
+```
+This works, because `stackSafeFold` implements direct recursion in tail position.
+
+### Indirect Recursion in Tail Position
+
+For mutual recursion we need a more complex trampoline:
+
+```Javascript
+const tramp = f => (...args) => {
+  let step = f(...args);
+
+  while (step && step.type === recur) {
+    let [f, ...args_] = step.args;
+    step = f(...args_);
+  }
+
+  return step;
+};
+
+const recur = (...args) =>
+  ({type: recur, args});
+```
+Now we can express mutual recursion in a stack-safe manner too:
+
+```Javascript
+const even = n =>
+  n === 0
+    ? true
+    : recur(odd, n - 1);
+
+const odd = n =>
+  n === 0
+    ? false
+    : recur(even, n - 1);
+
+trampoline(even) (1e6 + 1)); // false
+```
+As you can see the trampoline API leaks on the calling site and there is nothing we can do about it. Stac-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
 
 ## Transducer
 
