@@ -1334,16 +1334,6 @@ const constMap = f => tx =>
 const Defer = struct("Defer") (Defer => thunk => Defer(thunk));
 
 
-/***[Alternative]*************************************************************/
-
-
-const defAlt = alt => tx => ty =>
-  Defer(() => alt(tx.runDefer()) (ty.runDefer()));
-
-
-const defZero = zero => defOf(zero);
-
-
 /***[Applicative]*************************************************************/
 
 
@@ -1354,33 +1344,11 @@ const defAp = tf => tx =>
 const defOf = x => Defer(() => x);
 
 
-const defSeqA = tx => ty =>
-  Defer(() => (tx.runDefer(), ty.runDefer()));
-
-
-/***[Chainrec]****************************************************************/
-
-
-const defChainRec = f =>
-  Defer(() => {
-    let step = f();
-
-    while(step && step.type === recur1)
-      step = f(step.arg.runDefer());
-
-    return step.runDefer();
-  });
-
-
 /***[Functor]*****************************************************************/
 
 
 const defMap = f => tx =>
   Defer(() => f(tx.runDefer()));
-
-
-const defSeqF = x => ty =>
-  Defer(() => (ty.runDefer(), x));
 
 
 /***[Monad]*******************************************************************/
@@ -1392,34 +1360,6 @@ const defChain = fm => mx =>
 
 const defJoin = mmx =>
   Defer(() => mmx.runDefer().runDefer());
-
-
-/***[Monoid]******************************************************************/
-
-
-const defEmpty = empty => defOf(empty);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const defAppend = append => tx => ty =>
-  Defer(() => append(tx.runDefer()) (ty.runDefer()));
-
-
-const defPrepend = append => ty => tx =>
-  Defer(() => append(tx.runDefer()) (ty.runDefer()));
-
-
-/***[Traversable]*************************************************************/
-
-
-const defSeqT = map => tx =>
-  Defer(() => map(defOf) (id(tx.runDefer())));
-
-
-const defTraverse = map => fa => tx =>
-  Defer(() => map(defOf) (fa(tx.runDefer())));
 
 
 /******************************************************************************
@@ -1592,8 +1532,35 @@ const LastPrepend = firstAppend;
 
 // Defer with memoization
 
-const Lazy = structMemo("Lazy")
-  (Lazy => thunk => Lazy(thunk));
+const Lazy = structMemo("Lazy") (Lazy => thunk => Lazy(thunk));
+
+
+/***[Applicative]*************************************************************/
+
+
+const lazyAp = tf => tx =>
+  Defer(() => tf.runLazy() (tx.runLazy()));
+
+
+const lazyOf = x => Lazy(() => x);
+
+
+/***[Functor]*****************************************************************/
+
+
+const lazyMap = f => tx =>
+  Lazy(() => f(tx.runLazy()));
+
+
+/***[Monad]*******************************************************************/
+
+
+const lazyChain = fm => mx =>
+  Lazy(() => fm(mx.runLazy()).runLazy());
+
+
+const lazyJoin = mmx =>
+  Lazy(() => mmx.runLazy().runLazy());
 
 
 /******************************************************************************
