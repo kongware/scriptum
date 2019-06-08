@@ -1048,7 +1048,7 @@ const objFactory_ = entries => // TODO: revise
       (acc[k] = v, acc), {});
 
 
-const objPath = def =>
+const objPathOr = def =>
   varArgs(arrFold(p => k => p[k] || def) (o));
 
 
