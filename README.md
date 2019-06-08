@@ -193,35 +193,17 @@ For any non-primitive type the associated catamorphism is the dual of the constr
 scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
 
 ```Javascript
-const arrFold = alg => zero => xs => {
-  let acc = zero;
+const add = x => y => x + y,
+  mul = x => y => x * y,
+  sum = arrFold(add) (0),
+  prod = arrFold(mul) (1);
 
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i], i);
-
-  return acc;
-};
-
-const add = x => y => x + y;
-
-arrFold(add) (0) ([1,2,3,4,5]); // 15
+sum([1,2,3,4,5]); // 15
+prod([1,2,3,4,5]); // 120
 ```
-The second argument takes two arguments as the original `Array.prototype.reduce` does. This is a bit sloppy, but well, as I said there is no reason to be dogmatic - this is still untyped Javascript.
-
 There is also a fold with short circuit semantics:
 
 ```Javascript
-const arrFoldWhile = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++) {
-    acc = alg(acc) (xs[i], i);
-    if (acc && acc[TAG] === "Done") break;
-  }
-
-  return acc.runStep;
-};
-
 const lte = y => x => x <= y;
 
 const addWhile = p => x => y =>
@@ -233,19 +215,35 @@ arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
 ```
 `arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
 
-Maybe you've noticed that the given examples are based on a left fold, i.e. a left associactive one. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons.
+Maybe you've noticed that the given examples are based on a left associative fold. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons. As opposed to Haskell's `foldr` it is strictly evaluated though.
 
-* Paramorphism
-* Hylomorphism
-* Zygomorphism
-* Mutumorphism
-* Histomorphism
+More folds will follow:
+
+* Paramorphism (fold with current state of the context)
+* Hylomorphism (unfold composed with fold)
+* Zygomorphism (one fold depending on another - semi-mutual recursive)
+* Mutumorphism (mutual recursive fold - mutual recursive)
+* Histomorphism (fold with access to all previous intermediate results)
 
 ### Anamorphism et al.
-...
 
-* Apomorphism
-* Futumorphism
+Anamorphisms are the dual of catamorphisms. You start with a seed value and apply the coalgebra to the seed and then iteratively to the result of the previous application, while all intermediate results are stored in a structure:
+
+```Javascript
+const nextLetter = c =>
+  String.fromCharCode (c.charCodeAt (0) + 1)
+
+const main = arrUnfold(c =>
+  c > "z"
+    ? None
+    : Some([c, nextLetter(c)]));
+
+main("a"); // ["a", "b", "c", "d", "e", ...]
+```
+More unfolds will follow:
+
+* Apomorphism (unfold with early termination)
+* Futumorphism (unfold with access to values still to be computed)
 
 ## Tail and Mutual Recursion with Trampolines
 
