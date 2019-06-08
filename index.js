@@ -898,7 +898,7 @@ const orThrowAtUnit =
     x === undefined
       || x === null
       || x === x === false
-      || x.getTime && x.getTime() === x.getTime() === false);
+      || x.getTime && !Number.isNaN(x.getTime()));
 
 
 const _throw = e => {
@@ -1003,8 +1003,11 @@ const funMap = comp;
 const orDef = f => def => x => {
   const y = f(x);
     
-  if (y === undefined || y === null || Number.isNaN(y))
-    return def;
+  if (y === undefined
+      || y === null
+      || y === y === false
+      || y.getTime && !Number.isNaN(y.getTime()))
+        return def;
 
   else return y;
 };
