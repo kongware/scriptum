@@ -573,15 +573,15 @@ const orDef = f => def => x =>
 
 ```Javascript
 ```
-### `objPath`
+### `objPathOr`
 
 In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
 
 ```Javascript
 const o = {foo: {bar: {baz: 123}}};
 
-objPath(0) ("foo") ("bar") ("baz"); // 123
-objPath(0) ("foo") ("bat") ("baz"); // 0
+objPathOr(0) ("foo") ("bar") ("baz"); // 123
+objPathOr(0) ("foo") ("bat") ("baz"); // 0
 ```
 ### `orDef`
 
