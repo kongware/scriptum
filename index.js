@@ -292,9 +292,6 @@ const arrFilter = p => xs =>
   xs.filter(x => p(x) ? x : null);
 
 
-// TODO: derive filter from foldable
-
-
 /***[Foldable]****************************************************************/
 
 
@@ -399,10 +396,7 @@ const arrMap = f => xs =>
   xs.map(x => f(x));
 
 
-// TODO: derive map from foldable
-
-
-const arrMapConst = x => xs => {
+const arrSeqF = x => xs => {
   const f = _const(x);
   return xs.map(f);
 };
@@ -1039,25 +1033,20 @@ const objClone = o => {
 };
 
 
-const objFactory = (...fields) => (...values) =>
+const objFactory = (...fields) => (...values) => // TODO: revise
   values.reduce(
     (acc, value, i) =>
       (acc[fields[i]] = value, acc), {});
 
 
-const objFactory_ = entries =>
+const objFactory_ = entries => // TODO: revise
   entries.reduce(
     (acc, [k, v]) =>
       (acc[k] = v, acc), {});
 
 
-const objPath = def => { // TODO: revise
-  go = o => Object.assign(
-    k => go(o[k] || def),
-    {runPath: o, [TYPE]: "Path"});
-  
-  return go;
-};
+const objPath = def =>
+  varArgs(arrFold(p => k => p[k] || def) (o));
 
 
 const objUnion = o => p => {
@@ -1081,14 +1070,14 @@ const objUnionx = o => p => {
 };
 
 
-const omitProps = (...ks) => o =>
+const omitProps = (...ks) => o => // TODO: revise
   Object.keys(o).reduce(
     (acc, k) => ks.includes(k)
       ? acc
       : (acc[k] = o[k], acc), {});
 
 
-const pickProps = (...ks) => o =>
+const pickProps = (...ks) => o => // TODO: revise
   ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
