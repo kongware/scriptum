@@ -524,41 +524,21 @@ const optCata = none => some => tx =>
 
 ## Various Special Combinators
 
-### `infix`
-
-...
-
-```Javascript
-```
-
 ### `comp2nd`
 
-...
+Composes in the second argument of a binary function. This is sometimes useful, e.g. when we use a left fold instead of a right one:
 
 ```Javascript
+const foldMap = ({fold, append, empty}) => f =>
+  fold(comp2nd(append) (f)) (empty);
 ```
+### `infix`
 
-### `memoThunk`
-
-...
+Just mimics Haskell's operator infix notation:
 
 ```Javascript
+infix(2, sub, 3); // -1
 ```
-
-### `orThrowAt`
-
-...
-
-```Javascript
-```
-
-### `partial`/`partialCurry`
-
-...
-
-```Javascript
-```
-
 ### `_let`
 
 mimics let bindings as expressions and thus leads to concise function bodies:
@@ -581,28 +561,46 @@ const orDef = f => def => x =>
     y === undefined || y === null || Number.isNaN(y)
       ? def : y);
 ```
-
-### `orDef`
-
-...
-
-```Javascript
-```
-
 ### `invoke`
 
 ...
 
 ```Javascript
 ```
-
-### `objPath`
+### `memoThunk`
 
 ...
 
 ```Javascript
 ```
+### `objPath`
 
+In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
+
+```Javascript
+const o = {foo: {bar: {baz: 123}}};
+
+objPath(0) ("foo") ("bar") ("baz"); // 123
+objPath(0) ("foo") ("bat") ("baz"); // 0
+```
+### `orDef`
+
+...
+
+```Javascript
+```
+### `orThrowAt`
+
+...
+
+```Javascript
+```
+### `partial`/`partialCurry`
+
+...
+
+```Javascript
+```
 ### `thisify`
 
 Creates a `this`-like context for "methods" depending on other properties. Please recall that as decent functional programmers we don't depend on `this`/`new` directly:
