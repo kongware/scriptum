@@ -1316,6 +1316,65 @@ const constMap = f => tx =>
 
 
 /******************************************************************************
+***********************************[ CONT ]************************************
+******************************************************************************/
+
+
+const Cont = struct("Cont") (Cont => k => Cont(k));
+
+
+/***[Applicative]*************************************************************/
+
+
+const contAp = tf => tx =>
+  Cont(k => tf.runCont(f => tx.runCont(x => k(f(x)))));
+
+
+const contLiftA2 = f => tx => ty =>
+  Cont(k => contAp(contMap(f) (tx)) (ty));
+
+
+const contOf = x => Cont(k => k(x));
+
+
+/***[Combinators]*************************************************************/
+
+
+const contReset = tx => // delimited continuations
+  of(tx.runCont(id));
+  
+
+const contShift = f => // delimited continuations
+  Cont(k => f(k).runCont(id));
+
+
+/***[Functor]*****************************************************************/
+
+
+const contMap = f => tx =>
+  Cont(k => tx.runCont(x => k(f(x))));
+                                  
+
+/***[Monad]*******************************************************************/
+
+
+const contChain = fm => mx =>
+  Cont(k => mx.runCont(x => fm(x).runCont(y => k(y))));
+
+
+const contChain2 = fm => mx => my =>
+  Cont(k => mx.runCont(x => my.runCont(y => fm(x) (y).runCont(z => k(z)))));
+
+
+const contJoin = mmx =>
+  Cont(k => mmx.runCont(mx => mx.runCont(x => k(x))));
+
+
+const contLiftM2 = f => mx => my =>
+  Cont(k => mx.runCont(x => ty.runCont(y => k(f(x) (y)))));
+
+
+/******************************************************************************
 ***********************************[ DEFER ]***********************************
 ******************************************************************************/
 
