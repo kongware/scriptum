@@ -635,9 +635,14 @@ A unit type is any type in Javascript without a value, i.e. `undefined`, `null`,
 
 ### `partial`/`partialCurry`
 
-...
+The former just applies partial application, that is to say you call a multi argument function with some of its arguments and provide the rest at the subsequent call.
+
+The latter combines partial application with currying:
 
 ```Javascript
+const sum4 = (w, x, y, z) => w + x + y + z);
+
+partialCurry(sum4), 1, 2) (3) (4); // 10
 ```
 ### `thisify`
 
