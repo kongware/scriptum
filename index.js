@@ -889,16 +889,21 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
-const orThrowAt = p => e => msg => x =>
-  p(x) ? _throw(new e(msg)) : x;
+const orThrowOn = p => f => e => msg => x => {
+  const r = f(x);
+  
+  if (p(r))
+    throw new e(msg);
+  
+  else return r
+};
 
 
-const orThrowAtUnit = 
-  orThrowAt(x =>
-    x === undefined
-      || x === null
-      || x === x === false
-      || x.getTime && !Number.isNaN(x.getTime()));
+const orThrowOnUnit = orThrowOn(x =>
+  x === undefined
+    || x === null
+    || x === x === false
+    || x.getTime && !Number.isNaN(x.getTime()));
 
 
 const _throw = e => {
@@ -1000,17 +1005,21 @@ const funMap = comp;
 /***[Combinators]********************************************************************/
 
 
-const orDef = f => def => x => {
-  const y = f(x);
-    
-  if (y === undefined
-      || y === null
-      || y === y === false
-      || y.getTime && !Number.isNaN(y.getTime()))
-        return def;
-
-  else return y;
+const orDefOn = p => f => def => x => {
+  const r = f(x);
+  
+  if (p(r))
+    return def;
+  
+  else return r
 };
+
+
+const orDefOnUnit = orDefOn(x =>
+  x === undefined
+    || x === null
+    || x === x === false
+    || x.getTime && !Number.isNaN(x.getTime()));
 
 
 /******************************************************************************
