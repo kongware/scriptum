@@ -331,8 +331,45 @@ Handling non-tail recursive algorithms with trampolines and explicit stacks is a
 
 ## Transducer
 
-...
+Transducers entail the following properties:
 
+* they are composable and thus allow loop fusion
+* they are data type agnostic as long as these data types are foldable
+
+The following example illustrates loop fusion:
+
+```Javascript
+const mapper = f => reduce => acc => x =>
+  reduce(acc) (f(x));
+
+const filterer = p => reduce => acc => x =>
+  p(x) ? reduce(acc) (x) : acc;
+  
+const arrFold = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (xs[i], i);
+
+  return acc;
+};
+
+const comp = f => g => x => f(g(x));
+
+const add = x => y => x + y; // reducer
+const sqr = x => x * x; // transformer
+const isOdd = x => (x & 1) === 1; // predicate
+
+// MAIN
+
+const main = 
+  arrFold(comp(
+    filterer(isOdd)) 
+      (mapper(sqr))
+        (add)) (0);
+
+main([1,2,3]); // 10 // array is only traversed once
+```
 ## Functional Optics
 
 ### Lense
