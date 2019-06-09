@@ -368,7 +368,7 @@ const main =
       (mapper(sqr))
         (add)) (0);
 
-main([1,2,3]); // 10 // array is only traversed once
+main([1,2,3]); // 10 - array is only traversed once
 ```
 ## Functional Optics
 
