@@ -600,15 +600,10 @@ const orDef = f => def => x =>
 ```
 ### `invoke`
 
-...
+Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
 
 ```Javascript
-```
-### `memoThunk`
-
-...
-
-```Javascript
+invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
 ```
 ### `objPathOr`
 
@@ -620,18 +615,24 @@ const o = {foo: {bar: {baz: 123}}};
 objPathOr(0) ("foo") ("bar") ("baz"); // 123
 objPathOr(0) ("foo") ("bat") ("baz"); // 0
 ```
-### `orDef`
+### `orDefOn`/`orThrowOn`
 
-...
-
-```Javascript
-```
-### `orThrowAt`
-
-...
+Calls a function and returns either returns the result unaltered if it passes the predicate or a default value.
 
 ```Javascript
+orDefOnUnit = orDefOn(x =>
+  x === undefined
+    || x === null
+    || x === x === false
+    || x.getTime && !Number.isNaN(x.getTime()));
+    
+orDefOnUnit("foo") (last) (["bar"]); // "bar"
+orDefOnUnit("foo") (last) ([]); // "foo"
 ```
+A unit type is any type in Javascript without a value, i.e. `undefined`, `null`, `NaN` and `Invalid Date`.
+
+`orThrowOn` has the same semantics except that it throws an error.
+
 ### `partial`/`partialCurry`
 
 ...
