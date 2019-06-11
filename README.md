@@ -396,6 +396,12 @@ main([1,2,3]); // 10 - array is only traversed once
 
 ### Monad Transformers
 
+#### Without Typeclasses
+
+...
+
+#### With Typeclasses
+
 ...
 
 ### Tagless Final Encoding
