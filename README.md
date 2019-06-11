@@ -575,12 +575,18 @@ Composes in the second argument of a binary function. This is sometimes useful, 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 ```
-### `infix`
+### `infix`/`infixf`
 
-Just mimics Haskell's operator infix notation:
+Just mimics Haskell's infix operators. This sometimes improves readability of code:
 
 ```Javascript
-infix(2, sub, 3); // -1
+infixf(strHead, orThrowOn, isEmpty)
+  (() => TypeError("non-empty string expected"))
+    ("foo"); // "FOO"
+    
+infixf(strHead, orThrowOn, isEmpty)
+  (() => TypeError("non-empty string expected"))
+    (""); // TypeError
 ```
 ### `_let`
 
@@ -637,7 +643,7 @@ orDefOnUnit("foo") (last) ([]); // "foo"
 ```
 A unit type is any type in Javascript without a value, i.e. `undefined`, `null`, `NaN` and `Invalid Date`.
 
-`orThrowOn` has the same semantics except that it throws an error.
+`orThrowOn` has the same semantics except that it throws an error instead if returning a default value.
 
 ### `partial`/`partialCurry`
 
