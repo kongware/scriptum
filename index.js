@@ -790,6 +790,9 @@ const varArgs = f => {
 const comp = f => g => x => f(g(x));
 
 
+const comp3 = f => g => h => x => f(g(h(x)));
+
+
 const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
