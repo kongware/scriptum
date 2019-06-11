@@ -894,7 +894,7 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
-const orThrowOn = p => f => ([e, msg]) => x => {
+const orThrowOn = p => f => (e, msg) => x => {
   const r = f(x);
   
   if (p(r))
