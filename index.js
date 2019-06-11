@@ -697,22 +697,22 @@ const arrZipBy = f => xs => ys => // TODO: Absract from recursion with fold
 ******************************************************************************/
 
 
-const day = invoke("getDate");
-
-
 const formatDate = sep => (...fs) => date =>
   fs.map(f => f(date))
     .join(sep);
+
+
+const getDay = invoke("getDate");
 
 
 const getMonthDays = y => m =>
   new Date(y, m, 0).getDate();
 
 
-const month = invoke("getMonth");
+const getMonth = invoke("getMonth");
 
 
-const year = invoke("getFullYear");
+const getYear = invoke("getFullYear");
 
 
 const verifyDate = y => m => d =>
