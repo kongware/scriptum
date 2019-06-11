@@ -787,10 +787,12 @@ const varArgs = f => {
 /***[Composition]*************************************************************/
 
 
-const comp = f => g => x => f(g(x));
+const comp = f => g => x =>
+  f(g(x));
 
 
-const comp3 = f => g => h => x => f(g(h(x)));
+const comp3 = f => g => h => x =>
+  f(g(h(x)));
 
 
 const comp2nd = f => g => x => y =>
@@ -799,6 +801,10 @@ const comp2nd = f => g => x => y =>
 
 const pipe = g => f => x =>
   f(g(x));
+
+
+const pipe3 = h => g => f => x =>
+  f(g(h(x)));
 
 
 const on = f => g => x => y =>
