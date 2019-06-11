@@ -894,11 +894,11 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
-const orThrowOn = p => f => e => x => {
+const orThrowOn = p => f => ([e, msg]) => x => {
   const r = f(x);
   
   if (p(r))
-    throw e(); // expects a bare thunk
+    throw new e(msg); // expects a bare thunk
   
   else return r
 };
