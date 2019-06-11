@@ -769,6 +769,9 @@ const fromMultiArg = (...args) => [...args];
 const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
 
 
+const infixf = (y, f, x) => f(x) (y);
+
+
 const swapMultiArg = (x, y) => [y, x];
 
 
@@ -891,11 +894,11 @@ const memoThunk = (f, memo) => () =>
     : memo;
 
 
-const orThrowOn = p => f => e => msg => x => {
+const orThrowOn = p => f => e => x => {
   const r = f(x);
   
   if (p(r))
-    throw new e(msg);
+    throw e(); // expects a bare thunk
   
   else return r
 };
