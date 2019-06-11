@@ -581,11 +581,11 @@ Just mimics Haskell's infix operators. This sometimes improves readability of co
 
 ```Javascript
 infixf(strHead, orThrowOn, isEmpty)
-  (TypeError) ("non-empty string expected")
+  (TypeError, "non-empty string expected")
     ("foo"); // "FOO"
     
 infixf(strHead, orThrowOn, isEmpty)
-  (TypeError) ("non-empty string expected")
+  (TypeError, "non-empty string expected")
     (""); // TypeError
 ```
 ### `_let`
