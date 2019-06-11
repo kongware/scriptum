@@ -898,7 +898,7 @@ const orThrowOn = p => f => (e, msg) => x => {
   const r = f(x);
   
   if (p(r))
-    throw new e(msg); // expects a bare thunk
+    throw new e(msg);
   
   else return r
 };
