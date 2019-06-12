@@ -586,6 +586,14 @@ const arrPartition = f => xs => // TODO: revise
       m.set(r, (ys.push(x), ys))), new Map());
 
 
+const arrPush = xs => x =>
+  (xs.push(x), xs);
+
+
+const arrPushf = x => xs =>
+  (xs.push(x), xs);
+
+
 const arrPushFlat = xs => ys => {
   ys.forEach(x =>
     xs.push(x));
@@ -646,6 +654,14 @@ const arrSplitBy = p => xs => // TODO: Absract from recursion with fold
 const arrTranspose = matrix =>
   matrix[0].map((_, i) =>
     matrix.map(xs => xs[i]));
+
+
+const arrUnshift = xs => x =>
+  (xs.unshift(x), xs);
+
+
+const arrUnshiftf = x => xs =>
+  (xs.unshift(x), xs);
 
 
 const arrUnshiftFlat = xs => ys => {
