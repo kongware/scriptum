@@ -70,6 +70,8 @@ The following rules apply to function names:
 * a name with an `x`-postfix denotes a destructive function, i.e. one that performs mutations visible in the parent scope
 * a name with an `var`-prefix denotes most likely a variadic one
 
+Please note that not all destructive functions are explicitly denoted as such, because `arrPush`/`arrUnshift` and others are commonly known as destructive.
+
 ## Variable Names
 
 * `f`/`g` denotes pure functions
