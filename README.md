@@ -139,7 +139,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 # Advanced Topics
 
-## Avoid Nesting
+## Avoid Parenthesis/Nesting
 
 scriptum allows for a flat composition syntax without nested function calls and (almost) without dot-notation:
 
@@ -150,37 +150,29 @@ const inc = x => x + 1,
 varComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
 varPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
 ```
-`varComp`/`varPipe` lazily take an infinite number of functions and compose them. Only when you invoke the `runVarComp` property, the composition is actually evaluated. scriptum provides such combinators specialized for...
+`varComp`/`varPipe` take an infinite number of functions and compose them. As every composition both variadic combinators have a lazy effect, i.e. the compososition is only evaluated when the final value is provided.
 
-* function composition
+`varComp_`/`varPipe_` are more general variants of these combinators. They additionally take a binary operator that defines what composition means for a specific type. Given this you can easily derive variadic combinators for compositions and pipes for any function type like `Compare`, `Endo`, `Equiv` or `Pred`.
+
+There are other predefined variadic combinators for
+
 * applicative lifting
 * monadic lifting
 * monadic chains
 * kleisli composition
 * optical composition
 
-and probably others in the future. Here is another example for applicative lifting:
+The variadic combinator for applicative lifting in action:
 
 ```Javascript
-const add = x => y => x + y;
+const sum3 = x => y => z => x + y + z;
 
-varLiftA(add) (Some(2)) (Some(3)); // Some(5)
-varLiftA(add) (None) (Some(3)); // None
+varLiftA(add) (Some(1)) (Some(2)) (Some(3)); // Some(6)
+varLiftA(add) (Some(1)) (None) (Some(3)); // None
 ```
-Additionally, you can easily create your own variadic functions by using the `varArgs` combinator:
+All variadic combinators are based on the `varArgs` function. You can easily create your own variadic combinators with it:
 
 ```Javascript
-const varArgs = f => {
-  const go = args =>
-    Object.defineProperties(
-      arg => go(args.concat(arg)), {
-        "runVarArgs": {get: function() {return f(args)}},
-        [TYPE]: {value: "VarArgs"}
-      });
-
-  return go([]);
-};
-
 const add = x => y => x + y;
 
 const sum = ns =>
