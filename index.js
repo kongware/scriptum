@@ -163,6 +163,17 @@ const tramp = f => (...args) => {
 ******************************************************************************/
 
 
+/***[Function Functor]********************************************************/
+
+
+const varComp_ = comp => tx =>
+  varArgs(arrFold(ty => tz => comp(ty) (tz)) (tx));
+
+
+const varPipe_ = pipe => tx =>
+  varArgs(arrFold(ty => tz => pipe(ty) (tz)) (tx));
+
+
 /***[Foldable]****************************************************************/
 
 
@@ -830,12 +841,10 @@ const on = f => g => x => y =>
   f(g(x)) (g(y));
 
 
-const varComp = f =>
-  varArgs(arrFold(g => h => x => g(h(x))) (f));
+const varComp = varComp_(comp);
 
 
-const varPipe = f =>
-  varArgs(arrFold(h => g => x => g(h(x))) (f));
+const varPipe = varPipe_(pipe);
 
 
 /***[Conditional Branching]***************************************************/
@@ -857,7 +866,7 @@ const select = p => f => g => x =>
   p(x) ? f(x) : g(x);
 
 
-/***[Currying]****************************************************************/
+/***[Currying/Partial Application]********************************************/
 
 
 const curry = f => x => y =>
@@ -874,6 +883,14 @@ const curry4 = f => w => x => y => z =>
 
 const curry5 = f => v => w => x => y => z =>
   f(v, w, x, y, z);
+
+
+const partial = (f, ...args) => (...args_) =>
+  f(...args, ...args_);
+
+
+const partialCurry = (f, ...args) =>
+  varArgs(args_ => f(...args, ...args_));
 
 
 const uncurry = f => (x, y) =>
@@ -941,17 +958,6 @@ const tryCatch = f => g => x => {
     return g([x, e]);
   }
 };
-
-
-/***[Partial Application]*****************************************************/
-
-
-const partial = (f, ...args) => (...args_) =>
-  f(...args, ...args_);
-
-
-const partialCurry = (f, ...args) =>
-  varArgs(args_ => f(...args, ...args_));
 
 
 /***[Predicate]***************************************************************/
