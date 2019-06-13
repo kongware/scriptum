@@ -197,11 +197,11 @@ const varChain = ({map, of, chain, join}) => fm =>
       chain(g => map(g) (mx)) (mg)) (of(fm)) (xs)));
 
 
-const kleisli = chain => fm => gm => x =>
+const kleisliComp = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisli = chain => fm =>
+const varKleisliComp = chain => fm =>
   varArgs(arrFold(gm => hm => x => chain(gm) (hm(x))) (fm));
 
 
@@ -2055,18 +2055,22 @@ const objPrism = k => Prism({
       ? Some(o[k])
       : None,
 
-  set: v => o =>
+  set: o => v =>
     Object.assign({}, o, {[k]: v}),
 
-  mod: f => o =>
+  mod: o => f =>
     k in o
-      ? Object.assign({}, o, {[k]: f(o[k])})
-      : o,
+      ? Object.assign({}, o, {[k]: f(o[k])}) : o,
 
   del: o => {
-    const o_ = Object.assign({}, o);
-    delete o_[k];
-    return o_;
+    if (k in o) {
+      const p = Object.assign({}, o);
+      delete p[k];
+      return p;
+    }
+
+    else
+      return o;
   }
 });
 
