@@ -682,5 +682,6 @@ p.bar(3); // 5
 - [ ] add primitive prism composition
 - [ ] add primitive optical folds
 - [ ] add primitive optical raversals
+- [ ] how to compose a lens with a prism and vice versa (look into Optional type)?
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
