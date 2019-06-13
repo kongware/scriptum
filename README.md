@@ -152,7 +152,7 @@ varPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
 ```
 `varComp`/`varPipe` take an infinite number of functions and compose them. As every composition both variadic combinators have a lazy effect, i.e. the compososition is only evaluated when the final value is provided.
 
-`varComp_`/`varPipe_` are more general variants of these combinators. They additionally take a binary operator that defines what composition means for a specific type. Given this you can easily derive variadic combinators for compositions and pipes for any function type like `Compare`, `Endo`, `Equiv` or `Pred`.
+`varComp_`/`varPipe_` are more general variants of these combinators. They additionally take a binary operator that defines what composition means for a specific type. Given this you can easily derive variadic combinators for compositions and pipes for any function type like `Lens`, `Compare` or `Endo`
 
 There are other predefined variadic combinators for
 
@@ -160,7 +160,6 @@ There are other predefined variadic combinators for
 * monadic lifting
 * monadic chains
 * kleisli composition
-* optical composition
 
 The variadic combinator for applicative lifting in action:
 
