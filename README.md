@@ -680,6 +680,7 @@ p.bar(3); // 5
 - [ ] add dedupe
 - [ ] add sort with `on` combinator
 - [ ] add primitive prism composition
-- [ ] add folds/traversals for primitive lenses
+- [ ] add primitive optical folds
+- [ ] add primitive optical raversals
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
