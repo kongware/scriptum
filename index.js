@@ -1659,100 +1659,95 @@ const Lens = struct("Lens") (Lens => o => Lens(o));
 
 
 const objLens = k => Lens({
-  get: o =>
-    o[k],
-
-  set: v => o =>
+  get: o => o[k],
+  
+  set: o => v =>
     Object.assign({}, o, {[k]: v}),
-
-  mod: f => o =>
+  
+  mod: o => f =>
     Object.assign({}, o, {[k]: f(o[k])}),
 
   del: o => {
-    const o_ = Object.assign({}, o);
-    delete o_[k];
-    return o_;
+    const p = Object.assign({}, o);
+    delete p[k];
+    return p;
   }
 });
 
 
 const arrLens = i => Lens({
-  get: xs =>
-    xs[i],
+  get: xs => xs[i],
 
-  set: v => xs => {
-    const xs_ = xs.concat([]);
-    xs_[i] = v;
-    return xs_;
+  set: xs => x => {
+    const ys = xs.concat([]);
+    ys[i] = x;
+    return ys;
   },
 
-  mod: f => xs => {
-    const xs_ = xs.concat([]);
-    xs_[i] = f(xs_[i]);
-    return xs_;
+  mod: xs => f => {
+    const ys = xs.concat([]);
+    ys[i] = f(ys[i]);
+    return ys;
   },
 
   del: xs => {
-    const xs_ = xs.concat([]);
-    delete xs_[i]
-    return xs_;
+    const ys = xs.concat([]);
+    delete ys[i]
+    return ys;
   }
 });
 
 
 const mapLens = k => Lens({
-  get: m =>
-    m.get(k),
+  get: m => m.get(k),
 
-  set: v => m => {
-    const m_ = new Map(m);
-    return m_.set(k, v);
+  set: m => v => {
+    const n = new Map(m);
+    return n.set(k, v);
   },
 
-  mod: f => m => {
-    const m_ = new Map(m);
-    return m_.set(k, f(v));
+  mod: m => f => {
+    const n = new Map(m);
+    return n.set(k, f(v));
   },
 
   del: m => {
-    const m_ = new Map(m);
-    return m_.delete(k);
+    const n = new Map(m);
+    return n.delete(k);
   }
 });
 
 
 const setLens = k => Lens({
-  get: s =>
-    s.get(k),
+  get: s => s.get(k),
 
-  set: v => s => {
-    const s_ = new Set(s);
-    return s_.add(k, v);
+  set: s => v => {
+    const t = new Set(s);
+    return t.add(k, v);
   },
 
-  mod: f => s => {
-    const s_ = new Set(s);
-    return s_.add(k, f(v));
+  mod: s => f => {
+    const t = new Set(s);
+    return t.add(k, f(v));
   },
 
   del: s => {
-    const s_ = new Set(s);
-    return s_.delete(k);
+    const t = new Set(s);
+    return t.delete(k);
   }
 });
 
 
 const strLens = i => Lens({
-  get: s =>
-    s[i],
+  get: s => s[i],
 
-  set: v => s =>
-    strReplaceAt(i) (v) (s),
+  set: s => c =>
+    strReplaceAt(i) (c) (s),
 
-  mod: f => s =>
+  mod: s => f =>
     strReplaceAtBy(i) (f) (s),
 
-  del: xs =>
+  del: s =>
     strDeleteAt(i) (s)
 });
 
@@ -1771,17 +1766,20 @@ const fromPath = lens =>
 
 const lensComp = tx => ty => Lens({
   get: o =>
-    ty.runLens.get(tx.runLens.get(o)),
+    tx.runLens.get(ty.runLens.get(o)),
 
-  set: v => o =>
-    tx.runLens.set(ty.runLens.set(v) (tx.runLens.get(o))) (o),
+  set: o => x =>
+    ty.runLens.set(o) (tx.runLens.set(ty.runLens.get(o)) (x)),
 
-  mod: f => o =>
-    tx.runLens.set(f(ty.runLens.set(v) (tx.runLens.get(o)))) (o),
+  mod: o => f =>
+    ty.runLens.set(o) (tx.runLens.set(ty.runLens.get(o)) (f)),
 
   del: o =>
-    tx.runLens.set(ty.runLens.del(tx.runLens.get(o))) (o)
+    ty.runLens.set(o) (tx.runLens.del(ty.runLens.get(o)))
 });
+
+
+const lensPipe = flip(lensComp);
 
 
 /******************************************************************************
