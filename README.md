@@ -365,13 +365,13 @@ main([1,2,3]); // 10 - array is only traversed once
 ```
 ## Functional Optics
 
-For the time being scriptum only offers simple lenses without any functor or applicative constraints. There are combinators that act like optical `Fold`s and `Traversal`s. Later I will introduce either Kmett-style or Profunctor lenses, which better fit into the functor/applicative machinery scriptum provides. People can than decide which level of generalization to deal with.
+For the time being scriptum only offers primitive lenses without any functor or applicative constraints. There are combinators that act like optical `Fold`s and `Traversal`s. Later I will introduce either Kmett-style or Profunctor lenses, which better fit into the functor/applicative machinery scriptum provides. People can than decide which level of generalization to deal with.
 
-### Simple Lenses
+### Primitive Lenses
 
 ...
 
-### Simple Prisms
+### Primitive Prisms
 
 ...
 
@@ -666,7 +666,6 @@ p.bar(3); // 5
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
-- [ ] add functional optics (Iso, Fold, Traversal)
 - [ ] add common transducer
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access List
@@ -680,5 +679,7 @@ p.bar(3); // 5
 - [ ] add union/intersect/diff/leftDiff/rightDiff
 - [ ] add dedupe
 - [ ] add sort with `on` combinator
+- [ ] add primitive prism composition
+- [ ] add folds/traversals for primitive lenses
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
