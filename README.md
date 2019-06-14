@@ -668,7 +668,7 @@ p.bar(3); // 5
 - [ ] how to create a monoid under Alternative?
 - [ ] add common transducer
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
-- [ ] add List/Catenable List/Random Access List
+- [ ] add List/Catenable List/Random Access List, Difference List
 - [ ] add Rose Trees
 - [ ] add Zipper data type
 - [ ] add useful Comonads
