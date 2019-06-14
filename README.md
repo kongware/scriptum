@@ -685,3 +685,4 @@ p.bar(3); // 5
 - [ ] how to compose a lens with a prism and vice versa (look into Optional type)?
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
+- [ ] rename `traverse` to `mapA`
