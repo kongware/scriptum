@@ -137,34 +137,41 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 ## Category Composition
 
-scriptum allows for a flat composition syntax without nested function calls and (almost) without dot-notation:
+Function composition is generalized in scriptum by the `Category` typeclass. This typeclass comprises the following functions:
+
+* comp (right-to-left compostion)
+* pipe (left-to-right compostion)
+* comp3 (composing three functions - for convenience)
+* pipe3 (piping three functions - for convenience)
+* varComp (variadic composition)
+* varPipe (variadic pipe)
+
+That means each function type that implements `Category` has automatically access to a variadic interface. This is desirable because it allows for flat compositions/pipes and avoids explicitly nested function call trees:
 
 ```Javascript
 const inc = x => x + 1,
   sqr = x => x * x;
   
-varComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
-varPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
+funVarComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
+funVarPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
 ```
-`varComp`/`varPipe` take an infinite number of functions and compose them. As every composition both variadic combinators have a lazy effect, i.e. the compososition is only evaluated when the final value is provided.
+`runVarComp` is the indicator to start evaluating the composition tree.
 
-`varComp_`/`varPipe_` are more general variants of these combinators. They additionally take a binary operator that defines what composition means for a specific type. Given this you can easily derive variadic combinators for compositions and pipes for any function type like `Lens`, `Compare` or `Endo`
-
-There are other predefined variadic combinators for
-
-* applicative lifting
-* monadic lifting
-* monadic chains
-* kleisli composition
-
-The variadic combinator for applicative lifting in action:
+Here is another example for applicative lifting through the variadic interface:
 
 ```Javascript
 const sum3 = x => y => z => x + y + z;
 
-varLiftA(add) (Some(1)) (Some(2)) (Some(3)); // Some(6)
-varLiftA(add) (Some(1)) (None) (Some(3)); // None
+optVarLiftA(sum3) (Some(1)) (Some(2)) (Some(3)); // Some(6)
+optVarLiftA(sum3) (Some(1)) (None) (Some(3)); // None
 ```
+Other suitable function types are
+
+* applicative chaining/sequencing
+* monadic lifting
+* monadic chaining/sequencing
+* kleisli composition
+
 All variadic combinators are based on the `varArgs` function. You can easily create your own variadic combinators with it:
 
 ```Javascript
