@@ -938,6 +938,16 @@ const orThrowOn = p => f => (e, msg) => x => {
 };
 
 
+const orThrowOnf = f => p => (e, msg) => x => {
+  const r = f(x);
+  
+  if (p(r))
+    throw new e(msg);
+  
+  else return r
+};
+
+
 const orThrowOnUnit = orThrowOn(x =>
   x === undefined
     || x === null
