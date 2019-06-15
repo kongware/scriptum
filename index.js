@@ -793,10 +793,11 @@ const round = roundBy("round");
 const fromMultiArg = (...args) => [...args];
 
 
-const infix = (x, f, y) => f(x) (y); // simulates function calls in infix position
-
-
-const infixf = (y, f, x) => f(x) (y);
+const infix = (x, ...args) =>
+  arrFold(acc => (op, i) =>
+    (i & 1) === 0
+      ? op(acc)
+      : acc(op)) (x) (args);
 
 
 const swapMultiArg = (x, y) => [y, x];
