@@ -184,6 +184,10 @@ const foldMap = ({fold, append, empty}) => f =>
 /***[Applicative]*************************************************************/
 
 
+const varAp = ap => tf =>
+  varComp({comp: ap, id: tf});
+
+
 const varLiftA = ({ap, of}) => f =>
   varComp({comp: ap, id: of(f)});
 
@@ -191,7 +195,7 @@ const varLiftA = ({ap, of}) => f =>
 /***[Monad]*******************************************************************/
 
 
-const varChain = ({map, of, chain, join}) => fm =>
+const varChain = ({map, of, chain, join}) => fm => // TODO: derive from varComp
   varArgs(args =>
     join(arrFold(mg => mx =>
       chain(g => map(g) (mx)) (mg)) (of(fm)) (args)));
@@ -213,7 +217,7 @@ const varKleisliPipe = ({of, chain}) =>
   varPipe({comp: kleisliPipe(chain), id: of});
 
 
-const varLiftM = ({map, of, chain}) => f =>
+const varLiftM = ({map, of, chain}) => f => // TODO: derive from varComp
   varArgs(arrFold(mg => mx =>
     chain(g => map(g) (mx)) (mg)) (of(f)));
 
