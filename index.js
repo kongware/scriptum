@@ -201,16 +201,16 @@ const kleisliComp = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliComp = chain => fm =>
-  varArgs(arrFold(gm => hm => x => chain(gm) (hm(x))) (fm));
+const varKleisliComp = ({chain, of}) =>
+  varComp({comp: kleisliComp(chain), id: of});
 
 
 const kleisliPipe = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliPipe = chain => fm =>
-  varArgs(arrFold(hm => gm => x => chain(gm) (hm(x))) (fm));
+const varKleisliPipe = ({chain, of}) =>
+  varPipe({comp: kleisliPipe(chain), id: of});
 
 
 const varLiftM = ({map, of, chain}) => f =>
