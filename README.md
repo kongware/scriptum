@@ -688,3 +688,4 @@ p.bar(3); // 5
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
 - [ ] rename `traverse` to `mapA`
+- [ ] add Category typeclass and a polymorphic `comp` operator
