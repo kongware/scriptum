@@ -217,9 +217,11 @@ const varKleisliPipe = ({of, chain}) =>
   varPipe({comp: kleisliPipe(chain), id: of});
 
 
-const varLiftM = ({map, of, chain}) => f => // TODO: derive from varComp
-  varArgs(arrFold(mg => mx =>
-    chain(g => map(g) (mx)) (mg)) (of(f)));
+const varLiftM = ({map, of, chain}) => f =>
+  varComp({
+    comp: mg => mx => chain(g => map(g) (mx)) (mg),
+    id: of(f)
+  });
 
 
 /******************************************************************************
