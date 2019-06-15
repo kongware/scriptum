@@ -564,16 +564,18 @@ const foldMap = ({fold, append, empty}) => f =>
 ```
 ### `infix`/`infixf`
 
-Just mimics Haskell's infix operators. This sometimes improves readability of code:
+Just mimics Haskell's chainable infix operators. This sometimes improves readability of code:
 
 ```Javascript
-infixf(strHead, orThrowOn, isEmpty)
+infix(strHead, orThrowOnf, isEmpty)
   (TypeError, "non-empty string expected")
     ("foo"); // "FOO"
     
-infixf(strHead, orThrowOn, isEmpty)
+infix(strHead, orThrowOnf, isEmpty)
   (TypeError, "non-empty string expected")
     (""); // TypeError
+    
+infix(sqr, comp, inc, comp, inc, comp, inc) (0); // 9
 ```
 ### `_let`
 
