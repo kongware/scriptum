@@ -109,6 +109,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Applicative
 * Bifunctor
 * Bounded
+* Category
 * Clonable
 * Comonad
 * Contravariant
@@ -134,7 +135,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 # Advanced Topics
 
-## Avoid Parenthesis/Nesting
+## Category Composition
 
 scriptum allows for a flat composition syntax without nested function calls and (almost) without dot-notation:
 
@@ -557,20 +558,29 @@ Composes in the second argument of a binary function. This is sometimes useful, 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 ```
-### `infix`/`infixf`
+### `infix`
 
 Just mimics Haskell's chainable infix operators. This sometimes improves readability of code:
 
 ```Javascript
 infix(strHead, orThrowOnf, isEmpty)
   (TypeError, "non-empty string expected")
-    ("foo"); // "FOO"
+    ("foo"); // "f"
     
 infix(strHead, orThrowOnf, isEmpty)
   (TypeError, "non-empty string expected")
     (""); // TypeError
     
 infix(sqr, comp, inc, comp, inc, comp, inc) (0); // 9
+```
+Please note that there is no operator function precedence, that is to say you have to use nested `infix` calls to obtain this effect.
+
+### `invoke`
+
+Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
+
+```Javascript
+invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
 ```
 ### `_let`
 
@@ -593,13 +603,6 @@ const orDef = f => def => x =>
   _let((y = f(x)) => 
     y === undefined || y === null || Number.isNaN(y)
       ? def : y);
-```
-### `invoke`
-
-Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
-
-```Javascript
-invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
 ```
 ### `objPathOr`
 
@@ -683,4 +686,3 @@ p.bar(3); // 5
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
 - [ ] rename `traverse` to `mapA`
-- [ ] add Category typeclass and a polymorphic `comp` operator
