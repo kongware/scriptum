@@ -806,7 +806,7 @@ const swapMultiArg = (x, y) => [y, x];
 const varArgs = f => {
   const go = args =>
     Object.defineProperties(
-      arg => go(args.concat(arg)), {
+      arg => go(args.concat([arg])), {
         "runVarArgs": {get: function() {return f(args)}, enumerable: true},
         [TYPE]: {value: "VarArgs", enumerable: true}
       });
