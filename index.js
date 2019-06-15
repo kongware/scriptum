@@ -170,7 +170,7 @@ const varComp = ({comp, id}) =>
   varArgs(arrFold(comp) (id));
 
 
-const varPipe = ({pipe, id}) => tx =>
+const varPipe = ({pipe, id}) =>
   varArgs(arrFold(pipe) (id));
 
 
