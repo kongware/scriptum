@@ -192,9 +192,9 @@ const varLiftA = ({map, ap}) => f => tx =>
 
 
 const varChain = ({map, of, chain, join}) => fm =>
-  varArgs(xs =>
+  varArgs(args =>
     join(arrFold(mg => mx =>
-      chain(g => map(g) (mx)) (mg)) (of(fm)) (xs)));
+      chain(g => map(g) (mx)) (mg)) (of(fm)) (args)));
 
 
 const kleisliComp = chain => fm => gm => x =>
