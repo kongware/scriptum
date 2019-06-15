@@ -184,8 +184,8 @@ const foldMap = ({fold, append, empty}) => f =>
 /***[Applicative]*************************************************************/
 
 
-const varLiftA = ({map, ap}) => f => tx =>
-  varArgs(arrFold(ap) (map(f) (tx)));
+const varLiftA = ({ap, of}) => f =>
+  varComp({comp: ap, id: of(f)});
 
 
 /***[Monad]*******************************************************************/
