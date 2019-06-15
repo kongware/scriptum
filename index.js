@@ -158,20 +158,20 @@ const tramp = f => (...args) => {
 
 /******************************************************************************
 *******************************************************************************
-****************************[ TYPECLASS FUNCTIONS ]****************************
+***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
 *******************************************************************************
 ******************************************************************************/
 
 
-/***[Function Functor]********************************************************/
+/***[Category]****************************************************************/
 
 
-const varComp_ = comp => tx =>
-  varArgs(arrFold(ty => tz => comp(ty) (tz)) (tx));
+const varComp = ({comp, id}) =>
+  varArgs(arrFold(comp) (id));
 
 
-const varPipe_ = pipe => tx =>
-  varArgs(arrFold(ty => tz => pipe(ty) (tz)) (tx));
+const varPipe = ({pipe, id}) => tx =>
+  varArgs(arrFold(pipe) (id));
 
 
 /***[Foldable]****************************************************************/
@@ -205,11 +205,11 @@ const varKleisliComp = chain => fm =>
   varArgs(arrFold(gm => hm => x => chain(gm) (hm(x))) (fm));
 
 
-const kleisliContra = chain => gm => fm => x =>
+const kleisliPipe = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliContra = chain => fm =>
+const varKleisliPipe = chain => fm =>
   varArgs(arrFold(hm => gm => x => chain(gm) (hm(x))) (fm));
 
 
@@ -842,10 +842,10 @@ const on = f => g => x => y =>
   f(g(x)) (g(y));
 
 
-const varComp = varComp_(comp);
+const funVarComp = varComp({comp, id});
 
 
-const varPipe = varPipe_(pipe);
+const funVarPipe = varPipe({pipe, id});
 
 
 /***[Conditional Branching]***************************************************/
@@ -1022,11 +1022,17 @@ const funAp = f => g => x =>
   f(x) (g(x));
 
 
+const funAppend = comp;
+
+
 const funChain = f => g => x =>
   f(g(x)) (x);
 
 
 const funContra = pipe;
+
+
+const funEmpty = id;
 
 
 const funJoin = f => x =>
@@ -1038,6 +1044,9 @@ const funLiftA2 = f => g => h => x =>
 
 
 const funMap = comp;
+
+
+const funPrepend = pipe;
 
 
 /***[Combinators]********************************************************************/
@@ -1583,7 +1592,18 @@ const getComp3 = tx => ty => tz =>
   Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
 
 
-const getVarComp = varArgs(arrFold(getComp) (getId));
+const getPipe = ty => tx =>
+  Getter(x => tx.runGetter(ty.runGetter(x)));
+
+
+const getPipe3 = tz => ty => tx =>
+  Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
+
+
+const getVarComp = varComp({comp: getComp, id: getId});
+
+
+const getVarPipe = varPipe({pipe: getPipe, id: getId});
 
 
 /******************************************************************************
@@ -1799,6 +1819,7 @@ const fromPath = lens =>
 
 /***[Composition]*************************************************************/
 
+// TODO: Change to Category
 
 const lensComp = tx => ty => Lens({
   get: o =>
@@ -2473,137 +2494,4 @@ const fileScanDir = path =>
 ******************************************************************************/
 
 
-module.exports = {
-  // CONSTANTS
-  
-  ARGS,
-  TAG,
-  TYPE,
-  
-  // INTROSPECTION
-  
-  introspect,
-  
-  // TRAMPOLINES
-  
-  loop,
-  recur,
-  tramp,
-  
-  // CONSTRUCTORS
-  
-  union,
-  match,
-  match2,
-  struct,
-  structMemo,
-  
-  // TYPECLASS FUNCTIONS
-  
-  contran,
-  foldMap,
-  mapn,
-  liftAn,
-  kleisli,
-  kleislin,
-  chainn,
-  liftMn,
-  
-  
-  // BUILT-IN TYPES
-  
-  // Array
-  
-  arrClone,
-  arrFold,
-  arrFoldPred,
-  arrAppend,
-  arrPrepend,
-  arrTransduce,
-  arrTransducep,
-  
-  // Function
-  
-  app,
-  appr,
-  _const,
-  flip,
-  id,
-  infix,
-  _let,
-  comp2nd,
-  on,
-  cond,
-  cond_,
-  guard,
-  select,
-  curry,
-  curry3,
-  curry4,
-  curry5,
-  uncurry,
-  uncurry3,
-  uncurry4,
-  uncurry5,
-  eff,
-  memoThunk,
-  _throw,
-  tryCatch,
-  partial,
-  pcurry,
-  mapper,
-  filterer,
-  funAp,
-  funChain,
-  funContra,
-  funJoin,
-  funLiftA2,
-  funMap,
-  
-  // String
-  
-  strDeleteAt,
-  strReplaceAt,
-  strReplaceAtBy,
-  
-  // CUSTOM TYPES
-  
-  // Lens
-  
-  Lens,
-  arrLens,
-  objLens,
-  mapLens,
-  setLens,
-  strLens,
-  lensGetComp,
-  lensSetComp,
-  lensModComp,
-  lensDelComp,
-  
-  // Parallel
-  
-  Parallel,
-  parCata,
-  parOf,
-  parAnd,
-  parOr,
-  parAll,
-  parAny,
-  parMap,
-  parEmpty,
-  parAppend,
-  parPrepend,
-  
-  // Task
-  
-  Task,
-  tAp,
-  tOf,
-  tAnd,
-  tAll,
-  tCata,
-  tMap,
-  tChain,
-  tChainf
-}
+module.exports = {} // TODO
