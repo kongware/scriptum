@@ -1584,6 +1584,8 @@ const Getter = struct("Getter") (Getter => f => Getter(f));
 const getId = Getter(id);
 
 
+// TODO: Consider adding functor/contra functor
+
 const getComp = tx => ty =>
   Getter(x => tx.runGetter(ty.runGetter(x)));
 
