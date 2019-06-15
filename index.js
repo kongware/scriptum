@@ -163,6 +163,17 @@ const tramp = f => (...args) => {
 ******************************************************************************/
 
 
+/***[Applicative]*************************************************************/
+
+
+const varAp = ap => tf =>
+  varComp({comp: ap, id: tf});
+
+
+const varLiftA = ({ap, of}) => f =>
+  varComp({comp: ap, id: of(f)});
+
+
 /***[Category]****************************************************************/
 
 
@@ -179,17 +190,6 @@ const varPipe = ({pipe, id}) =>
 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
-
-
-/***[Applicative]*************************************************************/
-
-
-const varAp = ap => tf =>
-  varComp({comp: ap, id: tf});
-
-
-const varLiftA = ({ap, of}) => f =>
-  varComp({comp: ap, id: of(f)});
 
 
 /***[Monad]*******************************************************************/
