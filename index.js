@@ -201,7 +201,7 @@ const kleisliComp = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliComp = ({chain, of}) =>
+const varKleisliComp = ({of, chain}) =>
   varComp({comp: kleisliComp(chain), id: of});
 
 
@@ -209,7 +209,7 @@ const kleisliPipe = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliPipe = ({chain, of}) =>
+const varKleisliPipe = ({of, chain}) =>
   varPipe({comp: kleisliPipe(chain), id: of});
 
 
