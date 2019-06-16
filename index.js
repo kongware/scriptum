@@ -79,6 +79,13 @@ const union = type => (tag, x) => ({
 });
 
 
+const unionGetter = type => (tag, o) => { // allows a lazy getter for runFoo
+  o[TAG] = tag;
+  o[TYPE] = type;
+  return o;
+};
+
+
 const match = ({[TYPE]: type, [TAG]: tag}, o) =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(tag in o) ? _throw(new UnionError("invalid tag"))
@@ -96,13 +103,19 @@ const struct = type => x => ({
 });
 
 
-const struct_ = type => cons => { // for more complex constructors
+const structExt = type => cons => { // for more complex constructors
   const f = x => ({
     ["run" + type]: x,
     [TYPE]: type,
   });
 
   return cons(f);
+};
+
+
+const structGetter = type => o => { // allows a lazy getter for runFoo
+  o[TYPE] = type;
+  return o;
 };
 
 
@@ -116,7 +129,7 @@ const structMemo = type => thunk => ({
 });
 
 
-const structMemo_ = type => cons => {
+const structMemoExt = type => cons => {
   const f = thunk => ({
     get ["run" + type] () {
       delete this["run" + type];
@@ -1881,14 +1894,13 @@ const minPrepend = minAppend;
 ******************************************************************************/
 
 
-const Option = union("Option");
+const Option = unionGetter("Option");
 
 
-const None = Option("None", null);
+const None = Option("None", {get runOption() {return None}});
 
 
-const Some = x =>
-  Option("Some", x);
+const Some = x => Option("Some", {runOption: x});
 
 
 /***[Applicative]*************************************************************/
