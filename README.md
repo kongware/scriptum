@@ -368,15 +368,7 @@ main([1,2,3]); // 10 - array is only traversed once
 ```
 ## Functional Optics
 
-For the time being scriptum only offers primitive lenses without any functor or applicative constraints. There are combinators that act like optical `Fold`s and `Traversal`s. Later I will introduce either Kmett-style or Profunctor lenses, which better fit into the functor/applicative machinery scriptum provides. People can than decide which level of generalization to deal with.
-
-### Primitive Lenses
-
-...
-
-### Primitive Prisms
-
-...
+...I've been doing a lot of research on the topic lately and have made great progress. More on this soon...
 
 ## Effect Handling
 
