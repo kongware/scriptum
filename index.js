@@ -1577,44 +1577,6 @@ const firstPrepend = lastAppend;
 
 
 /******************************************************************************
-**********************************[ GETTER ]***********************************
-******************************************************************************/
-
-
-const Getter = struct("Getter") (Getter => f => Getter(f));
-
-
-/***[Category]****************************************************************/
-
-
-const getId = Getter(id);
-
-
-// TODO: Consider adding functor/contra functor
-
-const getComp = tx => ty =>
-  Getter(x => tx.runGetter(ty.runGetter(x)));
-
-
-const getComp3 = tx => ty => tz =>
-  Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
-
-
-const getPipe = ty => tx =>
-  Getter(x => tx.runGetter(ty.runGetter(x)));
-
-
-const getPipe3 = tz => ty => tx =>
-  Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
-
-
-const getVarComp = varComp({comp: getComp, id: getId});
-
-
-const getVarPipe = varPipe({pipe: getPipe, id: getId});
-
-
-/******************************************************************************
 **********************************[ HISTORY ]**********************************
 ******************************************************************************/
 
@@ -1656,7 +1618,7 @@ const Id = struct("Id") (Id => x => Id(x));
 
 
 const idMap = f => tx =>
-  f(tx.runId);
+  Id(f(tx.runId));
 
 
 /******************************************************************************
