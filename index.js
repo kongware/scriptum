@@ -1681,6 +1681,8 @@ const lazyJoin = mmx =>
 ******************************************************************************/
 
 
+// TODO: replace with van Laarhoven Lens
+
 const Lens = struct("Lens") (Lens => o => Lens(o));
 
 
