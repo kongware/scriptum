@@ -1244,7 +1244,7 @@ const strReplaceAtBy = i => f => s =>
 ******************************************************************************/
 
 
-const All = struct("All") (All => b => All(b));
+const All = struct("All");
 
 
 /***[Monoid]******************************************************************/
@@ -1268,7 +1268,7 @@ const allPrepend = allAppend;
 ******************************************************************************/
 
 
-const Any = struct("Any") (Any => b => Any(b));
+const Any = struct("Any");
 
 
 /***[Monoid]******************************************************************/
@@ -1340,7 +1340,7 @@ const ctorPrepend = ctorAppend;
 ******************************************************************************/
 
 
-const Compare = struct("Compare") (Compare => f => Compare(f));
+const Compare = struct("Compare");
 
 
 /***[Contravariant Functor]***************************************************/
@@ -1374,7 +1374,7 @@ const compPrepend = tg => tf =>
 ******************************************************************************/
 
 
-const Comp = struct("Comp") (Comp => ttx => Comp(ttx));
+const Comp = struct("Comp");
 
 
 /***[Applicative]*************************************************************/
@@ -1400,7 +1400,7 @@ const compMap = ({map1, map2}) => f => ttx =>
 ******************************************************************************/
 
 
-const Const = struct("Const") (Const => x => Const(x));
+const Const = struct("Const");
 
 
 /***[Functor]*****************************************************************/
@@ -1415,7 +1415,7 @@ const constMap = f => tx =>
 ******************************************************************************/
 
 
-const Cont = struct("Cont") (Cont => k => Cont(k));
+const Cont = struct("Cont");
 
 
 /***[Applicative]*************************************************************/
@@ -1474,7 +1474,7 @@ const contLiftM2 = f => mx => my =>
 ******************************************************************************/
 
 
-const Defer = struct("Defer") (Defer => thunk => Defer(thunk));
+const Defer = struct("Defer");
 
 
 /***[Applicative]*************************************************************/
@@ -1537,7 +1537,7 @@ const eithCata = left => right => tx =>
 ******************************************************************************/
 
 
-const Endo = struct("Endo") (Endo => f => Endo(f));
+const Endo = struct("Endo");
 
 
 /***[Monoid]******************************************************************/
@@ -1562,7 +1562,7 @@ const endoPrepend = tg => tf => x =>
 ******************************************************************************/
 
 
-const Equiv = struct("Equiv") (Equiv => p => Equiv(p));
+const Equiv = struct("Equiv");
 
 
 /***[Contravariant Functor]***************************************************/
@@ -1594,7 +1594,7 @@ const equivPrepend = equivAppend;
 ******************************************************************************/
 
 
-const First = struct("First") (First => f => First(f));
+const First = struct("First");
 
 
 /***[Semigroup]***************************************************************/
@@ -1641,7 +1641,7 @@ const headH = tx => {
 ******************************************************************************/
 
 
-const Id = struct("Id") (Id => x => Id(x));
+const Id = struct("Id");
 
 
 /***[Functor]*****************************************************************/
@@ -1656,7 +1656,7 @@ const idMap = f => tx =>
 ******************************************************************************/
 
 
-const Last = struct("Last") (Last => f => Last(f));
+const Last = struct("Last");
 
 
 /***[Semigroup]***************************************************************/
@@ -1675,7 +1675,7 @@ const LastPrepend = firstAppend;
 
 // Defer with memoization
 
-const Lazy = structMemo("Lazy") (Lazy => thunk => Lazy(thunk));
+const Lazy = structMemo("Lazy");
 
 
 /***[Applicative]*************************************************************/
@@ -1711,134 +1711,26 @@ const lazyJoin = mmx =>
 ******************************************************************************/
 
 
-// TODO: replace with van Laarhoven Lens
-
-const Lens = struct("Lens") (Lens => o => Lens(o));
+const Lens = f => struct("Lens");
 
 
-const objLens = k => Lens({
-  get: o => o[k],
-  
-  set: o => v =>
-    Object.assign({}, o, {[k]: v}),
-  
-  mod: o => f =>
-    Object.assign({}, o, {[k]: f(o[k])}),
-
-  del: o => {
-    const p = Object.assign({}, o);
-    delete p[k];
-    return p;
-  }
-});
+const Deleter = structGetter("Deleter") ({get runDeleter() {return Deleter}});
 
 
-const arrLens = i => Lens({
-  get: xs => xs[i],
-
-  set: xs => x => {
-    const ys = xs.concat([]);
-    ys[i] = x;
-    return ys;
-  },
-
-  mod: xs => f => {
-    const ys = xs.concat([]);
-    ys[i] = f(ys[i]);
-    return ys;
-  },
-
-  del: xs => {
-    const ys = xs.concat([]);
-    delete ys[i]
-    return ys;
-  }
-});
+/***[Instances]***************************************************************/
 
 
-const mapLens = k => Lens({
-  get: m => m.get(k),
+const objLens = map => k =>
+  Lens(f => o => map(x => {
+    if (x[TYPE] === "Deleter") {
+      const p = Object.assign({}, o);
+      delete p[k];
+      return p;
+    }
 
-  set: m => v => {
-    const n = new Map(m);
-    return n.set(k, v);
-  },
-
-  mod: m => f => {
-    const n = new Map(m);
-    return n.set(k, f(v));
-  },
-
-  del: m => {
-    const n = new Map(m);
-    return n.delete(k);
-  }
-});
-
-
-const setLens = k => Lens({
-  get: s => s.get(k),
-
-  set: s => v => {
-    const t = new Set(s);
-    return t.add(k, v);
-  },
-
-  mod: s => f => {
-    const t = new Set(s);
-    return t.add(k, f(v));
-  },
-
-  del: s => {
-    const t = new Set(s);
-    return t.delete(k);
-  }
-});
-
-
-const strLens = i => Lens({
-  get: s => s[i],
-
-  set: s => c =>
-    strReplaceAt(i) (c) (s),
-
-  mod: s => f =>
-    strReplaceAtBy(i) (f) (s),
-
-  del: s =>
-    strDeleteAt(i) (s)
-});
-
-
-/***[Combinators]*************************************************************/
-
-
-const fromPath = lens =>
-  arrFold(acc => k =>
-    (acc.push(lens(k)), acc))
-      ([]);
-
-
-/***[Composition]*************************************************************/
-
-// TODO: Change to Category
-
-const lensComp = tx => ty => Lens({
-  get: o =>
-    tx.runLens.get(ty.runLens.get(o)),
-
-  set: o => x =>
-    ty.runLens.set(o) (tx.runLens.set(ty.runLens.get(o)) (x)),
-
-  mod: o => f =>
-    ty.runLens.set(o) (tx.runLens.set(ty.runLens.get(o)) (f)),
-
-  del: o =>
-    ty.runLens.set(o) (tx.runLens.del(ty.runLens.get(o)))
-});
-
-
-const lensPipe = flip(lensComp);
+    else
+      return Object.assign({}, o, {[k]: x});
+    }) (f(o[k])));
 
 
 /******************************************************************************
@@ -1846,7 +1738,7 @@ const lensPipe = flip(lensComp);
 ******************************************************************************/
 
 
-const Max = struct("Max") (Max => f => Max(f));
+const Max = struct("Max");
 
 
 /***[Monoid]******************************************************************/
@@ -1870,7 +1762,7 @@ const maxPrepend = maxAppend;
 ******************************************************************************/
 
 
-const Min = struct("Min") (Min => f => Min(f));
+const Min = struct("Min");
 
 
 /***[Monoid]******************************************************************/
@@ -1963,7 +1855,7 @@ const optChain = fm => mx =>
 
 // asynchronous computations in parallel
 
-const Parallel = struct("Parallel")
+const Parallel = structExt("Parallel")
   (Parallel => k => Parallel((res, rej) => k(res, rej)));
 
 
@@ -2073,7 +1965,7 @@ const parPrepend = parOr;
 ******************************************************************************/
 
 
-const Pred = struct("Pred") (Pred => p => Pred(p));
+const Pred = struct("Pred");
 
 
 /***[Contravariant Functor]***************************************************/
@@ -2104,7 +1996,7 @@ const predPrepend = predAppend;
 ******************************************************************************/
 
 
-const Prism = struct("Prism") (Prism => o => Prism(o));
+const Prism = struct("Prism");
 
 
 const objPrism = k => Prism({
@@ -2138,7 +2030,7 @@ const objPrism = k => Prism({
 ******************************************************************************/
 
 
-const Prod = struct("Prod") (Prod => n => Prod(n));
+const Prod = struct("Prod");
 
 
 /***[Monoid]******************************************************************/
@@ -2162,7 +2054,7 @@ const prodPrepend = prodAppend;
 ******************************************************************************/
 
 
-const Reader = struct("Reader") (Reader => f => Reader(f));
+const Reader = struct("Reader");
 
 
 /***[Combinators]*************************************************************/
@@ -2212,7 +2104,7 @@ const readJoin = mmf =>
 ******************************************************************************/
 
 
-const State = struct("State") (State => f => State(f));
+const State = struct("State");
 
 
 /***[Applicative]*************************************************************/
@@ -2258,7 +2150,7 @@ const stateChain = fm => mg =>
 ******************************************************************************/
 
 
-const Sum = struct("Sum") (Sum => n => Sum(n));
+const Sum = struct("Sum");
 
 
 /***[Monoid]******************************************************************/
@@ -2298,7 +2190,8 @@ const Done = x => Step("Done", x);
 
 // asynchronous computations in sequence
 
-const Task = struct("Task") (Task => k => Task((res, rej) => k(res, rej)));
+const Task = structExt("Task")
+  (Task => k => Task((res, rej) => k(res, rej)));
 
 
 /***[Applicative]*************************************************************/
@@ -2417,7 +2310,8 @@ const theseCata = _this => that => these => tx =>
 ******************************************************************************/
 
 
-const Writer = struct("Writer") (Writer => (x, y) => Writer([x, y]));
+const Writer = structExt("Writer")
+  (Writer => (x, y) => Writer([x, y]));
 
 
 /***[Applicative]*************************************************************/
