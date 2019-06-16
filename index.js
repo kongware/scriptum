@@ -1733,6 +1733,23 @@ const objLens = map => k =>
     }) (f(o[k])));
 
 
+/***[Category]****************************************************************/
+
+
+const lensComp = tx => ty =>
+  Lens(x => tx.runLens(ty.runLens(x)));
+
+
+const lensComp3 = tx => ty => tz =>
+  Lens(x => tx.runLens(ty.runLens(tz.runLens(x))));
+
+
+const lensId = Lens(f => x => Id(x)); // not sure about this one
+
+
+const lensVarComp = varComp({lensComp, lensId});
+
+
 /******************************************************************************
 ************************************[ MAX ]************************************
 ******************************************************************************/
