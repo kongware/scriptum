@@ -1996,6 +1996,8 @@ const predPrepend = predAppend;
 ******************************************************************************/
 
 
+// TODO: replace with Profunctor Prisms
+
 const Prism = struct("Prism");
 
 
