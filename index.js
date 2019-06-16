@@ -90,7 +90,13 @@ const match = ({[TYPE]: type, [TAG]: tag}, o) =>
 ******************************************************************************/
 
 
-const struct = type => cons => {
+const struct = type => x => ({
+  ["run" + type]: x,
+  [TYPE]: type,
+});
+
+
+const struct_ = type => cons => { // for more complex constructors
   const f = x => ({
     ["run" + type]: x,
     [TYPE]: type,
@@ -100,12 +106,23 @@ const struct = type => cons => {
 };
 
 
-const structMemo = type => cons => {
+const structMemo = type => thunk => ({
+  get ["run" + type] () {
+    delete this["run" + type];
+    return this["run" + type] = thunk();
+  },
+                                     
+  [TYPE]: type
+});
+
+
+const structMemo_ = type => cons => {
   const f = thunk => ({
     get ["run" + type] () {
       delete this["run" + type];
       return this["run" + type] = thunk();
     },
+                      
     [TYPE]: type
   });
 
