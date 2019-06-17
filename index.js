@@ -1744,7 +1744,7 @@ const lensComp3 = tx => ty => tz =>
   Lens(x => tx.runLens(ty.runLens(tz.runLens(x))));
 
 
-const lensId = Lens(f => x => Id(x)); // TODO: replace wrong definition
+const lensId = Lens(id);
 
 
 const lensVarComp = varComp({comp: lensComp, id: lensId});
