@@ -1524,7 +1524,7 @@ const Right = x =>
 /***[Foldable]****************************************************************/
 
 
-const eithCata = left => right => tx =>
+const ethCata = left => right => tx =>
   match(tx, {
     type: "Either",
     get Left() {return left(tx.runEither)},
