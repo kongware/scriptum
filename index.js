@@ -823,6 +823,17 @@ const round = roundBy("round");
 ******************************************************************************/
 
 
+/***[Applicative]*************************************************************/
+
+
+const funAp = f => g => x =>
+  f(x) (g(x));
+
+
+const funLiftA2 = f => g => h => x =>
+  f(g(x)) (h(x));
+
+
 /***[Arguments]***************************************************************/
 
 
@@ -903,6 +914,12 @@ const select = p => f => g => x =>
   p(x) ? f(x) : g(x);
 
 
+/***[Contravariant Functor]***************************************************/
+
+
+const funContra = pipe;
+
+
 /***[Currying/Partial Application]********************************************/
 
 
@@ -944,6 +961,12 @@ const uncurry4 = f => (w, x, y, z) =>
 
 const uncurry5 = f => (v, w, x, y, z) =>
   f(v) (w) (x) (y) (z);
+
+
+/***[Functor]*****************************************************************/
+
+
+const funMap = comp;
 
 
 /***[Impure]******************************************************************/
@@ -1007,6 +1030,23 @@ const tryCatch = f => g => x => {
 };
 
 
+/***[Monad]*******************************************************************/
+
+
+const funChain = f => g => x =>
+  f(g(x)) (x);
+
+
+const funJoin = f => x =>
+  f(x) (x);
+
+
+/***[Monoid]******************************************************************/
+
+
+const funEmpty = id;
+
+
 /***[Predicate]***************************************************************/
 
 
@@ -1040,6 +1080,30 @@ const id = x => x;
 const _let = f => f(); // simulates let binding as an expression
 
 
+/***[Profunctor]**************************************************************/
+
+
+const funDimap = f => g => hx => x =>
+  g(hx(f(x)));
+
+
+const funLmap = f => hx => x =>
+  hx(f(x));
+
+
+const funRmap = g => hx => x =>
+  g(hx(x));
+
+
+/***[Semigroup]***************************************************************/
+
+
+const funAppend = comp;
+
+
+const funPrepend = pipe;
+
+
 /***[Transducer]**************************************************************/
 
 
@@ -1051,41 +1115,7 @@ const filterer = p => reduce => acc => x =>
   p(x) ? reduce(acc) (x) : acc;
 
 
-/***[Typeclass Functions]*****************************************************/
-
-
-const funAp = f => g => x =>
-  f(x) (g(x));
-
-
-const funAppend = comp;
-
-
-const funChain = f => g => x =>
-  f(g(x)) (x);
-
-
-const funContra = pipe;
-
-
-const funEmpty = id;
-
-
-const funJoin = f => x =>
-  f(x) (x);
-
-
-const funLiftA2 = f => g => h => x =>
-  f(g(x)) (h(x));
-
-
-const funMap = comp;
-
-
-const funPrepend = pipe;
-
-
-/***[Combinators]********************************************************************/
+/***[Misc]********************************************************************/
 
 
 const orDefOn = p => f => def => x => {
