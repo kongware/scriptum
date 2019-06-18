@@ -557,21 +557,23 @@ Composes in the second argument of a binary function. This is sometimes useful, 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 ```
-### `infix`
+### `infixl`/`ìnfixr`
 
-Just mimics Haskell's chainable infix operators. This sometimes improves readability of code:
+Just mimics Haskell's chainable left/right associative infix operators. This sometimes improves readability of code:
 
 ```Javascript
-infix(strHead, orThrowOnf, isEmpty)
+infixl(strHead, orThrowOnf, isUnit) //*
   (TypeError, "non-empty string expected")
     ("foo"); // "f"
     
-infix(strHead, orThrowOnf, isEmpty)
+infix(strHead, orThrowOnf, isUnit)
   (TypeError, "non-empty string expected")
     (""); // TypeError
     
 infix(sqr, comp, inc, comp, inc, comp, inc) (0); // 9
 ```
+*`isUnit` checks for null/undefined/NaN/invalid Date
+
 Please note that there is no operator function precedence, that is to say you have to use nested `infix` calls to obtain this effect.
 
 ### `invoke`
