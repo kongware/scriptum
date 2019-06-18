@@ -589,7 +589,7 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 };
 
 
-/***[Combinators]*************************************************************/
+/***[Misc. Combinators]*******************************************************/
 
 
 const arrInsertAt = (i, x) => xs => {
@@ -1478,17 +1478,6 @@ const contLiftA2 = f => tx => ty =>
 const contOf = x => Cont(k => k(x));
 
 
-/***[Combinators]*************************************************************/
-
-
-const contReset = tx => // delimited continuations
-  of(tx.runCont(id));
-  
-
-const contShift = f => // delimited continuations
-  Cont(k => f(k).runCont(id));
-
-
 /***[Functor]*****************************************************************/
 
 
@@ -1513,6 +1502,17 @@ const contJoin = mmx =>
 
 const contLiftM2 = f => mx => my =>
   Cont(k => mx.runCont(x => my.runCont(y => k(f(x) (y)))));
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const contReset = tx => // delimited continuations
+  of(tx.runCont(id));
+  
+
+const contShift = f => // delimited continuations
+  Cont(k => f(k).runCont(id));
 
 
 /******************************************************************************
@@ -1939,7 +1939,29 @@ const parAp = tf => tx =>
 const parOf = x => Parallel((res, rej) => res(x));
 
 
-/***[Combinators]*************************************************************/
+/***[Functor]*****************************************************************/
+
+
+const parMap = f => tx =>
+  Parallel((res, rej) => tx.runParallel(x => res(f(x)), rej));
+
+
+/***[Monoid]******************************************************************/
+
+
+const parEmpty = Parallel((res, rej) => null);
+
+
+/***[Semigroup]***************************************************************/
+
+
+const parAppend = parOr;
+
+
+const parPrepend = parOr;
+
+
+/***[Misc. Combinators]*******************************************************/
 
 
 const parAnd = tf => tg => {
@@ -1999,28 +2021,6 @@ const parAny =
   arrFold(acc => tf =>
     parOr(acc) (tf))
       (parEmpty);
-
-
-/***[Functor]*****************************************************************/
-
-
-const parMap = f => tx =>
-  Parallel((res, rej) => tx.runParallel(x => res(f(x)), rej));
-
-
-/***[Monoid]******************************************************************/
-
-
-const parEmpty = Parallel((res, rej) => null);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const parAppend = parOr;
-
-
-const parPrepend = parOr;
 
 
 /******************************************************************************
@@ -2122,20 +2122,6 @@ const prodPrepend = prodAppend;
 const Reader = struct("Reader");
 
 
-/***[Combinators]*************************************************************/
-
-
-const ask = Reader(id);
-
-
-const asks = f =>
-  readChain(x => readOf(f(x))) (ask);
-
-
-const local = f => tg =>
-  Reader(x => tg.runReader(f(x)));
-
-
 /***[Applicative]**************************************************************/
 
 
@@ -2164,6 +2150,20 @@ const readJoin = mmf =>
   Reader(x => mmf.runReader(x).runReader(x));
 
 
+/***[Misc. Combinators]*******************************************************/
+
+
+const ask = Reader(id);
+
+
+const asks = f =>
+  readChain(x => readOf(f(x))) (ask);
+
+
+const local = f => tg =>
+  Reader(x => tg.runReader(f(x)));
+
+
 /******************************************************************************
 ***********************************[ STATE ]***********************************
 ******************************************************************************/
@@ -2178,7 +2178,14 @@ const State = struct("State");
 const stateOf = x => State(y => [x, y]);
 
 
-/***[Combinators]*************************************************************/
+/***[Monad]*******************************************************************/
+
+
+const stateChain = fm => mg =>
+  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
+
+
+/***[Misc. Combinators]*******************************************************/
 
 
 const evalState = tf =>
@@ -2201,13 +2208,6 @@ const stateGet = State(y => [y, y]);
 
 
 const statePut = y => State(_ => [null, y]);
-
-
-/***[Monad]*******************************************************************/
-
-
-const stateChain = fm => mg =>
-  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
 
 
 /******************************************************************************
@@ -2273,25 +2273,6 @@ const tLiftA2 = f => tx => ty =>
 const tOf = x => Task((res, rej) => res(x));
 
 
-/***[Combinators]*************************************************************/
-
-
-const tAnd = tf => tg =>
-  Task((res, rej) =>
-    tf.runTask(f =>
-      tg.runTask(g =>
-        res([f, g]), rej),
-        rej));
-
-
-const tAll = ts => // eta abstraction to create a new tOf([]) for each invocation
-  arrFold(acc => tf =>
-    tMap(([xs, x]) =>
-      (xs.push(x), xs))
-        (tAnd(acc) (tf)))
-          (tOf([])) (ts);
-
-
 /***[Foldable]****************************************************************/
 
 
@@ -2326,6 +2307,25 @@ const tLiftM2 = f => mx => my =>
   tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
 
 
+/***[Misc. Combinators]*******************************************************/
+
+
+const tAnd = tf => tg =>
+  Task((res, rej) =>
+    tf.runTask(f =>
+      tg.runTask(g =>
+        res([f, g]), rej),
+        rej));
+
+
+const tAll = ts => // eta abstraction to create a new tOf([]) for each invocation
+  arrFold(acc => tf =>
+    tMap(([xs, x]) =>
+      (xs.push(x), xs))
+        (tAnd(acc) (tf)))
+          (tOf([])) (ts);
+
+
 /******************************************************************************
 ***********************************[ THESE ]***********************************
 ******************************************************************************/
@@ -2346,18 +2346,6 @@ const These = (x, y) =>
   These_("These", [x, y]);
 
 
-/***[Combinators]*************************************************************/
-
-
-const fromThese = (x, y) => tx =>
-  match(tx) ({
-    type: "These",
-    get This() {return [tx.runThese, y]},
-    get That() {return [x, tx.runThese]},
-    get These() {return tx.runThese}
-  });
-
-
 /***[Foldable]****************************************************************/
 
 
@@ -2367,6 +2355,18 @@ const theseCata = _this => that => these => tx =>
     get This() {return _this(tx.runThese)},
     get That() {return that(tx.runThese)},
     get These() {return these(...tx.runThese)}
+  });
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const fromThese = (x, y) => tx =>
+  match(tx) ({
+    type: "These",
+    get This() {return [tx.runThese, y]},
+    get That() {return [x, tx.runThese]},
+    get These() {return tx.runThese}
   });
 
 
@@ -2386,7 +2386,14 @@ const writeOf = empty => x =>
   Writer(x, empty);
 
 
-/***[Combinators]*************************************************************/
+/***[Monad]*******************************************************************/
+
+
+const writeChain = append => fm => mx =>
+  mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
+
+
+/***[Misc. Combinators]*******************************************************/
 
 
 const censor = f => mx =>
@@ -2414,13 +2421,6 @@ const pass = tx =>
 
 
 const tell = y => Writer(null, y);
-
-
-/***[Monad]*******************************************************************/
-
-
-const writeChain = append => fm => mx =>
-  mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
 
 
 /******************************************************************************
