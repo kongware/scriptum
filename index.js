@@ -1007,7 +1007,7 @@ const orThrowOn = p => f => (e, msg) => x => {
   if (p(r))
     throw new e(msg);
   
-  else return r
+  else return r;
 };
 
 
@@ -1017,7 +1017,7 @@ const orThrowOnf = f => p => (e, msg) => x => {
   if (p(r))
     throw new e(msg);
   
-  else return r
+  else return r;
 };
 
 
@@ -1134,7 +1134,7 @@ const orDefOn = p => f => def => x => {
   if (p(r))
     return def;
   
-  else return r
+  else return r;
 };
 
 
@@ -1144,7 +1144,7 @@ const orDefOnf = f => p => def => x => {
   if (p(r))
     return def;
   
-  else return r
+  else return r;
 };
 
 
