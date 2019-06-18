@@ -681,9 +681,10 @@ const varArgs = f => {
 ```
 If you spot the bug and the resulting trouble right away, well, lucky you. Anyway, scriptum replaces `Array.prototype.concat` with the following combinators:
 
-* `arrAppend`/`arrPrepend`
+* `arrAppend`/`arrPrepend` (for non-destructive concatenating)
 * `arrPush`/`arrUnshift` (for destructive pushing/unshifting)
-* `arrConsHead`/`arrConsTail` (for non-destructive pushing/unshifting) => TODO: reconsider naming
+
+Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `Array`s and throws an error otherwise. If you want to append/prepend a single value just wrap it in a singleton `Array`, e.g. `arrAppend(xs) ([3])`.
 
 ## `Object.assign`
 
@@ -714,3 +715,4 @@ If you spot the bug and the resulting trouble right away, well, lucky you. Anywa
 - [ ] add useful Profunctors
 - [ ] add Kmett-Style or Profunctor Lenses
 - [ ] rename `traverse` to `mapA`
+- [ ] replace explicit flipped variants of functions with implicit ones using `flip`
