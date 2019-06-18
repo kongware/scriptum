@@ -541,13 +541,13 @@ const arrApo = coalg => x => { // TODO: make non-strict
             break;
           }
 
-          default: throw new Error("invalid tag");
+          default: throw new UnionError("invalid tag");
         }
         
         break;
       }
 
-      default: throw new Error("invalid tag");
+      default: throw new UnionError("invalid tag");
     }
   }
 };
