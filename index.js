@@ -988,6 +988,13 @@ const introspect = x =>
     : Object.prototype.toString.call(x).slice(8, -1);
 
 
+const isUnit = x => // unit types are undefined/null/NaN/invalid Date
+  x === undefined
+    || x === null
+    || x === x === false
+    || x.getTime && !Number.isNaN(x.getTime());
+
+
 const memoThunk = (f, memo) => () =>
   memo === undefined
     ? (memo = f(), memo)
@@ -1014,11 +1021,7 @@ const orThrowOnf = f => p => (e, msg) => x => {
 };
 
 
-const orThrowOnUnit = orThrowOn(x =>
-  x === undefined
-    || x === null
-    || x === x === false
-    || x.getTime && !Number.isNaN(x.getTime()));
+const orThrowOnUnit = orThrowOn(isUnit);
 
 
 const _throw = e => {
@@ -1135,11 +1138,17 @@ const orDefOn = p => f => def => x => {
 };
 
 
-const orDefOnUnit = orDefOn(x =>
-  x === undefined
-    || x === null
-    || x === x === false
-    || x.getTime && !Number.isNaN(x.getTime()));
+const orDefOnf = f => p => def => x => {
+  const r = f(x);
+  
+  if (p(r))
+    return def;
+  
+  else return r
+};
+
+
+const orDefOnUnit = orDefOn(isUnit);
 
 
 /******************************************************************************
