@@ -658,6 +658,33 @@ p.bar(3); // 5
 ```
 # Language Conflicts
 
+## `Array.prototype.concat`
+
+`Array.prototype.concat` is one of the most harmful methods in Javascript for two reasons:
+
+* it treats `Array`s as if they were persistant data structures with structural sharing
+* it has an ambigious type that excepts both `x` and `[x]`
+
+The first issue leads to insanely slow performance and the latter to subtle bugs:
+
+```Javascript
+const varArgs = f => {
+  const go = args =>
+    Object.defineProperties(
+      arg => go(args.concat(arg)), {
+        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "VarArgs", enumerable: true}
+      });
+
+  return go([]);
+};
+
+If you spot the bug and the resulting trouble right away, well, lucky you. Anyway, scriptum replaces `Array.prototype.concat` with the following combinators:
+
+* `arrAppend`/`arrPrepend`
+* `arrPush`/`arrUnshift` (for non-destructive pushing/unshifting)
+* `arrPushx`/`arrUnshiftx` (for destructive pushing/unshifting)
+```
 ## `Object.assign`
 
 `Object.assign` calls every getter/setter strictly during copying. This is undesired if you rely on their lazy evaluation semantics. scriptum comes with the `objUnion`/`objUnionx` combinator pair that replace the method adequately without notable performance penalty.
