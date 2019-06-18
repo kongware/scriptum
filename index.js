@@ -57,6 +57,9 @@ class ScriptumError extends ExtendableError {};
 /***[Derived]*****************************************************************/
 
 
+class SemigroupError extends ScriptumError {};
+
+
 class UnionError extends ScriptumError {};
 
 
@@ -463,10 +466,34 @@ const arrEmpty = [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => xs.concat(ys);
+const arrAppend = xs => ys => { // is rigid in its type
+  let zs;
+
+  if (!Array.isArray(xs))
+    throw new SemigroupError(`array expected but "${xs}" given`);
+
+  else if (!Array.isArray(ys))
+    throw new SemigroupError(`array expected but "${ys}" given`);
+
+  else if (xs.length <= ys.length) {
+    zs = arrClone(xs);
+
+    for (let i = 0; i < ys.length; i++)
+      zs.push(ys[i]);
+  }
+
+  else {
+    zs = arrClone(ys);
+
+    for (let i = xs.length - 1; i >= 0; i--)
+      zs.unshift(xs[i]);
+  }
+
+  return zs;
+};
 
 
-const arrPrepend = ys => xs => xs.concat(ys);
+const arrPrepend = flip(arrAppend);
 
 
 /***[Transduce]***************************************************************/
