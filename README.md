@@ -678,13 +678,13 @@ const varArgs = f => {
 
   return go([]);
 };
-
+```
 If you spot the bug and the resulting trouble right away, well, lucky you. Anyway, scriptum replaces `Array.prototype.concat` with the following combinators:
 
 * `arrAppend`/`arrPrepend`
 * `arrPush`/`arrUnshift` (for non-destructive pushing/unshifting)
 * `arrPushx`/`arrUnshiftx` (for destructive pushing/unshifting)
-```
+
 ## `Object.assign`
 
 `Object.assign` calls every getter/setter strictly during copying. This is undesired if you rely on their lazy evaluation semantics. scriptum comes with the `objUnion`/`objUnionx` combinator pair that replace the method adequately without notable performance penalty.
