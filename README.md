@@ -682,8 +682,8 @@ const varArgs = f => {
 If you spot the bug and the resulting trouble right away, well, lucky you. Anyway, scriptum replaces `Array.prototype.concat` with the following combinators:
 
 * `arrAppend`/`arrPrepend`
-* `arrPush`/`arrUnshift` (for non-destructive pushing/unshifting)
-* `arrPushx`/`arrUnshiftx` (for destructive pushing/unshifting)
+* `arrPush`/`arrUnshift` (for destructive pushing/unshifting)
+* `arrConsHead`/`arrConsTail` (for non-destructive pushing/unshifting) => TODO: reconsider naming
 
 ## `Object.assign`
 
