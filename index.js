@@ -641,16 +641,7 @@ const arrInsertBy = p => f => y =>
       : (acc.push(x), acc)) ([]);
 
 
-const arrModOr = def => (i, f) => xs => {
-  const ys = arrClone(xs);
-
-  if (i in ys)
-    ys[i] = f(ys[i]);
-
-  else ys[i] = def;
-
-  return ys;
-};
+// TODO: add arrMod
 
 
 const arrPartition = f => xs => // TODO: revise
@@ -690,6 +681,16 @@ const arrSet = def => (i, x) => xs => {
 };
 
 
+const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
+  loop((acc = [], n = n_, i = 0) => {
+    if (i >= xs.length)
+      return acc;
+
+    else
+      return recur((acc.push(xs.slice(i, i + n)), acc), n, i + n);
+  });
+
+
 const arrSplitAt = i => xs =>
   [xs.slice(0, i), xs.slice(i)];
 
@@ -699,16 +700,6 @@ const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
     i === xs.length ? [acc, []]
       : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
       : [acc, xs.slice(i)]);
-
-
-const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
-  loop((acc = [], n = n_, i = 0) => {
-    if (i >= xs.length)
-      return acc;
-
-    else
-      return recur((acc.push(xs.slice(i, i + n)), acc), n, i + n);
-  });
 
 
 const arrSplitBy = p => xs => // TODO: Absract from recursion with fold
@@ -2662,4 +2653,103 @@ const arrSum = arrFoldM(sumAppend, sumEmpty);
 ******************************************************************************/
 
 
-// module.exports = {} // TODO
+module.exports = {
+  arrAp,
+  arrApo,
+  arrAppend,
+  arrChain,
+  arrChainRec,
+  arrClone,
+  arrConcat,
+  arrEmpty,
+  arrFilter,
+  arrFold,
+  arrFoldM,
+  arrFoldr,
+  arrFoldWhile,
+  arrFutu,
+  arrHisto,
+  arrHylo,
+  arrInsertAt,
+  arrInsertAtBy,
+  arrInsertBy,
+  arrJoin,
+  arrMap,
+  arrMutu,
+  arrOf,
+  arrPara,
+  arrParaWhile,
+  arrPartition,
+  arrPush,
+  arrPushf,
+  arrPushFlat,
+  arrScan,
+  arrSeqF,
+  arrSet,
+  arrSplit,
+  arrSplitAt,
+  arrSplitAtBy,
+  arrSplitBy,
+  arrTransduce,
+  arrTransduceWhile,
+  arrTranspose,
+  arrUnfold,
+  arrUnshift,
+  arrUnshiftf,
+  arrUnshiftFlat,
+  arrUnzip,
+  arrZip,
+  arrZipBy,
+  arrZygo,
+  ceil,
+  comp,
+  comp2nd,
+  comp3,
+  concat,
+  floor,
+  foldMap,
+  formatDate,
+  fst,
+  funAp,
+  funLiftA2,
+  fromMultiArg,
+  getMonthDays,
+  infixl,
+  infixr,
+  kleisliComp,
+  kleisliPipe,
+  loop,
+  match,
+  pipe,
+  pipe3,
+  recur,
+  round,
+  roundBy,
+  ScriptumError,
+  SemigroupError,
+  snd,
+  struct,
+  structExt,
+  structGetter,
+  structMemo,
+  structMemoExt,
+  swapMultiArg,
+  tramp,
+  toFixedFloat,
+  union,
+  unionGetter,
+  UnionError,
+  TAG,
+  thd,
+  TYPE,
+  varAp,
+  varArgs,
+  varChain,
+  varComp,
+  varKleisliComp,
+  varKleisliPipe,
+  varLiftA,
+  varLiftM,
+  varPipe,
+  verifyDate,
+};
