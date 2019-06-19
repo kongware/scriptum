@@ -791,17 +791,17 @@ const formatDate = sep => (...fs) => date =>
     .join(sep);
 
 
-const getDay = invoke("getDate");
+// getDate @derived
 
 
 const getMonthDays = y => m =>
   new Date(y, m, 0).getDate();
 
 
-const getMonth = invoke("getMonth");
+// getMonth @derived
 
 
-const getYear = invoke("getFullYear");
+// getYear @derived
 
 
 const verifyDate = y => m => d =>
@@ -922,10 +922,10 @@ const on = f => g => x => y =>
   f(g(x)) (g(y));
 
 
-const funVarComp = varComp({comp, id});
+// funVarComp @derived
 
 
-const funVarPipe = varPipe({pipe, id});
+// funVarPipe @derived
 
 
 /***[Conditional Branching]***************************************************/
@@ -1037,7 +1037,7 @@ const orThrowOn = p => f => (e, msg) => x => {
 };
 
 
-const orThrowOnf = flip(orThrowOn);
+// orThrowOnf @derived
 
 
 const orThrowOnUnit = orThrowOn(isUnit);
@@ -1073,7 +1073,7 @@ const funJoin = f => x =>
 /***[Monoid]******************************************************************/
 
 
-const funEmpty = id;
+// funEmpty @derived
 
 
 /***[Predicate]***************************************************************/
@@ -1168,6 +1168,18 @@ const orDefOnf = f => p => def => x => {
 
 
 const orDefOnUnit = orDefOn(isUnit);
+
+
+/***[Derived]*****************************************************************/
+
+
+const funVarComp = varComp({comp, id});
+
+
+const funVarPipe = varPipe({pipe, id});
+
+
+const orThrowOnf = flip(orThrowOn);
 
 
 /******************************************************************************
@@ -1407,6 +1419,18 @@ const strReplaceAtBy = i => f => s =>
 
 
 const arrAppendf = flip(arrAppend);
+
+
+const getDay = invoke("getDate");
+
+
+const getMonth = invoke("getMonth");
+
+
+const getYear = invoke("getFullYear");
+
+
+const funEmpty = id;
 
 
 /******************************************************************************
