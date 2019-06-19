@@ -1130,7 +1130,7 @@ const funRmap = g => hx => x =>
 const funAppend = comp;
 
 
-const funPrepend = pipe;
+const funAppendf = pipe;
 
 
 /***[Transducer]**************************************************************/
@@ -1429,7 +1429,7 @@ const allAppend = tx => ty =>
   All(tx.runAll && ty.runAll);
 
 
-const allPrepend = allAppend;
+const allAppendf = allAppend;
 
 
 /******************************************************************************
@@ -1453,7 +1453,7 @@ const anyAppend = tx => ty =>
   Any(tx.runAny || ty.runAny);
 
 
-const anyPrepend = anyAppend;
+const anyAppendf = anyAppend;
 
 
 /******************************************************************************
@@ -1501,7 +1501,7 @@ const ctorAppend = tx => ty =>
   ctorCata(LT) (ty) (GT) (tx);
 
 
-const ctorPrepend = ctorAppend;
+const ctorAppendf = ctorAppend;
 
 
 /******************************************************************************
@@ -1533,9 +1533,7 @@ const compAppend = tf => tg =>
     ctorAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
 
 
-const compPrepend = tg => tf =>
-  Compare(x => y =>
-    ctorPrepend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
+const compAppendf = flip(comAppend);
 
 
 /******************************************************************************
@@ -1722,8 +1720,7 @@ const endoAppend = tf => tg => x =>
   Endo(tf.runEndo(tg.runEndo(x)));
 
 
-const endoPrepend = tg => tf => x =>
-  Endo(tf.runEndo(tg.runEndo(x)));
+const endoAppendf = flip(endoAppend);
 
 
 /******************************************************************************
@@ -1755,7 +1752,7 @@ const equivAppend = tf => tg =>
     tf.runEquiv(x) (y) && tg.runEquiv(x) (y));
 
 
-const equivPrepend = equivAppend;
+const equivAppendf = equivAppend;
 
 
 /******************************************************************************
@@ -1772,7 +1769,7 @@ const First = struct("First");
 const firstAppend = x => _ => x;
 
 
-const firstPrepend = lastAppend;
+const firstAppendf = lastAppend;
 
 
 /******************************************************************************
@@ -1834,7 +1831,7 @@ const Last = struct("Last");
 const lastAppend = _ => y => y;
 
 
-const LastPrepend = firstAppend;
+const LastAppendf = firstAppend;
 
 
 /******************************************************************************
@@ -1959,7 +1956,7 @@ const maxAppend = max => x => y =>
   max(x) (y);
 
 
-const maxPrepend = maxAppend;
+const maxAppendf = maxAppend;
 
 
 /******************************************************************************
@@ -1983,7 +1980,7 @@ const minAppend = min => x => y =>
   min(x) (y);
 
 
-const minPrepend = minAppend;
+const minAppendf = minAppend;
 
 
 /******************************************************************************
@@ -2100,7 +2097,7 @@ const parEmpty = Parallel((res, rej) => null);
 const parAppend = parOr;
 
 
-const parPrepend = parOr;
+const parAppendf = parOr;
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -2193,7 +2190,7 @@ const predAppend = tf => tg =>
   Pred(x => tf.runPred(x) && tg.runPred(x));
 
 
-const predPrepend = predAppend;
+const predAppendf = predAppend;
 
 
 /******************************************************************************
@@ -2253,7 +2250,7 @@ const prodAppend = tm => tn =>
   Sum(tm.runProd * tn.runProd);
 
 
-const prodPrepend = prodAppend;
+const prodAppendf = prodAppend;
 
 
 /******************************************************************************
@@ -2373,7 +2370,7 @@ const sumAppend = tm => tn =>
   Sum(tm.runSum + tn.runSum);
 
 
-const sumPrepend = sumAppend;
+const sumAppendf = sumAppend;
 
 
 /******************************************************************************
