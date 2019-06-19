@@ -1262,6 +1262,110 @@ function* objValues(o) {
 ******************************************************************************/
 
 
+/***[Foldable]****************************************************************/
+
+
+// strings are folded in chunks rather than char by char
+
+const strFold = alg => zero => s => {
+  let acc = zero;
+
+  while (s) {
+    [acc, s] = alg(acc) (s);
+  }
+
+  return acc;
+};
+
+
+/***[Regular Expressions]*****************************************************/
+
+
+const strMatch = (r, flags) => s => {
+  const xs = s.match(new RegExp(r, flags));
+
+  if (xs === null)
+    return Matched(None);
+
+  else if (!("index" in xs))
+    throw new Error(
+      `invalid regular expression - greediness is not permitted in\n${r}`);
+
+  else if (xs.groups === undefined) {
+    xs.groups = {}; // add empty group instead of undefined
+    xs.relIndex = xs.index; // add relative index in case of multiple matches
+    xs.relInput = xs.input; // add relative input in case of multiple matches
+    return Matched(Some(xs));
+  }
+
+  else {
+    xs.relIndex = xs.index;
+    xs.relInput = xs.input;
+    return Matched(Some(xs));
+  }
+};
+
+
+const strMatchAll = (r, flags) => s_ =>
+  loop((acc = [], s = s_, i = 0) => {
+    if (s === "")
+      return acc;
+
+    else {
+      const tx = strMatch(r, flags) (s);
+
+      switch (tx.runMatched[TAG]) {
+        case "None": return acc;
+
+        case "Some": {
+          const xs = tx.runMatched.runOption;
+          xs.index += i;
+          xs.input = s_;
+
+          return recur(
+            (acc.push(tx), acc),
+            s_.slice(xs.index + xs[0].length),
+            xs.index + xs[0].length);
+        }
+
+        default: _throw(new UnionError("unknown tag"));
+      }
+    }
+  });
+
+
+const strMatchLast = (r, flags) => s_ =>
+  loop((acc = Matched(None), s = s_, i = 0) => {
+    if (s === "")
+      return acc;
+
+    else {
+      const tx = strMatch(r, flags) (s);
+
+      switch (tx.runMatched[TAG]) {
+        case "None": return acc;
+
+        case "Some": {
+          const xs = tx.runMatched.runOption;
+          xs.index += i;
+          xs.input = s_;
+
+          return recur(
+            tx,
+            s_.slice(xs.index + xs[0].length),
+            xs.index + xs[0].length);
+        }
+
+        default: _throw(new UnionError("unknown tag"));
+      }
+    }
+  });
+
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
 const strDeleteAt = i => s =>
   t.slice(0, i) + t.slice(i + 1);
 
@@ -1802,6 +1906,14 @@ const lensId = Lens(id);
 
 
 const lensVarComp = varComp({comp: lensComp, id: lensId});
+
+
+/******************************************************************************
+**********************************[ REGEXP ]***********************************
+******************************************************************************/
+
+
+const Matched = struct("Matched");
 
 
 /******************************************************************************
