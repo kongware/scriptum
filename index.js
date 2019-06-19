@@ -54,7 +54,7 @@ class ExtendableError extends Error {
 class ScriptumError extends ExtendableError {};
     
 
-/***[Derived]*****************************************************************/
+/***[Suclasses]***************************************************************/
 
 
 class SemigroupError extends ScriptumError {};
@@ -817,6 +817,15 @@ const verifyDate = y => m => d =>
 ******************************************************************************/
 
 
+// ceil @derived
+
+
+// floor @derived
+
+
+// round @derived
+
+
 const roundBy = k => places => fp => {
   let [n, ex] = `${fp < 0 ? Math.abs(fp) : fp}e`.split('e'),
     r = Math[k](`${n}e${Number(ex) + places}`);
@@ -1173,6 +1182,9 @@ const orDefOnUnit = orDefOn(isUnit);
 /***[Derived]*****************************************************************/
 
 
+const funEmpty = id;
+
+
 const funVarComp = varComp({comp, id});
 
 
@@ -1430,9 +1442,6 @@ const getMonth = invoke("getMonth");
 const getYear = invoke("getFullYear");
 
 
-const funEmpty = id;
-
-
 /******************************************************************************
 *******************************************************************************
 ***********************[ FUNCTIONAL PROGRAMMING TYPES ]************************
@@ -1565,7 +1574,7 @@ const compAppend = tf => tg =>
     ctorAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
 
 
-const compAppendf = flip(comAppend);
+const compAppendf = flip(compAppend);
 
 
 /******************************************************************************
@@ -1801,7 +1810,7 @@ const First = struct("First");
 const firstAppend = x => _ => x;
 
 
-const firstAppendf = lastAppend;
+// firstAppendf @derived
 
 
 /******************************************************************************
@@ -2126,10 +2135,10 @@ const parEmpty = Parallel((res, rej) => null);
 /***[Semigroup]***************************************************************/
 
 
-const parAppend = parOr;
+// parAppend @derived
 
 
-const parAppendf = parOr;
+// parAppendf @derived
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -2192,6 +2201,15 @@ const parAny =
   arrFold(acc => tf =>
     parOr(acc) (tf))
       (parEmpty);
+
+
+/***[Derived]*****************************************************************/
+
+
+const parAppend = parOr;
+
+
+const parAppendf = parOr;
 
 
 /******************************************************************************
@@ -2592,6 +2610,14 @@ const pass = tx =>
 
 
 const tell = y => Writer(null, y);
+
+
+/******************************************************************************
+**********************************[ DERIVED ]**********************************
+******************************************************************************/
+
+
+const firstAppendf = lastAppend;
 
 
 /******************************************************************************
