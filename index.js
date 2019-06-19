@@ -257,6 +257,13 @@ const varLiftM = ({map, of, chain}) => f =>
   });
 
 
+/***[Monoid]******************************************************************/
+
+
+const concat = ({append, empty}) =>
+  arrFold(append) (empty);
+
+
 /******************************************************************************
 *******************************************************************************
 ******************************[ BUILT-IN TYPES ]*******************************
@@ -481,7 +488,11 @@ const arrAppend = xs => ys => {
 };
 
 
-const arrPrepend = flip(arrAppend);
+const arrAppendf = flip(arrAppend);
+
+
+const arrConcat =
+  concat({append: arrAppend, empty: arrEmpty});
 
 
 /***[Transduce]***************************************************************/
@@ -605,10 +616,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 
 
 /***[Misc. Combinators]*******************************************************/
-
-
-const arrEmpty = xs =>
-  xs.length === 0;
 
 
 const arrInsertAt = (i, x) => xs => {
@@ -1234,7 +1241,7 @@ const pickProps = (...ks) => o => // TODO: revise
   ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
-const thisify => f => f({}); // mimics this context
+const thisify = f => f({}); // mimics this context
 
 
 /***[Iterators]**************************************************************/
@@ -2589,4 +2596,4 @@ const fileScanDir = path =>
 ******************************************************************************/
 
 
-module.exports = {} // TODO
+// module.exports = {} // TODO
