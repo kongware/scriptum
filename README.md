@@ -692,6 +692,7 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 
 # TODO
 
+- [ ] add type signatures
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
