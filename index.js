@@ -466,27 +466,15 @@ const arrEmpty = [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => { // is rigid in its type
-  let zs;
+const arrAppend = xs => ys => {
+  const zs = arrClone(xs);
 
-  if (!Array.isArray(xs))
-    throw new SemigroupError(`array expected but "${xs}" given`);
-
-  else if (!Array.isArray(ys))
+  if (!Array.isArray(ys)) // prevents the common mistake of passing a non-array
     throw new SemigroupError(`array expected but "${ys}" given`);
 
-  else if (xs.length <= ys.length) {
-    zs = arrClone(xs);
-
+  else {
     for (let i = 0; i < ys.length; i++)
       zs.push(ys[i]);
-  }
-
-  else {
-    zs = arrClone(ys);
-
-    for (let i = xs.length - 1; i >= 0; i--)
-      zs.unshift(xs[i]);
   }
 
   return zs;
@@ -1038,14 +1026,7 @@ const orThrowOn = p => f => (e, msg) => x => {
 };
 
 
-const orThrowOnf = f => p => (e, msg) => x => {
-  const r = f(x);
-  
-  if (p(r))
-    throw new e(msg);
-  
-  else return r;
-};
+const orThrowOnf = flip(orThrowOn);
 
 
 const orThrowOnUnit = orThrowOn(isUnit);
