@@ -607,6 +607,10 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 /***[Misc. Combinators]*******************************************************/
 
 
+const arrEmpty = xs =>
+  xs.length === 0;
+
+
 const arrInsertAt = (i, x) => xs => {
   const ys = xs.slice(0, i);
 
