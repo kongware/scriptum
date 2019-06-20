@@ -1903,7 +1903,7 @@ const lazyJoin = mmx =>
 const Lens = f => struct("Lens");
 
 
-const Deleter = structGetter("Deleter") ({get runDeleter() {return Deleter}});
+const Deleter = structGetter("Deleter") ({get runDeleter() {return Deleter}}); // TODO: deprecated
 
 
 /***[Instances]***************************************************************/
