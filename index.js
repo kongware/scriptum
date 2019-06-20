@@ -641,7 +641,22 @@ const arrInsertBy = p => f => y =>
       : (acc.push(x), acc)) ([]);
 
 
-// TODO: add arrMod
+const arrModOr = def => (i, f) => xs => {
+  const ys = arrClone(xs);
+
+  if (i in ys)
+    ys[i] = f(ys[i]);
+
+  else ys[i] = def;
+
+  return ys;
+};
+
+
+const arrModOrx = def => (i, f) => xs =>
+  i in xs
+    ? (xs[i] = f(xs[i]), xs)
+    : xs[i] = def;
 
 
 const arrPartition = f => xs => // TODO: revise
@@ -679,6 +694,10 @@ const arrSet = def => (i, x) => xs => {
   const ys = arrClone(xs);
   return (ys[i] = x, ys);
 };
+
+
+const arrSetx = def => (i, x) => xs =>
+  (xs[i] = x, xs);
 
 
 const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
