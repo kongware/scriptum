@@ -1032,10 +1032,16 @@ const isUnit = x => // unit types are undefined/null/NaN/invalid Date
     || x.getTime && !Number.isNaN(x.getTime());
 
 
-const memoThunk = (f, memo) => () =>
-  memo === undefined
-    ? (memo = f(), memo)
-    : memo;
+const memoLast = (f, memo) => x =>
+  memo === x
+    ? memo
+    : (memo = f(x), memo);
+
+
+const memoLastBy = eq => (f, memo) => x =>
+  eq(memo) (x)
+    ? memo
+    : (memo = f(x), memo);
 
 
 const orThrowOn = p => f => (e, msg) => x => {
@@ -2673,6 +2679,8 @@ module.exports = {
   arrInsertBy,
   arrJoin,
   arrMap,
+  arrMod,
+  arrModx,
   arrMutu,
   arrOf,
   arrPara,
@@ -2684,6 +2692,7 @@ module.exports = {
   arrScan,
   arrSeqF,
   arrSet,
+  arrSetx,
   arrSplit,
   arrSplitAt,
   arrSplitAtBy,
@@ -2836,7 +2845,8 @@ module.exports = {
   maxEmpty,
   maxAppend,
   maxAppendf,
-  memoThunk,
+  memoLast,
+  memoLastBy,
   Min,
   minAppend,
   minAppendf,
