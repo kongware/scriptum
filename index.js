@@ -1180,51 +1180,56 @@ const orThrowOnf = flip(orThrowOn);
 ******************************************************************************/
 
 
-const abstractNew = cons => (...args) =>
-  new cons(...args);
-
-
 const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
-const objClone = o => {
+const _new = cons => (...args) =>
+  new cons(...args);
+
+
+const objClone = o => { // TODO: make setter/getter safe
   const p = {};
 
   for ([k, v] of objEntries(o))
     p[k] = v;
 
-  return o;
+  return p;
 };
 
 
-const objFactory = (...fields) => (...values) => // TODO: revise
-  values.reduce(
-    (acc, value, i) =>
-      (acc[fields[i]] = value, acc), {});
+const objDel = k => o =>
+  objDelx(k) (objClone(o));
 
 
-const objFactory_ = entries => // TODO: revise
-  entries.reduce(
-    (acc, [k, v]) =>
-      (acc[k] = v, acc), {});
+const objDelx = k => o =>
+  (delete o[k], o);
+
+
+const objModOr = def => (k, f) => o =>
+  objModOrx(def) (k, f) (objClone(o));
+
+
+const objModOrx = def => (k, f) => o =>
+  k in o
+    ? (o[k] = f(o[k]), o)
+    : (o[k] = def, o);
 
 
 const objPathOr = def =>
   varArgs(arrFold(p => k => p[k] || def) (o));
 
 
-const objUnion = o => p => {
-  const q = {};
+const objSet = (k, v) => o =>
+  objSetx(k, v) (objClone(o));
 
-  for ([k, v] of objEntries(o))
-    q[k] = v;
 
-  for ([k, v] of objEntries(p))
-    q[k] = v;
+const objSetx = (k, v) => o =>
+  (o[k] = v, o);
 
-  return q;
-};
+
+const objUnion = o => p =>
+  objUnionx(objClone(o)) (p);
 
 
 const objUnionx = o => p => {
