@@ -2623,7 +2623,6 @@ const arrSum = arrFoldM(sumAppend, sumEmpty);
 
 
 module.exports = {
-  abstractNew,
   Age,
   All,
   allAppend,
@@ -2822,6 +2821,7 @@ module.exports = {
   minAppend,
   minAppendf,
   minEmpty,
+  _new,
   None,
   notp,
   notp2,
