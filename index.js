@@ -521,7 +521,7 @@ const thd = ([x, y, z]) => z;
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = coalg => x => { // TODO: make non-strict + replace switch with match
+const arrUnfold = coalg => x => { // TODO: make non-strict
   const acc = [];
 
   while (true) {
@@ -1334,7 +1334,7 @@ const strMatch = (r, flags) => s => {
 };
 
 
-const strMatchAll = (r, flags) => s_ => // TODO: replace switch with match
+const strMatchAll = (r, flags) => s_ =>
   loop((acc = [], s = s_, i = 0) => {
     if (s === "")
       return acc;
@@ -1362,7 +1362,7 @@ const strMatchAll = (r, flags) => s_ => // TODO: replace switch with match
   });
 
 
-const strMatchLast = (r, flags) => s_ => // TODO: replace switch with match
+const strMatchLast = (r, flags) => s_ =>
   loop((acc = Matched(None), s = s_, i = 0) => {
     if (s === "")
       return acc;
@@ -1827,7 +1827,7 @@ const history = alg => zero =>
     (Ancient(zero));
 
 
-const headH = tx => { // TODO: replace switch with match
+const headH = tx => {
   switch (tx[TAG]) {
     case "Ancient": return tx.runHistory;
     case "Age": return tx.runHistory[1];
