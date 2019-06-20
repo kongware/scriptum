@@ -708,5 +708,6 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 - [ ] add Reference Type (value objects)???
 - [ ] add mapAccum
 - [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`
+- [ ] replace `switch` with `match` as often as possible
 - [ ] add `Strong` profunctor
 - [ ] rename `traverse` to `mapA`
