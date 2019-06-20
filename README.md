@@ -698,19 +698,15 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
-- [ ] add common transducer
+- [ ] add common transducers
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access/Difference List
-- [ ] add Rose Trees
+- [ ] add Multiway Trees
 - [ ] add Zipper data type
 - [ ] add useful Comonads
 - [ ] add Monad Transformers
 - [ ] add Reference Type (value objects)???
 - [ ] add mapAccum
-- [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
 - [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`
-- [ ] add union/intersect/diff/leftDiff/rightDiff
-- [ ] add dedupe
-- [ ] add sort with `on` combinator
-- [ ] add `Strong`
+- [ ] add `Strong` profunctor
 - [ ] rename `traverse` to `mapA`
