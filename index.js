@@ -1909,6 +1909,18 @@ const lensId = Lens(id);
 const lensVarComp = varComp({comp: lensComp, id: lensId});
 
 
+/***[Misc. Combinators]*******************************************************/
+
+
+// TODO: add lensView
+
+
+// TODO: add lensSet
+
+
+// TODO: add lensOver
+
+
 /******************************************************************************
 **************************[ MATCHED (REGEXP RESULT) ]**************************
 ******************************************************************************/
@@ -2200,35 +2212,31 @@ const predAppendf = predAppend;
 ******************************************************************************/
 
 
-// TODO: replace with Profunctor Prisms
-
 const Prism = struct("Prism");
 
 
-const objPrism = k => Prism({
-  get: o =>
-    k in o
-      ? Some(o[k])
-      : None,
+/***[Instances]***************************************************************/
 
-  set: o => v =>
-    Object.assign({}, o, {[k]: v}),
 
-  mod: o => f =>
-    k in o
-      ? Object.assign({}, o, {[k]: f(o[k])}) : o,
+const objPrism = map => k =>
+  Prism(f => o => map(tx =>
+    match(tx, {
+      type: "Option",
+      get None() {return o},
+      get Some() {return objUnionx(objDel(k) (o)) (tx.runOption === null ? {} : {[k]: tx.runOption})}
+    })) (f(k in o ? Some(o[k]) : None)));
 
-  del: o => {
-    if (k in o) {
-      const p = Object.assign({}, o);
-      delete p[k];
-      return p;
-    }
 
-    else
-      return o;
-  }
-});
+/***[Misc. Combinators]*******************************************************/
+
+
+// TODO: add priView
+
+
+// TODO: add priSet
+
+
+// TODO: add priOver
 
 
 /******************************************************************************
