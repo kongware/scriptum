@@ -1207,7 +1207,7 @@ const objDelx = k => o =>
   (delete o[k], o);
 
 
-// TODO: add objDiffr/objDiffl
+// TODO: add objDiffl/objDiffr
 
 
 // TODO: add objIntersect
@@ -1243,7 +1243,7 @@ const objUnionx = o => p => {
   for ([k, v] of objEntries(p))
     o[k] = v;
 
-  return p;
+  return o;
 };
 
 
@@ -1903,23 +1903,12 @@ const lazyJoin = mmx =>
 const Lens = f => struct("Lens");
 
 
-const Deleter = structGetter("Deleter") ({get runDeleter() {return Deleter}}); // TODO: deprecated
-
-
 /***[Instances]***************************************************************/
 
 
 const objLens = map => k =>
-  Lens(f => o => map(x => {
-    if (x[TYPE] === "Deleter") {
-      const p = Object.assign({}, o);
-      delete p[k];
-      return p;
-    }
-
-    else
-      return Object.assign({}, o, {[k]: x});
-    }) (f(o[k])));
+  Lens(f => o => map(x =>
+    objUnionx(objDel(k) (o)) (x === null ? {} : {[k]: x})) (f(o[k])));
 
 
 /***[Category]****************************************************************/
