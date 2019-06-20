@@ -618,39 +618,56 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrInsertAt = (i, x) => xs => {
-  const ys = xs.slice(0, i);
-
-  return arrPushFlat(
-    (ys.push(x), ys))
-      (xs.slice(i));
-};
+// TODO: add arrDedupe/arrDedupeBy
 
 
-const arrInsertAtBy = p => f => y =>
-  arrParaWhile(acc => xs => (x, i) =>
-    p(x)
-      ? (acc.push(...f(x, y)), Done(arrPushFlat(acc) (xs)))
-      : (acc.push(x), Loop(acc))) ([]);
+// TODO: add arrDiffl/arrDiffr
 
 
-const arrInsertBy = p => f => y =>
-  arrFold(acc => x =>
-    p(x)
-      ? (acc.push(...f(x, y)), acc)
-      : (acc.push(x), acc)) ([]);
+// TODO: add arrIntersect/arrIntersectBy
 
 
-const arrModOr = def => (i, f) => xs => {
-  const ys = arrClone(xs);
+// TODO: add arrUnion/arrUnionBy
 
-  if (i in ys)
-    ys[i] = f(ys[i]);
 
-  else ys[i] = def;
+// TODO: add arrMapAccum
 
-  return ys;
-};
+
+// TODO: add arrHeadOr
+
+
+// TODO: add arrTailOr
+
+
+// TODO: add arrInitOr
+
+
+// TODO: add arrLastOr
+
+
+// TODO: add arrSort/arrSortOn
+
+
+// TODO: add arrSpan
+
+
+// TODO: add arrUncons
+
+
+// TODO: add arrUntail
+
+
+// TODO: add arrShift
+
+
+// TODO: add arrPop
+
+
+// TODO: add arrGroupBy
+
+
+const arrModOr = def => (i, f) => xs =>
+  arrModOrx(def) (i, f) (arrClone(xs));
 
 
 const arrModOrx = def => (i, f) => xs =>
@@ -690,48 +707,12 @@ const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
         acc[acc.length - 1], i + 1));
 
 
-const arrSet = def => (i, x) => xs => {
-  const ys = arrClone(xs);
-  return (ys[i] = x, ys);
-};
+const arrSet = (i, x) => xs =>
+  arrSetx(i, x) (arrClone(xs));
 
 
-const arrSetx = def => (i, x) => xs =>
+const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
-
-
-const arrSplit = n_ => xs => // TODO: Absract from recursion with fold
-  loop((acc = [], n = n_, i = 0) => {
-    if (i >= xs.length)
-      return acc;
-
-    else
-      return recur((acc.push(xs.slice(i, i + n)), acc), n, i + n);
-  });
-
-
-const arrSplitAt = i => xs =>
-  [xs.slice(0, i), xs.slice(i)];
-
-
-const arrSplitAtBy = p => xs => // TODO: Absract from recursion with fold
-  loop((acc = [], i = 0) =>
-    i === xs.length ? [acc, []]
-      : p(xs[i]) ? recur((acc.push(xs[i]), acc), i + 1)
-      : [acc, xs.slice(i)]);
-
-
-const arrSplitBy = p => xs => // TODO: Absract from recursion with fold
-  loop((acc = [], i = 0, j = 0) => {
-    if (i + j >= xs.length)
-      return (acc.push(xs.slice(i, i + j)), acc);
-
-    else if (p(xs[i + j]))
-      return recur((acc.push(xs.slice(i, i + j)), acc), i + j, 1)
-
-    else
-      return recur(acc, i, j + 1);
-  });
 
 
 const arrTranspose = matrix =>
@@ -2663,9 +2644,6 @@ module.exports = {
   arrFutu,
   arrHisto,
   arrHylo,
-  arrInsertAt,
-  arrInsertAtBy,
-  arrInsertBy,
   arrJoin,
   arrMap,
   arrMod,
@@ -2682,10 +2660,6 @@ module.exports = {
   arrSeqF,
   arrSet,
   arrSetx,
-  arrSplit,
-  arrSplitAt,
-  arrSplitAtBy,
-  arrSplitBy,
   arrSum,
   arrTransduce,
   arrTransduceWhile,
