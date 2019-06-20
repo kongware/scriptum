@@ -110,6 +110,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Bifunctor
 * Bounded
 * Category
+* Choice
 * Clonable
 * Comonad
 * Contravariant
@@ -130,6 +131,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Deserializable
 * Setoid
 * Show
+* Strong
 * Traversable
 * Unfoldable
 
@@ -692,28 +694,23 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 
 # TODO
 
-- [ ] add type signatures
+- [ ] add type signatures!!!
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
 - [ ] add common transducer
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
-- [ ] add List/Catenable List/Random Access List, Difference List
+- [ ] add List/Catenable List/Random Access/Difference List
 - [ ] add Rose Trees
 - [ ] add Zipper data type
 - [ ] add useful Comonads
 - [ ] add Monad Transformers
-- [ ] add Reference Type (value objects)
+- [ ] add Reference Type (value objects)???
 - [ ] add mapAccum
 - [ ] replace `Object.assign` with `objUnion`/`objUnionx` (due to getter/setter issue)
+- [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`
 - [ ] add union/intersect/diff/leftDiff/rightDiff
 - [ ] add dedupe
 - [ ] add sort with `on` combinator
-- [ ] add primitive prism composition
-- [ ] add primitive optical folds
-- [ ] add primitive optical raversals
-- [ ] how to compose a lens with a prism and vice versa (look into Optional type)?
-- [ ] add useful Profunctors
-- [ ] add Kmett-Style or Profunctor Lenses
+- [ ] add `Strong`
 - [ ] rename `traverse` to `mapA`
-- [ ] replace explicit flipped variants of functions with implicit ones using `flip`
