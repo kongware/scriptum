@@ -914,6 +914,17 @@ const varArgs = f => {
 };
 
 
+/***[Choice]******************************************************************/
+
+
+const funLeft = f =>
+  ethCata(x => Left(f(x))) (Right);
+
+
+const funRight = f =>
+  ethCata(Left) (x => Right(f(x)));
+
+
 /***[Composition]*************************************************************/
 
 
