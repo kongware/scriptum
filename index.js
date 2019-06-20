@@ -931,14 +931,6 @@ const on = f => g => x => y =>
 /***[Conditional Branching]***************************************************/
 
 
-const cond = x => y => b =>
-  b ? x : y;
-
-
-const cond_ = b => x => y =>
-  b ? x : y;
-
-
 const guard = p => f => x =>
   p(x) ? f(x) : x;
 
@@ -1142,32 +1134,6 @@ const mapper = f => reduce => acc => x =>
 
 const filterer = p => reduce => acc => x =>
   p(x) ? reduce(acc) (x) : acc;
-
-
-/***[Misc]********************************************************************/
-
-
-const orDefOn = p => f => def => x => {
-  const r = f(x);
-  
-  if (p(r))
-    return def;
-  
-  else return r;
-};
-
-
-const orDefOnf = f => p => def => x => {
-  const r = f(x);
-  
-  if (p(r))
-    return def;
-  
-  else return r;
-};
-
-
-const orDefOnUnit = orDefOn(isUnit);
 
 
 /***[Derived]*****************************************************************/
@@ -2376,18 +2342,32 @@ const execState = tf =>
   y => tf.runState(y) [1];
 
 
-const gets = f =>
-  stateChain(y => stateOf(f(x))) (stateGet);
-
-
-const modify = f =>
-  stateChain(y => statePut(f(y))) (stateGet);
-
-
 const stateGet = State(y => [y, y]);
 
 
+const stateGets = f =>
+  stateChain(y => stateOf(f(x))) (stateGet);
+
+
+const stateModify = f =>
+  stateChain(y => statePut(f(y))) (stateGet);
+
+
 const statePut = y => State(_ => [null, y]);
+
+
+/******************************************************************************
+***********************************[ STEP ]************************************
+******************************************************************************/
+
+
+const Step = union("Step");
+
+
+const Loop = x => Step("Loop", x);
+
+
+const Done = x => Step("Done", x);
 
 
 /******************************************************************************
@@ -2412,20 +2392,6 @@ const sumAppend = tm => tn =>
 
 
 const sumAppendf = sumAppend;
-
-
-/******************************************************************************
-***********************************[ STEP ]************************************
-******************************************************************************/
-
-
-const Step = union("Step");
-
-
-const Loop = x => Step("Loop", x);
-
-
-const Done = x => Step("Done", x);
 
 
 /******************************************************************************
@@ -2576,10 +2542,6 @@ const writeChain = append => fm => mx =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const censor = f => mx =>
-  pass(mx.runWriter(pair => Writer(pair, f)));
-
-
 const evalWriter = tx =>
   tx.runWriter(([x, y]) => x);
 
@@ -2588,19 +2550,23 @@ const execWriter = tx =>
   tx.runWriter(([x, y]) => y);
 
 
-const listen = tx =>
+const writeCensor = f => mx =>
+  pass(mx.runWriter(pair => Writer(pair, f)));
+
+
+const writeListen = tx =>
   tx.runWriter(([x, y]) => Writer([x, y], y));
 
 
-const listens = f => mx =>
+const writeListens = f => mx =>
   listen(mx).runWriter(([pair, y]) => Writer(pair, f(y)));
 
 
-const pass = tx =>
+const writePass = tx =>
   tx.runWriter(([[x, f], y]) => Writer([x, f(x)]));
 
 
-const tell = y => Writer(null, y);
+const writeTell = y => Writer(null, y);
 
 
 /******************************************************************************
@@ -2654,9 +2620,22 @@ const arrSum = arrFoldM(sumAppend, sumEmpty);
 
 
 module.exports = {
+  abstractNew,
+  Age,
+  All,
+  allAppend,
+  allAppendf,
+  allEmpty,
+  Ancient,
+  Any,
+  anyAppend,
+  anyAppendf,
+  anyEmpty,
+  app,
   arrAp,
   arrApo,
   arrAppend,
+  arrAppendf,
   arrChain,
   arrChainRec,
   arrClone,
@@ -2690,6 +2669,7 @@ module.exports = {
   arrSplitAt,
   arrSplitAtBy,
   arrSplitBy,
+  arrSum,
   arrTransduce,
   arrTransduceWhile,
   arrTranspose,
@@ -2701,41 +2681,268 @@ module.exports = {
   arrZip,
   arrZipBy,
   arrZygo,
+  ask,
+  asks,
   ceil,
+  Comp,
   comp,
   comp2nd,
   comp3,
+  compAp,
+  compAppend,
+  compAppendf,
+  Comparator,
+  Compare,
+  compContra,
+  compEmpty,
+  compMap,
+  compOf,
   concat,
+  Const,
+  _const,
+  constMap,
+  Cont,
+  contAp,
+  contChain,
+  contChain2,
+  contJoin,
+  contLiftA2,
+  contLiftM2,
+  contMap,
+  contReset,
+  contShift,
+  contOf,
+  ctorAppend,
+  ctorAppendf,
+  ctorCata,
+  ctorEmpty,
+  curry,
+  curry3,
+  curry4,
+  curry5,
+  Defer,
+  defAp,
+  defChain,
+  defJoin,
+  defMap,
+  defOf,
+  Deleter,
+  Done,
+  eff,
+  Either,
+  Endo,
+  endoAppend,
+  endoAppendf,
+  endoEmpty,
+  EQ,
+  Equiv,
+  equivAppend,
+  equivAppendf,
+  equivContra,
+  equivEmpty,
+  ethCata,
+  evalState,
+  execState,
+  fileRead,
+  fileScanDir,
+  filterer,
+  First,
+  firstAppend,
+  firstAppendf,
+  flip,
   floor,
   foldMap,
   formatDate,
   fst,
-  funAp,
-  funLiftA2,
   fromMultiArg,
+  fromThese,
+  funAp,
+  funAppend,
+  funAppendf,
+  funContra,
+  funEmpty,
+  funLiftA2,
+  funChain,
+  funDimap,
+  funJoin,
+  funLmap,
+  funMap,
+  funRmap,
+  funVarComp,
+  funVarPipe,
+  getDay,
+  getMonth,
   getMonthDays,
+  getYear,
+  GT,
+  guard,
+  headH,
+  History,
+  history,
+  Id,
+  id,
+  idMap,
   infixl,
   infixr,
+  invoke,
+  introspect,
+  isUnit,
   kleisliComp,
   kleisliPipe,
+  Last,
+  lastAppend,
+  lastAppendf,
+  Lazy,
+  lazyAp,
+  lazyChain,
+  lazyJoin,
+  lazyMap,
+  lazyOf,
+  Left,
+  Lens,
+  lensComp,
+  lensComp3,
+  lensId,
+  lensVarComp,
+  _let,
+  local,
+  Loop,
   loop,
+  LT,
+  mapper,
   match,
+  matchCata,
+  Matched,
+  Max,
+  maxEmpty,
+  maxAppend,
+  maxAppendf,
+  memoThunk,
+  Min,
+  minAppend,
+  minAppendf,
+  minEmpty,
+  None,
+  notp,
+  notp2,
+  notp3,
+  objClone,
+  objEntries,
+  objFactory,
+  objFactory_,
+  objKeys,
+  objLens,
+  objPathOr,
+  objPrism,
+  objUnion,
+  objUnionx,
+  objValues,
+  omitProps,
+  on,
+  Option,
+  optAp,
+  optCata,
+  optChain,
+  optMap,
+  optOf,
+  orThrowOn,
+  orThrowOnf,
+  orThrowOnUnit,
+  Parallel,
+  parAll,
+  parAnd,
+  parAny,
+  parAp,
+  parAppend,
+  parAppendf,
+  parCata,
+  parEmpty,
+  parMap,
+  parOf,
+  parOr,
+  partial,
+  partialCurry,
+  pickProps,
   pipe,
   pipe3,
+  Pred,
+  predAppend,
+  predAppendf,
+  predContra,
+  predEmpty,
+  Prism,
+  Prod,
+  prodAppend,
+  prodAppendf,
+  prodEmpty,
   recur,
+  Reader,
+  readAp,
+  readChain,
+  readJoin,
+  readMap,
+  readOf,
+  Right,
   round,
   roundBy,
   ScriptumError,
+  select,
   SemigroupError,
   snd,
+  Some,
+  State,
+  stateChain,
+  stateGet,
+  stateGets,
+  stateModify,
+  stateOf,
+  statePut,
+  Step,
+  strDeleteAt,
+  strFold,
+  strMatch,
+  strMatchAll,
+  strMatchLast,
+  strPadl,
+  strPadr,
+  strReplaceAt,
+  strReplaceAtBy,
   struct,
   structExt,
   structGetter,
   structMemo,
   structMemoExt,
+  Sum,
+  sumAppend,
+  sumAppendf,
+  sumEmpty,
   swapMultiArg,
+  Task,
+  tAnd,
+  tAll,
+  tAp,
+  tCata,
+  tChain,
+  tChain2,
+  That,
+  These,
+  These_,
+  theseCata,
+  This,
+  thisify,
+  _throw,
+  tJoin,
+  tLiftA2,
+  tLiftM2,
+  tMap,
+  tOf,
   tramp,
+  tryCatch,
   toFixedFloat,
+  uncurry,
+  uncurry3,
+  uncurry4,
+  uncurry5,
   union,
   unionGetter,
   UnionError,
@@ -2752,4 +2959,12 @@ module.exports = {
   varLiftM,
   varPipe,
   verifyDate,
+  Writer,
+  writeCensor,
+  writeChain,
+  writeListen,
+  writeListens,
+  writeOf,
+  writePass,
+  writeTell,
 };
