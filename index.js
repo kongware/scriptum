@@ -1207,6 +1207,12 @@ const objDelx = k => o =>
   (delete o[k], o);
 
 
+// TODO: add objDiffr/objDiffl
+
+
+// TODO: add objIntersect
+
+
 const objModOr = def => (k, f) => o =>
   objModOrx(def) (k, f) (objClone(o));
 
@@ -1239,17 +1245,6 @@ const objUnionx = o => p => {
 
   return p;
 };
-
-
-const omitProps = (...ks) => o => // TODO: revise
-  Object.keys(o).reduce(
-    (acc, k) => ks.includes(k)
-      ? acc
-      : (acc[k] = o[k], acc), {});
-
-
-const pickProps = (...ks) => o => // TODO: revise
-  ks.reduce((acc, k) => (acc[k] = o[k], acc), {});
 
 
 const thisify = f => f({}); // mimics this context
@@ -2875,7 +2870,6 @@ module.exports = {
   objUnion,
   objUnionx,
   objValues,
-  omitProps,
   on,
   Option,
   optAp,
@@ -2900,7 +2894,6 @@ module.exports = {
   parOr,
   partial,
   partialCurry,
-  pickProps,
   pipe,
   pipe3,
   Pred,
