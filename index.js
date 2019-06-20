@@ -1043,18 +1043,6 @@ const isUnit = x => // unit types are undefined/null/NaN/invalid Date
     || x.getTime && !Number.isNaN(x.getTime());
 
 
-const memoLast = (f, memo) => x =>
-  memo === x
-    ? memo
-    : (memo = f(x), memo);
-
-
-const memoLastBy = eq => (f, memo) => x =>
-  eq(memo) (x)
-    ? memo
-    : (memo = f(x), memo);
-
-
 const orThrowOn = p => f => (e, msg) => x => {
   const r = f(x);
   
