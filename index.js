@@ -1188,11 +1188,12 @@ const _new = cons => (...args) =>
   new cons(...args);
 
 
-const objClone = o => { // TODO: make setter/getter safe
+const objClone = o => {
   const p = {};
 
-  for ([k, v] of objEntries(o))
-    p[k] = v;
+  for (k of objKeys(o))
+    Object.defineProperty( // getter/setter safe
+      p, k, Object.getOwnPropertyDescriptor(o, k));
 
   return p;
 };
@@ -2860,13 +2861,17 @@ module.exports = {
   notp2,
   notp3,
   objClone,
+  objDel,
+  objDelx,
   objEntries,
-  objFactory,
-  objFactory_,
   objKeys,
   objLens,
+  objModOr,
+  objModOrx,
   objPathOr,
   objPrism,
+  objSet,
+  objSetx,
   objUnion,
   objUnionx,
   objValues,
