@@ -2658,6 +2658,9 @@ const firstAppendf = lastAppend;
 ******************************************************************************/
 
 
+// TODO: parameterize sequential/parallel execution behavior
+
+
 const fileRead  = enc => path =>
   Task((res, rej) =>
     fs.readFile(path, enc, (e, s) =>
