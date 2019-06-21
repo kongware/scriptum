@@ -692,12 +692,13 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 
 `Object.assign` calls every getter/setter strictly during copying. This is undesired if you rely on their lazy evaluation semantics. scriptum comes with the `objUnion`/`objUnionx` combinator pair that replace the method adequately without notable performance penalty.
 
+## `Object` Property Insertion Order
+
+Although not part of the spec all majr Javascript engines traverse `Object` properties in insertion order. With scriptum you must not rely on this property, because the lib treats `Object`s unordered `Map`s.
+
 # TODO
 
 - [ ] add type signatures!!!
-- [ ] how to lift a semigroup into Option forming a monoid?
-- [ ] how to create a monoid under Applicative?
-- [ ] how to create a monoid under Alternative?
 - [ ] add common transducers
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access/Difference List
@@ -705,9 +706,10 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 - [ ] add Zipper data type
 - [ ] add useful Comonads
 - [ ] add Monad Transformers
-- [ ] add Reference Type (value objects)???
-- [ ] add mapAccum
-- [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`
+- [ ] add Reference Type (value objects)?
+- [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`?
 - [ ] replace `switch` with `match` as often as possible
-- [ ] add `Strong` profunctor
-- [ ] rename `traverse` to `mapA`
+- [ ] rename `traverse` to `mapA`?
+- [ ] how to lift a semigroup into Option forming a monoid?
+- [ ] how to create a monoid under Applicative?
+- [ ] how to create a monoid under Alternative?
