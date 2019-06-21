@@ -1918,16 +1918,24 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 /***[Misc. Combinators]*******************************************************/
 
 
+const lensDel = k => o =>
+  objPrism(idMap) (k).runLens(_const(Id(Some(null)))) (o);
+
+
+const lensGet = k => o => 
+  objPrism(constMap) (k).runLens(tx => Const(tx)) (o);
+
+
 // TODO: add lensMapped
 
 
-// TODO: add lensOver
+const lensMod = (k, f) => o => // aka lensOver
+  objPrism(idMap) ("xyz").runLens(tx =>
+    Id(optMap(x => x.toUpperCase()) (tx))) (o);
 
 
-// TODO: add lensSet
-
-
-// TODO: add lensView
+const lensSet = (k, v) => o =>
+  objPrism(idMap) (k).runLens(_const(Id(Some(v)))) (o);
 
 
 /******************************************************************************
@@ -2243,58 +2251,62 @@ const objPrism = map => k =>
 
 
 const leftPrism = map =>
-  Prism(f => ty => map(tx =>
-    match(tx, {
+  Prism(f => tx => map(ty =>
+    match(ty, {
       type: "Option",
-      get None() {return ty},
+      get None() {return tx},
       
       get Some() {
-        return match(ty, {
+        return match(tx, {
           type: "Either",
-          get Left() {return Left(tx.runOption)},
-          get Right() {return ty}
+          get Left() {return Left(ty.runOption)},
+          get Right() {return tx}
         })
       }
-    })) (f(match(ty, {
+    })) (f(match(tx, {
       type: "Either",
-      get Left() {return Some(ty.runEither)},
+      get Left() {return Some(tx.runEither)},
       get Right() {return None}
     }))));
 
 
 const rightPrism = map =>
-  Prism(f => ty => map(tx =>
-    match(tx, {
+  Prism(f => tx => map(ty =>
+    match(ty, {
       type: "Option",
-      get None() {return ty},
+      get None() {return tx},
       
       get Some() {
-        return match(ty, {
+        return match(tx, {
           type: "Either",
-          get Left() {return ty},
-          get Right() {return Right(tx.runOption)}
+          get Left() {return tx},
+          get Right() {return Right(ty.runOption)}
         })
       }
     })) (f(match(ty, {
       type: "Either",
       get Left() {return None},
-      get Right() {return Some(ty.runEither)}
+      get Right() {return Some(tx.runEither)}
     }))));
 
 
 /***[Misc. Combinators]*******************************************************/
 
 
+const prismGet = prism => tx =>
+  prism(constMap).runPrism(tx => Const(tx)) (tx);
+
+
 // TODO: add prismMapped
 
 
-// TODO: add prismOver
+const prismMod = prism => f => tx => // aka prismOver
+  prism(idMap).runPrism(ty =>
+    Id(optMap(f) (ty))) (tx);
 
 
-// TODO: add prismSet
-
-
-// TODO: add prismView
+const prismSet = prism => x => tx =>
+  prism(idMap).runPrism(_const(Id(Some(x)))) (tx);
 
 
 /******************************************************************************
