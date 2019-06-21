@@ -899,11 +899,11 @@ const varArgs = f => {
 
 
 const funLeft = f =>
-  ethCata(x => Left(f(x))) (Right);
+  eithCata(x => Left(f(x))) (Right);
 
 
 const funRight = f =>
-  ethCata(Left) (x => Right(f(x)));
+  eithCata(Left) (x => Right(f(x)));
 
 
 /***[Composition]*************************************************************/
@@ -2804,7 +2804,7 @@ module.exports = {
   equivAppendf,
   equivContra,
   equivEmpty,
-  ethCata,
+  eithCata,
   evalState,
   execState,
   fileRead,
@@ -2863,6 +2863,7 @@ module.exports = {
   lazyMap,
   lazyOf,
   Left,
+  leftPrism,
   Lens,
   lensComp,
   lensComp3,
@@ -2951,6 +2952,7 @@ module.exports = {
   readMap,
   readOf,
   Right,
+  rightPrism,
   round,
   roundBy,
   ScriptumError,
