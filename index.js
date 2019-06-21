@@ -1130,6 +1130,12 @@ const funAppend = comp;
 const funAppendf = pipe;
 
 
+/***[Strong]******************************************************************/
+
+
+// TODO: add
+
+
 /***[Transducer]**************************************************************/
 
 
@@ -1695,7 +1701,7 @@ const Right = x =>
 /***[Foldable]****************************************************************/
 
 
-const ethCata = left => right => tx =>
+const eithCata = left => right => tx =>
   match(tx, {
     type: "Either",
     get Left() {return left(tx.runEither)},
@@ -1877,7 +1883,7 @@ const lazyJoin = mmx =>
 
 
 /******************************************************************************
-***********************************[ LENS ]************************************
+*******************************[ LENS (OPTICS) ]*******************************
 ******************************************************************************/
 
 
@@ -1912,13 +1918,16 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 /***[Misc. Combinators]*******************************************************/
 
 
-// TODO: add lensView
+// TODO: add lensMapped
+
+
+// TODO: add lensOver
 
 
 // TODO: add lensSet
 
 
-// TODO: add lensOver
+// TODO: add lensView
 
 
 /******************************************************************************
@@ -2208,7 +2217,7 @@ const predAppendf = predAppend;
 
 
 /******************************************************************************
-***********************************[ PRISM ]***********************************
+******************************[ PRISM (OPTICS) ]*******************************
 ******************************************************************************/
 
 
@@ -2216,6 +2225,9 @@ const Prism = struct("Prism");
 
 
 /***[Instances]***************************************************************/
+
+
+// Object
 
 
 const objPrism = map => k =>
@@ -2227,16 +2239,62 @@ const objPrism = map => k =>
     })) (f(k in o ? Some(o[k]) : None)));
 
 
+// Either
+
+
+const leftPrism = map =>
+  Prism(f => ty => map(tx =>
+    match(tx, {
+      type: "Option",
+      get None() {return ty},
+      
+      get Some() {
+        return match(ty, {
+          type: "Either",
+          get Left() {return Left(tx.runOption)},
+          get Right() {return ty}
+        })
+      }
+    })) (f(match(ty, {
+      type: "Either",
+      get Left() {return Some(ty.runEither)},
+      get Right() {return None}
+    }))));
+
+
+const rightPrism = map =>
+  Prism(f => ty => map(tx =>
+    match(tx, {
+      type: "Option",
+      get None() {return ty},
+      
+      get Some() {
+        return match(ty, {
+          type: "Either",
+          get Left() {return ty},
+          get Right() {return Right(tx.runOption)}
+        })
+      }
+    })) (f(match(ty, {
+      type: "Either",
+      get Left() {return None},
+      get Right() {return Some(ty.runEither)}
+    }))));
+
+
 /***[Misc. Combinators]*******************************************************/
 
 
-// TODO: add priView
+// TODO: add prismMapped
 
 
-// TODO: add priSet
+// TODO: add prismOver
 
 
-// TODO: add priOver
+// TODO: add prismSet
+
+
+// TODO: add prismView
 
 
 /******************************************************************************
@@ -2517,6 +2575,14 @@ const fromThese = (x, y) => tx =>
     get That() {return [x, tx.runThese]},
     get These() {return tx.runThese}
   });
+
+
+/******************************************************************************
+****************************[ TRAVERSAL (OPTICS) ]*****************************
+******************************************************************************/
+
+
+// TODO: add
 
 
 /******************************************************************************
