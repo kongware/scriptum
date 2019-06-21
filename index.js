@@ -279,7 +279,7 @@ const concat = ({append, empty}) =>
 /***[Applicative]*************************************************************/
 
 
-const arrAp = fs => xs => // TODO: revise
+const arrAp = fs => xs => // TODO: replace reduce
   fs.reduce((acc, f) =>
     acc.concat(xs.map(x => f(x))), []);
 
@@ -353,7 +353,7 @@ const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => { // TODO: make non-strict
+const arrFoldr = alg => zero => xs => { // TODO: make non-strict?
   const stack = [];
   let acc = zero;
 
@@ -449,7 +449,7 @@ const arrSeqF = x => xs => {
 /***[Monad]*******************************************************************/
 
 
-const arrChain = fm => xs => // TODO: revise
+const arrChain = fm => xs => // TODO: replace reduce
   xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
 
 
@@ -676,7 +676,7 @@ const arrModOrx = def => (i, f) => xs =>
     : xs[i] = def;
 
 
-const arrPartition = f => xs => // TODO: revise
+const arrPartition = f => xs => // TODO: replace reduce
   xs.reduce((m, x) =>
     _let((r = f(x), ys = m.get(r) || []) =>
       m.set(r, (ys.push(x), ys))), new Map());
@@ -698,7 +698,7 @@ const arrPushFlat = xs => ys => {
 };
 
 
-const arrScan = f => x_ => xs => // TODO: Absract from recursion with fold
+const arrScan = f => x_ => xs => // TODO: use fold
   loop((acc = [], x = x_, i = 0) =>
     i === xs.length
       ? acc
@@ -736,7 +736,7 @@ const arrUnshiftFlat = xs => ys => {
 };
 
 
-const arrUnzip = xss => // TODO: Absract from recursion with fold
+const arrUnzip = xss => // TODO: use fold
   loop((acc = [[], []], i = 0) =>
     i === xss.length
       ? acc
@@ -746,7 +746,7 @@ const arrUnzip = xss => // TODO: Absract from recursion with fold
           acc), i + 1));
 
 
-const arrZip = xs => ys => // TODO: Absract from recursion with fold
+const arrZip = xs => ys => // TODO: use fold
   loop((acc = [], i = 0) => {
     const x = xs[i], y = ys[i];
 
@@ -759,7 +759,7 @@ const arrZip = xs => ys => // TODO: Absract from recursion with fold
   });
 
 
-const arrZipBy = f => xs => ys => // TODO: Absract from recursion with fold
+const arrZipBy = f => xs => ys => // TODO: use fold
   loop((acc = [], i = 0) => {
     const x = xs[i], y = ys[i];
 
