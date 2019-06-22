@@ -1919,7 +1919,7 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 
 
 const lensDel = k => o =>
-  objPrism(idMap) (k).runLens(_const(Id(Some(null)))) (o);
+  objPrism(idMap) (k).runLens(_const(Id(null))) (o);
 
 
 const lensGet = k => o => 
@@ -1935,7 +1935,7 @@ const lensMod = (k, f) => o => // aka lensOver
 
 
 const lensSet = (k, v) => o =>
-  objPrism(idMap) (k).runLens(_const(Id(Some(v)))) (o);
+  objPrism(idMap) (k).runLens(_const(Id(v))) (o);
 
 
 /******************************************************************************
