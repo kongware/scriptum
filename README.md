@@ -114,6 +114,8 @@ const foo = [];
 // a -> a
 const id = x => x;
 ```
+The type variable `a` represents the polymorphic portion of both types. Neither the `Array` nor the `Function` do know anything about `a`.
+
 ### Ad-hoc Polymorphism
 
 An ad-hoc polymorphic value is a polymorphic value with additional constraints on the polymorphic portion of its type, i.e. there is a certain knowledge about this portion and the value can only adopt types that implement this knowledge.
@@ -142,7 +144,7 @@ In the example above `foo` and `bar` are inhabitants of the same row polymorphic
 *  `[?]` - denotes an unknown and probably heterogeneous `Array`
 *  `[String]` - denotes a homogenious `Array` of `String`s
 *  `[String, Number]` - denotes a pair tuple
-*  `[String..., Number...]` - denotes a heterogeneous `Array`
+*  `[String|Number]` - denotes a heterogeneous `Array` of `String`s and `Number`s
 *  `[a]` - denotes a polymorphic `Array`
 
 ### `Boolean`
@@ -153,19 +155,11 @@ Denotes a `Boolean` value.
 
 Denotes a date-`Object` value.
 
-### `Float`
-
-Denotes a signed/unsigned `Float` value.
-
 ### `Function`
 
 * `String -> Integer` - denotes a function from `String` to `Integer`
 *  `(a -> b) -> [a] -> [b]` - denotes a higher order function that takes a polymorphic function and a polymorphic `Array` and returns a polymorphic `Array` that may be of another type
 *  `Functor<f> => (a -> b) -> f<a> -> f<b>` - denotes a higher order function that takes a polymorphic function and a ad-hoc polymorphic type and returns a ad-hoc polymorphic type that may contain a different type. There is a Functor contraint on `f`. 
-
-### `Integer`
-
-Denotes a signed/unsigned `Integer` value.
 
 ### `Map`
 
@@ -184,7 +178,9 @@ Denotes the unit type `null` value.
 
 ### `Number`
 
-Denotes either a signed/unsigned `Float` or a signed/unsigned `Integer` value.
+*  `Number` - denotes either a  signed/unsigned `Float` or a signed/unsigned `Integer` value
+*  `Integer` - denotes a signed/unsigned `Integer` value
+*  `Float` - denotes a signed/unsigned `Float` value
 
 ### `Object`
 
