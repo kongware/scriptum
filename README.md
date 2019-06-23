@@ -158,6 +158,8 @@ Denotes a date-`Object` value.
 ### `Function`
 
 * `String -> Integer` - denotes a function from `String` to `Integer`
+* `(Number, Number) -> String -> Boolean` - denotes a multi-argument function
+* `Number...Number -> Number` - denotes a function with rest parameter
 *  `(a -> b) -> [a] -> [b]` - denotes a higher order function that takes a polymorphic function and a polymorphic `Array` and returns a polymorphic `Array` that may be of another type
 *  `Functor<f> => (a -> b) -> f<a> -> f<b>` - denotes a higher order function that takes a polymorphic function and a ad-hoc polymorphic type and returns a ad-hoc polymorphic type that may contain a different type. There is a Functor contraint on `f`. 
 
