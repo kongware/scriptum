@@ -137,7 +137,7 @@ const foo = {foo: "abc", bar: 123},
 ```
 In the example above `foo` and `bar` are inhabitants of the same row polymorphic type. `foo` assigns `bar: Number` to the row variable `a` and `bar` assigns `baz: Boolean`.
 
-## Symbolic Reference
+## Notation
 
 ### `Array`
 
@@ -220,6 +220,16 @@ Denotes the unit type `undefined` value.
 *  `Name<a, b>` - denotes a type with two parametric polymorphic fields
 *  m<a>` - denotes a type that consists of a context type with a monad constraint and a wrapped parametric polymorphic value
 
+### Placeholders
+
+You can shorten long type signatures by replacing sensible sub signatures with a placeholder:
+
+```Javascript
+// 1:
+// {foo: String, bar: Number, ...a lot more properties}
+
+// {1} -> SomeType<{1}>
+```
 # New Types
 
 There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
