@@ -1037,6 +1037,12 @@ const orThrowOn = p => f => (e, msg) => x => {
 // orThrowOnf @derived
 
 
+// orThrowOnFalse @derived
+
+
+// orThrowOnTrue @derived
+
+
 const orThrowOnUnit = orThrowOn(isUnit);
 
 
@@ -1076,8 +1082,61 @@ const funJoin = f => x =>
 /***[Predicate]***************************************************************/
 
 
-const notp = p => x =>
-  !p(x);
+const isArr = Array.isArray;
+
+
+const isArrOf = f => x =>
+  isArr(x) && arrMap(f) (x);
+
+
+const isBoo = x =>
+  typeof x === "boolean";
+
+
+const isFalse =x => x === false;
+
+
+const isMap = x =>
+  x && x[Symbol.toStringTag] === "Map";
+
+
+const isMapOf = p => x =>
+  isMap(x) && mapMap(f) (x);
+
+
+const isNaN = Number.isNaN;
+
+
+const isNull = x => x === null;
+
+
+const isNum = x =>
+  typeof x === "number";
+
+
+const isObj = x =>
+  typeof x === "object" && x !== null;
+
+
+const isSet = x =>
+  x && x[Symbol.toStringTag] === "Set";
+
+
+const isSetOf = f => x =>
+  isSet(x) && setMap(f) (x);
+
+
+const isStr = x =>
+  typeof x === "string";
+
+
+const isTrue = x => x === true;
+
+
+const isUndef = x => x === undefined;
+
+
+const notp = p => x => !p(x);
 
 
 const notp2 = p => x => y =>
@@ -1160,6 +1219,27 @@ const funVarPipe = varPipe({pipe, id});
 
 
 const orThrowOnf = flip(orThrowOn);
+
+
+const orThrowOnFalse = orThrowOn(isFalse);
+
+
+const orThrowOnTrue = orThrowOn(isTrue);
+
+
+/******************************************************************************
+************************************[ MAP ]************************************
+******************************************************************************/
+
+
+const mapMap = f => m => {
+  let n = new Map();
+  
+  for (const [k, v] of m)
+    n.set(k, f(v));
+  
+  return n;
+};
 
 
 /******************************************************************************
@@ -1259,6 +1339,21 @@ function* objValues(o) {
     yield o[prop];
   }
 }
+
+
+/******************************************************************************
+************************************[ SET ]************************************
+******************************************************************************/
+
+
+const setMap = f => s => {
+  const t = new Set();
+  
+  for (const x of s)
+    t.add(f(x));
+  
+  return t;
+};
 
 
 /******************************************************************************
@@ -2865,6 +2960,21 @@ module.exports = {
   infixr,
   invoke,
   introspect,
+  isArr,
+  isArrOf,
+  isBoo,
+  isFalse,
+  isMap,
+  isMapOf,
+  isNaN,
+  isNull,
+  isNum,
+  isObj,
+  isSet,
+  isSetOf,
+  isStr,
+  isTrue,
+  isUndef,
   isUnit,
   kleisliComp,
   kleisliPipe,
@@ -2889,6 +2999,7 @@ module.exports = {
   Loop,
   loop,
   LT,
+  mapMap,
   mapper,
   match,
   matchCata,
@@ -2932,6 +3043,8 @@ module.exports = {
   optOf,
   orThrowOn,
   orThrowOnf,
+  orThrowOnFalse,
+  orThrowOnTrue,
   orThrowOnUnit,
   Parallel,
   parAll,
@@ -2973,6 +3086,7 @@ module.exports = {
   ScriptumError,
   select,
   SemigroupError,
+  setMap,
   snd,
   Some,
   State,
