@@ -1096,6 +1096,14 @@ const isBoo = x =>
 const isFalse =x => x === false;
 
 
+const isFloatStr = s =>
+  search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
+
+
+const isIntStr = s => // TODO: scriptum
+  search(new RegExp("^\\d+$")) !== NOT_FOUND;
+
+
 const isMap = x =>
   x && x[Symbol.toStringTag] === "Map";
 
