@@ -1065,14 +1065,12 @@ const introspect = x =>
     : Object.prototype.toString.call(x).slice(8, -1);
 
 
-const isUnit = x => // unit types are undefined/null/NaN/invalid Date
-  x === undefined
-    || x === null
-    || x === x === false
-    || x.getTime && !Number.isNaN(x.getTime());
+const _throw = e => {
+  throw e;
+};
 
 
-const orThrowOn = p => f => (e, msg) => x => {
+const throwOn = p => f => (e, msg) => x => {
   const r = f(x);
   
   if (p(r))
@@ -1082,21 +1080,13 @@ const orThrowOn = p => f => (e, msg) => x => {
 };
 
 
-// orThrowOnf @derived
+// throwOnFalse @derived
 
 
-// orThrowOnFalse @derived
+// throwOnTrue @derived
 
 
-// orThrowOnTrue @derived
-
-
-const orThrowOnUnit = orThrowOn(isUnit);
-
-
-const _throw = e => {
-  throw e;
-};
+// throwOnUnit @derived
 
 
 const tryCatch = f => g => x => {
@@ -1192,6 +1182,13 @@ const isTrue = x => x === true;
 const isUndef = x => x === undefined;
 
 
+const isUnit = x => // unit types are undefined/null/NaN/invalid Date
+  x === undefined
+    || x === null
+    || x === x === false
+    || x.getTime && !Number.isNaN(x.getTime());
+
+
 const notp = p => x => !p(x);
 
 
@@ -1274,13 +1271,13 @@ const funVarComp = varComp({comp, id});
 const funVarPipe = varPipe({pipe, id});
 
 
-const orThrowOnf = flip(orThrowOn);
+const throwOnFalse = throwOn(isFalse);
 
 
-const orThrowOnFalse = orThrowOn(isFalse);
+const throwOnTrue = throwOn(isTrue);
 
 
-const orThrowOnTrue = orThrowOn(isTrue);
+const throwOnUnit = throwOn(isUnit);
 
 
 /******************************************************************************
@@ -3160,11 +3157,10 @@ module.exports = {
   optChain,
   optMap,
   optOf,
-  orThrowOn,
-  orThrowOnf,
-  orThrowOnFalse,
-  orThrowOnTrue,
-  orThrowOnUnit,
+  throwOn,
+  throwOnFalse,
+  throwOnTrue,
+  throwOnUnit,
   Parallel,
   parAll,
   parAnd,
