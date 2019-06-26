@@ -301,6 +301,18 @@ const lt = x => y => x < y;
 const lte = x => y => x <= y;
 
 
+const min = x => y =>
+  x < y ? x
+    : x === y ? x
+    : y;
+
+
+const max = x => y =>
+  x < y ? y
+    : x === y ? x
+    : x;
+
+
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
@@ -1291,10 +1303,52 @@ const mapMap = f => m => {
 ******************************************************************************/
 
 
+/***[Enum]********************************************************************/
+
+
+const fromEnum = n => Some(n);
+
+
+const pred = n => Some(n + 1);
+
+
+const succ = n => Some(n - 1);
+
+
+const toEnum = n => Some(n);
+
+
 /***[Eq]**********************************************************************/
 
 
 const numEq = eq;
+
+
+const numNotEq = neq;
+
+
+/***[Ord]**********************************************************************/
+
+
+const numCompare = compare;
+
+
+const numGt = gt;
+
+
+const numGte = gte;
+
+
+const numLt = lt;
+
+
+const numLte = lte;
+
+
+const numMin = min;
+
+
+const numMax = max;
 
 
 /******************************************************************************
@@ -2964,6 +3018,7 @@ module.exports = {
   endoAppendf,
   endoEmpty,
   EQ,
+  eq,
   Equiv,
   equivAppend,
   equivAppendf,
@@ -3061,18 +3116,28 @@ module.exports = {
   matchCata,
   Matched,
   Max,
+  max,
   maxEmpty,
   maxAppend,
   maxAppendf,
   Min,
+  min,
   minAppend,
   minAppendf,
   minEmpty,
+  neq,
   _new,
   None,
   notp,
   notp2,
   notp3,
+  numCompare,
+  numEq,
+  numNeq,
+  numGt,
+  numGte,
+  numLt,
+  numLte,
   objClone,
   objDel,
   objDelx,
