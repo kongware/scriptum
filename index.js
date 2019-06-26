@@ -1624,16 +1624,16 @@ const anyAppendf = anyAppend;
 const Comparator = unionGetter("Comparator");
 
 
-const LT = Object.assign(
-  Comparator("LT"), {get runComparator() {return LT}, valueOf: () => -1});
+const LT = Comparator("LT",
+  {get runComparator() {return LT}, valueOf: () => -1});
 
 
-const EQ = Object.assign(
-  Comparator("EQ"), {get runComparator() {return EQ}, valueOf: () => 0});
+const EQ = Comparator("EQ",
+  {get runComparator() {return EQ}, valueOf: () => 0});
 
 
-const GT = Object.assign(
-  Comparator("GT"), {get runComparator() {return GT}, valueOf: () => 1});
+const GT = Comparator("GT",
+  {get runComparator() {return GT}, valueOf: () => 1});
 
 
 /***[Foldable]****************************************************************/
