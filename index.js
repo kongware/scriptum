@@ -1621,19 +1621,19 @@ const anyAppendf = anyAppend;
 ******************************************************************************/
 
 
-const Comparator = union("Comparator");
+const Comparator = unionGetter("Comparator");
 
 
 const LT = Object.assign(
-  Comparator("LT"), {valueOf: () => -1});
+  Comparator("LT"), {get runComparator() {return LT}, valueOf: () => -1});
 
 
 const EQ = Object.assign(
-  Comparator("EQ"), {valueOf: () => 0});
+  Comparator("EQ"), {get runComparator() {return EQ}, valueOf: () => 0});
 
 
 const GT = Object.assign(
-  Comparator("GT"), {valueOf: () => 1});
+  Comparator("GT"), {get runComparator() {return GT}, valueOf: () => 1});
 
 
 /***[Foldable]****************************************************************/
@@ -2922,6 +2922,7 @@ module.exports = {
   compAppendf,
   Comparator,
   Compare,
+  compare,
   compContra,
   compEmpty,
   compMap,
