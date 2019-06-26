@@ -856,6 +856,7 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 - [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`?
 - [ ] replace `switch` with `match` as often as possible
 - [ ] rename `traverse` to `mapA`?
+- [ ] add Ix typeclass
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
