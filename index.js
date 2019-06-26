@@ -1028,6 +1028,12 @@ const uncurry4 = f => (w, x, y, z) =>
 const uncurry5 = f => (v, w, x, y, z) =>
   f(v) (w) (x) (y) (z);
 
+/***[Debugging]***************************************************************/
+
+
+const log = pre =>
+  eff(x => console.log(pre, x));
+
 
 /***[Functor]*****************************************************************/
 
@@ -1985,7 +1991,7 @@ const Last = struct("Last");
 const lastAppend = _ => y => y;
 
 
-const LastAppendf = firstAppend;
+const lastAppendf = firstAppend;
 
 
 /******************************************************************************
@@ -2949,7 +2955,6 @@ module.exports = {
   defJoin,
   defMap,
   defOf,
-  Deleter,
   Done,
   eff,
   Either,
@@ -3045,6 +3050,7 @@ module.exports = {
   lensVarComp,
   _let,
   local,
+  log,
   Loop,
   loop,
   LT,
@@ -3057,8 +3063,6 @@ module.exports = {
   maxEmpty,
   maxAppend,
   maxAppendf,
-  memoLast,
-  memoLastBy,
   Min,
   minAppend,
   minAppendf,
