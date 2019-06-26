@@ -1324,7 +1324,7 @@ const toEnum = n => Some(n);
 const numEq = eq;
 
 
-const numNotEq = neq;
+const numNeq = neq;
 
 
 /***[Ord]**********************************************************************/
