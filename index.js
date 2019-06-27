@@ -218,6 +218,35 @@ const varPipe = ({pipe, id}) =>
   varArgs(arrFold(pipe) (id));
 
 
+/***[Ix]**********************************************************************/
+
+
+const range = ({succ, gt}) => (lower, upper) =>
+  arrUnfold(x =>
+    gt(x) (upper)
+      ? None
+      : Some([x, succ(x)])) (lower);
+
+
+const index = ({succ, eq}) => (lower, upper) => x =>
+  loop((y = lower, i = 0) =>
+    eq(y) (upper) ? None
+      : eq(x) (y) ? Some(i)
+      : recur(succ(y), i + 1));
+
+const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
+  loop((y = lower) =>
+    gt(y) (upper) ? false
+      : eq(x) (y) ? true
+      : recur(succ(y)));
+
+const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
+  loop((x = lower, n = 0) =>
+    gt(x) (upper)
+      ? n
+      : recur(succ(x), n + 1));
+
+
 /***[Foldable]****************************************************************/
 
 
@@ -3063,8 +3092,10 @@ module.exports = {
   Id,
   id,
   idMap,
+  index,
   infixl,
   infixr,
+  inRange,
   invoke,
   introspect,
   isArr,
@@ -3187,6 +3218,8 @@ module.exports = {
   prodAppend,
   prodAppendf,
   prodEmpty,
+  range,
+  rangeSize,
   recur,
   Reader,
   readAp,
