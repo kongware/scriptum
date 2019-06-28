@@ -737,6 +737,9 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrGroupBy
 
 
+const arrIsEmpty = xs => xs.length === 0;
+
+
 const arrModOr = def => (i, f) => xs =>
   arrModOrx(def) (i, f) (arrClone(xs));
 
@@ -1602,6 +1605,9 @@ const strMatchLast = (r, flags) => s_ =>
 
 const strDeleteAt = i => s =>
   t.slice(0, i) + t.slice(i + 1);
+
+
+const strIsEmpty = s => s === "";
 
 
 const strPadl = n => c => s =>
