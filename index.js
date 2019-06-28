@@ -1072,6 +1072,12 @@ const uncurry5 = f => (v, w, x, y, z) =>
 /***[Debugging]***************************************************************/
 
 
+const debug = f => x => {
+  debugger;
+  return f(x);
+};
+
+
 const log = pre =>
   eff(x => console.log(pre, x));
 
@@ -3030,6 +3036,7 @@ module.exports = {
   curry3,
   curry4,
   curry5,
+  debug,
   Defer,
   defAp,
   defChain,
