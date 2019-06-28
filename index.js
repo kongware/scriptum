@@ -2909,13 +2909,13 @@ const firstAppendf = lastAppend;
 // TODO: parameterize sequential/parallel execution behavior
 
 
-const fileRead  = fs => enc => path =>
+const fileRead_  = fs => enc => path =>
   Task((res, rej) =>
     fs.readFile(path, enc, (e, s) =>
       e ? rej(e) : res(s)));
 
 
-const fileScanDir = fs => path =>
+const fileScanDir_ = fs => path =>
   Task((res, rej) =>
     fs.readdir(path, (e, ss) =>
       e ? rej(e) : res(ss)));
@@ -3060,8 +3060,8 @@ module.exports = {
   eithCata,
   evalState,
   execState,
-  fileRead,
-  fileScanDir,
+  fileRead_,
+  fileScanDir_,
   filterer,
   First,
   firstAppend,
