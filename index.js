@@ -1531,18 +1531,12 @@ const strMatch = (r, flags) => s => {
     throw new Error(
       `invalid regular expression - greediness is not permitted in\n${r}`);
 
-  else if (xs.groups === undefined) {
+  else if (xs.groups === undefined)
     xs.groups = {}; // add empty group instead of undefined
-    xs.relIndex = xs.index; // add relative index in case of multiple matches
-    xs.relInput = xs.input; // add relative input in case of multiple matches
-    return Matched(Some(xs));
-  }
 
-  else {
-    xs.relIndex = xs.index;
-    xs.relInput = xs.input;
-    return Matched(Some(xs));
-  }
+  xs.relIndex = xs.index; // add relative index in case of multiple matches
+  xs.relInput = xs.input; // add relative input in case of multiple matches
+  return Matched(Some(xs));
 };
 
 
