@@ -2909,13 +2909,13 @@ const firstAppendf = lastAppend;
 // TODO: parameterize sequential/parallel execution behavior
 
 
-const fileRead  = enc => path =>
+const fileRead  = fs => enc => path =>
   Task((res, rej) =>
     fs.readFile(path, enc, (e, s) =>
       e ? rej(e) : res(s)));
 
 
-const fileScanDir = path =>
+const fileScanDir = fs => path =>
   Task((res, rej) =>
     fs.readdir(path, (e, ss) =>
       e ? rej(e) : res(ss)));
