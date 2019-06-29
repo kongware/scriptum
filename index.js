@@ -1486,99 +1486,6 @@ function* objValues(o) {
 
 
 /******************************************************************************
-****************************[ REGULAR EXPRESSION ]*****************************
-******************************************************************************/
-
-
-
-const rexDel = (r, flags) => s =>
-  s.replace(new RegExp(r, flags), "");
-
-
-const rexMod = (r, f, flags) => s =>
-  s.replace(new RegExp(r, flags), f);
-
-
-const rexMatch = (r, flags) => s => {
-  const xs = s.match(new RegExp(r, flags));
-
-  if (xs === null)
-    return Matched(None);
-
-  else if (!("index" in xs))
-    throw new Error(
-      `invalid regular expression - greediness is not permitted in\n${r}`);
-
-  else if (xs.groups === undefined)
-    xs.groups = {}; // add empty group instead of undefined
-
-  xs.relIndex = xs.index; // add relative index in case of multiple matches
-  xs.relInput = xs.input; // add relative input in case of multiple matches
-  return Matched(Some(xs));
-};
-
-
-const rexMatchAll = (r, flags) => s_ =>
-  loop((acc = [], s = s_, i = 0) => {
-    if (s === "")
-      return acc;
-
-    else {
-      const tx = strMatch(r, flags) (s);
-
-      switch (tx.runMatched[TAG]) {
-        case "None": return acc;
-
-        case "Some": {
-          const xs = tx.runMatched.runOption;
-          xs.index += i;
-          xs.input = s_;
-
-          return recur(
-            (acc.push(tx), acc),
-            s_.slice(xs.index + xs[0].length),
-            xs.index + xs[0].length);
-        }
-
-        default: _throw(new UnionError("unknown tag"));
-      }
-    }
-  });
-
-
-const rexMatchLast = (r, flags) => s_ =>
-  loop((acc = Matched(None), s = s_, i = 0) => {
-    if (s === "")
-      return acc;
-
-    else {
-      const tx = strMatch(r, flags) (s);
-
-      switch (tx.runMatched[TAG]) {
-        case "None": return acc;
-
-        case "Some": {
-          const xs = tx.runMatched.runOption;
-          xs.index += i;
-          xs.input = s_;
-
-          return recur(
-            tx,
-            s_.slice(xs.index + xs[0].length),
-            xs.index + xs[0].length);
-        }
-
-        default: _throw(new UnionError("unknown tag"));
-      }
-    }
-  });
-
-
-const rexSet = (r, t, flags) => s =>
-  s.replace(new RegExp(r, flags), t);
-
-
-/******************************************************************************
 ************************************[ SET ]************************************
 ******************************************************************************/
 
@@ -1614,11 +1521,97 @@ const strFold = alg => zero => s => {
 };
 
 
+/***[Regular Expressions]*****************************************************/
+
+
+const strDel = (r, flags) => s =>
+  s.replace(new RegExp(r, flags), "");
+
+
+const strMatch = (r, flags) => s => {
+  const xs = s.match(new RegExp(r, flags));
+
+  if (xs === null)
+    return Matched(None);
+
+  else if (!("index" in xs))
+    throw new Error(
+      `invalid regular expression - greediness is not permitted in\n${r}`);
+
+  else if (xs.groups === undefined)
+    xs.groups = {}; // add empty group instead of undefined
+
+  xs.relIndex = xs.index; // add relative index in case of multiple matches
+  xs.relInput = xs.input; // add relative input in case of multiple matches
+  return Matched(Some(xs));
+};
+
+
+const strMatchAll = (r, flags) => s_ =>
+  loop((acc = [], s = s_, i = 0) => {
+    if (s === "")
+      return acc;
+
+    else {
+      const tx = strMatch(r, flags) (s);
+
+      switch (tx.runMatched[TAG]) {
+        case "None": return acc;
+
+        case "Some": {
+          const xs = tx.runMatched.runOption;
+          xs.index += i;
+          xs.input = s_;
+
+          return recur(
+            (acc.push(tx), acc),
+            s_.slice(xs.index + xs[0].length),
+            xs.index + xs[0].length);
+        }
+
+        default: _throw(new UnionError("unknown tag"));
+      }
+    }
+  });
+
+
+const strMatchLast = (r, flags) => s_ =>
+  loop((acc = Matched(None), s = s_, i = 0) => {
+    if (s === "")
+      return acc;
+
+    else {
+      const tx = strMatch(r, flags) (s);
+
+      switch (tx.runMatched[TAG]) {
+        case "None": return acc;
+
+        case "Some": {
+          const xs = tx.runMatched.runOption;
+          xs.index += i;
+          xs.input = s_;
+
+          return recur(
+            tx,
+            s_.slice(xs.index + xs[0].length),
+            xs.index + xs[0].length);
+        }
+
+        default: _throw(new UnionError("unknown tag"));
+      }
+    }
+  });
+
+
+const strMod = (r, f, flags) => s =>
+  s.replace(new RegExp(r, flags), f);
+
+
+const strSet = (r, t, flags) => s =>
+  s.replace(new RegExp(r, flags), t);
+
+
 /***[Misc. Combinators]*******************************************************/
-
-
-const strDeleteAt = i => s =>
-  t.slice(0, i) + t.slice(i + 1);
 
 
 const strIsEmpty = s => s === "";
@@ -1634,14 +1627,6 @@ const strPadr = n => c => s =>
   c.repeat(n)
     .concat(s)
     .slice(0, n);
-
-
-const strReplaceAt = i => s => t =>
-  t.slice(0, i) + s + t.slice(i + 1);
-
-
-const strReplaceAtBy = i => f => s =>
-  s.slice(0, i) + f(s[i]) + s.slice(i + 1);
 
 
 /******************************************************************************
@@ -3249,12 +3234,6 @@ module.exports = {
   readJoin,
   readMap,
   readOf,
-  rexDel,
-  rexMod,
-  rexMatch,
-  rexMatchAll,
-  rexMatchLast,
-  rexSet,
   Right,
   rightPrism,
   round,
@@ -3273,13 +3252,16 @@ module.exports = {
   stateOf,
   statePut,
   Step,
-  strDeleteAt,
+  strDel,
   strFold,
   strIsEmpty,
+  strMatch,
+  strMatchAll,
+  strMatchLast,
+  strMod,
+  strSet,
   strPadl,
   strPadr,
-  strReplaceAt,
-  strReplaceAtBy,
   struct,
   structExt,
   structGetter,
