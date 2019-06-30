@@ -1395,6 +1395,15 @@ const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
+const _lazyProp_ = op => k => f => o => Object.defineProperty(op(o), k, {get: function() {
+  return x => {
+    const r = f(x);
+    this.foo = () => r;
+    return r;
+  };
+}, configurable: true});
+
+
 const _new = cons => (...args) =>
   new cons(...args);
 
@@ -1483,6 +1492,15 @@ function* objValues(o) {
     yield o[prop];
   }
 }
+
+
+/***[Defer]*******************************************************************/
+
+
+const lazyProp = _lazyProp_(objClone);
+
+
+const lazyPropx = _lazyProp_(id);
 
 
 /******************************************************************************
@@ -3132,6 +3150,8 @@ module.exports = {
   lazyJoin,
   lazyMap,
   lazyOf,
+  lazyProp,
+  lazyPropx,
   Left,
   leftPrism,
   Lens,
