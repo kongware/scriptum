@@ -1398,7 +1398,7 @@ const invoke = k => (...args) => o =>
 const _lazyProp_ = op => k => f => o => Object.defineProperty(op(o), k, {get: function() {
   return x => {
     const r = f(x);
-    this.foo = () => r;
+    this[k] = () => r;
     return r;
   };
 }, configurable: true});
