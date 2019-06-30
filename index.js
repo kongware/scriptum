@@ -1395,7 +1395,7 @@ const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
-const lazyPropx = k => f => o => Object.defineProperty(o, k, {get: function() {
+const lazyMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
   return x => {
     const r = f(x);
     delete this[k];
@@ -3142,7 +3142,7 @@ module.exports = {
   lazyJoin,
   lazyMap,
   lazyOf,
-  lazyPropx,
+  lazyMethx,
   Left,
   leftPrism,
   Lens,
