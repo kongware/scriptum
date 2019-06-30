@@ -1395,16 +1395,6 @@ const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
-const lazyMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
-  return x => {
-    const r = f(x);
-    delete this[k];
-    this[k] = () => r;
-    return r;
-  };
-}, configurable: true});
-
-
 const _new = cons => (...args) =>
   new cons(...args);
 
@@ -1466,6 +1456,16 @@ const objUnionx = o => p => {
 
   return o;
 };
+
+
+const onceMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
+  return x => {
+    const r = f(x);
+    delete this[k];
+    this[k] = () => r;
+    return r;
+  };
+}, configurable: true});
 
 
 const thisify = f => f({}); // mimics this context
@@ -3142,7 +3142,6 @@ module.exports = {
   lazyJoin,
   lazyMap,
   lazyOf,
-  lazyMethx,
   Left,
   leftPrism,
   Lens,
@@ -3200,6 +3199,7 @@ module.exports = {
   objUnionx,
   objValues,
   on,
+  onceMethx,
   Option,
   optAp,
   optCata,
