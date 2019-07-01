@@ -2938,7 +2938,7 @@ const fileScanDir_ = fs => path =>
 ******************************************************************************/
 
 
-const arrSum = arrFoldM({sumAppend, sumEmpty});
+const arrSum = arrFoldM({append: sumAppend, empty: sumEmpty});
 
 
 /******************************************************************************
