@@ -354,6 +354,24 @@ const max = x => y =>
     : x;
 
 
+/***[Misc. Combinators]*******************************************************/
+
+
+const and = x => y =>
+  x && y;
+
+
+const imply = x => y =>
+  !x || y;
+
+
+const not = x => !x;
+
+
+const or = x => y =>
+  x || y;
+
+
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
@@ -2979,6 +2997,7 @@ module.exports = {
   allAppendf,
   allEmpty,
   Ancient,
+  and,
   Any,
   anyAppend,
   anyAppendf,
@@ -3133,6 +3152,7 @@ module.exports = {
   Id,
   id,
   idMap,
+  imply,
   index,
   infixl,
   infixr,
@@ -3197,6 +3217,7 @@ module.exports = {
   neq,
   _new,
   None,
+  not,
   notp,
   notp2,
   notp3,
@@ -3234,6 +3255,7 @@ module.exports = {
   optChain,
   optMap,
   optOf,
+  or,
   throwOn,
   throwOnFalse,
   throwOnTrue,
