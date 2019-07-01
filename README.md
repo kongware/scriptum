@@ -225,10 +225,10 @@ Denotes the unit type `undefined` value.
 You can shorten long type signatures by replacing sensible sub signatures with a placeholder:
 
 ```Javascript
-// [1]:
+// _1_:
 // {foo: String, bar: Number, ...a lot more properties}
 
-// {1} -> SomeType<{1}>
+// _1_ -> SomeType<_1_>
 ```
 # New Types
 
