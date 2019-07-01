@@ -321,13 +321,25 @@ const compare = x => y =>
 const gt = x => y => x > y;
 
 
+const gtf = y => x => x > y;
+
+
 const gte = x => y => x >= y;
+
+
+const gtef = y => x => x >= y;
 
 
 const lt = x => y => x < y;
 
 
+const ltf = y => x => x < y;
+
+
 const lte = x => y => x <= y;
+
+
+const ltef = y => x => x <= y;
 
 
 const min = x => y =>
@@ -1371,13 +1383,25 @@ const numCompare = compare;
 const numGt = gt;
 
 
+const numGtf = gtf;
+
+
 const numGte = gte;
+
+
+const numGtef = gtef;
 
 
 const numLt = lt;
 
 
+const numLtf = ltf;
+
+
 const numLte = lte;
+
+
+const numLtef = ltef;
 
 
 const numMin = min;
@@ -3102,6 +3126,10 @@ module.exports = {
   getMonthDays,
   getYear,
   GT,
+  gt,
+  gtf,
+  gte,
+  gtef,
   guard,
   headH,
   History,
@@ -3155,6 +3183,10 @@ module.exports = {
   Loop,
   loop,
   LT,
+  lt,
+  ltf,
+  lte,
+  ltef,
   mapMap,
   mapper,
   match,
@@ -3180,9 +3212,13 @@ module.exports = {
   numEq,
   numNeq,
   numGt,
+  numGtf,
   numGte,
+  numGtef,
   numLt,
+  numLtf,
   numLte,
+  numLtef,
   objClone,
   objDel,
   objDelx,
