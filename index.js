@@ -1399,6 +1399,16 @@ const _new = cons => (...args) =>
   new cons(...args);
 
 
+const memoMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
+  return x => {
+    const r = f(x);
+    delete this[k];
+    this[k] = () => r;
+    return r;
+  };
+}, configurable: true});
+
+
 const objClone = o => {
   const p = {};
 
@@ -1456,16 +1466,6 @@ const objUnionx = o => p => {
 
   return o;
 };
-
-
-const onceMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
-  return x => {
-    const r = f(x);
-    delete this[k];
-    this[k] = () => r;
-    return r;
-  };
-}, configurable: true});
 
 
 const thisify = f => f({}); // mimics this context
@@ -3199,7 +3199,7 @@ module.exports = {
   objUnionx,
   objValues,
   on,
-  onceMethx,
+  memoMethx,
   Option,
   optAp,
   optCata,
