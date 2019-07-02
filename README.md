@@ -845,8 +845,9 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 # TODO
 
 - [ ] add type signatures!!!
-- [ ] example `onceMethx`
+- [ ] example `memoMethx`
 - [ ] explain `debug`
+- [ ] explain `structExt`
 - [ ] add common transducers
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access/Difference List
