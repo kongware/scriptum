@@ -1304,11 +1304,11 @@ const funRmap = g => hx => x =>
 /***[Relations]***************************************************************/
 
 
-const select1N = m => (ks, vs) => k =>
+const select11 = m => (ks, vs) => k =>
   vs[m.get(ks.indexOf(k))];
 
 
-const selectMN = m => (ks, vs) => k =>
+const select1N = m => (ks, vs) => k =>
   m.get(ks.indexOf(k)).map(l => vs[l]);
 
 
@@ -3312,8 +3312,8 @@ module.exports = {
   roundBy,
   ScriptumError,
   select,
+  select11,
   select1N,
-  selectMN,
   SemigroupError,
   setMap,
   snd,
