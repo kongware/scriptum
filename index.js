@@ -1712,6 +1712,9 @@ const strPadr = n => c => s =>
     .slice(0, n);
 
 
+const toString = x => x.toString();
+
+
 /******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
@@ -1720,13 +1723,13 @@ const strPadr = n => c => s =>
 const arrAppendf = flip(arrAppend);
 
 
-const getDay = invoke("getDate") ();
+const getDay = d => d.getDay();
 
 
-const getMonth = invoke("getMonth") ();
+const getMonth = d => d.getMonth();
 
 
-const getYear = invoke("getFullYear") ();
+const getYear = d => d.getYear();
 
 
 /******************************************************************************
@@ -3391,6 +3394,7 @@ module.exports = {
   tLiftM2,
   tMap,
   tOf,
+  toString,
   tramp,
   tryCatch,
   toFixedFloat,
