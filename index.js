@@ -1212,11 +1212,11 @@ const isFalse =x => x === false;
 
 
 const isFloatStr = s =>
-  search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
+  s.search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
 
 
 const isIntStr = s =>
-  search(new RegExp("^\\d+$")) !== NOT_FOUND;
+  s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
 const isMap = x =>
