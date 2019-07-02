@@ -22,6 +22,9 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 ******************************************************************************/
 
 
+const NOT_FOUND = -1;
+
+
 const TAG = Symbol("tag"); // the tag property of tagged unions
 
 
@@ -3241,6 +3244,7 @@ module.exports = {
   _new,
   None,
   not,
+  NOT_FOUND,
   notp,
   notp2,
   notp3,
