@@ -1211,6 +1211,11 @@ const isBoo = x =>
   typeof x === "boolean";
 
 
+const isDate = x =>
+  introspect(x) === "Date"
+    && !Number.isNaN(x.getTime());
+
+
 const isFalse =x => x === false;
 
 
@@ -3187,6 +3192,7 @@ module.exports = {
   isArr,
   isArrOf,
   isBoo,
+  isDate,
   isFalse,
   isIntStr,
   isMap,
