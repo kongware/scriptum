@@ -1215,7 +1215,7 @@ const isFloatStr = s =>
   search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
 
 
-const isIntStr = s => // TODO: scriptum
+const isIntStr = s =>
   search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
@@ -3185,6 +3185,7 @@ module.exports = {
   isArrOf,
   isBoo,
   isFalse,
+  isIntStr,
   isMap,
   isMapOf,
   isNaN,
