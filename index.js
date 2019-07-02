@@ -898,6 +898,9 @@ const formatDate = sep => (...fs) => date =>
     .join(sep);
 
 
+const fromTimestamp = n => new Date(n);
+
+
 // getDate @derived
 
 
@@ -3153,6 +3156,7 @@ module.exports = {
   floor,
   foldMap,
   formatDate,
+  fromTimestamp,
   fst,
   fromMultiArg,
   fromThese,
