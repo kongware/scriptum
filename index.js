@@ -1468,10 +1468,6 @@ const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
-const _new = cons => (...args) =>
-  new cons(...args);
-
-
 const memoMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
   return x => {
     const r = f(x);
@@ -1480,6 +1476,10 @@ const memoMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
     return r;
   };
 }, configurable: true});
+
+
+const _new = cons => (...args) =>
+  new cons(...args);
 
 
 const objClone = o => {
