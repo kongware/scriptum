@@ -845,6 +845,7 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 # TODO
 
 - [ ] add type signatures!!!
+- [ ] point out to use type sigs in userland
 - [ ] example `memoMethx`
 - [ ] explain `debug`
 - [ ] explain `structExt`
