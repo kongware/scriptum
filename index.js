@@ -1143,7 +1143,7 @@ const eff = f => x => (f(x), x); // aka tap
 
 
 const introspect = x =>
-  x && TYPE in x
+  x && x[TYPE] !== undefined
     ? x[TYPE]
     : Object.prototype.toString.call(x).slice(8, -1);
 
