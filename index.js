@@ -734,9 +734,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrMapAccum
 
 
-// TODO: add arrHeadOr
-
-
 // TODO: add arrTailOr
 
 
@@ -768,6 +765,18 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 
 
 const arrIsEmpty = xs => xs.length === 0;
+
+
+const arrHead = xs =>
+  xs.length === 0
+    ? None
+    : Some(xs[0]);
+
+
+const arrHeadOr = def => xs =>
+  xs.length === 0
+    ? def
+    : xs[0];
 
 
 const arrModOr = def => (i, f) => xs =>
@@ -3029,6 +3038,8 @@ module.exports = {
   arrFoldr,
   arrFoldWhile,
   arrFutu,
+  arrHead,
+  arrHeadOr,
   arrHisto,
   arrHylo,
   arrIsEmpty,
