@@ -1126,7 +1126,11 @@ const debug = f => x => {
 };
 
 
-const log = pre =>
+const log = pre => s =>
+  console.log(pre, s);
+
+
+const trace = pre =>
   eff(x => console.log(pre, x));
 
 
@@ -3395,6 +3399,7 @@ module.exports = {
   tMap,
   tOf,
   toString,
+  trace,
   tramp,
   tryCatch,
   toFixedFloat,
