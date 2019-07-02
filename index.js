@@ -1720,13 +1720,13 @@ const strPadr = n => c => s =>
 const arrAppendf = flip(arrAppend);
 
 
-const getDay = invoke("getDate");
+const getDay = invoke("getDate") ();
 
 
-const getMonth = invoke("getMonth");
+const getMonth = invoke("getMonth") ();
 
 
-const getYear = invoke("getFullYear");
+const getYear = invoke("getFullYear") ();
 
 
 /******************************************************************************
