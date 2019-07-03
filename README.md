@@ -12,7 +12,21 @@ A type-directed functional library that adapts well-known functional patterns to
 
 ## Runtime
 
-scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them locally as formal parameters for functions which require them. In order to use file system related functions for instance you have to pass the `fs` dependency as the first argument. 
+scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is you have to provide dependencies when using such functions:
+
+```Javascript
+const fileRead_  = fs => enc => path =>
+  Task((res, rej) =>
+    fs.readFile(path, enc, (e, s) =>
+      e ? rej(e) : res(s)));
+      
+// and import as
+
+const fs = require("fs"),
+  {..., fileRead_, ...} = require("scriptum"),
+  fileRead = fileRead_(fs);
+```
+This is a tradeoff to keep up browser support.
 
 ## Fundamentals
 
@@ -86,11 +100,9 @@ The following rules apply to function names:
 
 # Type Signatures
 
-## Polymorphism
+With scriptum you should get familiar with Hindley-Milner-like type signatures of mono- and polymorphic types.
 
-A value (and by the way, a function is just another kind of value in this regard) is polymorphic if it can have more than one monomorphic type.
-
-### Monomorphism
+## Monomorphism
 
 A value is monomorphic if it has exactly one type.
 
@@ -103,6 +115,10 @@ const foo = "bar";
 // String -> Number
 const strLen = s => s.length;
 ```
+## Polymorphism
+
+A value (and by the way, a function is just another kind of value in this regard) is polymorphic if it can have more than one monomorphic type.
+
 ### Parametric Polymorphism
 
 A parametric polymorphic value is a polymorphic value without any constraints on the polymorphic portion of its type, i.e. nothing is known about this portion and the value can adopt any type.
@@ -230,6 +246,12 @@ You can shorten long type signatures by replacing sensible sub signatures with a
 
 // _1_ -> SomeType<_1_>
 ```
+## Usage
+
+You should define type signatures for all your functions, because this facilitates type-directed programming. Moreover, it is often useful to declare auxiliary types whose only purpose is to create more readable type signatures.
+
+TODO: add code example
+
 # New Types
 
 There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
