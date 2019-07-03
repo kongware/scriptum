@@ -10,9 +10,9 @@ This lib is based on my work, i.e. I am confident that it will be bullet proofed
 
 A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idiomatic for Javascript at some point.
 
-## Mission Statementit 
+## Runtime
 
-scriptum is the endeavour to make functional programming applicable in Javascript in pratice for normal people.
+scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them locally as formal parameters for functions which require them. In order to use file system related functions for instance you have to pass the `fs` dependency as the first argument. 
 
 ## Fundamentals
 
