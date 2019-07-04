@@ -250,7 +250,11 @@ You can shorten long type signatures by replacing sensible sub signatures with a
 
 You should define type signatures for all your functions, because this facilitates type-directed programming. Moreover, it is often useful to declare auxiliary types whose only purpose is to create more readable type signatures.
 
-TODO: add code example
+TODO: add examplary type sig
+
+### Semantic Typing
+
+TODO: add description + add examplary type sig
 
 # New Types
 
