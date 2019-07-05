@@ -1126,6 +1126,10 @@ const debug = f => x => {
 };
 
 
+const delay = n => f => x =>
+  setTimeout(f, n, x);
+
+
 const log = pre => s =>
   console.log(pre, s);
 
@@ -3151,6 +3155,7 @@ module.exports = {
   defJoin,
   defMap,
   defOf,
+  delay,
   Done,
   eff,
   Either,
