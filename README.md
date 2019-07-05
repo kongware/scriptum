@@ -258,7 +258,7 @@ TODO: add description + add examplary type sig
 
 # New Types
 
-There s a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into an plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
+There is a constructor each for union types (`union`) and record types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
 Additionally a `structMemo` is provided to allow for memoized values.
 
@@ -306,6 +306,12 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Strong
 * Traversable
 * Unfoldable
+
+# Debugging
+
+scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions.
+
+TODO: add an example
 
 # Advanced Topics
 
