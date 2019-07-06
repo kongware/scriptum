@@ -135,20 +135,6 @@ const structMemo = type => thunk => ({
 });
 
 
-const structMemoExt = type => cons => {
-  const f = thunk => ({
-    get ["run" + type] () {
-      delete this["run" + type];
-      return this["run" + type] = thunk();
-    },
-                      
-    [TYPE]: type
-  });
-
-  return cons(f);
-};
-
-
 /******************************************************************************
 *******************************************************************************
 ********************************[ TRAMPOLINES ]********************************
@@ -3395,7 +3381,6 @@ module.exports = {
   structExt,
   structGetter,
   structMemo,
-  structMemoExt,
   Sum,
   sumAppend,
   sumAppendf,
