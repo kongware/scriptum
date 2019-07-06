@@ -343,6 +343,17 @@ pipe3(
         (debug(sqr))
           ([[[1,2,3]]]);
 ```
+If you are just interested in the evaluation result of an expression, pass the identity function:
+
+```Javascript
+debug(id) (pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (sqr)
+          ([[[1,2,3]]]));
+```
+
 # Advanced Topics
 
 ## Category Composition
