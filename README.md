@@ -10,6 +10,8 @@ This lib is based on my work, i.e. I am confident that it will be bullet proofed
 
 A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idiomatic for Javascript at some point.
 
+type-directed programming in an untyped language means that you handle types mentally and make them explicit with type signatures. With this approach you have many of the benefits of a typed language without the additional boilerplate that comes along with an retrospectively introduced type system, as you can see in Typescript or Flow.
+
 ## Runtime
 
 scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is you have to provide dependencies when using such functions:
