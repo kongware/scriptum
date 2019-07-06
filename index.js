@@ -1124,7 +1124,7 @@ const log = pre => s =>
 
 
 const trace = pre =>
-  eff(x => console.log(pre, x));
+  eff(x => console.log(pre + ":", JSON.stringify(x)));
 
 
 /***[Functor]*****************************************************************/
