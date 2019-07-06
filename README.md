@@ -761,7 +761,7 @@ Composes in the second argument of a binary function. This is sometimes useful, 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 ```
-### `infixl`/`ìnfixr`
+### `infixl`/`infixr`
 
 Just mimics Haskell's chainable left/right associative infix operators. This sometimes improves readability of code:
 
@@ -809,6 +809,19 @@ const orDef = f => def => x =>
     y === undefined || y === null || Number.isNaN(y)
       ? def : y);
 ```
+### `memoMethx`
+
+Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed
+
+```Javascript
+const p = thisify(o => {
+  memoMethx("foo") (x => (console.log("evaluated"), x * x)) (o);
+  return o;
+});
+
+o.foo(5); // evaluated 25
+o.foo(5); // 25
+```
 ### `objPathOr`
 
 In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
@@ -819,23 +832,28 @@ const o = {foo: {bar: {baz: 123}}};
 objPathOr(0) ("foo") ("bar") ("baz"); // 123
 objPathOr(0) ("foo") ("bat") ("baz"); // 0
 ```
-### `orDefOn`/`orThrowOn`
+### `throwOnUnit`
 
-Calls a function and returns either returns the result unaltered if it passes the predicate or a default value.
+Often we want to throw an error if a computation yields an unit type, i.e. a type without values. Javascript includes a remarkable number of unit types:
+
+* undefined
+* null
+* NaN
+* Invalid Date
+* Infinity
 
 ```Javascript
-orDefOnUnit = orDefOn(x =>
-  x === undefined
-    || x === null
-    || x === x === false
-    || x.getTime && !Number.isNaN(x.getTime()));
-    
-orDefOnUnit("foo") (last) (["bar"]); // "bar"
-orDefOnUnit("foo") (last) ([]); // "foo"
-```
-A unit type is any type in Javascript without a value, i.e. `undefined`, `null`, `NaN` and `Invalid Date`.
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([1,2,3]); // 1
 
-`orThrowOn` has the same semantics except that it throws an error instead if returning a default value.
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([]); // TypeError
+```
+You can define your own functions with throw on error semantics by using the `onThrow` combinator.
 
 ### `partial`/`partialCurry`
 
