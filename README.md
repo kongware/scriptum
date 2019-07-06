@@ -275,8 +275,8 @@ const buildSqlQueries =
 gets to
 
 ```Javascript
-// Task<[ListOfX<[ParserResult<_2_>]>], Error> ->
-// Task<[ListOfX<[ListOfY<[SqlQuery<String>]>]>], Error>
+// Task<[BankAdvice<[ParserResult<_2_>]>], Error> ->
+// Task<[BankAdvice<[Dataset<[SqlQuery<String>]>]>], Error>
 ```
 Look how I wrapped the anonymous arrays in types, which gives them semantics. This is devenitely an improvement in order to understand what's going on.
 
