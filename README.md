@@ -100,9 +100,11 @@ The following rules apply to function names:
 
 # Type Signatures
 
-With scriptum you should get familiar with Hindley-Milner-like type signatures of mono- and polymorphic types.
+Using scriptum you should get familiar with Hindley-Milner-like type signatures of mono- and polymorphic types. Type signatures are a crucial property of functional programming especially for untyped languages, because they keep the code readable and comprehensible when its base grows.
 
-## Monomorphism
+## A Little Type Theory
+
+### Monomorphism
 
 A value is monomorphic if it has exactly one type.
 
@@ -115,11 +117,11 @@ const foo = "bar";
 // String -> Number
 const strLen = s => s.length;
 ```
-## Polymorphism
+### Polymorphism
 
 A value (and by the way, a function is just another kind of value in this regard) is polymorphic if it can have more than one monomorphic type.
 
-### Parametric Polymorphism
+#### Parametric Polymorphism
 
 A parametric polymorphic value is a polymorphic value without any constraints on the polymorphic portion of its type, i.e. nothing is known about this portion and the value can adopt any type.
 
@@ -132,7 +134,7 @@ const id = x => x;
 ```
 The type variable `a` represents the polymorphic portion of both types. Neither the `Array` nor the `Function` do know anything about `a`.
 
-### Ad-hoc Polymorphism
+#### Ad-hoc Polymorphism
 
 An ad-hoc polymorphic value is a polymorphic value with additional constraints on the polymorphic portion of its type, i.e. there is a certain knowledge about this portion and the value can only adopt types that implement this knowledge.
 
@@ -142,7 +144,7 @@ const genericMap = map => g => ts => map(g) (ts);
 ```
 In the example above `f` is ad-hoc polymorphic, because it can adapt any type that implements a binary `map` operator, i.e. it is known how to map over `f` and its content `a` respectively. Please note that `f`'s field `a` is parametric polymorphic, because it can adopt any type.
 
-### Row Polymorphism
+#### Row Polymorphism
 
 A row polymorphic value is a polymorphic `Object` for which only a subset of its properties is known. If these properties coincide with a type it can adopt this type and all properties the `Object` includes beyond that type are assigned to the type's row varibale.
 
@@ -246,15 +248,37 @@ You can shorten long type signatures by replacing sensible sub signatures with a
 
 // _1_ -> SomeType<_1_>
 ```
-## Usage
+## Application
 
-You should define type signatures for all your functions, because this facilitates type-directed programming. Moreover, it is often useful to declare auxiliary types whose only purpose is to create more readable type signatures.
+Type signatures are the prerequisite of type-directed programming. Let the types guide you by defining a type signature even before the the implementation details of a function have been determined.
 
-TODO: add examplary type sig
+Hence, you should define type signatures for ALL your functions and data structures and sometimes even for essential subexpressions.
 
+```Javascript
+// (a -> b) -> [a] -> [b]
+const arrMap = f => xs =>
+  xs.map(x => f(x));
+```
 ### Semantic Typing
 
-TODO: add description + add examplary type sig
+I made this term up. It means that you should use types for the single reason to enable more precise type signatures. This justifies the additional boilerplate to wrap and unwrap the data respectively:
+
+```Javascript
+// Task<[[ParserResult<_2_>]], Error> ->
+// Task<[[[SqlQuery<String>]]], Error>
+const buildSqlQueries =
+  tMap(
+    arrFold(acc => tx =>
+      arrPush(acc)
+        (buildSqlQueries_(tx))) ([]));
+```
+gets to
+
+```Javascript
+// Task<[ListOfX<[ParserResult<_2_>]>], Error> ->
+// Task<[ListOfX<[ListOfY<[SqlQuery<String>]>]>], Error>
+```
+Look how I wrapped the anonymous arrays in types, which gives them semantics. This is devenitely an improvement in order to understand what's going on.
 
 # New Types
 
