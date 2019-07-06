@@ -811,7 +811,7 @@ const orDef = f => def => x =>
 ```
 ### `memoMethx`
 
-Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed
+Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed:
 
 ```Javascript
 const p = thisify(o => {
@@ -822,6 +822,8 @@ const p = thisify(o => {
 o.foo(5); // evaluated 25
 o.foo(5); // 25
 ```
+The trailing `x` within the function name indicates that it performs a mutation on the given `Object`.
+
 ### `objPathOr`
 
 In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
