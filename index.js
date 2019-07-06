@@ -22,6 +22,9 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 ******************************************************************************/
 
 
+const NO_ENC = null; // no encoding specified
+
+
 const NOT_FOUND = -1;
 
 
@@ -3269,6 +3272,7 @@ module.exports = {
   _new,
   None,
   not,
+  NO_ENC,
   NOT_FOUND,
   notp,
   notp2,
