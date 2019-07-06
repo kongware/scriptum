@@ -333,10 +333,16 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 # Debugging
 
-scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions.
+scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
 
-TODO: add an example
-
+```Javascript
+pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (debug(sqr))
+          ([[[1,2,3]]]);
+```
 # Advanced Topics
 
 ## Category Composition
