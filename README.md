@@ -766,18 +766,16 @@ const foldMap = ({fold, append, empty}) => f =>
 Just mimics Haskell's chainable left/right associative infix operators. This sometimes improves readability of code:
 
 ```Javascript
-infixl(strHead, orThrowOnf, isUnit) //*
+infixl(strHead, throwOnf, isUnit) //*
   (TypeError, "non-empty string expected")
     ("foo"); // "f"
     
-infix(strHead, orThrowOnf, isUnit)
+infixl(strHead, throwOnf, isUnit)
   (TypeError, "non-empty string expected")
     (""); // TypeError
     
 infix(sqr, comp, inc, comp, inc, comp, inc) (0); // 9
 ```
-*`isUnit` checks for null/undefined/NaN/invalid Date
-
 Please note that there is no operator function precedence, that is to say you have to use nested `infix` calls to obtain this effect.
 
 ### `invoke`
