@@ -10,7 +10,7 @@ This lib is based on my work, i.e. I am confident that it will be bullet proofed
 
 A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idiomatic for Javascript at some point.
 
-type-directed programming in an untyped language means that you handle types mentally and make them explicit with type signatures. With this approach you have many of the benefits of a typed language without the additional boilerplate that comes along with an retrospectively introduced type system, as you can see in Typescript or Flow.
+type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
 ## Runtime
 
