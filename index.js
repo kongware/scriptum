@@ -1601,6 +1601,15 @@ const strFold = alg => zero => s => {
 };
 
 
+/***[Semigroup]***************************************************************/
+
+
+const strAppend = s => t => s + t;
+
+
+const strAppendf = t => s => s + t;
+
+
 /***[Regular Expressions]*****************************************************/
 
 
@@ -3382,6 +3391,8 @@ module.exports = {
   stateOf,
   statePut,
   Step,
+  strAppend,
+  strAppendf,
   strDel,
   strFold,
   strIsEmpty,
