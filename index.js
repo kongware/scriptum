@@ -1604,6 +1604,11 @@ const strFold = alg => zero => s => {
 /***[Regular Expressions]*****************************************************/
 
 
+const sanitizeStr = pairs => s =>
+  arrFold(acc => ([from, to]) =>
+    strSet(from, to, "gi") (acc)) (s) (pairs);
+      
+      
 const strDel = (r, flags) => s =>
   s.replace(new RegExp(r, flags), "");
 
@@ -3360,6 +3365,7 @@ module.exports = {
   rightPrism,
   round,
   roundBy,
+  sanitizeStr,
   ScriptumError,
   select,
   select11,
