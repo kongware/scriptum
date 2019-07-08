@@ -3010,12 +3010,16 @@ const fileScanDir_ = fs => path =>
       e ? rej(e) : res(ss)));
 
 
-const fileWrite_ = fs => (filePath, data, opt) =>
-  new Promise((res, rej) => {
-    fs.writeFile(filePath, data, opt, (err, data) =>
-      err
-        ? rej(err)
-        : res(data));
+const fileWrite_ = fs => opt => path => s =>
+  Task((res, rej) =>
+    fs.writeFile(path, s, opt, (e, s) =>
+      e ? rej(e) : res(s)));
+
+
+const fileUnlink_ = fs => path => 
+  Task((res, rej) => {
+    fs.unlink(path, e =>
+      e ? rej(e) : res(true));
   });
 
 
@@ -3166,6 +3170,7 @@ module.exports = {
   fileRename_,
   fileScanDir_,
   fileWrite_,
+  fileUnlink_,
   filterer,
   First,
   firstAppend,
