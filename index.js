@@ -1604,7 +1604,7 @@ const strFold = alg => zero => s => {
 /***[Regular Expressions]*****************************************************/
 
 
-const sanitizeStr = pairs => s =>
+const sanitizeStr = pairs => s => // TODO: replace with transducer
   arrFold(acc => ([from, to]) =>
     strSet(from, to, "gi") (acc)) (s) (pairs);
       
