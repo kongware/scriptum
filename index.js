@@ -1728,7 +1728,15 @@ const strPadr = n => c => s =>
     .slice(0, n);
 
 
+const toLowerCase = s =>
+  s.toLowerCase();
+
+
 const toString = x => x.toString();
+
+
+const toUpperCase = s =>
+  s.toUpperCase();
 
 
 /******************************************************************************
@@ -3437,7 +3445,9 @@ module.exports = {
   tLiftM2,
   tMap,
   tOf,
+  toLowerCase,
   toString,
+  toUpperCase,
   trace,
   tramp,
   tryCatch,
