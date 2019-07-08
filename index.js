@@ -1725,7 +1725,7 @@ const toString = x => x.toString();
 const arrAppendf = flip(arrAppend);
 
 
-const getDay = d => d.getDay();
+const getDay = d => d.getDate();
 
 
 const getMonth = d => d.getMonth();
