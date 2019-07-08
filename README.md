@@ -48,6 +48,10 @@ Expressions are good, because you can compose them and pass them around like dat
 
 scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
 
+### Type Signatures before Implementations
+
+You should always write down the type signature of a function upfront, before you implement its body. Let yourself be guided by types. This will improve your code quality and coding efficency a great deal.
+
 ### Unions of Records
 
 You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
