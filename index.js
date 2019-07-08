@@ -1731,7 +1731,7 @@ const getDay = d => d.getDay();
 const getMonth = d => d.getMonth();
 
 
-const getYear = d => d.getYear();
+const getYear = d => d.getFullYear();
 
 
 /******************************************************************************
