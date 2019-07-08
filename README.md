@@ -4,8 +4,6 @@
 
 Experimental and still work in progress.
 
-This lib is based on my work, i.e. I am confident that it will be bullet proofed at some point.
-
 ## What
 
 A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idioms in Javascript.
