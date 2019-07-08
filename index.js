@@ -1613,11 +1613,6 @@ const strAppendf = t => s => s + t;
 /***[Regular Expressions]*****************************************************/
 
 
-const normalizeStr = pairs => s => // TODO: replace with transducer
-  arrFold(acc => ([from, to]) =>
-    strSet(from, to, "gi") (acc)) (s) (pairs);
-      
-      
 const strDel = (r, flags) => s =>
   s.replace(new RegExp(r, flags), "");
 
@@ -1699,6 +1694,16 @@ const strMatchLast = (r, flags) => s_ =>
 
 const strMod = (r, f, flags) => s =>
   s.replace(new RegExp(r, flags), f);
+
+
+const strNormalize = pairs => s =>
+  arrFold(acc => ([from, to]) =>
+    strSet(from, to, "gi") (acc)) (s) (pairs);
+      
+      
+const strNormalizeBy = pairs => s =>
+  arrFold(acc => ([from, f]) =>
+    strMod(from, f, "gi") (acc)) (s) (pairs);
 
 
 const strSet = (r, t, flags) => s =>
@@ -3292,7 +3297,6 @@ module.exports = {
   None,
   not,
   NO_ENC,
-  normalizeStr,
   NOT_FOUND,
   notp,
   notp2,
@@ -3400,6 +3404,8 @@ module.exports = {
   strMatchAll,
   strMatchLast,
   strMod,
+  strNormalize,
+  strNormalizeBy,
   strSet,
   strPadl,
   strPadr,
