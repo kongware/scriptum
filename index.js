@@ -3040,13 +3040,13 @@ const fileScanDir_ = fs => path =>
 const fileWrite_ = fs => opt => path => s =>
   Task((res, rej) =>
     fs.writeFile(path, s, opt, (e, s) =>
-      e ? rej(e) : res(s)));
+      e ? rej(e) : res(None)));
 
 
 const fileUnlink_ = fs => path => 
   Task((res, rej) => {
     fs.unlink(path, e =>
-      e ? rej(e) : res(true));
+      e ? rej(e) : res(None));
   });
 
 
