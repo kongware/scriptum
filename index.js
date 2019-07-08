@@ -1604,7 +1604,7 @@ const strFold = alg => zero => s => {
 /***[Regular Expressions]*****************************************************/
 
 
-const sanitizeStr = pairs => s => // TODO: replace with transducer
+const normalizeStr = pairs => s => // TODO: replace with transducer
   arrFold(acc => ([from, to]) =>
     strSet(from, to, "gi") (acc)) (s) (pairs);
       
@@ -3283,6 +3283,7 @@ module.exports = {
   None,
   not,
   NO_ENC,
+  normalizeStr,
   NOT_FOUND,
   notp,
   notp2,
@@ -3365,7 +3366,6 @@ module.exports = {
   rightPrism,
   round,
   roundBy,
-  sanitizeStr,
   ScriptumError,
   select,
   select11,
