@@ -926,12 +926,6 @@ const verifyDate = y => m => d =>
 // floor @derived
 
 
-const strPadr = n => c => s =>
-  s.concat(
-    c.repeat(n))
-      .slice(0, n);
-
-
 const formatFloat = thdSep => (decSep, decDigits) => n => {
   const [s, dec] = n.toString().concat(".00").split("."),
     hnd = s.slice(-3),
