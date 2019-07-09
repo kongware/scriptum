@@ -932,7 +932,7 @@ strPadr = n => c => s =>
       .slice(0, n);
 
 
-const formatFloat = decDigits => (decSep, thdSep) => n => {
+const formatFloat = thdSep => (decSep, decDigits) => n => {
   const [s, dec] = n.toString().concat(".00").split("."),
     hnd = s.slice(-3),
     thd = hnd.length < s
