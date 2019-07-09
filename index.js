@@ -460,6 +460,10 @@ const arrFoldr = alg => zero => xs => { // TODO: make non-strict?
 };
 
 
+const arrFoldStr = s => ss =>
+  ss.join(s);
+
+
 const arrFoldWhile = alg => zero => xs => {
   let acc = Loop(zero);
 
@@ -3093,6 +3097,7 @@ module.exports = {
   arrFold,
   arrFoldM,
   arrFoldr,
+  arrFoldStr,
   arrFoldWhile,
   arrFutu,
   arrHead,
