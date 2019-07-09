@@ -1727,9 +1727,9 @@ const strPadl = n => c => s =>
 
 
 const strPadr = n => c => s =>
-  c.repeat(n)
-    .concat(s)
-    .slice(0, n);
+  s.concat(
+    c.repeat(n))
+      .slice(0, n);
 
 
 const toLowerCase = s =>
