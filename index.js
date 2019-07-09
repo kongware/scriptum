@@ -927,11 +927,12 @@ const verifyDate = y => m => d =>
 
 
 const formatFloat = thdSep => (decSep, decDigits) => n => {
-  const [s, dec] = n.toString().concat(".00").split("."),
-    hnd = s.slice(-3),
-    thd = hnd.length < s
-      ? s.slice(0, s.length - hnd.length)
-      : "";
+  const [s, dec] = round(n) (decDigits)
+    .toString().concat(".00").split("."),
+      hnd = s.slice(-3),
+      thd = hnd.length < s
+        ? s.slice(0, s.length - hnd.length)
+        : "";
 
   let r = "";
 
@@ -945,12 +946,12 @@ const formatFloat = thdSep => (decSep, decDigits) => n => {
 // round @derived
 
 
-const roundBy = k => places => fp => {
+const roundBy = k => digits => fp => {
   let [n, ex] = `${fp < 0 ? Math.abs(fp) : fp}e`.split('e'),
-    r = Math[k](`${n}e${Number(ex) + places}`);
+    r = Math[k](`${n}e${Number(ex) + digits}`);
 
   [n, ex] = `${r}e`.split('e');
-  r = Number(`${n}e${Number(ex) - places}`);
+  r = Number(`${n}e${Number(ex) - digits}`);
 
   return fp < 0 ? -r : r;
 };
