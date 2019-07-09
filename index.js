@@ -926,6 +926,28 @@ const verifyDate = y => m => d =>
 // floor @derived
 
 
+strPadr = n => c => s =>
+  s.concat(
+    c.repeat(n))
+      .slice(0, n);
+
+
+const formatFloat = decDigits => (decSep, thdSep) => n => {
+  const [s, dec] = n.toString().concat(".00").split("."),
+    hnd = s.slice(-3),
+    thd = hnd.length < s
+      ? s.slice(0, s.length - hnd.length)
+      : "";
+
+  let r = "";
+
+  if (thd)
+    r += thd + thdSep;
+
+  return r + hnd + decSep + strPadr(decDigits) ("0") (dec);
+};
+
+
 // round @derived
 
 
@@ -3211,6 +3233,7 @@ module.exports = {
   floor,
   foldMap,
   formatDate,
+  formatFloat,
   fromTimestamp,
   fst,
   fromMultiArg,
