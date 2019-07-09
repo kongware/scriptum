@@ -926,7 +926,7 @@ const verifyDate = y => m => d =>
 // floor @derived
 
 
-strPadr = n => c => s =>
+const strPadr = n => c => s =>
   s.concat(
     c.repeat(n))
       .slice(0, n);
