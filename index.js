@@ -1141,7 +1141,7 @@ const delay = n => f => x =>
 
 
 const log = pre => s =>
-  console.log(pre, s);
+  (console.log(pre, s), s);
 
 
 const trace = pre =>
