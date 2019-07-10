@@ -1140,7 +1140,11 @@ const delay = n => f => x =>
   setTimeout(f, n, x);
 
 
-const log = pre => s =>
+const log = s =>
+  (console.log(s), s);
+
+
+const taggedLog = pre => s =>
   (console.log(pre, s), s);
 
 
@@ -3450,6 +3454,7 @@ module.exports = {
   sumEmpty,
   swapMultiArg,
   Task,
+  taggedLog,
   tAnd,
   tAll,
   tAp,
