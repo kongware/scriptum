@@ -926,7 +926,7 @@ const verifyDate = y => m => d =>
 // floor @derived
 
 
-const formatFloat = thdSep => (decSep, decDigits) => n => {
+const formatFloat = thdSep => decSep => decDigits => n => {
   const [s, dec] = round(decDigits) (n)
     .toString().concat(".00").split("."),
       hnd = s.slice(-3),
