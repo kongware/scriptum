@@ -909,6 +909,17 @@ const formatMonth = (monthIndex, abbrMonthIndex) => digits => n => {
 };
 
 
+const formatYear = digits => n => {
+  switch (digits) {
+    case 2: return n.toString().slice(digits);
+    case 4: return n.toString();
+
+    default: throw new DateError(
+      "invalid number of digits");
+  }
+};
+
+
 const fromTimestamp = n => new Date(n);
 
 
@@ -3253,6 +3264,7 @@ module.exports = {
   formatDate,
   formatFloat,
   formatMonth,
+  formatYear,
   fromTimestamp,
   fst,
   fromMultiArg,
