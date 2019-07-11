@@ -892,6 +892,17 @@ const formatDate = sep => (...fs) => date =>
     .join(sep);
 
 
+const formatDay = digits => n => {
+  switch (digits) {
+    case 1: return n.toString();
+    case 2: return pipe(getDay) (strPadl(2) ("0"));
+
+    default: throw new DateError(
+      "invalid number of digits");
+  }
+};
+
+
 const formatMonth = (monthIndex, abbrMonthIndex) => digits => n => {
   switch (digits) {
     case 1: return (n + 1).toString();
@@ -3262,6 +3273,7 @@ module.exports = {
   floor,
   foldMap,
   formatDate,
+  formatDay,
   formatFloat,
   formatMonth,
   formatYear,
