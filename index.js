@@ -1043,10 +1043,7 @@ const infixl = (x, ...args) =>
 
 
 const infixr = (...args) =>
-  loop((acc = args[args.length - 1], stack = null, i = args.length - 2) =>
-    i < 0 ? acc
-      : (i & 1) === 1 ? recur(args[i], acc, i - 1)
-      : recur(acc(args[i]) (stack), null, i - 1));
+  infixl(...args.reverse());
 
 
 const swapMultiArg = (x, y) => [y, x];
