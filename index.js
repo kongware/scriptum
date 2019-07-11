@@ -1225,6 +1225,10 @@ const throwOn = p => f => (e, msg) => x => {
 };
 
 
+const throwOnEmpty = isEmpty =>
+  throwOn(isEmpty);
+
+
 // throwOnFalse @derived
 
 
@@ -3415,10 +3419,6 @@ module.exports = {
   optMap,
   optOf,
   or,
-  throwOn,
-  throwOnFalse,
-  throwOnTrue,
-  throwOnUnit,
   Parallel,
   parAll,
   parAnd,
@@ -3512,6 +3512,11 @@ module.exports = {
   This,
   thisify,
   _throw,
+  throwOn,
+  throwOnEmpty,
+  throwOnFalse,
+  throwOnTrue,
+  throwOnUnit,
   tJoin,
   tLiftA2,
   tLiftM2,
