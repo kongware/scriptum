@@ -41,8 +41,6 @@ const TYPE = Symbol.toStringTag; // used for debugging
 ******************************************************************************/
 
 
-// I actually do subtying in scriptum :D
-
 class ExtendableError extends Error {
   constructor(s) {
     super(s);
@@ -61,6 +59,9 @@ class ScriptumError extends ExtendableError {};
     
 
 /***[Suclasses]***************************************************************/
+
+
+class DateError extends ScriptumError {};
 
 
 class SemigroupError extends ScriptumError {};
@@ -889,6 +890,23 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 const formatDate = sep => (...fs) => date =>
   fs.map(f => f(date))
     .join(sep);
+
+
+const formatMonth = (monthIndex, abbrMonthIndex) => digits => n => {
+  switch (digits) {
+    case 1: return (n + 1).toString();
+
+    case 2: return pipe(
+      getMonth)
+        (n => strPadl(2) ("0") (n + 1));
+
+    case 3: return abbrMonthIndex[n];
+    case 4: return monthIndex[n];
+    
+    default: throw new DateError(
+      "invalid number of digits");
+  }
+};
 
 
 const fromTimestamp = n => new Date(n);
@@ -3194,6 +3212,7 @@ module.exports = {
   curry3,
   curry4,
   curry5,
+  DateError,
   debug,
   Defer,
   defAp,
@@ -3233,6 +3252,7 @@ module.exports = {
   foldMap,
   formatDate,
   formatFloat,
+  formatMonth,
   fromTimestamp,
   fst,
   fromMultiArg,
