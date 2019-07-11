@@ -895,7 +895,7 @@ const formatDate = sep => (...fs) => date =>
 const formatDay = digits => n => {
   switch (digits) {
     case 1: return n.toString();
-    case 2: return pipe(getDay) (strPadl(2) ("0"));
+    case 2: return strPadl(2) ("0") (n);
 
     default: throw new DateError(
       "invalid number of digits");
@@ -906,11 +906,7 @@ const formatDay = digits => n => {
 const formatMonth = (monthIndex, abbrMonthIndex) => digits => n => {
   switch (digits) {
     case 1: return (n + 1).toString();
-
-    case 2: return pipe(
-      getMonth)
-        (n => strPadl(2) ("0") (n + 1));
-
+    case 2: return strPadl(2) ("0") (n + 1);
     case 3: return abbrMonthIndex[n];
     case 4: return monthIndex[n];
     
