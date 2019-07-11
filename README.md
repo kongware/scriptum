@@ -209,7 +209,9 @@ Denotes the unit type `null` value.
 ### `Object`
 
 *  `{?}` - denotes an unknown `Object` created by the default constructor
+*  `{foo: String, ?}` - denotes a partially known `Object` created by the default constructor
 *  `Name{?}` - denotes an unknown `Object` created by the constructor `Name`
+*  `Name{foo: String, ?}` - denotes a partially known `Object` created by the constructor `Name`
 *  `{foo: String, bar: Number}` - denotes a known `Object` created by the default constructor
 *  `Name{foo: String, bar: Number}` - denotes a known `Object` created by the constructor `Name`
 *  `{foo: String, bar: Number, ...a}` - denotes a row polymorphic* `Object` with two properties created with the default constructor
@@ -784,21 +786,12 @@ const foldMap = ({fold, append, empty}) => f =>
 ```
 ### `infixl`/`infixr`
 
-Just mimics Haskell's chainable left/right associative infix operators. This sometimes improves readability of code:
+Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
 
 ```Javascript
-infixl(strHead, throwOnf, isUnit) //*
-  (TypeError, "non-empty string expected")
-    ("foo"); // "f"
-    
-infixl(strHead, throwOnf, isUnit)
-  (TypeError, "non-empty string expected")
-    (""); // TypeError
-    
-infix(sqr, comp, inc, comp, inc, comp, inc) (0); // 9
+infixl([1,2], arrAppend, [3,4]); // [1,2,3,4]
+infixr([1,2], arrAppend, [3,4]); // [3,4,1,2]
 ```
-Please note that there is no operator function precedence, that is to say you have to use nested `infix` calls to obtain this effect.
-
 ### `invoke`
 
 Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
