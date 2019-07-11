@@ -1259,8 +1259,8 @@ const funJoin = f => x =>
 /***[Predicate]***************************************************************/
 
 
-const andp = p => x => y =>
-  p(x) && p(y);
+const andp = p => q => x =>
+  p(x) && q(x);
 
       
 const isArr = Array.isArray;
@@ -1340,8 +1340,8 @@ const isUnit = x => // unit types are undefined/null/NaN/invalid Date
 const notp = p => x => !p(x);
 
 
-const orp = p => x => y =>
-  p(x) || p(y);
+const orp = p => q => x =>
+  p(x) || q(x);
 
 
 /***[Primitive]***************************************************************/
