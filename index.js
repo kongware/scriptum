@@ -1259,6 +1259,10 @@ const funJoin = f => x =>
 /***[Predicate]***************************************************************/
 
 
+const andp = p => x => y =>
+  p(x) && p(y);
+
+      
 const isArr = Array.isArray;
 
 
@@ -1336,12 +1340,8 @@ const isUnit = x => // unit types are undefined/null/NaN/invalid Date
 const notp = p => x => !p(x);
 
 
-const notp2 = p => x => y =>
-  !p(x) (y);
-
-
-const notp3 = p => x => y => z =>
-  !p(x) (y) (z);  
+const orp = p => x => y =>
+  p(x) || p(y);
 
 
 /***[Primitive]***************************************************************/
@@ -3134,6 +3134,7 @@ module.exports = {
   allEmpty,
   Ancient,
   and,
+  andp,
   Any,
   anyAppend,
   anyAppendf,
@@ -3372,8 +3373,6 @@ module.exports = {
   NO_ENC,
   NOT_FOUND,
   notp,
-  notp2,
-  notp3,
   numCompare,
   numEq,
   numNeq,
@@ -3409,6 +3408,7 @@ module.exports = {
   optMap,
   optOf,
   or,
+  orp,
   Parallel,
   parAll,
   parAnd,
