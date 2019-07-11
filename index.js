@@ -1225,10 +1225,6 @@ const throwOn = p => f => (e, msg) => x => {
 };
 
 
-const throwOnEmpty = isEmpty =>
-  throwOn(isEmpty);
-
-
 // throwOnFalse @derived
 
 
@@ -3513,7 +3509,6 @@ module.exports = {
   thisify,
   _throw,
   throwOn,
-  throwOnEmpty,
   throwOnFalse,
   throwOnTrue,
   throwOnUnit,
