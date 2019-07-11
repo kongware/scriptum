@@ -1035,15 +1035,12 @@ const funLiftA2 = f => g => h => x =>
 const fromMultiArg = (...args) => [...args];
 
 
-const infixl = (x, ...args) =>
-  arrFold(acc => (op, i) =>
-    (i & 1) === 0
-      ? op(acc)
-      : acc(op)) (x) (args);
+const infixl = (x, f, y) =>
+  f(x) (y);
 
 
-const infixr = (...args) =>
-  infixl(...args.reverse());
+const infixr = (y, f, x) =>
+  f(x) (y);
 
 
 const swapMultiArg = (x, y) => [y, x];
