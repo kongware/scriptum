@@ -2049,39 +2049,39 @@ const contShift = f => // delimited continuations
 
 
 /******************************************************************************
-***************************[ DEFERRED COMPUTATION ]****************************
+***************************[ EFFECTFUL COMPUTATION ]***************************
 ******************************************************************************/
 
 
-const Defer = struct("Defer");
+const Effect = struct("Effect");
 
 
 /***[Applicative]*************************************************************/
 
 
-const defAp = tf => tx =>
-  Defer(() => tf.runDefer() (tx.runDefer()));
+const effAp = tf => tx =>
+  Effect(() => tf.runEffect() (tx.runEffect()));
 
 
-const defOf = x => Defer(() => x);
+const effOf = x => Effect(() => x);
 
 
 /***[Functor]*****************************************************************/
 
 
-const defMap = f => tx =>
-  Defer(() => f(tx.runDefer()));
+const effMap = f => tx =>
+  Effect(() => f(tx.runEffect()));
 
 
 /***[Monad]*******************************************************************/
 
 
-const defChain = fm => mx =>
-  Defer(() => fm(mx.runDefer()).runDefer());
+const effChain = fm => mx =>
+  Effect(() => fm(mx.runEffect()).runEffect());
 
 
-const defJoin = mmx =>
-  Defer(() => mmx.runDefer().runDefer());
+const effJoin = mmx =>
+  Effect(() => mmx.runEffect().runEffect());
 
 
 /******************************************************************************
@@ -2251,7 +2251,7 @@ const lastAppendf = firstAppend;
 ******************************************************************************/
 
 
-// Defer with memoization
+// Effect with memoization
 
 const Lazy = structMemo("Lazy");
 
@@ -2260,7 +2260,7 @@ const Lazy = structMemo("Lazy");
 
 
 const lazyAp = tf => tx =>
-  Defer(() => tf.runLazy() (tx.runLazy()));
+  Lazy(() => tf.runLazy() (tx.runLazy()));
 
 
 const lazyOf = x => Lazy(() => x);
@@ -3247,7 +3247,6 @@ module.exports = {
   compAp,
   compAppend,
   compAppendf,
-  Comparator,
   Compare,
   compare,
   compContra,
@@ -3280,7 +3279,6 @@ module.exports = {
   DateError,
   dateParse,
   debug,
-  Defer,
   defAp,
   defChain,
   defJoin,
@@ -3289,6 +3287,7 @@ module.exports = {
   delay,
   Done,
   eff,
+  Effect,
   Either,
   Endo,
   endoAppend,
@@ -3457,6 +3456,7 @@ module.exports = {
   optMap,
   optOf,
   or,
+  Ordering,
   orp,
   Parallel,
   parAll,
