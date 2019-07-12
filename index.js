@@ -1092,6 +1092,10 @@ const pipe = g => f => x =>
   f(g(x));
 
 
+const pipe2nd = g => f => x => y =>
+  f(x) (g(y));
+
+
 const pipe3 = h => g => f => x =>
   f(g(h(x)));
 
