@@ -1748,6 +1748,9 @@ const strMatchLast = (r, flags) => s_ =>
   });
 
 
+// TODO: add strMatchNth
+
+
 const strMod = (r, f, flags) => s =>
   s.replace(new RegExp(r, flags), f);
 
