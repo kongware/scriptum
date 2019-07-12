@@ -689,29 +689,37 @@ Generators are the most natural form of expressing lazy evaluation in Javascript
 
 ### Explicit Thunks
 
-There may be some rare cases where we need explicit thunks to stop an expression from being immediately evaluated. This is another topic I need to examine in depth.
+Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to make this operation explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
 
-For the time being scriptum offers two distinct types for non-strictly evaluated expressions.
+#### Non-Memoized Thunks with `Effect`
 
-#### Non-Memoized Thunks with `Defer`
-
-`Defer` wraps an expression in a thunk and evaluates it on each call:
+`Effect` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't memoize the result:
 
 ```Javascript
-const deferredExp = Defer(() => (console.log("evaluate..."), 5 * 5));
-
-deferredExp.runDefer(); // evaluate...25
-deferredExp.runDefer(); // evaluate...25
+const effectfulExp = Effect(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
+    return r;
+  });
+  
+effectfulExp.runEffect(); // logs/returns 25
+effectfulExp.runEffect(); // logs/returns 25
 ```
 #### Memoized Thunks with `Lazy`
 
-`Layz` wraps an expression in a thunk and evaluates it only once:
+`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does memoize the result:
 
 ```Javascript
-const lazyExp = Lazy(() => (console.log("evaluate..."), 5 * 5));
-
-lazyExp.runLazy; // evaluate...25
-lazyExp.runLazy; // 25
+const effectfulExp = Lazy(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
+    return r;
+  });
+  
+effectfulExp.runLazy(); // logs/returns 25
+effectfulExp.runLazy(); // just returns 25
 ```
 ### Getters/Setters
 
