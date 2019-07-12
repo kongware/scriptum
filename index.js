@@ -740,7 +740,7 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrLastOr
 
 
-// TODO: add arrSort/arrSortOn
+// TODO: add arrSortBy/arrSortOn/arrSort
 
 
 // TODO: add arrSpan
