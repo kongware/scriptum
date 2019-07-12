@@ -740,9 +740,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrLastOr
 
 
-// TODO: add arrSortBy/arrSortOn/arrSort
-
-
 // TODO: add arrSpan
 
 
@@ -823,6 +820,14 @@ const arrSet = (i, x) => xs =>
 
 const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
+
+
+const arrSortBy = f => xs =>
+  arrClone(xs).sort((x, y) => f(x) (y));
+
+
+const arrSortByx = f => xs =>
+  xs.sort((x, y) => f(x) (y));
 
 
 const arrTranspose = matrix =>
@@ -3209,6 +3214,8 @@ module.exports = {
   arrSeqF,
   arrSet,
   arrSetx,
+  arrSortBy,
+  arrSortByx,
   arrSum,
   arrTransduce,
   arrTransduceWhile,
