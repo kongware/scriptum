@@ -1809,16 +1809,16 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const l10nCompare = locale => c => d => {
+const strIsEmpty = s => s === "";
+
+
+const strLocaleCompare = locale => c => d => {
   switch (c.localeCompare(d, locale)) {
     case -1: return LT;
     case 0: return EQ;
     case 1: return GT;
   }
 };
-
-
-const strIsEmpty = s => s === "";
 
 
 const strPadl = n => c => s =>
@@ -3396,7 +3396,6 @@ module.exports = {
   lensVarComp,
   _let,
   local,
-  l10nCompare,
   log,
   Loop,
   loop,
@@ -3519,6 +3518,7 @@ module.exports = {
   strDel,
   strFold,
   strIsEmpty,
+  strLocaleCompare,
   strMatch,
   strMatchAll,
   strMatchLast,
