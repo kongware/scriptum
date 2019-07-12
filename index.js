@@ -1751,7 +1751,36 @@ const strMatchLast = (r, flags) => s_ =>
   });
 
 
-// TODO: add strMatchNth
+const strMatchNth = nth_ => (r, flags) => s_ =>
+  loop((acc = Matched(None), s = s_, i = 0, nth = 0) => {
+    if (s === "")
+      return None;
+
+    else if (nth_ === nth)
+      return acc;
+
+    else {
+      const tx = strMatch(r, flags) (s);
+
+      switch (tx.runMatched[TAG]) {
+        case "None": return acc;
+
+        case "Some": {
+          const xs = tx.runMatched.runOption;
+          xs.index += i;
+          xs.input = s_;
+
+          return recur(
+            tx,
+            s_.slice(xs.index + xs[0].length),
+            xs.index + xs[0].length,
+            nth + 1);
+        }
+
+        default: _throw(new UnionError("unknown tag"));
+      }
+    }
+  });
 
 
 const strMod = (r, f, flags) => s =>
@@ -3476,6 +3505,7 @@ module.exports = {
   strMatch,
   strMatchAll,
   strMatchLast,
+  strMatchNth,
   strMod,
   strNormalize,
   strNormalizeBy,
