@@ -887,6 +887,17 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 ******************************************************************************/
 
 
+const dateParse = s => {
+  const d = new Date(s);
+  
+  if (d.getTime === undefined || Number.isNaN(d.getTime()))
+    throw new DateError(`malformed date string "${s}"`);
+
+  else
+    return d;
+};
+
+
 const formatDate = sep => (...fs) => date =>
   fs.map(f => f(date))
     .join(sep);
@@ -941,14 +952,6 @@ const getMonthDays = y => m =>
 
 
 // getYear @derived
-
-
-const verifyDate = y => m => d =>
-  typeof y !== "number" || typeof m !== "number" || typeof d !== "number" ? false
-    : Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)? false
-    : m <= 0 || m > 12 ? false
-    : d <= 0 || d > getMonthDays(y) (m) ? false
-    : true;
 
 
 /******************************************************************************
@@ -3230,6 +3233,7 @@ module.exports = {
   curry4,
   curry5,
   DateError,
+  dateParse,
   debug,
   Defer,
   defAp,
@@ -3537,7 +3541,6 @@ module.exports = {
   varLiftA,
   varLiftM,
   varPipe,
-  verifyDate,
   Writer,
   writeCensor,
   writeChain,
