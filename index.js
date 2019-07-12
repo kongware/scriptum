@@ -1381,7 +1381,8 @@ const select11 = m => (ks, vs) => k =>
 
 
 const select1N = m => (ks, vs) => k =>
-  m.get(ks.indexOf(k)).map(l => vs[l]);
+  arrMap(l => vs[l])
+    (m.get(ks.indexOf(k)));
 
 
 /***[Semigroup]***************************************************************/
