@@ -1917,54 +1917,6 @@ const anyAppendf = anyAppend;
 
 
 /******************************************************************************
-********************************[ COMPARATOR ]*********************************
-******************************************************************************/
-
-
-const Comparator = unionGetter("Comparator");
-
-
-const LT = Comparator("LT",
-  {get runComparator() {return LT}, valueOf: () => -1});
-
-
-const EQ = Comparator("EQ",
-  {get runComparator() {return EQ}, valueOf: () => 0});
-
-
-const GT = Comparator("GT",
-  {get runComparator() {return GT}, valueOf: () => 1});
-
-
-/***[Foldable]****************************************************************/
-
-
-const ctorCata = lt => eq => gt => tx =>
-  match(tx, {
-    type: "Comparator",
-    LT: lt,
-    EQ: eq,
-    GT: gt
-  });
-
-
-/***[Monoid]******************************************************************/
-
-
-const ctorEmpty = EQ;
-
-
-/***[Semigroup]***************************************************************/
-
-
-const ctorAppend = tx => ty =>
-  ctorCata(LT) (ty) (GT) (tx);
-
-
-const ctorAppendf = ctorAppend;
-
-
-/******************************************************************************
 **********************************[ COMPARE ]**********************************
 ******************************************************************************/
 
@@ -1990,7 +1942,7 @@ const compEmpty = Compare(x => y => EQ);
 
 const compAppend = tf => tg =>
   Compare(x => y =>
-    ctorAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
+    ordAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
 
 
 const compAppendf = flip(compAppend);
@@ -2520,6 +2472,54 @@ const optChain = fm => mx =>
     None: None,
     get Some() {return fm(mx.runOption)}
   });
+
+
+/******************************************************************************
+*********************************[ ORDERING ]**********************************
+******************************************************************************/
+
+
+const Ordering = unionGetter("Ordering");
+
+
+const LT = Ordering("LT",
+  {get runOrdering() {return LT}, valueOf: () => -1});
+
+
+const EQ = Ordering("EQ",
+  {get runOrdering() {return EQ}, valueOf: () => 0});
+
+
+const GT = Ordering("GT",
+  {get runOrdering() {return GT}, valueOf: () => 1});
+
+
+/***[Foldable]****************************************************************/
+
+
+const ordCata = lt => eq => gt => tx =>
+  match(tx, {
+    type: "Ordering",
+    LT: lt,
+    EQ: eq,
+    GT: gt
+  });
+
+
+/***[Monoid]******************************************************************/
+
+
+const ordEmpty = EQ;
+
+
+/***[Semigroup]***************************************************************/
+
+
+const ordAppend = tx => ty =>
+  ordCata(LT) (ty) (GT) (tx);
+
+
+const ordAppendf = ordAppend;
 
 
 /******************************************************************************
@@ -3269,10 +3269,10 @@ module.exports = {
   contReset,
   contShift,
   contOf,
-  ctorAppend,
-  ctorAppendf,
-  ctorCata,
-  ctorEmpty,
+  ordAppend,
+  ordAppendf,
+  ordCata,
+  ordEmpty,
   curry,
   curry3,
   curry4,
