@@ -933,9 +933,6 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 # TODO
 
 - [ ] add type signatures!!!
-- [ ] point out to use type sigs in userland
-- [ ] example `memoMethx`
-- [ ] explain `debug`
 - [ ] explain `structExt`
 - [ ] add common transducers
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
@@ -945,10 +942,10 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 - [ ] add useful Comonads
 - [ ] add Monad Transformers
 - [ ] add Reference Type (value objects)?
+- [ ] remove contravariant types (`Compare`, `Equiv`, `Predicate`)?
 - [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`?
 - [ ] replace `switch` with `match` as often as possible
 - [ ] rename `traverse` to `mapA`?
-- [ ] add Ix typeclass
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
