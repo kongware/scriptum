@@ -42,13 +42,13 @@ scriptum relies heavily on coventions and on the willingness and discipline of c
 
 Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
-### Everything is Curried
-
-scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
-
-### Type Signatures before Implementations
+### Type Signatures first
 
 You should always write down the type signature of a function upfront, before you implement its body. Let yourself be guided by types. This will improve your code quality and coding efficency a great deal.
+
+### Currying is the Default
+
+scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
 
 ### Unions of Records
 
@@ -62,7 +62,7 @@ You may interject that Javascript naturally contains ad-hoc polymorphism, since 
 
 ### Effect Handling
 
-scriptum promotes effect handling through monads, monad transformer stacks and tagless final encodings. Impure computations themselves are wrapped in functions or thunks so that their evaluation can be temporally deferred. This way we can separate the pure from the impure part of our program, which enables equational reasoning for the pure parts.
+scriptum promotes effect handling through monads, monad transformer stacks (and probably tagless final encodings one day). Impure computations themselves are wrapped in functions or thunks so that their evaluation can be temporally deferred. This way we can separate the pure from the impure part of our program, which enables equational reasoning for the pure parts.
 
 ### Folds over Recursion over Loops
 
@@ -72,11 +72,11 @@ What we want is a mechanism to abstract from direct recursion altogether. script
 
 ### Loop Fusion over Generators/Iterators
 
-scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion either directly through function composition or with the yoneda lemma type. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with unwanted side effects.
+scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion through map/contramap of functions, as the Yoneda Lemma does. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with unwanted side effects.
 
 ### Explicit Thunks over Generators/Iterators
 
-The same reason not to use generators/iterators applies to lazy evaluation. scriptum facilitates the use of explicit thunks inestead. Thunks are ultra fast and have a less clunky interface.
+The same reason not to use generators/iterators applies to lazy evaluation. scriptum facilitates the use of explicit thunks inestead. Thunks are balzing fast and have a less clunky interface.
 
 # Naming Convetions
 
@@ -689,7 +689,7 @@ Generators are the most natural form of expressing lazy evaluation in Javascript
 
 ### Explicit Thunks
 
-Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to make this operation explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
+Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to defer this operation and make it explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
 
 #### Non-Memoized Thunks with `Effect`
 
