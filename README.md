@@ -685,7 +685,7 @@ With CPS we can define lazily evaluated function call trees. However, CPS encodi
 
 ### Generators
 
-Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated structures.
+Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated control structures.
 
 ### Explicit Thunks
 
@@ -784,7 +784,7 @@ const optCata = none => some => tx =>
 
 ## Various Special Combinators
 
-### `comp2nd`
+### `comp2nd`/`pipe2nd`
 
 Composes in the second argument of a binary function. This is sometimes useful, e.g. when we use a left fold instead of a right one:
 
