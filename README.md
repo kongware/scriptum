@@ -786,11 +786,24 @@ const optCata = none => some => tx =>
 
 ### `comp2nd`/`pipe2nd`
 
-Composes in the second argument of a binary function. This is sometimes useful, e.g. when we use a left fold instead of a right one:
+Composes/pipes a binary function on its second argument:
 
 ```Javascript
-const foldMap = ({fold, append, empty}) => f =>
-  fold(comp2nd(append) (f)) (empty);
+arrFold(
+    comp2nd(
+      objGet(0) (k))
+        (add)) (0)
+          ([{foo: 1}, {foo: 2}, {foo: 3}]); // 6
+```
+### `compBin`/`pipeBin`
+
+Composes/pipes a binary function on both of its arguments:
+
+```Javascript
+arrSortBy(
+  compBin(compare)
+    (objGetOr(0) ("foo")))
+      ([{foo: 2}, {foo: 1}, {foo: 3}]); // [{foo: 2}, {foo: 2}, {foo: 3}]
 ```
 ### `infixl`/`infixr`
 
