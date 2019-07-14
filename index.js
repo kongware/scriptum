@@ -1080,12 +1080,16 @@ const comp = f => g => x =>
   f(g(x));
 
 
+const comp2nd = f => g => x => y =>
+  f(x) (g(y));
+
+
 const comp3 = f => g => h => x =>
   f(g(h(x)));
 
 
-const comp2nd = f => g => x => y =>
-  f(x) (g(y));
+const compBin = f => g => x => y =>
+  f(g(x)) (g(y));
 
 
 const pipe = g => f => x =>
@@ -1100,7 +1104,7 @@ const pipe3 = h => g => f => x =>
   f(g(h(x)));
 
 
-const on = f => g => x => y =>
+const pipeBin = g => f => x => y =>
   f(g(x)) (g(y));
 
 
@@ -1385,7 +1389,7 @@ const funRmap = g => hx => x =>
   g(hx(x));
 
 
-/***[Relations]***************************************************************/
+/***[Relation]****************************************************************/
 
 
 const select11 = m => (ks, vs) => k =>
@@ -1932,7 +1936,7 @@ const Compare = struct("Compare");
 
 
 const compContra = f => tf =>
-  Compare(on(tf.runCompare) (f));
+  Compare(compBin(tf.runCompare) (f));
 
 
 /***[Monoid]******************************************************************/
@@ -2151,7 +2155,7 @@ const Equiv = struct("Equiv");
 
 
 const equivContra = f => tf =>
-  Equiv(on(tf.runEquiv) (f));
+  Equiv(compBin(tf.runEquiv) (f));
 
 
 /***[Monoid]******************************************************************/
@@ -3248,6 +3252,7 @@ module.exports = {
   comp,
   comp2nd,
   comp3,
+  compBin,
   compAp,
   compAppend,
   compAppendf,
@@ -3451,7 +3456,6 @@ module.exports = {
   objUnion,
   objUnionx,
   objValues,
-  on,
   memoMethx,
   Option,
   optAp,
@@ -3478,6 +3482,7 @@ module.exports = {
   partialCurry,
   pipe,
   pipe3,
+  pipeBin,
   Pred,
   predAppend,
   predAppendf,
