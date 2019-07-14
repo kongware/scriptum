@@ -1066,11 +1066,11 @@ const varArgs = f => {
 
 
 const funLeft = f =>
-  eithCata(x => Left(f(x))) (Right);
+  ethCata(x => Left(f(x))) (Right);
 
 
 const funRight = f =>
-  eithCata(Left) (x => Right(f(x)));
+  ethCata(Left) (x => Right(f(x)));
 
 
 /***[Composition]*************************************************************/
@@ -2111,7 +2111,7 @@ const Right = x =>
 /***[Foldable]****************************************************************/
 
 
-const eithCata = left => right => tx =>
+const ethCata = left => right => tx =>
   match(tx, {
     type: "Either",
     get Left() {return left(tx.runEither)},
@@ -3309,7 +3309,7 @@ module.exports = {
   equivAppendf,
   equivContra,
   equivEmpty,
-  eithCata,
+  ethCata,
   evalState,
   execState,
   fileRead_,
