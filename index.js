@@ -1573,6 +1573,10 @@ const objDelx = k => o =>
 // TODO: add objDiffl/objDiffr
 
 
+const objGetOr = def => k => o =>
+  k in o ? o[k] : def;
+
+
 // TODO: add objIntersect
 
 
@@ -3445,6 +3449,7 @@ module.exports = {
   objDel,
   objDelx,
   objEntries,
+  objGetOr,
   objKeys,
   objLens,
   objModOr,
