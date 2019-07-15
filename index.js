@@ -716,9 +716,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 /***[Misc. Combinators]*******************************************************/
 
 
-// TODO: add arrDedupe/arrDedupeBy
-
-
 // TODO: add arrDiffl/arrDiffr
 
 
@@ -758,7 +755,27 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrGroupBy
 
 
-const arrIsEmpty = xs => xs.length === 0;
+const arrDedupeBy = f => xs => {
+  const s = new Set();
+
+  return arrFilter(x => {
+    const r = f(x);
+    
+    return s.has(r)
+      ? null
+      : (s.add(r), x);
+  }) (xs);
+};
+
+
+const arrDedupeOn = k => xs => {
+  const s = new Set();
+
+  return arrFilter(o =>
+    s.has(o[k])
+      ? null
+      : (s.add(o[k]), o[k])) (xs);
+};
 
 
 const arrHead = xs =>
@@ -771,6 +788,9 @@ const arrHeadOr = def => xs =>
   xs.length === 0
     ? def
     : xs[0];
+
+
+const arrIsEmpty = xs => xs.length === 0;
 
 
 const arrModOr = def => (i, f) => xs =>
@@ -3206,6 +3226,8 @@ module.exports = {
   arrChainRec,
   arrClone,
   arrConcat,
+  arrDedupeBy,
+  arrDedupeOn,
   arrEmpty,
   arrFilter,
   arrFold,
