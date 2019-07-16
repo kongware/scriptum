@@ -102,6 +102,12 @@ const match = ({[TYPE]: type, [TAG]: tag}, o) =>
     : o[tag];
 
 
+const matchExp = ({[TYPE]: type, [TAG]: tag, ["run" + type]: x}, o) =>
+  o.type !== type ? _throw(new UnionError("invalid type"))
+    : !(tag in o) ? _throw(new UnionError("invalid tag"))
+    : o[tag] (x);
+
+
 /******************************************************************************
 ********************************[ RECORD TYPE ]********************************
 ******************************************************************************/
@@ -2383,7 +2389,7 @@ const Matched = struct("Matched");
 /***[Foldable]****************************************************************/
 
 
-const matchCata = x => tx =>
+const matCata = x => tx =>
   match(tx.runMatched, {
     type: "Option",
     None: x,
@@ -3437,7 +3443,8 @@ module.exports = {
   mapMap,
   mapper,
   match,
-  matchCata,
+  matchExp,
+  matCata,
   Matched,
   Max,
   max,
