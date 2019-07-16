@@ -278,7 +278,7 @@ const buildSqlQueries =
       arrPush(acc)
         (buildSqlQueries_(tx))) ([]));
 ```
-gets to
+becomes
 
 ```Javascript
 // Task<[BankAdvice<[ParserResult<_2_>]>], Error> ->
@@ -336,6 +336,10 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Strong
 * Traversable
 * Unfoldable
+
+# Pattern Matching
+
+TODO
 
 # Debugging
 
