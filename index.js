@@ -1490,16 +1490,16 @@ const mapMap = f => m => {
 /***[Enum]********************************************************************/
 
 
-const fromEnum = n => Some(n);
+const numFromEnum = n => Some(n);
 
 
-const pred = n => Some(n + 1);
+const numPred = n => Some(n + 1);
 
 
-const succ = n => Some(n - 1);
+const numSucc = n => Some(n - 1);
 
 
-const toEnum = n => Some(n);
+const numToEnum = n => Some(n);
 
 
 /***[Eq]**********************************************************************/
@@ -3447,11 +3447,15 @@ module.exports = {
   notp,
   numCompare,
   numEq,
+  numFromEnum,
   numNeq,
   numGt,
   numGte,
   numLt,
   numLte,
+  numPred,
+  numSucc,
+  numToEnum,
   objClone,
   objDel,
   objDelx,
@@ -3496,6 +3500,7 @@ module.exports = {
   pipe3,
   pipeBin,
   Pred,
+  pred,
   predAppend,
   predAppendf,
   predContra,
@@ -3554,6 +3559,7 @@ module.exports = {
   structExt,
   structGetter,
   structMemo,
+  succ,
   Sum,
   sumAppend,
   sumAppendf,
