@@ -755,9 +755,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrShift
 
 
-// TODO: add arrPop
-
-
 // TODO: add arrGroupBy
 
 
@@ -815,11 +812,19 @@ const arrPartition = f => xs => // TODO: replace reduce
       m.set(r, (ys.push(x), ys))), new Map());
 
 
+const arrPop = xs => x =>
+  (xs.pop(x), xs);
+
+
+const arrPopFlat = xs => ys => {
+  ys.forEach(x =>
+    xs.pop(x));
+
+  return xs;
+};
+
+
 const arrPush = xs => x =>
-  (xs.push(x), xs);
-
-
-const arrPushf = x => xs =>
   (xs.push(x), xs);
 
 
@@ -3256,8 +3261,9 @@ module.exports = {
   arrPara,
   arrParaWhile,
   arrPartition,
+  arrPop,
+  arrPopFlat,
   arrPush,
-  arrPushf,
   arrPushFlat,
   arrScan,
   arrSeqF,
