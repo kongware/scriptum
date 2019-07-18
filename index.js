@@ -61,9 +61,6 @@ class ScriptumError extends ExtendableError {};
 /***[Suclasses]***************************************************************/
 
 
-class CryptoError extends ScriptumError {};
-
-
 class DateError extends ScriptumError {};
 
 
@@ -3308,7 +3305,6 @@ module.exports = {
   ask,
   asks,
   ceil,
-  CryptoError,
   Comp,
   comp,
   comp2nd,
