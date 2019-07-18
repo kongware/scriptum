@@ -3390,7 +3390,7 @@ module.exports = {
   evalState,
   execState,
   fileCopy_,
-  fileError,
+  FileError,
   fileMove_,
   fileRead_,
   fileRename_,
