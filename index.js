@@ -2082,8 +2082,8 @@ const contShift = f => // delimited continuations
 ******************************************************************************/
 
 
-const Effect = structExt("Effect")
-  (Effect => thunk => Effect({runThunk: thunk()}));
+const Effect = structGetter("Effect")
+  (Effect => thunk => Effect({get runEffect() {return thunk()}}));
 
 
 /***[Applicative]*************************************************************/
