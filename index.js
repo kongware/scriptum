@@ -95,7 +95,7 @@ const union = type => (tag, x) => ({
 });
 
 
-const unionGetter = type => (tag, o) => { // allows a lazy getter for runFoo
+const unionGetter = type => (tag, o) => { // allows an explicit getter for the runXYZ prop
   o[TAG] = tag;
   o[TYPE] = type;
   return o;
@@ -135,9 +135,13 @@ const structExt = type => cons => { // for more complex constructors
 };
 
 
-const structGetter = type => o => { // allows a lazy getter for runFoo
-  o[TYPE] = type;
-  return o;
+const structGetter = type => cons => { // allows an explicit getter for the runXYZ prop
+  const f = o => {
+    o[TYPE] = type;
+    return o;
+  }
+
+  return cons(f);
 };
 
 
@@ -910,18 +914,6 @@ const arrZipBy = f => xs => ys => // TODO: use fold
       return recur(
         (acc.push(f(xs[i]) (ys[i])), acc), i + 1);
   });
-
-
-/******************************************************************************
-*******************************[ ARRAY (TYPED) ]*******************************
-******************************************************************************/
-
-
-const uint8ToHex = byteArray =>
-  Array.from(byteArray, byte =>
-    ("0" + (byte & 0xFF).toString(16))
-      .slice(-2))
-        .join("");
 
 
 /******************************************************************************
@@ -2090,14 +2082,15 @@ const contShift = f => // delimited continuations
 ******************************************************************************/
 
 
-const Effect = struct("Effect");
+const Effect = structExt("Effect")
+  (Effect => thunk => Effect({runThunk: thunk()}));
 
 
 /***[Applicative]*************************************************************/
 
 
 const effAp = tf => tx =>
-  Effect(() => tf.runEffect() (tx.runEffect()));
+  Effect(() => tf.runEffect(tx.runEffect));
 
 
 const effOf = x => Effect(() => x);
@@ -2107,18 +2100,18 @@ const effOf = x => Effect(() => x);
 
 
 const effMap = f => tx =>
-  Effect(() => f(tx.runEffect()));
+  Effect(() => f(tx.runEffect));
 
 
 /***[Monad]*******************************************************************/
 
 
 const effChain = fm => mx =>
-  Effect(() => fm(mx.runEffect()).runEffect());
+  Effect(() => fm(mx.runEffect).runEffect);
 
 
 const effJoin = mmx =>
-  Effect(() => mmx.runEffect().runEffect());
+  Effect(() => mmx.runEffect.runEffect);
 
 
 /******************************************************************************
@@ -3667,7 +3660,6 @@ module.exports = {
   tramp,
   tryCatch,
   toFixedFloat,
-  uint8ToHex,
   uncurry,
   uncurry3,
   uncurry4,
