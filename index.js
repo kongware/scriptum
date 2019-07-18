@@ -64,6 +64,9 @@ class ScriptumError extends ExtendableError {};
 class DateError extends ScriptumError {};
 
 
+class FileError extends ScriptumError {};
+
+
 class SemigroupError extends ScriptumError {};
 
 
@@ -3142,6 +3145,31 @@ const firstAppendf = lastAppend;
 // TODO: parameterize sequential/parallel execution behavior
 
 
+const fileCopy_ = fs => flags => newPath => path =>
+  Task((res, rej) => {
+    const readStream = fs.createReadStream(path),
+      writeStream = fs.createWriteStream(newPath, {flags});
+
+    readStream.on("error", rej);
+    writeStream.on("error", rej);
+    writeStream.on("finish", () => res(newPath));
+    readStream.pipe(writeStream);
+  });
+
+
+const fileMove_ = fs => flags => newPath => path =>
+  renameFile(path, newPath)
+    .runTask(id, e => {
+      if (e.code !== "EXDEV") // TODO: there are other error codes to take into account
+        throw new FileError(e);
+
+      else
+        return tAnd(
+          copyFile(path, newPath, flags))
+            (unlinkFile(path));
+    });
+
+
 const fileRead_  = fs => enc => path =>
   Task((res, rej) =>
     fs.readFile(path, enc, (e, s) =>
@@ -3326,6 +3354,8 @@ module.exports = {
   ethCata,
   evalState,
   execState,
+  fileCopy_,
+  fileMove_,
   fileRead_,
   fileRename_,
   fileScanDir_,
