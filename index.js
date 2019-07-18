@@ -3150,24 +3150,9 @@ const firstAppendf = lastAppend;
 ******************************************************************************/
 
 
-const createRandomBytes = size => {
-  if (crypto && "randomBytes" in crypto) {
-    return Task((res, rej) =>
-      crypto.randomBytes(
-        size,
-        (e, n) =>
-          e ? rej(e) : res(new Uint32Array(n))));
-  }
-
-  else if (crypto && "getRandomValues" in crypto) {
-    return Effect(() => window
-      .crypto
-      .getRandomValues(new Uint8Array(size)));
-  }
-
-  else
-    throw new CryptoError("missing crypto support");
-};
+const syncRandomBytes_ = crypto => n =>
+  Effect(() =>
+    crypto.randomBytes(n));
 
 
 /******************************************************************************
@@ -3353,7 +3338,6 @@ module.exports = {
   contReset,
   contShift,
   contOf,
-  createRandomBytes,
   ordAppend,
   ordAppendf,
   ordCata,
@@ -3629,6 +3613,7 @@ module.exports = {
   sumAppendf,
   sumEmpty,
   swapMultiArg,
+  syncRandomBytes_,
   Task,
   taggedLog,
   tAnd,
