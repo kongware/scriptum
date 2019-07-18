@@ -337,6 +337,10 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Traversable
 * Unfoldable
 
+# Promise Handling
+
+TODO: How to wire a `Promise` returning function so that it works with `Task` instead.
+
 # Pattern Matching
 
 TODO
