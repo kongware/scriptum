@@ -61,6 +61,9 @@ class ScriptumError extends ExtendableError {};
 /***[Suclasses]***************************************************************/
 
 
+class CryptoError extends ScriptumError {};
+
+
 class DateError extends ScriptumError {};
 
 
@@ -3138,6 +3141,31 @@ const firstAppendf = lastAppend;
 
 
 /******************************************************************************
+**********************************[ CRYPTO ]***********************************
+******************************************************************************/
+
+
+const createRandomBytes = size => {
+  if (crypto && "randomBytes" in crypto) {
+    return Task((res, rej) =>
+      crypto.randomBytes(
+        size,
+        (e, n) =>
+          e ? rej(e) : res(new Uint32Array(n))));
+  }
+
+  else if (crypto && "getRandomValues" in crypto) {
+    return Effect(() => window
+      .crypto
+      .getRandomValues(new Uint8Array(size)));
+  }
+
+  else
+    throw new CryptoError("missing crypto support");
+};
+
+
+/******************************************************************************
 ********************************[ FILE SYSTEM ]********************************
 ******************************************************************************/
 
@@ -3290,6 +3318,7 @@ module.exports = {
   ask,
   asks,
   ceil,
+  CryptoError,
   Comp,
   comp,
   comp2nd,
@@ -3319,6 +3348,7 @@ module.exports = {
   contReset,
   contShift,
   contOf,
+  createRandomBytes,
   ordAppend,
   ordAppendf,
   ordCata,
@@ -3355,6 +3385,7 @@ module.exports = {
   evalState,
   execState,
   fileCopy_,
+  fileError,
   fileMove_,
   fileRead_,
   fileRename_,
