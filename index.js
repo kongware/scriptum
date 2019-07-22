@@ -3147,6 +3147,12 @@ const firstAppendf = lastAppend;
 ******************************************************************************/
 
 
+const createHash_ = crypto => algo => s =>
+  crypto.createHash(algo)
+    .update(s)
+    .digest("hex");
+
+
 const syncRandomBytes_ = crypto => n =>
   Effect(() =>
     crypto.randomBytes(n));
@@ -3334,10 +3340,7 @@ module.exports = {
   contReset,
   contShift,
   contOf,
-  ordAppend,
-  ordAppendf,
-  ordCata,
-  ordEmpty,
+  createHash_,
   curry,
   curry3,
   curry4,
@@ -3479,6 +3482,7 @@ module.exports = {
   maxEmpty,
   maxAppend,
   maxAppendf,
+  memoMethx,
   Min,
   min,
   minAppend,
@@ -3518,7 +3522,6 @@ module.exports = {
   objUnion,
   objUnionx,
   objValues,
-  memoMethx,
   Option,
   optAp,
   optCata,
@@ -3526,6 +3529,10 @@ module.exports = {
   optMap,
   optOf,
   or,
+  ordAppend,
+  ordAppendf,
+  ordCata,
+  ordEmpty,
   Ordering,
   orp,
   Parallel,
