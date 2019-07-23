@@ -10,7 +10,7 @@ A type-directed functional library that adapts well-known functional patterns to
 
 type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
-## Runtime
+### Runtime
 
 scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is you have to provide dependencies when using such functions:
 
@@ -28,53 +28,57 @@ const fs = require("fs"),
 ```
 This is a tradeoff to keep up browser support.
 
-## Fundamentals
+# Mission Statement
 
-### Pragmatism over Dogmatism
+## Pragmatism over Dogmatism
 
 Javascript lacks a non-trivial type system and all the guarantees that go along with it and it lacks functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
 
-### Convention over Coercion
+## Convention over Coercion
 
 scriptum relies heavily on coventions and on the willingness and discipline of consumers to adhere to them.
 
-### Expressions over Statements
+## Expressions over Statements
 
 Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
-### Type Signatures first
+## Semantic Typing over Anonymous `Object` Trees
+
+Use types as simple wrappers that add a semantic layer to your code. This approach guides you during development, renders your code more readable and allows for throwing errors closer to their origin in many cases.
+
+## Type Signatures over Function Descriptions
 
 You should always write down the type signature of a function upfront, before you implement its body. Let yourself be guided by types. This will improve your code quality and coding efficency a great deal.
 
-### Currying is the Default
+## Curried over Multi-Argument Functions
 
 scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
 
-### Unions of Records
+## Unions of Records over just Records
 
 You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
 
-### Directory Passing over Prototypes
+## Directory Passing over Prototypes
 
 scriptum doesn't rely on Javascript's prototype system but allows for ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the argument list and if the function expects several typeclasses you can bundle them by a multiple argument function call.
 
 You may interject that Javascript naturally contains ad-hoc polymorphism, since it is untyped. This is true, but it is an unprincipled sort of polymorphism and doesn't guide you during coding.
 
-### Effect Handling
+## Effects as Values over Side Effects
 
 scriptum promotes effect handling through monads, monad transformer stacks (and probably tagless final encodings one day). Impure computations themselves are wrapped in functions or thunks so that their evaluation can be temporally deferred. This way we can separate the pure from the impure part of our program, which enables equational reasoning for the pure parts.
 
-### Folds over Recursion over Loops
+## Folds over Recursion over Loops
 
 Recursion is a big win compared to imperative loops. However, in Javascript we have neither tail call optimization nor more advanced optimization strategies. So we are stuck with tail recursion implemented through trampolines, which are structurally just loops.
 
 What we want is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-### Loop Fusion over Generators/Iterators
+## Loop Fusion over Generators/Iterators
 
 scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion through map/contramap of functions, as the Yoneda Lemma does. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with unwanted side effects.
 
-### Explicit Thunks over Generators/Iterators
+## Explicit Thunks over Generators/Iterators
 
 The same reason not to use generators/iterators applies to lazy evaluation. scriptum facilitates the use of explicit thunks inestead. Thunks are balzing fast and have a less clunky interface.
 
