@@ -266,7 +266,7 @@ becomes
 ```
 Look how I wrapped the anonymous arrays in types, which gives them semantics. This is devenitely an improvement in order to understand what's going on.
 
-# New Types
+# Custom Types
 
 There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
@@ -274,12 +274,20 @@ There are a couple of constructors both for union (`union`) and product types (`
 
 ### `struct`
 
-TODO
+The default constructor for product types with a single field:
 
+```Javascript
+const SomeType = struct("SomeType");
+SomeType("foo"); // constructs a value of this type
+```
 ### `structExt`
 
-Todo
+Constructor for product types with several fields:
 
+```Javascript
+const SomeType = struct("SomeType") (SomeType => x => => SomeType([x, y]));
+SomeType("foo", 123); // constructs a value of this type
+```
 ### `structGetter`
 
 TODO
