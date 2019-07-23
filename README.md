@@ -294,10 +294,6 @@ TODO
 
 TODO
 
-### `union`
-
-TODO
-
 ### `unionGetter`
 
 TODO
