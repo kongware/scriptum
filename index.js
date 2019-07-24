@@ -122,7 +122,7 @@ const struct = type => x => ({
 });
 
 
-const structExt = type => cons => { // for more complex constructors
+const structn = type => cons => { // for more complex constructors
   const f = x => ({
     ["run" + type]: x,
     [TYPE]: type,
@@ -2556,7 +2556,7 @@ const ordAppendf = ordAppend;
 
 // asynchronous computations in parallel
 
-const Parallel = structExt("Parallel")
+const Parallel = structn("Parallel")
   (Parallel => k => Parallel((res, rej) => k(res, rej)));
 
 
@@ -2951,7 +2951,7 @@ const sumAppendf = sumAppend;
 
 // asynchronous computations in sequence
 
-const Task = structExt("Task")
+const Task = structn("Task")
   (Task => k => Task((res, rej) => k(res, rej)));
 
 
@@ -3079,7 +3079,7 @@ const fromThese = (x, y) => tx =>
 ******************************************************************************/
 
 
-const Writer = structExt("Writer")
+const Writer = structn("Writer")
   (Writer => (x, y) => Writer([x, y]));
 
 
@@ -3608,7 +3608,7 @@ module.exports = {
   strPadl,
   strPadr,
   struct,
-  structExt,
+  structn,
   structGetter,
   structMemo,
   Sum,
