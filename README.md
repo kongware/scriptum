@@ -280,7 +280,7 @@ The default constructor for product types with a single field:
 const SomeType = struct("SomeType");
 SomeType("foo"); // constructs a value of this type
 ```
-### `structExt`
+### `structn`
 
 Constructor for product types with several fields:
 
@@ -1002,7 +1002,6 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 # TODO
 
 - [ ] add type signatures!!!
-- [ ] explain `structExt`
 - [ ] add common transducers
 - [ ] add persistent data structure by hash array mapped trie (HAMT)
 - [ ] add List/Catenable List/Random Access/Difference List
