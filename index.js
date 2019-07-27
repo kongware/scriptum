@@ -1208,7 +1208,7 @@ const debug = f => x => {
 };
 
 
-const delay = ms => f => x =>
+const delay = f => ms => x =>
   Task((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
