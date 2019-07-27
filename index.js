@@ -92,7 +92,7 @@ const union = type => (tag, x) => ({
 });
 
 
-const unionGetter = type => (tag, o) => { // allows an explicit getter for the runXYZ prop
+const unionGetter = type => (tag, o) => { // explicit getter for the runSomething prop
   o[TAG] = tag;
   o[TYPE] = type;
   return o;
@@ -116,13 +116,13 @@ const matchExp = ({[TYPE]: type, [TAG]: tag, ["run" + type]: x}, o) =>
 ******************************************************************************/
 
 
-const struct = type => x => ({
+const struct = type => x => ({ // single field types
   ["run" + type]: x,
   [TYPE]: type,
 });
 
 
-const structn = type => cons => { // for more complex constructors
+const structn = type => cons => { // multiple field types
   const f = x => ({
     ["run" + type]: x,
     [TYPE]: type,
@@ -132,7 +132,7 @@ const structn = type => cons => { // for more complex constructors
 };
 
 
-const structGetter = type => cons => { // allows an explicit getter for the runXYZ prop
+const structGetter = type => cons => { // explicit getter for the runSomething prop
   const f = o => {
     o[TYPE] = type;
     return o;
