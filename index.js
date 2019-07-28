@@ -2501,6 +2501,15 @@ const optChain = fm => mx =>
   });
 
 
+const optChainT = ({chain, of}) => fmm => mmx =>
+  chain(mx => {
+    switch (mx[TAG]) {
+      case "None": return of(None);
+      case "Some": return fmm(mx.runOption);
+    }
+  }) (mmx);
+
+
 /******************************************************************************
 *********************************[ ORDERING ]**********************************
 ******************************************************************************/
@@ -2550,7 +2559,7 @@ const ordAppendf = ordAppend;
 
 
 /******************************************************************************
-*****************************[ ASYNC IN PARALLEL ]*****************************
+**************************[ PARALLEL (IN PARALLEL) ]***************************
 ******************************************************************************/
 
 
@@ -2945,7 +2954,7 @@ const sumAppendf = sumAppend;
 
 
 /******************************************************************************
-*****************************[ ASYNC IN SEQUENCE ]*****************************
+****************************[ TASK (IN SEQUENCE) ]*****************************
 ******************************************************************************/
 
 
@@ -2993,6 +3002,11 @@ const tChain2 = fm => mx => my =>
   Task((res, rej) => mx.runTask(x =>
     my.runTask(y =>
       fm(x) (y).runTask(res, rej), rej), rej));
+
+
+const tChainT = ({chain, of}) => fm => mmx =>
+  chain(mx =>
+    of(tChain(fm) (mx))) (mmx);
 
 
 const tJoin = mmx =>
@@ -3526,6 +3540,7 @@ module.exports = {
   optAp,
   optCata,
   optChain,
+  optChainT,
   optMap,
   optOf,
   or,
@@ -3624,6 +3639,7 @@ module.exports = {
   tAp,
   tCata,
   tChain,
+  tChainT,
   tChain2,
   That,
   These,
