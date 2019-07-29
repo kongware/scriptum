@@ -486,11 +486,17 @@ const arrHylo = alg => zero => coalg =>
   comp(arrFold(alg) (zero)) (arrAna(coalg));
 
 
+const arrLength = xs => xs.length;
+
+
 const arrMutu = alg1 => alg2 => zero1 => zero2 =>
   comp(snd)
     (arrFold(([acc1, acc2]) => x =>
       [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
         ([zero1, zero2]));
+
+
+const arrNull = xs => xs.length === 0;
 
 
 const arrPara = alg => zero => xs => {
@@ -786,9 +792,6 @@ const arrHeadOr = def => xs =>
   xs.length === 0
     ? def
     : xs[0];
-
-
-const arrIsEmpty = xs => xs.length === 0;
 
 
 const arrModOr = def => (i, f) => xs =>
@@ -1691,6 +1694,12 @@ const strFold = alg => zero => s => {
 };
 
 
+const strLength = s => s.length;
+
+
+const strNull = s => s === "";
+
+
 /***[Semigroup]***************************************************************/
 
 
@@ -1833,9 +1842,6 @@ const strSet = (r, t, flags) => s =>
 
 
 /***[Misc. Combinators]*******************************************************/
-
-
-const strIsEmpty = s => s === "";
 
 
 const strLocaleCompare = locale => c => d => {
@@ -3290,12 +3296,13 @@ module.exports = {
   arrHeadOr,
   arrHisto,
   arrHylo,
-  arrIsEmpty,
   arrJoin,
+  arrLength,
   arrMap,
   arrModOr,
   arrModOrx,
   arrMutu,
+  arrNull,
   arrOf,
   arrPara,
   arrParaWhile,
@@ -3610,7 +3617,7 @@ module.exports = {
   strAppendf,
   strDel,
   strFold,
-  strIsEmpty,
+  strLength,
   strLocaleCompare,
   strMatch,
   strMatchAll,
@@ -3619,6 +3626,7 @@ module.exports = {
   strMod,
   strNormalize,
   strNormalizeBy,
+  strNull,
   strSet,
   strPadl,
   strPadr,
