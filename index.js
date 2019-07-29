@@ -572,10 +572,10 @@ const arrEmpty = [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => {
+const arrAppend = xs => ys => { // CAUTION: expects arrays in both arguments
   const zs = arrClone(xs);
 
-  if (!Array.isArray(ys)) // prevents the common mistake of passing a non-array
+  if (!Array.isArray(ys))
     throw new SemigroupError(`array expected but "${ys}" given`);
 
   else {
@@ -3004,7 +3004,7 @@ const tChain2 = fm => mx => my =>
       fm(x) (y).runTask(res, rej), rej), rej));
 
 
-const tChainT = ({chain, of}) => fm => mmx =>
+const tChainT = ({chain, of}) => fm => mmx => // CAUTION: fm merely returns the inner monad
   chain(mx =>
     of(tChain(fm) (mx))) (mmx);
 
