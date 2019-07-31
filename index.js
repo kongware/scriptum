@@ -3173,7 +3173,7 @@ const createHash_ = crypto => algo => s =>
     .digest("hex");
 
 
-const syncRandomBytes_ = crypto => n =>
+const createRandomBytes_ = crypto => n =>
   Effect(() =>
     crypto.randomBytes(n));
 
@@ -3362,6 +3362,7 @@ module.exports = {
   contShift,
   contOf,
   createHash_,
+  createRandomBytes_,
   curry,
   curry3,
   curry4,
@@ -3639,7 +3640,6 @@ module.exports = {
   sumAppendf,
   sumEmpty,
   swapMultiArg,
-  syncRandomBytes_,
   Task,
   taggedLog,
   tAnd,
