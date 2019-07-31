@@ -142,7 +142,7 @@ const structGetter = type => cons => { // explicit getter for the runSomething p
 };
 
 
-const structMemo = type => thunk => ({
+const structMemo = type => thunk => ({ // TODO: remove (use structn instead)
   get ["run" + type] () {
     delete this["run" + type];
     return this["run" + type] = thunk();
@@ -2286,7 +2286,7 @@ const lastAppendf = firstAppend;
 
 // Effect with memoization
 
-const Lazy = structMemo("Lazy");
+const Lazy = structMemo("Lazy"); // TODO: replace with structn
 
 
 /***[Applicative]*************************************************************/
@@ -3633,7 +3633,7 @@ module.exports = {
   struct,
   structn,
   structGetter,
-  structMemo,
+  structMemo, // TODO: remove
   Sum,
   sumAppend,
   sumAppendf,
