@@ -1,4 +1,4 @@
-/*
+p/*
                                                                                       
                                                    I8                                 
                                                    I8                                 
@@ -1145,8 +1145,12 @@ const pipe3 = h => g => f => x =>
   f(g(h(x)));
 
 
-const pipeBin = g => f => x => y =>
+const pipeBoth = g => f => x => y =>
   f(g(x)) (g(y));
+
+
+const pipeBin = g => f => x => y =>
+  f(g(x) (y));
 
 
 // funVarComp @derived
@@ -3590,6 +3594,7 @@ module.exports = {
   pipe,
   pipe3,
   pipeBin,
+  pipeBoth,
   Pred,
   predAppend,
   predAppendf,
