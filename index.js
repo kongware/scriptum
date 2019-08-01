@@ -2073,7 +2073,7 @@ const contLiftM2 = f => mx => my =>
 
 
 const contReset = tx => // delimited continuations
-  of(tx.runCont(id));
+  contOf(tx.runCont(id));
   
 
 const contShift = f => // delimited continuations
