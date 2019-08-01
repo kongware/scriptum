@@ -1387,7 +1387,7 @@ const isUnit = x => // unit types are undefined/null/NaN/invalid Date
   x === undefined
     || x === null
     || x === x === false
-    || x.getTime !== undefined && !Number.isNaN(x.getTime());
+    || x.getTime !== undefined && Number.isNaN(x.getTime());
 
 
 const notp = p => x => !p(x);
