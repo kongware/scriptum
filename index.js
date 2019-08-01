@@ -256,6 +256,14 @@ const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
 /***[Foldable]****************************************************************/
 
 
+const all = ({fold, append, empty}) => p =>
+  comp(tx => tx.runAll) (foldMap({fold, append, empty}) (comp(All) (p)));
+
+
+const any = ({fold, append, empty}) => p =>
+  comp(tx => tx.runAny) (foldMap({fold, append, empty}) (comp(Any) (p)));
+
+
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 
@@ -3267,6 +3275,7 @@ const arrSum = arrFoldM({append: sumAppend, empty: sumEmpty});
 module.exports = {
   Age,
   All,
+  all,
   allAppend,
   allAppendf,
   allEmpty,
@@ -3274,6 +3283,7 @@ module.exports = {
   and,
   andp,
   Any,
+  any,
   anyAppend,
   anyAppendf,
   anyEmpty,
