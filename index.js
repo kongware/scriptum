@@ -142,7 +142,7 @@ const structGetter = type => cons => { // explicit getter for the runSomething p
 };
 
 
-const structMemo = type => thunk => ({ // TODO: remove (use structn instead)
+const structMemo = type => thunk => ({ // TODO: remove (use structGetter instead)
   get ["run" + type] () {
     delete this["run" + type];
     return this["run" + type] = thunk();
@@ -2305,7 +2305,7 @@ const Lazy = structMemo("Lazy"); // TODO: replace with structn
 
 
 const lazyAp = tf => tx =>
-  Lazy(() => tf.runLazy() (tx.runLazy()));
+  Lazy(() => tf.runLazy (tx.runLazy));
 
 
 const lazyOf = x => Lazy(() => x);
@@ -2315,18 +2315,18 @@ const lazyOf = x => Lazy(() => x);
 
 
 const lazyMap = f => tx =>
-  Lazy(() => f(tx.runLazy()));
+  Lazy(() => f(tx.runLazy));
 
 
 /***[Monad]*******************************************************************/
 
 
 const lazyChain = fm => mx =>
-  Lazy(() => fm(mx.runLazy()).runLazy());
+  Lazy(() => fm(mx.runLazy).runLazy);
 
 
 const lazyJoin = mmx =>
-  Lazy(() => mmx.runLazy().runLazy());
+  Lazy(() => mmx.runLazy.runLazy);
 
 
 /******************************************************************************
