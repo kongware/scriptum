@@ -2298,7 +2298,7 @@ const lastAppendf = firstAppend;
 
 // Effect with memoization
 
-const Lazy = structMemo("Lazy"); // TODO: replace with structn
+const Lazy = structMemo("Lazy"); // TODO: replace with structGetter
 
 
 /***[Applicative]*************************************************************/
