@@ -1235,8 +1235,8 @@ const log = s =>
   (console.log(s), s);
 
 
-const taggedLog = pre => s =>
-  (console.log(pre, s), s);
+const taggedLog = tag => s =>
+  (console.log(tag, s), s);
 
 
 const trace = pre =>
