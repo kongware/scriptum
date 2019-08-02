@@ -2,17 +2,17 @@
 
 # Status
 
-Experimental and still work in progress.
+This functional library is still work in progress but already in production use.
 
 ## What
 
-A type-directed functional library that adapts well-known functional patterns to untyped Javascript, so that these patterns may become idioms in Javascript.
+A type-directed functional library that adapts well-known functional patterns to untyped Javascript.
 
-type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
+Type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature annotations through comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
 ### Runtime
 
-scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is you have to provide dependencies when using such functions:
+scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is to say you have to pass dependencies explicitly when using such functions:
 
 ```Javascript
 const fileRead_  = fs => enc => path =>
@@ -247,10 +247,10 @@ const arrMap = f => xs =>
 ```
 ### Semantic Typing
 
-I made this term up. It means that you should use types for the single reason to enable more precise type signatures. This justifies the additional boilerplate to wrap and unwrap the data respectively:
+This is a made-up term. It means that you should use types for the single reason to enable more telling type signatures. This justifies the additional boilerplate to wrap and unwrap the raw data respectively:
 
 ```Javascript
-// Task<[[ParserResult<_2_>]], Error> ->
+// Task<[[ParserResult<...>]], Error> ->
 // Task<[[[SqlQuery<String>]]], Error>
 const buildSqlQueries =
   tMap(
@@ -258,11 +258,11 @@ const buildSqlQueries =
       arrPush(acc)
         (buildSqlQueries_(tx))) ([]));
 ```
-becomes
+is transformed into
 
 ```Javascript
-// Task<[BankAdvice<[ParserResult<_2_>]>], Error> ->
-// Task<[BankAdvice<[Dataset<[SqlQuery<String>]>]>], Error>
+// Task<[BankAdvice<[ParserResult<...>]>], Error> ->
+// Task<[BankAdvice<[AdviceRecord<[SqlQuery<String>]>]>], Error>
 ```
 Look how I wrapped the anonymous arrays in types, which gives them semantics. This is devenitely an improvement in order to understand what's going on.
 
