@@ -142,16 +142,6 @@ const structGetter = type => cons => { // explicit getter for the runSomething p
 };
 
 
-const structMemo = type => thunk => ({ // TODO: remove (use structGetter instead)
-  get ["run" + type] () {
-    delete this["run" + type];
-    return this["run" + type] = thunk();
-  },
-                                     
-  [TYPE]: type
-});
-
-
 /******************************************************************************
 *******************************************************************************
 ********************************[ TRAMPOLINES ]********************************
@@ -2097,40 +2087,40 @@ const contShift = f => // delimited continuations
 
 
 /******************************************************************************
-***************************[ EFFECTFUL COMPUTATION ]***************************
+***********************[ DEFER (LAZY EVAL W/O SHARING ]************************
 ******************************************************************************/
 
 
-const Effect = structGetter("Effect")
-  (Effect => thunk => Effect({get runEffect() {return thunk()}}));
+const Defer = structGetter("Defer")
+  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
 
 
 /***[Applicative]*************************************************************/
 
 
-const effAp = tf => tx =>
-  Effect(() => tf.runEffect(tx.runEffect));
+const defAp = tf => tx =>
+  Effect(() => tf.runDefer(tx.runDefer));
 
 
-const effOf = x => Effect(() => x);
+const defOf = x => Defer(() => x);
 
 
 /***[Functor]*****************************************************************/
 
 
-const effMap = f => tx =>
-  Effect(() => f(tx.runEffect));
+const defMap = f => tx =>
+  Defer(() => f(tx.runDefer));
 
 
 /***[Monad]*******************************************************************/
 
 
-const effChain = fm => mx =>
-  Effect(() => fm(mx.runEffect).runEffect);
+const defChain = fm => mx =>
+  Defer(() => fm(mx.runDefer).runDefer);
 
 
-const effJoin = mmx =>
-  Effect(() => mmx.runEffect.runEffect);
+const defJoin = mmx =>
+  Defer(() => mmx.runDefer.runDefer);
 
 
 /******************************************************************************
@@ -2296,13 +2286,16 @@ const lastAppendf = firstAppend;
 
 
 /******************************************************************************
-*****************************[ LAZY COMPUTATION ]******************************
+***********************[ LAZY (LAZY EVAL WITH SHARING) ]***********************
 ******************************************************************************/
 
 
-// Effect with memoization
-
-const Lazy = structMemo("Lazy"); // TODO: replace with structGetter
+const Lazy = structGetter("Lazy")
+  (Lazy => thunk => Lazy({
+    get runLazy() {
+      delete this.runLazy;
+      return this.runLazy = thunk();
+    }}));
 
 
 /***[Applicative]*************************************************************/
@@ -3403,12 +3396,12 @@ module.exports = {
   delay,
   Done,
   eff,
-  effAp,
-  effChain,
-  Effect,
-  effJoin,
-  effMap,
-  effOf,
+  defAp,
+  defChain,
+  Defer,
+  defJoin,
+  defMap,
+  defOf,
   Either,
   Endo,
   endoAppend,
@@ -3665,7 +3658,6 @@ module.exports = {
   struct,
   structn,
   structGetter,
-  structMemo, // TODO: remove
   Sum,
   sumAppend,
   sumAppendf,
