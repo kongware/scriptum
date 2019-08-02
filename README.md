@@ -32,55 +32,49 @@ This is a tradeoff to keep up browser support.
 
 ## Pragmatism over Dogmatism
 
-Javascript lacks a non-trivial type system and all the guarantees that go along with it and it lacks functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
+Javascript lacks a non-trivial type system and all guarantees that comes along with it and it has no functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
 
 ## Convention over Coercion
 
-scriptum relies heavily on coventions and on the willingness and discipline of consumers to adhere to them.
+scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
 
 ## Expressions over Statements
 
-Expressions are good, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
-
-## Semantic Typing over Anonymous `Object` Trees
-
-Use types as simple wrappers that add a semantic layer to your code. This approach guides you during development, renders your code more readable and allows for throwing errors closer to their origin in many cases.
+Expressions are superior to statements, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
 ## Type Signatures over Function Descriptions
 
-You should always write down the type signature of a function upfront, before you implement its body. Let yourself be guided by types. This will improve your code quality and coding efficency a great deal.
+When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
+
+## Semantic Typing over Anonymous `Object` Trees
+
+Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
 ## Curried over Multi-Argument Functions
 
-scriptum prefers curried to multi-argument functions. This drastically simplifies function application and partial application in particular. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no harm to use both forms.
+scriptum prefers curried to multi-argument functions. This simplifies both function and partial application. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no risk in using both forms.
 
 ## Unions of Records over just Records
 
-You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic world as a data structure. In scriptum alternatives are expressed with tagged unions, which may contain other tagged unions or records.
+You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic reality as a data structure. In scriptum alternatives are expressed with tagged unions, which can be nested and may contain records and other product types.
 
 ## Directory Passing over Prototypes
 
-scriptum doesn't rely on Javascript's prototype system but allows for ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the argument list and if the function expects several typeclasses you can bundle them by a multiple argument function call.
-
-You may interject that Javascript naturally contains ad-hoc polymorphism, since it is untyped. This is true, but it is an unprincipled sort of polymorphism and doesn't guide you during coding.
+scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
 ## Effects as Values over Side Effects
 
-scriptum promotes effect handling through monads, monad transformer stacks (and probably tagless final encodings one day). Impure computations themselves are wrapped in functions or thunks so that their evaluation can be temporally deferred. This way we can separate the pure from the impure part of our program, which enables equational reasoning for the pure parts.
+scriptum promotes effect handling through monads and effect composition through monad transformer stacks. This way we can defer and encapsulate effects to run them in a principled manner and separate the pure from the impure part of our program. 
 
-## Folds over Recursion over Loops
+## Structural Recursion over Direct Recursion over Loops
 
 Recursion is a big win compared to imperative loops. However, in Javascript we have neither tail call optimization nor more advanced optimization strategies. So we are stuck with tail recursion implemented through trampolines, which are structurally just loops.
 
-What we want is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
+What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-## Loop Fusion over Generators/Iterators
+## Thunks and Function Composition over Generators/Iterators
 
-scriptum avoids the use of generators/iterators for most use cases. Instead, it relies on loop fusion through map/contramap of functions, as the Yoneda Lemma does. Generators/iterators are stateful constructs in Javascript and thus may compromise your pure program with unwanted side effects.
-
-## Explicit Thunks over Generators/Iterators
-
-The same reason not to use generators/iterators applies to lazy evaluation. scriptum facilitates the use of explicit thunks inestead. Thunks are balzing fast and have a less clunky interface.
+scriptum achieves loop fusion through function composition and lazyness through explicit thunks. Hence there is often no need to use stateful generators/iterators unless you need these effects inside imperative loop or control structures.
 
 # Type Signatures
 
@@ -234,20 +228,9 @@ You can shorten long type signatures by replacing sensible sub signatures with a
 
 // _1_ -> SomeType<_1_>
 ```
-## Application
-
-Type signatures are the prerequisite of type-directed programming. Let the types guide you by defining a type signature even before the the implementation details of a function have been determined.
-
-Hence, you should define type signatures for ALL your functions and data structures and sometimes even for essential subexpressions.
-
-```Javascript
-// (a -> b) -> [a] -> [b]
-const arrMap = f => xs =>
-  xs.map(x => f(x));
-```
 ### Semantic Typing
 
-This is a made-up term. It means that you should use types for the single reason to enable more telling type signatures. This justifies the additional boilerplate to wrap and unwrap the raw data respectively:
+This is a made-up term. It means that sometimes you should use types for the single reason to enable more telling type signatures. This justifies the additional boilerplate to wrap and unwrap the raw data respectively:
 
 ```Javascript
 // Task<[[ParserResult<...>]], Error> ->
@@ -264,13 +247,11 @@ is transformed into
 // Task<[BankAdvice<[ParserResult<...>]>], Error> ->
 // Task<[BankAdvice<[AdviceRecord<[SqlQuery<String>]>]>], Error>
 ```
-Look how I wrapped the anonymous arrays in types, which gives them semantics. This is devenitely an improvement in order to understand what's going on.
-
 # Custom Types
 
 There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
-## Product Types
+## Product Types (Records)
 
 ### `struct`
 
@@ -290,8 +271,11 @@ SomeType("foo", 123); // constructs a value of this type
 ```
 ### `structGetter`
 
-TODO
+Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly:
 
+```Javascript
+
+```
 ### `structMemo`
 
 TODO
