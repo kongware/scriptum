@@ -2590,6 +2590,14 @@ const ordAppendf = ordAppend;
 const Parallel = structn("Parallel")
   (Parallel => k => Parallel((res, rej) => k(res, rej)));
 
+const Parallel = structGetter("Parallel") // CAUTION: Untested
+  (Parallel => k => Parallel({
+    get runParallel() {
+      const r = k(id, id);
+      delete this.runParallel;
+      return this.runParallel = l => l(r);
+    }}));
+
 
 /***[Foldable]****************************************************************/
 
@@ -2980,10 +2988,13 @@ const sumAppendf = sumAppend;
 ******************************************************************************/
 
 
-// asynchronous computations in sequence
-
-const Task = structn("Task")
-  (Task => k => Task((res, rej) => k(res, rej)));
+const Task = structGetter("Task")
+  (Task => k => Task({
+    get runTask() {
+      const r = k(id, id);
+      delete this.runTask;
+      return this.runTask = l => l(r);
+    }}));
 
 
 /***[Applicative]*************************************************************/
