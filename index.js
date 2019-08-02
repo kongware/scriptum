@@ -2099,7 +2099,7 @@ const Defer = structGetter("Defer")
 
 
 const defAp = tf => tx =>
-  Effect(() => tf.runDefer(tx.runDefer));
+  Defer(() => tf.runDefer(tx.runDefer));
 
 
 const defOf = x => Defer(() => x);
@@ -3189,7 +3189,7 @@ const createHash_ = crypto => algo => s =>
 
 
 const createRandomBytes_ = crypto => n =>
-  Effect(() =>
+  Defer(() =>
     crypto.randomBytes(n));
 
 
