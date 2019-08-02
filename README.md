@@ -266,29 +266,66 @@ SomeType("foo"); // constructs a value of this type
 Constructor for product types with several fields:
 
 ```Javascript
-const SomeType = struct("SomeType") (SomeType => x => => SomeType([x, y]));
-SomeType("foo", 123); // constructs a value of this type
+const SomeType = structn("SomeType")
+  (SomeType => x => y => SomeType([x, y]));
+  
+SomeType("foo") (123); // constructs a value of this type
 ```
 ### `structGetter`
 
-Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly:
+Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly. The following example defines a `Defer` type with a lazy getter, so that the `runDefer` property can be accessed without parenthesis:
 
 ```Javascript
-
+const Defer = structGetter("Defer")
+  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
 ```
-### `structMemo`
+In this example a lazy getter replaces itself with a normal property after the initial lookup:
 
-TODO
-
-## Union Types
+```Javascript
+const Task = structGetter("Task")
+  (Task => k => Task({
+    get runTask() {
+      const r = k(id, id);
+      delete this.runTask;
+      return this.runTask = l => l(r);
+    }}));
+```
+## Sum Types (Tagged Unions)
 
 ### `union`
 
-TODO
+The default constructor for tagged unions:
 
+```Javascript
+const Either = union("Either");
+
+const Left = x =>
+  Either("Left", x);
+
+const Right = x =>
+  Either("Right", x);
+  
+// creates values of this type
+
+Right(123);
+Left("error");
+```
 ### `unionGetter`
 
-TODO
+Constructor for unions with explicit getters:
+
+```Javascript
+const Option = unionGetter("Option");
+
+const None = Option("None", {get runOption() {return None}});
+
+const Some = x => Option("Some", {runOption: x});
+```
+In this example the `None` value constructor returns another `None` when the `runOption` property is accessed.
+
+## Predefined Types
+
+scriptum implements a couple of common functional types.
 
 # Typeclass Functions
 
@@ -335,13 +372,25 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 
 # Pattern Matching
 
+scriptum doesn't provide real pattern matching because this must be take place at the language level. However, there are two functions that simplify the handling of unions.
+
+## `match`
+
+TODO
+
+## `matchExp`
+
 TODO
 
 # `Promise` Handling
 
 TODO
 
-## `Promise` Returning Functions
+## `Promise` Constructors
+
+TODO
+
+## `Promise` Returning Actions
 
 TODO
 
@@ -582,7 +631,7 @@ As you can see the trampoline API leaks on the calling site and there is nothing
 
 ### Non-Tail Recursion
 
-Handling non-tail recursive algorithms with trampolines and explicit stacks is a matter of research for me right now.
+Handling non-tail recursive algorithms with trampolines and explicit stacks remains a matter of research for the time being.
 
 ## Transducer
 
@@ -627,35 +676,49 @@ main([1,2,3]); // 10 - array is only traversed once
 ```
 ## Functional Optics
 
-...I've been doing a lot of research on the topic lately and have made great progress. More on this soon...
+TODO
+
+### Lenses
+
+TODO
+
+### Prisms
+
+TODO
+
+### Folds
+
+TODO
+
+### Traversals
+
+TODO
 
 ## Effect Handling
 
+TODO
+
 ### Monads
 
-...
+TODO
 
 ### Monad Transformers
 
-#### Without Typeclasses
-
-...
-
-#### With Typeclasses
-
-...
-
-### Tagless Final Encoding
-
-...
-
-### Freer Monads
-
-...
+TODO
 
 ## Asynchronous Computations
 
-...
+### In Sequence
+
+TODO
+
+### In Parallel
+
+TODO
+
+### Sharing
+
+TODO
 
 ## Lazy Evaluation
 
@@ -723,7 +786,7 @@ Generators are the most natural form of expressing lazy evaluation in Javascript
 
 Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to defer this operation and make it explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
 
-#### Non-Memoized Thunks with `Effect`
+#### `Defer` w/o Sharing
 
 `Effect` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't memoize the result:
 
@@ -738,7 +801,7 @@ const effectfulExp = Effect(
 effectfulExp.runEffect(); // logs/returns 25
 effectfulExp.runEffect(); // logs/returns 25
 ```
-#### Memoized Thunks with `Lazy`
+#### `Lazy` with Sharing
 
 `Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does memoize the result:
 
@@ -792,29 +855,35 @@ const optCata = none => some => tx =>
     get Some() {return some(tx.runOption)}
   });
 ```
-## Delimited Continuations
+## Delimited Continuations with `shift`/`reset`
 
-...
+TODO
 
 ## Persistent Data Structures
 
-...
+TODO
 
 ### Hash Array Mapped Trie (HAMT)
 
-...
+TODO
 
 ## Functional Reactive Programming
 
+TODO
+
 ### Behavior
 
-...
+TODO
 
 ### Events
 
-...
+TODO
 
-## Various Special Combinators
+### Rules
+
+TODO
+
+## Library Specific Combinators
 
 ### `comp2nd`/`pipe2nd`
 
@@ -829,14 +898,12 @@ arrFold(
 ```
 ### `compBin`/`pipeBin`
 
-Composes/pipes a binary function on both of its arguments:
+TODO
 
-```Javascript
-arrSortBy(
-  compBin(compare)
-    (objGetOr(0) ("foo")))
-      ([{foo: 2}, {foo: 1}, {foo: 3}]); // [{foo: 2}, {foo: 2}, {foo: 3}]
-```
+### `compBoth`/`pipeBoth`
+
+TODO
+
 ### `infixl`/`infixr`
 
 Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
@@ -866,7 +933,7 @@ const orDef = f => def => x => {
   else return y;
 };
 ```
-becomes to
+is simplified to
 
 ```Javascript
 const orDef = f => def => x =>
@@ -1001,3 +1068,4 @@ Although not part of the spec all majr Javascript engines traverse `Object` prop
 - [ ] how to lift a semigroup into Option forming a monoid?
 - [ ] how to create a monoid under Applicative?
 - [ ] how to create a monoid under Alternative?
+- [ ] shouldn't arrSortBy rely on compBoth?
