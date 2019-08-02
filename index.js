@@ -1,4 +1,4 @@
-p/*
+/*
                                                                                       
                                                    I8                                 
                                                    I8                                 
@@ -2574,14 +2574,9 @@ const ordAppendf = ordAppend;
 
 
 /******************************************************************************
-**************************[ PARALLEL (IN PARALLEL) ]***************************
+***********************[ PARALLEL (ASYNC IN PARALLEL) ]************************
 ******************************************************************************/
 
-
-// asynchronous computations in parallel
-
-const Parallel = structn("Parallel")
-  (Parallel => k => Parallel((res, rej) => k(res, rej)));
 
 const Parallel = structGetter("Parallel") // CAUTION: Untested
   (Parallel => k => Parallel({
@@ -2977,7 +2972,7 @@ const sumAppendf = sumAppend;
 
 
 /******************************************************************************
-****************************[ TASK (IN SEQUENCE) ]*****************************
+*************************[ TASK (ASYNC IN SEQUENCE) ]**************************
 ******************************************************************************/
 
 
