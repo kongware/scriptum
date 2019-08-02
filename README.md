@@ -788,22 +788,22 @@ Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`
 
 #### `Defer` w/o Sharing
 
-`Effect` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't memoize the result:
+`Defer` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't share intermediate results:
 
 ```Javascript
-const effectfulExp = Effect(
+const effectfulExp = Defer(
   () => {
     const r = 5 * 5;
     console.log(r);
     return r;
   });
   
-effectfulExp.runEffect(); // logs/returns 25
-effectfulExp.runEffect(); // logs/returns 25
+effectfulExp.runDefer(); // logs + returns 25
+effectfulExp.runDefer(); // logs + returns 25
 ```
 #### `Lazy` with Sharing
 
-`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does memoize the result:
+`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does share intermediate results:
 
 ```Javascript
 const effectfulExp = Lazy(
@@ -813,8 +813,8 @@ const effectfulExp = Lazy(
     return r;
   });
   
-effectfulExp.runLazy(); // logs/returns 25
-effectfulExp.runLazy(); // just returns 25
+effectfulExp.runLazy(); // logs + returns 25
+effectfulExp.runLazy(); // returns 25
 ```
 ### Getters/Setters
 
