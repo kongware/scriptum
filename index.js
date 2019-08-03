@@ -609,18 +609,6 @@ const arrTransduceWhile = alg => reduce =>
   arrFoldWhile(alg(reduce));
 
 
-/***[Tuple]*******************************************************************/
-
-
-const fst = ([x]) => x;
-
-
-const snd = ([x, y]) => y;
-
-
-const thd = ([x, y, z]) => z;
-
-
 /***[Unfoldable]**************************************************************/
 
 
@@ -863,6 +851,13 @@ const arrSortBy = f => xs =>
 
 const arrSortByx = f => xs =>
   xs.sort((x, y) => f(x) (y));
+
+
+const arrSwapEntries =
+  arrFold(
+    acc => (x, i) =>
+      acc.set(x, i))
+        (new Map());
 
 
 const arrTranspose = matrix =>
@@ -1859,6 +1854,35 @@ const toString = x => x.toString();
 
 const toUpperCase = s =>
   s.toUpperCase();
+
+
+/******************************************************************************
+****************************[ TUPLE (ARRAY BASED) ]****************************
+******************************************************************************/
+
+
+const tup1 = ([x]) => x;
+
+
+const tup2 = ([x, y]) => y;
+
+
+const tup3 = ([x, y, z]) => z;
+
+
+/***[Bifunctor]***************************************************************/
+
+
+const tupBiMap = f => g => ([x, y]) =>
+  [f(x), g(y)];
+
+
+const tupFirst = f => ([x, y]) =>
+  [f(x), y];
+
+
+const tupSecond = f => ([x, y]) =>
+  [x, f(y)];
 
 
 /******************************************************************************
@@ -3316,6 +3340,7 @@ module.exports = {
   arrSortBy,
   arrSortByx,
   arrSum,
+  arrSwapEntries,
   arrTransduce,
   arrTransduceWhile,
   arrTranspose,
@@ -3414,7 +3439,6 @@ module.exports = {
   formatMonth,
   formatYear,
   fromTimestamp,
-  fst,
   fromMultiArg,
   fromThese,
   funAp,
@@ -3591,7 +3615,6 @@ module.exports = {
   select1N,
   SemigroupError,
   setMap,
-  snd,
   Some,
   State,
   stateChain,
@@ -3629,6 +3652,7 @@ module.exports = {
   sumAppendf,
   sumEmpty,
   swapMultiArg,
+  TAG,
   Task,
   taggedLog,
   tAnd,
@@ -3654,13 +3678,20 @@ module.exports = {
   tLiftM2,
   tMap,
   tOf,
+  toFixedFloat,
   toLowerCase,
   toString,
   toUpperCase,
   trace,
   tramp,
   tryCatch,
-  toFixedFloat,
+  tup1,
+  tup2,
+  tup3,
+  tupBimap,
+  tupFirst,
+  tupSecond,
+  TYPE,
   uncurry,
   uncurry3,
   uncurry4,
@@ -3668,9 +3699,6 @@ module.exports = {
   union,
   unionGetter,
   UnionError,
-  TAG,
-  thd,
-  TYPE,
   varAp,
   varArgs,
   varChain,
