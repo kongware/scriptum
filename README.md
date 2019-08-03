@@ -72,9 +72,197 @@ Recursion is a big win compared to imperative loops. However, in Javascript we h
 
 What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-## Thunks and Function Composition over Generators/Iterators
+## Function Composition and Thunks over Generators/Iterators
 
 scriptum achieves loop fusion through function composition and lazyness through explicit thunks. Hence there is often no need to use stateful generators/iterators unless you need these effects inside imperative loop or control structures.
+
+# Custom Types
+
+There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
+
+## Product Types (Records)
+
+### `struct`
+
+The default constructor for product types with a single field:
+
+```Javascript
+const SomeType = struct("SomeType");
+SomeType("foo"); // constructs a value of this type
+```
+### `structn`
+
+Constructor for product types with several fields:
+
+```Javascript
+const SomeType = structn("SomeType")
+  (SomeType => x => y => SomeType([x, y]));
+  
+SomeType("foo") (123); // constructs a value of this type
+```
+### `structGetter`
+
+Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly. The following example defines a `Defer` type with a lazy getter, so that the `runDefer` property can be accessed without parenthesis:
+
+```Javascript
+const Defer = structGetter("Defer")
+  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
+```
+In this example a lazy getter replaces itself with a normal property after the initial lookup:
+
+```Javascript
+const Task = structGetter("Task")
+  (Task => k => Task({
+    get runTask() {
+      const r = k(id, id);
+      delete this.runTask;
+      return this.runTask = l => l(r);
+    }}));
+```
+## Sum Types (Tagged Unions)
+
+### `union`
+
+The default constructor for tagged unions:
+
+```Javascript
+const Either = union("Either");
+
+const Left = x =>
+  Either("Left", x);
+
+const Right = x =>
+  Either("Right", x);
+  
+// creates values of this type
+
+Right(123);
+Left("error");
+```
+### `unionGetter`
+
+Constructor for unions with explicit getters:
+
+```Javascript
+const Option = unionGetter("Option");
+
+const None = Option("None", {get runOption() {return None}});
+
+const Some = x => Option("Some", {runOption: x});
+```
+In this example the `None` value constructor returns another `None` when the `runOption` property is accessed.
+
+## Predefined Types
+
+scriptum implements a couple of common functional types.
+
+# Typeclasses
+
+scriptum realizes typeclasses through typeclass functions, which have to be passed to ad-hoc polymorphic functions explicitly. An function with a single typeclass constraint defines it as its leftmost formal parameter. Functions that require several typeclass functions receive a dictionary, which is merely an `Object` with the typeclasses as properties. This way there is only a single function call necessary and the typeclass function order doesn't matter.
+
+```Javascript
+const kleisliComp = chain => fm => gm => x => // single typeclass constraint
+  chain(fm) (gm(x));
+
+const foldMap = ({fold, append, empty}) => f => // several typeclass constraints
+  fold(comp2nd(append) (f)) (empty);
+```
+Here is a list of typeclasses scriptum does or will provide the necessary functions for:
+
+* Alt
+* Applicative
+* Bifunctor
+* Bounded
+* Category
+* Choice
+* Clonable
+* Comonad
+* Contravariant
+* Enum
+* Filterable
+* Foldable
+* Functor
+* Ix
+* Monad
+* MonadRec
+* Monoid
+* Ord
+* Plus
+* Profunctor
+* Read
+* Semigroup
+* Serializable
+* Deserializable
+* Setoid
+* Show
+* Strong
+* Traversable
+* Unfoldable
+
+# Pattern Matching
+
+Pattern matching is a low level concept that requires native support of the language. Javascript doesn't have pattern matching and neither does scriptum. However, there are two functions that simplify the handling with unions.
+
+## `match`
+
+Takes an `Object` amd a union type and tries to access the property corresponding to the union type:
+
+```Javascript
+const tx = Some("foo"),
+  ty = None;
+  
+match(tx, {
+  type: "Option",
+  get Some() {return tx.runOption.toUpperCase()},
+  None: ""
+}); // "FOO"
+
+match(ty, {
+  type: "Option",
+  get Some() {return tx.runOption.toUpperCase()},
+  None: ""
+}); // ""
+```
+## `matchExp`
+
+Takes an `Object` and an expression that evaluates to a union type and assigns this result to an argument visible in the same scope as the provided `Object`.
+
+# `Promise` Compatibility
+
+There are two types in scriptum `Task` and `Parallel` that handle asynchronous computations sequential and parallel respectively. A `Promise` returning function (or rather action) can be easily wired with these types:
+
+```Javascript
+const foo = x =>
+  new Promise((res, rej) => x > 0
+    ? res(x)
+    : rej("must be greater than zero"));
+
+const fooTask = x => foo(x)
+  .then(y => Task((res, rej) => res(x)))
+  .catch(e => Task((res, rej) => rej(e)));
+```
+# Debugging
+
+scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
+
+```Javascript
+pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (debug(sqr))
+          ([[[1,2,3]]]);
+```
+If you are just interested in the evaluation result of an expression, pass the identity function:
+
+```Javascript
+debug(id) (pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (sqr)
+          ([[[1,2,3]]]));
+```
 
 # Type Signatures
 
@@ -247,176 +435,6 @@ is transformed into
 // Task<[BankAdvice<[ParserResult<...>]>], Error> ->
 // Task<[BankAdvice<[AdviceRecord<[SqlQuery<String>]>]>], Error>
 ```
-# Custom Types
-
-There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
-
-## Product Types (Records)
-
-### `struct`
-
-The default constructor for product types with a single field:
-
-```Javascript
-const SomeType = struct("SomeType");
-SomeType("foo"); // constructs a value of this type
-```
-### `structn`
-
-Constructor for product types with several fields:
-
-```Javascript
-const SomeType = structn("SomeType")
-  (SomeType => x => y => SomeType([x, y]));
-  
-SomeType("foo") (123); // constructs a value of this type
-```
-### `structGetter`
-
-Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly. The following example defines a `Defer` type with a lazy getter, so that the `runDefer` property can be accessed without parenthesis:
-
-```Javascript
-const Defer = structGetter("Defer")
-  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
-```
-In this example a lazy getter replaces itself with a normal property after the initial lookup:
-
-```Javascript
-const Task = structGetter("Task")
-  (Task => k => Task({
-    get runTask() {
-      const r = k(id, id);
-      delete this.runTask;
-      return this.runTask = l => l(r);
-    }}));
-```
-## Sum Types (Tagged Unions)
-
-### `union`
-
-The default constructor for tagged unions:
-
-```Javascript
-const Either = union("Either");
-
-const Left = x =>
-  Either("Left", x);
-
-const Right = x =>
-  Either("Right", x);
-  
-// creates values of this type
-
-Right(123);
-Left("error");
-```
-### `unionGetter`
-
-Constructor for unions with explicit getters:
-
-```Javascript
-const Option = unionGetter("Option");
-
-const None = Option("None", {get runOption() {return None}});
-
-const Some = x => Option("Some", {runOption: x});
-```
-In this example the `None` value constructor returns another `None` when the `runOption` property is accessed.
-
-## Predefined Types
-
-scriptum implements a couple of common functional types.
-
-# Typeclass Functions
-
-typeclass functions are a means to enable ad-how polymorphism in a principled manner in Javascript. Ad-hoc polymorphism simply means that a function can handle different data types as its arguments, as long as these types implement the necessary typeclass functions. In Javascript usually the prototype system is used to render this mechanism implicit. scriptum, however, favors explicit typeclass function passing. While this is more laborious it makes the respective constraints explicit and thus more clearly.
-
-Typeclass constraints of ad-hoc polymorphic functions are always defined as the leftmost formal parameter and the corresponding arguments are passed as a single type dictionary, unless there is only one constraint, then you can just pass the plain function:
-
-```Javascript
-const arrFoldMap = foldMap({arrFold, arrAppend, arrEmpty})`;
-```
-In scriptum their order is determined by the position of their typeclass in the typeclass hierarchy, i.e. from super class to child class. If there are unrelated typeclass functions, the order is unspecified.
-
-Here is a list of typeclasses scriptum does or will provide the necessary functions for:
-
-* Alt
-* Applicative
-* Bifunctor
-* Bounded
-* Category
-* Choice
-* Clonable
-* Comonad
-* Contravariant
-* Enum
-* Filterable
-* Foldable
-* Functor
-* Ix
-* Monad
-* MonadRec
-* Monoid
-* Ord
-* Plus
-* Profunctor
-* Read
-* Semigroup
-* Serializable
-* Deserializable
-* Setoid
-* Show
-* Strong
-* Traversable
-* Unfoldable
-
-# Pattern Matching
-
-scriptum doesn't provide real pattern matching because this must be take place at the language level. However, there are two functions that simplify the handling of unions.
-
-## `match`
-
-TODO
-
-## `matchExp`
-
-TODO
-
-# `Promise` Handling
-
-TODO
-
-## `Promise` Constructors
-
-TODO
-
-## `Promise` Returning Actions
-
-TODO
-
-# Debugging
-
-scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
-
-```Javascript
-pipe3(
-  arrMap)
-    (arrMap)
-      (arrMap)
-        (debug(sqr))
-          ([[[1,2,3]]]);
-```
-If you are just interested in the evaluation result of an expression, pass the identity function:
-
-```Javascript
-debug(id) (pipe3(
-  arrMap)
-    (arrMap)
-      (arrMap)
-        (sqr)
-          ([[[1,2,3]]]));
-```
-
 # Naming Convetions
 
 ## Function Names
@@ -674,6 +692,32 @@ const main =
 
 main([1,2,3]); // 10 - array is only traversed once
 ```
+## Effect Handling
+
+TODO
+
+### Single Effects
+
+TODO
+
+### Effect Composition
+
+TODO
+
+## Asynchronous Computations
+
+### In Sequence
+
+TODO
+
+### In Parallel
+
+TODO
+
+### Sharing
+
+TODO
+
 ## Functional Optics
 
 TODO
@@ -691,32 +735,6 @@ TODO
 TODO
 
 ### Traversals
-
-TODO
-
-## Effect Handling
-
-TODO
-
-### Monads
-
-TODO
-
-### Monad Transformers
-
-TODO
-
-## Asynchronous Computations
-
-### In Sequence
-
-TODO
-
-### In Parallel
-
-TODO
-
-### Sharing
 
 TODO
 
@@ -898,12 +916,24 @@ arrFold(
 ```
 ### `compBin`/`pipeBin`
 
-TODO
+Composes an unary with a binary function:
 
+```Javascript
+const add = x => y => x + y;
+const sqr = x => x * x;
+
+compBin(sqr) (add) (2) (3); // 25
+```
 ### `compBoth`/`pipeBoth`
 
-TODO
+Composes a binary in both its arguments with an unary function:  
 
+```Javascript
+const add = x => y => x + y;
+const length = s => s.length;
+
+compBoth(add) (length) ("foo") ("bar"); // 6
+```
 ### `infixl`/`infixr`
 
 Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
