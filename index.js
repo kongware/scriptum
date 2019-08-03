@@ -1687,14 +1687,13 @@ const setMap = f => s => {
 /***[Foldable]****************************************************************/
 
 
-// strings are folded in chunks rather than char by char
+// strings must be foldable in chunks not only char by char
 
 const strFold = alg => zero => s => {
   let acc = zero;
 
-  while (s) {
-    [acc, s] = alg(acc) (s);
-  }
+  for (let i = 0; i < s.length; i++)
+    [acc, i] = alg(acc) (s, i);
 
   return acc;
 };
@@ -1869,6 +1868,19 @@ const strPadr = n => c => s =>
   s.concat(
     c.repeat(n))
       .slice(0, n);
+
+
+const strSplitAt = i => s =>
+  [s.slice(0, i), s.slice(i)];
+
+
+const strSplitBy = p =>
+  strFold(
+    acc => (s, i) =>
+      p(s[i])
+        ? [strSplitAt(i) (s), s.length]
+        : [acc, i])
+            (["", ""]);
 
 
 const toLowerCase = s =>
@@ -3650,6 +3662,8 @@ module.exports = {
   strSet,
   strPadl,
   strPadr,
+  strSplitAt,
+  strSplitBy,
   struct,
   structn,
   structGetter,
