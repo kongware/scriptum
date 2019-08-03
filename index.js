@@ -1311,27 +1311,16 @@ const funJoin = f => x =>
 // funEmpty @derived
 
 
-/***[Predicate]***************************************************************/
+/***[Predicates]**************************************************************/
 
 
 const andp = p => q => x =>
   p(x) && q(x);
 
       
-const isArr = Array.isArray;
-
-
-const isArrOf = f => x =>
-  isArr(x) && arrMap(f) (x);
-
-
-const isBoo = x =>
-  typeof x === "boolean";
-
-
-const isDate = x =>
-  introspect(x) === "Date"
-    && !Number.isNaN(x.getTime());
+const isDateStr = s =>
+  Number.isNaN(new Date(s).getTime())
+    ? false : true;
 
 
 const isFalse =x => x === false;
@@ -1345,51 +1334,14 @@ const isIntStr = s =>
   s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
-const isMap = x =>
-  x && x[Symbol.toStringTag] === "Map";
-
-
-const isMapOf = p => x =>
-  isMap(x) && mapMap(f) (x);
-
-
-const isNaN = Number.isNaN;
-
-
-const isNull = x => x === null;
-
-
-const isNum = x =>
-  typeof x === "number";
-
-
-const isObj = x =>
-  typeof x === "object" && x !== null;
-
-
-const isSet = x =>
-  x && x[Symbol.toStringTag] === "Set";
-
-
-const isSetOf = f => x =>
-  isSet(x) && setMap(f) (x);
-
-
-const isStr = x =>
-  typeof x === "string";
-
-
 const isTrue = x => x === true;
 
 
-const isUndef = x => x === undefined;
-
-
-const isUnit = x => // unit types are undefined/null/NaN/invalid Date
+const isUnit = x =>
   x === undefined
     || x === null
-    || x === x === false
-    || x.getTime !== undefined && Number.isNaN(x.getTime());
+    || x === x === false // NaN
+    || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
 const notp = p => x => !p(x);
@@ -3498,23 +3450,10 @@ module.exports = {
   inRange,
   invoke,
   introspect,
-  isArr,
-  isArrOf,
-  isBoo,
-  isDate,
+  isDateStr,
   isFalse,
   isIntStr,
-  isMap,
-  isMapOf,
-  isNaN,
-  isNull,
-  isNum,
-  isObj,
-  isSet,
-  isSetOf,
-  isStr,
   isTrue,
-  isUndef,
   isUnit,
   kleisliComp,
   kleisliPipe,
