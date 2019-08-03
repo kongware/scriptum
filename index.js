@@ -812,6 +812,10 @@ const arrPop = xs => x =>
   (xs.pop(x), xs);
 
 
+const arrPopf = x => xs =>
+  (xs.pop(x), xs);
+
+
 const arrPopFlat = xs => ys => {
   ys.forEach(x =>
     xs.pop(x));
@@ -821,6 +825,10 @@ const arrPopFlat = xs => ys => {
 
 
 const arrPush = xs => x =>
+  (xs.push(x), xs);
+
+
+const arrPushf = x => xs =>
   (xs.push(x), xs);
 
 
@@ -1849,8 +1857,11 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const strChunk = n => s =>
-  s.match(new RegExp(`.{1,${n}}`, "g"));
+const strChunk = n =>
+  strFold(
+    acc => (s, i) =>
+      [arrPush(acc) (s.slice(i, i + n)), i + 1])
+        ([]);
 
 
 const strLocaleCompare = locale => c => d => {
@@ -3341,8 +3352,10 @@ module.exports = {
   arrParaWhile,
   arrPartition,
   arrPop,
+  arrPopf,
   arrPopFlat,
   arrPush,
+  arrPushf,
   arrPushFlat,
   arrScan,
   arrSeqF,
