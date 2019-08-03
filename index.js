@@ -1849,6 +1849,10 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
+const strChunk = n => s =>
+  s.match(new RegExp(`.{1,${n}}`, "g"));
+
+
 const strLocaleCompare = locale => c => d => {
   switch (c.localeCompare(d, locale)) {
     case -1: return LT;
@@ -3647,6 +3651,7 @@ module.exports = {
   Step,
   strAppend,
   strAppendf,
+  strChunk,
   strDel,
   strFold,
   strLength,
