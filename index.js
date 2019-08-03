@@ -949,12 +949,12 @@ const formatDay = digits => n => {
 };
 
 
-const formatMonth = (monthIndex, abbrMonthIndex) => digits => n => {
+const formatMonth = (monthMap, abbrMonthMap) => digits => n => {
   switch (digits) {
     case 1: return (n + 1).toString();
     case 2: return strPadl(2) ("0") (n + 1);
-    case 3: return abbrMonthIndex[n];
-    case 4: return monthIndex[n];
+    case 3: return abbrMonthMap[n];
+    case 4: return monthMap[n];
     
     default: throw new DateError(
       "invalid number of digits");
