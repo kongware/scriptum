@@ -38,7 +38,7 @@ Javascript lacks a non-trivial type system and all guarantees that comes along w
 
 scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
 
-## Expressions over Statements
+### Expressions over Statements
 
 Expressions are superior to statements, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
@@ -46,7 +46,7 @@ Expressions are superior to statements, because you can compose them and pass th
 
 When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
 
-## Semantic Typing over Anonymous `Object` Trees
+### Semantic Typing over Anonymous `Object` Trees
 
 Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
