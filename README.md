@@ -694,7 +694,7 @@ main([1,2,3]); // 10 - array is only traversed once
 ```
 ## Effect Handling
 
-TODO
+Effects are handled with monads and their superclasses in scriptum. A monad is essentially a type that you cannot freely leave, i.e. an effect in a monad is effectively encapsulated.
 
 ### Single Effects
 
@@ -702,19 +702,29 @@ TODO
 
 ### Effect Composition
 
+You can compose functorial and applicative effects in a principled manner either by hand or using the `Comp` type. Monadic effects, however, where the next monadic computation can depend on the result of the previous one, can only be composed by hand, because every composition of two monads is specific to the involved monads.
+
+#### Monad Transformers
+
+Monad transformers facilitate the composition of monads.
+
 TODO
 
 ## Asynchronous Computations
 
-### In Sequence
+As already mentioned scriptum distinguishes between sequential and parallel evaluation of asynchronous computations. In order to make this distinction explicit each veriant has its own type.
+
+### `Task`
 
 TODO
 
-### In Parallel
+### `Parallel`
 
 TODO
 
 ### Sharing
+
+Sharing just means that intermediate results of asynchronous computations are evaluated only once but can be used any number of times.
 
 TODO
 
