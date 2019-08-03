@@ -58,7 +58,7 @@ scriptum prefers curried to multi-argument functions. This simplifies both funct
 
 You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic reality as a data structure. In scriptum alternatives are expressed with tagged unions, which can be nested and may contain records and other product types.
 
-### Directory Passing over Prototypes
+### Directory Passing over the Prototype System
 
 scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
@@ -72,7 +72,7 @@ Recursion is a big win compared to imperative loops. However, in Javascript we h
 
 What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-### Function Composition and Thunks over Generators/Iterators
+### Everything over Generators/Iterators
 
 scriptum achieves loop fusion through function composition and lazyness through explicit thunks. Hence there is often no need to use stateful generators/iterators unless you need these effects inside imperative loop or control structures.
 
