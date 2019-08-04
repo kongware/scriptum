@@ -1232,8 +1232,8 @@ const taggedLog = tag => s =>
   (console.log(tag, s), s);
 
 
-const trace = pre =>
-  eff(x => console.log(pre + ":", JSON.stringify(x)));
+const trace = f =>
+  eff(x => console.log(JSON.stringify(x) || x.toString()));
 
 
 /***[Functor]*****************************************************************/
