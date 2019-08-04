@@ -1873,7 +1873,7 @@ const tup3 = ([x, y, z]) => z;
 /***[Bifunctor]***************************************************************/
 
 
-const tupBiMap = f => g => ([x, y]) =>
+const tupBimap = f => g => ([x, y]) =>
   [f(x), g(y)];
 
 
