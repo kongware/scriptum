@@ -3330,6 +3330,7 @@ module.exports = {
   arrAp,
   arrApo,
   arrAppend,
+  arrAppendx,
   arrChain,
   arrChainRec,
   arrClone,
