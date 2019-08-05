@@ -2,7 +2,7 @@
 
 # Status
 
-This functional library is still work in progress but already in production use.
+This functional library is still work in progress and rather experimental than ready for production. 
 
 ## What
 
