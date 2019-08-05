@@ -3517,6 +3517,7 @@ module.exports = {
   inRange,
   invoke,
   introspect,
+  isDate,
   isDateStr,
   isFalse,
   isIntStr,
