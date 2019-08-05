@@ -1343,6 +1343,11 @@ const andp = p => q => x =>
   p(x) && q(x);
 
       
+const isDate = x =>
+  introspect(x) === "Date"
+    && !Number.isNaN(x.getTime());
+
+
 const isDateStr = s =>
   Number.isNaN(new Date(s).getTime())
     ? false : true;
