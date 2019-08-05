@@ -611,7 +611,7 @@ const arrConcat =
 // arrPrepend @derived
 
 
-// arrPrepend @derived
+// arrPrependx @derived
 
 
 /***[Transduce]***************************************************************/
