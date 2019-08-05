@@ -372,7 +372,7 @@ const or = x => y =>
 /***[Applicative]*************************************************************/
 
 
-const arrAp = fs => xs => // TODO: replace reduce
+const arrAp = fs => xs => // TODO: use fold
   fs.reduce((acc, f) =>
     acc.concat(xs.map(x => f(x))), []);
 
@@ -390,19 +390,19 @@ const arrChainRec = f => {
   let step = f();
 
   if (step && step.type === recur)
-    arrPushFlat(stack) (step.arg);
+    arrAppendx(stack) (step.arg);
 
   else
-    arrPushFlat(acc) (step.arg);
+    arrAppendx(acc) (step.arg);
 
   while (stack.length > 0) {
     step = f(stack.shift());
 
     if (step && step.type === recur)
-      arrPushFlat(stack) (step.arg);
+      arrAppendx(stack) (step.arg);
 
     else
-      arrPushFlat(acc) (step);
+      arrAppendx(acc) (step);
   }
 
   return acc;
@@ -552,8 +552,8 @@ const arrSeqF = x => xs => {
 /***[Monad]*******************************************************************/
 
 
-const arrChain = fm => xs => // TODO: replace reduce
-  xs.reduce((acc, x) => arrPushFlat(acc) (fm(x)), []);
+const arrChain = fm => xs => // TODO: use fold
+  xs.reduce((acc, x) => arrAppendx(acc) (fm(x)), []);
 
 
 const arrJoin = xss => {
@@ -576,10 +576,10 @@ const arrEmpty = [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => { // CAUTION: expects arrays in both arguments
+const arrAppend = xs => ys => { // NOTE: expects arrays in both arguments
   const zs = arrClone(xs);
 
-  if (!Array.isArray(ys))
+  if (!ys || ys.length === undefined)
     throw new SemigroupError(`array expected but "${ys}" given`);
 
   else {
@@ -591,11 +591,27 @@ const arrAppend = xs => ys => { // CAUTION: expects arrays in both arguments
 };
 
 
-// arrAppendf @derived
+const arrAppendx = xs => ys => { // NOTE: expects arrays in both arguments
+  if (!ys || ys.length === undefined)
+    throw new SemigroupError(`array expected but "${ys}" given`);
+
+  else {
+    for (let i = 0; i < ys.length; i++)
+      xs.push(ys[i]);
+  }
+
+  return xs;
+};
 
 
 const arrConcat =
   concat({append: arrAppend, empty: arrEmpty});
+
+
+// arrPrepend @derived
+
+
+// arrPrepend @derived
 
 
 /***[Transduce]***************************************************************/
@@ -645,7 +661,7 @@ const arrApo = coalg => x => { // TODO: make non-strict
       case "Some": {
         switch (tx.runOption[1].tag) {
           case "Left": {
-            arrPushFlat(acc)
+            arrAppendx(acc)
               ((tx.runOption[1].runEither.unshift(tx.runOption[0]),
                 tx.runOption[1].runEither));
             
@@ -684,12 +700,12 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 
         switch(optX_.tag) {
           case "None": {
-            arrPushFlat(acc) ((ys.unshift(y), ys));
+            arrAppendx(acc) ((ys.unshift(y), ys));
             return acc;
           }
 
           case "Some": {
-            arrPushFlat(acc) ((ys.unshift(y), ys)); 
+            arrAppendx(acc) ((ys.unshift(y), ys)); 
             x = optX_.runOption;
             break;
           }
@@ -721,28 +737,30 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrMapAccum
 
 
-// TODO: add arrTailOr
-
-
-// TODO: add arrInitOr
-
-
-// TODO: add arrLastOr
-
-
-// TODO: add arrSpan
-
-
-// TODO: add arrUncons
-
-
-// TODO: add arrUntail
-
-
-// TODO: add arrShift
-
-
 // TODO: add arrGroupBy
+
+
+
+const arrCons = xs => x => {
+  const ys = arrClone(xs);
+  ys.push(x);
+  return ys;
+};
+
+
+const arrConsf = x => xs => {
+  const ys = arrClone(xs);
+  ys.push(x);
+  return ys;
+};
+
+
+const arrConsfx = x => xs =>
+  (xs.push(x), xs);
+
+
+const arrConsx = xs => x =>
+  (xs.push(x), xs);
 
 
 const arrDedupeBy = f => xs => {
@@ -780,6 +798,22 @@ const arrHeadOr = def => xs =>
     : xs[0];
 
 
+const arrInit = xs =>
+  xs.slice(0, -1);
+
+
+const arrLast = xs =>
+  xs.length === 0
+    ? None
+    : Some(xs[xs.length - 1]);
+
+
+const arrLastOr = def => xs =>
+  xs.length === 0
+    ? def
+    : xs[xs.length - 1];
+
+
 const arrModOr = def => (i, f) => xs =>
   arrModOrx(def) (i, f) (arrClone(xs));
 
@@ -790,42 +824,10 @@ const arrModOrx = def => (i, f) => xs =>
     : xs[i] = def;
 
 
-const arrPartition = f => xs => // TODO: replace reduce
+const arrPartition = f => xs => // TODO: use fold
   xs.reduce((m, x) =>
     _let((r = f(x), ys = m.get(r) || []) =>
       m.set(r, (ys.push(x), ys))), new Map());
-
-
-const arrPop = xs => x =>
-  (xs.pop(x), xs);
-
-
-const arrPopf = x => xs =>
-  (xs.pop(x), xs);
-
-
-const arrPopFlat = xs => ys => {
-  ys.forEach(x =>
-    xs.pop(x));
-
-  return xs;
-};
-
-
-const arrPush = xs => x =>
-  (xs.push(x), xs);
-
-
-const arrPushf = x => xs =>
-  (xs.push(x), xs);
-
-
-const arrPushFlat = xs => ys => {
-  ys.forEach(x =>
-    xs.push(x));
-
-  return xs;
-};
 
 
 const arrScan = f => x_ => xs => // TODO: use fold
@@ -860,24 +862,52 @@ const arrSwapEntries =
         (new Map());
 
 
+const arrTail = xs =>
+  xs.slice(1);
+
+
 const arrTranspose = matrix =>
   matrix[0].map((_, i) =>
     matrix.map(xs => xs[i]));
 
 
-const arrUnshift = xs => x =>
-  (xs.unshift(x), xs);
+const arrUncons = xs => {
+  const ys = arrClone(xs);
+
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([ys.unshift(), ys]);
+};
 
 
-const arrUnshiftf = x => xs =>
-  (xs.unshift(x), xs);
+const arrUnconsx = xs => {
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([xs.unshift(), xs]);
+};
 
 
-const arrUnshiftFlat = xs => ys => {
-  ys.forEach(x =>
-    xs.unshift(x));
+const arrUnconsOr = def => xs => {
+  const ys = arrClone(xs);
 
-  return xs;
+  if (xs.length === 0)
+    return [def, ys];
+
+  else
+    return [ys.unshift(), ys];
+};
+
+
+const arrUnconsOrx = def => xs => {
+  if (xs.length === 0)
+    return [def, xs];
+
+  else
+    return [xs.unshift(), xs];
 };
 
 
@@ -1807,7 +1837,7 @@ const strSet = (r, t, flags) => s =>
 const strChunk = n =>
   strFold(
     acc => (s, i) =>
-      [arrPush(acc) (s.slice(i, i + n)), i + 1])
+      [arrAppendx(acc) ([s.slice(i, i + n)]), i + 1])
         ([]);
 
 
@@ -1890,7 +1920,10 @@ const tupSecond = f => ([x, y]) =>
 ******************************************************************************/
 
 
-const arrAppendf = flip(arrAppend);
+const arrPrepend = flip(arrAppend);
+
+
+const arrPrependx = flip(arrAppendx);
 
 
 const getDay = d => d.getDate();
@@ -3297,11 +3330,14 @@ module.exports = {
   arrAp,
   arrApo,
   arrAppend,
-  arrAppendf,
   arrChain,
   arrChainRec,
   arrClone,
   arrConcat,
+  arrCons,
+  arrConsf,
+  arrConsx,
+  arrConsfx,
   arrDedupeBy,
   arrDedupeOn,
   arrEmpty,
@@ -3314,6 +3350,9 @@ module.exports = {
   arrFutu,
   arrHead,
   arrHeadOr,
+  arrInit,
+  arrLast,
+  arrLastOr,
   arrHisto,
   arrHylo,
   arrJoin,
@@ -3327,12 +3366,8 @@ module.exports = {
   arrPara,
   arrParaWhile,
   arrPartition,
-  arrPop,
-  arrPopf,
-  arrPopFlat,
-  arrPush,
-  arrPushf,
-  arrPushFlat,
+  arrPrepend,
+  arrPrependx,
   arrScan,
   arrSeqF,
   arrSet,
@@ -3341,13 +3376,15 @@ module.exports = {
   arrSortByx,
   arrSum,
   arrSwapEntries,
+  arrTail,
   arrTransduce,
   arrTransduceWhile,
   arrTranspose,
+  arrUncons,
+  arrUnconsx,
+  arrUnconsOr,
+  arrUnconsOrx,
   arrUnfold,
-  arrUnshift,
-  arrUnshiftf,
-  arrUnshiftFlat,
   arrUnzip,
   arrZip,
   arrZipBy,
