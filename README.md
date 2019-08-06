@@ -716,17 +716,49 @@ As already mentioned scriptum distinguishes between sequential and parallel eval
 
 ### `Task`
 
-TODO
+Represents sequentially evaluated asynchronous computations and is based on continutions or rather continuation passing style (CPS). With `Task` you can abstract from asynchronous functions and mix them with pure ones transparently:
 
+```Javascript
+const sqr = n => n * n;
+  
+const tx = tMap(sqr)
+  (fileRead("utf8")
+    ("./five.txt"));
+    
+tx.runTask(console.log, console.error); // logs 25
+```
+```Javascript
+const add = m => n => m + n;
+  
+const tx = fileRead("utf8")
+  ("./five.txt");
+
+const ty = fileRead("utf8")
+  ("./six.txt");
+
+const tz = tAp(tMap(add) (tx)) (ty);
+
+tz.runTask(console.log, console.error); // logs 11
+```
 ### `Parallel`
 
-TODO
+Like `Task` but runs asynchronous computations in parallel. Since monads depend on the value of the previous monadic computation `Parallel` doesn't implement the monad typeclass.
 
 ### Sharing
 
 Sharing just means that intermediate results of asynchronous computations are evaluated only once but can be used any number of times.
 
-TODO
+```Javascript
+const add = m => n => m + n;
+
+const tx = fileRead("utf8")
+  ("./five.txt");
+
+const ty = tAp(tMap(add) (tx)) (tx);
+
+bar.runTask(console.log, console.error); // logs 10
+```
+The crucial property here is that although `tx` is used twice, the corresponding asynchronous computation (`fileRead`) is only evaluated once, that is the result of the first evaluation is shared with subsequent calls.
 
 ## Functional Optics
 
