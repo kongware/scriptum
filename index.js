@@ -3274,7 +3274,7 @@ const fileMove_ = fs => flags => newPath => path =>
     });
 
 
-const fileRead_  = fs => enc => path =>
+const fileRead_ = fs => enc => path =>
   Task((res, rej) =>
     fs.readFile(path, enc, (e, s) =>
       e ? rej(e) : res(s)));
