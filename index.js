@@ -740,6 +740,9 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 // TODO: add arrGroupBy
 
 
+// TODO: add arrFindBy/arrFindIndexBy
+
+
 
 const arrCons = xs => x => {
   const ys = arrClone(xs);
