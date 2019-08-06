@@ -1089,23 +1089,3 @@ Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `A
 ## `Object` Property Insertion Order
 
 Although not part of the spec all majr Javascript engines traverse `Object` properties in insertion order. With scriptum you must not rely on this property, because the lib treats `Object`s unordered `Map`s.
-
-# TODO
-
-- [ ] add type signatures!!!
-- [ ] add common transducers
-- [ ] add persistent data structure by hash array mapped trie (HAMT)
-- [ ] add List/Catenable List/Random Access/Difference List
-- [ ] add Multiway Trees
-- [ ] add Zipper data type
-- [ ] add useful Comonads
-- [ ] add Monad Transformers
-- [ ] add Reference Type (value objects)?
-- [ ] remove contravariant types (`Compare`, `Equiv`, `Predicate`)?
-- [ ] replace `Array.prototype.concat` with `arrAppend`/`arrConcat`?
-- [ ] replace `switch` with `match` as often as possible
-- [ ] rename `traverse` to `mapA`?
-- [ ] how to lift a semigroup into Option forming a monoid?
-- [ ] how to create a monoid under Applicative?
-- [ ] how to create a monoid under Alternative?
-- [ ] shouldn't arrSortBy rely on compBoth?
