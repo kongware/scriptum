@@ -2947,14 +2947,36 @@ const State = struct("State");
 /***[Applicative]*************************************************************/
 
 
+const stateAp = tf => tx =>
+  State(y => {
+    const [f, y_] = tf.runState(y),
+      [x, y__] = tx.runState(y_);
+
+    return [f(x), y__];
+  });
+
+
 const stateOf = x => State(y => [x, y]);
+
+
+/***[Functor]*****************************************************************/
+
+
+const stateMap = f => tx =>
+  State(y => {
+    const [x, y_] = tx.runState(y);
+    return [f(x), y_];
+  });
 
 
 /***[Monad]*******************************************************************/
 
 
-const stateChain = fm => mg =>
-  State(y => _let(([x, y_] = mg.runState(y)) => fm(x).runState(y_)));
+const stateChain = fm => mx =>
+  State(y => {
+    const [x, y_] = mx.runState(y);
+    return fm(x).runState(y_);
+  });
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3671,9 +3693,11 @@ module.exports = {
   setMap,
   Some,
   State,
+  stateAp,
   stateChain,
   stateGet,
   stateGets,
+  stateMap,
   stateModify,
   stateOf,
   statePut,
