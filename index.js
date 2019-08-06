@@ -3017,13 +3017,8 @@ const sumAppendf = sumAppend;
 ******************************************************************************/
 
 
-const Task = structGetter("Task")
-  (Task => k => Task({
-    get runTask() {
-      const r = k(id, id);
-      delete this.runTask;
-      return this.runTask = l => l(r);
-    }}));
+const Task = structn("Task")
+  (Task => k => Task((res, rej) => k(res, rej)));
 
 
 /***[Applicative]*************************************************************/
