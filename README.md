@@ -227,20 +227,6 @@ match(ty, {
 
 Takes an `Object` and an expression that evaluates to a union type and assigns this result to an argument visible in the same scope as the provided `Object`.
 
-# `Promise` Compatibility
-
-There are two types in scriptum `Task` and `Parallel` that handle asynchronous computations sequential and parallel respectively. A `Promise` returning function (or rather action) can be easily wired with these types:
-
-```Javascript
-const foo = x =>
-  new Promise((res, rej) => x > 0
-    ? res(x)
-    : rej("must be greater than zero"));
-
-const fooTask = x => foo(x)
-  .then(y => Task((res, rej) => res(x)))
-  .catch(e => Task((res, rej) => rej(e)));
-```
 # Debugging
 
 scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
@@ -759,6 +745,22 @@ const ty = tAp(tMap(add) (tx)) (tx);
 bar.runTask(console.log, console.error); // logs 10
 ```
 The crucial property here is that although `tx` is used twice, the corresponding asynchronous computation (`fileRead`) is only evaluated once, that is the result of the first evaluation is shared with subsequent calls.
+
+### `Promise` Compatibility
+
+A `Promise` returning function (or rather action) can be easily wired with both `Task` and `Parallel` types:
+
+```Javascript
+const foo = x =>
+  new Promise((res, rej) => x > 0
+    ? res(x)
+    : rej("must be greater than zero"));
+
+const fooTask = x => foo(x)
+  .then(y => Task((res, rej) => res(x)))
+  .catch(e => Task((res, rej) => rej(e)));
+```
+The `Promise` type is neither a monad nor a functor. It's a type specific to Javascript, which behaves quite differently than monadic types. It is unnecessary to mention that you should use monadic types whenever possible.
 
 ## Functional Optics
 
