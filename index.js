@@ -2619,13 +2619,18 @@ const ordAppendf = ordAppend;
 ******************************************************************************/
 
 
-const Parallel = structGetter("Parallel") // CAUTION: Untested
-  (Parallel => k => Parallel({
-    get runParallel() {
-      const r = k(id, id);
-      delete this.runParallel;
-      return this.runParallel = l => l(r);
-    }}));
+// NOTE: This type is mainly untested and may undergo major changes in the future. 
+
+
+const Parallel = structGetter("Parallel")
+  (Parallel => k => Parallel(thisify(o => {
+    o.runParallel = (res, rej) => k(x => {
+      o.runParallel = l => l(x);
+      return res(x);
+    }, rej);
+    
+    return o;
+  })));
 
 
 /***[Foldable]****************************************************************/
@@ -3017,8 +3022,15 @@ const sumAppendf = sumAppend;
 ******************************************************************************/
 
 
-const Task = structn("Task")
-  (Task => k => Task((res, rej) => k(res, rej)));
+const Task = structGetter("Task")
+  (Task => k => Task(thisify(o => {
+    o.runTask = (res, rej) => k(x => {
+      o.runTask = l => l(x);
+      return res(x);
+    }, rej);
+    
+    return o;
+  })));
 
 
 /***[Applicative]*************************************************************/
