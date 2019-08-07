@@ -3194,15 +3194,28 @@ const Writer = structn("Writer")
 /***[Applicative]*************************************************************/
 
 
+const writeAp = append => ({runWriter: [f, y]}) => ({runWriter: [x, y_]}) =>
+  Writer(f(x), append(y) (y_));  
+
+
 const writeOf = empty => x =>
   Writer(x, empty);
+
+
+/***[Functor]*****************************************************************/
+
+
+const writeMap = f => ({runWriter: [x, y]}) =>
+  Writer(f(x), y);
 
 
 /***[Monad]*******************************************************************/
 
 
-const writeChain = append => fm => mx =>
-  mx.runWriter(([x, y]) => f(x).runWriter(([x_, y_]) => Writer(x_, append(y) (y_))));
+const writeChain = append => fm => ({runWriter: [x, y]}) => {
+  const [x_, y_] = fm(x).runWriter;
+  return Writer(x_, append(y) (y_));
+};
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3787,10 +3800,12 @@ module.exports = {
   varLiftM,
   varPipe,
   Writer,
+  writeAp,
   writeCensor,
   writeChain,
   writeListen,
   writeListens,
+  writeMap,
   writeOf,
   writePass,
   writeTell,
