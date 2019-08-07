@@ -3098,7 +3098,7 @@ const tChain2 = fm => mx => my =>
       fm(x) (y).runTask(res, rej), rej), rej));
 
 
-const tChainT = ({chain, of}) => fm => mmx => // CAUTION: fm merely returns the inner monad
+const tChainT = ({chain, of}) => fm => mmx => // NOTE: fm only returns the inner monad hence of is necessary
   chain(mx =>
     of(tChain(fm) (mx))) (mmx);
 
