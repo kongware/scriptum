@@ -725,25 +725,6 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 /***[Misc. Combinators]*******************************************************/
 
 
-// TODO: add arrDiffl/arrDiffr
-
-
-// TODO: add arrIntersect/arrIntersectBy
-
-
-// TODO: add arrUnion/arrUnionBy
-
-
-// TODO: add arrMapAccum
-
-
-// TODO: add arrGroupBy
-
-
-// TODO: add arrFindBy/arrFindIndexBy
-
-
-
 const arrCons = xs => x => {
   const ys = arrClone(xs);
   ys.push(x);
