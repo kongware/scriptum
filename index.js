@@ -2392,24 +2392,31 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 /***[Misc. Combinators]*******************************************************/
 
 
-const lensDel = k => o =>
-  objLens(idMap) (k).runLens(_const(Id(null))) (o);
+const lensDel = lens => k => o =>
+  lens(idMap)
+    (k).runLens(_const(Id(null))) (o)
+      .runId;
 
 
-const lensGet = k => o => 
-  objLens(constMap) (k).runLens(tx => Const(tx)) (o);
+const lensGet = lens => k => o => 
+  lens(constMap)
+    (k).runLens(tx => Const(tx)) (o)
+      .runConst;
 
 
 // TODO: add lensMapped
 
 
-const lensMod = (k, f) => o => // aka lensOver
-  objLens(idMap) ("xyz").runLens(tx =>
-    Id(optMap(x => x.toUpperCase()) (tx))) (o);
+const lensMod = lens => (k, f) => o => // aka lensOver
+  lens(idMap) ("xyz").runLens(tx =>
+    Id(optMap(x => x.toUpperCase()) (tx))) (o)
+      .runId;
 
 
-const lensSet = (k, v) => o =>
-  objLens(idMap) (k).runLens(_const(Id(v))) (o);
+const lensSet = lens => (k, v) => o =>
+  lens(idMap)
+    (k).runLens(_const(Id(v))) (o)
+      .runId;
 
 
 /******************************************************************************
