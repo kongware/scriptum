@@ -725,25 +725,47 @@ const arrFutu = coalg => x => { // TODO: make non-strict
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrCons = xs => x => {
+const arrConsHead = xs => x => {
+  const ys = arrClone(xs);
+  ys.unshift(x);
+  return ys;
+};
+
+
+const arrConsHeadf = x => xs => {
+  const ys = arrClone(xs);
+  ys.unshift(x);
+  return ys;
+};
+
+
+const arrConsHeadfx = x => xs =>
+  (xs.unshift(x), xs);
+
+
+const arrConsHeadx = xs => x =>
+  (xs.unshift(x), xs);
+
+
+const arrConsLast = xs => x => {
   const ys = arrClone(xs);
   ys.push(x);
   return ys;
 };
 
 
-const arrConsf = x => xs => {
+const arrConsLastf = x => xs => {
   const ys = arrClone(xs);
   ys.push(x);
   return ys;
 };
 
 
-const arrConsfx = x => xs =>
+const arrConsLastfx = x => xs =>
   (xs.push(x), xs);
 
 
-const arrConsx = xs => x =>
+const arrConsLastx = xs => x =>
   (xs.push(x), xs);
 
 
@@ -2363,13 +2385,13 @@ const Lens = struct("Lens");
 
 
 const objLens = map => k =>
-  Lens(f => o => map(x =>
-    objUnionx(objDel(k) (o)) (x === null ? {} : {[k]: x})) (f(o[k])));
+  Lens(f => o => map(v =>
+    objUnionx(objDel(k) (o)) (v === null ? {} : {[k]: v})) (f(o[k])));
 
 
 const objLensx = map => k =>
-  Lens(f => o => map(x =>
-    objUnionx(objDelx(k) (o)) (x === null ? {} : {[k]: x})) (f(o[k])));
+  Lens(f => o => map(v =>
+    objUnionx(objDelx(k) (o)) (v === null ? {} : {[k]: v})) (f(o[k])));
 
 
 /***[Category]****************************************************************/
@@ -3387,10 +3409,14 @@ module.exports = {
   arrChainRec,
   arrClone,
   arrConcat,
-  arrCons,
-  arrConsf,
-  arrConsx,
-  arrConsfx,
+  arrConsHead,
+  arrConsHeadf,
+  arrConsHeadx,
+  arrConsHeadfx,
+  arrConsLast,
+  arrConsLastf,
+  arrConsLastx,
+  arrConsLastfx,
   arrDedupeBy,
   arrDedupeOn,
   arrEmpty,
