@@ -2367,6 +2367,11 @@ const objLens = map => k =>
     objUnionx(objDel(k) (o)) (x === null ? {} : {[k]: x})) (f(o[k])));
 
 
+const objLensx = map => k =>
+  Lens(f => o => map(x =>
+    objUnionx(objDelx(k) (o)) (x === null ? {} : {[k]: x})) (f(o[k])));
+
+
 /***[Category]****************************************************************/
 
 
@@ -2388,23 +2393,23 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 
 
 const lensDel = k => o =>
-  objPrism(idMap) (k).runLens(_const(Id(null))) (o);
+  objLens(idMap) (k).runLens(_const(Id(null))) (o);
 
 
 const lensGet = k => o => 
-  objPrism(constMap) (k).runLens(tx => Const(tx)) (o);
+  objLens(constMap) (k).runLens(tx => Const(tx)) (o);
 
 
 // TODO: add lensMapped
 
 
 const lensMod = (k, f) => o => // aka lensOver
-  objPrism(idMap) ("xyz").runLens(tx =>
+  objLens(idMap) ("xyz").runLens(tx =>
     Id(optMap(x => x.toUpperCase()) (tx))) (o);
 
 
 const lensSet = (k, v) => o =>
-  objPrism(idMap) (k).runLens(_const(Id(v))) (o);
+  objLens(idMap) (k).runLens(_const(Id(v))) (o);
 
 
 /******************************************************************************
@@ -2778,6 +2783,15 @@ const objPrism = map => k =>
       type: "Option",
       get None() {return o},
       get Some() {return objUnionx(objDel(k) (o)) (tx.runOption === null ? {} : {[k]: tx.runOption})}
+    })) (f(k in o ? Some(o[k]) : None)));
+
+
+const objPrismx = map => k =>
+  Prism(f => o => map(tx =>
+    match(tx, {
+      type: "Option",
+      get None() {return o},
+      get Some() {return objUnionx(objDelx(k) (o)) (tx.runOption === null ? {} : {[k]: tx.runOption})}
     })) (f(k in o ? Some(o[k]) : None)));
 
 
@@ -3565,7 +3579,11 @@ module.exports = {
   Lens,
   lensComp,
   lensComp3,
+  lensDel,
+  lensGet,
   lensId,
+  lensMod,
+  lensSet,
   lensVarComp,
   _let,
   local,
@@ -3615,10 +3633,12 @@ module.exports = {
   objGetOr,
   objKeys,
   objLens,
+  objLensx,
   objModOr,
   objModOrx,
   objPathOr,
   objPrism,
+  objPrismx,
   objSet,
   objSetx,
   objUnion,
@@ -3662,6 +3682,9 @@ module.exports = {
   predContra,
   predEmpty,
   Prism,
+  prismGet,
+  prismMod,
+  prismSet,
   Prod,
   prodAppend,
   prodAppendf,
