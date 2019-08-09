@@ -768,6 +768,8 @@ TODO
 
 ### Lenses
 
+Please note that `Object` lenses modify the insertion order of properties, that is to say with scriptum you should never rely on such an order.
+
 TODO
 
 ### Prisms
