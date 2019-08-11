@@ -2292,6 +2292,31 @@ const objGetter = k =>
           (ft(o[k])));
 
 
+/***[Category]****************************************************************/
+
+
+const getComp = tx => ty =>
+  Getter(x => tx.runGetter(ty.runGetter(x)));
+
+
+const getComp3 = tx => ty => tz =>
+  Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
+
+
+const getId = Getter(id);
+
+
+const getVarComp = varComp({comp: getComp, id: getId});
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const getGet = tx => o =>
+  tx.runGetter(Const) (o)
+    .runConst;
+
+
 /******************************************************************************
 **********************************[ HISTORY ]**********************************
 ******************************************************************************/
@@ -3022,6 +3047,38 @@ const objSetter = objSetter_(objDel);
 const objSetterx = objSetter_(objDelx);
 
 
+/***[Category]****************************************************************/
+
+
+const setComp = tx => ty =>
+  Setter(x => tx.runSetter(ty.runSetter(x)));
+
+
+const setComp3 = tx => ty => tz =>
+  Setter(x => tx.runSetter(ty.runSetter(tz.runSetter(x))));
+
+
+const setId = Setter(id);
+
+
+const setVarComp = varComp({comp: setComp, id: setId});
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const setDel = tx => o =>
+  tx.runSetter(_const(Id(null))) (o);
+
+
+const setMod = tx => f => o =>
+  tx.runSetter(v => Id(f(v))) (o);
+
+
+const setSet = tx => v => o =>
+  tx.runSetter(_const(Id(v))) (o);
+
+
 /******************************************************************************
 ***********************************[ STATE ]***********************************
 ******************************************************************************/
@@ -3633,10 +3690,15 @@ module.exports = {
   funRmap,
   funVarComp,
   funVarPipe,
+  getComp,
+  getComp3,
   getDay,
+  getGet,
+  getId,
   getMonth,
   getMonthDays,
   Getter,
+  getVarComp,
   getYear,
   GT,
   guard,
@@ -3805,8 +3867,15 @@ module.exports = {
   select11,
   select1N,
   SemigroupError,
+  setComp,
+  setComp3,
+  setDel,
+  setId,
   setMap,
+  setMod,
+  setSet,
   Setter,
+  setVarComp,
   Some,
   State,
   stateAp,
