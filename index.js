@@ -2384,14 +2384,33 @@ const Lens = struct("Lens");
 /***[Instances]***************************************************************/
 
 
-const objLens = map => k =>
-  Lens(f => o => map(v =>
-    objUnionx(objDel(k) (o)) (v === null ? {} : {[k]: v})) (f(o[k])));
+// Object
 
 
-const objLensx = map => k =>
-  Lens(f => o => map(v =>
-    objUnionx(objDelx(k) (o)) (v === null ? {} : {[k]: v})) (f(o[k])));
+const objLens_ = objDel => k =>
+  Lens(ft => o => {
+    const tx = ft(o[k]);
+    let map;
+
+    switch (tx[TYPE]) { // manual inferring is necessary
+      case "Const": map = constMap; break;
+      case "Id": map = idMap; break;
+      default: throw new Error();
+    }
+
+    return map(v =>
+      objUnionx(
+        objDel(k) (o))
+          (v === null
+            ? {}
+            : {[k]: v}))
+                (tx)});
+
+
+const objLens = objLens_(objDel);
+
+
+const objLensx = objLens_(objDelx);
 
 
 /***[Category]****************************************************************/
@@ -2414,31 +2433,21 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 /***[Misc. Combinators]*******************************************************/
 
 
-const lensDel = lens => k => o =>
-  lens(idMap)
-    (k).runLens(_const(Id(null))) (o)
-      .runId;
+const lensDel = tx => o =>
+  tx.runLens(_const(Id(null))) (o); // null as property value denotes deletion
 
 
-const lensGet = lens => k => o => 
-  lens(constMap)
-    (k).runLens(tx => Const(tx)) (o)
-      .runConst;
+const lensGet = tx => o =>
+  tx.runLens(Const) (o)
+    .runConst;
 
 
-// TODO: add lensMapped
+const lensMod = tx => f => o =>
+  tx.runLens(v => Id(f(v))) (o);
 
 
-const lensMod = lens => (k, f) => o => // aka lensOver
-  lens(idMap) ("xyz").runLens(tx =>
-    Id(optMap(x => x.toUpperCase()) (tx))) (o)
-      .runId;
-
-
-const lensSet = lens => (k, v) => o =>
-  lens(idMap)
-    (k).runLens(_const(Id(v))) (o)
-      .runId;
+const lensSet = tx => v => o =>
+  tx.runLens(_const(Id(v))) (o);
 
 
 /******************************************************************************
