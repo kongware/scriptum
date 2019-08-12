@@ -764,6 +764,12 @@ The `Promise` type is neither a monad nor a functor. It's a type specific to Jav
 
 ## Functional Optics
 
+Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or to represent a case of a value that consists of several alternative cases.
+
+Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still performant, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
+
+scriptum, however, offers an impure counterpart for each optic, which performs destructive updates. As long as you keep thes destructive updates local, you can benefit from the additional performance without exposing yourself to the drawbacks of side effects.
+
 ### Lenses
 
 scriptum uses van Laarhoven lenses that are essentially based on the following building block:
