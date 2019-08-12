@@ -768,9 +768,19 @@ TODO
 
 ### Lenses
 
-Please note that `Object` lenses modify the insertion order of properties, that is to say with scriptum you should never rely on such an order.
+scriptum uses van Laarhoven lenses that are essentially based on the following building block:
+
+```Javacript
+Functor<f> => (a -> f<b>) -> s -> f<t>
+```
+where `a` is an element inside `s`. As you can see we may transform both the element `a` into `b` and its containing structure `s` into `t` inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but a new structure inside a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and as a setter. The concrete behavior depends on the given functor:
+
+* `Const` turns the `Lens` into a getter
+* `Id` turns the `Lens` into a setter
 
 TODO
+
+Please note that `Object` lenses modify the insertion order of properties, that is to say with scriptum you should never rely on such an order.
 
 ### Prisms
 
