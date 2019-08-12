@@ -778,13 +778,43 @@ where `a` is an element inside `s`. As you can see we may transform both the ele
 * `Const` turns the `Lens` into a getter
 * `Id` turns the `Lens` into a setter
 
-TODO
+You can think of a `Lense` as something that represents a has-a relationship.
+
+TODO:
+* example
+* product type
+* has-a relationship
+* focus on exactly one target
+* cannot be inverted
 
 Please note that `Object` lenses modify the insertion order of properties, that is to say with scriptum you should never rely on such an order.
 
+### Getter
+
+A `Getter` is just a `Lens` specialized to the `Const` functor:
+
+```Javacript
+(a -> Const<a>) -> s -> Const<s>
+```
+TODO: Example
+
+### Setter
+
+A `Setter` is just a `Lens` specialized to the `Id` functor:
+
+```Javacript
+(a -> Id<a>) -> s -> Id<s>
+```
+TODO: Example
+
 ### Prisms
 
-TODO
+In contrast to a `Lens`, a `Prism` is something that represents a is-a relationship. It is one of several cases of a sum type.
+
+TODO:
+* Prism is not a Getter
+* can be inverted
+
 
 ### Folds
 
