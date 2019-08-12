@@ -2281,7 +2281,7 @@ const firstAppend = x => _ => x;
 ******************************************************************************/
 
 
-const Getter = struct("Getter");
+// const Getter = struct("Getter");
 
 
 /***[Instances]***************************************************************/
@@ -2291,7 +2291,7 @@ const Getter = struct("Getter");
 
 
 const objGetter = k =>
-  Getter(ft => o =>
+  Lens(_ => ft => o =>
     ft(o[k]));
 
 
@@ -2299,14 +2299,14 @@ const objGetter = k =>
 
 
 const getComp = tx => ty =>
-  Getter(x => tx.runGetter(ty.runGetter(x)));
+  Lens(x => tx.runLens() (ty.runLens() (x)));
 
 
 const getComp3 = tx => ty => tz =>
-  Getter(x => tx.runGetter(ty.runGetter(tz.runGetter(x))));
+  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
 
 
-const getId = Getter(id);
+const getId = Lens(id);
 
 
 const getVarComp = varComp({comp: getComp, id: getId});
@@ -2316,7 +2316,7 @@ const getVarComp = varComp({comp: getComp, id: getId});
 
 
 const getGet = tx => o =>
-  tx.runGetter(Const) (o)
+  tx.runLens(Const) (o)
     .runConst;
 
 
@@ -2980,7 +2980,7 @@ const local = f => tg =>
 ******************************************************************************/
 
 
-const Setter = struct("Setter");
+//const Setter = struct("Setter");
 
 
 /***[Instances]***************************************************************/
@@ -2990,7 +2990,7 @@ const Setter = struct("Setter");
 
 
 const objSetter_ = objDel => k =>
-  Setter(_ => ft => o =>
+  Lens(_ => ft => o =>
     idMap(v =>
       objUnionx(
         objDel(k) (o))
@@ -3010,14 +3010,14 @@ const objSetterx = objSetter_(objDelx);
 
 
 const setComp = tx => ty =>
-  Setter(x => tx.runSetter() (ty.runSetter() (x)));
+  Lens(x => tx.runLens() (ty.runLens() (x)));
 
 
 const setComp3 = tx => ty => tz =>
-  Setter(x => tx.runSetter() (ty.runSetter() (tz.runSetter() (x))));
+  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
 
 
-const setId = Setter(id);
+const setId = Lens(id);
 
 
 const setVarComp = varComp({comp: setComp, id: setId});
@@ -3027,15 +3027,15 @@ const setVarComp = varComp({comp: setComp, id: setId});
 
 
 const setDel = tx => o =>
-  tx.runSetter(_const(Id(null))) (o);
+  tx.runLens(_const(Id(null))) (o);
 
 
 const setMod = tx => f => o =>
-  tx.runSetter(v => Id(f(v))) (o);
+  tx.runLens(v => Id(f(v))) (o);
 
 
 const setSet = tx => v => o =>
-  tx.runSetter(_const(Id(v))) (o);
+  tx.runLens(_const(Id(v))) (o);
 
 
 /******************************************************************************
@@ -3657,7 +3657,6 @@ module.exports = {
   getId,
   getMonth,
   getMonthDays,
-  Getter,
   getVarComp,
   getYear,
   GT,
@@ -3832,7 +3831,6 @@ module.exports = {
   setMap,
   setMod,
   setSet,
-  Setter,
   setVarComp,
   Some,
   State,
