@@ -764,8 +764,6 @@ The `Promise` type is neither a monad nor a functor. It's a type specific to Jav
 
 ## Functional Optics
 
-TODO
-
 ### Lenses
 
 scriptum uses van Laarhoven lenses that are essentially based on the following building block:
@@ -773,21 +771,16 @@ scriptum uses van Laarhoven lenses that are essentially based on the following b
 ```Javacript
 Functor<f> => (a -> f<b>) -> s -> f<t>
 ```
-where `a` is an element inside `s`. As you can see we may transform both the element `a` into `b` and its containing structure `s` into `t` inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but a new structure inside a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and as a setter. The concrete behavior depends on the given functor:
+where `a` is exactly one target inside the composite structure `s`, also called product type. As you can see we may transform both the target `a` into `b` and its containing structure `s` into `t` all inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but one wrapped in a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and setter. The concrete behavior depends on the provided functor:
 
 * `Const` turns the `Lens` into a getter
 * `Id` turns the `Lens` into a setter
 
-You can think of a `Lense` as something that represents a has-a relationship.
+TODO: Example
 
-TODO:
-* example
-* product type
-* has-a relationship
-* focus on exactly one target
-* cannot be inverted
+If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
 
-Please note that `Object` lenses modify the insertion order of properties, that is to say with scriptum you should never rely on such an order.
+Side note: `Object` lenses modify the insertion order of properties, that is you should never rely on such an order when using scriptum.
 
 ### Getter
 
@@ -809,20 +802,21 @@ TODO: Example
 
 ### Prisms
 
-In contrast to a `Lens`, a `Prism` is something that represents a is-a relationship. It is one of several cases of a sum type.
+In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. Moreover prisms are invertible, i.e. you can create a tagged union out of it.
 
-TODO:
-* Prism is not a Getter
-* can be inverted
-
+TODO: Example
 
 ### Folds
 
-TODO
+A `Fold` is just a `Getter` where the functor constraint is replaced with the more rigid applicative typeclass. Since you can chain applicatives, folds are getters with multiple targets.
+
+TODO: Example
 
 ### Traversals
 
-TODO
+A `Traversable` is just a `Lens` where the functor constraint is replaced with the more rigid applicative typeclasse. Since you can chain applicatives, folds are lenses with multiple targets.
+
+TODO: Example
 
 ## Lazy Evaluation
 
