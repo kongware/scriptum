@@ -788,7 +788,7 @@ If you prefer a more abstract mental model you can think of a `Lens` as somethin
 
 Side note: `Object` lenses modify the insertion order of properties, that is you should never rely on such an order when using scriptum.
 
-### Getter
+### Getters
 
 A `Getter` is just a `Lens` specialized to the `Const` functor:
 
@@ -797,7 +797,7 @@ A `Getter` is just a `Lens` specialized to the `Const` functor:
 ```
 TODO: Example
 
-### Setter
+### Setters
 
 A `Setter` is just a `Lens` specialized to the `Id` functor:
 
