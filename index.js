@@ -2067,6 +2067,12 @@ const compMap = ({map1, map2}) => f => ttx =>
 const Const = struct("Const");
 
 
+/***[Applicative]*************************************************************/
+
+
+const constOf = x => Const(x);
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -2286,10 +2292,7 @@ const Getter = struct("Getter");
 
 const objGetter = k =>
   Getter(ft => o =>
-    constMap(v =>
-      objUnion(o)
-        ({[k]: v}))
-          (ft(o[k])));
+    ft(o[k]));
 
 
 /***[Category]****************************************************************/
@@ -2353,6 +2356,12 @@ const headH = tx => {
 
 
 const Id = struct("Id");
+
+
+/***[Applicative]*************************************************************/
+
+
+const idOf = x => Id(x);
 
 
 /***[Functor]*****************************************************************/
@@ -2435,23 +2444,14 @@ const Lens = struct("Lens");
 
 
 const objLens_ = objDel => k =>
-  Lens(ft => o => {
-    const tx = ft(o[k]);
-    let map;
-
-    switch (tx[TYPE]) { // manual inferring is necessary
-      case "Const": map = constMap; break;
-      case "Id": map = idMap; break;
-      default: throw new Error();
-    }
-
-    return map(v =>
+  Lens(map => ft => o =>
+    map(v =>
       objUnionx(
         objDel(k) (o))
           (v === null
             ? {}
             : {[k]: v}))
-                (tx)});
+                (ft(o[k])));
 
 
 const objLens = objLens_(objDel);
@@ -2464,11 +2464,13 @@ const objLensx = objLens_(objDelx);
 
 
 const lensComp = tx => ty =>
-  Lens(x => tx.runLens(ty.runLens(x)));
+  Lens(map => ft =>
+    tx.runLens(map) (ty.runLens(map) (ft)));
 
 
 const lensComp3 = tx => ty => tz =>
-  Lens(x => tx.runLens(ty.runLens(tz.runLens(x))));
+  Lens(map => ft =>
+    tx.runLens(map) (ty.runLens(map) (tz.runLesn(map) (ft))));
 
 
 const lensId = Lens(id);
@@ -2481,20 +2483,20 @@ const lensVarComp = varComp({comp: lensComp, id: lensId});
 
 
 const lensDel = tx => o =>
-  tx.runLens(_const(Id(null))) (o); // null as property value denotes deletion
+  tx.runLens(idMap) (_const(Id(null))) (o);
 
 
 const lensGet = tx => o =>
-  tx.runLens(Const) (o)
+  tx.runLens(constMap) (Const) (o)
     .runConst;
 
 
 const lensMod = tx => f => o =>
-  tx.runLens(v => Id(f(v))) (o);
+  tx.runLens(idMap) (v => Id(f(v))) (o);
 
 
 const lensSet = tx => v => o =>
-  tx.runLens(_const(Id(v))) (o);
+  tx.runLens(idMap) (_const(Id(v))) (o);
 
 
 /******************************************************************************
@@ -2853,74 +2855,31 @@ const predAppendf = predAppend;
 ******************************************************************************/
 
 
-const Prism = struct("Prism");
+// const Prism = struct("Prism"); Prism don't have its own type for tge time beeing
 
 
 /***[Instances]***************************************************************/
 
 
-// Object
-
-
-const objPrism = map => k =>
-  Prism(f => o => map(tx =>
-    match(tx, {
-      type: "Option",
-      get None() {return o},
-      get Some() {return objUnionx(objDel(k) (o)) (tx.runOption === null ? {} : {[k]: tx.runOption})}
-    })) (f(k in o ? Some(o[k]) : None)));
-
-
-const objPrismx = map => k =>
-  Prism(f => o => map(tx =>
-    match(tx, {
-      type: "Option",
-      get None() {return o},
-      get Some() {return objUnionx(objDelx(k) (o)) (tx.runOption === null ? {} : {[k]: tx.runOption})}
-    })) (f(k in o ? Some(o[k]) : None)));
-
-
 // Either
 
 
-const leftPrism = map =>
-  Prism(f => tx => map(ty =>
-    match(ty, {
-      type: "Option",
-      get None() {return tx},
-      
-      get Some() {
-        return match(tx, {
-          type: "Either",
-          get Left() {return Left(ty.runOption)},
-          get Right() {return tx}
-        })
-      }
-    })) (f(match(tx, {
+const leftPrism =
+  Lens(({map, of}) => ft => tx =>
+    match(tx, {
       type: "Either",
-      get Left() {return Some(tx.runEither)},
-      get Right() {return None}
-    }))));
+      get Left() {return map(Left) (ft(tx.runEither))},
+      get Right() {return of(tx)}
+    }));
 
 
-const rightPrism = map =>
-  Prism(f => tx => map(ty =>
-    match(ty, {
-      type: "Option",
-      get None() {return tx},
-      
-      get Some() {
-        return match(tx, {
-          type: "Either",
-          get Left() {return tx},
-          get Right() {return Right(ty.runOption)}
-        })
-      }
-    })) (f(match(ty, {
+const rightPrism =
+  Lens(({map, of}) => ft => tx =>
+    match(tx, {
       type: "Either",
-      get Left() {return None},
-      get Right() {return Some(tx.runEither)}
-    }))));
+      get Left() {return of(tx)},
+      get Right() {return map(Right) (ft(tx.runEither))}
+    }));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3031,7 +2990,7 @@ const Setter = struct("Setter");
 
 
 const objSetter_ = objDel => k =>
-  Setter(ft => o =>
+  Setter(_ => ft => o =>
     idMap(v =>
       objUnionx(
         objDel(k) (o))
@@ -3051,11 +3010,11 @@ const objSetterx = objSetter_(objDelx);
 
 
 const setComp = tx => ty =>
-  Setter(x => tx.runSetter(ty.runSetter(x)));
+  Setter(x => tx.runSetter() (ty.runSetter() (x)));
 
 
 const setComp3 = tx => ty => tz =>
-  Setter(x => tx.runSetter(ty.runSetter(tz.runSetter(x))));
+  Setter(x => tx.runSetter() (ty.runSetter() (tz.runSetter() (x))));
 
 
 const setId = Setter(id);
@@ -3609,6 +3568,7 @@ module.exports = {
   Const,
   _const,
   constMap,
+  constOf,
   Cont,
   contAp,
   contChain,
@@ -3708,6 +3668,7 @@ module.exports = {
   Id,
   id,
   idMap,
+  idOf,
   imply,
   index,
   infixl,
@@ -3796,8 +3757,6 @@ module.exports = {
   objModOr,
   objModOrx,
   objPathOr,
-  objPrism,
-  objPrismx,
   objSet,
   objSetter,
   objSetx,
@@ -3841,7 +3800,6 @@ module.exports = {
   predAppendf,
   predContra,
   predEmpty,
-  Prism,
   prismGet,
   prismMod,
   prismSet,
