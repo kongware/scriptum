@@ -764,9 +764,9 @@ The `Promise` type is neither a monad nor a functor. It's a type specific to Jav
 
 ## Functional Optics
 
-Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or to represent a case of a value that consists of several alternative cases.
+Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or a specific case of a value that consists of several alternative cases. The magical thing about functional optics is there ability to compose with each other, because all of them share the same basic type.
 
-Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still performant, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
+Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still efficient, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
 
 scriptum, however, offers an impure counterpart for each optic, which performs destructive updates. As long as you keep thes destructive updates local, you can benefit from the additional performance without exposing yourself to the drawbacks of side effects.
 
@@ -808,7 +808,14 @@ TODO: Example
 
 ### Prisms
 
-In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. Moreover prisms are invertible, i.e. you can create a tagged union out of it.
+In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. As opposed to lenses prisms are invertible, i.e. you can create a tagged union out of a plain value.
+
+You see there are a couple of differences between lenses and prisms and yet they share almost the same type and are thus composbale:
+
+```Javacript
+Applicative<f> => (a -> f<b>) -> s -> f<t>
+```
+`Prism` requires an applicative constraint because there must be a way to put a plain value into a minimal context. 
 
 TODO: Example
 
