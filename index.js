@@ -1354,9 +1354,24 @@ const isDate = x =>
     && !Number.isNaN(x.getTime());
 
 
-const isDateStr = s =>
-  Number.isNaN(new Date(s).getTime())
-    ? false : true;
+const isDateStr = s => {
+  const [y, m, d] = s.split("-");
+
+  if (String(Number(y)) !== y
+    || Number(y) < 0)
+      return false;
+
+  else if (Number(m) < 1
+    || Number(m) > 12)
+      return false;
+
+  else if (Number(d) < 1
+    || Number(d) > new Date(y, m, 0).getDate())
+      return false;
+
+  else
+    return true; 
+};
 
 
 const isFalse =x => x === false;
