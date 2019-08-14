@@ -808,6 +808,13 @@ const arrInit = xs =>
   xs.slice(0, -1);
 
 
+const arrInvert =
+  arrFold(
+    acc => (x, i) =>
+      acc.set(x, i))
+        (new Map());
+
+
 const arrLast = xs =>
   xs.length === 0
     ? None
@@ -859,13 +866,6 @@ const arrSortBy = f => xs =>
 
 const arrSortByx = f => xs =>
   xs.sort((x, y) => f(x) (y));
-
-
-const arrSwapEntries =
-  arrFold(
-    acc => (x, i) =>
-      acc.set(x, i))
-        (new Map());
 
 
 const arrTail = xs =>
@@ -3523,6 +3523,7 @@ module.exports = {
   arrHead,
   arrHeadOr,
   arrInit,
+  arrInvert,
   arrLast,
   arrLastOr,
   arrHisto,
@@ -3547,7 +3548,6 @@ module.exports = {
   arrSortBy,
   arrSortByx,
   arrSum,
-  arrSwapEntries,
   arrTail,
   arrTransduce,
   arrTransduceWhile,
