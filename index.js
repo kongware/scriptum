@@ -877,43 +877,83 @@ const arrTranspose = matrix =>
     matrix.map(xs => xs[i]));
 
 
-const arrUncons = xs => {
+const arrUnconsHead = xs => {
   const ys = arrClone(xs);
 
   if (xs.length === 0)
     return None;
 
   else
-    return Some([ys.unshift(), ys]);
+    return Some([ys.shift(), ys]);
 };
 
 
-const arrUnconsx = xs => {
+const arrUnconsHeadx = xs => {
   if (xs.length === 0)
     return None;
 
   else
-    return Some([xs.unshift(), xs]);
+    return Some([xs.shift(), xs]);
 };
 
 
-const arrUnconsOr = def => xs => {
+const arrUnconsHeadOr = def => xs => {
   const ys = arrClone(xs);
 
   if (xs.length === 0)
     return [def, ys];
 
   else
-    return [ys.unshift(), ys];
+    return [ys.shift(), ys];
 };
 
 
-const arrUnconsOrx = def => xs => {
+const arrUnconsHeadOrx = def => xs => {
   if (xs.length === 0)
     return [def, xs];
 
   else
-    return [xs.unshift(), xs];
+    return [xs.shift(), xs];
+};
+
+
+const arrUnconsLast = xs => {
+  const ys = arrClone(xs);
+
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([ys.pop(), ys]);
+};
+
+
+const arrUnconsLastx = xs => {
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([xs.pop(), xs]);
+};
+
+
+const arrUnconsLastOr = def => xs => {
+  const ys = arrClone(xs);
+
+  if (xs.length === 0)
+    return [def, ys];
+
+  else
+    return [ys.pop(), ys];
+};
+
+
+const arrUnconsLastOrx = def => xs => {
+  if (xs.length === 0)
+    return [def, xs];
+
+  else
+    return [xs.pop(), xs];
 };
 
 
@@ -3552,10 +3592,14 @@ module.exports = {
   arrTransduce,
   arrTransduceWhile,
   arrTranspose,
-  arrUncons,
-  arrUnconsx,
-  arrUnconsOr,
-  arrUnconsOrx,
+  arrUnconsHead,
+  arrUnconsHeadOr,
+  arrUnconsHeadOrx,
+  arrUnconsHeadx,
+  arrUnconsLast,
+  arrUnconsLastOr,
+  arrUnconsLastOrx,
+  arrUnconsLastx,
   arrUnfold,
   arrUnzip,
   arrZip,
