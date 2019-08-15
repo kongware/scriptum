@@ -1992,7 +1992,7 @@ const strPadr = n => c => s =>
       .slice(0, n);
 
 
-const strSliceBy = p => s =>
+const strSliceBy = p =>
   strFold(
     acc => (s, i) =>
       p(s[i])
