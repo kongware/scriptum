@@ -870,29 +870,26 @@ const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
 
 
-const arrSliceAt = (i, j) => xs =>
-  xs.slice(i, j);
+const arrSliceAt = (i, len) => xs =>
+  xs.slice(i, i + len);
 
 
-const arrSliceAtx = (i, j) => xs => {
-  if (j === undefined)
+const arrSliceAtx = (i, len) => xs => {
+  if (len === undefined)
     if (i < 0)
       return xs.splice(i);
 
     else
       return (xs.splice(i), xs);
 
-  else if (j < 0) {
-    return (xs.splice(xs.length + j), xs);
-  }
+  else if (len < 0)
+    return (xs.splice(xs.length + len), xs);
 
-  else {
-    if (i < j)
-      return xs.splice(i, j - i);
-
-    else
-      return [];
-  }
+  else if (len === 0)
+    return [];
+           
+  else
+    return xs.splice(i, len);
 };
 
 
