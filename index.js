@@ -3619,8 +3619,6 @@ module.exports = {
   arrConsLastfx,
   arrConsNth,
   arrConsNthx,
-  arrConsNthOr,
-  arrConsNthOrx,
   arrDedupeBy,
   arrDedupeOn,
   arrEmpty,
