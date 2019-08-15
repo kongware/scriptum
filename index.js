@@ -1085,10 +1085,7 @@ const formatYear = digits => n => {
 };
 
 
-const fromTimestamp = n => new Date(n);
-
-
-// getDate @derived
+// getDay @derived
 
 
 const getMonthDays = y => m =>
@@ -1096,6 +1093,10 @@ const getMonthDays = y => m =>
 
 
 // getMonth @derived
+
+
+const getTimezoneOffset = () => 
+  new Date().getTimezoneOffset() * 60 * 1000;
 
 
 // getYear @derived
@@ -3732,7 +3733,6 @@ module.exports = {
   formatFloat,
   formatMonth,
   formatYear,
-  fromTimestamp,
   fromMultiArg,
   fromThese,
   funAp,
@@ -3756,6 +3756,7 @@ module.exports = {
   getId,
   getMonth,
   getMonthDays,
+  getTimezoneOffset,
   getVarComp,
   getYear,
   GT,
