@@ -1996,9 +1996,9 @@ const strSliceBy = p =>
   strFold(
     acc => (s, i) =>
       p(s[i])
-        ? [acc[0] + strSliceAt(i, 1) (s), i]
+        ? [acc + strSliceAt(i, 1) (s), i]
         : [acc, i])
-            (["", ""]);
+            ("");
 
 
 const strSliceAt = (i, len) => s =>
