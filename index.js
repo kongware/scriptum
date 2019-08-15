@@ -1443,7 +1443,7 @@ const isDateStr = s => {
       return false;
 
   else if (Number(d) < 1
-    || Number(d) > new Date(y, m, 0).getDate())
+    || Number(d) > getMonthDays(y) (Number(m)))
       return false;
 
   else
