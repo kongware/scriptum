@@ -860,12 +860,48 @@ const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
 
 
+const arrSlice = (i, j) => xs =>
+  xs.slice(i, j);
+
+
+const arrSlicex = (i, j) => xs => {
+  if (j === undefined)
+    if (i < 0)
+      return xs.splice(i);
+
+    else
+      return (xs.splice(i), xs);
+
+  else if (j < 0) {
+    return (xs.splice(xs.length + j), xs);
+  }
+
+  else {
+    if (i < j)
+      return xs.splice(i, j - i);
+
+    else
+      return [];
+  }
+};
+
+
 const arrSortBy = f => xs =>
   arrClone(xs).sort((x, y) => f(x) (y));
 
 
 const arrSortByx = f => xs =>
   xs.sort((x, y) => f(x) (y));
+
+
+const arrSplitAt = i => xs => {
+  const ys = arrClone(xs);
+  return [ys, ys.splice(i)];
+};
+
+
+const arrSplitAtx = i => xs =>
+  [xs, xs.splice(i)];
 
 
 const arrTail = xs =>
@@ -3585,8 +3621,12 @@ module.exports = {
   arrSeqF,
   arrSet,
   arrSetx,
+  arrSlice,
+  arrSlicex,
   arrSortBy,
   arrSortByx,
+  arrSplit,
+  arrSplitx,
   arrSum,
   arrTail,
   arrTransduce,
