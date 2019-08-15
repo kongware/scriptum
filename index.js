@@ -1089,7 +1089,7 @@ const formatYear = digits => n => {
 
 
 const getMonthDays = y => m =>
-  new Date(y, m, 0).getDate();
+  new Date(new Date(y, m + 1, 1) - 1).getDate();
 
 
 // getMonth @derived
