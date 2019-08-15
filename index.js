@@ -769,6 +769,16 @@ const arrConsLastx = xs => x =>
   (xs.push(x), xs);
 
 
+const arrConsNth = (i, x) => xs => {
+  const ys = arrClone(xs);
+  return (ys.splice(i - 1, 0, x), ys);
+};
+
+
+const arrConsNthx = (i, x) => xs =>
+  (xs.splice(i - 1, 0, x), xs);
+
+
 const arrDedupeBy = f => xs => {
   const s = new Set();
 
@@ -991,6 +1001,26 @@ const arrUnconsLastOrx = def => xs => {
   else
     return [xs.pop(), xs];
 };
+
+
+const arrUnconsNth = i => xs => {
+  const ys = arrClone(xs);
+  return (ys.length ? Some(ys.splice(i - 1, 1)) : None, ys);
+};
+
+
+const arrUnconsNthx = i => xs =>
+  (xs.length ? Some(xs.splice(i - 1, 1)) : None, xs);
+
+
+const arrUnconsNthOr = def => i => xs => {
+  const ys = arrClone(xs);
+  return (ys.length ? ys.splice(i - 1, 1) : def, ys);
+};
+
+
+const arrUnconsNthOrx = def => i => xs =>
+  (xs.length ? xs.splice(i - 1, 1) : def, xs);
 
 
 const arrUnzip = xss => // TODO: use fold
@@ -3587,6 +3617,10 @@ module.exports = {
   arrConsLastf,
   arrConsLastx,
   arrConsLastfx,
+  arrConsNth,
+  arrConsNthx,
+  arrConsNthOr,
+  arrConsNthOrx,
   arrDedupeBy,
   arrDedupeOn,
   arrEmpty,
@@ -3641,6 +3675,10 @@ module.exports = {
   arrUnconsLastOr,
   arrUnconsLastOrx,
   arrUnconsLastx,
+  arrUnconsNth,
+  arrUnconsNthx,
+  arrUnconsNthOr,
+  arrUnconsNthOrx,
   arrUnfold,
   arrUnzip,
   arrZip,
