@@ -860,11 +860,11 @@ const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
 
 
-const arrSlice = (i, j) => xs =>
+const arrSliceAt = (i, j) => xs =>
   xs.slice(i, j);
 
 
-const arrSlicex = (i, j) => xs => {
+const arrSliceAtx = (i, j) => xs => {
   if (j === undefined)
     if (i < 0)
       return xs.splice(i);
@@ -3622,8 +3622,8 @@ module.exports = {
   arrSeqF,
   arrSet,
   arrSetx,
-  arrSlice,
-  arrSlicex,
+  arrSliceAt,
+  arrSliceAtx,
   arrSortBy,
   arrSortByx,
   arrSplitAt,
