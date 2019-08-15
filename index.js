@@ -1992,6 +1992,10 @@ const strPadr = n => c => s =>
       .slice(0, n);
 
 
+const strSliceAt = (i, len) => s =>
+  s.slice(i, i + len);
+
+
 const strSplitAt = i => s =>
   [s.slice(0, i), s.slice(i)];
 
@@ -3994,6 +3998,8 @@ module.exports = {
   strSet,
   strPadl,
   strPadr,
+  strSliceAt,
+  strSliceBy,
   strSplitAt,
   strSplitBy,
   struct,
