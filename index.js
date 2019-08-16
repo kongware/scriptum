@@ -465,12 +465,14 @@ const arrFoldStr = s => ss =>
 
 
 const arrFoldWhile = alg => zero => xs => {
-  let acc = zero;
+  let acc = Loop(zero);
 
-  for (let i = 0; i < xs.length; i++)
-    [acc, i] = alg(acc) (xs[i], i);
+  for (let i = 0; i < xs.length; i++) {
+    acc = alg(acc.runStep) (xs[i], i);
+    if (acc && acc[TAG] === "Done") break;
+  }
 
-  return acc;
+  return acc.runStep;
 };
 
 
@@ -511,12 +513,14 @@ const arrPara = alg => zero => xs => {
 
 const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
-  let acc = zero;
+  let acc = Loop(zero);
 
-  for (let i = 0; i < xs.length; i++)
-    [acc, i] = alg(acc) (ys) (ys.shift(), i);
+  for (let i = 0; i < xs.length; i++) {
+    acc = alg(acc.runStep) (ys) (ys.shift(), i);
+    if (acc && acc[TAG] === "Done") break;
+  }
 
-  return acc;
+  return acc.runStep;
 };
 
 
@@ -1794,11 +1798,11 @@ const strFold = alg => zero => s => {
 };
 
 
-const strFoldWhile = alg => zero => s => {
+const strFoldChunks = alg => zero => s => {
   let acc = zero;
 
   for (let i = 0; i < s.length; i++)
-    [acc, i] = alg(acc) (s, i); // strings may be consumed in chunks so we provide the whole string  
+    [acc, i] = alg(acc) (s, i);
 
   return acc;
 };
@@ -1955,7 +1959,7 @@ const strSet = (r, t, flags) => s =>
 
 
 const strChunk = n =>
-  strFoldWhile(
+  strFoldChunks(
     acc => (s, i) =>
       [arrAppendx(acc) ([s.slice(i, i + n)]), i + 1])
         ([]);
@@ -1991,7 +1995,7 @@ const strSplitAt = i => s =>
 
 
 const strSplitBy = p =>
-  strFoldWhile(
+  strFoldChunks(
     acc => (s, i) =>
       p(s[i])
         ? [strSplitAt(i) (s), s.length]
@@ -3217,6 +3221,20 @@ const statePut = y => State(_ => [null, y]);
 
 
 /******************************************************************************
+***********************************[ STEP ]************************************
+******************************************************************************/
+
+
+const Step = union("Step");
+
+
+const Loop = x => Step("Loop", x);
+
+
+const Done = x => Step("Done", x);
+
+
+/******************************************************************************
 ************************************[ SUM ]************************************
 ******************************************************************************/
 
@@ -3697,6 +3715,7 @@ module.exports = {
   dateParse,
   debug,
   delay,
+  Done,
   eff,
   defAp,
   defChain,
@@ -3812,6 +3831,7 @@ module.exports = {
   _let,
   local,
   log,
+  Loop,
   loop,
   LT,
   mapMap,
@@ -3947,12 +3967,13 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
+  Step,
   strAppend,
   strAppendf,
   strChunk,
   strDel,
   strFold,
-  strFoldWhile,
+  strFoldChunks,
   strLength,
   strLocaleCompare,
   strMatch,
