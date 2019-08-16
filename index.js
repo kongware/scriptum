@@ -909,7 +909,7 @@ const arrSplitAtx = i => xs =>
   [xs, xs.splice(i)];
 
 
-const arrSplitBy = p => xs =>
+const arrSplitBy = p => xs => // aka span
   arrFoldWhile(
     acc => (x, i) =>
       p(x)
@@ -3022,7 +3022,7 @@ const rightPrism =
 /***[Misc. Combinators]*******************************************************/
 
 
-const prismGet = prism => tx =>
+const prismGet = prism => tx => // TODO: falsify
   prism(constMap).runPrism(tx => Const(tx)) (tx);
 
 
