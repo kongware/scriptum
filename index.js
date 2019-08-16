@@ -919,6 +919,16 @@ const arrSplitBy = p => xs =>
               (xs);
 
 
+const arrSplitByx = p => xs =>
+  arrFoldWhile(
+    acc => (x, i) =>
+      p(x)
+        ? Done(arrSplitAtx(i) (xs))
+        : Loop(acc))
+            ([xs, []])
+              (xs);
+
+
 const arrTail = xs =>
   xs.slice(1);
 
@@ -3660,6 +3670,7 @@ module.exports = {
   arrSplitAt,
   arrSplitAtx,
   arrSplitBy,
+  arrSplitByx,
   arrSum,
   arrTail,
   arrTransduce,
