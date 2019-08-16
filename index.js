@@ -465,14 +465,12 @@ const arrFoldStr = s => ss =>
 
 
 const arrFoldWhile = alg => zero => xs => {
-  let acc = Loop(zero);
+  let acc = zero;
 
-  for (let i = 0; i < xs.length; i++) {
-    acc = alg(acc.runStep) (xs[i], i);
-    if (acc && acc[TAG] === "Done") break;
-  }
+  for (let i = 0; i < xs.length; i++)
+    [acc, i] = alg(acc) (xs[i], i);
 
-  return acc.runStep;
+  return acc;
 };
 
 
@@ -513,16 +511,12 @@ const arrPara = alg => zero => xs => {
 
 const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
-  
-  let acc = Loop(zero),
-    len = 0, x;
+  let acc = zero;
 
-  while (x = ys.shift()) {
-    acc = alg(acc.runStep) (ys) (x, len++);
-    if (acc && acc[TAG] === "Done") break;
-  }
+  for (let i = 0; i < xs.length; i++)
+    [acc, i] = alg(acc) (ys) (ys.shift(), i);
 
-  return acc.runStep;
+  return acc;
 };
 
 
@@ -1804,7 +1798,7 @@ const strFoldWhile = alg => zero => s => {
   let acc = zero;
 
   for (let i = 0; i < s.length; i++)
-    [acc, i] = alg(acc) (s, i);
+    [acc, i] = alg(acc) (s, i); // strings may be consumed in chunks so we provide the whole string  
 
   return acc;
 };
@@ -3223,20 +3217,6 @@ const statePut = y => State(_ => [null, y]);
 
 
 /******************************************************************************
-***********************************[ STEP ]************************************
-******************************************************************************/
-
-
-const Step = union("Step");
-
-
-const Loop = x => Step("Loop", x);
-
-
-const Done = x => Step("Done", x);
-
-
-/******************************************************************************
 ************************************[ SUM ]************************************
 ******************************************************************************/
 
@@ -3717,7 +3697,6 @@ module.exports = {
   dateParse,
   debug,
   delay,
-  Done,
   eff,
   defAp,
   defChain,
@@ -3833,7 +3812,6 @@ module.exports = {
   _let,
   local,
   log,
-  Loop,
   loop,
   LT,
   mapMap,
@@ -3969,7 +3947,6 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
-  Step,
   strAppend,
   strAppendf,
   strChunk,
