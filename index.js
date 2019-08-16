@@ -446,7 +446,7 @@ const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => { // TODO: make non-strict?
+const arrFoldr = alg => zero => xs => {
   const stack = [];
   let acc = zero;
 
@@ -628,7 +628,7 @@ const arrTransduceWhile = alg => reduce =>
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = coalg => x => { // TODO: make non-strict
+const arrUnfold = coalg => x => {
   const acc = [];
 
   while (true) {
@@ -649,7 +649,7 @@ const arrUnfold = coalg => x => { // TODO: make non-strict
 };
 
 
-const arrApo = coalg => x => { // TODO: make non-strict
+const arrApo = coalg => x => {
   const acc = [];
 
   while (true) {
@@ -686,7 +686,7 @@ const arrApo = coalg => x => { // TODO: make non-strict
 };
 
 
-const arrFutu = coalg => x => { // TODO: make non-strict
+const arrFutu = coalg => x => {
   const acc = [];
 
   while (true) {
@@ -1560,12 +1560,6 @@ const funAppend = comp;
 const funAppendf = pipe;
 
 
-/***[Strong]******************************************************************/
-
-
-// TODO: add
-
-
 /***[Transducer]**************************************************************/
 
 
@@ -1708,14 +1702,8 @@ const objDelx = k => o =>
   (delete o[k], o);
 
 
-// TODO: add objDiffl/objDiffr
-
-
 const objGetOr = def => k => o =>
   k in o ? o[k] : def;
-
-
-// TODO: add objIntersect
 
 
 const objModOr = def => (k, f) => o =>
@@ -1802,9 +1790,17 @@ const setMap = f => s => {
 /***[Foldable]****************************************************************/
 
 
-// strings must be foldable in chunks not only char by char
-
 const strFold = alg => zero => s => {
+  let acc = zero;
+
+  for (let i = 0; i < s.length; i++)
+    acc = alg(acc) (s[i], i);
+
+  return acc;
+};
+
+
+const strFoldWhile = alg => zero => s => {
   let acc = zero;
 
   for (let i = 0; i < s.length; i++)
@@ -1965,7 +1961,7 @@ const strSet = (r, t, flags) => s =>
 
 
 const strChunk = n =>
-  strFold(
+  strFoldWhile(
     acc => (s, i) =>
       [arrAppendx(acc) ([s.slice(i, i + n)]), i + 1])
         ([]);
@@ -2001,7 +1997,7 @@ const strSplitAt = i => s =>
 
 
 const strSplitBy = p =>
-  strFold(
+  strFoldWhile(
     acc => (s, i) =>
       p(s[i])
         ? [strSplitAt(i) (s), s.length]
@@ -3012,9 +3008,6 @@ const prismGet = prism => tx =>
   prism(constMap).runPrism(tx => Const(tx)) (tx);
 
 
-// TODO: add prismMapped
-
-
 const prismMod = prism => f => tx => // aka prismOver
   prism(idMap).runPrism(ty =>
     Id(optMap(f) (ty))) (tx);
@@ -3509,9 +3502,6 @@ const createRandomBytes_ = crypto => n =>
 ******************************************************************************/
 
 
-// TODO: parameterize sequential/parallel execution behavior
-
-
 const fileCopy_ = fs => flags => newPath => path =>
   Task((res, rej) => {
     const readStream = fs.createReadStream(path),
@@ -3985,6 +3975,7 @@ module.exports = {
   strChunk,
   strDel,
   strFold,
+  strFoldWhile,
   strLength,
   strLocaleCompare,
   strMatch,
