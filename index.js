@@ -1575,18 +1575,197 @@ const select1N = m => (ks, vs) => k =>
 const funAppend = comp;
 
 
-const funAppendf = pipe;
+const funPrepend = pipe;
 
 
 /***[Transducer]**************************************************************/
+
+
+const dropper = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, acc)
+      : reduce(acc) (x);
+};
+
+
+const dropperNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? acc
+      : reduce(acc) (x);
+};
+
+
+const dropperWhile = p => reduce => {
+  let drop = true;
+
+  return acc => x => 
+    drop && p(x)
+      ? acc
+      : (drop = false, reduce(acc) (x));
+};
+
+
+const filterer = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
 
 
 const mapper = f => reduce => acc => x =>
   reduce(acc) (f(x));
 
 
-const filterer = p => reduce => acc => x =>
-  p(x) ? reduce(acc) (x) : acc;
+const taker = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, reduce(acc) (x));
+      : acc;
+};
+
+
+const takerNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? reduce(acc) (x)
+      : acc;
+};
+
+
+const takerWhile = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+
+const stepDropper = n => reduce => { 
+  let m = 0;
+
+  return acc => x => {
+    const r = m < n
+      ? (m++, acc)
+      : reduce(acc) (x);
+
+    switch (r[TYPE]) {
+      case "Step": return r;
+      default: return Loop(r);
+    }
+  };
+};
+
+
+const stepDropperNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => {
+    const r = ++n % nth === 0
+      ? acc
+      : reduce(acc) (x);
+
+    switch (r[TYPE]) {
+      case "Step": return r;
+      default: return Loop(r);
+    }
+  };
+};
+
+
+const stepDropperWhile = p => reduce => {
+  let drop = true;
+
+  return acc => x => { 
+    const r = drop && p(x)
+      ? acc
+      : (drop = false, reduce(acc) (x));
+
+    switch (r[TYPE]) {
+      case "Step": return r;
+      default: return Loop(r);
+    }
+  };
+};
+
+
+const stepFilterer = p => reduce => acc => x => {
+  const r = p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+  switch (r[TYPE]) {
+    case "Step": return r;
+    default: return Loop(r);
+  }
+};
+
+
+const stepMapper = f => reduce => acc => x => {
+  const r = reduce(acc) (f(x));
+
+  switch (r[TYPE]) {
+    case "Step": return r;
+    default: return Loop(r);
+  }
+};
+
+
+const stepTaker = n => reduce => { 
+  let m = 0;
+
+  return acc => x => {
+    if (m < n) {
+      const r = reduce(acc) (x);
+      m++;
+
+      switch (r[TYPE]) {
+        case "Step": return r;
+        default: return Loop(r);
+      }
+    }
+
+    else
+      return Done(acc);
+  };
+};
+
+
+const stepTakerNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => {
+    const r = ++n % nth === 0
+      ? reduce(acc) (x)
+      : acc;
+
+    switch (r[TYPE]) {
+      case "Step": return r;
+      default: return Loop(r);
+    }
+  };
+};
+
+
+const stepTakerWhile = p => reduce => acc => x => {
+  if (p(x)) {
+    const r = reduce(acc) (x)
+
+    switch (r[TYPE]) {
+      case "Step": return r;
+      default: return Loop(r);
+    }
+  }
+
+  else
+    return Done(acc);
+};
 
 
 /***[Derived]*****************************************************************/
@@ -1840,7 +2019,7 @@ const strNull = s => s === "";
 const strAppend = s => t => s + t;
 
 
-const strAppendf = t => s => s + t;
+const strPrepend = t => s => s + t;
 
 
 /***[Regular Expressions]*****************************************************/
@@ -2111,7 +2290,7 @@ const allAppend = tx => ty =>
   All(tx.runAll && ty.runAll);
 
 
-const allAppendf = allAppend;
+const allPrepend = allAppend;
 
 
 /******************************************************************************
@@ -2135,7 +2314,7 @@ const anyAppend = tx => ty =>
   Any(tx.runAny || ty.runAny);
 
 
-const anyAppendf = anyAppend;
+const anyPrepend = anyAppend;
 
 
 /******************************************************************************
@@ -2167,7 +2346,7 @@ const compAppend = tf => tg =>
     ordAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
 
 
-const compAppendf = flip(compAppend);
+const compPrepend = flip(compAppend);
 
 
 /******************************************************************************
@@ -2361,7 +2540,7 @@ const endoAppend = tf => tg => x =>
   Endo(tf.runEndo(tg.runEndo(x)));
 
 
-const endoAppendf = flip(endoAppend);
+const endoPrepend = flip(endoAppend);
 
 
 /******************************************************************************
@@ -2393,7 +2572,7 @@ const equivAppend = tf => tg =>
     tf.runEquiv(x) (y) && tg.runEquiv(x) (y));
 
 
-const equivAppendf = equivAppend;
+const equivPrepend = equivAppend;
 
 
 /******************************************************************************
@@ -2410,7 +2589,7 @@ const First = struct("First");
 const firstAppend = x => _ => x;
 
 
-// firstAppendf @derived
+// firstPrepend @derived
 
 
 /******************************************************************************
@@ -2522,7 +2701,7 @@ const Last = struct("Last");
 const lastAppend = _ => y => y;
 
 
-const lastAppendf = firstAppend;
+const lastPrepend = firstAppend;
 
 
 /******************************************************************************
@@ -2676,7 +2855,7 @@ const maxAppend = max => x => y =>
   max(x) (y);
 
 
-const maxAppendf = maxAppend;
+const maxPrepend = maxAppend;
 
 
 /******************************************************************************
@@ -2700,7 +2879,7 @@ const minAppend = min => x => y =>
   min(x) (y);
 
 
-const minAppendf = minAppend;
+const minPrepend = minAppend;
 
 
 /******************************************************************************
@@ -2824,7 +3003,7 @@ const ordAppend = tx => ty =>
   ordCata(LT) (ty) (GT) (tx);
 
 
-const ordAppendf = ordAppend;
+const ordPrepend = ordAppend;
 
 
 /******************************************************************************
@@ -2882,7 +3061,7 @@ const parEmpty = Parallel((res, rej) => null);
 // parAppend @derived
 
 
-// parAppendf @derived
+// parPrepend @derived
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -2953,7 +3132,7 @@ const parAny =
 const parAppend = parOr;
 
 
-const parAppendf = parOr;
+const parPrepend = parOr;
 
 
 /******************************************************************************
@@ -2984,7 +3163,7 @@ const predAppend = tf => tg =>
   Pred(x => tf.runPred(x) && tg.runPred(x));
 
 
-const predAppendf = predAppend;
+const predPrepend = predAppend;
 
 
 /******************************************************************************
@@ -3056,7 +3235,7 @@ const prodAppend = tm => tn =>
   Sum(tm.runProd * tn.runProd);
 
 
-const prodAppendf = prodAppend;
+const prodPrepend = prodAppend;
 
 
 /******************************************************************************
@@ -3275,7 +3454,7 @@ const sumAppend = tm => tn =>
   Sum(tm.runSum + tn.runSum);
 
 
-const sumAppendf = sumAppend;
+const sumPrepend = sumAppend;
 
 
 /******************************************************************************
@@ -3347,6 +3526,12 @@ const tLiftM2 = f => mx => my =>
   tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
 
 
+/***[Monoid]*******************************************************************/
+
+
+const tEmpty = x => Task((res, rej) => res(x));
+
+
 /***[Misc. Combinators]*******************************************************/
 
 
@@ -3364,6 +3549,16 @@ const tAll = ts => // eta abstraction to create a new tOf([]) for each invocatio
       (xs.push(x), xs))
         (tAnd(acc) (tf)))
           (tOf([])) (ts);
+
+
+
+/***[Derived]*****************************************************************/
+
+
+const tAppend = tAnd;
+
+
+const tPrepend = flip(tAnd);
 
 
 /******************************************************************************
@@ -3489,7 +3684,7 @@ const writeTell = y => Writer(null, y);
 ******************************************************************************/
 
 
-const firstAppendf = lastAppend;
+const firstPrepend = lastAppend;
 
 
 /******************************************************************************
@@ -3599,16 +3794,16 @@ module.exports = {
   All,
   all,
   allAppend,
-  allAppendf,
   allEmpty,
+  allPrepend,
   Ancient,
   and,
   andp,
   Any,
   any,
   anyAppend,
-  anyAppendf,
   anyEmpty,
+  anyPrepend,
   app,
   arrAp,
   arrApo,
@@ -3704,7 +3899,7 @@ module.exports = {
   compBoth,
   compAp,
   compAppend,
-  compAppendf,
+  compPrepend,
   Compare,
   compare,
   compContra,
@@ -3738,6 +3933,9 @@ module.exports = {
   debug,
   delay,
   Done,
+  dropper,
+  dropperNth,
+  dropperWhile,
   eff,
   defAp,
   defChain,
@@ -3745,18 +3943,21 @@ module.exports = {
   defJoin,
   defMap,
   defOf,
+  drop,
+  dropNth,
+  dropWhile,
   Either,
   Endo,
   endoAppend,
-  endoAppendf,
   endoEmpty,
+  endoPrepend,
   EQ,
   eq,
   Equiv,
   equivAppend,
-  equivAppendf,
   equivContra,
   equivEmpty,
+  equivPrepend,
   ethCata,
   evalState,
   execState,
@@ -3771,7 +3972,7 @@ module.exports = {
   filterer,
   First,
   firstAppend,
-  firstAppendf,
+  firstPrepend,
   flip,
   floor,
   foldMap,
@@ -3784,15 +3985,15 @@ module.exports = {
   fromThese,
   funAp,
   funAppend,
-  funAppendf,
-  funContra,
-  funEmpty,
-  funLiftA2,
   funChain,
+  funContra,
   funDimap,
+  funEmpty,
   funJoin,
+  funLiftA2,
   funLmap,
   funMap,
+  funPrepend,
   funRmap,
   funVarComp,
   funVarPipe,
@@ -3832,7 +4033,7 @@ module.exports = {
   kleisliPipe,
   Last,
   lastAppend,
-  lastAppendf,
+  lastPrepend,
   Lazy,
   lazyAp,
   lazyChain,
@@ -3866,13 +4067,13 @@ module.exports = {
   max,
   maxEmpty,
   maxAppend,
-  maxAppendf,
+  maxPrepend,
   memoMethx,
   Min,
   min,
   minAppend,
-  minAppendf,
   minEmpty,
+  minPrepend,
   neq,
   _new,
   None,
@@ -3918,9 +4119,9 @@ module.exports = {
   optOf,
   or,
   ordAppend,
-  ordAppendf,
   ordCata,
   ordEmpty,
+  ordPrepend,
   Ordering,
   orp,
   Parallel,
@@ -3929,12 +4130,12 @@ module.exports = {
   parAny,
   parAp,
   parAppend,
-  parAppendf,
   parCata,
   parEmpty,
   parMap,
   parOf,
   parOr,
+  parPrepend,
   partial,
   partialCurry,
   pipe,
@@ -3943,16 +4144,16 @@ module.exports = {
   pipeBoth,
   Pred,
   predAppend,
-  predAppendf,
   predContra,
   predEmpty,
+  predPrepend,
   prismGet,
   prismMod,
   prismSet,
   Prod,
   prodAppend,
-  prodAppendf,
   prodEmpty,
+  prodPrepend,
   range,
   rangeSize,
   recur,
@@ -3990,8 +4191,15 @@ module.exports = {
   stateOf,
   statePut,
   Step,
+  stepDropper,
+  stepDropperNth,
+  stepDropperWhile,
+  stepFilterer,
+  stepMapper,
+  stepTaker,
+  stepTakerNth,
+  stepTakerWhile,
   strAppend,
-  strAppendf,
   strChunk,
   strDel,
   strFold,
@@ -4009,6 +4217,7 @@ module.exports = {
   strSet,
   strPadl,
   strPadr,
+  strPrepend,
   strSliceAt,
   strSplitAt,
   strSplitBy,
@@ -4017,19 +4226,27 @@ module.exports = {
   structGetter,
   Sum,
   sumAppend,
-  sumAppendf,
   sumEmpty,
+  sumPrepend,
   swapMultiArg,
   TAG,
+  taker,
+  takerNth,
+  takerWhile,
+  takeNth,
+  takeWhile,
   Task,
   taggedLog,
   tAnd,
   tAll,
   tAp,
+  tAppend,
   tCata,
   tChain,
   tChainT,
   tChain2,
+  tEmpty,
+  tPrepend,
   That,
   These,
   These_,
