@@ -1626,7 +1626,7 @@ const taker = n => reduce => {
 
   return acc => x =>
     m < n
-      ? (m++, reduce(acc) (x));
+      ? (m++, reduce(acc) (x))
       : acc;
 };
 
@@ -3931,21 +3931,18 @@ module.exports = {
   DateError,
   dateParse,
   debug,
-  delay,
-  Done,
-  dropper,
-  dropperNth,
-  dropperWhile,
-  eff,
   defAp,
   defChain,
   Defer,
   defJoin,
   defMap,
   defOf,
-  drop,
-  dropNth,
-  dropWhile,
+  delay,
+  Done,
+  dropper,
+  dropperNth,
+  dropperWhile,
+  eff,
   Either,
   Endo,
   endoAppend,
@@ -4233,8 +4230,6 @@ module.exports = {
   taker,
   takerNth,
   takerWhile,
-  takeNth,
-  takeWhile,
   Task,
   taggedLog,
   tAnd,
