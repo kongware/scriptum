@@ -715,58 +715,36 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrConsHead = xs => x => {
+const arrConsHead = x => xs => {
   const ys = arrClone(xs);
   ys.unshift(x);
   return ys;
 };
 
 
-const arrConsHeadf = x => xs => {
-  const ys = arrClone(xs);
-  ys.unshift(x);
-  return ys;
-};
-
-
-const arrConsHeadfx = x => xs =>
+const arrConsHeadx = x => xs =>
   (xs.unshift(x), xs);
 
 
-const arrConsHeadx = xs => x =>
-  (xs.unshift(x), xs);
-
-
-const arrConsLast = xs => x => {
+const arrConsLast = x => xs => {
   const ys = arrClone(xs);
   ys.push(x);
   return ys;
 };
 
 
-const arrConsLastf = x => xs => {
-  const ys = arrClone(xs);
-  ys.push(x);
-  return ys;
-};
-
-
-const arrConsLastfx = x => xs =>
-  (xs.push(x), xs);
-
-
-const arrConsLastx = xs => x =>
+const arrConsLastx = x => xs =>
   (xs.push(x), xs);
 
 
 const arrConsNth = (i, x) => xs => {
   const ys = arrClone(xs);
-  return (ys.splice(i - 1, 0, x), ys);
+  return (ys.splice(i, 0, x), ys);
 };
 
 
 const arrConsNthx = (i, x) => xs =>
-  (xs.splice(i - 1, 0, x), xs);
+  (xs.splice(i, 0, x), xs);
 
 
 const arrDedupeBy = f => xs => {
@@ -1014,22 +992,32 @@ const arrUnconsLastOrx = def => xs => {
 
 const arrUnconsNth = i => xs => {
   const ys = arrClone(xs);
-  return (ys.length ? Some(ys.splice(i - 1, 1)) : None, ys);
+
+  if (xs.length < i)
+    return None;
+
+  else
+    return Some([ys.splice(i, 1), ys]);
 };
 
 
-const arrUnconsNthx = i => xs =>
-  (xs.length ? Some(xs.splice(i - 1, 1)) : None, xs);
+const arrUnconsNthx = i => xs => {
+  if (xs.length < i)
+    return None;
+
+  else
+    return Some([xs.splice(i, 1), xs]);
+};
 
 
 const arrUnconsNthOr = def => i => xs => {
   const ys = arrClone(xs);
-  return (ys.length ? ys.splice(i - 1, 1) : def, ys);
+  return [xs.length < i ? def : ys.splice(i, 1), ys];
 };
 
 
 const arrUnconsNthOrx = def => i => xs =>
-  (xs.length ? xs.splice(i - 1, 1) : def, xs);
+  [xs.length < i ? def : xs.splice(i, 1), xs];
 
 
 const arrUnzip = xss => // TODO: use fold
@@ -2704,6 +2692,31 @@ const lazyJoin = mmx =>
 /***[Instances]***************************************************************/
 
 
+// Array
+
+
+const arrLens_ = arrUnconsNth => i =>
+  Lens(map => ft => xs =>
+    map(x => {
+      const tx = arrUnconsNth(i) (xs);
+
+      switch (tx[TAG]) {
+        case "None": return xs;
+
+        case "Some":
+          return x === null
+            ? tx.runOption[1]
+            : arrConsNthx(i, x) (tx.runOption[1]);
+      }})
+        (ft(xs[i])));
+
+
+const arrLens = arrLens_(arrUnconsNth);
+
+
+const arrLensx = arrLens_(arrUnconsNthx);
+
+
 // Object
 
 
@@ -3748,13 +3761,9 @@ module.exports = {
   arrClone,
   arrConcat,
   arrConsHead,
-  arrConsHeadf,
   arrConsHeadx,
-  arrConsHeadfx,
   arrConsLast,
-  arrConsLastf,
   arrConsLastx,
-  arrConsLastfx,
   arrConsNth,
   arrConsNthx,
   arrDedupeBy,
@@ -3773,6 +3782,8 @@ module.exports = {
   arrInvert,
   arrLast,
   arrLastOr,
+  arrLens,
+  arrLensx,
   arrHisto,
   arrHylo,
   arrJoin,
