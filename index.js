@@ -432,7 +432,7 @@ const arrFilter = p => xs =>
 /***[Foldable]****************************************************************/
 
 
-const arrFold = alg => zero => xs => { // aka catamorphism
+const arrFold = alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
@@ -464,16 +464,11 @@ const arrFoldStr = s => ss =>
   ss.join(s);
 
 
-const arrFoldWhile = alg => zero => xs => {
-  let acc = Loop(zero);
-
-  for (let i = 0; i < xs.length; i++) {
-    acc = alg(acc.runStep) (xs[i], i);
-    if (acc && acc[TAG] === "Done") break;
-  }
-
-  return acc.runStep;
-};
+const arrFoldWhile = alg => zero => xs =>
+  loop((acc = zero, i = 0) =>
+    i === xs.length
+      ? acc
+      : alg(acc) (xs[i], i) (acc_ => recur(acc_, i + 1)));
 
 
 const arrHisto = alg => zero =>
@@ -513,14 +508,11 @@ const arrPara = alg => zero => xs => {
 
 const arrParaWhile = alg => zero => xs => {
   const ys = arrClone(xs);
-  let acc = Loop(zero);
 
-  for (let i = 0; i < xs.length; i++) {
-    acc = alg(acc.runStep) (ys) (ys.shift(), i);
-    if (acc && acc[TAG] === "Done") break;
-  }
-
-  return acc.runStep;
+  return loop((acc = zero, i = 0) =>
+    i === xs.length
+      ? acc
+      : alg(acc) (ys) (ys.shift(), i) (acc_ => recur(acc_, i + 1)));
 };
 
 
@@ -911,20 +903,20 @@ const arrSplitAtx = i => xs =>
 
 const arrSplitBy = p => xs => // aka span
   arrFoldWhile(
-    acc => (x, i) =>
+    acc => (x, i) => k =>
       p(x)
-        ? Done(arrSplitAt(i) (xs))
-        : Loop(acc))
+        ? arrSplitAt(i) (xs)
+        : k(acc))
             ([xs, []])
               (xs);
 
 
 const arrSplitByx = p => xs =>
   arrFoldWhile(
-    acc => (x, i) =>
+    acc => (x, i) => k =>
       p(x)
-        ? Done(arrSplitAtx(i) (xs))
-        : Loop(acc))
+        ? arrSplitAtx(i) (xs)
+        : k(acc))
             ([xs, []])
               (xs);
 
@@ -1591,6 +1583,15 @@ const dropper = n => reduce => {
 };
 
 
+const dropperk = n => reduce => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, k(acc))
+      : k(reduce(acc) (x))};
+
+
 const dropperNth = nth => reduce => { 
   let n = 0;
 
@@ -1599,6 +1600,15 @@ const dropperNth = nth => reduce => {
       ? acc
       : reduce(acc) (x);
 };
+
+
+const dropperNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => k =>
+    ++n % nth === 0
+      ? k(acc)
+      : k(reduce(acc) (x))};
 
 
 const dropperWhile = p => reduce => {
@@ -1611,14 +1621,33 @@ const dropperWhile = p => reduce => {
 };
 
 
+const dropperWhilek = p => reduce => {
+  let drop = true;
+
+  return acc => x => k =>
+    drop && p(x)
+      ? k(acc)
+      : (drop = false, k(reduce(acc) (x)))};
+
+
 const filterer = p => reduce => acc => x =>
   p(x)
     ? reduce(acc) (x)
     : acc;
 
 
+const filtererk = p => reduce => acc => x => k =>
+  p(x)
+    ? k(reduce(acc) (x))
+    : k(acc);
+
+
 const mapper = f => reduce => acc => x =>
   reduce(acc) (f(x));
+
+
+const mapperk = f => reduce => acc => x => k =>
+  k(reduce(acc) (f(x)));
 
 
 const taker = n => reduce => { 
@@ -1631,6 +1660,15 @@ const taker = n => reduce => {
 };
 
 
+const takerk = n => reduce => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, k(reduce(acc) (x)))
+      : acc};
+
+
 const takerNth = nth => reduce => { 
   let n = 0;
 
@@ -1641,131 +1679,25 @@ const takerNth = nth => reduce => {
 };
 
 
+const takerNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => k =>
+    ++n % nth === 0
+      ? k(reduce(acc) (x))
+      : acc};
+
+
 const takerWhile = p => reduce => acc => x =>
   p(x)
     ? reduce(acc) (x)
     : acc;
 
 
-const stepDropper = n => reduce => { 
-  let m = 0;
-
-  return acc => x => {
-    const r = m < n
-      ? (m++, acc)
-      : reduce(acc) (x);
-
-    switch (r[TYPE]) {
-      case "Step": return r;
-      default: return Loop(r);
-    }
-  };
-};
-
-
-const stepDropperNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x => {
-    const r = ++n % nth === 0
-      ? acc
-      : reduce(acc) (x);
-
-    switch (r[TYPE]) {
-      case "Step": return r;
-      default: return Loop(r);
-    }
-  };
-};
-
-
-const stepDropperWhile = p => reduce => {
-  let drop = true;
-
-  return acc => x => { 
-    const r = drop && p(x)
-      ? acc
-      : (drop = false, reduce(acc) (x));
-
-    switch (r[TYPE]) {
-      case "Step": return r;
-      default: return Loop(r);
-    }
-  };
-};
-
-
-const stepFilterer = p => reduce => acc => x => {
-  const r = p(x)
-    ? reduce(acc) (x)
+const takerWhilek = p => reduce => acc => x => k =>
+  p(x)
+    ? k(reduce(acc) (x))
     : acc;
-
-  switch (r[TYPE]) {
-    case "Step": return r;
-    default: return Loop(r);
-  }
-};
-
-
-const stepMapper = f => reduce => acc => x => {
-  const r = reduce(acc) (f(x));
-
-  switch (r[TYPE]) {
-    case "Step": return r;
-    default: return Loop(r);
-  }
-};
-
-
-const stepTaker = n => reduce => { 
-  let m = 0;
-
-  return acc => x => {
-    if (m < n) {
-      const r = reduce(acc) (x);
-      m++;
-
-      switch (r[TYPE]) {
-        case "Step": return r;
-        default: return Loop(r);
-      }
-    }
-
-    else
-      return Done(acc);
-  };
-};
-
-
-const stepTakerNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x => {
-    const r = ++n % nth === 0
-      ? reduce(acc) (x)
-      : acc;
-
-    switch (r[TYPE]) {
-      case "Step": return r;
-      default: return Loop(r);
-    }
-  };
-};
-
-
-const stepTakerWhile = p => reduce => acc => x => {
-  if (p(x)) {
-    const r = reduce(acc) (x)
-
-    switch (r[TYPE]) {
-      case "Step": return r;
-      default: return Loop(r);
-    }
-  }
-
-  else
-    return Done(acc);
-};
 
 
 /***[Derived]*****************************************************************/
@@ -3420,20 +3352,6 @@ const statePut = y => State(_ => [null, y]);
 
 
 /******************************************************************************
-***********************************[ STEP ]************************************
-******************************************************************************/
-
-
-const Step = union("Step");
-
-
-const Loop = x => Step("Loop", x);
-
-
-const Done = x => Step("Done", x);
-
-
-/******************************************************************************
 ************************************[ SUM ]************************************
 ******************************************************************************/
 
@@ -3938,10 +3856,12 @@ module.exports = {
   defMap,
   defOf,
   delay,
-  Done,
   dropper,
+  dropperk,
   dropperNth,
+  dropperNthk,
   dropperWhile,
+  dropperWhilek,
   eff,
   Either,
   Endo,
@@ -3967,6 +3887,7 @@ module.exports = {
   fileWrite_,
   fileUnlink_,
   filterer,
+  filtererk,
   First,
   firstAppend,
   firstPrepend,
@@ -4051,11 +3972,11 @@ module.exports = {
   _let,
   local,
   log,
-  Loop,
   loop,
   LT,
   mapMap,
   mapper,
+  mapperk,
   match,
   matchExp,
   matCata,
@@ -4188,14 +4109,6 @@ module.exports = {
   stateOf,
   statePut,
   Step,
-  stepDropper,
-  stepDropperNth,
-  stepDropperWhile,
-  stepFilterer,
-  stepMapper,
-  stepTaker,
-  stepTakerNth,
-  stepTakerWhile,
   strAppend,
   strChunk,
   strDel,
@@ -4228,8 +4141,11 @@ module.exports = {
   swapMultiArg,
   TAG,
   taker,
+  takerk,
   takerNth,
+  takerNthk,
   takerWhile,
+  takerWhilek,
   Task,
   taggedLog,
   tAnd,
