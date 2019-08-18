@@ -46,7 +46,7 @@ Expressions are superior to statements, because you can compose them and pass th
 
 When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
 
-### Semantic Typing over Anonymous `Object` Trees
+### Semantic Typing over Anonymous Data Structures
 
 Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
@@ -72,9 +72,13 @@ Recursion is a big win compared to imperative loops. However, in Javascript we h
 
 What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-### Everything over Generators/Iterators
+### Explicit Thunks over Generators/Iterators
 
-scriptum achieves loop fusion through function composition and lazyness through explicit thunks. Hence there is often no need to use stateful generators/iterators unless you need these effects inside imperative loop or control structures.
+scriptum achieves lazyness through explicit thunks instead of generators/iterators. You only need generators when lazyness within imperative control or loop structures is necessary.
+
+### Transducers over Generators/Iterators
+
+scriptum leverages loop fusion through transducers rather than generators/iterators.
 
 # Custom Types
 
@@ -178,6 +182,7 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Clonable
 * Comonad
 * Contravariant
+* Deserializable
 * Enum
 * Filterable
 * Foldable
@@ -192,7 +197,6 @@ Here is a list of typeclasses scriptum does or will provide the necessary functi
 * Read
 * Semigroup
 * Serializable
-* Deserializable
 * Setoid
 * Show
 * Strong
@@ -639,45 +643,44 @@ Handling non-tail recursive algorithms with trampolines and explicit stacks rema
 
 ## Transducer
 
-Transducers entail the following properties:
+Transducers are characterized by the following properties:
 
 * they are composable and thus allow loop fusion
+* they can be prematurely aborted
 * they are data type agnostic as long as these data types are foldable
 
-The following example illustrates loop fusion:
+### Run-to-Completion
+
+Normal transducers run to completion like any ordinary fold:
 
 ```Javascript
-const mapper = f => reduce => acc => x =>
-  reduce(acc) (f(x));
-
-const filterer = p => reduce => acc => x =>
-  p(x) ? reduce(acc) (x) : acc;
-  
-const arrFold = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i], i);
-
-  return acc;
-};
-
-const comp = f => g => x => f(g(x));
-
-const add = x => y => x + y; // reducer
-const sqr = x => x * x; // transformer
-const isOdd = x => (x & 1) === 1; // predicate
-
-// MAIN
-
-const main = 
-  arrFold(comp(
-    filterer(isOdd)) 
-      (mapper(sqr))
-        (add)) (0);
-
-main([1,2,3]); // 10 - array is only traversed once
+const main = arrTransduce(
+  comp3(
+    filterer(n => (n & 1) === 1))
+      (mapper(n => n * n))
+        (taker(3)))
+          (arrConsLast);
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
 ```
+`main` traverses the complete array even though it could stop after processing the fifth element.
+
+### Run with Short-Circuiting
+
+You can improve this ineffective runtime behavior by applying transducers with short circuiting behavior instead.
+
+```Javascript
+const main = arrTransduceWhile(
+  comp3(
+    filtererk(n => (n & 1) === 1))
+      (mapperk(n => n * n))
+        (takerk(3)))
+          (cont2(arrConsLast));
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
+```
+Now the traversal of the array is abandoned prematurely after reaching the fifth element. Internally, these transducers return a continuation wrapped in a `Cont` type. In order to break out of the fold the reducer simply need not call this continuation.  
+
 ## Effect Handling
 
 Effects are handled with monads and their superclasses in scriptum. A monad is essentially a type that you cannot freely leave, i.e. an effect in a monad is effectively encapsulated.
