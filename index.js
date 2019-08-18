@@ -468,7 +468,7 @@ const arrFoldWhile = alg => zero => xs =>
   loop((acc = zero, i = 0) =>
     i === xs.length
       ? acc
-      : alg(acc) (xs[i], i) (acc_ => recur(acc_, i + 1)));
+      : alg(acc) (xs[i], i).runCont(acc_ => recur(acc_, i + 1)));
 
 
 const arrHisto = alg => zero =>
@@ -512,7 +512,7 @@ const arrParaWhile = alg => zero => xs => {
   return loop((acc = zero, i = 0) =>
     i === xs.length
       ? acc
-      : alg(acc) (ys) (ys.shift(), i) (acc_ => recur(acc_, i + 1)));
+      : alg(acc) (ys) (ys.shift(), i).runCont(acc_ => recur(acc_, i + 1)));
 };
 
 
@@ -903,22 +903,24 @@ const arrSplitAtx = i => xs =>
 
 const arrSplitBy = p => xs => // aka span
   arrFoldWhile(
-    acc => (x, i) => k =>
-      p(x)
-        ? arrSplitAt(i) (xs)
-        : k(acc))
-            ([xs, []])
-              (xs);
+    acc => (x, i) =>
+      Cont(k =>
+        p(x)
+          ? arrSplitAt(i) (xs)
+          : k(acc)))
+              ([xs, []])
+                (xs);
 
 
 const arrSplitByx = p => xs =>
   arrFoldWhile(
-    acc => (x, i) => k =>
-      p(x)
-        ? arrSplitAtx(i) (xs)
-        : k(acc))
-            ([xs, []])
-              (xs);
+    acc => (x, i) =>
+      Cont(k =>
+        p(x)
+          ? arrSplitAtx(i) (xs)
+          : k(acc)))
+              ([xs, []])
+                (xs);
 
 
 const arrTail = xs =>
@@ -1589,7 +1591,7 @@ const dropperk = n => reduce => {
   return acc => x => k =>
     m < n
       ? (m++, k(acc))
-      : k(reduce(acc) (x))};
+      : reduce(acc) (x).runCont(k)};
 
 
 const dropperNth = nth => reduce => { 
@@ -1608,7 +1610,7 @@ const dropperNthk = nth => reduce => {
   return acc => x => k =>
     ++n % nth === 0
       ? k(acc)
-      : k(reduce(acc) (x))};
+      : reduce(acc) (x).runCont(k)};
 
 
 const dropperWhile = p => reduce => {
@@ -1624,10 +1626,11 @@ const dropperWhile = p => reduce => {
 const dropperWhilek = p => reduce => {
   let drop = true;
 
-  return acc => x => k =>
-    drop && p(x)
-      ? k(acc)
-      : (drop = false, k(reduce(acc) (x)))};
+  return acc => x =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, reduce(acc) (x).runCont(k)))};
 
 
 const filterer = p => reduce => acc => x =>
@@ -1636,18 +1639,20 @@ const filterer = p => reduce => acc => x =>
     : acc;
 
 
-const filtererk = p => reduce => acc => x => k =>
-  p(x)
-    ? k(reduce(acc) (x))
-    : k(acc);
+const filtererk = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).runCont(k)
+      : k(acc));
 
 
 const mapper = f => reduce => acc => x =>
   reduce(acc) (f(x));
 
 
-const mapperk = f => reduce => acc => x => k =>
-  k(reduce(acc) (f(x)));
+const mapperk = f => reduce => acc => x =>
+  Cont(k =>
+    reduce(acc) (f(x)).runCont(k));
 
 
 const taker = n => reduce => { 
@@ -1663,10 +1668,11 @@ const taker = n => reduce => {
 const takerk = n => reduce => { 
   let m = 0;
 
-  return acc => x => k =>
-    m < n
-      ? (m++, k(reduce(acc) (x)))
-      : acc};
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, reduce(acc) (x).runCont(k))
+        : acc)};
 
 
 const takerNth = nth => reduce => { 
@@ -1682,10 +1688,11 @@ const takerNth = nth => reduce => {
 const takerNthk = nth => reduce => { 
   let n = 0;
 
-  return acc => x => k =>
-    ++n % nth === 0
-      ? k(reduce(acc) (x))
-      : acc};
+  return acc => x =>
+    Cont(k =>
+      ++n % nth === 0
+        ? reduce(acc) (x).runCont(k)
+        : acc)};
 
 
 const takerWhile = p => reduce => acc => x =>
@@ -1694,10 +1701,11 @@ const takerWhile = p => reduce => acc => x =>
     : acc;
 
 
-const takerWhilek = p => reduce => acc => x => k =>
-  p(x)
-    ? k(reduce(acc) (x))
-    : acc;
+const takerWhilek = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).runCont(k)
+      : acc);
 
 
 /***[Derived]*****************************************************************/
@@ -2334,6 +2342,14 @@ const constMap = f => tx =>
 
 
 const Cont = struct("Cont");
+
+
+const cont = f => x => k =>
+  Cont(k(f(x))); 
+
+
+const cont2 = f => x => y =>
+  Cont(k => k(f(x) (y)));
 
 
 /***[Applicative]*************************************************************/
@@ -3830,6 +3846,8 @@ module.exports = {
   constMap,
   constOf,
   Cont,
+  cont,
+  cont2,
   contAp,
   contChain,
   contChain2,
@@ -4108,7 +4126,6 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
-  Step,
   strAppend,
   strChunk,
   strDel,
