@@ -2088,7 +2088,7 @@ const strSet = (r, t, flags) => s =>
 const strChunk = n =>
   strFoldChunks(
     acc => (s, i) =>
-      [arrAppendx(acc) ([s.slice(i, i + n)]), i + 1])
+      [arrAppendx(acc) ([s.slice(i, i + n)]), i])
         ([]);
 
 
