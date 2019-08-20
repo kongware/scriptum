@@ -641,7 +641,7 @@ As you can see the trampoline API leaks on the calling site and there is nothing
 
 Handling non-tail recursive algorithms with trampolines and explicit stacks remains a matter of research for the time being.
 
-## Transducer [&nbsp;](#transducer)
+## Transducer
 
 Transducers are characterized by the following properties:
 
