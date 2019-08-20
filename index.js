@@ -2695,46 +2695,51 @@ const lazyJoin = mmx =>
 // Array
 
 
-const arrLens_ = arrUnconsNth => i =>
+const arrLens_ = ({set, unconsNth}) => i =>
   Lens(map => ft => xs =>
     map(x => {
-      const tx = arrUnconsNth(i) (xs);
+      if (x === null) {
+        const tx = unconsNth(i) (xs);
 
-      switch (tx[TAG]) {
-        case "None": return xs;
+        switch (tx[TAG]) {
+          case "None": return xs;
 
-        case "Some":
-          return x === null
-            ? tx.runOption[1]
-            : arrConsNthx(i, x) (tx.runOption[1]);
-      }})
-        (ft(xs[i])));
+          case "Some":
+            return tx.runOption[1]
+        }
+      }
+
+      else
+        return set(i, x) (xs);
+    })
+      (ft(xs[i])));
 
 
-const arrLens = arrLens_(arrUnconsNth);
+const arrLens = arrLens_({set: arrSet, unconsNth: arrUnconsNth});
 
 
-const arrLensx = arrLens_(arrUnconsNthx);
+const arrLensx = arrLens_({set: arrSetx, unconsNth: arrUnconsNthx});
 
 
 // Object
 
 
-const objLens_ = objDel => k =>
+const objLens_ = ({union, del}) => k =>
   Lens(map => ft => o =>
-    map(v =>
-      objUnionx(
-        objDel(k) (o))
-          (v === null
-            ? {}
-            : {[k]: v}))
-                (ft(o[k])));
+    map(v => {
+      if (v === null)
+        return del(k) (o);
+
+      else 
+        return union(o)
+          ({[k]: v})})
+            (ft(o[k])));
 
 
-const objLens = objLens_(objDel);
+const objLens = objLens_({union: objUnion, del: objDel});
 
 
-const objLensx = objLens_(objDelx);
+const objLensx = objLens_({union: objUnionx, del: objDelx});
 
 
 /***[Category]****************************************************************/
@@ -2747,7 +2752,7 @@ const lensComp = tx => ty =>
 
 const lensComp3 = tx => ty => tz =>
   Lens(map => ft =>
-    tx.runLens(map) (ty.runLens(map) (tz.runLesn(map) (ft))));
+    tx.runLens(map) (ty.runLens(map) (tz.runLens(map) (ft))));
 
 
 const lensId = Lens(id);
