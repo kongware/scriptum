@@ -739,12 +739,12 @@ const arrConsLastx = x => xs =>
 
 const arrConsNth = (i, x) => xs => {
   const ys = arrClone(xs);
-  return (ys.splice(i, 0, x), ys);
+  return (ys.splice(i + 1, 0, x), ys);
 };
 
 
 const arrConsNthx = (i, x) => xs =>
-  (xs.splice(i, 0, x), xs);
+  (xs.splice(i + 1, 0, x), xs);
 
 
 const arrDedupeBy = f => xs => {
@@ -871,12 +871,12 @@ const arrSortByx = f => xs =>
 
 const arrSplitAt = i => xs => {
   const ys = arrClone(xs);
-  return [ys, ys.splice(i)];
+  return [ys, ys.splice(i + 1)];
 };
 
 
 const arrSplitAtx = i => xs =>
-  [xs, xs.splice(i)];
+  [xs, xs.splice(i + 1)];
 
 
 const arrSplitBy = p => xs => // aka span
@@ -2092,6 +2092,10 @@ const strChunk = n =>
         ([]);
 
 
+const strConsNth = (t, i) => s =>
+  s.slice(0, i + 1) + t + s.slice(i + 1);
+
+
 const strLocaleCompare = locale => c => d => {
   switch (c.localeCompare(d, locale)) {
     case -1: return LT;
@@ -2118,7 +2122,7 @@ const strSliceAt = (i, len) => s =>
 
 
 const strSplitAt = i => s =>
-  [s.slice(0, i), s.slice(i)];
+  [s.slice(0, i + 1), s.slice(i + 1)];
 
 
 const strSplitBy = p =>
@@ -2130,15 +2134,21 @@ const strSplitBy = p =>
             (["", ""]);
 
 
-const toLowerCase = s =>
+const strToLower = s =>
   s.toLowerCase();
 
 
-const toString = x => x.toString();
-
-
-const toUpperCase = s =>
+const strToUpper = s =>
   s.toUpperCase();
+
+
+const strUnconsNth = (i, len) => s =>
+  i >= s.length
+    ? None
+    : Some([s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)]);
+
+
+const toString = x => x.toString();
 
 
 /******************************************************************************
@@ -2740,6 +2750,29 @@ const objLens = objLens_({union: objUnion, del: objDel});
 
 
 const objLensx = objLens_({union: objUnionx, del: objDelx});
+
+
+// String
+
+
+/*const strLens = i =>
+  Lens(map => ft => s =>
+    map(x => {
+      if (x === null) {
+        const tx = strUnconsNth(`${s[i]}`, "") (s);
+
+        switch (tx[TAG]) {
+          case "None": return xs;
+
+          case "Some":
+            return tx.runOption[1];
+        }
+      }
+
+      else
+        return set(i, x) (xs);
+    })
+      (ft(xs[i])));*/
 
 
 /***[Category]****************************************************************/
@@ -4144,6 +4177,7 @@ module.exports = {
   statePut,
   strAppend,
   strChunk,
+  strCons,
   strDel,
   strFold,
   strFoldChunks,
@@ -4167,6 +4201,7 @@ module.exports = {
   struct,
   structn,
   structGetter,
+  strUncons,
   Sum,
   sumAppend,
   sumEmpty,
@@ -4208,9 +4243,9 @@ module.exports = {
   tMap,
   tOf,
   toFixedFloat,
-  toLowerCase,
+  strToLower,
+  strToUpper,
   toString,
-  toUpperCase,
   trace,
   tramp,
   tryCatch,
