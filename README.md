@@ -1,159 +1,575 @@
-/*
-                                                                                      
-                                                   I8                                 
-                                                   I8                                 
-                                 gg             88888888                              
-                                 ""                I8                                 
-   ,g,       ,gggg,   ,gggggg,   gg   gg,gggg,     I8   gg      gg   ,ggg,,ggg,,ggg,  
-  ,8'8,     dP"  "Yb  dP""""8I   88   I8P"  "Yb    I8   I8      8I  ,8" "8P" "8P" "8, 
- ,8'  Yb   i8'       ,8'    8I   88   I8'    ,8i  ,I8,  I8,    ,8I  I8   8I   8I   8I 
-,8'_   8) ,d8,_    _,dP     Y8,_,88,_,I8 _  ,d8' ,d88b,,d8b,  ,d8b,,dP   8I   8I   Yb,
-P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I   `Y8
-                                      I8                                              
-                                      I8                                              
-                                      I8                                              
-*/
+<img src="./logo.png" width="366" height="114" alt="scriptum"><br><br><br>
 
+# Status
 
-/******************************************************************************
-*******************************************************************************
-*********************************[ CONSTANTS ]*********************************
-*******************************************************************************
-******************************************************************************/
+This functional library is still work in progress and rather experimental than ready for production. 
 
+## What
 
-const NO_ENC = null; // no encoding specified
+A type-directed functional library that adapts well-known functional patterns to untyped Javascript.
 
+Type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature annotations through comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
-const NOT_FOUND = -1;
+### Runtime
 
+scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is to say you have to pass dependencies explicitly when using such functions:
 
-const TAG = Symbol("tag"); // the tag property of tagged unions
+```Javascript
+const fileRead_  = fs => enc => path =>
+  Task((res, rej) =>
+    fs.readFile(path, enc, (e, s) =>
+      e ? rej(e) : res(s)));
+      
+// and import as
 
+const fs = require("fs"),
+  {..., fileRead_, ...} = require("scriptum"),
+  fileRead = fileRead_(fs);
+```
+This is a tradeoff to keep up browser support.
 
-const TYPE = Symbol.toStringTag; // used for debugging
+# Mission Statement
 
+### Pragmatism over Dogmatism
 
-/******************************************************************************
-*******************************************************************************
-**********************************[ ERRORS ]***********************************
-*******************************************************************************
-******************************************************************************/
+Javascript lacks a non-trivial type system and all guarantees that comes along with it and it has no functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
 
+### Convention over Coercion
 
-class ExtendableError extends Error {
-  constructor(s) {
-    super(s);
-    this.name = this.constructor.name;
+scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
 
-    if (typeof Error.captureStackTrace === "function")
-      Error.captureStackTrace(this, this.constructor);
-    
-    else
-      this.stack = (new Error(s)).stack;
-  }
-};
+### Expressions over Statements
 
+Expressions are superior to statements, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
-class ScriptumError extends ExtendableError {};
-    
+### Type Signatures over Function Descriptions
 
-/***[Suclasses]***************************************************************/
+When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
 
+### Semantic Typing over Anonymous Data Structures
 
-class DateError extends ScriptumError {};
+Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
+### Curried over Multi-Argument Functions
 
-class FileError extends ScriptumError {};
+scriptum prefers curried to multi-argument functions. This simplifies both function and partial application. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no risk in using both forms.
 
+### Unions of Records over just Records
 
-class SemigroupError extends ScriptumError {};
+You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic reality as a data structure. In scriptum alternatives are expressed with tagged unions, which can be nested and may contain records and other product types.
 
+### Directory Passing over the Prototype System
 
-class UnionError extends ScriptumError {};
+scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
+### Effects as Values over Side Effects
 
-/******************************************************************************
-*******************************************************************************
-*******************************[ CONSTRUCTORS ]********************************
-*******************************************************************************
-******************************************************************************/
+scriptum promotes effect handling through monads and effect composition through monad transformer stacks. This way we can defer and encapsulate effects to run them in a principled manner and separate the pure from the impure part of our program. 
 
+### Structural Recursion over Direct Recursion over Loops
 
-/******************************************************************************
-********************************[ UNION TYPE ]*********************************
-******************************************************************************/
+Recursion is a big win compared to imperative loops. However, in Javascript we have neither tail call optimization nor more advanced optimization strategies. So we are stuck with tail recursion implemented through trampolines, which are structurally just loops.
 
+What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-const union = type => (tag, x) => ({
-  ["run" + type]: x,
-  [TAG]: tag,
-  [TYPE]: type
-});
+### Explicit Thunks over Generators/Iterators
 
+scriptum achieves lazyness through explicit thunks instead of generators/iterators. You only need generators when lazyness within imperative control or loop structures is necessary.
 
-const unionGetter = type => (tag, o) => { // explicit getter for the runSomething prop
-  o[TAG] = tag;
-  o[TYPE] = type;
-  return o;
-};
+### Transducers over Generators/Iterators
 
+scriptum leverages loop fusion through transducers rather than generators/iterators.
 
-const match = ({[TYPE]: type, [TAG]: tag}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(tag in o) ? _throw(new UnionError("invalid tag"))
-    : o[tag];
+# Custom Types
 
+There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
-const matchExp = ({[TYPE]: type, [TAG]: tag, ["run" + type]: x}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(tag in o) ? _throw(new UnionError("invalid tag"))
-    : o[tag] (x);
+## Product Types (Records)
 
+### `struct`
 
-/******************************************************************************
-********************************[ RECORD TYPE ]********************************
-******************************************************************************/
+The default constructor for product types with a single field:
 
+```Javascript
+const SomeType = struct("SomeType");
+SomeType("foo"); // constructs a value of this type
+```
+### `structn`
 
-const struct = type => x => ({ // single field types
-  ["run" + type]: x,
-  [TYPE]: type,
-});
+Constructor for product types with several fields:
 
+```Javascript
+const SomeType = structn("SomeType")
+  (SomeType => x => y => SomeType([x, y]));
+  
+SomeType("foo") (123); // constructs a value of this type
+```
+### `structGetter`
 
-const structn = type => cons => { // multiple field types
-  const f = x => ({
-    ["run" + type]: x,
-    [TYPE]: type,
-  });
+Constructor for product types with one or several fields where you can define the getter for the `runXYZ` property explicitly. The following example defines a `Defer` type with a lazy getter, so that the `runDefer` property can be accessed without parenthesis:
 
-  return cons(f);
-};
+```Javascript
+const Defer = structGetter("Defer")
+  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
+```
+In this example a lazy getter replaces itself with a normal property after the initial lookup:
 
+```Javascript
+const Task = structGetter("Task")
+  (Task => k => Task({
+    get runTask() {
+      const r = k(id, id);
+      delete this.runTask;
+      return this.runTask = l => l(r);
+    }}));
+```
+## Sum Types (Tagged Unions)
 
-const structGetter = type => cons => { // explicit getter for the runSomething prop
-  const f = o => {
-    o[TYPE] = type;
-    return o;
-  }
+### `union`
 
-  return cons(f);
-};
+The default constructor for tagged unions:
 
+```Javascript
+const Either = union("Either");
 
-/******************************************************************************
-*******************************************************************************
-********************************[ TRAMPOLINES ]********************************
-*******************************************************************************
-******************************************************************************/
+const Left = x =>
+  Either("Left", x);
 
+const Right = x =>
+  Either("Right", x);
+  
+// creates values of this type
 
-/******************************************************************************
-******************************[ TAIL RECURSION ]*******************************
-******************************************************************************/
+Right(123);
+Left("error");
+```
+### `unionGetter`
 
+Constructor for unions with explicit getters:
 
+```Javascript
+const Option = unionGetter("Option");
+
+const None = Option("None", {get runOption() {return None}});
+
+const Some = x => Option("Some", {runOption: x});
+```
+In this example the `None` value constructor returns another `None` when the `runOption` property is accessed.
+
+## Predefined Types
+
+scriptum implements a couple of common functional types.
+
+# Typeclasses
+
+scriptum realizes typeclasses through typeclass functions, which have to be passed to ad-hoc polymorphic functions explicitly. An function with a single typeclass constraint defines it as its leftmost formal parameter. Functions that require several typeclass functions receive a dictionary, which is merely an `Object` with the typeclasses as properties. This way there is only a single function call necessary and the typeclass function order doesn't matter.
+
+```Javascript
+const kleisliComp = chain => fm => gm => x => // single typeclass constraint
+  chain(fm) (gm(x));
+
+const foldMap = ({fold, append, empty}) => f => // several typeclass constraints
+  fold(comp2nd(append) (f)) (empty);
+```
+Here is a list of typeclasses scriptum does or will provide the necessary functions for:
+
+* Alt
+* Applicative
+* Bifunctor
+* Bounded
+* Category
+* Choice
+* Clonable
+* Comonad
+* Contravariant
+* Deserializable
+* Enum
+* Filterable
+* Foldable
+* Functor
+* Ix
+* Monad
+* MonadRec
+* Monoid
+* Ord
+* Plus
+* Profunctor
+* Read
+* Semigroup
+* Serializable
+* Setoid
+* Show
+* Strong
+* Traversable
+* Unfoldable
+
+# Pattern Matching
+
+Pattern matching is a low level concept that requires native support of the language. Javascript doesn't have pattern matching and neither does scriptum. However, there are two functions that simplify the handling with unions.
+
+## `match`
+
+Takes an `Object` amd a union type and tries to access the property corresponding to the union type:
+
+```Javascript
+const tx = Some("foo"),
+  ty = None;
+  
+match(tx, {
+  type: "Option",
+  get Some() {return tx.runOption.toUpperCase()},
+  None: ""
+}); // "FOO"
+
+match(ty, {
+  type: "Option",
+  get Some() {return tx.runOption.toUpperCase()},
+  None: ""
+}); // ""
+```
+## `matchExp`
+
+Takes an `Object` and an expression that evaluates to a union type and assigns this result to an argument visible in the same scope as the provided `Object`.
+
+# Debugging
+
+scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
+
+```Javascript
+pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (debug(sqr))
+          ([[[1,2,3]]]);
+```
+If you are just interested in the evaluation result of an expression, pass the identity function:
+
+```Javascript
+debug(id) (pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (sqr)
+          ([[[1,2,3]]]));
+```
+
+# Type Signatures
+
+Using scriptum you should get familiar with Hindley-Milner-like type signatures of mono- and polymorphic types. Type signatures are a crucial property of functional programming especially for untyped languages, because they keep the code readable and comprehensible when its base grows.
+
+## A Little Type Theory
+
+### Monomorphism
+
+A value is monomorphic if it has exactly one type.
+
+```Javascript
+// String
+const foo = "bar";
+```
+
+```Javascript
+// String -> Number
+const strLen = s => s.length;
+```
+### Polymorphism
+
+A value (and by the way, a function is just another kind of value in this regard) is polymorphic if it can have more than one monomorphic type.
+
+#### Parametric Polymorphism
+
+A parametric polymorphic value is a polymorphic value without any constraints on the polymorphic portion of its type, i.e. nothing is known about this portion and the value can adopt any type.
+
+```Javascript
+// [a]
+const foo = [];
+
+// a -> a
+const id = x => x;
+```
+The type variable `a` represents the polymorphic portion of both types. Neither the `Array` nor the `Function` do know anything about `a`.
+
+#### Ad-hoc Polymorphism
+
+An ad-hoc polymorphic value is a polymorphic value with additional constraints on the polymorphic portion of its type, i.e. there is a certain knowledge about this portion and the value can only adopt types that implement this knowledge.
+
+```Javascript
+// Functor<f> => (a -> b) -> f<a> -> f<b>
+const genericMap = map => g => ts => map(g) (ts);
+```
+In the example above `f` is ad-hoc polymorphic, because it can adapt any type that implements a binary `map` operator, i.e. it is known how to map over `f` and its content `a` respectively. Please note that `f`'s field `a` is parametric polymorphic, because it can adopt any type.
+
+#### Row Polymorphism
+
+A row polymorphic value is a polymorphic `Object` for which only a subset of its properties is known. If these properties coincide with a type it can adopt this type and all properties the `Object` includes beyond that type are assigned to the type's row varibale.
+
+```Javascript
+// {foo: String, ...a}
+const foo = {foo: "abc", bar: 123},
+  bar = {foo: "abc", baz: true};
+```
+In the example above `foo` and `bar` are inhabitants of the same row polymorphic type. `foo` assigns `bar: Number` to the row variable `a` and `bar` assigns `baz: Boolean`.
+
+## Notation
+
+### `Array`
+
+*  `[?]` - denotes an unknown and probably heterogeneous `Array`
+*  `[String]` - denotes a homogenious `Array` of `String`s
+*  `[String, Number]` - denotes a pair tuple
+*  `[String|Number]` - denotes a heterogeneous `Array` of `String`s and `Number`s
+*  `[a]` - denotes a polymorphic `Array`
+
+### `Boolean`
+
+Denotes a `Boolean` value.
+
+### `Date`
+
+Denotes a date-`Object` value.
+
+### `Function`
+
+* `String -> Integer` - denotes a function from `String` to `Integer`
+* `(Number, Number) -> String -> Boolean` - denotes a multi-argument function
+* `Number...Number -> Number` - denotes a function with rest parameter
+*  `(a -> b) -> [a] -> [b]` - denotes a higher order function that takes a polymorphic function and a polymorphic `Array` and returns a polymorphic `Array` that may be of another type
+*  `Functor<f> => (a -> b) -> f<a> -> f<b>` - denotes a higher order function that takes a polymorphic function and a ad-hoc polymorphic type and returns a ad-hoc polymorphic type that may contain a different type. There is a Functor contraint on `f`. 
+
+### `Map`
+
+*  `Map(?)` - denotes an unknown map-`Object`
+*  `Map(Number: String)` - denotes a homogenious `Map` of `Number`/`String` key/value-pairs
+*  `Map(Number: String, Number: Boolean)` - denotes a heterogeneous `Map` of `Number`/`String` and `Number`/`Boolean` key/value-pairs
+*  `Map(k: v)` - denotes a parametric polymorphic `Map`
+
+### `NaN`
+
+Denotes the unit type `NaN` (not a number) value.
+
+### `Null`
+
+Denotes the unit type `null` value.
+
+### `Number`
+
+*  `Number` - denotes either a  signed/unsigned `Float` or a signed/unsigned `Integer` value
+*  `Integer` - denotes a signed/unsigned `Integer` value
+*  `Float` - denotes a signed/unsigned `Float` value
+
+### `Object`
+
+*  `{?}` - denotes an unknown `Object` created by the default constructor
+*  `{foo: String, ?}` - denotes a partially known `Object` created by the default constructor
+*  `Name{?}` - denotes an unknown `Object` created by the constructor `Name`
+*  `Name{foo: String, ?}` - denotes a partially known `Object` created by the constructor `Name`
+*  `{foo: String, bar: Number}` - denotes a known `Object` created by the default constructor
+*  `Name{foo: String, bar: Number}` - denotes a known `Object` created by the constructor `Name`
+*  `{foo: String, bar: Number, ...a}` - denotes a row polymorphic* `Object` with two properties created with the default constructor
+*  `Name{foo: String, ...a}` - denotes a row polymorphic `Object` with one property created with the constructor `Name`
+
+### `RegExp`
+
+Denotes a regular expression `Object` value.
+
+### `Set`
+
+*  `Set(?)` - denotes an unknown set-`Object`
+*  `Set(String)` - denotes a homogeneous `Set` of `String`s
+*  `Set(String, Number)` - denotes a heterogeneous `Set` of `String`s/`Number`s
+*  `Set(v)` - denotes a parametric polymorphic `Set`
+
+### `String`
+
+`Char` - denotes a `String` of length one
+`String` - denotes a `String`
+
+### `Undefined`
+
+Denotes the unit type `undefined` value.
+
+### `union`/`struct` Types
+
+*  `Name<String> - denotes a type with a field of type `String` created by the constructor `Name`
+*  `Name<String, Number> - denotes a type with two fields of type `String`/`Number` created by the constructor `Name`
+*  `Name<a, b>` - denotes a type with two parametric polymorphic fields
+*  m<a>` - denotes a type that consists of a context type with a monad constraint and a wrapped parametric polymorphic value
+
+### Placeholders
+
+You can shorten long type signatures by replacing sensible sub signatures with a placeholder:
+
+```Javascript
+// _1_:
+// {foo: String, bar: Number, ...a lot more properties}
+
+// _1_ -> SomeType<_1_>
+```
+### Semantic Typing
+
+This is a made-up term. It means that sometimes you should use types for the single reason to enable more telling type signatures. This justifies the additional boilerplate to wrap and unwrap the raw data respectively:
+
+```Javascript
+// Task<[[ParserResult<...>]], Error> ->
+// Task<[[[SqlQuery<String>]]], Error>
+const buildSqlQueries =
+  tMap(
+    arrFold(acc => tx =>
+      arrPush(acc)
+        (buildSqlQueries_(tx))) ([]));
+```
+is transformed into
+
+```Javascript
+// Task<[BankAdvice<[ParserResult<...>]>], Error> ->
+// Task<[BankAdvice<[AdviceRecord<[SqlQuery<String>]>]>], Error>
+```
+# Naming Convetions
+
+## Function Names
+
+The following rules apply to function names:
+
+* with an f-postfix (e.g. `foof`) denotes a function with its arguments flipped: `const subf = y => x => x - y`
+* with an x-postfix (e.g. `foox`) denotes a destructive function, whose mutation is visible in the parent scope
+* with an var-prefix (e.g. `varFoo`) denotes most likely a variadic one
+* with an _-prefix (e.g. `_foo`) is used to avoid naming claches with reserved names.
+* with an _-postfix (e.g. `foo_`) denotes a slightly modified variant of an already existing one
+
+## Variable Names
+
+* `f`/`g` denotes pure functions
+* `x`/`y` denotes a value of arbitrary type
+* `tx`/`ty`/... denotes a value wrapped in a type without specifying any constraints like monadic, applicative, functorial etc.
+* `tf`/`tg` denotes a function wrapped in a type
+* `ts` denotes an array of values wrapped in a type
+* `mx`/`my` denotes a value wrapped in a monadic type
+* `ax`/`ay` denotes a value wrapped in a applicative type
+* `fm`/`gm` denotes a monadic action, i.e. a function that returns a monad
+* `ix`/`iy` denotes a stream of values generated by an iterator
+
+# Advanced Topics
+
+## Category Composition
+
+Function composition is generalized in scriptum by the `Category` typeclass. This typeclass comprises the following functions:
+
+* comp (right-to-left compostion)
+* pipe (left-to-right compostion)
+* comp3 (composing three functions - for convenience)
+* pipe3 (piping three functions - for convenience)
+* varComp (variadic composition)
+* varPipe (variadic pipe)
+
+That means each function type that implements `Category` has automatically access to a variadic interface. This is desirable because it allows for flat compositions/pipes and avoids explicitly nested function call trees:
+
+```Javascript
+const inc = x => x + 1,
+  sqr = x => x * x;
+  
+funVarComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
+funVarPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
+```
+`runVarComp` is the indicator to start evaluating the composition tree.
+
+Here is another example for applicative lifting through the variadic interface:
+
+```Javascript
+const sum3 = x => y => z => x + y + z;
+
+optVarLiftA(sum3) (Some(1)) (Some(2)) (Some(3)); // Some(6)
+optVarLiftA(sum3) (Some(1)) (None) (Some(3)); // None
+```
+Other suitable function types are
+
+* applicative chaining/sequencing
+* monadic lifting
+* monadic chaining/sequencing
+* kleisli composition
+
+All variadic combinators are based on the `varArgs` function. You can easily create your own variadic combinators with it:
+
+```Javascript
+const add = x => y => x + y;
+
+const sum = ns =>
+  ns.reduce((acc, n) => acc + n, 0);
+
+const varSum = varArgs(sum);
+
+varSum(1) (2) (3) (4).runVarArgs // 10
+```
+## Structural Folding
+
+### Catamorphism et al.
+
+For some datatypes a catamorphism is a generalization of a fold/reduction (e.g. trees). For others both coincide (e.g. `Array`). And yet others don't have a fold at all (e.g. `Option`). 
+
+For any non-primitive type the associated catamorphism is the dual of the constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Hence catamorphisms represent the notion of destructuring data types.
+
+scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
+
+```Javascript
+const add = x => y => x + y,
+  mul = x => y => x * y,
+  sum = arrFold(add) (0),
+  prod = arrFold(mul) (1);
+
+sum([1,2,3,4,5]); // 15
+prod([1,2,3,4,5]); // 120
+```
+There is also a fold with short circuit semantics:
+
+```Javascript
+const lte = y => x => x <= y;
+
+const addWhile = p => x => y =>
+  p(x + y)
+    ? Done(x + y)
+    : Loop(x);
+
+arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
+```
+`arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
+
+Maybe you've noticed that the given examples are based on a left associative fold. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons. As opposed to Haskell's `foldr` it is strictly evaluated though.
+
+More folds will follow:
+
+* Paramorphism (fold with current state of the context)
+* Hylomorphism (unfold composed with fold)
+* Zygomorphism (one fold depending on another - semi-mutual recursive)
+* Mutumorphism (mutual recursive fold - mutual recursive)
+* Histomorphism (fold with access to all previous intermediate results)
+
+### Anamorphism et al.
+
+Anamorphisms are the dual of catamorphisms. You start with a seed value and apply the coalgebra to the seed and then iteratively to the result of the previous application, while all intermediate results are stored in a structure:
+
+```Javascript
+const nextLetter = c =>
+  String.fromCharCode (c.charCodeAt (0) + 1)
+
+const main = arrUnfold(c =>
+  c > "z"
+    ? None
+    : Some([c, nextLetter(c)]));
+
+main("a"); // ["a", "b", "c", "d", "e", ...]
+```
+More unfolds will follow:
+
+* Apomorphism (unfold with early termination)
+* Futumorphism (unfold with access to values still to be computed)
+
+## Stack-Safe Recursion with Trampolines
+
+### Direct Recursion in Tail Position
+
+scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline:
+
+```Javascript
 const loop = f => {
   let step = f();
 
@@ -163,16 +579,33 @@ const loop = f => {
   return step;
 };
 
-
 const recur = (...args) =>
   ({type: recur, args});
+```
+Now we don't have to bother with stack overflows any longer but can utilize recursion when we see fit:
 
+```Javascript
+const stackSafeFold = f => acc_ => xs =>
+  loop((acc = acc_, i = 0) =>
+    i === xs.length
+      ? acc
+      : f(acc) (xs[i]) (acc_ => recur(acc_, i + 1)));
 
-/******************************************************************************
-*****************************[ MUTUAL RECURSION ]******************************
-******************************************************************************/
+const xs = Array(1e6)
+  .fill(0)
+  .map((x, i) => i);
+  
+const stackSafeSum = stackSafeFold(x => y => k => x < Infinity ? k(x + y) : x) (0);
 
+stackSafeSum(xs); // 499999500000
+```
+This works, because `stackSafeFold` implements direct recursion in tail position.
 
+### Indirect Recursion in Tail Position
+
+For mutual recursion we need a more complex trampoline:
+
+```Javascript
 const tramp = f => (...args) => {
   let step = f(...args);
 
@@ -184,4109 +617,561 @@ const tramp = f => (...args) => {
   return step;
 };
 
+const recur = (...args) =>
+  ({type: recur, args});
+```
+Now we can express mutual recursion in a stack-safe manner too:
 
-/******************************************************************************
-*******************************************************************************
-***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
-*******************************************************************************
-******************************************************************************/
+```Javascript
+const even = n =>
+  n === 0
+    ? true
+    : recur(odd, n - 1);
 
+const odd = n =>
+  n === 0
+    ? false
+    : recur(even, n - 1);
 
-/***[Applicative]*************************************************************/
+trampoline(even) (1e6 + 1)); // false
+```
+As you can see the trampoline API leaks on the calling site and there is nothing we can do about it. Stac-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
 
+### Non-Tail Recursion
 
-const varAp = ap => tf =>
-  varComp({comp: ap, id: tf});
+Handling non-tail recursive algorithms with trampolines and explicit stacks remains a matter of research for the time being.
 
+## Transducer
 
-const varLiftA = ({ap, of}) => f =>
-  varComp({comp: ap, id: of(f)});
+Transducers are characterized by the following properties:
 
+* they are composable and thus allow loop fusion
+* they can be prematurely aborted
+* they are data type agnostic as long as these data types are foldable
 
-/***[Category]****************************************************************/
+### Run-to-Completion
 
+Normal transducers run to completion like any ordinary fold:
 
-const varComp = ({comp, id}) =>
-  varArgs(arrFold(comp) (id));
+```Javascript
+const main = arrTransduce(
+  comp3(
+    filterer(n => (n & 1) === 1))
+      (mapper(n => n * n))
+        (taker(3)))
+          (arrConsLast);
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
+```
+`main` traverses the complete array even though it could stop after processing the fifth element.
 
+### Run with Short-Circuiting
 
-const varPipe = ({pipe, id}) =>
-  varArgs(arrFold(pipe) (id));
+You can improve this ineffective runtime behavior by applying transducers with short circuiting behavior instead.
 
+```Javascript
+const main = arrTransduceWhile(
+  comp3(
+    filtererk(n => (n & 1) === 1))
+      (mapperk(n => n * n))
+        (takerk(3)))
+          (cont2(arrConsLast));
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
+```
+Now the traversal of the array is abandoned prematurely after reaching the fifth element. Internally, these transducers return a continuation wrapped in a `Cont` type. In order to break out of the fold the reducer simply need not call this continuation.  
 
-/***[Ix]**********************************************************************/
+## Effect Handling
 
+Effects are handled with monads and their superclasses in scriptum. A monad is essentially a type that you cannot freely leave, i.e. an effect in a monad is effectively encapsulated.
 
-const range = ({succ, gt}) => (lower, upper) =>
-  arrUnfold(x =>
-    gt(x) (upper)
-      ? None
-      : Some([x, succ(x)])) (lower);
+### Single Effects
 
+TODO
 
-const index = ({succ, eq}) => (lower, upper) => x =>
-  loop((y = lower, i = 0) =>
-    eq(y) (upper) ? None
-      : eq(x) (y) ? Some(i)
-      : recur(succ(y), i + 1));
+### Effect Composition
 
-const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
-  loop((y = lower) =>
-    gt(y) (upper) ? false
-      : eq(x) (y) ? true
-      : recur(succ(y)));
+You can compose functorial and applicative effects in a principled manner either by hand or using the `Comp` type. Monadic effects, however, where the next monadic computation can depend on the result of the previous one, can only be composed by hand, because every composition of two monads is specific to the involved monads.
 
-const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
-  loop((x = lower, n = 0) =>
-    gt(x) (upper)
-      ? n
-      : recur(succ(x), n + 1));
+#### Monad Transformers
 
+Monad transformers facilitate the composition of monads.
 
-/***[Foldable]****************************************************************/
+TODO
 
+## Asynchronous Computations
 
-const all = ({fold, append, empty}) => p =>
-  comp(tx => tx.runAll) (foldMap({fold, append, empty}) (comp(All) (p)));
+As already mentioned scriptum distinguishes between sequential and parallel evaluation of asynchronous computations. In order to make this distinction explicit each veriant has its own type.
 
+### `Task`
 
-const any = ({fold, append, empty}) => p =>
-  comp(tx => tx.runAny) (foldMap({fold, append, empty}) (comp(Any) (p)));
+Represents sequentially evaluated asynchronous computations and is based on continutions or rather continuation passing style (CPS). With `Task` you can abstract from asynchronous functions and mix them with pure ones transparently:
 
-
-const foldMap = ({fold, append, empty}) => f =>
-  fold(comp2nd(append) (f)) (empty);
-
-
-/***[Monad]*******************************************************************/
-
-
-const varChain = ({map, of, chain, join}) => fm => // TODO: derive from varComp
-  varArgs(args =>
-    join(arrFold(mg => mx =>
-      chain(g => map(g) (mx)) (mg)) (of(fm)) (args)));
-
-
-const kleisliComp = chain => fm => gm => x =>
-  chain(fm) (gm(x));
-
-
-const varKleisliComp = ({of, chain}) =>
-  varComp({comp: kleisliComp(chain), id: of});
-
-
-const kleisliPipe = chain => gm => fm => x =>
-  chain(fm) (gm(x));
-
-
-const varKleisliPipe = ({of, chain}) =>
-  varPipe({comp: kleisliPipe(chain), id: of});
-
-
-const varLiftM = ({map, of, chain}) => f =>
-  varComp({
-    comp: mg => mx => chain(g => map(g) (mx)) (mg),
-    id: of(f)
-  });
-
-
-/***[Monoid]******************************************************************/
-
-
-const concat = ({append, empty}) =>
-  arrFold(append) (empty);
-
-
-/******************************************************************************
-*******************************************************************************
-******************************[ BUILT-IN TYPES ]*******************************
-*******************************************************************************
-******************************************************************************/
-
-
-/***[Eq]**********************************************************************/
-
-
-const eq = x => y => x === y;
-
-
-const neq = x => y => x !== y;
-
-
-/***[Ord]*********************************************************************/
-
-
-const compare = x => y =>
-  x < y ? LT
-    : x === y ? EQ
-    : GT;
-      
-
-const gt = x => y => x > y;
-
-
-const gte = x => y => x >= y;
-
-
-const lt = x => y => x < y;
-
-
-const lte = x => y => x <= y;
-
-
-const min = x => y =>
-  x < y ? x
-    : x === y ? x
-    : y;
-
-
-const max = x => y =>
-  x < y ? y
-    : x === y ? x
-    : x;
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const and = x => y =>
-  x && y;
-
-
-const imply = x => y =>
-  !x || y;
-
-
-const not = x => !x;
-
-
-const or = x => y =>
-  x || y;
-
-
-/******************************************************************************
-***********************************[ ARRAY ]***********************************
-******************************************************************************/
-
-
-/***[Applicative]*************************************************************/
-
-
-const arrAp = fs => xs => // TODO: use fold
-  fs.reduce((acc, f) =>
-    acc.concat(xs.map(x => f(x))), []);
-
-
-const arrOf = x => [x];
-
-
-/***[ChainRec]****************************************************************/
-
-
-const arrChainRec = f => {
-  const stack = [],
-    acc = [];
-
-  let step = f();
-
-  if (step && step.type === recur)
-    arrAppendx(stack) (step.arg);
-
-  else
-    arrAppendx(acc) (step.arg);
-
-  while (stack.length > 0) {
-    step = f(stack.shift());
-
-    if (step && step.type === recur)
-      arrAppendx(stack) (step.arg);
-
-    else
-      arrAppendx(acc) (step);
-  }
-
-  return acc;
-};
-
-
-/***[Clonable]****************************************************************/
-
-
-const arrClone = xs => {
-  const ys = [];
-
-  for (let i = 0; i < xs.length; i++)
-    ys[i] = xs[i];
-
-  return ys;
-};
-
-
-/***[Filterable]**************************************************************/
-
-
-const arrFilter = p => xs =>
-  xs.filter(x => p(x) ? x : null);
-
-
-/***[Foldable]****************************************************************/
-
-
-const arrFold = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i], i);
-
-  return acc;
-};
-
-
-const arrFoldM = ({append, empty}) =>
-  arrFold(append) (empty);
-
-
-const arrFoldr = alg => zero => xs => {
-  const stack = [];
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    stack.unshift(alg(xs[i]));
-
-  for (let i = 0; i < xs.length; i++)
-    acc = stack[i] (acc);
-
-  return acc;
-};
-
-
-const arrFoldStr = s => ss =>
-  ss.join(s);
-
-
-const arrFoldWhile = alg => zero => xs =>
-  loop((acc = zero, i = 0) =>
-    i === xs.length
-      ? acc
-      : alg(acc) (xs[i], i).runCont(acc_ => recur(acc_, i + 1)));
-
-
-const arrHisto = alg => zero =>
-  comp(headH) (history(alg) (zero));
-
-
-const arrHylo = alg => zero => coalg =>
-  comp(arrFold(alg) (zero)) (arrAna(coalg));
-
-
-const arrLength = xs => xs.length;
-
-
-const arrMutu = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFold(([acc1, acc2]) => x =>
-      [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
-
-
-const arrNull = xs => xs.length === 0;
-
-
-const arrPara = alg => zero => xs => {
-  const ys = arrClone(xs);
+```Javascript
+const sqr = n => n * n;
   
-  let acc = zero,
-    len = 0,
-    x;
-
-  while (x = ys.shift()) 
-    acc = alg(acc) (ys) (x, len++);
-
-  return acc;
-};
-
-
-const arrParaWhile = alg => zero => xs => {
-  const ys = arrClone(xs);
-
-  return loop((acc = zero, i = 0) =>
-    i === xs.length
-      ? acc
-      : alg(acc) (ys) (ys.shift(), i).runCont(acc_ => recur(acc_, i + 1)));
-};
-
-
-// arrSum @derived
-
-
-const arrZygo = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFold(([acc1, acc2]) => x =>
-      [alg1(acc1) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
-
-
-/***[Functor]*****************************************************************/
-
-
-const arrMap = f => xs =>
-  xs.map(x => f(x));
-
-
-const arrSeqF = x => xs => {
-  const f = _const(x);
-  return xs.map(f);
-};
-
-
-/***[Monad]*******************************************************************/
-
-
-const arrChain = fm => xs => // TODO: use fold
-  xs.reduce((acc, x) => arrAppendx(acc) (fm(x)), []);
-
-
-const arrJoin = xss => {
-  let xs = [];
-
-  for (let i = 0; i < xss.length; i++)
-    for (let j = 0; j < xss[i].length; j++)
-      xs.push(xss[i] [j]);
-
-  return xs;
-};
-
-
-/***[Monoid]******************************************************************/
-
-
-const arrEmpty = [];
-
-
-/***[Semigroup]***************************************************************/
-
-
-const arrAppend = xs => ys => { // NOTE: expects arrays in both arguments
-  const zs = arrClone(xs);
-
-  if (!ys || ys.length === undefined)
-    throw new SemigroupError(`array expected but "${ys}" given`);
-
-  else {
-    for (let i = 0; i < ys.length; i++)
-      zs.push(ys[i]);
-  }
-
-  return zs;
-};
-
-
-const arrAppendx = xs => ys => { // NOTE: expects arrays in both arguments
-  if (!ys || ys.length === undefined)
-    throw new SemigroupError(`array expected but "${ys}" given`);
-
-  else {
-    for (let i = 0; i < ys.length; i++)
-      xs.push(ys[i]);
-  }
-
-  return xs;
-};
-
-
-const arrConcat =
-  concat({append: arrAppend, empty: arrEmpty});
-
-
-// arrPrepend @derived
-
-
-// arrPrependx @derived
-
-
-/***[Transduce]***************************************************************/
-
-
-const arrTransduce = alg => reduce =>
-  arrFold(alg(reduce));
-
-
-const arrTransduceWhile = alg => reduce =>
-  arrFoldWhile(alg(reduce));
-
-
-/***[Unfoldable]**************************************************************/
-
-
-const arrUnfold = coalg => x => {
-  const acc = [];
-
-  while (true) {
-    let tx = coalg(x);
-
-    switch (tx[TAG]) {
-      case "None": return acc;
-      
-      case "Some": {
-        acc.push(tx.runOption[0]);
-        x = tx.runOption[1];
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
-
-
-const arrApo = coalg => x => {
-  const acc = [];
-
-  while (true) {
-    let tx = coalg(x);
-
-    switch (tx.tag) {
-      case "None": return acc;
-      
-      case "Some": {
-        switch (tx.runOption[1].tag) {
-          case "Left": {
-            arrAppendx(acc)
-              ((tx.runOption[1].runEither.unshift(tx.runOption[0]),
-                tx.runOption[1].runEither));
-            
-            return acc;
-          }
-
-          case "Right": {
-            acc.push(tx.runOption[0]);
-            x = tx.runOption[1].runEither;
-            break;
-          }
-
-          default: throw new UnionError("invalid tag");
-        }
-        
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
-
-
-const arrFutu = coalg => x => {
-  const acc = [];
-
-  while (true) {
-    let optX = coalg(x);
-
-    switch (optX.tag) {
-      case "None": return acc;
-
-      case "Some": {
-        let [y, [ys, optX_]] = optX.runOption;
-
-        switch(optX_.tag) {
-          case "None": {
-            arrAppendx(acc) ((ys.unshift(y), ys));
-            return acc;
-          }
-
-          case "Some": {
-            arrAppendx(acc) ((ys.unshift(y), ys)); 
-            x = optX_.runOption;
-            break;
-          }
-
-          default: throw new UnionError("invalid tag");
-        }
-
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const arrConsHead = x => xs => {
-  const ys = arrClone(xs);
-  ys.unshift(x);
-  return ys;
-};
-
-
-const arrConsHeadx = x => xs =>
-  (xs.unshift(x), xs);
-
-
-const arrConsLast = x => xs => {
-  const ys = arrClone(xs);
-  ys.push(x);
-  return ys;
-};
-
-
-const arrConsLastx = x => xs =>
-  (xs.push(x), xs);
-
-
-const arrConsNth = (i, x) => xs => {
-  const ys = arrClone(xs);
-  return (ys.splice(i + 1, 0, x), ys);
-};
-
-
-const arrConsNthx = (i, x) => xs =>
-  (xs.splice(i + 1, 0, x), xs);
-
-
-const arrDedupeBy = f => xs => {
-  const s = new Set();
-
-  return arrFilter(x => {
-    const r = f(x);
+const tx = tMap(sqr)
+  (fileRead("utf8")
+    ("./five.txt"));
     
-    return s.has(r)
-      ? null
-      : (s.add(r), x);
-  }) (xs);
-};
+tx.runTask(console.log, console.error); // logs 25
+```
+```Javascript
+const add = m => n => m + n;
+  
+const tx = fileRead("utf8")
+  ("./five.txt");
 
+const ty = fileRead("utf8")
+  ("./six.txt");
 
-const arrDedupeOn = k => xs => {
-  const s = new Set();
+const tz = tAp(tMap(add) (tx)) (ty);
 
-  return arrFilter(o =>
-    s.has(o[k])
-      ? null
-      : (s.add(o[k]), o[k])) (xs);
-};
+tz.runTask(console.log, console.error); // logs 11
+```
+### `Parallel`
 
+Like `Task` but runs asynchronous computations in parallel. Since monads depend on the value of the previous monadic computation `Parallel` doesn't implement the monad typeclass.
 
-const arrHead = xs =>
-  xs.length === 0
-    ? None
-    : Some(xs[0]);
+### Sharing
 
+Sharing just means that intermediate results of asynchronous computations are evaluated only once but can be used any number of times.
 
-const arrHeadOr = def => xs =>
-  xs.length === 0
-    ? def
-    : xs[0];
+```Javascript
+const add = m => n => m + n;
 
+const tx = fileRead("utf8")
+  ("./five.txt");
 
-const arrInit = xs =>
-  xs.slice(0, -1);
+const ty = tAp(tMap(add) (tx)) (tx);
 
+bar.runTask(console.log, console.error); // logs 10
+```
+The crucial property here is that although `tx` is used twice, the corresponding asynchronous computation (`fileRead`) is only evaluated once, that is the result of the first evaluation is shared with subsequent calls.
 
-const arrInvert =
-  arrFold(
-    acc => (x, i) =>
-      acc.set(x, i))
-        (new Map());
+### `Promise` Compatibility
 
+A `Promise` returning function (or rather action) can be easily wired with both `Task` and `Parallel` types:
 
-const arrLast = xs =>
-  xs.length === 0
-    ? None
-    : Some(xs[xs.length - 1]);
+```Javascript
+const foo = x =>
+  new Promise((res, rej) => x > 0
+    ? res(x)
+    : rej("must be greater than zero"));
 
+const fooTask = x => foo(x)
+  .then(y => Task((res, rej) => res(x)))
+  .catch(e => Task((res, rej) => rej(e)));
+```
+The `Promise` type is neither a monad nor a functor. It's a type specific to Javascript, which behaves quite differently than monadic types. It is unnecessary to mention that you should use monadic types whenever possible.
 
-const arrLastOr = def => xs =>
-  xs.length === 0
-    ? def
-    : xs[xs.length - 1];
+## Functional Optics
 
+Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or a specific case of a value that consists of several alternative cases. The magical thing about functional optics is there ability to compose with each other, because all of them share the same basic type.
 
-const arrModOr = def => (i, f) => xs =>
-  arrModOrx(def) (i, f) (arrClone(xs));
+Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still efficient, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
 
+scriptum, however, offers an impure counterpart for each optic, which performs destructive updates. As long as you keep thes destructive updates local, you can benefit from the additional performance without exposing yourself to the drawbacks of side effects.
 
-const arrModOrx = def => (i, f) => xs =>
-  i in xs
-    ? (xs[i] = f(xs[i]), xs)
-    : xs[i] = def;
+### Lenses
 
+scriptum uses van Laarhoven lenses that are essentially based on the following building block:
 
-const arrPartition = f => xs => // TODO: use fold
-  xs.reduce((m, x) =>
-    _let((r = f(x), ys = m.get(r) || []) =>
-      m.set(r, (ys.push(x), ys))), new Map());
+```Javacript
+Functor<f> => (a -> f<b>) -> s -> f<t>
+```
+where `a` is exactly one target inside the composite structure `s`, also called product type. As you can see we may transform both the target `a` into `b` and its containing structure `s` into `t` all inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but one wrapped in a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and setter. The concrete behavior depends on the provided functor:
 
+* `Const` turns the `Lens` into a getter
+* `Id` turns the `Lens` into a setter
 
-const arrScan = f => x_ => xs => // TODO: use fold
-  loop((acc = [], x = x_, i = 0) =>
+TODO: Example
+
+If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
+
+Side note: `Object` lenses modify the insertion order of properties, that is you should never rely on such an order when using scriptum.
+
+### Getters
+
+A `Getter` is just a `Lens` specialized to the `Const` functor:
+
+```Javacript
+(a -> Const<a>) -> s -> Const<s>
+```
+TODO: Example
+
+### Setters
+
+A `Setter` is just a `Lens` specialized to the `Id` functor:
+
+```Javacript
+(a -> Id<a>) -> s -> Id<s>
+```
+TODO: Example
+
+### Prisms
+
+In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. As opposed to lenses prisms are invertible, i.e. you can create a tagged union out of a plain value.
+
+You see there are a couple of differences between lenses and prisms and yet they share almost the same type and are thus composbale:
+
+```Javacript
+Applicative<f> => (a -> f<b>) -> s -> f<t>
+```
+`Prism` requires an applicative constraint because there must be a way to put a plain value into a minimal context. 
+
+TODO: Example
+
+### Folds
+
+A `Fold` is just a `Getter` where the functor constraint is replaced with the more rigid applicative typeclass. Since you can chain applicatives, folds are getters with multiple targets.
+
+TODO: Example
+
+### Traversals
+
+A `Traversable` is just a `Lens` where the functor constraint is replaced with the more rigid applicative typeclasse. Since you can chain applicatives, folds are lenses with multiple targets.
+
+TODO: Example
+
+## Lazy Evaluation
+
+### Functions
+
+Functions generalize expressions by substituting subexpressions with arguments. As an effect such generalized expressions are only evaluated when all arguments are provided. While this is a simple form of lazy evaluation, the passed arguments are strictly evaluated.
+
+### ETA Abstraction
+
+In a strictly evaluated language like Javascript ETA abstraction is a way to add some extra lazyness to expressions:
+
+```Javascript
+const fold = f => acc => xs =>
+  xs.reduce((acc_, x) => f(acc_) (x), acc);
+  
+const sum = fold(xs => y =>
+  (xs.push(y + xs[xs.length - 1]), xs)) ([0]);
+
+const sumEta = xs =>
+  fold(ys => y => (ys.push(y + ys[ys.length - 1]), ys)) ([0]) (xs);
+
+sum([1,2,3]); // [1,3,6]
+sum([1,2,3]); // [1,3,6,7,9,12]
+
+sumEta([1,2,3]); // [1,3,6]
+sumEta([1,2,3]); // [1,3,6]
+```
+### Function Composition
+
+From another perspective you can think of a function composition as a function `f` that takes an argument `g`, which is stuck in another function `x => f(g(x))` and thus only evaluated if the final argument is passed:
+
+```Javascript
+const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the idea
+```
+In lazily evaluated languages with call by need or call by name evaluation strategy such lazily evaluated arguments are the default.
+
+### Continuation Passing Style
+
+We can go beyond lazyness through function composition by encoding functions in continuation passing style:
+
+```Javascript
+const inck = x => k => k(x + 1),
+  id = x => x;
+
+const mapk = f => xs => k => {
+  const go = (acc, i) =>
     i === xs.length
-      ? acc
-      : recur(
-        (acc.push(f(x) (xs[i])), acc),
-        acc[acc.length - 1], i + 1));
-
-
-const arrSet = (i, x) => xs =>
-  arrSetx(i, x) (arrClone(xs));
-
-
-const arrSetx = (i, x) => xs =>
-  (xs[i] = x, xs);
-
-
-const arrSliceAt = (i, len) => xs =>
-  xs.slice(i, i + len);
-
-
-const arrSliceAtx = (i, len) => xs => {
-  if (len === undefined)
-    if (i < 0)
-      return xs.splice(i);
-
-    else
-      return (xs.splice(i), xs);
-
-  else if (len < 0)
-    return (xs.splice(xs.length + len), xs);
-
-  else if (len === 0)
-    return [];
-           
-  else
-    return xs.splice(i, len);
-};
-
-
-const arrSortBy = f => xs =>
-  arrClone(xs).sort((x, y) => f(x) (y));
-
-
-const arrSortByx = f => xs =>
-  xs.sort((x, y) => f(x) (y));
-
-
-const arrSplitAt = i => xs => {
-  const ys = arrClone(xs);
-  return [ys, ys.splice(i + 1)];
-};
-
-
-const arrSplitAtx = i => xs =>
-  [xs, xs.splice(i + 1)];
-
-
-const arrSplitBy = p => xs => // aka span
-  arrFoldWhile(
-    acc => (x, i) =>
-      Cont(k =>
-        p(x)
-          ? arrSplitAt(i) (xs)
-          : k(acc)))
-              ([xs, []])
-                (xs);
-
-
-const arrSplitByx = p => xs =>
-  arrFoldWhile(
-    acc => (x, i) =>
-      Cont(k =>
-        p(x)
-          ? arrSplitAtx(i) (xs)
-          : k(acc)))
-              ([xs, []])
-                (xs);
-
-
-const arrTail = xs =>
-  xs.slice(1);
-
-
-const arrTranspose = matrix =>
-  matrix[0].map((_, i) =>
-    matrix.map(xs => xs[i]));
-
-
-const arrUnconsHead = xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([ys.shift(), ys]);
-};
-
-
-const arrUnconsHeadx = xs => {
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([xs.shift(), xs]);
-};
-
-
-const arrUnconsHeadOr = def => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return [def, ys];
-
-  else
-    return [ys.shift(), ys];
-};
-
-
-const arrUnconsHeadOrx = def => xs => {
-  if (xs.length === 0)
-    return [def, xs];
-
-  else
-    return [xs.shift(), xs];
-};
-
-
-const arrUnconsLast = xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([ys.pop(), ys]);
-};
-
-
-const arrUnconsLastx = xs => {
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([xs.pop(), xs]);
-};
-
-
-const arrUnconsLastOr = def => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return [def, ys];
-
-  else
-    return [ys.pop(), ys];
-};
-
-
-const arrUnconsLastOrx = def => xs => {
-  if (xs.length === 0)
-    return [def, xs];
-
-  else
-    return [xs.pop(), xs];
-};
-
-
-const arrUnconsNth = i => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length < i)
-    return None;
-
-  else
-    return Some([ys.splice(i, 1), ys]);
-};
-
-
-const arrUnconsNthx = i => xs => {
-  if (xs.length < i)
-    return None;
-
-  else
-    return Some([xs.splice(i, 1), xs]);
-};
-
-
-const arrUnconsNthOr = def => i => xs => {
-  const ys = arrClone(xs);
-  return [xs.length < i ? def : ys.splice(i, 1), ys];
-};
-
-
-const arrUnconsNthOrx = def => i => xs =>
-  [xs.length < i ? def : xs.splice(i, 1), xs];
-
-
-const arrUnzip = xss => // TODO: use fold
-  loop((acc = [[], []], i = 0) =>
-    i === xss.length
-      ? acc
-      : recur((
-          acc[0].push(xss[i] [0]),
-          acc[1].push(xss[i] [1]),
-          acc), i + 1));
-
-
-const arrZip = xs => ys => // TODO: use fold
-  loop((acc = [], i = 0) => {
-    const x = xs[i], y = ys[i];
-
-    if (x === undefined || y === undefined)
-      return acc;
-
-    else
-      return recur(
-        (acc.push([xs[i], ys[i]]), acc), i + 1);
-  });
-
-
-const arrZipBy = f => xs => ys => // TODO: use fold
-  loop((acc = [], i = 0) => {
-    const x = xs[i], y = ys[i];
-
-    if (x === undefined || y === undefined)
-      return acc;
-
-    else
-      return recur(
-        (acc.push(f(xs[i]) (ys[i])), acc), i + 1);
-  });
-
-
-/******************************************************************************
-***********************************[ DATE ]************************************
-******************************************************************************/
-
-
-const dateParse = s => {
-  const d = new Date(s);
+    ? acc
+    : f(xs[i]) (x => go(acc.concat(x), i + 1));
   
-  if (d.getTime === undefined || Number.isNaN(d.getTime()))
-    throw new DateError(`malformed date string "${s}"`);
-
-  else
-    return d;
+  return k(go([], 0));
 };
 
+const main = mapk(inck) ([1,2,3]); // still lazy
 
-const formatDate = sep => (...fs) => date =>
-  fs.map(f => f(date))
-    .join(sep);
+main(id); // [2,3,4]
+```
+With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this promissing topic.
 
+### Generators
 
-const formatDay = digits => n => {
-  switch (digits) {
-    case 1: return n.toString();
-    case 2: return strPadl(2) ("0") (n);
+Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated control structures.
 
-    default: throw new DateError(
-      "invalid number of digits");
-  }
-};
+### Explicit Thunks
 
+Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to defer this operation and make it explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
 
-const formatMonth = (monthMap, abbrMonthMap) => digits => n => {
-  switch (digits) {
-    case 1: return (n + 1).toString();
-    case 2: return strPadl(2) ("0") (n + 1);
-    case 3: return abbrMonthMap[n];
-    case 4: return monthMap[n];
-    
-    default: throw new DateError(
-      "invalid number of digits");
-  }
-};
+#### `Defer` w/o Sharing
 
+`Defer` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't share intermediate results:
 
-const formatYear = digits => n => {
-  switch (digits) {
-    case 2: return n.toString().slice(digits);
-    case 4: return n.toString();
-
-    default: throw new DateError(
-      "invalid number of digits");
-  }
-};
-
-
-// getDay @derived
-
-
-const getMonthDays = y => m =>
-  new Date(new Date(y, m + 1, 1) - 1).getDate();
-
-
-// getMonth @derived
-
-
-const getTimezoneOffset = () => 
-  new Date().getTimezoneOffset() * 60 * 1000;
-
-
-// getYear @derived
-
-
-/******************************************************************************
-***********************************[ FLOAT ]***********************************
-******************************************************************************/
-
-
-// ceil @derived
-
-
-// floor @derived
-
-
-const formatFloat = thdSep => decSep => decDigits => n => {
-  const [s, dec] = round(decDigits) (n)
-    .toString().concat(".00").split("."),
-      hnd = s.slice(-3),
-      thd = hnd.length < s
-        ? s.slice(0, s.length - hnd.length)
-        : "";
-
-  let r = "";
-
-  if (thd)
-    r += thd + thdSep;
-
-  return r + hnd + decSep + strPadr(decDigits) ("0") (dec);
-};
-
-
-// round @derived
-
-
-const roundBy = k => digits => fp => {
-  let [n, ex] = `${fp < 0 ? Math.abs(fp) : fp}e`.split('e'),
-    r = Math[k](`${n}e${Number(ex) + digits}`);
-
-  [n, ex] = `${r}e`.split('e');
-  r = Number(`${n}e${Number(ex) - digits}`);
-
-  return fp < 0 ? -r : r;
-};
-
-
-const toFixedFloat = places => fp =>
-  String(round(places) (fp));
-
-
-/***[Derived]*****************************************************************/
-
-
-const ceil = roundBy("ceil");
-
-
-const floor = roundBy("floor");
-
-
-const round = roundBy("round");
-
-
-/******************************************************************************
-*********************************[ FUNCTION ]**********************************
-******************************************************************************/
-
-
-/***[Applicative]*************************************************************/
-
-
-const funAp = f => g => x =>
-  f(x) (g(x));
-
-
-const funLiftA2 = f => g => h => x =>
-  f(g(x)) (h(x));
-
-
-/***[Arguments]***************************************************************/
-
-
-const fromMultiArg = (...args) => [...args];
-
-
-const infixl = (x, f, y) =>
-  f(x) (y);
-
-
-const infixr = (y, f, x) =>
-  f(x) (y);
-
-
-const swapMultiArg = (x, y) => [y, x];
-
-
-const varArgs = f => {
-  const go = args =>
-    Object.defineProperties(
-      arg => go(args.concat([arg])), {
-        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
-        [TYPE]: {value: "VarArgs", enumerable: true}
-      });
-
-  return go([]);
-};
-
-
-/***[Choice]******************************************************************/
-
-
-const funLeft = f =>
-  ethCata(x => Left(f(x))) (Right);
-
-
-const funRight = f =>
-  ethCata(Left) (x => Right(f(x)));
-
-
-/***[Composition]*************************************************************/
-
-
-const comp = f => g => x =>
-  f(g(x));
-
-
-const comp2nd = f => g => x => y =>
-  f(x) (g(y));
-
-
-const comp3 = f => g => h => x =>
-  f(g(h(x)));
-
-
-const compBin = f => g => x => y =>
-  f(g(x) (y));
-
-
-const compBoth = f => g => x => y =>
-  f(g(x)) (g(y));
-
-
-const pipe = g => f => x =>
-  f(g(x));
-
-
-const pipe2nd = g => f => x => y =>
-  f(x) (g(y));
-
-
-const pipe3 = h => g => f => x =>
-  f(g(h(x)));
-
-
-const pipeBoth = g => f => x => y =>
-  f(g(x)) (g(y));
-
-
-const pipeBin = g => f => x => y =>
-  f(g(x) (y));
-
-
-// funVarComp @derived
-
-
-// funVarPipe @derived
-
-
-/***[Conditional Branching]***************************************************/
-
-
-const guard = p => f => x =>
-  p(x) ? f(x) : x;
-
-
-const select = p => f => g => x =>
-  p(x) ? f(x) : g(x);
-
-
-/***[Contravariant Functor]***************************************************/
-
-
-const funContra = pipe;
-
-
-/***[Currying/Partial Application]********************************************/
-
-
-const curry = f => x => y =>
-  f(x, y);
-
-
-const curry3 = f => x => y => z =>
-  f(x, y, z);
-
-
-const curry4 = f => w => x => y => z =>
-  f(w, x, y, z);
-
-
-const curry5 = f => v => w => x => y => z =>
-  f(v, w, x, y, z);
-
-
-const partial = (f, ...args) => (...args_) =>
-  f(...args, ...args_);
-
-
-const partialCurry = (f, ...args) =>
-  varArgs(args_ => f(...args, ...args_));
-
-
-const uncurry = f => (x, y) =>
-  f(x) (y);
-
-
-const uncurry3 = f => (x, y, z) =>
-  f(x) (y) (z);
-
-
-const uncurry4 = f => (w, x, y, z) =>
-  f(w) (x) (y) (z);
-
-
-const uncurry5 = f => (v, w, x, y, z) =>
-  f(v) (w) (x) (y) (z);
-
-/***[Debugging]***************************************************************/
-
-
-const debug = f => x => {
-  debugger;
-  return f(x);
-};
-
-
-const delay = f => ms => x =>
-  Task((res, rej) => setTimeout(comp(res) (f), ms, x));
-
-
-const log = s =>
-  (console.log(s), s);
-
-
-const taggedLog = tag => s =>
-  (console.log(tag, s), s);
-
-
-const trace = f =>
-  eff(x => console.log(JSON.stringify(x) || x.toString()));
-
-
-/***[Functor]*****************************************************************/
-
-
-const funMap = comp;
-
-
-/***[Impure]******************************************************************/
-
-
-const eff = f => x => (f(x), x); // aka tap
-
-
-const introspect = x =>
-  x && x[TYPE] !== undefined
-    ? x[TYPE]
-    : Object.prototype.toString.call(x).slice(8, -1);
-
-
-const _throw = e => {
-  throw e;
-};
-
-
-const throwOn = p => f => (e, msg) => x => {
-  const r = f(x);
-  
-  if (p(r))
-    throw new e(msg);
-  
-  else return r;
-};
-
-
-// throwOnFalse @derived
-
-
-// throwOnTrue @derived
-
-
-// throwOnUnit @derived
-
-
-const tryCatch = f => g => x => {
-  try {
-    return f(x);
-  }
-
-  catch(e) {
-    return g([x, e]);
-  }
-};
-
-
-/***[Monad]*******************************************************************/
-
-
-const funChain = f => g => x =>
-  f(g(x)) (x);
-
-
-const funJoin = f => x =>
-  f(x) (x);
-
-
-/***[Monoid]******************************************************************/
-
-
-// funEmpty @derived
-
-
-/***[Predicates]**************************************************************/
-
-
-const andp = p => q => x =>
-  p(x) && q(x);
-
-      
-const isDate = x =>
-  introspect(x) === "Date"
-    && !Number.isNaN(x.getTime());
-
-
-const isDateStr = s => {
-  const [y, m, d] = s.split("-");
-
-  if (String(Number(y)) !== y
-    || Number(y) < 0)
-      return false;
-
-  else if (Number(m) < 1
-    || Number(m) > 12)
-      return false;
-
-  else if (Number(d) < 1
-    || Number(d) > getMonthDays(y) (Number(m)))
-      return false;
-
-  else
-    return true; 
-};
-
-
-const isFalse =x => x === false;
-
-
-const isFloatStr = s =>
-  s.search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
-
-
-const isIntStr = s =>
-  s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
-
-
-const isTrue = x => x === true;
-
-
-const isUnit = x =>
-  x === undefined
-    || x === null
-    || x === x === false // NaN
-    || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
-
-
-const notp = p => x => !p(x);
-
-
-const orp = p => q => x =>
-  p(x) || q(x);
-
-
-/***[Primitive]***************************************************************/
-
-
-const app = f => x => f(x);
-
-
-const _const = x => y => x;
-
-
-const flip = f => y => x => f(x) (y);
-
-
-const id = x => x;
-
-
-const _let = f => f(); // simulates let binding as an expression
-
-
-/***[Profunctor]**************************************************************/
-
-
-const funDimap = f => g => hx => x =>
-  g(hx(f(x)));
-
-
-const funLmap = f => hx => x =>
-  hx(f(x));
-
-
-const funRmap = g => hx => x =>
-  g(hx(x));
-
-
-/***[Relation]****************************************************************/
-
-
-const select11 = m => (ks, vs) => k =>
-  vs[m.get(ks.indexOf(k))];
-
-
-const select1N = m => (ks, vs) => k =>
-  arrMap(l => vs[l])
-    (m.get(ks.indexOf(k)));
-
-
-/***[Semigroup]***************************************************************/
-
-
-const funAppend = comp;
-
-
-const funPrepend = pipe;
-
-
-/***[Transducer]**************************************************************/
-
-
-const dropper = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, acc)
-      : reduce(acc) (x);
-};
-
-
-const dropperk = n => reduce => { 
-  let m = 0;
-
-  return acc => x => k =>
-    m < n
-      ? (m++, k(acc))
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? acc
-      : reduce(acc) (x);
-};
-
-
-const dropperNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x => k =>
-    ++n % nth === 0
-      ? k(acc)
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperWhile = p => reduce => {
-  let drop = true;
-
-  return acc => x => 
-    drop && p(x)
-      ? acc
-      : (drop = false, reduce(acc) (x));
-};
-
-
-const dropperWhilek = p => reduce => {
-  let drop = true;
-
-  return acc => x =>
-    Cont(k =>
-      drop && p(x)
-        ? k(acc)
-        : (drop = false, reduce(acc) (x).runCont(k)))};
-
-
-const filterer = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const filtererk = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : k(acc));
-
-
-const mapper = f => reduce => acc => x =>
-  reduce(acc) (f(x));
-
-
-const mapperk = f => reduce => acc => x =>
-  Cont(k =>
-    reduce(acc) (f(x)).runCont(k));
-
-
-const taker = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, reduce(acc) (x))
-      : acc;
-};
-
-
-const takerk = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    Cont(k =>
-      m < n
-        ? (m++, reduce(acc) (x).runCont(k))
-        : acc)};
-
-
-const takerNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? reduce(acc) (x)
-      : acc;
-};
-
-
-const takerNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    Cont(k =>
-      ++n % nth === 0
-        ? reduce(acc) (x).runCont(k)
-        : acc)};
-
-
-const takerWhile = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const takerWhilek = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : acc);
-
-
-/***[Derived]*****************************************************************/
-
-
-const funEmpty = id;
-
-
-const funVarComp = varComp({comp, id});
-
-
-const funVarPipe = varPipe({pipe, id});
-
-
-const throwOnFalse = throwOn(isFalse);
-
-
-const throwOnTrue = throwOn(isTrue);
-
-
-const throwOnUnit = throwOn(isUnit);
-
-
-/******************************************************************************
-************************************[ MAP ]************************************
-******************************************************************************/
-
-
-const mapMap = f => m => {
-  let n = new Map();
-  
-  for (const [k, v] of m)
-    n.set(k, f(v));
-  
-  return n;
-};
-
-
-/******************************************************************************
-**********************************[ NUMBER ]***********************************
-******************************************************************************/
-
-
-/***[Enum]********************************************************************/
-
-
-const numFromEnum = n => Some(n);
-
-
-const numPred = n => Some(n + 1);
-
-
-const numSucc = n => Some(n - 1);
-
-
-const numToEnum = n => Some(n);
-
-
-/***[Eq]**********************************************************************/
-
-
-const numEq = eq;
-
-
-const numNeq = neq;
-
-
-/***[Ord]**********************************************************************/
-
-
-const numCompare = compare;
-
-
-const numGt = gt;
-
-
-const numGte = gte;
-
-
-const numLt = lt;
-
-
-const numLte = lte;
-
-
-const numMin = min;
-
-
-const numMax = max;
-
-
-/******************************************************************************
-**********************************[ OBJECT ]***********************************
-******************************************************************************/
-
-
-const invoke = k => (...args) => o =>
-  o[k] (...args);
-
-
-const memoMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
-  return x => {
-    const r = f(x);
-    delete this[k];
-    this[k] = () => r;
+```Javascript
+const effectfulExp = Defer(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
     return r;
-  };
-}, configurable: true});
-
-
-const _new = cons => (...args) =>
-  new cons(...args);
-
-
-const objClone = o => {
-  const p = {};
-
-  for (k of objKeys(o))
-    Object.defineProperty( // getter/setter safe
-      p, k, Object.getOwnPropertyDescriptor(o, k));
-
-  return p;
-};
-
-
-const objDel = k => o =>
-  objDelx(k) (objClone(o));
-
-
-const objDelx = k => o =>
-  (delete o[k], o);
-
-
-const objGetOr = def => k => o =>
-  k in o ? o[k] : def;
-
-
-const objModOr = def => (k, f) => o =>
-  objModOrx(def) (k, f) (objClone(o));
-
-
-const objModOrx = def => (k, f) => o =>
-  k in o
-    ? (o[k] = f(o[k]), o)
-    : (o[k] = def, o);
-
-
-const objPathOr = def =>
-  varArgs(arrFold(p => k => p[k] || def) (o));
-
-
-const objSet = (k, v) => o =>
-  objSetx(k, v) (objClone(o));
-
-
-const objSetx = (k, v) => o =>
-  (o[k] = v, o);
-
-
-const objUnion = o => p =>
-  objUnionx(objClone(o)) (p);
-
-
-const objUnionx = o => p => {
-  for ([k, v] of objEntries(p))
-    o[k] = v;
-
-  return o;
-};
-
-
-const thisify = f => f({}); // mimics this context
-
-
-/***[Iterators]**************************************************************/
-
-
-function* objEntries(o) {
-  for (let prop in o) {
-    yield [prop, o[prop]];
-  }
-}
-
-
-function* objKeys(o) {
-  for (let prop in o) {
-    yield prop;
-  }
-}
-
-
-function* objValues(o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-}
-
-
-/******************************************************************************
-************************************[ SET ]************************************
-******************************************************************************/
-
-
-const setMap = f => s => {
-  const t = new Set();
+  });
   
-  for (const x of s)
-    t.add(f(x));
+effectfulExp.runDefer(); // logs + returns 25
+effectfulExp.runDefer(); // logs + returns 25
+```
+#### `Lazy` with Sharing
+
+`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does share intermediate results:
+
+```Javascript
+const effectfulExp = Lazy(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
+    return r;
+  });
   
-  return t;
-};
+effectfulExp.runLazy(); // logs + returns 25
+effectfulExp.runLazy(); // returns 25
+```
+### Getters/Setters
 
+Getters and setters are just thunks (and functions) and inherit their lazy traits. Why do they have their own section then? Because they allow us to introduce lazyness into Javascript without altering the calling side, because they are treated as normal properties:
 
-/******************************************************************************
-**********************************[ STRING ]***********************************
-******************************************************************************/
+```Javascript
+const cons = (head, tail) => ({head, tail});
 
+const list = cons(1, cons(2, cons(3, cons(4, cons(5, null)))));
 
-/***[Foldable]****************************************************************/
-
-
-const strFold = alg => zero => s => {
-  let acc = zero;
-
-  for (let i = 0; i < s.length; i++)
-    acc = alg(acc) (s[i], i);
-
-  return acc;
-};
-
-
-const strFoldChunks = alg => zero => s => {
-  let acc = zero;
-
-  for (let i = 0; i < s.length; i++)
-    [acc, i] = alg(acc) (s, i);
-
-  return acc;
-};
-
-
-const strLength = s => s.length;
-
-
-const strNull = s => s === "";
-
-
-/***[Semigroup]***************************************************************/
-
-
-const strAppend = s => t => s + t;
-
-
-const strPrepend = t => s => s + t;
-
-
-/***[Regular Expressions]*****************************************************/
-
-
-const strDel = (r, flags) => s =>
-  s.replace(new RegExp(r, flags), "");
-
-
-const strMatch = (r, flags) => s => {
-  const xs = s.match(new RegExp(r, flags));
-
-  if (xs === null)
-    return Matched(None);
-
-  else if (!("index" in xs))
-    throw new Error(
-      `invalid regular expression - greediness is not permitted in\n${r}`);
-
-  else if (xs.groups === undefined)
-    xs.groups = {}; // add empty group instead of undefined
-
-  xs.relIndex = xs.index; // add relative index in case of multiple matches
-  xs.relInput = xs.input; // add relative input in case of multiple matches
-  return Matched(Some(xs));
-};
-
-
-const strMatchAll = (r, flags) => s_ =>
-  loop((acc = [], s = s_, i = 0) => {
-    if (s === "")
-      return acc;
-
-    else {
-      const tx = strMatch(r, flags) (s);
-
-      switch (tx.runMatched[TAG]) {
-        case "None": return acc;
-
-        case "Some": {
-          const xs = tx.runMatched.runOption;
-          xs.index += i;
-          xs.input = s_;
-
-          return recur(
-            (acc.push(tx), acc),
-            s_.slice(xs.index + xs[0].length),
-            xs.index + xs[0].length);
-        }
-
-        default: _throw(new UnionError("unknown tag"));
+const take = n =>
+  n === 0
+    ? xs => null
+    : xs => xs && {
+      head: xs.head,
+      get tail() {
+          delete this.tail;
+          return this.tail = take(n - 1) (xs.tail);
       }
-    }
-  });
-
-
-const strMatchLast = (r, flags) => s_ =>
-  loop((acc = Matched(None), s = s_, i = 0) => {
-    if (s === "")
-      return acc;
-
-    else {
-      const tx = strMatch(r, flags) (s);
-
-      switch (tx.runMatched[TAG]) {
-        case "None": return acc;
-
-        case "Some": {
-          const xs = tx.runMatched.runOption;
-          xs.index += i;
-          xs.input = s_;
-
-          return recur(
-            tx,
-            s_.slice(xs.index + xs[0].length),
-            xs.index + xs[0].length);
-        }
-
-        default: _throw(new UnionError("unknown tag"));
-      }
-    }
-  });
-
-
-const strMatchNth = nth_ => (r, flags) => s_ =>
-  loop((acc = Matched(None), s = s_, i = 0, nth = 0) => {
-    if (s === "")
-      return None;
-
-    else if (nth_ === nth)
-      return acc;
-
-    else {
-      const tx = strMatch(r, flags) (s);
-
-      switch (tx.runMatched[TAG]) {
-        case "None": return acc;
-
-        case "Some": {
-          const xs = tx.runMatched.runOption;
-          xs.index += i;
-          xs.input = s_;
-
-          return recur(
-            tx,
-            s_.slice(xs.index + xs[0].length),
-            xs.index + xs[0].length,
-            nth + 1);
-        }
-
-        default: _throw(new UnionError("unknown tag"));
-      }
-    }
-  });
-
-
-const strMod = (r, f, flags) => s =>
-  s.replace(new RegExp(r, flags), f);
-
-
-const strNormalize = pairs => s =>
-  arrFold(acc => ([from, to]) =>
-    strSet(from, to, "gi") (acc)) (s) (pairs);
-      
-      
-const strNormalizeBy = pairs => s =>
-  arrFold(acc => ([from, f]) =>
-    strMod(from, f, "gi") (acc)) (s) (pairs);
-
-
-const strSet = (r, t, flags) => s =>
-  s.replace(new RegExp(r, flags), t);
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const strChunk = n =>
-  strFoldChunks(
-    acc => (s, i) =>
-      [arrAppendx(acc) ([s.slice(i, i + n)]), i])
-        ([]);
-
-
-const strConsNth = (t, i) => s =>
-  s.slice(0, i + 1) + t + s.slice(i + 1);
-
-
-const strLocaleCompare = locale => c => d => {
-  switch (c.localeCompare(d, locale)) {
-    case -1: return LT;
-    case 0: return EQ;
-    case 1: return GT;
-  }
 };
 
-
-const strPadl = n => c => s =>
-  c.repeat(n)
-    .concat(s)
-    .slice(-n);
-
-
-const strPadr = n => c => s =>
-  s.concat(
-    c.repeat(n))
-      .slice(0, n);
-
-
-const strSliceAt = (i, len) => s =>
-  s.slice(i, i + len);
-
-
-const strSplitAt = i => s =>
-  [s.slice(0, i + 1), s.slice(i + 1)];
-
-
-const strSplitBy = p =>
-  strFoldChunks(
-    acc => (s, i) =>
-      p(s[i])
-        ? [strSplitAt(i) (s), s.length]
-        : [acc, i])
-            (["", ""]);
-
-
-const strToLower = s =>
-  s.toLowerCase();
-
-
-const strToUpper = s =>
-  s.toUpperCase();
-
-
-const strUnconsNth = (i, len) => s =>
-  i >= s.length
-    ? None
-    : Some([s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)]);
-
-
-const strUnconsNthOr = def => (i, len) => s =>
-  i >= s.length
-    ? [def, s]
-    : [s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)];
-
-
-const toString = x => x.toString();
-
-
-/******************************************************************************
-****************************[ TUPLE (ARRAY BASED) ]****************************
-******************************************************************************/
-
-
-const tup1 = ([x]) => x;
-
-
-const tup2 = ([x, y]) => y;
-
-
-const tup3 = ([x, y, z]) => z;
-
-
-/***[Bifunctor]***************************************************************/
-
-
-const tupBimap = f => g => ([x, y]) =>
-  [f(x), g(y)];
-
-
-const tupFirst = f => ([x, y]) =>
-  [f(x), y];
-
-
-const tupSecond = f => ([x, y]) =>
-  [x, f(y)];
-
-
-/******************************************************************************
-**********************************[ DERIVED ]**********************************
-******************************************************************************/
-
-
-const arrPrepend = flip(arrAppend);
-
-
-const arrPrependx = flip(arrAppendx);
-
-
-const getDay = d => d.getDate();
-
-
-const getMonth = d => d.getMonth();
-
-
-const getYear = d => d.getFullYear();
-
-
-/******************************************************************************
-*******************************************************************************
-***********************[ FUNCTIONAL PROGRAMMING TYPES ]************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-************************************[ ALL ]************************************
-******************************************************************************/
-
-
-const All = struct("All");
-
-
-/***[Monoid]******************************************************************/
-
-
-const allEmpty = All(true);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const allAppend = tx => ty =>
-  All(tx.runAll && ty.runAll);
-
-
-const allPrepend = allAppend;
-
-
-/******************************************************************************
-************************************[ ANY ]************************************
-******************************************************************************/
-
-
-const Any = struct("Any");
-
-
-/***[Monoid]******************************************************************/
-
-
-const anyEmpty = Any(false);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const anyAppend = tx => ty =>
-  Any(tx.runAny || ty.runAny);
-
-
-const anyPrepend = anyAppend;
-
-
-/******************************************************************************
-**********************************[ COMPARE ]**********************************
-******************************************************************************/
-
-
-const Compare = struct("Compare");
-
-
-/***[Contravariant Functor]***************************************************/
-
-
-const compContra = f => tf =>
-  Compare(compBoth(tf.runCompare) (f));
-
-
-/***[Monoid]******************************************************************/
-
-
-const compEmpty = Compare(x => y => EQ);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const compAppend = tf => tg =>
-  Compare(x => y =>
-    ordAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
-
-
-const compPrepend = flip(compAppend);
-
-
-/******************************************************************************
-**********************************[ COMPOSE ]**********************************
-******************************************************************************/
-
-
-const Comp = struct("Comp");
-
-
-/***[Applicative]*************************************************************/
-
-
-const compOf = ({of1, of2}) => x =>
-  Comp(of1(of2(x)));
-
-
-const compAp = ({map1, ap1, ap2}) => ttf => ttx =>
-  Comp(ap1(map1(ap2) (ttf.runComp)) (ttx.runComp));
-
-
-/***[Functor]*****************************************************************/
-
-
-const compMap = ({map1, map2}) => f => ttx =>
-  Comp(map1(map2(f)) (ttx.runComp));
-
-
-/******************************************************************************
-*********************************[ CONSTANT ]**********************************
-******************************************************************************/
-
-
-const Const = struct("Const");
-
-
-/***[Applicative]*************************************************************/
-
-
-const constOf = x => Const(x);
-
-
-/***[Functor]*****************************************************************/
-
-
-const constMap = f => tx =>
-  Const(tx.runConst);
-
-
-/******************************************************************************
-*******************************[ CONTINUATION ]********************************
-******************************************************************************/
-
-
-const Cont = struct("Cont");
-
-
-const cont = f => x => k =>
-  Cont(k(f(x))); 
-
-
-const cont2 = f => x => y =>
-  Cont(k => k(f(x) (y)));
-
-
-/***[Applicative]*************************************************************/
-
-
-const contAp = tf => tx =>
-  Cont(k => tf.runCont(f => tx.runCont(x => k(f(x)))));
-
-
-const contLiftA2 = f => tx => ty =>
-  contAp(contMap(f) (tx)) (ty);
-
-
-const contOf = x => Cont(k => k(x));
-
-
-/***[Functor]*****************************************************************/
-
-
-const contMap = f => tx =>
-  Cont(k => tx.runCont(x => k(f(x))));
-                                  
-
-/***[Monad]*******************************************************************/
-
-
-const contChain = fm => mx =>
-  Cont(k => mx.runCont(x => fm(x).runCont(y => k(y))));
-
-
-const contChain2 = fm => mx => my =>
-  Cont(k => mx.runCont(x => my.runCont(y => fm(x) (y).runCont(z => k(z)))));
-
-
-const contJoin = mmx =>
-  Cont(k => mmx.runCont(mx => mx.runCont(x => k(x))));
-
-
-const contLiftM2 = f => mx => my =>
-  Cont(k => mx.runCont(x => my.runCont(y => k(f(x) (y)))));
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const contReset = tx => // delimited continuations
-  contOf(tx.runCont(id));
-  
-
-const contShift = f => // delimited continuations
-  Cont(k => f(k).runCont(id));
-
-
-/******************************************************************************
-***********************[ DEFER (LAZY EVAL W/O SHARING ]************************
-******************************************************************************/
-
-
-const Defer = structGetter("Defer")
-  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
-
-
-/***[Applicative]*************************************************************/
-
-
-const defAp = tf => tx =>
-  Defer(() => tf.runDefer(tx.runDefer));
-
-
-const defOf = x => Defer(() => x);
-
-
-/***[Functor]*****************************************************************/
-
-
-const defMap = f => tx =>
-  Defer(() => f(tx.runDefer));
-
-
-/***[Monad]*******************************************************************/
-
-
-const defChain = fm => mx =>
-  Defer(() => fm(mx.runDefer).runDefer);
-
-
-const defJoin = mmx =>
-  Defer(() => mmx.runDefer.runDefer);
-
-
-/******************************************************************************
-**********************************[ EITHER ]***********************************
-******************************************************************************/
-
-
-const Either = union("Either");
-
-
-const Left = x =>
-  Either("Left", x);
-
-
-const Right = x =>
-  Either("Right", x);
-
-
-/***[Foldable]****************************************************************/
-
-
-const ethCata = left => right => tx =>
-  match(tx, {
-    type: "Either",
-    get Left() {return left(tx.runEither)},
-    get Right() {return right(tx.runEither)}
-  });
-
-
-/******************************************************************************
-*******************************[ ENDOMORPHISM ]********************************
-******************************************************************************/
-
-
-const Endo = struct("Endo");
-
-
-/***[Monoid]******************************************************************/
-
-
-const endoEmpty = Endo(id);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const endoAppend = tf => tg => x =>
-  Endo(tf.runEndo(tg.runEndo(x)));
-
-
-const endoPrepend = flip(endoAppend);
-
-
-/******************************************************************************
-********************************[ EQUIVALENT ]*********************************
-******************************************************************************/
-
-
-const Equiv = struct("Equiv");
-
-
-/***[Contravariant Functor]***************************************************/
-
-
-const equivContra = f => tf =>
-  Equiv(compBoth(tf.runEquiv) (f));
-
-
-/***[Monoid]******************************************************************/
-
-
-const equivEmpty = Equiv(x => y => true);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const equivAppend = tf => tg =>
-  Equiv(x => y =>
-    tf.runEquiv(x) (y) && tg.runEquiv(x) (y));
-
-
-const equivPrepend = equivAppend;
-
-
-/******************************************************************************
-***********************************[ FIRST ]***********************************
-******************************************************************************/
-
-
-const First = struct("First");
-
-
-/***[Semigroup]***************************************************************/
-
-
-const firstAppend = x => _ => x;
-
-
-// firstPrepend @derived
-
-
-/******************************************************************************
-******************************[ GETTER (OPTICS) ]******************************
-******************************************************************************/
-
-
-const Lens = struct("Lens");
-
-
-/***[Instances]***************************************************************/
-
-
-// Object
-
-
-const objGetter = k =>
-  Lens(_ => ft => o =>
-    ft(o[k]));
-
-
-/***[Category]****************************************************************/
-
-
-const getComp = tx => ty =>
-  Lens(x => tx.runLens() (ty.runLens() (x)));
-
-
-const getComp3 = tx => ty => tz =>
-  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
-
-
-const getId = Lens(id);
-
-
-const getVarComp = varComp({comp: getComp, id: getId});
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const getGet = tx => o =>
-  tx.runLens(Const) (o)
-    .runConst;
-
-
-/******************************************************************************
-**********************************[ HISTORY ]**********************************
-******************************************************************************/
-
-
-// part of the histomorpishm
-
-const History = union("History");
-
-
-const Ancient = x => History("Ancient", x);
-
-
-const Age = x => y => History("Age", [x, y, z]);
-
-
-const history = alg => zero =>
-  arrFoldr(x => acc => Age(x) (alg(x) (acc)) (acc))
-    (Ancient(zero));
-
-
-const headH = tx => {
-  switch (tx[TAG]) {
-    case "Ancient": return tx.runHistory;
-    case "Age": return tx.runHistory[1];
-    default: throw new UnionError("invalid tag");
-  }
-};
-
-
-/******************************************************************************
-************************************[ ID ]*************************************
-******************************************************************************/
-
-
-const Id = struct("Id");
-
-
-/***[Applicative]*************************************************************/
-
-
-const idOf = x => Id(x);
-
-
-/***[Functor]*****************************************************************/
-
-
-const idMap = f => tx =>
-  Id(f(tx.runId));
-
-
-/******************************************************************************
-***********************************[ LAST ]************************************
-******************************************************************************/
-
-
-const Last = struct("Last");
-
-
-/***[Semigroup]***************************************************************/
-
-
-const lastAppend = _ => y => y;
-
-
-const lastPrepend = firstAppend;
-
-
-/******************************************************************************
-***********************[ LAZY (LAZY EVAL WITH SHARING) ]***********************
-******************************************************************************/
-
-
-const Lazy = structGetter("Lazy")
-  (Lazy => thunk => Lazy({
-    get runLazy() {
-      delete this.runLazy;
-      return this.runLazy = thunk();
-    }}));
-
-
-/***[Applicative]*************************************************************/
-
-
-const lazyAp = tf => tx =>
-  Lazy(() => tf.runLazy (tx.runLazy));
-
-
-const lazyOf = x => Lazy(() => x);
-
-
-/***[Functor]*****************************************************************/
-
-
-const lazyMap = f => tx =>
-  Lazy(() => f(tx.runLazy));
-
-
-/***[Monad]*******************************************************************/
-
-
-const lazyChain = fm => mx =>
-  Lazy(() => fm(mx.runLazy).runLazy);
-
-
-const lazyJoin = mmx =>
-  Lazy(() => mmx.runLazy.runLazy);
-
-
-/******************************************************************************
-*******************************[ LENS (OPTICS) ]*******************************
-******************************************************************************/
-
-
-// constructor defined @getter
-
-
-/***[Instances]***************************************************************/
-
-
-// Array
-
-
-const arrLens_ = ({set, unconsNth}) => i =>
-  Lens(map => ft => xs =>
-    map(x => {
-      if (x === null) {
-        const tx = unconsNth(i) (xs);
-
-        switch (tx[TAG]) {
-          case "None": return xs;
-
-          case "Some":
-            return tx.runOption[1]
-        }
-      }
-
-      else
-        return set(i, x) (xs);
-    })
-      (ft(xs[i])));
-
-
-const arrLens = arrLens_({set: arrSet, unconsNth: arrUnconsNth});
-
-
-const arrLensx = arrLens_({set: arrSetx, unconsNth: arrUnconsNthx});
-
-
-// Object
-
-
-const objLens_ = ({union, del}) => k =>
-  Lens(map => ft => o =>
-    map(v => {
-      if (v === null)
-        return del(k) (o);
-
-      else 
-        return union(o)
-          ({[k]: v})})
-            (ft(o[k])));
-
-
-const objLens = objLens_({union: objUnion, del: objDel});
-
-
-const objLensx = objLens_({union: objUnionx, del: objDelx});
-
-
-// String
-
-
-/*const strLens = i =>
-  Lens(map => ft => s =>
-    map(x => {
-      if (x === null) {
-        const tx = strUnconsNth(`${s[i]}`, "") (s);
-
-        switch (tx[TAG]) {
-          case "None": return xs;
-
-          case "Some":
-            return tx.runOption[1];
-        }
-      }
-
-      else
-        return set(i, x) (xs);
-    })
-      (ft(xs[i])));*/
-
-
-/***[Category]****************************************************************/
-
-
-const lensComp = tx => ty =>
-  Lens(map => ft =>
-    tx.runLens(map) (ty.runLens(map) (ft)));
-
-
-const lensComp3 = tx => ty => tz =>
-  Lens(map => ft =>
-    tx.runLens(map) (ty.runLens(map) (tz.runLens(map) (ft))));
-
-
-const lensId = Lens(id);
-
-
-const lensVarComp = varComp({comp: lensComp, id: lensId});
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const lensDel = tx => o =>
-  tx.runLens(idMap) (_const(Id(null))) (o);
-
-
-const lensGet = tx => o =>
-  tx.runLens(constMap) (Const) (o)
-    .runConst;
-
-
-const lensMod = tx => f => o =>
-  tx.runLens(idMap) (v => Id(f(v))) (o);
-
-
-const lensSet = tx => v => o =>
-  tx.runLens(idMap) (_const(Id(v))) (o);
-
-
-/******************************************************************************
-**************************[ MATCHED (REGEXP RESULT) ]**************************
-******************************************************************************/
-
-
-const Matched = struct("Matched");
-
-
-/***[Foldable]****************************************************************/
-
-
-const matCata = x => tx =>
-  match(tx.runMatched, {
-    type: "Option",
-    None: x,
-    Some: tx.runMatched.runOption
-  });
-
-
-/******************************************************************************
-************************************[ MAX ]************************************
-******************************************************************************/
-
-
-const Max = struct("Max");
-
-
-/***[Monoid]******************************************************************/
-
-
-const maxEmpty = minBound => Max(minBound);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const maxAppend = max => x => y =>
-  max(x) (y);
-
-
-const maxPrepend = maxAppend;
-
-
-/******************************************************************************
-************************************[ MIN ]************************************
-******************************************************************************/
-
-
-const Min = struct("Min");
-
-
-/***[Monoid]******************************************************************/
-
-
-const minEmpty = maxBound => Min(maxBound);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const minAppend = min => x => y =>
-  min(x) (y);
-
-
-const minPrepend = minAppend;
-
-
-/******************************************************************************
-**********************************[ OPTION ]***********************************
-******************************************************************************/
-
-
-const Option = unionGetter("Option");
-
-
-const None = Option("None", {get runOption() {return None}});
-
-
-const Some = x => Option("Some", {runOption: x});
-
-
-/***[Applicative]*************************************************************/
-
-
-const optAp = tf => tx =>
-  match(tf, {
-    type: "Option",
-    None: None,
-    get Some() {
-      return match(tx, {
-        type: "Option",
-        None: None,
-        get Some() {return Some(tf.runOption(tx.runOption))}
-      });
-    }
-  });
-
-
-const optOf = x => Some(x);
-
-
-/***[Folding]*****************************************************************/
-
-
+take(3)(list); // stack safe
+```
+although `take` isn't tail recursive it is stack safe no matter how long the list is. Lazy getters give us tail call optimization modulo cons for free!
+
+scriptum utilizes lazy getters to allow for a simple yet concise form of pattern matching on tagged unions:
+
+```Javascript
+const match = ({[TYPE]: type, [TAG]: tag}, o) =>
+  o.type !== type ? _throw(new UnionError("invalid type"))
+    : !(tag in o) ? _throw(new UnionError("invalid tag"))
+    : o[tag];
+    
 const optCata = none => some => tx =>
   match(tx, {
     type: "Option",
     None: none,
     get Some() {return some(tx.runOption)}
   });
+```
+## Delimited Continuations with `shift`/`reset`
 
+TODO
 
-/***[Functor]*****************************************************************/
+## Persistent Data Structures
 
+TODO
 
-const optMap = f => tx =>
-  match(tx, {
-    type: "Option",
-    None: None,
-    get Some() {return Some(f(tx.runOption))}
-  });
+### Hash Array Mapped Trie (HAMT)
 
+TODO
 
-/***[Monad]*******************************************************************/
+## Functional Reactive Programming
 
+TODO
 
-const optChain = fm => mx =>
-  match(mx, {
-    type: "Option",
-    None: None,
-    get Some() {return fm(mx.runOption)}
-  });
+### Behavior
 
+TODO
 
-const optChainT = ({chain, of}) => fmm => mmx =>
-  chain(mx => {
-    switch (mx[TAG]) {
-      case "None": return of(None);
-      case "Some": return fmm(mx.runOption);
-    }
-  }) (mmx);
+### Events
 
+TODO
 
-/******************************************************************************
-*********************************[ ORDERING ]**********************************
-******************************************************************************/
+### Rules
 
+TODO
 
-const Ordering = unionGetter("Ordering");
+## Library Specific Combinators
 
+### `comp2nd`/`pipe2nd`
 
-const LT = Ordering("LT",
-  {get runOrdering() {return LT}, valueOf: () => -1});
+Composes/pipes a binary function on its second argument:
 
+```Javascript
+arrFold(
+    comp2nd(
+      objGet(0) (k))
+        (add)) (0)
+          ([{foo: 1}, {foo: 2}, {foo: 3}]); // 6
+```
+### `compBin`/`pipeBin`
 
-const EQ = Ordering("EQ",
-  {get runOrdering() {return EQ}, valueOf: () => 0});
+Composes an unary with a binary function:
 
+```Javascript
+const add = x => y => x + y;
+const sqr = x => x * x;
 
-const GT = Ordering("GT",
-  {get runOrdering() {return GT}, valueOf: () => 1});
+compBin(sqr) (add) (2) (3); // 25
+```
+### `compBoth`/`pipeBoth`
 
+Composes a binary in both its arguments with an unary function:  
 
-/***[Foldable]****************************************************************/
+```Javascript
+const add = x => y => x + y;
+const length = s => s.length;
 
+compBoth(add) (length) ("foo") ("bar"); // 6
+```
+### `infixl`/`infixr`
 
-const ordCata = lt => eq => gt => tx =>
-  match(tx, {
-    type: "Ordering",
-    LT: lt,
-    EQ: eq,
-    GT: gt
-  });
+Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
 
+```Javascript
+infixl([1,2], arrAppend, [3,4]); // [1,2,3,4]
+infixr([1,2], arrAppend, [3,4]); // [3,4,1,2]
+```
+### `invoke`
 
-/***[Monoid]******************************************************************/
+Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
 
+```Javascript
+invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
+```
+### `_let`
 
-const ordEmpty = EQ;
+mimics let bindings as expressions and thus leads to concise function bodies:
 
-
-/***[Semigroup]***************************************************************/
-
-
-const ordAppend = tx => ty =>
-  ordCata(LT) (ty) (GT) (tx);
-
-
-const ordPrepend = ordAppend;
-
-
-/******************************************************************************
-***********************[ PARALLEL (ASYNC IN PARALLEL) ]************************
-******************************************************************************/
-
-
-// NOTE: This type is mainly untested and may undergo major changes in the future. 
-
-
-const Parallel = structGetter("Parallel")
-  (Parallel => k => Parallel(thisify(o => {
-    o.runParallel = (res, rej) => k(x => {
-      o.runParallel = l => l(x);
-      return res(x);
-    }, rej);
+```Javascript
+const orDef = f => def => x => {
+  const y = f(x);
     
-    return o;
-  })));
+  if (y === undefined || y === null || Number.isNaN(y))
+    return def;
 
-
-/***[Foldable]****************************************************************/
-
-
-const parCata = alg => tf.runParallel;
-
-
-/***[Applicative]*************************************************************/
-
-
-const parAp = tf => tx =>
-  Parallel((res, rej) =>
-    parAnd(tf) (tx).runParallel(([f, x]) => res(f(x)), rej));
-
-
-const parOf = x => Parallel((res, rej) => res(x));
-
-
-/***[Functor]*****************************************************************/
-
-
-const parMap = f => tx =>
-  Parallel((res, rej) => tx.runParallel(x => res(f(x)), rej));
-
-
-/***[Monoid]******************************************************************/
-
-
-const parEmpty = Parallel((res, rej) => null);
-
-
-/***[Semigroup]***************************************************************/
-
-
-// parAppend @derived
-
-
-// parPrepend @derived
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const parAnd = tf => tg => {
-  const r = []
-
-  const guard = (res, rej, i) => [
-    x => (
-      r[i] = x,
-      isRes || isRej || r[0] === undefined || r[1] === undefined
-        ? false
-        : (isRes = true, res(r))),
-    e =>
-      isRes || isRej
-        ? false
-        : (isRej = true, rej(e))];
-
-  let isRes = false,
-    isRej = false;
-
-  return Parallel(
-    (res, rej) => (
-      tf.runParallel(...guard(res, rej, 0)),
-      tg.runParallel(...guard(res, rej, 1))));
+  else return y;
 };
+```
+is simplified to
 
+```Javascript
+const orDef = f => def => x =>
+  _let((y = f(x)) => 
+    y === undefined || y === null || Number.isNaN(y)
+      ? def : y);
+```
+### `memoMethx`
 
-const parOr = tf => tg => {
-  const guard = (res, rej) => [
-    x => (
-      isRes || isRej
-        ? false
-        : (isRes = true, res(x))),
-    e =>
-        isRes || isRej
-          ? false
-          : (isRej = true, rej(e))];
+Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed:
 
-  let isRes = false,
-    isRej = false;
+```Javascript
+const p = thisify(o => {
+  memoMethx("foo") (x => (console.log("evaluated"), x * x)) (o);
+  return o;
+});
 
-  return Parallel(
-    (res, rej) => (
-      tf.runParallel(...guard(res, rej)),
-      tg.runParallel(...guard(res, rej))))
+o.foo(5); // evaluated 25
+o.foo(5); // 25
+```
+The trailing `x` within the function name indicates that it performs a mutation on the given `Object`.
+
+### `objPathOr`
+
+In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
+
+```Javascript
+const o = {foo: {bar: {baz: 123}}};
+
+objPathOr(0) ("foo") ("bar") ("baz"); // 123
+objPathOr(0) ("foo") ("bat") ("baz"); // 0
+```
+### `throwOnUnit`
+
+Often we want to throw an error if a computation yields an unit type, i.e. a type without values. Javascript includes a remarkable number of unit types:
+
+* undefined
+* null
+* NaN
+* Invalid Date
+* Infinity
+
+```Javascript
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([1,2,3]); // 1
+
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([]); // TypeError
+```
+You can define your own functions with throw on error semantics by using the `onThrow` combinator.
+
+### `partial`/`partialCurry`
+
+The former just applies partial application, that is to say you call a multi argument function with some of its arguments and provide the rest at the subsequent call.
+
+The latter combines partial application with currying:
+
+```Javascript
+const sum4 = (w, x, y, z) => w + x + y + z);
+
+partialCurry(sum4), 1, 2) (3) (4); // 10
+```
+### `thisify`
+
+Creates a `this`-like context for "methods" depending on other properties. Please recall that as decent functional programmers we don't depend on `this`/`new` directly:
+
+```Javascript
+const p = thisify(o => ({
+  o.foo = 2;
+  o.bar = x => x + o.foo;
+}));
+
+p.bar(3); // 5
+```
+# Language Conflicts
+
+## `Array.prototype.concat`
+
+`Array.prototype.concat` is one of the most harmful methods in Javascript for two reasons:
+
+* it treats `Array`s as if they were persistant data structures with structural sharing
+* it has an ambigious type that excepts both `x` and `[x]`
+
+The first issue leads to insanely slow performance and the latter to subtle bugs:
+
+```Javascript
+const varArgs = f => {
+  const go = args =>
+    Object.defineProperties(
+      arg => go(args.concat(arg)), {
+        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "VarArgs", enumerable: true}
+      });
+
+  return go([]);
 };
+```
+If you spot the bug and the resulting trouble right away, well, lucky you. Anyway, scriptum replaces `Array.prototype.concat` with the following combinators:
 
+* `arrAppend`/`arrPrepend` (for non-destructive concatenating)
+* `arrPush`/`arrUnshift` (for destructive pushing/unshifting)
 
-const parAll = ts => // eta abstraction to create a new tOf([]) for each invocation
-  arrFold(acc => tf =>
-    parMap(([xs, x]) =>
-      (xs.push(x), xs))
-        (parAnd(acc) (tf)))
-          (parOf([])) (ts);
+Please note that `arrAppend` et al. is rigid in its type, i.e. it expects two `Array`s and throws an error otherwise. If you want to append/prepend a single value just wrap it in a singleton `Array`, e.g. `arrAppend(xs) ([3])`.
 
+## `Object.assign`
 
-const parAny =
-  arrFold(acc => tf =>
-    parOr(acc) (tf))
-      (parEmpty);
+`Object.assign` calls every getter/setter strictly during copying. This is undesired if you rely on their lazy evaluation semantics. scriptum comes with the `objUnion`/`objUnionx` combinator pair that replace the method adequately without notable performance penalty.
 
+## `Object` Property Insertion Order
 
-/***[Derived]*****************************************************************/
-
-
-const parAppend = parOr;
-
-
-const parPrepend = parOr;
-
-
-/******************************************************************************
-*********************************[ PREDICATE ]*********************************
-******************************************************************************/
-
-
-const Pred = struct("Pred");
-
-
-/***[Contravariant Functor]***************************************************/
-
-
-const predContra = f => tf =>
-  x => Pred(tf.runPred(f(x)));
-
-
-/***[Monoid]******************************************************************/
-
-
-const predEmpty = Pred(x => true);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const predAppend = tf => tg =>
-  Pred(x => tf.runPred(x) && tg.runPred(x));
-
-
-const predPrepend = predAppend;
-
-
-/******************************************************************************
-******************************[ PRISM (OPTICS) ]*******************************
-******************************************************************************/
-
-
-// const Prism = struct("Prism"); Prism don't have its own type for tge time beeing
-
-
-/***[Instances]***************************************************************/
-
-
-// Either
-
-
-const leftPrism =
-  Lens(({map, of}) => ft => tx =>
-    match(tx, {
-      type: "Either",
-      get Left() {return map(Left) (ft(tx.runEither))},
-      get Right() {return of(tx)}
-    }));
-
-
-const rightPrism =
-  Lens(({map, of}) => ft => tx =>
-    match(tx, {
-      type: "Either",
-      get Left() {return of(tx)},
-      get Right() {return map(Right) (ft(tx.runEither))}
-    }));
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const prismGet = prism => tx => // TODO: falsify
-  prism(constMap).runPrism(tx => Const(tx)) (tx);
-
-
-const prismMod = prism => f => tx => // aka prismOver
-  prism(idMap).runPrism(ty =>
-    Id(optMap(f) (ty))) (tx);
-
-
-const prismSet = prism => x => tx =>
-  prism(idMap).runPrism(_const(Id(Some(x)))) (tx);
-
-
-/******************************************************************************
-**********************************[ PRODUCT ]**********************************
-******************************************************************************/
-
-
-const Prod = struct("Prod");
-
-
-/***[Monoid]******************************************************************/
-
-
-const prodEmpty = Prod(1);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const prodAppend = tm => tn =>
-  Sum(tm.runProd * tn.runProd);
-
-
-const prodPrepend = prodAppend;
-
-
-/******************************************************************************
-**********************************[ READER ]***********************************
-******************************************************************************/
-
-
-const Reader = struct("Reader");
-
-
-/***[Applicative]**************************************************************/
-
-
-const readAp = tf => tg =>
-  Reader(x => tf.runReader(x) (tg.runReader(x)));
-
-
-const readOf = x => Reader(_ => x);
-
-
-/***[Functor]******************************************************************/
-
-
-const readMap = f => tg =>
-  Reader(x => f(tg.runReader(x)));
-
-
-/***[Monad]********************************************************************/
-
-
-const readChain = fm => mg =>
-  Reader(x => fm(mg.runReader(x)).runReader(x));
-
-
-const readJoin = mmf =>
-  Reader(x => mmf.runReader(x).runReader(x));
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const ask = Reader(id);
-
-
-const asks = f =>
-  readChain(x => readOf(f(x))) (ask);
-
-
-const local = f => tg =>
-  Reader(x => tg.runReader(f(x)));
-
-
-/******************************************************************************
-******************************[ SETTER (OPTICS) ]******************************
-******************************************************************************/
-
-
-//const Setter = struct("Setter");
-
-
-/***[Instances]***************************************************************/
-
-
-// Object
-
-
-const objSetter_ = objDel => k =>
-  Lens(_ => ft => o =>
-    idMap(v =>
-      objUnionx(
-        objDel(k) (o))
-          (v === null
-            ? {}
-            : {[k]: v}))
-                (ft(o[k])));
-
-
-const objSetter = objSetter_(objDel);
-
-
-const objSetterx = objSetter_(objDelx);
-
-
-/***[Category]****************************************************************/
-
-
-const setComp = tx => ty =>
-  Lens(x => tx.runLens() (ty.runLens() (x)));
-
-
-const setComp3 = tx => ty => tz =>
-  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
-
-
-const setId = Lens(id);
-
-
-const setVarComp = varComp({comp: setComp, id: setId});
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const setDel = tx => o =>
-  tx.runLens(_const(Id(null))) (o);
-
-
-const setMod = tx => f => o =>
-  tx.runLens(v => Id(f(v))) (o);
-
-
-const setSet = tx => v => o =>
-  tx.runLens(_const(Id(v))) (o);
-
-
-/******************************************************************************
-***********************************[ STATE ]***********************************
-******************************************************************************/
-
-
-const State = struct("State");
-
-
-/***[Applicative]*************************************************************/
-
-
-const stateAp = tf => tx =>
-  State(y => {
-    const [f, y_] = tf.runState(y),
-      [x, y__] = tx.runState(y_);
-
-    return [f(x), y__];
-  });
-
-
-const stateOf = x => State(y => [x, y]);
-
-
-/***[Functor]*****************************************************************/
-
-
-const stateMap = f => tx =>
-  State(y => {
-    const [x, y_] = tx.runState(y);
-    return [f(x), y_];
-  });
-
-
-/***[Monad]*******************************************************************/
-
-
-const stateChain = fm => mx =>
-  State(y => {
-    const [x, y_] = mx.runState(y);
-    return fm(x).runState(y_);
-  });
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const evalState = tf =>
-  y => tf.runState(y) [0];
-
-
-const execState = tf =>
-  y => tf.runState(y) [1];
-
-
-const stateGet = State(y => [y, y]);
-
-
-const stateGets = f =>
-  stateChain(y => stateOf(f(x))) (stateGet);
-
-
-const stateModify = f =>
-  stateChain(y => statePut(f(y))) (stateGet);
-
-
-const statePut = y => State(_ => [null, y]);
-
-
-/******************************************************************************
-************************************[ SUM ]************************************
-******************************************************************************/
-
-
-const Sum = struct("Sum");
-
-
-/***[Monoid]******************************************************************/
-
-
-const sumEmpty = Sum(0);
-
-
-/***[Semigroup]***************************************************************/
-
-
-const sumAppend = tm => tn =>
-  Sum(tm.runSum + tn.runSum);
-
-
-const sumPrepend = sumAppend;
-
-
-/******************************************************************************
-*************************[ TASK (ASYNC IN SEQUENCE) ]**************************
-******************************************************************************/
-
-
-const Task = structGetter("Task")
-  (Task => k => Task(thisify(o => {
-    o.runTask = (res, rej) => k(x => {
-      o.runTask = l => l(x);
-      return res(x);
-    }, rej);
-    
-    return o;
-  })));
-
-
-/***[Applicative]*************************************************************/
-
-
-const tAp = tf => tx =>
-  Task((res, rej) => tf.runTask(f => tx.runTask(x => res(f(x)), rej), rej));
-
-
-const tLiftA2 = f => tx => ty =>
-  tAp(tMap(f) (tx)) (ty);
-
-
-const tOf = x => Task((res, rej) => res(x));
-
-
-/***[Foldable]****************************************************************/
-
-
-const tCata = alg => tf.runTask;
-
-
-/***[Functor]*****************************************************************/
-
-
-const tMap = f => tx =>
-  Task((res, rej) => tx.runTask(x => res(f(x)), rej));
-
-
-/***[Monad]*******************************************************************/
-
-
-const tChain = fm => mx =>
-  Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
-
-
-const tChain2 = fm => mx => my =>
-  Task((res, rej) => mx.runTask(x =>
-    my.runTask(y =>
-      fm(x) (y).runTask(res, rej), rej), rej));
-
-
-const tChainT = ({chain, of}) => fm => mmx => // NOTE: fm only returns the inner monad hence of is necessary
-  chain(mx =>
-    of(tChain(fm) (mx))) (mmx);
-
-
-const tJoin = mmx =>
-  Task((res, rej) => mmx.runTask(mx => mx.runTask(res, rej), rej));
-
-
-const tLiftM2 = f => mx => my =>
-  tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
-
-
-/***[Monoid]*******************************************************************/
-
-
-const tEmpty = x => Task((res, rej) => res(x));
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const tAnd = tf => tg =>
-  Task((res, rej) =>
-    tf.runTask(f =>
-      tg.runTask(g =>
-        res([f, g]), rej),
-        rej));
-
-
-const tAll = ts => // eta abstraction to create a new tOf([]) for each invocation
-  arrFold(acc => tf =>
-    tMap(([xs, x]) =>
-      (xs.push(x), xs))
-        (tAnd(acc) (tf)))
-          (tOf([])) (ts);
-
-
-
-/***[Derived]*****************************************************************/
-
-
-const tAppend = tAnd;
-
-
-const tPrepend = flip(tAnd);
-
-
-/******************************************************************************
-***********************************[ THESE ]***********************************
-******************************************************************************/
-
-
-const These_ = union("These");
-
-
-const This = x =>
-  These_("This", x);
-
-
-const That = x =>
-  These_("That", x);
-
-
-const These = (x, y) =>
-  These_("These", [x, y]);
-
-
-/***[Foldable]****************************************************************/
-
-
-const theseCata = _this => that => these => tx =>
-  match(tx, {
-    type: "These",
-    get This() {return _this(tx.runThese)},
-    get That() {return that(tx.runThese)},
-    get These() {return these(...tx.runThese)}
-  });
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const fromThese = (x, y) => tx =>
-  match(tx) ({
-    type: "These",
-    get This() {return [tx.runThese, y]},
-    get That() {return [x, tx.runThese]},
-    get These() {return tx.runThese}
-  });
-
-
-/******************************************************************************
-****************************[ TRAVERSAL (OPTICS) ]*****************************
-******************************************************************************/
-
-
-// TODO: add
-
-
-/******************************************************************************
-**********************************[ WRITER ]***********************************
-******************************************************************************/
-
-
-const Writer = structn("Writer")
-  (Writer => (x, y) => Writer([x, y]));
-
-
-/***[Applicative]*************************************************************/
-
-
-const writeAp = append => ({runWriter: [f, y]}) => ({runWriter: [x, y_]}) =>
-  Writer(f(x), append(y) (y_));  
-
-
-const writeOf = empty => x =>
-  Writer(x, empty);
-
-
-/***[Functor]*****************************************************************/
-
-
-const writeMap = f => ({runWriter: [x, y]}) =>
-  Writer(f(x), y);
-
-
-/***[Monad]*******************************************************************/
-
-
-const writeChain = append => fm => ({runWriter: [x, y]}) => {
-  const [x_, y_] = fm(x).runWriter;
-  return Writer(x_, append(y) (y_));
-};
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const evalWriter = tx =>
-  tx.runWriter(([x, y]) => x);
-
-
-const execWriter = tx =>
-  tx.runWriter(([x, y]) => y);
-
-
-const writeCensor = f => mx =>
-  pass(mx.runWriter(pair => Writer(pair, f)));
-
-
-const writeListen = tx =>
-  tx.runWriter(([x, y]) => Writer([x, y], y));
-
-
-const writeListens = f => mx =>
-  listen(mx).runWriter(([pair, y]) => Writer(pair, f(y)));
-
-
-const writePass = tx =>
-  tx.runWriter(([[x, f], y]) => Writer([x, f(x)]));
-
-
-const writeTell = y => Writer(null, y);
-
-
-/******************************************************************************
-**********************************[ DERIVED ]**********************************
-******************************************************************************/
-
-
-const firstPrepend = lastAppend;
-
-
-/******************************************************************************
-*******************************************************************************
-************************************[ IO ]*************************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-**********************************[ CRYPTO ]***********************************
-******************************************************************************/
-
-
-const createHash_ = crypto => algo => s =>
-  crypto.createHash(algo)
-    .update(s)
-    .digest("hex");
-
-
-const createRandomBytes_ = crypto => n =>
-  Defer(() =>
-    crypto.randomBytes(n));
-
-
-/******************************************************************************
-********************************[ FILE SYSTEM ]********************************
-******************************************************************************/
-
-
-const fileCopy_ = fs => flags => newPath => path =>
-  Task((res, rej) => {
-    const readStream = fs.createReadStream(path),
-      writeStream = fs.createWriteStream(newPath, {flags});
-
-    readStream.on("error", rej);
-    writeStream.on("error", rej);
-    writeStream.on("finish", () => res(newPath));
-    readStream.pipe(writeStream);
-  });
-
-
-const fileMove_ = fs => flags => newPath => path =>
-  renameFile(path, newPath)
-    .runTask(id, e => {
-      if (e.code !== "EXDEV") // TODO: there are other error codes to take into account
-        throw new FileError(e);
-
-      else
-        return tAnd(
-          copyFile(path, newPath, flags))
-            (unlinkFile(path));
-    });
-
-
-const fileRead_ = fs => enc => path =>
-  Task((res, rej) =>
-    fs.readFile(path, enc, (e, s) =>
-      e ? rej(e) : res(s)));
-
-
-const fileRename_ = fs => newPath => path => 
-  Task((res, rej) => {
-    fs.rename(path, newPath, e =>
-      e ? rej(e) : res(newPath));
-  });
-
-
-const fileScanDir_ = fs => path =>
-  Task((res, rej) =>
-    fs.readdir(path, (e, ss) =>
-      e ? rej(e) : res(ss)));
-
-
-const fileWrite_ = fs => opt => path => s =>
-  Task((res, rej) =>
-    fs.writeFile(path, s, opt, (e, s) =>
-      e ? rej(e) : res(None)));
-
-
-const fileUnlink_ = fs => path => 
-  Task((res, rej) => {
-    fs.unlink(path, e =>
-      e ? rej(e) : res(None));
-  });
-
-
-/******************************************************************************
-*******************************************************************************
-**********************************[ DERIVED ]**********************************
-*******************************************************************************
-******************************************************************************/
-
-
-const arrSum = arrFoldM({append: sumAppend, empty: sumEmpty});
-
-
-/******************************************************************************
-*******************************************************************************
-************************************[ API ]************************************
-*******************************************************************************
-******************************************************************************/
-
-
-module.exports = {
-  Age,
-  All,
-  all,
-  allAppend,
-  allEmpty,
-  allPrepend,
-  Ancient,
-  and,
-  andp,
-  Any,
-  any,
-  anyAppend,
-  anyEmpty,
-  anyPrepend,
-  app,
-  arrAp,
-  arrApo,
-  arrAppend,
-  arrAppendx,
-  arrChain,
-  arrChainRec,
-  arrClone,
-  arrConcat,
-  arrConsHead,
-  arrConsHeadx,
-  arrConsLast,
-  arrConsLastx,
-  arrConsNth,
-  arrConsNthx,
-  arrDedupeBy,
-  arrDedupeOn,
-  arrEmpty,
-  arrFilter,
-  arrFold,
-  arrFoldM,
-  arrFoldr,
-  arrFoldStr,
-  arrFoldWhile,
-  arrFutu,
-  arrHead,
-  arrHeadOr,
-  arrInit,
-  arrInvert,
-  arrLast,
-  arrLastOr,
-  arrLens,
-  arrLensx,
-  arrHisto,
-  arrHylo,
-  arrJoin,
-  arrLength,
-  arrMap,
-  arrModOr,
-  arrModOrx,
-  arrMutu,
-  arrNull,
-  arrOf,
-  arrPara,
-  arrParaWhile,
-  arrPartition,
-  arrPrepend,
-  arrPrependx,
-  arrScan,
-  arrSeqF,
-  arrSet,
-  arrSetx,
-  arrSliceAt,
-  arrSliceAtx,
-  arrSortBy,
-  arrSortByx,
-  arrSplitAt,
-  arrSplitAtx,
-  arrSplitBy,
-  arrSplitByx,
-  arrSum,
-  arrTail,
-  arrTransduce,
-  arrTransduceWhile,
-  arrTranspose,
-  arrUnconsHead,
-  arrUnconsHeadOr,
-  arrUnconsHeadOrx,
-  arrUnconsHeadx,
-  arrUnconsLast,
-  arrUnconsLastOr,
-  arrUnconsLastOrx,
-  arrUnconsLastx,
-  arrUnconsNth,
-  arrUnconsNthx,
-  arrUnconsNthOr,
-  arrUnconsNthOrx,
-  arrUnfold,
-  arrUnzip,
-  arrZip,
-  arrZipBy,
-  arrZygo,
-  ask,
-  asks,
-  ceil,
-  Comp,
-  comp,
-  comp2nd,
-  comp3,
-  compBin,
-  compBoth,
-  compAp,
-  compAppend,
-  compPrepend,
-  Compare,
-  compare,
-  compContra,
-  compEmpty,
-  compMap,
-  compOf,
-  concat,
-  Const,
-  _const,
-  constMap,
-  constOf,
-  Cont,
-  cont,
-  cont2,
-  contAp,
-  contChain,
-  contChain2,
-  contJoin,
-  contLiftA2,
-  contLiftM2,
-  contMap,
-  contReset,
-  contShift,
-  contOf,
-  createHash_,
-  createRandomBytes_,
-  curry,
-  curry3,
-  curry4,
-  curry5,
-  DateError,
-  dateParse,
-  debug,
-  defAp,
-  defChain,
-  Defer,
-  defJoin,
-  defMap,
-  defOf,
-  delay,
-  dropper,
-  dropperk,
-  dropperNth,
-  dropperNthk,
-  dropperWhile,
-  dropperWhilek,
-  eff,
-  Either,
-  Endo,
-  endoAppend,
-  endoEmpty,
-  endoPrepend,
-  EQ,
-  eq,
-  Equiv,
-  equivAppend,
-  equivContra,
-  equivEmpty,
-  equivPrepend,
-  ethCata,
-  evalState,
-  execState,
-  fileCopy_,
-  FileError,
-  fileMove_,
-  fileRead_,
-  fileRename_,
-  fileScanDir_,
-  fileWrite_,
-  fileUnlink_,
-  filterer,
-  filtererk,
-  First,
-  firstAppend,
-  firstPrepend,
-  flip,
-  floor,
-  foldMap,
-  formatDate,
-  formatDay,
-  formatFloat,
-  formatMonth,
-  formatYear,
-  fromMultiArg,
-  fromThese,
-  funAp,
-  funAppend,
-  funChain,
-  funContra,
-  funDimap,
-  funEmpty,
-  funJoin,
-  funLiftA2,
-  funLmap,
-  funMap,
-  funPrepend,
-  funRmap,
-  funVarComp,
-  funVarPipe,
-  getComp,
-  getComp3,
-  getDay,
-  getGet,
-  getId,
-  getMonth,
-  getMonthDays,
-  getTimezoneOffset,
-  getVarComp,
-  getYear,
-  GT,
-  guard,
-  headH,
-  History,
-  history,
-  Id,
-  id,
-  idMap,
-  idOf,
-  imply,
-  index,
-  infixl,
-  infixr,
-  inRange,
-  invoke,
-  introspect,
-  isDate,
-  isDateStr,
-  isFalse,
-  isIntStr,
-  isTrue,
-  isUnit,
-  kleisliComp,
-  kleisliPipe,
-  Last,
-  lastAppend,
-  lastPrepend,
-  Lazy,
-  lazyAp,
-  lazyChain,
-  lazyJoin,
-  lazyMap,
-  lazyOf,
-  Left,
-  leftPrism,
-  Lens,
-  lensComp,
-  lensComp3,
-  lensDel,
-  lensGet,
-  lensId,
-  lensMod,
-  lensSet,
-  lensVarComp,
-  _let,
-  local,
-  log,
-  loop,
-  LT,
-  mapMap,
-  mapper,
-  mapperk,
-  match,
-  matchExp,
-  matCata,
-  Matched,
-  Max,
-  max,
-  maxEmpty,
-  maxAppend,
-  maxPrepend,
-  memoMethx,
-  Min,
-  min,
-  minAppend,
-  minEmpty,
-  minPrepend,
-  neq,
-  _new,
-  None,
-  not,
-  NO_ENC,
-  NOT_FOUND,
-  notp,
-  numCompare,
-  numEq,
-  numFromEnum,
-  numNeq,
-  numGt,
-  numGte,
-  numLt,
-  numLte,
-  numPred,
-  numSucc,
-  numToEnum,
-  objClone,
-  objDel,
-  objDelx,
-  objEntries,
-  objGetOr,
-  objGetter,
-  objKeys,
-  objLens,
-  objLensx,
-  objModOr,
-  objModOrx,
-  objPathOr,
-  objSet,
-  objSetter,
-  objSetx,
-  objUnion,
-  objUnionx,
-  objValues,
-  Option,
-  optAp,
-  optCata,
-  optChain,
-  optChainT,
-  optMap,
-  optOf,
-  or,
-  ordAppend,
-  ordCata,
-  ordEmpty,
-  ordPrepend,
-  Ordering,
-  orp,
-  Parallel,
-  parAll,
-  parAnd,
-  parAny,
-  parAp,
-  parAppend,
-  parCata,
-  parEmpty,
-  parMap,
-  parOf,
-  parOr,
-  parPrepend,
-  partial,
-  partialCurry,
-  pipe,
-  pipe3,
-  pipeBin,
-  pipeBoth,
-  Pred,
-  predAppend,
-  predContra,
-  predEmpty,
-  predPrepend,
-  prismGet,
-  prismMod,
-  prismSet,
-  Prod,
-  prodAppend,
-  prodEmpty,
-  prodPrepend,
-  range,
-  rangeSize,
-  recur,
-  Reader,
-  readAp,
-  readChain,
-  readJoin,
-  readMap,
-  readOf,
-  Right,
-  rightPrism,
-  round,
-  roundBy,
-  ScriptumError,
-  select,
-  select11,
-  select1N,
-  SemigroupError,
-  setComp,
-  setComp3,
-  setDel,
-  setId,
-  setMap,
-  setMod,
-  setSet,
-  setVarComp,
-  Some,
-  State,
-  stateAp,
-  stateChain,
-  stateGet,
-  stateGets,
-  stateMap,
-  stateModify,
-  stateOf,
-  statePut,
-  strAppend,
-  strChunk,
-  strConsNth,
-  strDel,
-  strFold,
-  strFoldChunks,
-  strLength,
-  strLocaleCompare,
-  strMatch,
-  strMatchAll,
-  strMatchLast,
-  strMatchNth,
-  strMod,
-  strNormalize,
-  strNormalizeBy,
-  strNull,
-  strSet,
-  strPadl,
-  strPadr,
-  strPrepend,
-  strSliceAt,
-  strSplitAt,
-  strSplitBy,
-  struct,
-  structn,
-  structGetter,
-  strUnconsNth,
-  strUnconsNthOr,
-  Sum,
-  sumAppend,
-  sumEmpty,
-  sumPrepend,
-  swapMultiArg,
-  TAG,
-  taker,
-  takerk,
-  takerNth,
-  takerNthk,
-  takerWhile,
-  takerWhilek,
-  Task,
-  taggedLog,
-  tAnd,
-  tAll,
-  tAp,
-  tAppend,
-  tCata,
-  tChain,
-  tChainT,
-  tChain2,
-  tEmpty,
-  tPrepend,
-  That,
-  These,
-  These_,
-  theseCata,
-  This,
-  thisify,
-  _throw,
-  throwOn,
-  throwOnFalse,
-  throwOnTrue,
-  throwOnUnit,
-  tJoin,
-  tLiftA2,
-  tLiftM2,
-  tMap,
-  tOf,
-  toFixedFloat,
-  strToLower,
-  strToUpper,
-  toString,
-  trace,
-  tramp,
-  tryCatch,
-  tup1,
-  tup2,
-  tup3,
-  tupBimap,
-  tupFirst,
-  tupSecond,
-  TYPE,
-  uncurry,
-  uncurry3,
-  uncurry4,
-  uncurry5,
-  union,
-  unionGetter,
-  UnionError,
-  varAp,
-  varArgs,
-  varChain,
-  varComp,
-  varKleisliComp,
-  varKleisliPipe,
-  varLiftA,
-  varLiftM,
-  varPipe,
-  Writer,
-  writeAp,
-  writeCensor,
-  writeChain,
-  writeListen,
-  writeListens,
-  writeMap,
-  writeOf,
-  writePass,
-  writeTell,
-};
+Although not part of the spec all majr Javascript engines traverse `Object` properties in insertion order. With scriptum you must not rely on this property, because the lib treats `Object`s unordered `Map`s.
