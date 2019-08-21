@@ -2761,24 +2761,19 @@ const objLensx = objLens_({union: objUnionx, del: objDelx});
 // String
 
 
-/*const strLens = i =>
+const strLens = (i, len) =>
   Lens(map => ft => s =>
-    map(x => {
-      if (x === null) {
-        const tx = strUnconsNth(`${s[i]}`, "") (s);
+    map(t => {
+      const tx = strUnconsNth(i, len) (s);
 
-        switch (tx[TAG]) {
-          case "None": return xs;
+      switch (tx[TAG]) {
+        case "None": return t;
 
-          case "Some":
-            return tx.runOption[1];
-        }
+        case "Some":
+          return strConsNth(t, i - 1) (tx.runOption[1]);
       }
-
-      else
-        return set(i, x) (xs);
     })
-      (ft(xs[i])));*/
+      (ft(s.slice(i, len + i))));
 
 
 /***[Category]****************************************************************/
@@ -4188,6 +4183,7 @@ module.exports = {
   strFold,
   strFoldChunks,
   strLength,
+  strLens,
   strLocaleCompare,
   strMatch,
   strMatchAll,
