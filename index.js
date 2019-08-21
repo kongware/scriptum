@@ -2148,6 +2148,12 @@ const strUnconsNth = (i, len) => s =>
     : Some([s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)]);
 
 
+const strUnconsNthOr = def => (i, len) => s =>
+  i >= s.length
+    ? [def, s]
+    : [s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)];
+
+
 const toString = x => x.toString();
 
 
@@ -4177,7 +4183,7 @@ module.exports = {
   statePut,
   strAppend,
   strChunk,
-  strCons,
+  strConsNth,
   strDel,
   strFold,
   strFoldChunks,
@@ -4201,7 +4207,8 @@ module.exports = {
   struct,
   structn,
   structGetter,
-  strUncons,
+  strUnconsNth,
+  strUnconsNthOr,
   Sum,
   sumAppend,
   sumEmpty,
