@@ -770,6 +770,16 @@ const arrDedupeOn = k => xs => {
 };
 
 
+const arrDel = i => xs => {
+  const ys = arrClone(xs);
+  return (ys.splice(i, 1), ys);
+};
+
+
+const arrDelx = i => xs =>
+  (xs.splice(i, 1), xs);
+
+
 const arrHead = xs =>
   xs.length === 0
     ? None
@@ -2711,57 +2721,47 @@ const lazyJoin = mmx =>
 // Array
 
 
-const arrLens_ = ({set, unconsNth}) => i =>
+const arrLens_ = ({set, del}) => i =>
   Lens(map => ft => xs =>
     map(x => {
-      if (x === null) {
-        const tx = unconsNth(i) (xs);
-
-        switch (tx[TAG]) {
-          case "None": return xs;
-
-          case "Some":
-            return tx.runOption[1]
-        }
-      }
+      if (x === null)
+        return del(i) (xs);
 
       else
         return set(i, x) (xs);
-    })
-      (ft(xs[i])));
+    }) (ft(xs[i])));
 
 
-const arrLens = arrLens_({set: arrSet, unconsNth: arrUnconsNth});
+const arrLens = arrLens_({set: arrSet, del: arrDel});
 
 
-const arrLensx = arrLens_({set: arrSetx, unconsNth: arrUnconsNthx});
+const arrLensx = arrLens_({set: arrSetx, del: arrDelx});
 
 
 // Object
 
 
-const objLens_ = ({union, del}) => k =>
+const objLens_ = ({set, del}) => k =>
   Lens(map => ft => o =>
     map(v => {
       if (v === null)
         return del(k) (o);
 
       else 
-        return union(o)
-          ({[k]: v})})
-            (ft(o[k])));
+        return set(k, v) (o)
+    }) (ft(o[k])));
 
 
-const objLens = objLens_({union: objUnion, del: objDel});
+const objLens = objLens_({set: objSet, del: objDel});
 
 
-const objLensx = objLens_({union: objUnionx, del: objDelx});
+const objLensx = objLens_({set: objSetx, del: objDelx});
 
 
 // String
 
 
-const strLens = (i, len) =>
+const strLens = (i, len) => // String is immutable hence no typeclass functions
   Lens(map => ft => s =>
     map(t => {
       const tx = strUnconsNth(i, len) (s);
@@ -3807,6 +3807,8 @@ module.exports = {
   arrConsNthx,
   arrDedupeBy,
   arrDedupeOn,
+  arrDel,
+  arrDelx,
   arrEmpty,
   arrFilter,
   arrFold,
