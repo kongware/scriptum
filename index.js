@@ -1748,6 +1748,14 @@ const mapMap = f => m => {
 /***[Misc. Combinators]*******************************************************/
 
 
+const mapDel = k => m =>
+  new Map(m).delete(k);
+
+
+const mapDelx = k => m =>
+  m.delete(k);
+
+
 const mapGet = k => m =>
   m.has(k)
     ? Some(m.get(k))
@@ -2776,24 +2784,24 @@ const arrLens = arrLens_({set: arrSet, del: arrDel});
 const arrLensx = arrLens_({set: arrSetx, del: arrDelx});
 
 
-// Object
+// Map
 
 
 const mapLens_ = ({set, del}) => k =>
-  Lens(map => ft => o =>
+  Lens(map => ft => m =>
     map(v => {
       if (v === null)
-        return del(k) (o);
+        return del(k) (m);
 
       else 
-        return set(k, v) (o)
-    }) (ft(o[k])));
+        return set(k, v) (m)
+    }) (ft(m.get(k))));
 
 
-const mapLens = objLens_({set: objSet, del: objDel});
+const mapLens = mapLens_({set: mapSet, del: mapDel});
 
 
-const mapLensx = objLens_({set: objSetx, del: objDelx});
+const mapLensx = mapLens_({set: mapSetx, del: mapDelx});
 
 
 // Object
@@ -4103,8 +4111,12 @@ module.exports = {
   loop,
   LT,
   mapMap,
+  mapDel,
+  mapDelx,
   mapGet,
   mapGetOr,
+  mapLens,
+  mapLensx,
   mapModOr,
   mapModOrx,
   mapSet,
