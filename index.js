@@ -1732,6 +1732,9 @@ const throwOnUnit = throwOn(isUnit);
 ******************************************************************************/
 
 
+/***[Functor]*****************************************************************/
+
+
 const mapMap = f => m => {
   let n = new Map();
   
@@ -1740,6 +1743,41 @@ const mapMap = f => m => {
   
   return n;
 };
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const mapGet = k => m =>
+  m.has(k)
+    ? Some(m.get(k))
+    : None;
+
+
+const mapGetOr = def => k => m =>
+  m.has(k)
+    ? m.get(k)
+    : def;
+
+
+const mapModOr = def => (k, f) => m =>
+  m.has(k)
+    ? new Map(m).set(k, f(m.get(k)))
+    : new Map(m).set(k, def);
+
+
+const mapModOrx = def => (k, f) => m =>
+  m.has(k)
+    ? m.set(k, f(m.get(k)))
+    : m.set(k, def);
+
+
+const mapSet = (k, v) => m =>
+  new Map(m).set(k, v);
+
+
+const mapSetx = (k, v) => m =>
+  m.set(k, v);
 
 
 /******************************************************************************
@@ -2736,6 +2774,26 @@ const arrLens = arrLens_({set: arrSet, del: arrDel});
 
 
 const arrLensx = arrLens_({set: arrSetx, del: arrDelx});
+
+
+// Object
+
+
+const mapLens_ = ({set, del}) => k =>
+  Lens(map => ft => o =>
+    map(v => {
+      if (v === null)
+        return del(k) (o);
+
+      else 
+        return set(k, v) (o)
+    }) (ft(o[k])));
+
+
+const mapLens = objLens_({set: objSet, del: objDel});
+
+
+const mapLensx = objLens_({set: objSetx, del: objDelx});
 
 
 // Object
@@ -4045,6 +4103,12 @@ module.exports = {
   loop,
   LT,
   mapMap,
+  mapGet,
+  mapGetOr,
+  mapModOr,
+  mapModOrx,
+  mapSet,
+  mapSetx,
   mapper,
   mapperk,
   match,
