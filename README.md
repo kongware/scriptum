@@ -785,7 +785,24 @@ where `a` is exactly one target inside the composite structure `s`, also called 
 * `Const` turns the `Lens` into a getter
 * `Id` turns the `Lens` into a setter
 
-TODO: Example
+```Javascript
+const x = {foo: new Map([["bar", [1, 2, 3]]])};
+
+const tx = lensComp3(
+  objLens("foo"))
+    (mapLens("bar"))
+      (arrLens(1));
+
+// direct use of a lense
+
+tx.runLens(idMap)
+   (_const(Id(22))) (x); // {foo: Map{bar: [1, 22, 3}}
+  
+// or with a lens specific combinator
+
+lensSet(tx) (22) (x); // {foo: Map{bar: [1, 22, 3}}
+```
+For each lens there is also a `xyzLensx` version that performs a destructive update, i.e. modifies the data structure in-place.
 
 If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
 
