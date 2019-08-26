@@ -785,6 +785,10 @@ where `a` is exactly one target inside the composite structure `s`, also called 
 * `Const` turns the `Lens` into a getter
 * `Id` turns the `Lens` into a setter
 
+If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
+
+Here is a rather contrieved example:
+
 ```Javascript
 const x = {foo: new Map([["bar", [1, 2, 3]]])};
 
@@ -804,9 +808,7 @@ lensSet(tx) (22) (x); // {foo: Map{bar: [1, 22, 3}}
 ```
 For each lens there is also a `xyzLensx` version that performs a destructive update, i.e. modifies the data structure in-place.
 
-If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
-
-Side note: `Object` lenses modify the insertion order of properties, that is you should never rely on such an order when using scriptum.
+scriptum also includes a variadic composition operator (`lensCompVar`) so that you can compose as many lenses as needed without winding up with a huge and barely readable nested function call tree.
 
 ### Getters
 
