@@ -567,22 +567,7 @@ More unfolds will follow:
 
 ### Direct Recursion in Tail Position
 
-scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline:
-
-```Javascript
-const loop = f => {
-  let step = f();
-
-  while (step && step.type === recur)
-    step = f(...step.args);
-
-  return step;
-};
-
-const recur = (...args) =>
-  ({type: recur, args});
-```
-Now we don't have to bother with stack overflows any longer but can utilize recursion when we see fit:
+scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline. Having this tool in our set we don't have to bother with stack overflows any longer but can utilize recursion when we deem appropriate:
 
 ```Javascript
 const stackSafeFold = f => acc_ => xs =>
@@ -603,24 +588,7 @@ This works, because `stackSafeFold` implements direct recursion in tail position
 
 ### Indirect Recursion in Tail Position
 
-For mutual recursion we need a more complex trampoline:
-
-```Javascript
-const tramp = f => (...args) => {
-  let step = f(...args);
-
-  while (step && step.type === recur) {
-    let [f, ...args_] = step.args;
-    step = f(...args_);
-  }
-
-  return step;
-};
-
-const recur = (...args) =>
-  ({type: recur, args});
-```
-Now we can express mutual recursion in a stack-safe manner too:
+Unfortunately, we need antohter implementation for mutual recursion, such that we can express mutual recursion in a stack-safe manner as well:
 
 ```Javascript
 const even = n =>
@@ -635,7 +603,7 @@ const odd = n =>
 
 trampoline(even) (1e6 + 1)); // false
 ```
-As you can see the trampoline API leaks on the calling site and there is nothing we can do about it. Stac-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
+As you can see trampoline API leaks on the calling site and there is nothing we can do about it. Stack-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
 
 ### Non-Tail Recursion
 
