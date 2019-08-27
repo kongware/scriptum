@@ -2158,10 +2158,8 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const strCapWords = excl => s =>
-  arrMap(t => t[0].toUpperCase() + t.slice(1))
-    (strSplitPhrase(excl) (s))
-      .join("");
+const strCapWord = s =>
+  s[0].toUpperCase() + s.slice(1);
 
 
 const strChunk = n =>
@@ -4287,7 +4285,7 @@ module.exports = {
   stateOf,
   statePut,
   strAppend,
-  strCapWords,
+  strCapWord,
   strChunk,
   strConsNth,
   strDel,
