@@ -2158,9 +2158,10 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const strCapWords = s =>
-  s.toLowerCase()
-    .replace(new RegExp(`${UNI_WORD_BOUNDARY_L}\\p{Ll}`, "gu"), t => t.toUpperCase());
+const strCapWords = excl => s =>
+  arrMap(t => t[0].toUpperCase() + t.slice(1))
+    (strSplitPhrase(excl) (s))
+      .join("");
 
 
 const strChunk = n =>
