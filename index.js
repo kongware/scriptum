@@ -2212,8 +2212,12 @@ const strSplitBy = p =>
             (["", ""]);
 
 
-const strSplitWords = s =>
-  s.split(new RegExp(`.${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
+const strSplitPhrase = excl => s =>
+  s.split(new RegExp(`([^${excl}])${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
+
+
+const strSplitWords = excl => s =>
+  s.split(new RegExp(`[^${excl}]${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
 
 
 const strToLower = s =>
@@ -4306,6 +4310,7 @@ module.exports = {
   strSliceAt,
   strSplitAt,
   strSplitBy,
+  strSplitPhrase,
   strSplitWords,
   struct,
   structn,
