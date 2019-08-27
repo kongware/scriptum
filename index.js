@@ -753,6 +753,17 @@ const arrConsNthx = (i, x) => xs =>
   (xs.splice(i + 1, 0, x), xs);
 
 
+const arrDedupe = xs => {
+  const s = new Set();
+
+  return arrFilter(x => {
+    return s.has(x)
+      ? null
+      : (s.add(x), x);
+  }) (xs);
+};
+
+
 const arrDedupeBy = f => xs => {
   const s = new Set();
 
@@ -3886,6 +3897,7 @@ module.exports = {
   arrConsLastx,
   arrConsNth,
   arrConsNthx,
+  arrDedupe,
   arrDedupeBy,
   arrDedupeOn,
   arrDel,
