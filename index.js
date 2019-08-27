@@ -34,6 +34,12 @@ const TAG = Symbol("tag"); // the tag property of tagged unions
 const TYPE = Symbol.toStringTag; // used for debugging
 
 
+const UNI_WORD_BOUNDARY_L = "(?<=^|\\p{Z}|\\p{S}|\\p{P}|\\p{C}|\\p{M})";
+
+
+const UNI_WORD_BOUNDARY_R = "(?=$|\\p{Z}|\\p{S}|\\p{P}|\\p{C}|\\p{M})";
+
+
 /******************************************************************************
 *******************************************************************************
 **********************************[ ERRORS ]***********************************
@@ -2141,6 +2147,11 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
+const strCapWords = s =>
+  s.toLowerCase()
+    .replace(new RegExp(`${UNI_WORD_BOUNDARY_L}\\p{Ll}`, "gu"), t => t.toUpperCase());
+
+
 const strChunk = n =>
   strFoldChunks(
     acc => (s, i) =>
@@ -2188,6 +2199,10 @@ const strSplitBy = p =>
         ? [strSplitAt(i) (s), s.length]
         : [acc, i])
             (["", ""]);
+
+
+const strSplitWords = s =>
+  s.split(new RegExp(`.${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
 
 
 const strToLower = s =>
@@ -4255,6 +4270,7 @@ module.exports = {
   stateOf,
   statePut,
   strAppend,
+  strCapWords,
   strChunk,
   strConsNth,
   strDel,
@@ -4278,6 +4294,7 @@ module.exports = {
   strSliceAt,
   strSplitAt,
   strSplitBy,
+  strSplitWords,
   struct,
   structn,
   structGetter,
