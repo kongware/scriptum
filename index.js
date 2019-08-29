@@ -2037,7 +2037,7 @@ const strMatch = (r, flags) => s => {
     return Matched(None);
 
   else if (!("index" in xs))
-    throw new Error(
+    throw new UnionError(
       `invalid regular expression - greediness is not permitted in\n${r}`);
 
   else if (xs.groups === undefined)
