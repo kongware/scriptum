@@ -4389,6 +4389,8 @@ module.exports = {
   union,
   unionGetter,
   UnionError,
+  UNI_WORD_BOUNDARY_L,
+  UNI_WORD_BOUNDARY_R,
   varAp,
   varArgs,
   varChain,
