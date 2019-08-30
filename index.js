@@ -2451,8 +2451,8 @@ const constMap = f => tx =>
 const Cont = struct("Cont");
 
 
-const cont = f => x => k =>
-  Cont(k(f(x))); 
+const cont = f => x =>
+  Cont(k => k(f(x))); 
 
 
 const cont2 = f => x => y =>
