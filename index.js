@@ -2223,11 +2223,18 @@ const strSplitBy = p =>
 
 
 const strSplitPhrase = excl => s =>
-  s.split(new RegExp(`([^${excl}])${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
+  s.split(new RegExp(`([^\\p{L}\\p{N}${excl}]+)(?=\\p{L}|$)`, "gu"));
 
 
-const strSplitWords = excl => s =>
-  s.split(new RegExp(`[^${excl}]${UNI_WORD_BOUNDARY_L}(?=\\p{L})`, "gu"));
+const strSplitWords = excl => s => {
+  const xs = s.split(
+    new RegExp(`[^\\p{L}\\p{N}${excl}]+(?=\\p{L}|$)`, "gu"));
+
+  if (xs[xs.length - 1] === "")
+    xs.pop();
+
+  return xs;
+};
 
 
 const strToLower = s =>
