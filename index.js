@@ -2238,6 +2238,10 @@ const strToUpper = s =>
   s.toUpperCase();
 
 
+const strTrim = s =>
+  s.trim();
+
+
 const strUnconsNth = (i, len) => s =>
   i >= s.length
     ? None
@@ -4323,6 +4327,7 @@ module.exports = {
   strSplitBy,
   strSplitPhrase,
   strSplitWords,
+  strTrim,
   struct,
   structn,
   structGetter,
