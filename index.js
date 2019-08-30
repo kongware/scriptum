@@ -1092,6 +1092,17 @@ const dateParse = s => {
   const d = new Date(s);
   
   if (d.getTime === undefined || Number.isNaN(d.getTime()))
+    return Left(`malformed date string "${s}"`);
+
+  else
+    return Right(d);
+};
+
+
+const dateParsex = s => {
+  const d = new Date(s);
+  
+  if (d.getTime === undefined || Number.isNaN(d.getTime()))
     throw new DateError(`malformed date string "${s}"`);
 
   else
@@ -4014,6 +4025,7 @@ module.exports = {
   curry5,
   DateError,
   dateParse,
+  dateParsex,
   debug,
   defAp,
   defChain,
