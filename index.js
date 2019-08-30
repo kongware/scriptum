@@ -2222,10 +2222,6 @@ const strSplitBy = p =>
             (["", ""]);
 
 
-const strSplitPhrase = excl => s =>
-  s.split(new RegExp(`([^\\p{L}\\p{N}${excl}]+)(?=\\p{L}|$)`, "gu"));
-
-
 const strSplitWords = excl => s => {
   const xs = s.split(
     new RegExp(`[^\\p{L}\\p{N}${excl}]+(?=\\p{L}|$)`, "gu"));
@@ -4332,7 +4328,6 @@ module.exports = {
   strSliceAt,
   strSplitAt,
   strSplitBy,
-  strSplitPhrase,
   strSplitWords,
   strTrim,
   struct,
