@@ -1244,7 +1244,8 @@ const funLiftA2 = f => g => h => x =>
 /***[Arguments]***************************************************************/
 
 
-const fromMultiArg = (...args) => [...args];
+const appVar = f =>
+  arrFold(g => x => g(x)) (f);
 
 
 const infixl = (x, f, y) =>
@@ -1253,9 +1254,6 @@ const infixl = (x, f, y) =>
 
 const infixr = (y, f, x) =>
   f(x) (y);
-
-
-const swapMultiArg = (x, y) => [y, x];
 
 
 const varArgs = f => {
@@ -3904,6 +3902,7 @@ module.exports = {
   anyEmpty,
   anyPrepend,
   app,
+  appVar,
   arrAp,
   arrApo,
   arrAppend,
@@ -4084,7 +4083,6 @@ module.exports = {
   formatFloat,
   formatMonth,
   formatYear,
-  fromMultiArg,
   fromThese,
   funAp,
   funAppend,
@@ -4339,7 +4337,6 @@ module.exports = {
   sumAppend,
   sumEmpty,
   sumPrepend,
-  swapMultiArg,
   TAG,
   taker,
   takerk,
