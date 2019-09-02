@@ -1244,8 +1244,7 @@ const funLiftA2 = f => g => h => x =>
 /***[Arguments]***************************************************************/
 
 
-const appVar = f =>
-  arrFold(g => x => g(x)) (f);
+const fromMultiArg = (...args) => [...args];
 
 
 const infixl = (x, f, y) =>
@@ -1254,6 +1253,9 @@ const infixl = (x, f, y) =>
 
 const infixr = (y, f, x) =>
   f(x) (y);
+
+
+const swapMultiArg = (x, y) => [y, x];
 
 
 const varArgs = f => {
@@ -1751,6 +1753,17 @@ const throwOnTrue = throwOn(isTrue);
 
 
 const throwOnUnit = throwOn(isUnit);
+
+
+/******************************************************************************
+*********************************[ GENERATOR ]*********************************
+******************************************************************************/
+
+
+const _enum = function* (n) {
+  while (true)
+    yield n++;
+};
 
 
 /******************************************************************************
@@ -3902,7 +3915,6 @@ module.exports = {
   anyEmpty,
   anyPrepend,
   app,
-  appVar,
   arrAp,
   arrApo,
   arrAppend,
@@ -4052,6 +4064,7 @@ module.exports = {
   endoAppend,
   endoEmpty,
   endoPrepend,
+  _enum,
   EQ,
   eq,
   Equiv,
@@ -4083,6 +4096,7 @@ module.exports = {
   formatFloat,
   formatMonth,
   formatYear,
+  fromMultiArg,
   fromThese,
   funAp,
   funAppend,
@@ -4337,6 +4351,7 @@ module.exports = {
   sumAppend,
   sumEmpty,
   sumPrepend,
+  swapMultiArg,
   TAG,
   taker,
   takerk,
