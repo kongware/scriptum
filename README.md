@@ -468,27 +468,40 @@ That means each function type that implements `Category` has automatically acces
 const inc = x => x + 1,
   sqr = x => x * x;
   
-funVarComp(inc) (sqr) (inc) (inc) (inc).runVarArgs(1); // 25
-funVarPipe(inc) (inc) (inc) (inc) (sqr).runVarArgs(1); // 25
+funVarComp(inc)
+  (sqr)
+    (inc)
+      (inc)
+        (inc).runVarArgs(1); // 25
+        
+funVarPipe(inc)
+  (inc)
+    (inc)
+      (inc)
+        (sqr).runVarArgs(1); // 25
 ```
-Acessing the `runVarArgs` property triggers the evaluation of the composition tree.
+Accessing the `runVarArgs` property triggers the evaluation of the composition tree.
 
 Here is another example for applicative lifting through the variadic interface:
 
 ```Javascript
 const sum3 = x => y => z => x + y + z;
 
-varLiftA({ap: optAp, of: optOf}) (sum3) (Some(1)) (Some(2)) (Some(3)).runVarArgs; // Some(6)
-varLiftA({ap: optAp, of: optOf}) (sum3) (Some(1)) (None) (Some(3)).runVarArgs; // None
+varLiftA({ap: optAp, of: optOf})
+  (sum3)
+    (Some(1))
+      (Some(2))
+        (Some(3)).runVarArgs; // Some(6)
+        
+varLiftA({ap: optAp, of: optOf})
+  (sum3)
+    (Some(1))
+      (None)
+        (Some(3)).runVarArgs; // None
 ```
-Other suitable function types are
+Please note that applicative lifting with an variadic interface is basically applicative do notation. Since scriptum also offers variadic interfaces for monadic lifting and chaining you have something similar in your tool set as monadic do notation.
 
-* applicative chaining/sequencing
-* monadic lifting
-* monadic chaining/sequencing
-* kleisli composition
-
-All variadic combinators are based on the `varArgs` function. You can easily create your own variadic combinators with it:
+All variadic combinators are based on the `varArgs` (variadic arguments) function. You can easily create your own variadic combinators with it:
 
 ```Javascript
 const add = x => y => x + y;
@@ -498,7 +511,10 @@ const sum = ns =>
 
 const varSum = varArgs(sum);
 
-varSum(1) (2) (3) (4).runVarArgs // 10
+varSum(1)
+  (2)
+    (3)
+      (4).runVarArgs // 10
 ```
 ## Structural Folding
 
