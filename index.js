@@ -2309,28 +2309,6 @@ const tupSecond = f => ([x, y]) =>
 ******************************************************************************/
 
 
-const arrAll = all({ // with short circuit semantics
-  fold: arrFoldWhile,
-  append: compBin(tx =>
-    Cont(k =>
-      tx.runAll
-        ? k(tx)
-        : tx))
-            (allAppend),
-  empty: allEmpty});
-
-
-const arrAny = any({ // with short circuit semantics
-  fold: arrFoldWhile,
-  append: compBin(tx =>
-    Cont(k =>
-      tx.runAny
-        ? tx
-        : k(tx)))
-            (anyAppend),
-  empty: anyEmpty});
-
-
 const arrPrepend = flip(arrAppend);
 
 
@@ -3822,6 +3800,28 @@ const writeTell = y => Writer(null, y);
 /******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
+
+
+const arrAll = all({ // with short circuit semantics
+  fold: arrFoldWhile,
+  append: compBin(tx =>
+    Cont(k =>
+      tx.runAll
+        ? k(tx)
+        : tx))
+            (allAppend),
+  empty: allEmpty});
+
+
+const arrAny = any({ // with short circuit semantics
+  fold: arrFoldWhile,
+  append: compBin(tx =>
+    Cont(k =>
+      tx.runAny
+        ? tx
+        : k(tx)))
+            (anyAppend),
+  empty: anyEmpty});
 
 
 const firstPrepend = lastAppend;
