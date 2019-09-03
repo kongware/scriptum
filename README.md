@@ -468,18 +468,18 @@ That means each function type that implements `Category` has automatically acces
 const inc = x => x + 1,
   sqr = x => x * x;
   
-funVarComp(inc) (sqr) (inc) (inc) (inc).runVarComp(1); // 25
-funVarPipe(inc) (inc) (inc) (inc) (sqr).runVarComp(1); // 25
+funVarComp(inc) (sqr) (inc) (inc) (inc).runVarArgs(1); // 25
+funVarPipe(inc) (inc) (inc) (inc) (sqr).runVarArgs(1); // 25
 ```
-`runVarComp` is the indicator to start evaluating the composition tree.
+Acessing the `runVarArgs` property triggers the evaluation of the composition tree.
 
 Here is another example for applicative lifting through the variadic interface:
 
 ```Javascript
 const sum3 = x => y => z => x + y + z;
 
-optVarLiftA(sum3) (Some(1)) (Some(2)) (Some(3)); // Some(6)
-optVarLiftA(sum3) (Some(1)) (None) (Some(3)); // None
+varLiftA({ap: optAp, of: optOf}) (sum3) (Some(1)) (Some(2)) (Some(3)).runVarArgs; // Some(6)
+varLiftA({ap: optAp, of: optOf}) (sum3) (Some(1)) (None) (Some(3)).runVarArgs; // None
 ```
 Other suitable function types are
 
