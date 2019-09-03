@@ -438,6 +438,12 @@ const arrFilter = p => xs =>
 /***[Foldable]****************************************************************/
 
 
+// arrAll @derived
+
+
+// arrAny @derived
+
+
 const arrFold = alg => zero => xs => {
   let acc = zero;
 
@@ -1390,9 +1396,9 @@ const uncurry5 = f => (v, w, x, y, z) =>
 /***[Debugging]***************************************************************/
 
 
-const debug = f => x => {
+const debug = f => (...args) => {
   debugger;
-  return f(x);
+  return f(...args);
 };
 
 
@@ -2301,6 +2307,28 @@ const tupSecond = f => ([x, y]) =>
 /******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
+
+
+const arrAll = all({ // with short circuit semantics
+  fold: arrFoldWhile,
+  append: compBin(tx =>
+    Cont(k =>
+      tx.runAll
+        ? k(tx)
+        : tx))
+            (allAppend),
+  empty: allEmpty});
+
+
+const arrAny = any({ // with short circuit semantics
+  fold: arrFoldWhile,
+  append: compBin(tx =>
+    Cont(k =>
+      tx.runAny
+        ? tx
+        : k(tx)))
+            (anyAppend),
+  empty: anyEmpty});
 
 
 const arrPrepend = flip(arrAppend);
@@ -3592,6 +3620,10 @@ const tLiftA2 = f => tx => ty =>
   tAp(tMap(f) (tx)) (ty);
 
 
+const tLiftA3 = f => tx => ty => tz =>
+  tAp(tAp(tMap(f) (tx)) (ty)) (tz);
+
+
 const tOf = x => Task((res, rej) => res(x));
 
 
@@ -3914,6 +3946,8 @@ module.exports = {
   anyPrepend,
   app,
   appVar,
+  arrAll,
+  arrAny,
   arrAp,
   arrApo,
   arrAppend,
@@ -4381,6 +4415,7 @@ module.exports = {
   throwOnUnit,
   tJoin,
   tLiftA2,
+  tLiftA3,
   tLiftM2,
   tMap,
   tOf,
