@@ -115,13 +115,25 @@ const Defer = structGetter("Defer")
 In this example a lazy getter replaces itself with a normal property after the initial lookup:
 
 ```Javascript
-const Task = structGetter("Task")
-  (Task => k => Task({
-    get runTask() {
-      const r = k(id, id);
-      delete this.runTask;
-      return this.runTask = l => l(r);
+const Lazy = structGetter("Lazy")
+  (Lazy => thunk => Lazy({
+    get runLazy() {
+      delete this.runLazy;
+      return this.runLazy = thunk();
     }}));
+```
+Another more complex example illustrates how sharing of results of asynchronous computations is achieved inscriptum:
+
+```Javascript
+const Task = structGetter("Task")
+  (Task => k => Task(thisify(o => {
+    o.runTask = (res, rej) => k(x => {
+      o.runTask = l => l(x);
+      return res(x);
+    }, rej);
+    
+    return o;
+  })));
 ```
 ## Sum Types (Tagged Unions)
 
