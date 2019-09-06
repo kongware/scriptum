@@ -122,7 +122,7 @@ const Lazy = structGetter("Lazy")
       return this.runLazy = thunk();
     }}));
 ```
-Another more complex example illustrates how sharing of results of asynchronous computations is achieved inscriptum:
+Another more complex example illustrates how sharing of results of asynchronous computations is achieved in scriptum:
 
 ```Javascript
 const Task = structGetter("Task")
