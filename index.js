@@ -1090,6 +1090,17 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 
 
 /******************************************************************************
+**********************************[ BOOLEAN ]**********************************
+******************************************************************************/
+
+
+const isFalse =x => x === false;
+
+
+const isTrue = x => x === true;
+
+
+/******************************************************************************
 ***********************************[ DATE ]************************************
 ******************************************************************************/
 
@@ -1173,6 +1184,31 @@ const getTimezoneOffset = () =>
 // getYear @derived
 
 
+const isDate = x =>
+  introspect(x) === "Date"
+    && !Number.isNaN(x.getTime());
+
+
+const isDateStr = s => {
+  const [y, m, d] = s.split("-");
+
+  if (String(Number(y)) !== y
+    || Number(y) < 0)
+      return false;
+
+  else if (Number(m) < 1
+    || Number(m) > 12)
+      return false;
+
+  else if (Number(d) < 1
+    || Number(d) > getMonthDays(y) (Number(m)))
+      return false;
+
+  else
+    return true; 
+};
+
+
 /******************************************************************************
 ***********************************[ FLOAT ]***********************************
 ******************************************************************************/
@@ -1199,6 +1235,10 @@ const formatFloat = thdSep => decSep => decDigits => n => {
 
   return r + hnd + decSep + strPadr(decDigits) ("0") (dec);
 };
+
+
+const isFloatStr = s =>
+  s.search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
 
 
 // round @derived
@@ -1436,6 +1476,13 @@ const introspect = x =>
     : Object.prototype.toString.call(x).slice(8, -1);
 
 
+const isUnit = x =>
+  x === undefined
+    || x === null
+    || x === x === false // NaN
+    || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
+
+
 const _throw = e => {
   throw e;
 };
@@ -1495,52 +1542,6 @@ const andp = p => q => x =>
   p(x) && q(x);
 
       
-const isDate = x =>
-  introspect(x) === "Date"
-    && !Number.isNaN(x.getTime());
-
-
-const isDateStr = s => {
-  const [y, m, d] = s.split("-");
-
-  if (String(Number(y)) !== y
-    || Number(y) < 0)
-      return false;
-
-  else if (Number(m) < 1
-    || Number(m) > 12)
-      return false;
-
-  else if (Number(d) < 1
-    || Number(d) > getMonthDays(y) (Number(m)))
-      return false;
-
-  else
-    return true; 
-};
-
-
-const isFalse =x => x === false;
-
-
-const isFloatStr = s =>
-  s.search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
-
-
-const isIntStr = s =>
-  s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
-
-
-const isTrue = x => x === true;
-
-
-const isUnit = x =>
-  x === undefined
-    || x === null
-    || x === x === false // NaN
-    || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
-
-
 const notp = p => x => !p(x);
 
 
@@ -1882,6 +1883,13 @@ const numMin = min;
 
 
 const numMax = max;
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const isIntStr = s =>
+  s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
 /******************************************************************************
