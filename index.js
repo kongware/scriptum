@@ -383,6 +383,14 @@ const arrAp = fs => xs => // TODO: use fold
     acc.concat(xs.map(x => f(x))), []);
 
 
+const arrLiftA2 = f => tx => ty =>
+  arrAp(arrMap(f) (tx)) (ty);
+
+
+const arrLiftA3 = f => tx => ty => tz =>
+  arrAp(arrAp(arrMap(f) (tx)) (ty)) (tz);
+
+
 const arrOf = x => [x];
 
 
@@ -554,8 +562,21 @@ const arrSeqF = x => xs => {
 /***[Monad]*******************************************************************/
 
 
-const arrChain = fm => xs => // TODO: use fold
-  xs.reduce((acc, x) => arrAppendx(acc) (fm(x)), []);
+const arrChain = fm =>
+  arrFold(acc => x => arrAppendx(acc) (fm(x))) ([]);
+
+
+const arrChain2 = fm => mx => my =>
+  arrFold(acc => x =>
+    arrFold(acc_ => y =>
+      arrAppendx(acc_) (fm(x) (y))) (acc) (my)) ([]) (mx);
+
+
+const arrChain3 = fm => mx => my => mz =>
+  arrFold(acc => x =>
+    arrFold(acc_ => y =>
+      arrFold(acc__ => z =>
+        arrAppendx(acc__) (fm(x) (y) (z))) (acc_) (mz)) (acc) (my)) ([]) (mx);
 
 
 const arrJoin = xss => {
@@ -567,6 +588,19 @@ const arrJoin = xss => {
 
   return xs;
 };
+
+
+const arrLiftM2 = f => mx => my =>
+  arrFold(acc => x =>
+    arrFold(acc_ => y =>
+      arrConsLastx(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
+
+
+const arrLiftM3 = f => mx => my => mz =>
+  arrFold(acc => x =>
+    arrFold(acc_ => y =>
+      arrFold(acc__ => z =>
+        arrConsLastx(f(x) (y) (z)) (acc__)) (acc_) (mz)) (acc) (my)) ([]) (mx);
 
 
 /***[Monoid]******************************************************************/
@@ -3961,6 +3995,8 @@ module.exports = {
   arrAppend,
   arrAppendx,
   arrChain,
+  arrChain2,
+  arrChain3,
   arrChainRec,
   arrClone,
   arrConcat,
@@ -3991,6 +4027,10 @@ module.exports = {
   arrLastOr,
   arrLens,
   arrLensx,
+  arrLiftA2,
+  arrLiftA3,
+  arrLiftM2,
+  arrLiftM3,
   arrHisto,
   arrHylo,
   arrJoin,
