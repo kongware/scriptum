@@ -3749,18 +3749,20 @@ const fromThese = (x, y) => tx =>
 ******************************************************************************/
 
 
-const Pair = struct("Pair");
+const Pair = structn("Pair")
+  (Pair => (x, y) => Pair([x, y]));
 
 
 const Pair_ = structn("Pair")
-  (Pair => x => y => Pair([x, y]));
+  (Pair_ => x => y => Pair_([x, y]));
 
 
-const Triple = struct("Triple");
+const Triple = struct("Triple")
+  (Triple => (x, y, z) => Triple([x, y, z]));
 
 
 const Triple_ = structn("Triple")
-  (Pair => x => y => z => Pair([x, y, z]));
+  (Triple_ => x => y => z => Triple_([x, y, z]));
 
 
 /***[Bifunctor]***************************************************************/
