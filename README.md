@@ -329,9 +329,11 @@ In the example above `foo` and `bar` are inhabitants of the same row polymorphic
 
 *  `[?]` - denotes an unknown and probably heterogeneous `Array`
 *  `[String]` - denotes a homogenious `Array` of `String`s
-*  `[String, Number]` - denotes a pair tuple
+*  `[String, Number]` - denotes a pair tuple*
 *  `[String|Number]` - denotes a heterogeneous `Array` of `String`s and `Number`s
 *  `[a]` - denotes a polymorphic `Array`
+
+*Please note that tuples also can be created with constructors derived from the struct combinator. The type of the polymorphic `Pair` tuple would then look like `Pair<[a, b]>`.
 
 ### `Boolean`
 
