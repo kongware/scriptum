@@ -484,7 +484,7 @@ const arrFoldStr = s => ss =>
   ss.join(s);
 
 
-const arrFoldWhile = alg => zero => xs =>
+const arrFoldk = alg => zero => xs =>
   loop((acc = zero, i = 0) =>
     i === xs.length
       ? acc
@@ -526,7 +526,7 @@ const arrPara = alg => zero => xs => {
 };
 
 
-const arrParaWhile = alg => zero => xs => {
+const arrParak = alg => zero => xs => {
   const ys = arrClone(xs);
 
   return loop((acc = zero, i = 0) =>
@@ -657,8 +657,8 @@ const arrTransduce = alg => reduce =>
   arrFold(alg(reduce));
 
 
-const arrTransduceWhile = alg => reduce =>
-  arrFoldWhile(alg(reduce));
+const arrTransducek = alg => reduce =>
+  arrFoldk(alg(reduce));
 
 
 /***[Unfoldable]**************************************************************/
@@ -947,7 +947,7 @@ const arrSplitAtx = i => xs =>
 
 
 const arrSplitBy = p => xs => // aka span
-  arrFoldWhile(
+  arrFoldk(
     acc => (x, i) =>
       Cont(k =>
         p(x)
@@ -958,7 +958,7 @@ const arrSplitBy = p => xs => // aka span
 
 
 const arrSplitByx = p => xs =>
-  arrFoldWhile(
+  arrFoldk(
     acc => (x, i) =>
       Cont(k =>
         p(x)
@@ -3878,7 +3878,7 @@ const writeTell = y => Writer(null, y);
 
 
 const arrAll = all({ // with short circuit semantics
-  fold: arrFoldWhile,
+  fold: arrFoldk,
   append: compBin(tx =>
     Cont(k =>
       tx.runAll
@@ -3889,7 +3889,7 @@ const arrAll = all({ // with short circuit semantics
 
 
 const arrAny = any({ // with short circuit semantics
-  fold: arrFoldWhile,
+  fold: arrFoldk,
   append: compBin(tx =>
     Cont(k =>
       tx.runAny
@@ -4047,10 +4047,10 @@ module.exports = {
   arrEmpty,
   arrFilter,
   arrFold,
+  arrFoldk,
   arrFoldM,
   arrFoldr,
   arrFoldStr,
-  arrFoldWhile,
   arrFutu,
   arrHead,
   arrHeadOr,
@@ -4075,7 +4075,7 @@ module.exports = {
   arrNull,
   arrOf,
   arrPara,
-  arrParaWhile,
+  arrParak,
   arrPartition,
   arrPrepend,
   arrPrependx,
@@ -4094,7 +4094,7 @@ module.exports = {
   arrSum,
   arrTail,
   arrTransduce,
-  arrTransduceWhile,
+  arrTransducek,
   arrTranspose,
   arrUnconsHead,
   arrUnconsHeadOr,
