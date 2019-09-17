@@ -378,9 +378,12 @@ const or = x => y =>
 /***[Applicative]*************************************************************/
 
 
-const arrAp = fs => xs => // TODO: use fold
-  fs.reduce((acc, f) =>
-    acc.concat(xs.map(x => f(x))), []);
+const arrAp = tf => tx =>
+  arrFold(acc => f =>
+    arrAppendx(acc)
+      (arrMap(x => f(x)) (tx)))
+        ([])
+          (tf);
 
 
 const arrLiftA2 = f => tx => ty =>
@@ -392,6 +395,9 @@ const arrLiftA3 = f => tx => ty => tz =>
 
 
 const arrOf = x => [x];
+
+
+const arrVarLiftA = varLiftA({ap: arrAp, of: arrOf});
 
 
 /***[ChainRec]****************************************************************/
@@ -4110,6 +4116,7 @@ module.exports = {
   arrUnconsNthOrx,
   arrUnfold,
   arrUnzip,
+  arrVarLiftA,
   arrZip,
   arrZipBy,
   arrZygo,
