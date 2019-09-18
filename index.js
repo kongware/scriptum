@@ -1523,6 +1523,15 @@ const isUnit = x =>
     || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
+const discardl = (...xs) =>
+  xs[xs.length - 1];
+
+
+
+const discardr = (...xs) =>
+  xs[0];
+
+
 const _throw = e => {
   throw e;
 };
@@ -4173,6 +4182,8 @@ module.exports = {
   defMap,
   defOf,
   delay,
+  discardl,
+  discardr,
   dropper,
   dropperk,
   dropperNth,
