@@ -406,9 +406,11 @@ Denotes the unit type `undefined` value.
 ### `union`/`struct` Types
 
 *  `Name<String> - denotes a type with a field of type `String` created by the constructor `Name`
-*  `Name<String, Number> - denotes a type with two fields of type `String`/`Number` created by the constructor `Name`
-*  `Name<a, b>` - denotes a type with two parametric polymorphic fields
-*  m<a>` - denotes a type that consists of a context type with a monad constraint and a wrapped parametric polymorphic value
+*  `Name<String, Number> - denotes a struct type with two fields of type `String`/`Number` created by the constructor `Name`
+*  `Name<String|Number> - denotes a union type with a field either of type `String` or `Number` created by the constructor `Name`
+*  `Name<a, b>` - denotes a struct type with two parametric polymorphic fields
+*  `Name<a|b>` - denotes a union type with a polymorphic field either of type `a` or `b` created by the constructor `Name`
+*  `Monad<m> => m<a>` - denotes a type with a polymorphic field of type `a` created by the monadic constrcutor `m`
 
 ### Placeholders
 
