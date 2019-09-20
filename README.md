@@ -2,7 +2,9 @@
 
 # Status
 
-This functional library is still work in progress and rather experimental than ready for production. 
+This functional library is still work in progress and rather experimental than ready for production.
+
+UPDATE: Breaking changes become less frequent and I actually use parts of the lib in production.
 
 ## What
 
