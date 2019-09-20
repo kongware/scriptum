@@ -560,14 +560,15 @@ There is also a fold with short circuit semantics:
 ```Javascript
 const lte = y => x => x <= y;
 
-const addWhile = p => x => y =>
-  p(x + y)
-    ? Done(x + y)
-    : Loop(x);
+const addk = p => x => y =>
+  Cont(k => {
+    const r = x + y;
+    return p(r) ? k(r) : x;
+  });
 
-arrFoldWhile(addWhile(lte(9))) (0) ([1,2,3,4,5]); // 6
+arrFoldk(addk(lte(10))) (0) ([1,2,3,4,5]); // 10
 ```
-`arrFoldWhile` takes an algebra that determines the short circuit behavior of the fold. It uses the `Step` union type to indicate either another iteration (`Loop`) or short circuiting (`Done`).
+`arrFoldk` takes an algebra that determines the short circuit behavior of the fold by either calling the continuation `k` or discarding (i.e. short circuiting) it.
 
 Maybe you've noticed that the given examples are based on a left associative fold. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons. As opposed to Haskell's `foldr` it is strictly evaluated though.
 
