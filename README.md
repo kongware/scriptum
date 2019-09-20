@@ -319,7 +319,7 @@ In the example above `f` is ad-hoc polymorphic, because it can adapt any type th
 A row polymorphic value is a polymorphic `Object` for which only a subset of its properties is known. If these properties coincide with a type it can adopt this type and all properties the `Object` includes beyond that type are assigned to the type's row varibale.
 
 ```Javascript
-// {foo: String, ...a}
+// {foo: String, ..a}
 const foo = {foo: "abc", bar: 123},
   bar = {foo: "abc", baz: true};
 ```
