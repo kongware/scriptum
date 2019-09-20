@@ -378,8 +378,8 @@ Denotes the unit type `null` value.
 *  `Name{?}` - denotes an unknown `Object` created by the constructor `Name`
 *  `{foo: String, bar: Number}` - denotes am `Object` created by the default constructor
 *  `Name{foo: String, bar: Number}` - denotes an `Object` created by the constructor `Name`
-*  `{foo: String..}` - denotes an `Object` created by the default constructor that is used as an dictionary
-*  `Name{foo: String..}` - denotes an `Object` created by the constructor `Name` that is used as an dictionary
+*  `{String: Number}` - denotes an `Object` created by the default constructor that is used as a dictionary
+*  `Name{String: Number}` - denotes an `Object` created by the constructor `Name` that is used as a dictionary
 *  `{foo: String, bar: Number, ..a}` - denotes a row polymorphic* `Object` with two properties created with the default constructor
 *  `Name{foo: String, ..a}` - denotes a row polymorphic `Object` with one property created with the constructor `Name`
 
