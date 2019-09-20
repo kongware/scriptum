@@ -375,13 +375,15 @@ Denotes the unit type `null` value.
 ### `Object`
 
 *  `{?}` - denotes an unknown `Object` created by the default constructor
-*  `{foo: String, ?}` - denotes a partially known `Object` created by the default constructor
 *  `Name{?}` - denotes an unknown `Object` created by the constructor `Name`
-*  `Name{foo: String, ?}` - denotes a partially known `Object` created by the constructor `Name`
-*  `{foo: String, bar: Number}` - denotes a known `Object` created by the default constructor
-*  `Name{foo: String, bar: Number}` - denotes a known `Object` created by the constructor `Name`
-*  `{foo: String, bar: Number, ...a}` - denotes a row polymorphic* `Object` with two properties created with the default constructor
-*  `Name{foo: String, ...a}` - denotes a row polymorphic `Object` with one property created with the constructor `Name`
+*  `{foo: String, bar: Number}` - denotes am `Object` created by the default constructor
+*  `Name{foo: String, bar: Number}` - denotes an `Object` created by the constructor `Name`
+*  `{foo: String..}` - denotes an `Object` created by the default constructor that is used as an dictionary
+*  `Name{foo: String..}` - denotes an `Object` created by the constructor `Name` that is used as an dictionary
+*  `{foo: String, bar: Number, ..a}` - denotes a row polymorphic* `Object` with two properties created with the default constructor
+*  `Name{foo: String, ..a}` - denotes a row polymorphic `Object` with one property created with the constructor `Name`
+
+Another less strict way to picture a row polymorphic `Object` in Javascript is one where you only know a subset of its properties. 
 
 ### `RegExp`
 
