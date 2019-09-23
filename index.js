@@ -236,11 +236,13 @@ const index = ({succ, eq}) => (lower, upper) => x =>
       : eq(x) (y) ? Some(i)
       : recur(succ(y), i + 1));
 
+
 const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
   loop((y = lower) =>
     gt(y) (upper) ? false
       : eq(x) (y) ? true
       : recur(succ(y)));
+
 
 const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
   loop((x = lower, n = 0) =>
@@ -322,11 +324,19 @@ const neq = x => y => x !== y;
 /***[Ord]*********************************************************************/
 
 
+const ascOrder = x => y => z =>
+  x <= y && y <= z;
+
+
 const compare = x => y =>
   x < y ? LT
     : x === y ? EQ
     : GT;
       
+
+const descOrder = x => y => z =>
+  x >= y && y >= z;
+
 
 const gt = x => y => x > y;
 
@@ -1023,6 +1033,30 @@ const arrUnconsHeadOrx = def => xs => {
 };
 
 
+const arrUnconsInit = n => xs => {
+  if (xs.length < n)
+    return [[], xs];
+
+  else {
+    const ys = arrClone(xs),
+      zs = ys.splice(n + 1);
+
+    return (ys.push(zs), ys);
+  }
+};
+
+
+const arrUnconsInitx = n => xs => {
+  if (xs.length < n)
+    return [[], xs];
+
+  else {
+    const ys = xs.splice(n + 1);
+    return (xs.push(ys), xs);
+  }
+};
+
+
 const arrUnconsLast = xs => {
   const ys = arrClone(xs);
 
@@ -1091,6 +1125,30 @@ const arrUnconsNthOr = def => i => xs => {
 
 const arrUnconsNthOrx = def => i => xs =>
   [xs.length < i ? def : xs.splice(i, 1), xs];
+
+
+const arrUnconsTail = n => xs => {
+  if (xs.length < n)
+    return [[], xs];
+
+  else {
+    const ys = arrClone(xs),
+      zs = ys.splice(n + 1);
+
+    return (zs.push(ys), zs);
+  }
+};
+
+
+const arrUnconsTailx = n => xs => {
+  if (xs.length < n)
+    return [[], xs];
+
+  else {
+    const ys = xs.splice(n + 1);
+    return (ys.push(xs), ys);
+  }
+};
 
 
 const arrUnzip = xss => // TODO: use fold
@@ -1525,7 +1583,6 @@ const isUnit = x =>
 
 const discardl = (...xs) =>
   xs[xs.length - 1];
-
 
 
 const discardr = (...xs) =>
@@ -4115,6 +4172,8 @@ module.exports = {
   arrUnconsHeadOr,
   arrUnconsHeadOrx,
   arrUnconsHeadx,
+  arrUnconsInit,
+  arrUnconsInitx,
   arrUnconsLast,
   arrUnconsLastOr,
   arrUnconsLastOrx,
@@ -4123,12 +4182,15 @@ module.exports = {
   arrUnconsNthx,
   arrUnconsNthOr,
   arrUnconsNthOrx,
+  arrUnconsTail,
+  arrUnconsTailx,
   arrUnfold,
   arrUnzip,
   arrVarLiftA,
   arrZip,
   arrZipBy,
   arrZygo,
+  ascOrder,
   ask,
   asks,
   ceil,
@@ -4182,6 +4244,7 @@ module.exports = {
   defMap,
   defOf,
   delay,
+  descOrder,
   discardl,
   discardr,
   dropper,
