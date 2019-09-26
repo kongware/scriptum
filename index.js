@@ -1589,12 +1589,12 @@ const isUnit = x =>
     || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
-const discardInit = (...xs) =>
-  xs[xs.length - 1];
-
-
-const discardTail = (...xs) =>
+const returnHead = (...xs) =>
   xs[0];
+
+
+const returnLast = (...xs) =>
+  xs[xs.length - 1];
 
 
 const _throw = e => {
@@ -4258,8 +4258,6 @@ module.exports = {
   delay,
   descOrder,
   descOrder_,
-  discardInit,
-  discardTail,
   dropper,
   dropperk,
   dropperNth,
@@ -4491,13 +4489,15 @@ module.exports = {
   prodPrepend,
   range,
   rangeSize,
-  recur,
   Reader,
   readAp,
   readChain,
   readJoin,
   readMap,
   readOf,
+  recur,
+  returnHead,
+  returnLast,
   Right,
   rightPrism,
   round,
