@@ -464,10 +464,6 @@ const arrClone = xs => {
 
 
 const arrFilter = p => xs =>
-  xs.filter(x => p(x) ? x : null);
-
-
-const arrIfilter = p => xs =>
   xs.filter((x, i) => p(x, i) ? x : null);
 
 
@@ -481,16 +477,6 @@ const arrIfilter = p => xs =>
 
 
 const arrFold = alg => zero => xs => {
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i]);
-
-  return acc;
-};
-
-
-const arrIfold = alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
@@ -588,10 +574,6 @@ const arrZygo = alg1 => alg2 => zero1 => zero2 =>
 
 
 const arrMap = f => xs =>
-  xs.map(x => f(x));
-
-
-const arrImap = f => xs =>
   xs.map((x, i) => f(x, i));
 
 
@@ -4167,9 +4149,6 @@ module.exports = {
   arrLiftM3,
   arrHisto,
   arrHylo,
-  arrIfilter,
-  arrIfold,
-  arrImap,
   arrJoin,
   arrLength,
   arrMap,
