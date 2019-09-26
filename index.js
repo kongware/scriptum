@@ -1589,11 +1589,11 @@ const isUnit = x =>
     || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
-const discardl = (...xs) =>
+const discardInit = (...xs) =>
   xs[xs.length - 1];
 
 
-const discardr = (...xs) =>
+const discardTail = (...xs) =>
   xs[0];
 
 
@@ -4258,8 +4258,8 @@ module.exports = {
   delay,
   descOrder,
   descOrder_,
-  discardl,
-  discardr,
+  discardInit,
+  discardTail,
   dropper,
   dropperk,
   dropperNth,
