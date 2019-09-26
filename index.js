@@ -328,6 +328,10 @@ const ascOrder = x => y => z =>
   x <= y && y <= z;
 
 
+const ascOrder_ = (x, y, z) =>
+  x <= y && y <= z;
+
+
 const compare = x => y =>
   x < y ? LT
     : x === y ? EQ
@@ -335,6 +339,10 @@ const compare = x => y =>
       
 
 const descOrder = x => y => z =>
+  x >= y && y >= z;
+
+
+const descOrder_ = (x, y, z) =>
   x >= y && y >= z;
 
 
@@ -459,6 +467,10 @@ const arrFilter = p => xs =>
   xs.filter(x => p(x) ? x : null);
 
 
+const arrIfilter = p => xs =>
+  xs.filter((x, i) => p(x, i) ? x : null);
+
+
 /***[Foldable]****************************************************************/
 
 
@@ -472,6 +484,16 @@ const arrFold = alg => zero => xs => {
   let acc = zero;
 
   for (let i = 0; i < xs.length; i++)
+    acc = alg(acc) (xs[i]);
+
+  return acc;
+};
+
+
+const arrIfold = alg => zero => xs => {
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
     acc = alg(acc) (xs[i], i);
 
   return acc;
@@ -482,7 +504,7 @@ const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => {
+const arrFoldr = alg => zero => xs => { // TODO: revise (lazyness? requires tail recursion modulo cons!)
   const stack = [];
   let acc = zero;
 
@@ -567,6 +589,10 @@ const arrZygo = alg1 => alg2 => zero1 => zero2 =>
 
 const arrMap = f => xs =>
   xs.map(x => f(x));
+
+
+const arrImap = f => xs =>
+  xs.map((x, i) => f(x, i));
 
 
 const arrSeqF = x => xs => {
@@ -1662,6 +1688,9 @@ const app = f => x => f(x);
 
 
 const _const = x => y => x;
+
+
+const fixed = f => x => f(fixed(f)) (x); // fixed point (not stack safe)
 
 
 const flip = f => y => x => f(x) (y);
@@ -4138,6 +4167,9 @@ module.exports = {
   arrLiftM3,
   arrHisto,
   arrHylo,
+  arrIfilter,
+  arrIfold,
+  arrImap,
   arrJoin,
   arrLength,
   arrMap,
@@ -4191,6 +4223,7 @@ module.exports = {
   arrZipBy,
   arrZygo,
   ascOrder,
+  ascOrder_,
   ask,
   asks,
   ceil,
@@ -4245,6 +4278,7 @@ module.exports = {
   defOf,
   delay,
   descOrder,
+  descOrder_,
   discardl,
   discardr,
   dropper,
@@ -4283,6 +4317,7 @@ module.exports = {
   First,
   firstAppend,
   firstPrepend,
+  fixed,
   flip,
   floor,
   foldMap,
