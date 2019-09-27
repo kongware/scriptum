@@ -34,12 +34,6 @@ const TAG = Symbol("tag"); // the tag property of tagged unions
 const TYPE = Symbol.toStringTag; // used for debugging
 
 
-const UNI_WORD_BOUNDARY_L = "(?<=^|\\p{Z}|\\p{S}|\\p{P}|\\p{C}|\\p{M})";
-
-
-const UNI_WORD_BOUNDARY_R = "(?=$|\\p{Z}|\\p{S}|\\p{P}|\\p{C}|\\p{M})";
-
-
 /******************************************************************************
 *******************************************************************************
 **********************************[ ERRORS ]***********************************
@@ -4621,8 +4615,6 @@ module.exports = {
   union,
   unionGetter,
   UnionError,
-  UNI_WORD_BOUNDARY_L,
-  UNI_WORD_BOUNDARY_R,
   varAp,
   varArgs,
   varChain,
