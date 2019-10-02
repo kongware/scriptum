@@ -1887,7 +1887,7 @@ const _enum = function* (n) {
 ******************************************************************************/
 
 
-const mapCreate = xss =>
+const _Map = xss =>
   new Map(xss);
 
 
@@ -2119,7 +2119,7 @@ function* objValues(o) {
 ******************************************************************************/
 
 
-const setCreate = xs =>
+const _Set = xs =>
   new Set(xs);
 
 
@@ -3400,7 +3400,7 @@ const predPrepend = predAppend;
 ******************************************************************************/
 
 
-// const Prism = struct("Prism"); Prism don't have its own type for tge time beeing
+// const Prism = struct("Prism"); Prism don't have its own type for the time beeing
 
 
 /***[Instances]***************************************************************/
@@ -4382,7 +4382,7 @@ module.exports = {
   log,
   loop,
   LT,
-  mapCreate,
+  _Map,
   mapMap,
   mapDel,
   mapDelx,
@@ -4513,9 +4513,9 @@ module.exports = {
   select11,
   select1N,
   SemigroupError,
+  _Set,
   setComp,
   setComp3,
-  setCreate,
   setDel,
   setId,
   setMap,
