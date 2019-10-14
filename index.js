@@ -571,6 +571,13 @@ const arrMap = f => xs =>
   xs.map((x, i) => f(x, i));
 
 
+const arrMapx = f => xs =>
+  loop(i =>
+    i === xs.length
+      ? xs
+      : recur(arrSetx(f(xs[i]))));
+
+
 const arrSeqF = x => xs => {
   const f = _const(x);
   return xs.map(f);
@@ -4157,6 +4164,7 @@ module.exports = {
   arrJoin,
   arrLength,
   arrMap,
+  arrMapx,
   arrModOr,
   arrModOrx,
   arrMutu,
