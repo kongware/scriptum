@@ -407,14 +407,22 @@ Denotes a regular expression `Object` value.
 
 Denotes the unit type `undefined` value.
 
-### `union`/`struct` Types
+### `struct` Types
+
+A `struct` is a product type, i.e. a composite type with one or more either monomorphic or polymorphic fields. Product type represent the notion of data hierarchies, because you can only add information.
 
 *  `Name<String> - denotes a type with a field of type `String` created by the constructor `Name`
 *  `Name<String, Number> - denotes a struct type with two fields of type `String`/`Number` created by the constructor `Name`
-*  `Name<String|Number> - denotes a union type with a field either of type `String` or `Number` created by the constructor `Name`
-*  `Name<a, b>` - denotes a struct type with two parametric polymorphic fields
-*  `Name<a|b>` - denotes a union type with a polymorphic field either of type `a` or `b` created by the constructor `Name`
-*  `Monad<m> => m<a>` - denotes a type with a polymorphic field of type `a` created by the monadic constrcutor `m`
+*  `Name<String, a>` - denotes a struct type with one monomorphic field of type `String` and another polymorphic field `a`
+*  `Monad<m> => m<a>` - denotes a polymorphic type constructor `m` with a single polymorphic field of shape `a`
+
+### `union` Types
+
+A `union` is a sum type, i.e. a type with various shapes. It is very common to combine sum types with product types to obtain sums of products. Sum types represent the notion of alternatives.
+
+*  `Name<String|Number> - denotes a union type with a field of either type `String` or `Number` created by the constructor `Name`
+*  `Name<a|b>` - denotes a union type with one polymorphic field of either shape `a` or `b` created by the constructor `Name`
+*  `Monad<m> => m<a|b>` - denotes a polymorphic type constructor `m` with a single polymorphic field of either shape `a` or `b`
 
 ### Placeholders
 
