@@ -416,6 +416,8 @@ A `struct` is a product type, i.e. a composite type with one or more either mono
 *  `Name<String, a>` - denotes a struct type with one monomorphic field of type `String` and another polymorphic field `a`
 *  `Monad<m> => m<a>` - denotes a polymorphic type constructor `m` with a single polymorphic field of shape `a`
 
+Please note that on the hypothetical type level (because JS has none) only the polymorphic fields are stated, i.e. the type `Name<String, a>` on the type level is `Name<a>`. As a convetion it is recommended to annotate this type level type straight above the initial type declaration in your code (e.g. `const Foo = struct("Foo")`).
+
 ### `union` Types
 
 A `union` is a sum type, i.e. a type with various shapes. It is very common to combine sum types with product types to obtain sums of products. Sum types represent the notion of alternatives.
@@ -423,6 +425,8 @@ A `union` is a sum type, i.e. a type with various shapes. It is very common to c
 *  `Name<String|Number> - denotes a union type with a field of either type `String` or `Number` created by the constructor `Name`
 *  `Name<a|b>` - denotes a union type with one polymorphic field of either shape `a` or `b` created by the constructor `Name`
 *  `Monad<m> => m<a|b>` - denotes a polymorphic type constructor `m` with a single polymorphic field of either shape `a` or `b`
+
+Please note that on the hypothetical type level (because JS has none) only the polymorphic fields are stated, i.e. the type `Name<String|a>` on the type level is `Name<a>`. As a convetion it is recommended to annotate this type level type straight above the initial type declaration in your code (e.g. `const Foo = union("Foo")`).
 
 ### Placeholders
 
