@@ -409,14 +409,14 @@ Denotes the unit type `undefined` value.
 
 ### `struct` Types
 
-A `struct` is a product type, i.e. a composite type with one or more either monomorphic or polymorphic fields. Product type represent the notion of data hierarchies, because you can only add information.
+A `struct` is a product type, i.e. a composite type with one or more either monomorphic or polymorphic fields. Products represent the notion of data hierarchies, because you can only add information.
 
 *  `Name<String> - denotes a type with a field of type `String` created by the constructor `Name`
 *  `Name<String, Number> - denotes a struct type with two fields of type `String`/`Number` created by the constructor `Name`
 *  `Name<String, a>` - denotes a struct type with one monomorphic field of type `String` and another polymorphic field `a`
 *  `Monad<m> => m<a>` - denotes a polymorphic type constructor `m` with a single polymorphic field of shape `a`
 
-`struct` just creates a wrapper, i.e. you have to pick a composite type yourself, if you have more than one field to store. Examplary annotation:
+`struct` just creates a wrapper, i.e. you have to pick a built-in data structure yourself, if you have more than one field to store. Examplary annotation:
 
 ```Javascript
 // Foo<[String, a]>
@@ -432,7 +432,7 @@ const fun = tx => {...}
 
 ### `union` Types
 
-A `union` is a sum type, i.e. a type with various shapes. It is very common to combine sum types with product types to obtain sums of products. Sum types represent the notion of alternatives.
+A `union` is a sum type, i.e. a type with various shapes. It is very common to combine sum types with product types to obtain sums of products. Sums represent the notion of alternatives.
 
 *  `Name<String|Number> - denotes a union type with a field of either type `String` or `Number` created by the constructor `Name`
 *  `Name<a|b>` - denotes a union type with one polymorphic field of either shape `a` or `b` created by the constructor `Name`
@@ -442,7 +442,7 @@ Examplary annotation:
 
 ```Javascript
 // Foo<String|a>
-const Foo = union("Foo"); // initial declaration
+const Foo = union("Foo");
 
 // String -> Foo<String>
 const Bar = s => Foo(s);
