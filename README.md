@@ -416,7 +416,19 @@ A `struct` is a product type, i.e. a composite type with one or more either mono
 *  `Name<String, a>` - denotes a struct type with one monomorphic field of type `String` and another polymorphic field `a`
 *  `Monad<m> => m<a>` - denotes a polymorphic type constructor `m` with a single polymorphic field of shape `a`
 
-Please note that on the hypothetical type level (because JS has none) only the polymorphic fields are stated, i.e. the type `Name<String, a>` on the type level is `Name<a>`. As a convetion it is recommended to annotate this type level type straight above the initial type declaration in your code (e.g. `const Foo = struct("Foo")`).
+`struct` just creates a wrapper, i.e. you have to pick a composite type yourself, if you have more than one field to store. Examplary annotation:
+
+```Javascript
+// Foo<[String, a]>
+const Foo = structn(
+  "Foo")
+    (Foo => (s, x) => Foo([]);
+
+// application
+
+// Foo<[String, a]>
+const fun = tx => {...}
+```
 
 ### `union` Types
 
@@ -426,8 +438,23 @@ A `union` is a sum type, i.e. a type with various shapes. It is very common to c
 *  `Name<a|b>` - denotes a union type with one polymorphic field of either shape `a` or `b` created by the constructor `Name`
 *  `Monad<m> => m<a|b>` - denotes a polymorphic type constructor `m` with a single polymorphic field of either shape `a` or `b`
 
-Please note that on the hypothetical type level (because JS has none) only the polymorphic fields are stated, i.e. the type `Name<String|a>` on the type level is `Name<a>`. As a convetion it is recommended to annotate this type level type straight above the initial type declaration in your code (e.g. `const Foo = union("Foo")`).
+Examplary annotation:
 
+```Javascript
+// Foo<String|a>
+const Foo = union("Foo"); // initial declaration
+
+// String -> Foo<String>
+const Bar = s => Foo(s);
+
+// a -> Foo<a>
+const Baz = x => Foo(x);
+
+// application
+
+// Foo<String|a>
+const fun = tx => {...}
+```
 ### Placeholders
 
 You can shorten long type signatures by replacing sensible sub signatures with a placeholder:
