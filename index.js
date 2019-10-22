@@ -4016,7 +4016,7 @@ const createHash_ = crypto => algo => s =>
 
 
 const createRandomBytes_ = crypto => n =>
-  Defer(() =>
+  Lazy(() =>
     crypto.randomBytes(n));
 
 
