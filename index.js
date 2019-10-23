@@ -786,6 +786,20 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
+const arrAdjacent = n => xs =>
+  loop((i = 0, acc = []) =>
+    i + n > xs.length
+      ? acc
+      : recur(i + 1, (acc.push(xs.slice(i, i + n)), acc)));
+
+
+const arrChunk = n => xs =>
+  loop((i = 0, remainder = xs.length % n, acc = []) =>
+    i >= xs.length - remainder
+      ? acc
+      : recur(i + n, remainder, (acc.push(xs.slice(i, i + n)), acc)));
+
+
 const arrConsHead = x => xs => {
   const ys = arrClone(xs);
   ys.unshift(x);
@@ -4116,6 +4130,7 @@ module.exports = {
   anyPrepend,
   app,
   appVar,
+  arrAdjacent,
   arrAll,
   arrAny,
   arrAp,
@@ -4126,6 +4141,7 @@ module.exports = {
   arrChain2,
   arrChain3,
   arrChainRec,
+  arrChunk,
   arrClone,
   arrConcat,
   arrConsHead,
