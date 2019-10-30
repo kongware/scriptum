@@ -832,6 +832,12 @@ const arrConsNthx = (i, x) => xs =>
   (xs.splice(i + 1, 0, x), xs);
 
 
+const createMatrix = (i, j, x) => xs =>
+  Array.isArray(xs[i])
+    ? (xs[i] [j] = x, xs)
+    : (xs[i] = [], xs[i] [j] = x, xs);
+
+
 const arrDedupe = xs => {
   const s = new Set();
 
@@ -4150,6 +4156,7 @@ module.exports = {
   arrConsLastx,
   arrConsNth,
   arrConsNthx,
+  arrCreateMatrix,
   arrDedupe,
   arrDedupeBy,
   arrDedupeOn,
