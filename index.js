@@ -618,14 +618,14 @@ const arrJoin = xss => {
 const arrLiftM2 = f => mx => my =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
-      arrConsLastx(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
+      arrConsx(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
 
 
 const arrLiftM3 = f => mx => my => mz =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
       arrFold(acc__ => z =>
-        arrConsLastx(f(x) (y) (z)) (acc__)) (acc_) (mz)) (acc) (my)) ([]) (mx);
+        arrConsx(f(x) (y) (z)) (acc__)) (acc_) (mz)) (acc) (my)) ([]) (mx);
 
 
 /***[Monoid]******************************************************************/
@@ -811,14 +811,14 @@ const arrConsHeadx = x => xs =>
   (xs.unshift(x), xs);
 
 
-const arrConsLast = x => xs => {
+const arrCons = x => xs => {
   const ys = arrClone(xs);
   ys.push(x);
   return ys;
 };
 
 
-const arrConsLastx = x => xs =>
+const arrConsx = x => xs =>
   (xs.push(x), xs);
 
 
@@ -4150,12 +4150,12 @@ module.exports = {
   arrChunk,
   arrClone,
   arrConcat,
+  arrCons,
   arrConsHead,
   arrConsHeadx,
-  arrConsLast,
-  arrConsLastx,
   arrConsNth,
   arrConsNthx,
+  arrConsx,
   arrCreateMatrix,
   arrDedupe,
   arrDedupeBy,
