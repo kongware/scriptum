@@ -410,6 +410,13 @@ const arrAp = tf => tx =>
           (tf);
 
 
+// arrApConstl @derived
+
+
+const arrApConstr = tf => tx =>
+  arrAp(arrMapConst(id) (tf)) (tx);
+
+
 const arrLiftA2 = f => tx => ty =>
   arrAp(arrMap(f) (tx)) (ty);
 
@@ -496,7 +503,7 @@ const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => { // TODO: revise (lazyness? requires tail recursion modulo cons!)
+const arrFoldr = alg => zero => xs => {
   const stack = [];
   let acc = zero;
 
@@ -1244,6 +1251,9 @@ const arrAlt = arrAppend;
 
 
 const arrAltx = arrAppendx;
+
+
+const arrApConstl = arrLiftA2(_const);
 
 
 const arrZero = arrEmpty;
@@ -3713,6 +3723,15 @@ const statePut = y => State(_ => [null, y]);
 
 
 /******************************************************************************
+**********************************[ STREAM ]***********************************
+******************************************************************************/
+
+
+const Stream = structn("Stream") 
+  (Stream => value => next => Stream({value, next}));
+
+
+/******************************************************************************
 ************************************[ SUM ]************************************
 ******************************************************************************/
 
@@ -4179,6 +4198,8 @@ module.exports = {
   arrAltx,
   arrAny,
   arrAp,
+  arrApConstl,
+  arrApConstr,
   arrApo,
   arrAppend,
   arrAppendx,
@@ -4611,6 +4632,7 @@ module.exports = {
   strChunk,
   strConsNth,
   strDel,
+  Stream,
   strFold,
   strFoldChunks,
   strLength,
