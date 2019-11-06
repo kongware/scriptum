@@ -3727,8 +3727,15 @@ const statePut = y => State(_ => [null, y]);
 ******************************************************************************/
 
 
-const Stream = structn("Stream") 
-  (Stream => value => next => Stream({value, next}));
+const Stream = union("Stream");
+
+
+const Yield = value => next =>
+  Stream("Yield", {value, next});
+
+
+const Return = value =>
+  Stream("Return", {value});
 
 
 /******************************************************************************
@@ -4597,6 +4604,7 @@ module.exports = {
   readMap,
   readOf,
   recur,
+  Return,
   returnHead,
   returnLast,
   Right,
@@ -4632,7 +4640,6 @@ module.exports = {
   strChunk,
   strConsNth,
   strDel,
-  Stream,
   strFold,
   strFoldChunks,
   strLength,
@@ -4743,4 +4750,5 @@ module.exports = {
   writeOf,
   writePass,
   writeTell,
+  Yield,
 };
