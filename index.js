@@ -814,20 +814,6 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrAdjacent = n => xs => // TODO: replace with arrMapAdjacent
-  loop((i = 0, acc = []) =>
-    i + n > xs.length
-      ? acc
-      : recur(i + 1, (acc.push(xs.slice(i, i + n)), acc)));
-
-
-const arrChunk = n => xs => // TODO: replace with arrMapChunk
-  loop((i = 0, remainder = xs.length % n, acc = []) =>
-    i >= xs.length - remainder
-      ? acc
-      : recur(i + n, remainder, (acc.push(xs.slice(i, i + n)), acc)));
-
-
 const arrConsHead = x => xs => {
   const ys = arrClone(xs);
   ys.unshift(x);
@@ -943,6 +929,20 @@ const arrLastOr = def => xs =>
   xs.length === 0
     ? def
     : xs[xs.length - 1];
+
+
+const arrMapAdjacent = f => n => xs =>
+  loop((i = 0, acc = []) =>
+    i + n > xs.length
+      ? acc
+      : recur(i + 1, (acc.push(f(xs.slice(i, i + n))), acc)));
+
+
+const arrMapChunk = f => n => xs =>
+  loop((i = 0, remainder = xs.length % n, acc = []) =>
+    i >= xs.length - remainder
+      ? acc
+      : recur(i + n, remainder, (acc.push(f(xs.slice(i, i + n))), acc)));
 
 
 const arrModOr = def => (i, f) => xs =>
@@ -4192,7 +4192,6 @@ module.exports = {
   anyPrepend,
   app,
   appVar,
-  arrAdjacent,
   arrAll,
   arrAlt,
   arrAltx,
@@ -4207,7 +4206,6 @@ module.exports = {
   arrChain2,
   arrChain3,
   arrChainRec,
-  arrChunk,
   arrClone,
   arrConcat,
   arrCons,
@@ -4248,6 +4246,8 @@ module.exports = {
   arrLength,
   arrMap,
   arrMapA,
+  arrMapAdjacent,
+  arrMapChunk,
   arrMapConst,
   arrMapx,
   arrModOr,
