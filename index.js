@@ -4525,7 +4525,7 @@ module.exports = {
   optCata,
   optChain,
   optChainT,
-  optLiftA2
+  optLiftA2,
   optMap,
   optOf,
   or,
