@@ -387,6 +387,18 @@ const or = x => y =>
 ******************************************************************************/
 
 
+/***[Alternative]*************************************************************/
+
+
+// arrAlt @dreived
+
+
+// arrAltx @derived
+
+
+// arrZero @derived
+
+
 /***[Applicative]*************************************************************/
 
 
@@ -571,17 +583,15 @@ const arrMap = f => xs =>
   xs.map((x, i) => f(x, i));
 
 
+const arrMapConst = x => xs =>
+  xs.map(_const(x));
+
+
 const arrMapx = f => xs =>
   loop(i =>
     i === xs.length
       ? xs
       : recur(arrSetx(f(xs[i]))));
-
-
-const arrSeqF = x => xs => {
-  const f = _const(x);
-  return xs.map(f);
-};
 
 
 /***[Monad]*******************************************************************/
@@ -686,6 +696,17 @@ const arrTransducek = alg => reduce =>
   arrFoldk(alg(reduce));
 
 
+/***[Traversable]*************************************************************/
+
+
+const arrMapA = ({liftA2, of}) => f =>
+  arrFold(acc => x => liftA2(arrConsx) (f(x)) (acc)) (of([]));
+
+
+const arrSeqA = dict =>
+  arrMapA(dict) (id);
+
+
 /***[Unfoldable]**************************************************************/
 
 
@@ -786,14 +807,14 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrAdjacent = n => xs =>
+const arrAdjacent = n => xs => // TODO: replace with arrMapAdjacent
   loop((i = 0, acc = []) =>
     i + n > xs.length
       ? acc
       : recur(i + 1, (acc.push(xs.slice(i, i + n)), acc)));
 
 
-const arrChunk = n => xs =>
+const arrChunk = n => xs => // TODO: replace with arrMapChunk
   loop((i = 0, remainder = xs.length % n, acc = []) =>
     i >= xs.length - remainder
       ? acc
@@ -1214,6 +1235,18 @@ const arrZipBy = f => xs => ys => // TODO: use fold
       return recur(
         (acc.push(f(xs[i]) (ys[i])), acc), i + 1);
   });
+
+
+/***[Derived]*****************************************************************/
+
+
+const arrAlt = arrAppend;
+
+
+const arrAltx = arrAppendx;
+
+
+const arrZero = arrEmpty;
 
 
 /******************************************************************************
@@ -3169,6 +3202,10 @@ const optAp = tf => tx =>
   });
 
 
+const optLiftA2 = f => tx => ty =>
+  optAp(optMap(f) (tx)) (ty);
+
+
 const optOf = x => Some(x);
 
 
@@ -4138,6 +4175,8 @@ module.exports = {
   appVar,
   arrAdjacent,
   arrAll,
+  arrAlt,
+  arrAltx,
   arrAny,
   arrAp,
   arrApo,
@@ -4187,6 +4226,8 @@ module.exports = {
   arrJoin,
   arrLength,
   arrMap,
+  arrMapA,
+  arrMapConst,
   arrMapx,
   arrModOr,
   arrModOrx,
@@ -4199,7 +4240,7 @@ module.exports = {
   arrPrepend,
   arrPrependx,
   arrScan,
-  arrSeqF,
+  arrSeqA,
   arrSet,
   arrSetx,
   arrSliceAt,
@@ -4234,6 +4275,7 @@ module.exports = {
   arrUnfold,
   arrUnzip,
   arrVarLiftA,
+  arrZero,
   arrZip,
   arrZipBy,
   arrZygo,
@@ -4483,6 +4525,7 @@ module.exports = {
   optCata,
   optChain,
   optChainT,
+  optLiftA2
   optMap,
   optOf,
   or,
