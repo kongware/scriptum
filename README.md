@@ -12,6 +12,8 @@ A type-directed functional library that adapts well-known functional patterns to
 
 Type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature annotations through comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
+scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
+
 ### Runtime
 
 scriptum is meant for node.js but can also be run in the browser. For this reason the library avoids global node.js dependencies, but defines them at the function level as formal parameters, that is to say you have to pass dependencies explicitly when using such functions:
@@ -32,25 +34,13 @@ This is a tradeoff to keep up browser support.
 
 # Mission Statement
 
-### Pragmatism over Dogmatism
+### Adaption over Dogmatism
 
 Javascript lacks a non-trivial type system and all guarantees that comes along with it and it has no functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
-
-### Convention over Coercion
-
-scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
 
 ### Expressions over Statements
 
 Expressions are superior to statements, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
-
-### Type Signatures over Function Descriptions
-
-When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
-
-### Semantic Typing over Anonymous Data Structures
-
-Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
 ### Curried over Multi-Argument Functions
 
@@ -59,10 +49,6 @@ scriptum prefers curried to multi-argument functions. This simplifies both funct
 ### Unions of Records over just Records
 
 You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic reality as a data structure. In scriptum alternatives are expressed with tagged unions, which can be nested and may contain records and other product types.
-
-### Directory Passing over the Prototype System
-
-scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
 ### Effects as Values over Side Effects
 
@@ -74,13 +60,17 @@ Recursion is a big win compared to imperative loops. However, in Javascript we h
 
 What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-### Explicit Thunks over Generators/Iterators
+### Directory Passing over the Prototype System
 
-scriptum achieves lazyness through explicit thunks instead of generators/iterators. You only need generators when lazyness within imperative control or loop structures is necessary.
+scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
-### Transducers over Generators/Iterators
+### Type Signatures over Descriptive Inline Comments
 
-scriptum leverages loop fusion through transducers rather than generators/iterators.
+When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
+
+### Semantic Typing over Anonymous Data Structures
+
+Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
 # Custom Types
 
@@ -267,6 +257,739 @@ debug(id) (pipe3(
         (sqr)
           ([[[1,2,3]]]));
 ```
+
+# Composition
+
+Function composition is generalized in scriptum by the `Category` typeclass. This typeclass comprises the following functions:
+
+* comp (right-to-left compostion)
+* pipe (left-to-right compostion)
+* comp3 (composing three functions - for convenience)
+* pipe3 (piping three functions - for convenience)
+* varComp (variadic composition)
+* varPipe (variadic pipe)
+
+That means each function type that implements `Category` has automatically access to a variadic interface. This is desirable because it allows for flat compositions/pipes and avoids explicitly nested function call trees:
+
+```Javascript
+const inc = x => x + 1,
+  sqr = x => x * x;
+  
+funVarComp(inc)
+  (sqr)
+    (inc)
+      (inc)
+        (inc).runVarArgs(1); // 25
+        
+funVarPipe(inc)
+  (inc)
+    (inc)
+      (inc)
+        (sqr).runVarArgs(1); // 25
+```
+Accessing the `runVarArgs` property triggers the evaluation of the composition tree.
+
+Here is another example for applicative lifting through the variadic interface:
+
+```Javascript
+const sum3 = x => y => z => x + y + z;
+
+varLiftA({ap: optAp, of: optOf})
+  (sum3)
+    (Some(1))
+      (Some(2))
+        (Some(3)).runVarArgs; // Some(6)
+        
+varLiftA({ap: optAp, of: optOf})
+  (sum3)
+    (Some(1))
+      (None)
+        (Some(3)).runVarArgs; // None
+```
+Please note that applicative lifting with an variadic interface is basically applicative do notation. Since scriptum also offers variadic interfaces for monadic lifting and chaining you have something similar in your tool set as monadic do notation.
+
+All variadic combinators are based on the `varArgs` (variadic arguments) function. You can easily create your own variadic combinators with it:
+
+```Javascript
+const add = x => y => x + y;
+
+const sum = ns =>
+  ns.reduce((acc, n) => acc + n, 0);
+
+const varSum = varArgs(sum);
+
+varSum(1)
+  (2)
+    (3)
+      (4).runVarArgs // 10
+```
+# Structural Folding
+
+## Catamorphism et al.
+
+For some datatypes a catamorphism is a generalization of a fold/reduction (e.g. trees). For others both coincide (e.g. `Array`). And yet others don't have a fold at all (e.g. `Option`). 
+
+For any non-primitive type the associated catamorphism is the dual of the constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Hence catamorphisms represent the notion of destructuring data types.
+
+scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
+
+```Javascript
+const add = x => y => x + y,
+  mul = x => y => x * y,
+  sum = arrFold(add) (0),
+  prod = arrFold(mul) (1);
+
+sum([1,2,3,4,5]); // 15
+prod([1,2,3,4,5]); // 120
+```
+There is also a fold with short circuit semantics:
+
+```Javascript
+const lte = y => x => x <= y;
+
+const addk = p => x => y =>
+  Cont(k => {
+    const r = x + y;
+    return p(r) ? k(r) : x;
+  });
+
+arrFoldk(addk(lte(10))) (0) ([1,2,3,4,5]); // 10
+```
+`arrFoldk` takes an algebra that determines the short circuit behavior of the fold by either calling the continuation `k` or discarding (i.e. short circuiting) it.
+
+Maybe you've noticed that the given examples are based on a left associative fold. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons. As opposed to Haskell's `foldr` it is strictly evaluated though.
+
+More folds will follow:
+
+* Paramorphism (fold with current state of the context)
+* Hylomorphism (unfold composed with fold)
+* Zygomorphism (one fold depending on another - semi-mutual recursive)
+* Mutumorphism (mutual recursive fold - mutual recursive)
+* Histomorphism (fold with access to all previous intermediate results)
+
+## Anamorphism et al.
+
+Anamorphisms are the dual of catamorphisms. You start with a seed value and apply the coalgebra to the seed and then iteratively to the result of the previous application, while all intermediate results are stored in a structure:
+
+```Javascript
+const nextLetter = c =>
+  String.fromCharCode (c.charCodeAt (0) + 1)
+
+const main = arrUnfold(c =>
+  c > "z"
+    ? None
+    : Some([c, nextLetter(c)]));
+
+main("a"); // ["a", "b", "c", "d", "e", ...]
+```
+More unfolds will follow:
+
+* Apomorphism (unfold with early termination)
+* Futumorphism (unfold with access to values still to be computed)
+
+# Stack-Safe Recursion with Trampolines
+
+## Direct Recursion in Tail Position
+
+scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline. Having this tool in our set we don't have to bother with stack overflows any longer but can utilize recursion when we deem appropriate:
+
+```Javascript
+const stackSafeFold = f => acc_ => xs =>
+  loop((acc = acc_, i = 0) =>
+    i === xs.length
+      ? acc
+      : f(acc) (xs[i]) (acc_ => recur(acc_, i + 1)));
+
+const xs = Array(1e6)
+  .fill(0)
+  .map((x, i) => i);
+  
+const stackSafeSum = stackSafeFold(x => y => k => x < Infinity ? k(x + y) : x) (0);
+
+stackSafeSum(xs); // 499999500000
+```
+This works, because `stackSafeFold` implements direct recursion in tail position.
+
+## Indirect Recursion in Tail Position
+
+Unfortunately, we need antohter implementation for mutual recursion, such that we can express mutual recursion in a stack-safe manner as well:
+
+```Javascript
+const even = n =>
+  n === 0
+    ? true
+    : recur(odd, n - 1);
+
+const odd = n =>
+  n === 0
+    ? false
+    : recur(even, n - 1);
+
+trampoline(even) (1e6 + 1)); // false
+```
+As you can see trampoline API leaks on the calling site and there is nothing we can do about it. Stack-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
+
+## Tail-Call Optimizations
+
+TODO
+
+### Tail Call Modulo Cons
+
+TODO
+
+### Tail Call Modulo Addition
+
+TODO
+
+### Tail Call Modulo Multiplication
+
+TODO
+
+### Tail Call Modulo Continuation
+
+TODO
+
+## Non-Tail Recursion
+
+Non-tail recursive algorithms will potentially exhaust the stack and are thus no option for production code. However, there are two techniques to transform stack-unsafe recursion into a stack-safe one.
+
+### CPS-Transformation
+
+TODO
+
+### Custom Call-Stack
+
+TODO
+
+# Immutability
+
+TODO
+
+# Persistent Data Structures
+
+TODO
+
+## Hash Array Mapped Trie (HAMT)
+
+TODO
+
+# Transducer
+
+Transducers are characterized by the following properties:
+
+* they are composable and thus allow loop fusion
+* they can be prematurely aborted
+* they are data type agnostic as long as these data types are foldable
+
+## Run-to-Completion
+
+Normal transducers run to completion like any ordinary fold:
+
+```Javascript
+const main = arrTransduce(
+  comp3(
+    filterer(n => (n & 1) === 1))
+      (mapper(n => n * n))
+        (taker(3)))
+          (arrConsLast);
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
+```
+`main` traverses the complete array even though it could stop after processing the fifth element.
+
+## Run with Short-Circuiting
+
+You can improve this ineffective runtime behavior by applying transducers with short circuiting behavior instead.
+
+```Javascript
+const main = arrTransduceWhile(
+  comp3(
+    filtererk(n => (n & 1) === 1))
+      (mapperk(n => n * n))
+        (takerk(3)))
+          (cont2(arrConsLast));
+          
+main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
+```
+Now the traversal of the array is abandoned prematurely after reaching the fifth element. Internally, these transducers return a continuation wrapped in a `Cont` type. In order to break out of the fold the reducer simply need not call this continuation.  
+
+# Streams (Pull-Based)
+
+TODO
+
+# Effect Handling
+
+Effects are handled with monads and their superclasses in scriptum. A monad is essentially a type that you cannot freely leave, i.e. an effect in a monad is effectively encapsulated.
+
+## Single Effects
+
+TODO
+
+## Effect Composition
+
+TODO
+
+# Asynchronous Computations
+
+As already mentioned scriptum distinguishes between sequential and parallel evaluation of asynchronous computations. In order to make this distinction explicit each veriant has its own type.
+
+## `Task`
+
+Represents sequentially evaluated asynchronous computations and is based on continutions or rather continuation passing style (CPS). With `Task` you can abstract from asynchronous functions and mix them with pure ones transparently:
+
+```Javascript
+const sqr = n => n * n;
+  
+const tx = tMap(sqr)
+  (fileRead("utf8")
+    ("./five.txt"));
+    
+tx.runTask(console.log, console.error); // logs 25
+```
+```Javascript
+const add = m => n => m + n;
+  
+const tx = fileRead("utf8")
+  ("./five.txt");
+
+const ty = fileRead("utf8")
+  ("./six.txt");
+
+const tz = tAp(tMap(add) (tx)) (ty);
+
+tz.runTask(console.log, console.error); // logs 11
+```
+## `Parallel`
+
+Like `Task` but runs asynchronous computations in parallel. Since monads depend on the value of the previous monadic computation `Parallel` doesn't implement the monad typeclass.
+
+## Sharing
+
+Sharing just means that intermediate results of asynchronous computations are evaluated only once but can be used any number of times.
+
+```Javascript
+const add = m => n => m + n;
+
+const tx = fileRead("utf8")
+  ("./five.txt");
+
+const ty = tAp(tMap(add) (tx)) (tx);
+
+bar.runTask(console.log, console.error); // logs 10
+```
+The crucial property here is that although `tx` is used twice, the corresponding asynchronous computation (`fileRead`) is only evaluated once, that is the result of the first evaluation is shared with subsequent calls.
+
+## `Promise` Compatibility
+
+A `Promise` returning function (or rather action) can be easily wired with both `Task` and `Parallel` types:
+
+```Javascript
+const foo = x =>
+  new Promise((res, rej) => x > 0
+    ? res(x)
+    : rej("must be greater than zero"));
+
+const fooTask = x => foo(x)
+  .then(y => Task((res, rej) => res(x)))
+  .catch(e => Task((res, rej) => rej(e)));
+```
+The `Promise` type is neither a monad nor a functor. It's a type specific to Javascript, which behaves quite differently than monadic types. It is unnecessary to mention that you should use monadic types whenever possible.
+
+# Functional Optics
+
+Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or a specific case of a value that consists of several alternative cases. The magical thing about functional optics is there ability to compose with each other, because all of them share the same basic type.
+
+Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still efficient, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
+
+scriptum, however, offers an impure counterpart for each optic, which performs destructive updates. As long as you keep thes destructive updates local, you can benefit from the additional performance without exposing yourself to the drawbacks of side effects.
+
+## Lenses
+
+scriptum uses van Laarhoven lenses that are essentially based on the following building block:
+
+```Javacript
+Functor<f> => (a -> f<b>) -> s -> f<t>
+```
+where `a` is exactly one target inside the composite structure `s`, also called product type. As you can see we may transform both the target `a` into `b` and its containing structure `s` into `t` all inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but one wrapped in a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and setter. The concrete behavior depends on the provided functor:
+
+* `Const` turns the `Lens` into a getter
+* `Id` turns the `Lens` into a setter
+
+If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
+
+Here is a rather contrieved example:
+
+```Javascript
+const x = {foo: new Map([["bar", [1, 2, 3]]])};
+
+const tx = lensComp3(
+  objLens("foo"))
+    (mapLens("bar"))
+      (arrLens(1));
+
+// direct use of a lense
+
+tx.runLens(idMap)
+   (_const(Id(22))) (x); // {foo: Map{bar: [1, 22, 3}}
+  
+// or with a lens specific combinator
+
+lensSet(tx) (22) (x); // {foo: Map{bar: [1, 22, 3}}
+```
+For each lens there is also a `xyzLensx` version that performs a destructive update, i.e. modifies the data structure in-place.
+
+scriptum also includes a variadic composition operator (`lensCompVar`) so that you can compose as many lenses as needed without winding up with a huge and barely readable nested function call tree.
+
+## Getters
+
+A `Getter` is just a `Lens` specialized to the `Const` functor:
+
+```Javacript
+(a -> Const<a>) -> s -> Const<s>
+```
+TODO: Example
+
+## Setters
+
+A `Setter` is just a `Lens` specialized to the `Id` functor:
+
+```Javacript
+(a -> Id<a>) -> s -> Id<s>
+```
+TODO: Example
+
+## Prisms
+
+In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. As opposed to lenses prisms are invertible, i.e. you can create a tagged union out of a plain value.
+
+You see there are a couple of differences between lenses and prisms and yet they share almost the same type and are thus composbale:
+
+```Javacript
+Applicative<f> => (a -> f<b>) -> s -> f<t>
+```
+`Prism` requires an applicative constraint because there must be a way to put a plain value into a minimal context. 
+
+TODO: Example
+
+## Folds
+
+A `Fold` is just a `Getter` where the functor constraint is replaced with the more rigid applicative typeclass. Since you can chain applicatives, folds are getters with multiple targets.
+
+TODO: Example
+
+## Traversals
+
+A `Traversable` is just a `Lens` where the functor constraint is replaced with the more rigid applicative typeclasse. Since you can chain applicatives, folds are lenses with multiple targets.
+
+TODO: Example
+
+# Lazy Evaluation
+
+## Functions
+
+Functions generalize expressions by substituting subexpressions with arguments. As an effect such generalized expressions are only evaluated when all arguments are provided. While this is a simple form of lazy evaluation, the passed arguments are strictly evaluated.
+
+## ETA Abstraction
+
+In a strictly evaluated language like Javascript ETA abstraction is a way to add some extra lazyness to expressions:
+
+```Javascript
+const fold = f => acc => xs =>
+  xs.reduce((acc_, x) => f(acc_) (x), acc);
+  
+const sum = fold(xs => y =>
+  (xs.push(y + xs[xs.length - 1]), xs)) ([0]);
+
+const sumEta = xs =>
+  fold(ys => y => (ys.push(y + ys[ys.length - 1]), ys)) ([0]) (xs);
+
+sum([1,2,3]); // [1,3,6]
+sum([1,2,3]); // [1,3,6,7,9,12]
+
+sumEta([1,2,3]); // [1,3,6]
+sumEta([1,2,3]); // [1,3,6]
+```
+## Function Composition
+
+From another perspective you can think of a function composition as a function `f` that takes an argument `g`, which is stuck in another function `x => f(g(x))` and thus only evaluated if the final argument is passed:
+
+```Javascript
+const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the idea
+```
+In lazily evaluated languages with call by need or call by name evaluation strategy such lazily evaluated arguments are the default.
+
+## Continuation Passing Style
+
+We can go beyond lazyness through function composition by encoding functions in continuation passing style:
+
+```Javascript
+const inck = x => k => k(x + 1),
+  id = x => x;
+
+const mapk = f => xs => k => {
+  const go = (acc, i) =>
+    i === xs.length
+    ? acc
+    : f(xs[i]) (x => go(acc.concat(x), i + 1));
+  
+  return k(go([], 0));
+};
+
+const main = mapk(inck) ([1,2,3]); // still lazy
+
+main(id); // [2,3,4]
+```
+With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this promissing topic.
+
+## Generators
+
+Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated control structures.
+
+## Explicit Thunks
+
+Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to defer this operation and make it explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
+
+### `Defer` w/o Sharing
+
+`Defer` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't share intermediate results:
+
+```Javascript
+const effectfulExp = Defer(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
+    return r;
+  });
+  
+effectfulExp.runDefer(); // logs + returns 25
+effectfulExp.runDefer(); // logs + returns 25
+```
+### `Lazy` with Sharing
+
+`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does share intermediate results:
+
+```Javascript
+const effectfulExp = Lazy(
+  () => {
+    const r = 5 * 5;
+    console.log(r);
+    return r;
+  });
+  
+effectfulExp.runLazy(); // logs + returns 25
+effectfulExp.runLazy(); // returns 25
+```
+## Getters/Setters
+
+Getters and setters are just thunks (and functions) and inherit their lazy traits. Why do they have their own section then? Because they allow us to introduce lazyness into Javascript without altering the calling side, because they are treated as normal properties:
+
+```Javascript
+const cons = (head, tail) => ({head, tail});
+
+const list = cons(1, cons(2, cons(3, cons(4, cons(5, null)))));
+
+const take = n =>
+  n === 0
+    ? xs => null
+    : xs => xs && {
+      head: xs.head,
+      get tail() {
+          delete this.tail;
+          return this.tail = take(n - 1) (xs.tail);
+      }
+};
+
+take(3)(list); // stack safe
+```
+although `take` isn't tail recursive it is stack safe no matter how long the list is. Lazy getters give us tail call optimization modulo cons for free!
+
+scriptum utilizes lazy getters to allow for a simple yet concise form of pattern matching on tagged unions:
+
+```Javascript
+const match = ({[TYPE]: type, [TAG]: tag}, o) =>
+  o.type !== type ? _throw(new UnionError("invalid type"))
+    : !(tag in o) ? _throw(new UnionError("invalid tag"))
+    : o[tag];
+    
+const optCata = none => some => tx =>
+  match(tx, {
+    type: "Option",
+    None: none,
+    get Some() {return some(tx.runOption)}
+  });
+```
+# Delimited Continuations with `shift`/`reset`
+
+TODO
+
+# Library Specific Combinators
+
+## `comp2nd`/`pipe2nd`
+
+Composes/pipes a binary function on its second argument:
+
+```Javascript
+arrFold(
+    comp2nd(
+      objGet(0) (k))
+        (add)) (0)
+          ([{foo: 1}, {foo: 2}, {foo: 3}]); // 6
+```
+## `compBin`/`pipeBin`
+
+Composes an unary with a binary function:
+
+```Javascript
+const add = x => y => x + y;
+const sqr = x => x * x;
+
+compBin(sqr) (add) (2) (3); // 25
+```
+## `compBoth`/`pipeBoth`
+
+Composes a binary in both its arguments with an unary function:  
+
+```Javascript
+const add = x => y => x + y;
+const length = s => s.length;
+
+compBoth(add) (length) ("foo") ("bar"); // 6
+```
+## `infixl`/`infixr`
+
+Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
+
+```Javascript
+infixl([1,2], arrAppend, [3,4]); // [1,2,3,4]
+infixr([1,2], arrAppend, [3,4]); // [3,4,1,2]
+```
+## `invoke`
+
+Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
+
+```Javascript
+invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
+```
+## `_let`
+
+mimics let bindings as expressions and thus leads to concise function bodies:
+
+```Javascript
+const orDef = f => def => x => {
+  const y = f(x);
+    
+  if (y === undefined || y === null || Number.isNaN(y))
+    return def;
+
+  else return y;
+};
+```
+is simplified to
+
+```Javascript
+const orDef = f => def => x =>
+  _let((y = f(x)) => 
+    y === undefined || y === null || Number.isNaN(y)
+      ? def : y);
+```
+## `memoMethx`
+
+Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed:
+
+```Javascript
+const p = thisify(o => {
+  memoMethx("foo") (x => (console.log("evaluated"), x * x)) (o);
+  return o;
+});
+
+o.foo(5); // evaluated 25
+o.foo(5); // 25
+```
+The trailing `x` within the function name indicates that it performs a mutation on the given `Object`.
+
+## `objPathOr`
+
+In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
+
+```Javascript
+const o = {foo: {bar: {baz: 123}}};
+
+objPathOr(0) ("foo") ("bar") ("baz"); // 123
+objPathOr(0) ("foo") ("bat") ("baz"); // 0
+```
+## `throwOnUnit`
+
+Often we want to throw an error if a computation yields an unit type, i.e. a type without values. Javascript includes a remarkable number of unit types:
+
+* undefined
+* null
+* NaN
+* Invalid Date
+* Infinity
+
+```Javascript
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([1,2,3]); // 1
+
+comp(throwOnUnit)
+  ("TypeError", "non-empty array expected")
+    (head)
+      ([]); // TypeError
+```
+You can define your own functions with throw on error semantics by using the `onThrow` combinator.
+
+## `partial`/`partialCurry`
+
+The former just applies partial application, that is to say you call a multi argument function with some of its arguments and provide the rest at the subsequent call.
+
+The latter combines partial application with currying:
+
+```Javascript
+const sum4 = (w, x, y, z) => w + x + y + z);
+
+partialCurry(sum4), 1, 2) (3) (4); // 10
+```
+## `thisify`
+
+Creates a `this`-like context for "methods" depending on other properties. Please recall that as decent functional programmers we don't depend on `this`/`new` directly:
+
+```Javascript
+const p = thisify(o => ({
+  o.foo = 2;
+  o.bar = x => x + o.foo;
+}));
+
+p.bar(3); // 5
+```
+# Naming Convetions
+
+## Function Names
+
+The following rules apply to function names:
+
+* with an f-postfix (e.g. `foof`) denotes a function with its arguments flipped: `const subf = y => x => x - y`
+* with an x-postfix (e.g. `foox`) denotes a destructive function, whose mutation is visible in the parent scope
+* with an var-prefix (e.g. `varFoo`) denotes most likely a variadic one
+* with an _-prefix (e.g. `_foo`) is used to avoid naming claches with reserved names.
+* with an _-postfix (e.g. `foo_`) denotes a slightly modified variant of an already existing one
+
+## Variable Names
+
+* `f`/`g` denotes pure functions
+* `x`/`y` denotes a value of arbitrary type
+* `tx`/`ty`/... denotes a value wrapped in a type without specifying any constraints like monadic, applicative, functorial etc.
+* `tf`/`tg` denotes a function wrapped in a type
+* `ts` denotes an array of values wrapped in a type
+* `mx`/`my` denotes a value wrapped in a monadic type
+* `ax`/`ay` denotes a value wrapped in a applicative type
+* `fm`/`gm` denotes a monadic action, i.e. a function that returns a monad
+* `ix`/`iy` denotes a stream of values generated by an iterator
+
+# Name Difference to Haskell
+
+TODO
 
 # Type Signatures
 
@@ -483,723 +1206,6 @@ is transformed into
 ```Javascript
 // Task<[BankAdvice<[ParserResult<...>]>], Error> ->
 // Task<[BankAdvice<[AdviceRecord<[SqlQuery<String>]>]>], Error>
-```
-# Naming Convetions
-
-## Function Names
-
-The following rules apply to function names:
-
-* with an f-postfix (e.g. `foof`) denotes a function with its arguments flipped: `const subf = y => x => x - y`
-* with an x-postfix (e.g. `foox`) denotes a destructive function, whose mutation is visible in the parent scope
-* with an var-prefix (e.g. `varFoo`) denotes most likely a variadic one
-* with an _-prefix (e.g. `_foo`) is used to avoid naming claches with reserved names.
-* with an _-postfix (e.g. `foo_`) denotes a slightly modified variant of an already existing one
-
-## Variable Names
-
-* `f`/`g` denotes pure functions
-* `x`/`y` denotes a value of arbitrary type
-* `tx`/`ty`/... denotes a value wrapped in a type without specifying any constraints like monadic, applicative, functorial etc.
-* `tf`/`tg` denotes a function wrapped in a type
-* `ts` denotes an array of values wrapped in a type
-* `mx`/`my` denotes a value wrapped in a monadic type
-* `ax`/`ay` denotes a value wrapped in a applicative type
-* `fm`/`gm` denotes a monadic action, i.e. a function that returns a monad
-* `ix`/`iy` denotes a stream of values generated by an iterator
-
-# Advanced Topics
-
-## Category Composition
-
-Function composition is generalized in scriptum by the `Category` typeclass. This typeclass comprises the following functions:
-
-* comp (right-to-left compostion)
-* pipe (left-to-right compostion)
-* comp3 (composing three functions - for convenience)
-* pipe3 (piping three functions - for convenience)
-* varComp (variadic composition)
-* varPipe (variadic pipe)
-
-That means each function type that implements `Category` has automatically access to a variadic interface. This is desirable because it allows for flat compositions/pipes and avoids explicitly nested function call trees:
-
-```Javascript
-const inc = x => x + 1,
-  sqr = x => x * x;
-  
-funVarComp(inc)
-  (sqr)
-    (inc)
-      (inc)
-        (inc).runVarArgs(1); // 25
-        
-funVarPipe(inc)
-  (inc)
-    (inc)
-      (inc)
-        (sqr).runVarArgs(1); // 25
-```
-Accessing the `runVarArgs` property triggers the evaluation of the composition tree.
-
-Here is another example for applicative lifting through the variadic interface:
-
-```Javascript
-const sum3 = x => y => z => x + y + z;
-
-varLiftA({ap: optAp, of: optOf})
-  (sum3)
-    (Some(1))
-      (Some(2))
-        (Some(3)).runVarArgs; // Some(6)
-        
-varLiftA({ap: optAp, of: optOf})
-  (sum3)
-    (Some(1))
-      (None)
-        (Some(3)).runVarArgs; // None
-```
-Please note that applicative lifting with an variadic interface is basically applicative do notation. Since scriptum also offers variadic interfaces for monadic lifting and chaining you have something similar in your tool set as monadic do notation.
-
-All variadic combinators are based on the `varArgs` (variadic arguments) function. You can easily create your own variadic combinators with it:
-
-```Javascript
-const add = x => y => x + y;
-
-const sum = ns =>
-  ns.reduce((acc, n) => acc + n, 0);
-
-const varSum = varArgs(sum);
-
-varSum(1)
-  (2)
-    (3)
-      (4).runVarArgs // 10
-```
-## Structural Folding
-
-### Catamorphism et al.
-
-For some datatypes a catamorphism is a generalization of a fold/reduction (e.g. trees). For others both coincide (e.g. `Array`). And yet others don't have a fold at all (e.g. `Option`). 
-
-For any non-primitive type the associated catamorphism is the dual of the constructor. The constructor defines the introduction rule, whereas the catamorphism defines the elimination rule. Hence catamorphisms represent the notion of destructuring data types.
-
-scriptum implements catamorphisms as trampolines to obtain stack safety. Here is an example for the `Array` type, where catamorphism and fold coincide:
-
-```Javascript
-const add = x => y => x + y,
-  mul = x => y => x * y,
-  sum = arrFold(add) (0),
-  prod = arrFold(mul) (1);
-
-sum([1,2,3,4,5]); // 15
-prod([1,2,3,4,5]); // 120
-```
-There is also a fold with short circuit semantics:
-
-```Javascript
-const lte = y => x => x <= y;
-
-const addk = p => x => y =>
-  Cont(k => {
-    const r = x + y;
-    return p(r) ? k(r) : x;
-  });
-
-arrFoldk(addk(lte(10))) (0) ([1,2,3,4,5]); // 10
-```
-`arrFoldk` takes an algebra that determines the short circuit behavior of the fold by either calling the continuation `k` or discarding (i.e. short circuiting) it.
-
-Maybe you've noticed that the given examples are based on a left associative fold. Even though left and right folds are isomorphic by `flip`/`Array.prototype.reverse`, scriptum provides a distinct implementation of a right associative fold mainly for performance reasons. As opposed to Haskell's `foldr` it is strictly evaluated though.
-
-More folds will follow:
-
-* Paramorphism (fold with current state of the context)
-* Hylomorphism (unfold composed with fold)
-* Zygomorphism (one fold depending on another - semi-mutual recursive)
-* Mutumorphism (mutual recursive fold - mutual recursive)
-* Histomorphism (fold with access to all previous intermediate results)
-
-### Anamorphism et al.
-
-Anamorphisms are the dual of catamorphisms. You start with a seed value and apply the coalgebra to the seed and then iteratively to the result of the previous application, while all intermediate results are stored in a structure:
-
-```Javascript
-const nextLetter = c =>
-  String.fromCharCode (c.charCodeAt (0) + 1)
-
-const main = arrUnfold(c =>
-  c > "z"
-    ? None
-    : Some([c, nextLetter(c)]));
-
-main("a"); // ["a", "b", "c", "d", "e", ...]
-```
-More unfolds will follow:
-
-* Apomorphism (unfold with early termination)
-* Futumorphism (unfold with access to values still to be computed)
-
-## Stack-Safe Recursion with Trampolines
-
-### Direct Recursion in Tail Position
-
-scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline. Having this tool in our set we don't have to bother with stack overflows any longer but can utilize recursion when we deem appropriate:
-
-```Javascript
-const stackSafeFold = f => acc_ => xs =>
-  loop((acc = acc_, i = 0) =>
-    i === xs.length
-      ? acc
-      : f(acc) (xs[i]) (acc_ => recur(acc_, i + 1)));
-
-const xs = Array(1e6)
-  .fill(0)
-  .map((x, i) => i);
-  
-const stackSafeSum = stackSafeFold(x => y => k => x < Infinity ? k(x + y) : x) (0);
-
-stackSafeSum(xs); // 499999500000
-```
-This works, because `stackSafeFold` implements direct recursion in tail position.
-
-### Indirect Recursion in Tail Position
-
-Unfortunately, we need antohter implementation for mutual recursion, such that we can express mutual recursion in a stack-safe manner as well:
-
-```Javascript
-const even = n =>
-  n === 0
-    ? true
-    : recur(odd, n - 1);
-
-const odd = n =>
-  n === 0
-    ? false
-    : recur(even, n - 1);
-
-trampoline(even) (1e6 + 1)); // false
-```
-As you can see trampoline API leaks on the calling site and there is nothing we can do about it. Stack-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
-
-### Non-Tail Recursion
-
-Handling non-tail recursive algorithms with trampolines and explicit stacks remains a matter of research for the time being.
-
-## Transducer
-
-Transducers are characterized by the following properties:
-
-* they are composable and thus allow loop fusion
-* they can be prematurely aborted
-* they are data type agnostic as long as these data types are foldable
-
-### Run-to-Completion
-
-Normal transducers run to completion like any ordinary fold:
-
-```Javascript
-const main = arrTransduce(
-  comp3(
-    filterer(n => (n & 1) === 1))
-      (mapper(n => n * n))
-        (taker(3)))
-          (arrConsLast);
-          
-main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
-```
-`main` traverses the complete array even though it could stop after processing the fifth element.
-
-### Run with Short-Circuiting
-
-You can improve this ineffective runtime behavior by applying transducers with short circuiting behavior instead.
-
-```Javascript
-const main = arrTransduceWhile(
-  comp3(
-    filtererk(n => (n & 1) === 1))
-      (mapperk(n => n * n))
-        (takerk(3)))
-          (cont2(arrConsLast));
-          
-main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
-```
-Now the traversal of the array is abandoned prematurely after reaching the fifth element. Internally, these transducers return a continuation wrapped in a `Cont` type. In order to break out of the fold the reducer simply need not call this continuation.  
-
-## Effect Handling
-
-Effects are handled with monads and their superclasses in scriptum. A monad is essentially a type that you cannot freely leave, i.e. an effect in a monad is effectively encapsulated.
-
-### Single Effects
-
-TODO
-
-### Effect Composition
-
-You can compose functorial and applicative effects in a principled manner either by hand or using the `Comp` type. Monadic effects, however, where the next monadic computation can depend on the result of the previous one, can only be composed by hand, because every composition of two monads is specific to the involved monads.
-
-#### Monad Transformers
-
-Monad transformers facilitate the composition of monads.
-
-TODO
-
-## Asynchronous Computations
-
-As already mentioned scriptum distinguishes between sequential and parallel evaluation of asynchronous computations. In order to make this distinction explicit each veriant has its own type.
-
-### `Task`
-
-Represents sequentially evaluated asynchronous computations and is based on continutions or rather continuation passing style (CPS). With `Task` you can abstract from asynchronous functions and mix them with pure ones transparently:
-
-```Javascript
-const sqr = n => n * n;
-  
-const tx = tMap(sqr)
-  (fileRead("utf8")
-    ("./five.txt"));
-    
-tx.runTask(console.log, console.error); // logs 25
-```
-```Javascript
-const add = m => n => m + n;
-  
-const tx = fileRead("utf8")
-  ("./five.txt");
-
-const ty = fileRead("utf8")
-  ("./six.txt");
-
-const tz = tAp(tMap(add) (tx)) (ty);
-
-tz.runTask(console.log, console.error); // logs 11
-```
-### `Parallel`
-
-Like `Task` but runs asynchronous computations in parallel. Since monads depend on the value of the previous monadic computation `Parallel` doesn't implement the monad typeclass.
-
-### Sharing
-
-Sharing just means that intermediate results of asynchronous computations are evaluated only once but can be used any number of times.
-
-```Javascript
-const add = m => n => m + n;
-
-const tx = fileRead("utf8")
-  ("./five.txt");
-
-const ty = tAp(tMap(add) (tx)) (tx);
-
-bar.runTask(console.log, console.error); // logs 10
-```
-The crucial property here is that although `tx` is used twice, the corresponding asynchronous computation (`fileRead`) is only evaluated once, that is the result of the first evaluation is shared with subsequent calls.
-
-### `Promise` Compatibility
-
-A `Promise` returning function (or rather action) can be easily wired with both `Task` and `Parallel` types:
-
-```Javascript
-const foo = x =>
-  new Promise((res, rej) => x > 0
-    ? res(x)
-    : rej("must be greater than zero"));
-
-const fooTask = x => foo(x)
-  .then(y => Task((res, rej) => res(x)))
-  .catch(e => Task((res, rej) => rej(e)));
-```
-The `Promise` type is neither a monad nor a functor. It's a type specific to Javascript, which behaves quite differently than monadic types. It is unnecessary to mention that you should use monadic types whenever possible.
-
-## Functional Optics
-
-Functional optics or references are a couple of typed functions that enable you to work with zero, one or multiple targets within a data structure or a specific case of a value that consists of several alternative cases. The magical thing about functional optics is there ability to compose with each other, because all of them share the same basic type.
-
-Functional optics are usually pure, i.e. return new data instead of modifying existing one. The underlying copying is still efficient, because only the modified parts of data are affected, whereas the rest is shared. This is a property that otherwise is reserved to persistant data types.
-
-scriptum, however, offers an impure counterpart for each optic, which performs destructive updates. As long as you keep thes destructive updates local, you can benefit from the additional performance without exposing yourself to the drawbacks of side effects.
-
-### Lenses
-
-scriptum uses van Laarhoven lenses that are essentially based on the following building block:
-
-```Javacript
-Functor<f> => (a -> f<b>) -> s -> f<t>
-```
-where `a` is exactly one target inside the composite structure `s`, also called product type. As you can see we may transform both the target `a` into `b` and its containing structure `s` into `t` all inside the functor `f`. That is to say when we apply a lens to a structure directly we don't get back a new structure but one wrapped in a functor. We make this indirection in order to keep lenses composable while they can be used both as a getter and setter. The concrete behavior depends on the provided functor:
-
-* `Const` turns the `Lens` into a getter
-* `Id` turns the `Lens` into a setter
-
-If you prefer a more abstract mental model you can think of a `Lens` as something that models a has-a relation.
-
-Here is a rather contrieved example:
-
-```Javascript
-const x = {foo: new Map([["bar", [1, 2, 3]]])};
-
-const tx = lensComp3(
-  objLens("foo"))
-    (mapLens("bar"))
-      (arrLens(1));
-
-// direct use of a lense
-
-tx.runLens(idMap)
-   (_const(Id(22))) (x); // {foo: Map{bar: [1, 22, 3}}
-  
-// or with a lens specific combinator
-
-lensSet(tx) (22) (x); // {foo: Map{bar: [1, 22, 3}}
-```
-For each lens there is also a `xyzLensx` version that performs a destructive update, i.e. modifies the data structure in-place.
-
-scriptum also includes a variadic composition operator (`lensCompVar`) so that you can compose as many lenses as needed without winding up with a huge and barely readable nested function call tree.
-
-### Getters
-
-A `Getter` is just a `Lens` specialized to the `Const` functor:
-
-```Javacript
-(a -> Const<a>) -> s -> Const<s>
-```
-TODO: Example
-
-### Setters
-
-A `Setter` is just a `Lens` specialized to the `Id` functor:
-
-```Javacript
-(a -> Id<a>) -> s -> Id<s>
-```
-TODO: Example
-
-### Prisms
-
-In contrast to lenses, a `Prism` is something that models a is-a relation. It is one of several possible cases of a tagged union or sum type. Prisms aren't getters, because there might be no value, yet you can create a getter-like combinator provided you wrap the result in an `Option`. As opposed to lenses prisms are invertible, i.e. you can create a tagged union out of a plain value.
-
-You see there are a couple of differences between lenses and prisms and yet they share almost the same type and are thus composbale:
-
-```Javacript
-Applicative<f> => (a -> f<b>) -> s -> f<t>
-```
-`Prism` requires an applicative constraint because there must be a way to put a plain value into a minimal context. 
-
-TODO: Example
-
-### Folds
-
-A `Fold` is just a `Getter` where the functor constraint is replaced with the more rigid applicative typeclass. Since you can chain applicatives, folds are getters with multiple targets.
-
-TODO: Example
-
-### Traversals
-
-A `Traversable` is just a `Lens` where the functor constraint is replaced with the more rigid applicative typeclasse. Since you can chain applicatives, folds are lenses with multiple targets.
-
-TODO: Example
-
-## Lazy Evaluation
-
-### Functions
-
-Functions generalize expressions by substituting subexpressions with arguments. As an effect such generalized expressions are only evaluated when all arguments are provided. While this is a simple form of lazy evaluation, the passed arguments are strictly evaluated.
-
-### ETA Abstraction
-
-In a strictly evaluated language like Javascript ETA abstraction is a way to add some extra lazyness to expressions:
-
-```Javascript
-const fold = f => acc => xs =>
-  xs.reduce((acc_, x) => f(acc_) (x), acc);
-  
-const sum = fold(xs => y =>
-  (xs.push(y + xs[xs.length - 1]), xs)) ([0]);
-
-const sumEta = xs =>
-  fold(ys => y => (ys.push(y + ys[ys.length - 1]), ys)) ([0]) (xs);
-
-sum([1,2,3]); // [1,3,6]
-sum([1,2,3]); // [1,3,6,7,9,12]
-
-sumEta([1,2,3]); // [1,3,6]
-sumEta([1,2,3]); // [1,3,6]
-```
-### Function Composition
-
-From another perspective you can think of a function composition as a function `f` that takes an argument `g`, which is stuck in another function `x => f(g(x))` and thus only evaluated if the final argument is passed:
-
-```Javascript
-const comp = f => g => (x => f(g(x))); // redundant parenthesis to illustrate the idea
-```
-In lazily evaluated languages with call by need or call by name evaluation strategy such lazily evaluated arguments are the default.
-
-### Continuation Passing Style
-
-We can go beyond lazyness through function composition by encoding functions in continuation passing style:
-
-```Javascript
-const inck = x => k => k(x + 1),
-  id = x => x;
-
-const mapk = f => xs => k => {
-  const go = (acc, i) =>
-    i === xs.length
-    ? acc
-    : f(xs[i]) (x => go(acc.concat(x), i + 1));
-  
-  return k(go([], 0));
-};
-
-const main = mapk(inck) ([1,2,3]); // still lazy
-
-main(id); // [2,3,4]
-```
-With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this promissing topic.
-
-### Generators
-
-Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated control structures.
-
-### Explicit Thunks
-
-Whenever we run synchronous effects (e.g. `Window.localeStorage` or `Date.now()`) it is a good idea to defer this operation and make it explicit by wrapping it in a thunk, which itself is wrapped in an appropriate type. scriptum differs between efffectful computations with and without memoization.
-
-#### `Defer` w/o Sharing
-
-`Defer` wraps an expression in a thunk and evaluates it on each call, i.e. doesn't share intermediate results:
-
-```Javascript
-const effectfulExp = Defer(
-  () => {
-    const r = 5 * 5;
-    console.log(r);
-    return r;
-  });
-  
-effectfulExp.runDefer(); // logs + returns 25
-effectfulExp.runDefer(); // logs + returns 25
-```
-#### `Lazy` with Sharing
-
-`Lazy` wraps an expression in a thunk and evaluates it only once, i.e. does share intermediate results:
-
-```Javascript
-const effectfulExp = Lazy(
-  () => {
-    const r = 5 * 5;
-    console.log(r);
-    return r;
-  });
-  
-effectfulExp.runLazy(); // logs + returns 25
-effectfulExp.runLazy(); // returns 25
-```
-### Getters/Setters
-
-Getters and setters are just thunks (and functions) and inherit their lazy traits. Why do they have their own section then? Because they allow us to introduce lazyness into Javascript without altering the calling side, because they are treated as normal properties:
-
-```Javascript
-const cons = (head, tail) => ({head, tail});
-
-const list = cons(1, cons(2, cons(3, cons(4, cons(5, null)))));
-
-const take = n =>
-  n === 0
-    ? xs => null
-    : xs => xs && {
-      head: xs.head,
-      get tail() {
-          delete this.tail;
-          return this.tail = take(n - 1) (xs.tail);
-      }
-};
-
-take(3)(list); // stack safe
-```
-although `take` isn't tail recursive it is stack safe no matter how long the list is. Lazy getters give us tail call optimization modulo cons for free!
-
-scriptum utilizes lazy getters to allow for a simple yet concise form of pattern matching on tagged unions:
-
-```Javascript
-const match = ({[TYPE]: type, [TAG]: tag}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(tag in o) ? _throw(new UnionError("invalid tag"))
-    : o[tag];
-    
-const optCata = none => some => tx =>
-  match(tx, {
-    type: "Option",
-    None: none,
-    get Some() {return some(tx.runOption)}
-  });
-```
-## Delimited Continuations with `shift`/`reset`
-
-TODO
-
-## Persistent Data Structures
-
-TODO
-
-### Hash Array Mapped Trie (HAMT)
-
-TODO
-
-## Functional Reactive Programming
-
-TODO
-
-### Behavior
-
-TODO
-
-### Events
-
-TODO
-
-### Rules
-
-TODO
-
-## Library Specific Combinators
-
-### `comp2nd`/`pipe2nd`
-
-Composes/pipes a binary function on its second argument:
-
-```Javascript
-arrFold(
-    comp2nd(
-      objGet(0) (k))
-        (add)) (0)
-          ([{foo: 1}, {foo: 2}, {foo: 3}]); // 6
-```
-### `compBin`/`pipeBin`
-
-Composes an unary with a binary function:
-
-```Javascript
-const add = x => y => x + y;
-const sqr = x => x * x;
-
-compBin(sqr) (add) (2) (3); // 25
-```
-### `compBoth`/`pipeBoth`
-
-Composes a binary in both its arguments with an unary function:  
-
-```Javascript
-const add = x => y => x + y;
-const length = s => s.length;
-
-compBoth(add) (length) ("foo") ("bar"); // 6
-```
-### `infixl`/`infixr`
-
-Just mimics Haskell's left/right associative, binary operators in infix position. This sometimes improves the readability of code:
-
-```Javascript
-infixl([1,2], arrAppend, [3,4]); // [1,2,3,4]
-infixr([1,2], arrAppend, [3,4]); // [3,4,1,2]
-```
-### `invoke`
-
-Takes a method name, any number of arguments and the corresponding object type and invokes the right method on the passed object. It makes the implicit context explicit so to speak.
-
-```Javascript
-invoke("map") (x => x * x) ([1,2,3]); // [1,4,9]
-```
-### `_let`
-
-mimics let bindings as expressions and thus leads to concise function bodies:
-
-```Javascript
-const orDef = f => def => x => {
-  const y = f(x);
-    
-  if (y === undefined || y === null || Number.isNaN(y))
-    return def;
-
-  else return y;
-};
-```
-is simplified to
-
-```Javascript
-const orDef = f => def => x =>
-  _let((y = f(x)) => 
-    y === undefined || y === null || Number.isNaN(y)
-      ? def : y);
-```
-### `memoMethx`
-
-Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed:
-
-```Javascript
-const p = thisify(o => {
-  memoMethx("foo") (x => (console.log("evaluated"), x * x)) (o);
-  return o;
-});
-
-o.foo(5); // evaluated 25
-o.foo(5); // 25
-```
-The trailing `x` within the function name indicates that it performs a mutation on the given `Object`.
-
-### `objPathOr`
-
-In Javascript it happens sometimes that you don't know your nested `Object` types. Here is a safe lookup function for arbitrarily nested `Object` trees that provides a default value instead of throwing an error:
-
-```Javascript
-const o = {foo: {bar: {baz: 123}}};
-
-objPathOr(0) ("foo") ("bar") ("baz"); // 123
-objPathOr(0) ("foo") ("bat") ("baz"); // 0
-```
-### `throwOnUnit`
-
-Often we want to throw an error if a computation yields an unit type, i.e. a type without values. Javascript includes a remarkable number of unit types:
-
-* undefined
-* null
-* NaN
-* Invalid Date
-* Infinity
-
-```Javascript
-comp(throwOnUnit)
-  ("TypeError", "non-empty array expected")
-    (head)
-      ([1,2,3]); // 1
-
-comp(throwOnUnit)
-  ("TypeError", "non-empty array expected")
-    (head)
-      ([]); // TypeError
-```
-You can define your own functions with throw on error semantics by using the `onThrow` combinator.
-
-### `partial`/`partialCurry`
-
-The former just applies partial application, that is to say you call a multi argument function with some of its arguments and provide the rest at the subsequent call.
-
-The latter combines partial application with currying:
-
-```Javascript
-const sum4 = (w, x, y, z) => w + x + y + z);
-
-partialCurry(sum4), 1, 2) (3) (4); // 10
-```
-### `thisify`
-
-Creates a `this`-like context for "methods" depending on other properties. Please recall that as decent functional programmers we don't depend on `this`/`new` directly:
-
-```Javascript
-const p = thisify(o => ({
-  o.foo = 2;
-  o.bar = x => x + o.foo;
-}));
-
-p.bar(3); // 5
 ```
 # Language Conflicts
 
