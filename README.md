@@ -12,7 +12,7 @@ A type-directed functional library that adapts well-known functional patterns to
 
 Type-directed programming in an untyped language means to handle code as if it were typed and make these hypothetically types explicit with type signature annotations through comments. With this approach you obtain some of the benefits of a typed language like easier reasoning about your algorithms and guidance during the development process.
 
-scriptum relies very much on conventions and policies and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
+However, scriptum relies very much on conventions and that developers adhere to them. There is no mechanism to enforce purity or mathematical laws.
 
 ### Runtime
 
