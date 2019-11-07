@@ -1253,9 +1253,6 @@ const arrAlt = arrAppend;
 const arrAltx = arrAppendx;
 
 
-const arrApConstl = arrLiftA2(_const);
-
-
 const arrZero = arrEmpty;
 
 
@@ -2478,6 +2475,9 @@ const toString = x => x.toString();
 /******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
+
+
+const arrApConstl = arrLiftA2(_const);
 
 
 const arrPrepend = flip(arrAppend);
