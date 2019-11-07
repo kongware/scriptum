@@ -387,7 +387,7 @@ More unfolds will follow:
 * Apomorphism (unfold with early termination)
 * Futumorphism (unfold with access to values still to be computed)
 
-# Stack-Safe Recursion with Trampolines
+# Stack-Safe Recursion through Trampolines
 
 ## Direct Recursion in Tail Position
 
