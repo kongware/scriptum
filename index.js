@@ -157,14 +157,108 @@ const structGetter = type => cons => { // explicit getter for the runSomething p
 const loop = f => {
   let step = f();
 
-  while (step && step.type === recur)
-    step = f(...step.args);
+  while (step)
+    if (step.type === recur)
+      step = f(...step.args);
+
+    else if (step.type === call)
+      step = step.f(...step.args);
+
+    else
+      break;
 
   return step;
 };
 
 
+const loop_ = f => {
+  let step = f();
+
+  while (step)
+    if (step.type === recur){
+      switch (step.args.length) {
+        case 1: {
+          step = f(step.args[0]);
+          break;
+        }
+
+        case 2: {
+          step = f(step.args[0], step.args[1]);
+          break;
+        }
+
+        case 3: {
+          step = f(step.args[0], step.args[1], step.args[2]);
+          break;
+        }
+
+        case 4: {
+          step = f(step.args[0], step.args[1], step.args[2], step.args[3]);
+          break;
+        }
+
+        case 5: {
+          step = f(step.args[0], step.args[1], step.args[2], step.args[3], step.args[4]);
+          break;
+        }
+
+        default:
+          step = f(...step.args);
+      }
+    }
+
+    else if (step.type === call) {
+      switch (step.args.length) {
+        case 1: {
+          step = step.f(step.args[0]);
+          break;
+        }
+
+        case 2: {
+          step = step.f(step.args[0], step.args[1]);
+          break;
+        }
+
+        case 3: {
+          step = step.f(step.args[0], step.args[1], step.args[2]);
+          break;
+        }
+
+        case 4: {
+          step = step.f(step.args[0], step.args[1], step.args[2], step.args[3]);
+          break;
+        }
+
+        case 5: {
+          step = step.f(step.args[0], step.args[1], step.args[2], step.args[3], step.args[4]);
+          break;
+        }
+
+        default:
+          step = step.f(...step.args);
+      }
+    }
+
+    else
+      break;
+
+  return step;
+};
+
+
+const call = (f, ...args) =>
+  ({type: call, f, args});
+
+
+const call_ = (f, args) =>
+  ({type: call, f, args});
+
+
 const recur = (...args) =>
+  ({type: recur, args});
+
+
+const recur_ = args =>
   ({type: recur, args});
 
 
@@ -503,18 +597,11 @@ const arrFoldM = ({append, empty}) =>
   arrFold(append) (empty);
 
 
-const arrFoldr = alg => zero => xs => {
-  const stack = [];
-  let acc = zero;
-
-  for (let i = 0; i < xs.length; i++)
-    stack.unshift(alg(xs[i]));
-
-  for (let i = 0; i < xs.length; i++)
-    acc = stack[i] (acc);
-
-  return acc;
-};
+const arrFoldr = f => acc => xs =>
+  loop_((i = 0, k = id) => 
+      i === xs.length
+        ? call_(k, [acc])
+        : recur_([i + 1, acc_ => call_(k, [f(xs[i]) (acc_)])]));
 
 
 const arrFoldStr = s => ss =>
@@ -4311,6 +4398,8 @@ module.exports = {
   ascOrder_,
   ask,
   asks,
+  call,
+  call_,
   ceil,
   Comp,
   comp,
@@ -4482,6 +4571,7 @@ module.exports = {
   local,
   log,
   loop,
+  loop_,
   LT,
   _Map,
   mapMap,
@@ -4604,6 +4694,7 @@ module.exports = {
   readMap,
   readOf,
   recur,
+  recur_,
   Return,
   returnHead,
   returnLast,
