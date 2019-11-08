@@ -235,29 +235,6 @@ match(ty, {
 
 Takes an `Object` and an expression that evaluates to a union type and assigns this result to an argument visible in the same scope as the provided `Object`.
 
-# Debugging
-
-scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
-
-```Javascript
-pipe3(
-  arrMap)
-    (arrMap)
-      (arrMap)
-        (debug(sqr))
-          ([[[1,2,3]]]);
-```
-If you are just interested in the evaluation result of an expression, pass the identity function:
-
-```Javascript
-debug(id) (pipe3(
-  arrMap)
-    (arrMap)
-      (arrMap)
-        (sqr)
-          ([[[1,2,3]]]));
-```
-
 # Composition
 
 Function composition is generalized in scriptum by the `Category` typeclass. This typeclass comprises the following functions:
@@ -845,6 +822,29 @@ const optCata = none => some => tx =>
 # Delimited Continuations with `shift`/`reset`
 
 TODO
+
+# Debugging
+
+scriptum ships with two simple combinators that facilitate debugging of functional code a great deal: `trace` and `debug`. The former lets you inject a `console.log` into any compostion precisely at the desired position and the latter the `debugger` statement. This even works within deeply nested compositional function expressions:
+
+```Javascript
+pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (debug(sqr))
+          ([[[1,2,3]]]);
+```
+If you are just interested in the evaluation result of an expression, pass the identity function:
+
+```Javascript
+debug(id) (pipe3(
+  arrMap)
+    (arrMap)
+      (arrMap)
+        (sqr)
+          ([[[1,2,3]]]));
+```
 
 # Library Specific Combinators
 
