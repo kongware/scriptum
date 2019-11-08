@@ -429,35 +429,27 @@ trampoline(even) (1e6 + 1)); // false
 ```
 As you can see trampoline API leaks on the calling site and there is nothing we can do about it. Stack-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
 
-## Tail-Call Optimizations
-
-TODO
-
-### Tail Call Modulo Cons
-
-TODO
-
-### Tail Call Modulo Addition
-
-TODO
-
-### Tail Call Modulo Multiplication
-
-TODO
-
-### Tail Call Modulo Continuation
-
-TODO
-
 ## Non-Tail Recursion
 
-Non-tail recursive algorithms will potentially exhaust the stack and are thus no option for production code. However, there are two techniques to transform stack-unsafe recursion into a stack-safe one.
+### Optimizations
+
+#### Tail Call Modulo Cons
+
+TODO
+
+#### Tail Call Modulo Addition
+
+TODO
+
+#### Tail Call Modulo Multiplication
+
+TODO
 
 ### CPS-Transformation
 
 TODO
 
-### Custom Call-Stack
+### User-defined Call-Stacks
 
 TODO
 
