@@ -431,21 +431,20 @@ trampoline(even) (1e6 + 1)); // false
 ```
 As you can see trampoline API leaks on the calling site and there is nothing we can do about it. Stack-safe mutual recursion is a big win though, especially when you have to deal with data types that are defined in terms of each other.
 
+## Tail Recursion Modulo Continuation
+
+Recursive algorithms often build up huge function call trees of deferred computations. While this process is stack-safe the eventual application isn't. However, we can utilize another special trampoline function to avoid the function call tree from the beginning. Here is a stack-safe right associative fold written in continuation passing style:
+
+```Javascript
+const foldr = f => acc => xs =>
+  loop((i = 0, k = id) => 
+      i === xs.length
+        ? call(k, acc)
+        : recur(i + 1, acc_ => call(k, f(xs[i]) (acc_))));
+        
+foldr(x => y => `(${x} + ${y})`) (0) ([1, 2, 3, 4, 5]); // (1 + (2 + (3 + (4 + (5 + 0)))))
+```
 ## Non-Tail Recursion
-
-### Optimizations
-
-#### Tail Call Modulo Cons
-
-TODO
-
-#### Tail Call Modulo Addition
-
-TODO
-
-#### Tail Call Modulo Multiplication
-
-TODO
 
 ### CPS-Transformation
 
@@ -455,15 +454,41 @@ TODO
 
 TODO
 
+```Javascript
+const arrFoldr = alg => zero => xs => {
+  const stack = [];
+  let acc = zero;
+
+  for (let i = 0; i < xs.length; i++)
+    stack.unshift(alg(xs[i]));  
+
+  for (let i = 0; i < xs.length; i++) 
+    acc = stack[i] (acc); 
+
+  return acc; 
+};
+```
+
 # Immutability
 
 TODO
 
-# Persistent Data Structures
+* there are race conditions in connection with the event loop
+* e.g. along with asynchonous computations or date shared between processes
+* immutability in Javascript means giving up native data types, which is a big deal
+* try to accomplish immutability without immutable data types as often as possible
+* e.g. by using equally shaped data structures and relate them via their index
+* mutations should be as local as possible
+* mutations must not alter the data type
+* mutations should be as explicit as possible
+* you can declare data structures with all fields upfront to accomplish this
+* use tagged unions to allow different shapes to avoid optional/null values
+
+## Persistent Data Structures
 
 TODO
 
-## Hash Array Mapped Trie (HAMT)
+### Hash Array Mapped Trie (HAMT)
 
 TODO
 
@@ -496,7 +521,7 @@ main([]) ([1, 2, 3, 4, 5, 6, 7, 8, 9]); // [1, 9, 25]
 You can improve this ineffective runtime behavior by applying transducers with short circuiting behavior instead.
 
 ```Javascript
-const main = arrTransduceWhile(
+const main = arrTransducek(
   comp3(
     filtererk(n => (n & 1) === 1))
       (mapperk(n => n * n))
@@ -510,6 +535,11 @@ Now the traversal of the array is abandoned prematurely after reaching the fifth
 # Streams (Pull-Based)
 
 TODO
+
+* pull-based finite and infinite streams
+* finite streams are almost like Javascript's native iterators
+* is parameterized over the sharing behavior by passing Defer/Lazy as an argument
+* is meant to be used along with transducers
 
 # Effect Handling
 
