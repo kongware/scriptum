@@ -389,7 +389,9 @@ More unfolds will follow:
 
 # Stack-Safe Recursion through Trampolines
 
-## Direct Recursion in Tail Position
+## Tail Recursion
+
+### Direct Recursion
 
 scriptum uses a Javascript port of clojure's `loop`/`recur` combinators as a trampoline. Having this tool in our set we don't have to bother with stack overflows any longer but can utilize recursion when we deem appropriate:
 
@@ -410,7 +412,7 @@ stackSafeSum(xs); // 499999500000
 ```
 This works, because `stackSafeFold` implements direct recursion in tail position.
 
-## Indirect Recursion in Tail Position
+### Indirect Recursion
 
 Unfortunately, we need antohter implementation for mutual recursion, such that we can express mutual recursion in a stack-safe manner as well:
 
