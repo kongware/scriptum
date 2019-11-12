@@ -2483,6 +2483,23 @@ const strConsNth = (t, i) => s =>
   s.slice(0, i + 1) + t + s.slice(i + 1);
 
 
+const strUnsafeHash = (str, seed = 0) => {
+  let h1 = 0xdeadbeef ^ seed,
+    h2 = 0x41c6ce57 ^ seed;
+
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+
+  h1 = Math.imul(h1 ^ h1>>>16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+  h2 = Math.imul(h2 ^ h2>>>16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+
+
 const strLocaleCompare = locale => c => d => {
   switch (c.localeCompare(d, locale)) {
     case -1: return LT;
@@ -4169,25 +4186,309 @@ const firstPrepend = lastAppend;
 
 /******************************************************************************
 *******************************************************************************
-************************************[ IO ]*************************************
+***********************[ HASHED ARRAY MAP TRIE (HAMT) ]************************
 *******************************************************************************
 ******************************************************************************/
 
 
 /******************************************************************************
-**********************************[ CRYPTO ]***********************************
+*********************************[ CONSTANTS ]*********************************
 ******************************************************************************/
 
 
-const createHash_ = crypto => algo => s =>
-  crypto.createHash(algo)
-    .update(s)
-    .digest("hex");
+const HAMT_BITS = 5;
 
 
-const createRandomBytes_ = crypto => n =>
-  Lazy(() =>
-    crypto.randomBytes(n));
+const HAMT_SIZE = Math.pow(2, HAMT_BITS);
+
+
+const HAMT_MASK = HAMT_SIZE - 1;
+
+
+const HAMT_LEAF = "Leaf";
+
+
+const HAMT_BRANCH = "Branch";
+
+
+const HAMT_COLLISION = "Collision";
+
+
+/******************************************************************************
+*******************************[ CONSTRUCTORS ]********************************
+******************************************************************************/
+
+
+const hamtCreateBranch = (mask = 0, children = []) => {
+  return {
+    type: HAMT_BRANCH,
+    mask,
+    children
+  };
+};
+
+
+const hamtCreateCollision = (code, children) => {
+  return {
+    type: HAMT_COLLISION,
+    code,
+    children: children
+  };
+};
+
+
+const hamtCreateLeaf = (code, key, value) => {
+  return {
+    type: HAMT_LEAF,
+    code,
+    key,
+    value
+  };
+};
+
+
+const hamtEmpty = hamtCreateBranch();
+
+
+/******************************************************************************
+************************************[ API ]************************************
+******************************************************************************/
+
+
+const hamtDel = key => hamt => {
+  const code = strUnsafeHash(key),
+    res = hamtRemove(hamt, code, key, 0);
+
+  if (res === undefined)
+    return hamt;
+
+  else if (res === null)
+    return hamtEmpty;
+
+  else
+    return res;
+};
+
+
+const hamtGet = key => hamt => {
+  const code = strUnsafeHash(key);
+
+  let node = hamt,
+    depth = -1;
+
+  while (true) {
+    ++depth;
+
+    switch (node.type) {
+      case HAMT_BRANCH: {
+        const frag = (code >>> (4 * depth)) & HAMT_MASK,
+          mask = 1 << frag;
+
+        if (node.mask & mask) {
+          const idx = hamtPopCount(node.mask, frag);
+          node = node.children[idx];
+          continue;
+        }
+        
+        else
+          return undefined;
+      }
+
+      case HAMT_COLLISION: {
+        for (let i = 0, len = node.children.length; i < len; ++i) {
+          const child = node.children[i];
+
+          if (child.key === key)
+            return child.value;
+        }
+
+        return undefined;
+      }
+
+      case HAMT_LEAF: {
+        return node.key === key
+          ? node.value
+          : undefined;
+      }
+    }
+  }
+};
+
+
+const hamtSet = (key, value) => hamt => {
+  const code = strUnsafeHash(key);
+  return hamtInsert(hamt, code, key, value);
+};
+
+
+/******************************************************************************
+******************************[ IMPLEMENTATION ]*******************************
+******************************************************************************/
+
+
+const hamtInsert = (node, code, key, value, depth = 0) => {
+  const frag = (code >>> (4 * depth)) & HAMT_MASK,
+    mask = 1 << frag;
+
+  switch (node.type) {
+    case HAMT_LEAF: {
+      if (node.code === code) {
+        if (node.key === key)
+          return hamtCreateLeaf(code, key, value);
+
+        return hamtCreateCollision(
+          code, [node, hamtCreateLeaf(code, key, value)]);
+      } 
+
+      else {
+        const prevFrag = (code >>> (4 * depth)) & HAMT_MASK;
+
+        if (prevFrag === frag)
+          return hamtCreateBranch(
+            mask,
+            [hamtInsert(
+              hamtInsert(hamtEmpty, code, key, value, depth + 1),
+              node.code,
+              node.key,
+              node.value,
+              depth + 1)]);
+
+        const prevMask = 1 << prevFrag,
+          children = prevFrag < frag
+            ? [node, hamtCreateLeaf(code, key, value)]
+            : [hamtCreateLeaf(code, key, value), node];
+
+        return hamtCreateBranch(mask | prevMask, children);
+      }
+    }
+
+    case HAMT_BRANCH: {
+      const idx = hamtPopCount(node.mask, frag),
+        children = node.children;
+
+      if (node.mask & mask) {
+        const child = children[idx],
+          xs = children.slice();
+
+        xs[idx] = hamtInsert(child, code, key, value, depth + 1);
+        return hamtCreateBranch(node.mask, xs);
+      }
+
+      else {
+        const xs = children.slice();
+        xs.splice(idx, 0, hamtCreateLeaf(code, key, value));
+
+        return hamtCreateBranch(node.mask | mask, xs);
+      }
+    }
+
+    case HAMT_COLLISION: {
+      for (let i = 0, len = node.children.length; i < len; ++i) {
+        if (node.children[i].key === key) {
+          const xs = node.children.slice();
+          xs[idx] = hamtCreateLeaf(code, key, value);
+
+          return hamtCreateCollision(node.code, xs);
+        }
+      }
+
+      return hamtCreateCollision(
+        node.code,
+        node.children.concat(hamtCreateLeaf(code, key, value)));
+    }
+  }
+};
+
+
+const hamtRemove = (node, code, key, depth) => {
+  const frag = (code >>> (4 * depth)) & HAMT_MASK,
+    mask = 1 << frag;
+
+  switch (node.type) {
+    case HAMT_LEAF: {
+      return node.key === key
+        ? null // remove
+        : undefined; // noop
+    }
+
+    case HAMT_BRANCH: {
+      if (node.mask & mask) {
+        const idx = hamtPopCount(node.mask, frag),
+          res = hamtRemove(node.children[idx], code, key, depth + 1);
+
+        if (res === null) {
+          const newMask = node.mask & ~mask;
+
+          if (newMask === 0)
+            return null;
+
+          else {
+            const xs = node.children.slice();
+            xs.splice(idx, 1);
+
+            return hamtCreateBranch(newMask, xs);
+          }
+        }
+
+        else if (res === undefined)
+          return undefined;
+
+        else {
+          const xs = node.children.slice();
+          xs[idx] = res;
+
+          return hamtCreateBranch(node.mask, xs);
+        }
+      }
+
+      else
+        return undefined;
+    }
+
+    case HAMT_COLLISION: {
+      if (node.code === code) {
+        for (let i = 0, len = node.children.length; i < len; ++i) {
+          const child = node.children[i];
+
+          if (child.key === key) {
+            const xs = node.children.slice();
+            xs.splice(idx, 1);
+
+            return hamtCreateCollision(node.code, xs);
+          }
+        }
+      }
+
+      return undefined;
+    }
+  }
+};
+
+
+/******************************************************************************
+*********************************[ AUXILIARY ]*********************************
+******************************************************************************/
+
+
+const hamtPopCount = (x, n) => {
+  if (n !== undefined)
+    x &= (1 << n) - 1
+
+  x -= x >> 1 & 0x55555555
+  x = (x & 0x33333333) + (x >> 2 & 0x33333333)
+  x = x + (x >> 4) & 0x0f0f0f0f
+  x += x >> 8
+  x += x >> 16
+
+  return x & 0x7f
+};
+
+
+/******************************************************************************
+*******************************************************************************
+************************************[ IO ]*************************************
+*******************************************************************************
+******************************************************************************/
 
 
 /******************************************************************************
@@ -4250,6 +4551,24 @@ const fileUnlink_ = fs => path =>
     fs.unlink(path, e =>
       e ? rej(e) : res(None));
   });
+
+
+/******************************************************************************
+*******************************************************************************
+**********************************[ CRYPTO ]***********************************
+*******************************************************************************
+******************************************************************************/
+
+
+const createHash_ = crypto => algo => s =>
+  crypto.createHash(algo)
+    .update(s)
+    .digest("hex");
+
+
+const createRandomBytes_ = crypto => n =>
+  Lazy(() =>
+    crypto.randomBytes(n));
 
 
 /******************************************************************************
@@ -4733,6 +5052,7 @@ module.exports = {
   strDel,
   strFold,
   strFoldChunks,
+  strUnsafeHash,
   strLength,
   strLens,
   strLocaleCompare,
