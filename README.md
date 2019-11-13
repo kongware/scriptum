@@ -740,11 +740,11 @@ const main = mapk(inck) ([1,2,3]); // still lazy
 
 main(id); // [2,3,4]
 ```
-With CPS we can define lazily evaluated function call trees. However, CPS encodings get also quickly convoluted. We can probably ease the pain by abstracting from CPS with the continuation monad. I need to do more research on this promissing topic.
+With CPS we can define lazily evaluated function call trees. However, huge deferred function call trees can exhaust the stack when being evaluated at once. We need to utilize a trampoline with tail recursion modulo continuation to only evaluate one continuation at a time.
 
-## Generators
+## Streams / Iterators
 
-Generators are the most natural form of expressing lazy evaluation in Javascript and the most harmful as well: They are stateful - not by design but by desicion. scriptum tries to avoid generators as often as possible. However, if we need lazyness inside imperative statements like `if`/`else` conditions or `while` loops we need to fall back to them, as there is no other way to suspend these strictly evaluated control structures.
+In Javascript lazyness is usually expressed through mutable iterators. scriptum, however, relies on its own `Stream` type that resembles the iterator protocoll but in a pure functional manner. The `Stream` type should be preferred to native iterators unless you need lazyness along with build-in control structures like loops. See the section about streams to see their mechanic and how to apply them.
 
 ## Explicit Thunks
 
