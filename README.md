@@ -885,7 +885,7 @@ Just mimics Haskell's left/right associative, binary operators in infix position
 
 ```Javascript
 infixl([1,2], arrAppend, [3,4]); // [1,2,3,4]
-infixr([1,2], arrAppend, [3,4]); // [3,4,1,2]
+infixr([1,2], arrPrepend, [3,4]); // [3,4,1,2]
 ```
 ## `invoke`
 
