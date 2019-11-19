@@ -1750,25 +1750,6 @@ const _throw = e => {
 };
 
 
-const throwOn = p => f => (e, msg) => x => {
-  const r = f(x);
-  
-  if (p(r))
-    throw new e(msg);
-  
-  else return r;
-};
-
-
-// throwOnFalse @derived
-
-
-// throwOnTrue @derived
-
-
-// throwOnUnit @derived
-
-
 const tryCatch = f => g => x => {
   try {
     return f(x);
@@ -2014,15 +1995,6 @@ const funVarComp = varComp({comp, id});
 
 
 const funVarPipe = varPipe({pipe, id});
-
-
-const throwOnFalse = throwOn(isFalse);
-
-
-const throwOnTrue = throwOn(isTrue);
-
-
-const throwOnUnit = throwOn(isUnit);
 
 
 /******************************************************************************
@@ -3838,6 +3810,10 @@ const Yield = value => next =>
   Stream("Yield", {value, next});
 
 
+const Skip = next =>
+  Stream("Skip", {next});
+
+
 const Return = value =>
   Stream("Return", {value});
 
@@ -5108,10 +5084,6 @@ module.exports = {
   This,
   thisify,
   _throw,
-  throwOn,
-  throwOnFalse,
-  throwOnTrue,
-  throwOnUnit,
   tJoin,
   tLiftA2,
   tLiftA3,
