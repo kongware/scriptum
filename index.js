@@ -2142,16 +2142,6 @@ const invoke = k => (...args) => o =>
   o[k] (...args);
 
 
-const memoMethx = k => f => o => Object.defineProperty(o, k, {get: function() {
-  return x => {
-    const r = f(x);
-    delete this[k];
-    this[k] = () => r;
-    return r;
-  };
-}, configurable: true});
-
-
 const _new = cons => (...args) =>
   new cons(...args);
 
@@ -2177,6 +2167,16 @@ const objDelx = k => o =>
 
 const objGetOr = def => k => o =>
   k in o ? o[k] : def;
+
+
+const objMemo = k => f => o => Object.defineProperty(o, k, {get: function() {
+  return x => {
+    const r = f(x);
+    delete this[k];
+    this[k] = () => r;
+    return r;
+  };
+}, configurable: true});
 
 
 const objModOr = def => (k, f) => o =>
@@ -4891,7 +4891,6 @@ module.exports = {
   maxEmpty,
   maxAppend,
   maxPrepend,
-  memoMethx,
   Min,
   min,
   minAppend,
@@ -4924,6 +4923,7 @@ module.exports = {
   objKeys,
   objLens,
   objLensx,
+  objMemo,
   objModOr,
   objModOrx,
   objPathOr,
