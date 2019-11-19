@@ -447,9 +447,9 @@ const arrFoldr = alg => zero => xs => {
 ```
 # Error + Exception Handling
 
-scriptum relies on the `Option` and `Either` type to encode the error case. While the former doesn't include an error meassage, the latter does. As a consequence there is no need for exceptions in scriptum and hence no need for exception handling.
+scriptum relies on the `Option` and `Either` type to encode the error case. While the former doesn't include an error message, the latter does. As a consequence there is no need for exceptions in scriptum and hence no need for exception handling.
 
-We only throw errors that should immediately terminate the program and are not recoverable. In order to do so just define a function (or lambda) that either throws or returns the original value and combine it with your composition:
+We only throw errors that immediately terminate the program and are not recoverable. In order to do so just define a function (or lambda) that either throws or returns the original value and combine it with your composition:
 
 ```Javascript
 const throwOnFalse = x =>
