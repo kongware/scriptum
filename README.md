@@ -340,8 +340,8 @@ More folds will follow:
 
 * Paramorphism (fold with current state of the context)
 * Hylomorphism (unfold composed with fold)
-* Zygomorphism (one fold depending on another - semi-mutual recursive)
-* Mutumorphism (mutual recursive fold - mutual recursive)
+* Zygomorphism (fold depending on another one - semi-mutual recursion)
+* Mutumorphism (mutual recursive fold - mutual recursion)
 * Histomorphism (fold with access to all previous intermediate results)
 
 ## Anamorphism et al.
@@ -362,7 +362,7 @@ main("a"); // ["a", "b", "c", "d", "e", ...]
 More unfolds will follow:
 
 * Apomorphism (unfold with early termination)
-* Futumorphism (unfold with access to values still to be computed)
+* Futumorphism (unfold that allows to determine the future course of it)
 
 # Stack-Safe Recursion
 
