@@ -445,7 +445,7 @@ const arrFoldr = alg => zero => xs => {
   return acc; 
 };
 ```
-# Error Handling
+# Error + Exception Handling
 
 scriptum relies on the `Option` and `Either` type to encode the error case. While the former doesn't include an error meassage, the latter does. As a consequence there is no need for exceptions in scriptum and hence no need for exception handling.
 
