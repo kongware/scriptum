@@ -364,7 +364,7 @@ More unfolds will follow:
 * Apomorphism (unfold with early termination)
 * Futumorphism (unfold with access to values still to be computed)
 
-# Stack-Safe Recursion through Trampolines
+# Stack-Safe Recursion
 
 ## Tail Recursion
 
@@ -445,7 +445,20 @@ const arrFoldr = alg => zero => xs => {
   return acc; 
 };
 ```
+# Error Handling
 
+scriptum relies on the `Option` and `Either` type to encode the error case. While the former doesn't include an error meassage, the latter does. As a consequence there is no need for exceptions in scriptum and hence no need for exception handling.
+
+We only throw errors that should immediately terminate the program and are not recoverable. In order to do so just define a function (or lambda) that either throws or returns the original value and combine it with your composition:
+
+```Javascript
+const throwOnFalse = x =>
+  x === false
+    ? _throw(new TypeError("foo"))
+    : x;
+
+pipe(f) (throwOnFalse);
+```
 # Immutability
 
 TODO
@@ -819,7 +832,7 @@ const optCata = none => some => tx =>
     get Some() {return some(tx.runOption)}
   });
 ```
-# Delimited Continuations with `shift`/`reset`
+# Delimited Continuations
 
 TODO
 
@@ -941,29 +954,6 @@ const o = {foo: {bar: {baz: 123}}};
 objPathOr(0) ("foo") ("bar") ("baz"); // 123
 objPathOr(0) ("foo") ("bat") ("baz"); // 0
 ```
-## `throwOnUnit`
-
-Often we want to throw an error if a computation yields an unit type, i.e. a type without values. Javascript includes a remarkable number of unit types:
-
-* undefined
-* null
-* NaN
-* Invalid Date
-* Infinity
-
-```Javascript
-comp(throwOnUnit)
-  ("TypeError", "non-empty array expected")
-    (head)
-      ([1,2,3]); // 1
-
-comp(throwOnUnit)
-  ("TypeError", "non-empty array expected")
-    (head)
-      ([]); // TypeError
-```
-You can define your own functions with throw on error semantics by using the `onThrow` combinator.
-
 ## `partial`/`partialCurry`
 
 The former just applies partial application, that is to say you call a multi argument function with some of its arguments and provide the rest at the subsequent call.
