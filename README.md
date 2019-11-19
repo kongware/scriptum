@@ -929,13 +929,13 @@ const orDef = f => def => x =>
     y === undefined || y === null || Number.isNaN(y)
       ? def : y);
 ```
-## `memoMethx`
+## `objMemo`
 
 Defines a memoized method that is guaranteed only called once and than replaced by its result without the interface beeing changed:
 
 ```Javascript
 const p = thisify(o => {
-  memoMethx("foo") (x => (console.log("evaluated"), x * x)) (o);
+  objMemo("foo") (x => (console.log("evaluated"), x * x)) (o);
   return o;
 });
 
