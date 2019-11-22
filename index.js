@@ -2133,6 +2133,20 @@ const isIntStr = s =>
   s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
+const numCreateRandomBytes = n => {
+  if (crypto && crypto.randomBytes)
+    return Lazy(() =>
+      crypto.randomBytes(n));
+
+  else if (crypto && crypto.getRandomValues)
+    return Lazy(() =>
+      crypto.getRandomValues(new Uint8Array(n)));
+
+  else
+    _throw(new TypeError("missing crypto support"));
+};
+
+
 /******************************************************************************
 **********************************[ OBJECT ]***********************************
 ******************************************************************************/
@@ -2455,7 +2469,27 @@ const strConsNth = (t, i) => s =>
   s.slice(0, i + 1) + t + s.slice(i + 1);
 
 
-const strUnsafeHash = (str, seed = 0) => {
+const strCreateCryptoHash = algo => s => {
+  if (crypto && crypto.createHash) // TODO: Change to a monadic action (Task returning)
+    return crypto.createHash(algo)
+      .update(s)
+      .digest("hex");
+
+  else if (crypto && crypto.subtle && crypto.subtle.digest) // TODO: Change to Task
+    return crypto
+      .subtle
+      .digest(algo, (new TextEncoder()).encode(s))
+      .then(buffer =>
+        Array.from(new Uint8Array(buffer))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join(""));
+
+  else 
+    _throw(new TypeError("missing crypto support"));
+};
+
+
+const strCreateHash = (str, seed = 0) => {
   let h1 = 0xdeadbeef ^ seed,
     h2 = 0x41c6ce57 ^ seed;
 
@@ -4223,7 +4257,7 @@ const hamtCreateLeaf = (code, key, value) => {
 };
 
 
-const hamtEmpty = hamtCreateBranch();
+const hamtCreate = hamtCreateBranch();
 
 
 /******************************************************************************
@@ -4232,14 +4266,14 @@ const hamtEmpty = hamtCreateBranch();
 
 
 const hamtDel = key => hamt => {
-  const code = strUnsafeHash(key),
+  const code = strCreateHash(key),
     res = hamtRemove(hamt, code, key, 0);
 
   if (res === undefined)
     return hamt;
 
   else if (res === null)
-    return hamtEmpty;
+    return hamtCreate;
 
   else
     return res;
@@ -4247,7 +4281,7 @@ const hamtDel = key => hamt => {
 
 
 const hamtGet = key => hamt => {
-  const code = strUnsafeHash(key);
+  const code = strCreateHash(key);
 
   let node = hamt,
     depth = -1;
@@ -4292,7 +4326,7 @@ const hamtGet = key => hamt => {
 
 
 const hamtSet = (key, value) => hamt => {
-  const code = strUnsafeHash(key);
+  const code = strCreateHash(key);
   return hamtInsert(hamt, code, key, value);
 };
 
@@ -4323,7 +4357,7 @@ const hamtInsert = (node, code, key, value, depth = 0) => {
           return hamtCreateBranch(
             mask,
             [hamtInsert(
-              hamtInsert(hamtEmpty, code, key, value, depth + 1),
+              hamtInsert(hamtCreate, code, key, value, depth + 1),
               node.code,
               node.key,
               node.value,
@@ -4531,24 +4565,6 @@ const fileUnlink_ = fs => path =>
 
 /******************************************************************************
 *******************************************************************************
-**********************************[ CRYPTO ]***********************************
-*******************************************************************************
-******************************************************************************/
-
-
-const createHash_ = crypto => algo => s =>
-  crypto.createHash(algo)
-    .update(s)
-    .digest("hex");
-
-
-const createRandomBytes_ = crypto => n =>
-  Lazy(() =>
-    crypto.randomBytes(n));
-
-
-/******************************************************************************
-*******************************************************************************
 **********************************[ DERIVED ]**********************************
 *******************************************************************************
 ******************************************************************************/
@@ -4729,8 +4745,6 @@ module.exports = {
   contReset,
   contShift,
   contOf,
-  createHash_,
-  createRandomBytes_,
   curry,
   curry3,
   curry4,
@@ -4904,6 +4918,7 @@ module.exports = {
   NOT_FOUND,
   notp,
   numCompare,
+  numCreateRandomBytes,
   numEq,
   numFromEnum,
   numNeq,
@@ -5025,10 +5040,11 @@ module.exports = {
   strCapWord,
   strChunk,
   strConsNth,
+  strCreateCryptoHash,
+  strCreateHash,
   strDel,
   strFold,
   strFoldChunks,
-  strUnsafeHash,
   strLength,
   strLens,
   strLocaleCompare,
