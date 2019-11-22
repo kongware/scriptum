@@ -2133,7 +2133,7 @@ const isIntStr = s =>
   s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
-const numCreateRandomBytes = n => {
+const numCreateRandomBytes_ = crypto => n => {
   if (crypto && crypto.randomBytes)
     return Lazy(() =>
       crypto.randomBytes(n));
@@ -2469,7 +2469,7 @@ const strConsNth = (t, i) => s =>
   s.slice(0, i + 1) + t + s.slice(i + 1);
 
 
-const strCreateCryptoHash = algo => s => {
+const strCreateCryptoHash_ = crypto => algo => s => {
   if (crypto && crypto.createHash) // TODO: Change to a monadic action (Task returning)
     return crypto.createHash(algo)
       .update(s)
@@ -4918,7 +4918,7 @@ module.exports = {
   NOT_FOUND,
   notp,
   numCompare,
-  numCreateRandomBytes,
+  numCreateRandomBytes_,
   numEq,
   numFromEnum,
   numNeq,
@@ -5040,7 +5040,7 @@ module.exports = {
   strCapWord,
   strChunk,
   strConsNth,
-  strCreateCryptoHash,
+  strCreateCryptoHash_,
   strCreateHash,
   strDel,
   strFold,
