@@ -2988,6 +2988,20 @@ const getGet = tx => o =>
 
 
 /******************************************************************************
+**********************************[ HASHED ]***********************************
+******************************************************************************/
+
+
+const Hashed = structGetter("Hashed")
+  (Hashed => tx => o => Hashed({
+    runHashed: o,
+    [Symbol.toPrimitive]: hint =>
+      hint === "string" || hint === "default"
+        ? tx.runLazy // hash is lazily created
+        : o.valueOf()}));
+
+
+/******************************************************************************
 **********************************[ HISTORY ]**********************************
 ******************************************************************************/
 
@@ -4257,7 +4271,7 @@ const hamtCreateLeaf = (code, key, value) => {
 };
 
 
-const hamtCreate = hamtCreateBranch();
+const hamtRoot = hamtCreateBranch();
 
 
 /******************************************************************************
@@ -4266,6 +4280,8 @@ const hamtCreate = hamtCreateBranch();
 
 
 const hamtDel = key => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key),
     res = hamtRemove(hamt, code, key, 0);
 
@@ -4273,7 +4289,7 @@ const hamtDel = key => hamt => {
     return hamt;
 
   else if (res === null)
-    return hamtCreate;
+    return hamtRoot;
 
   else
     return res;
@@ -4281,6 +4297,8 @@ const hamtDel = key => hamt => {
 
 
 const hamtGet = key => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key);
 
   let node = hamt,
@@ -4326,6 +4344,8 @@ const hamtGet = key => hamt => {
 
 
 const hamtSet = (key, value) => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key);
   return hamtInsert(hamt, code, key, value);
 };
@@ -4357,7 +4377,7 @@ const hamtInsert = (node, code, key, value, depth = 0) => {
           return hamtCreateBranch(
             mask,
             [hamtInsert(
-              hamtInsert(hamtCreate, code, key, value, depth + 1),
+              hamtInsert(hamtRoot, code, key, value, depth + 1),
               node.code,
               node.key,
               node.value,
