@@ -476,11 +476,11 @@ TODO
 
 ## Persistent Data Structures
 
-TODO
+Persistent data structures are immutable and yet efficient by utilizing structural sharing.
 
 ### Hash Array Mapped Trie (HAMT)
 
-TODO
+scriptum's HAMT implementation is a fully persistent data structure from which you can derive common data types like `Array`, `Map` and `Set`. It is limited to keys of type `String` though. In order to overcome this restriction there is the `Hashed` data type that allows to add a custom hash to reference types without mutating the original `Object`. `Hashed` values are also quite efficient since the hash is lazily evaluated only when actually needed and the result is shared, i.e. only evaluated once.
 
 # Transducer
 
