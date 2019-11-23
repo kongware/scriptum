@@ -482,6 +482,21 @@ Persistent data structures are immutable and yet efficient by utilizing structur
 
 scriptum's HAMT implementation is a fully persistent data structure from which you can derive common data types like `Array`, `Map` and `Set`. It is limited to keys of type `String` though. In order to overcome this restriction there is the `Hashed` data type that allows to add a custom hash to reference types without mutating the original `Object`. `Hashed` values are also quite efficient since the hash is lazily evaluated only when actually needed and the result is shared, i.e. only evaluated once.
 
+```Javascript
+const o = Hashed(Lazy(() => "foo1")) ({foo: 1});
+const p = Hashed(Lazy(() => "bar2")) ({bar: 2});
+const q = Hashed(Lazy(() => "baz3")) ({baz: 3});
+
+const h1 = hamtSet(o, "foo1") (hamtRoot);
+const h2 = hamtSet(p, "bar2") (h1);
+const h3 = hamtSet(q, "baz3") (h2);
+
+hamtGet(o) (h3); // "foo1"
+hamtGet(p) (h3); // "bar2"
+hamtGet(q) (h3); // "baz3"
+```
+Instead of strings like `"foo1"` you would call a hash function inside the lazy wrapper, of course.
+
 # Transducer
 
 Transducers are characterized by the following properties:
