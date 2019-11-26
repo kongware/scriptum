@@ -1541,6 +1541,9 @@ const funLiftA2 = f => g => h => x =>
   f(g(x)) (h(x));
 
 
+// funOf @derived
+
+
 /***[Arguments]***************************************************************/
 
 
@@ -1991,7 +1994,13 @@ const takerWhilek = p => reduce => acc => x =>
 const funEmpty = id;
 
 
+const funOf = _const;
+
+
 const funVarComp = varComp({comp, id});
+
+
+const funVarLiftA = varLiftA({ap: funAp, of: funOf});
 
 
 const funVarPipe = varPipe({pipe, id});
@@ -2985,20 +2994,6 @@ const getVarComp = varComp({comp: getComp, id: getId});
 const getGet = tx => o =>
   tx.runLens(Const) (o)
     .runConst;
-
-
-/******************************************************************************
-**********************************[ HASHED ]***********************************
-******************************************************************************/
-
-
-const Hashed = structGetter("Hashed")
-  (Hashed => tx => o => Hashed({
-    runHashed: o,
-    [Symbol.toPrimitive]: hint =>
-      hint === "string" || hint === "default"
-        ? tx.runLazy // hash is lazily created
-        : o.valueOf()}));
 
 
 /******************************************************************************
@@ -4271,7 +4266,7 @@ const hamtCreateLeaf = (code, key, value) => {
 };
 
 
-const hamtRoot = hamtCreateBranch();
+const hamtCreate = hamtCreateBranch();
 
 
 /******************************************************************************
@@ -4280,8 +4275,6 @@ const hamtRoot = hamtCreateBranch();
 
 
 const hamtDel = key => hamt => {
-  key = key + ""; // nasty destructive type conversion
-
   const code = strCreateHash(key),
     res = hamtRemove(hamt, code, key, 0);
 
@@ -4289,7 +4282,7 @@ const hamtDel = key => hamt => {
     return hamt;
 
   else if (res === null)
-    return hamtRoot;
+    return hamtCreate;
 
   else
     return res;
@@ -4297,8 +4290,6 @@ const hamtDel = key => hamt => {
 
 
 const hamtGet = key => hamt => {
-  key = key + ""; // nasty destructive type conversion
-
   const code = strCreateHash(key);
 
   let node = hamt,
@@ -4344,8 +4335,6 @@ const hamtGet = key => hamt => {
 
 
 const hamtSet = (key, value) => hamt => {
-  key = key + ""; // nasty destructive type conversion
-
   const code = strCreateHash(key);
   return hamtInsert(hamt, code, key, value);
 };
@@ -4377,7 +4366,7 @@ const hamtInsert = (node, code, key, value, depth = 0) => {
           return hamtCreateBranch(
             mask,
             [hamtInsert(
-              hamtInsert(hamtRoot, code, key, value, depth + 1),
+              hamtInsert(hamtCreate, code, key, value, depth + 1),
               node.code,
               node.key,
               node.value,
@@ -4841,6 +4830,7 @@ module.exports = {
   funPrepend,
   funRmap,
   funVarComp,
+  funVarLiftA,
   funVarPipe,
   getComp,
   getComp3,
