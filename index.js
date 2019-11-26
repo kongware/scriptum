@@ -1544,6 +1544,9 @@ const funLiftA2 = f => g => h => x =>
 // funOf @derived
 
 
+// funVarLiftA @derived
+
+
 /***[Arguments]***************************************************************/
 
 
