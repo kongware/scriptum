@@ -2997,6 +2997,20 @@ const getGet = tx => o =>
 
 
 /******************************************************************************
+**********************************[ HASHED ]***********************************
+******************************************************************************/
+
+
+const Hashed = structGetter("Hashed")
+  (Hashed => tx => o => Hashed({
+    runHashed: o,
+    [Symbol.toPrimitive]: hint =>
+      hint === "string" || hint === "default"
+        ? tx.runLazy // hash is lazily created
+        : o.valueOf()}));
+
+
+/******************************************************************************
 **********************************[ HISTORY ]**********************************
 ******************************************************************************/
 
@@ -4266,15 +4280,14 @@ const hamtCreateLeaf = (code, key, value) => {
 };
 
 
-const hamtCreate = hamtCreateBranch();
-
-
 /******************************************************************************
 ************************************[ API ]************************************
 ******************************************************************************/
 
 
 const hamtDel = key => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key),
     res = hamtRemove(hamt, code, key, 0);
 
@@ -4282,7 +4295,7 @@ const hamtDel = key => hamt => {
     return hamt;
 
   else if (res === null)
-    return hamtCreate;
+    return hamtNew;
 
   else
     return res;
@@ -4290,6 +4303,8 @@ const hamtDel = key => hamt => {
 
 
 const hamtGet = key => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key);
 
   let node = hamt,
@@ -4334,7 +4349,12 @@ const hamtGet = key => hamt => {
 };
 
 
+const hamtNew = hamtCreateBranch();
+
+
 const hamtSet = (key, value) => hamt => {
+  key = key + ""; // nasty destructive type conversion
+
   const code = strCreateHash(key);
   return hamtInsert(hamt, code, key, value);
 };
@@ -4366,7 +4386,7 @@ const hamtInsert = (node, code, key, value, depth = 0) => {
           return hamtCreateBranch(
             mask,
             [hamtInsert(
-              hamtInsert(hamtCreate, code, key, value, depth + 1),
+              hamtInsert(hamtNew, code, key, value, depth + 1),
               node.code,
               node.key,
               node.value,
@@ -4405,7 +4425,7 @@ const hamtInsert = (node, code, key, value, depth = 0) => {
       for (let i = 0, len = node.children.length; i < len; ++i) {
         if (node.children[i].key === key) {
           const xs = node.children.slice();
-          xs[idx] = hamtCreateLeaf(code, key, value);
+          xs[i] = hamtCreateLeaf(code, key, value);
 
           return hamtCreateCollision(node.code, xs);
         }
@@ -4471,7 +4491,7 @@ const hamtRemove = (node, code, key, depth) => {
 
           if (child.key === key) {
             const xs = node.children.slice();
-            xs.splice(idx, 1);
+            xs.splice(i, 1);
 
             return hamtCreateCollision(node.code, xs);
           }
@@ -4844,6 +4864,11 @@ module.exports = {
   getYear,
   GT,
   guard,
+  hamtDel,
+  hamtGet,
+  hamtNew,
+  hamtSet,
+  Hashed,
   headH,
   History,
   history,
