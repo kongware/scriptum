@@ -2781,6 +2781,23 @@ const contLiftA2 = f => tx => ty =>
 const contOf = x => Cont(k => k(x));
 
 
+/***[ChainRec]****************************************************************/
+
+
+const contChainRec = f =>
+  Cont(k => {
+    let acc = f();
+
+    while (acc && acc.type === recur) {
+      acc.args[0] = acc.args[0] (id);
+      acc = f(...acc.args);
+    }
+
+    return k(acc);
+  };
+};
+
+
 /***[Functor]*****************************************************************/
 
 
@@ -2835,6 +2852,22 @@ const defAp = tf => tx =>
 
 
 const defOf = x => Defer(() => x);
+
+
+/***[ChainRec]****************************************************************/
+
+
+const defChainRec = f =>
+  Defer(() => {
+    let acc = f();
+
+    while(acc && acc.type === recur) {
+      acc.args[0] = acc.args[0].runDefer();
+      acc = f(...acc.args);
+    }
+
+    return acc.runDefer();
+  });
 
 
 /***[Functor]*****************************************************************/
@@ -3102,6 +3135,22 @@ const lazyAp = tf => tx =>
 
 
 const lazyOf = x => Lazy(() => x);
+
+
+/***[ChainRec]****************************************************************/
+
+
+const lazyChainRec = f =>
+  Lazy(() => {
+    let acc = f();
+
+    while(acc && acc.type === recur) {
+      acc.args[0] = acc.args[0].runLazy();
+      acc = f(...acc.args);
+    }
+
+    return acc.runLazy();
+  });
 
 
 /***[Functor]*****************************************************************/
@@ -4770,6 +4819,7 @@ module.exports = {
   contAp,
   contChain,
   contChain2,
+  contChainRec,
   contJoin,
   contLiftA2,
   contLiftM2,
@@ -4787,6 +4837,7 @@ module.exports = {
   debug,
   defAp,
   defChain,
+  defChainRec,
   Defer,
   defJoin,
   defMap,
@@ -4900,6 +4951,7 @@ module.exports = {
   Lazy,
   lazyAp,
   lazyChain,
+  lazyChainRec,
   lazyJoin,
   lazyMap,
   lazyOf,
