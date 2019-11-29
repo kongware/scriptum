@@ -301,11 +301,11 @@ const varLiftA = ({ap, of}) => f =>
 
 
 const varComp = ({comp, id}) =>
-  varArgs(arrFold(comp) (id));
+  variadic(arrFold(comp) (id));
 
 
 const varPipe = ({pipe, id}) =>
-  varArgs(arrFold(pipe) (id));
+  variadic(arrFold(pipe) (id));
 
 
 /***[Ix]**********************************************************************/
@@ -358,7 +358,7 @@ const foldMap = ({fold, append, empty}) => f =>
 
 
 const varChain = ({map, of, chain, join}) => fm => // TODO: derive from varComp
-  varArgs(args =>
+  variadic(args =>
     join(arrFold(mg => mx =>
       chain(g => map(g) (mx)) (mg)) (of(fm)) (args)));
 
@@ -1562,12 +1562,12 @@ const infixr = (y, f, x) =>
   f(x) (y);
 
 
-const varArgs = f => {
+const variadic = f => {
   const go = args =>
     Object.defineProperties(
       arg => go(args.concat([arg])), {
-        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
-        [TYPE]: {value: "VarArgs", enumerable: true}
+        "runVariadic": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "Variadic", enumerable: true}
       });
 
   return go([]);
@@ -1675,7 +1675,7 @@ const partial = (f, ...args) => (...args_) =>
 
 
 const partialCurry = (f, ...args) =>
-  varArgs(args_ => f(...args, ...args_));
+  variadic(args_ => f(...args, ...args_));
 
 
 const uncurry = f => (x, y) =>
@@ -2216,7 +2216,7 @@ const objModOrx = def => (k, f) => o =>
 
 
 const objPathOr = def =>
-  varArgs(arrFold(p => k => p[k] || def) (o));
+  variadic(arrFold(p => k => p[k] || def) (o));
 
 
 const objSet = (k, v) => o =>
@@ -5220,9 +5220,9 @@ module.exports = {
   unionGetter,
   UnionError,
   varAp,
-  varArgs,
   varChain,
   varComp,
+  variadic,
   varKleisliComp,
   varKleisliPipe,
   varLiftA,
