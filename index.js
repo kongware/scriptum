@@ -2415,11 +2415,11 @@ const strMatchLast = (r, flags) => s_ =>
 
 const strMatchNth = nth_ => (r, flags) => s_ =>
   loop((acc = Matched(None), s = s_, i = 0, nth = 0) => {
-    if (s === "")
-      return None;
-
-    else if (nth_ === nth)
+    if (nth_ === nth)
       return acc;
+
+    else (s === "")
+      return Matched(None);
 
     else {
       const tx = strMatch(r, flags) (s);
