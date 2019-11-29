@@ -38,45 +38,45 @@ This is a tradeoff to keep up browser support.
 
 # Mission Statement
 
-## Mathematical Structures and Patterns over Made-up Algorithms
+### Mathematical Structures and Patterns over Made-up Algorithms
 
 scriptum sticks with math instead of making stuff up.
 
-## Pragmatism over Dogmatism
+### Pragmatism over Dogmatism
 
 Javascript lacks a non-trivial type system and all guarantees that comes along with it and it has no functional data types. As a consequence mutations and reassignments are allowed and sometimes even necessary, as long as they remain local, i.e. are not observable in the parent scope.
 
-## Expressions over Statements
+### Expressions over Statements
 
 Expressions are superior to statements, because you can compose them and pass them around like data. scriptum provides means to express almost everything as an expression. However, sometimes algorithms are more comprehensible if you assign intermediate values to variables or arrange conditional branches with `if`/`elese` and `switch`. So whenever you feel the need to decompose your complex function compositions you don't need to be ashamed of it.
 
-## Curried over Multi-Argument Functions
+### Curried over Multi-Argument Functions
 
 scriptum prefers curried to multi-argument functions. This simplifies both function and partial application. However, we can isomorphically transform curried to uncurried functions by applying the `curry`/`uncurry` combinators. So there is no risk in using both forms.
 
-## Unions of Records over just Records
+### Unions of Records over just Records
 
 You should consider modelling your business domain in the form of alternatives rather than hierarchies. The latter only allow to add information when you move from top to bottom. But the real world isn't assambled in such a schematic way. Alternatives on the other hand are way more flexible to represent a chaotic reality as a data structure. In scriptum alternatives are expressed with tagged unions, which can be nested and may contain records and other product types.
 
-## Effects as Values over Side Effects
+### Effects as Values over Side Effects
 
 scriptum promotes effect handling through monads and effect composition through monad transformer stacks. This way we can defer and encapsulate effects to run them in a principled manner and separate the pure from the impure part of our program. 
 
-## Structural Recursion over Direct Recursion over Loops
+### Structural Recursion over Direct Recursion over Loops
 
 Recursion is a big win compared to imperative loops. However, in Javascript we have neither tail call optimization nor more advanced optimization strategies. So we are stuck with tail recursion implemented through trampolines, which are structurally just loops.
 
 What we seek for is a mechanism to abstract from direct recursion altogether. scriptum uses recursion schemes (catamorphism et al.) to separate the recursion from the algorithms and domain logic. These schemes have to be implemented as trampolines for each data type though, to avoid stack overflows and improve performance.
 
-## Directory Passing over the Prototype System
+### Directory Passing over the Prototype System
 
 scriptum doesn't rely on Javascript's prototype system but enables principled ad-hoc polymorphism through directory passing, i.e. typeclasses are passed as common arguments to functions. As a convetion, typeclass arguments are always placed leftmost in the parameter list and if the function expects several typeclasses they are bundled by an `Object`.
 
-## Type Signatures over Inline Comments
+### Type Signatures over Inline Comments
 
 When you create a function the first thing to do is to define its type signature and its name. The implementation of its body will follow this signature.
 
-## Semantic Typing over Anonymous Data Structures
+### Semantic Typing over Anonymous Data Structures
 
 Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
