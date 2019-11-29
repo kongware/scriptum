@@ -293,7 +293,7 @@ varLiftA({ap: optAp, of: optOf})
 ```
 Please note that applicative lifting with an variadic interface is basically applicative do notation. Since scriptum also offers variadic interfaces for monadic lifting and chaining you have something similar in your tool set as monadic do notation.
 
-All variadic combinators are based on the `variadic` (variadic arguments) function. You can easily create your own variadic combinators with it:
+All variadic combinators are derived from the `variadic` function. You can easily create your own variadic combinators with it:
 
 ```Javascript
 const add = x => y => x + y;
