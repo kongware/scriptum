@@ -264,15 +264,15 @@ funVarComp(inc)
   (sqr)
     (inc)
       (inc)
-        (inc).runVarArgs(1); // 25
+        (inc).runVariadic(1); // 25
         
 funVarPipe(inc)
   (inc)
     (inc)
       (inc)
-        (sqr).runVarArgs(1); // 25
+        (sqr).runVariadic(1); // 25
 ```
-Accessing the `runVarArgs` property triggers the evaluation of the composition tree.
+Accessing the `runVariadic` property triggers the evaluation of the composition tree.
 
 Here is another example for applicative lifting through the variadic interface:
 
@@ -283,17 +283,17 @@ varLiftA({ap: optAp, of: optOf})
   (sum3)
     (Some(1))
       (Some(2))
-        (Some(3)).runVarArgs; // Some(6)
+        (Some(3)).runVariadic; // Some(6)
         
 varLiftA({ap: optAp, of: optOf})
   (sum3)
     (Some(1))
       (None)
-        (Some(3)).runVarArgs; // None
+        (Some(3)).runVariadic; // None
 ```
 Please note that applicative lifting with an variadic interface is basically applicative do notation. Since scriptum also offers variadic interfaces for monadic lifting and chaining you have something similar in your tool set as monadic do notation.
 
-All variadic combinators are based on the `varArgs` (variadic arguments) function. You can easily create your own variadic combinators with it:
+All variadic combinators are based on the `variadic` (variadic arguments) function. You can easily create your own variadic combinators with it:
 
 ```Javascript
 const add = x => y => x + y;
@@ -301,12 +301,12 @@ const add = x => y => x + y;
 const sum = ns =>
   ns.reduce((acc, n) => acc + n, 0);
 
-const varSum = varArgs(sum);
+const varSum = variadic(sum);
 
 varSum(1)
   (2)
     (3)
-      (4).runVarArgs // 10
+      (4).runVariadic // 10
 ```
 # Structural Folding
 
@@ -1269,12 +1269,12 @@ is transformed into
 The first issue leads to insanely slow performance and the latter to subtle bugs:
 
 ```Javascript
-const varArgs = f => {
+const variadic = f => {
   const go = args =>
     Object.defineProperties(
       arg => go(args.concat(arg)), {
-        "runVarArgs": {get: function() {return f(args)}, enumerable: true},
-        [TYPE]: {value: "VarArgs", enumerable: true}
+        "runVariadic": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "Variadic", enumerable: true}
       });
 
   return go([]);
