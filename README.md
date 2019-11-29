@@ -16,7 +16,7 @@ Type-directed programming in an untyped language means to handle code as if it w
 
 My favorite type system is math and functional programming is mainly based on it. Relying on mathematical rules and structures leads to reusable, composable and predictable code that is less prone to errors and hence more resilient and more adaptable. Math limits your creativeness in a positive way like a compiler does. The main difference between a type system and math as a guideline is that the former is able to enforce limitations and thus can provide certain guarantees, whereas the latter depends on compliance of mere policies.
 
-A type system excels when it is designed upfront the language. This way it is possible to avoid explicit type annotations by type inference and to keep type annotations apart from the code to ease comprehension. This is obviously not true neither for Typescript nor for Flow. If you don't want to treat Javascript as a compile target than untyped functional programming is a reasonable alternative to the typed Javascript hype these days.
+A type system excels when it is designed upfront the language. This way it is possible to avoid explicit type annotations by type inference and to keep type annotations apart from the code to ease comprehension. This is obviously not true neither for Typescript nor  Flow. If you don't want to treat Javascript as a compile target than untyped functional programming is a reasonable alternative to the typed Javascript hype of these days.
 
 ### Runtime
 
