@@ -2418,7 +2418,7 @@ const strMatchNth = nth_ => (r, flags) => s_ =>
     if (nth_ === nth)
       return acc;
 
-    else (s === "")
+    else if (s === "")
       return Matched(None);
 
     else {
