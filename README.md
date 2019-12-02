@@ -435,6 +435,41 @@ foldr(x => y => `(${x} + ${y})`) (0) ([1, 2, 3, 4, 5]); // (1 + (2 + (3 + (4 + (
 
 TODO
 
+#### First Order Functions
+
+TODO
+
+#### Higher Order Functions
+
+TODO
+
+#### Recursive Functions
+
+TODO
+
+```Javascript
+const mapR = f => ([x, ...xs]) =>
+  x === undefined
+    ? []
+    : [f(x), ...mapR(f) (xs)];
+
+ 
+const mapTR = f => ([x, ...xs], acc = []) =>
+  x === undefined
+    ? acc
+    : mapTR(f) (xs, acc.concat(f(x)));
+
+ 
+const mapCPS = f => ([x, ...xs]) => k =>
+  x === undefined
+    ? k([])
+    : mapCPS(f) (xs) (ys => k([f(x), ...ys]));
+```
+
+#### Mutual Recursive Functions
+
+TODO
+
 ### User-defined Call-Stacks
 
 TODO
