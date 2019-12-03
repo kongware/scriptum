@@ -433,7 +433,7 @@ foldr(x => y => `(${x} + ${y})`) (0) ([1, 2, 3, 4, 5]); // (1 + (2 + (3 + (4 + (
 
 ### CPS-Transformation
 
-CPS transformation transforms every non-tail recursive algorithm in its tail revcursive version. Along with scriptum's trampoline we can easly make these algorithms stack safe.
+CPS transformation transforms every non-tail recursive algorithm in its tail revcursive version. Along with scriptum's `loop`/`recur` trampoline we can easly render these algorithms stack safe.
 
 #### First/Higher Order Functions
 
