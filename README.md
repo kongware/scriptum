@@ -4,7 +4,7 @@
 
 This library is still work in progress.
 
-I use large parts of this library in production code.
+However, I successfully use parts of it in production code already.
 
 ## What
 
@@ -433,19 +433,25 @@ foldr(x => y => `(${x} + ${y})`) (0) ([1, 2, 3, 4, 5]); // (1 + (2 + (3 + (4 + (
 
 ### CPS-Transformation
 
-TODO
+CPS transformation transforms every non-tail recursive algorithm in its tail revcursive version. Along with scriptum's trampoline we can easly make these algorithms stack safe.
 
-#### First Order Functions
+#### First/Higher Order Functions
 
-TODO
+The CSP transformation of first or higher order functions is trivial:
 
-#### Higher Order Functions
+```Javascript
+const add = x => y => x + y;
 
-TODO
+// becomes to
+
+const addCPS = x => y => k =>
+  k(x + y);
+```
+We just add a continuation as the last formal parameter.
 
 #### Recursive Functions
 
-TODO
+With recrusive functions the recursive case must provide a distinct continuation for each iteration, which expects at least an accumulator as its argument. The recursive algorithm in CPS form then builds up a deferred function call tree that is evaluated when the initial continuation is provided:
 
 ```Javascript
 const mapR = f => ([x, ...xs]) =>
@@ -453,14 +459,16 @@ const mapR = f => ([x, ...xs]) =>
     ? []
     : [f(x), ...mapR(f) (xs)];
 
+ // becomes
  
 const mapTR = f => ([x, ...xs], acc = []) =>
   x === undefined
     ? acc
     : mapTR(f) (xs, acc.concat(f(x)));
 
- 
-const mapCPS = f => ([x, ...xs]) => k =>
+// becomes
+
+const mapCPS = f => ([x, ...xs]) => k => // initial continuation
   x === undefined
     ? k([])
     : mapCPS(f) (xs) (ys => k([f(x), ...ys]));
@@ -472,7 +480,7 @@ TODO
 
 ### User-defined Call-Stacks
 
-TODO
+We can create stack safe functions with recursion in non-tail position by implementing our own call stack, of course:
 
 ```Javascript
 const arrFoldr = alg => zero => xs => {
