@@ -4,7 +4,7 @@
 
 This library is still work in progress.
 
-However, I successfully use parts of it in production code already.
+However, I already use parts of it in production code successfully.
 
 ## What
 
