@@ -2096,10 +2096,10 @@ const mapSetx = (k, v) => m =>
 const numFromEnum = n => Some(n);
 
 
-const numPred = n => Some(n + 1);
+const numPred = n => Some(n - 1);
 
 
-const numSucc = n => Some(n - 1);
+const numSucc = n => Some(n + 1);
 
 
 const numToEnum = n => Some(n);
