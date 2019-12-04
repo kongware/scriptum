@@ -1358,10 +1358,21 @@ const arrZero = arrEmpty;
 ******************************************************************************/
 
 
-const isFalse =x => x === false;
+const andp = p => q => x =>
+  p(x) && q(x);
+
+
+const isFalse = x => x === false;
 
 
 const isTrue = x => x === true;
+
+
+const notp = p => x => !p(x);
+
+
+const orp = p => q => x =>
+  p(x) || q(x);
 
 
 /******************************************************************************
@@ -1789,20 +1800,6 @@ const funJoin = f => x =>
 
 
 // funEmpty @derived
-
-
-/***[Predicates]**************************************************************/
-
-
-const andp = p => q => x =>
-  p(x) && q(x);
-
-      
-const notp = p => x => !p(x);
-
-
-const orp = p => q => x =>
-  p(x) || q(x);
 
 
 /***[Primitive]***************************************************************/
