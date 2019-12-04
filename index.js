@@ -67,6 +67,9 @@ class DateError extends ScriptumError {};
 class FileError extends ScriptumError {};
 
 
+class RegExpError extends ScriptumError {};
+
+
 class SemigroupError extends ScriptumError {};
 
 
@@ -333,10 +336,17 @@ const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
 
 
 const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
-  loop((x = lower, n = 0) =>
-    gt(x) (upper)
-      ? n
-      : recur(succ(x), n + 1));
+  loop((tx = Some(lower), n = 0) => {
+    switch (tx[TAG]) {
+      case "None": return tx;
+
+      case "Some": return gt(tx.runOption) (upper)
+        ? Some(n)
+        : recur(succ(tx.runOption), n + 1);
+
+      default: throw new UnionError("invalid tag");
+    }
+  });
 
 
 /***[Foldable]****************************************************************/
@@ -1370,7 +1380,7 @@ const dateParse = s => {
 };
 
 
-const dateParsex = s => {
+const dateParsex = s => { // TODO: remove
   const d = new Date(s);
   
   if (d.getTime === undefined || Number.isNaN(d.getTime()))
@@ -1391,8 +1401,7 @@ const formatDay = digits => n => {
     case 1: return n.toString();
     case 2: return strPadl(2) ("0") (n);
 
-    default: throw new DateError(
-      "invalid number of digits");
+    default: throw new DateError("invalid number of digits");
   }
 };
 
@@ -1404,8 +1413,7 @@ const formatMonth = (monthMap, abbrMonthMap) => digits => n => {
     case 3: return abbrMonthMap[n];
     case 4: return monthMap[n];
     
-    default: throw new DateError(
-      "invalid number of digits");
+    default: throw new DateError("invalid number of digits");
   }
 };
 
@@ -1415,8 +1423,7 @@ const formatYear = digits => n => {
     case 2: return n.toString().slice(digits);
     case 4: return n.toString();
 
-    default: throw new DateError(
-      "invalid number of digits");
+    default: throw new DateError("invalid number of digits");
   }
 };
 
@@ -2090,16 +2097,29 @@ const mapSetx = (k, v) => m =>
 ******************************************************************************/
 
 
+/***[Bounded]*****************************************************************/
+
+
+const numMaxBound = Number.MAX_SAFE_INTEGER;
+
+
+const numMinBound = Number.MIN_SAFE_INTEGER;
+
+
 /***[Enum]********************************************************************/
 
 
 const numFromEnum = n => Some(n);
 
 
-const numPred = n => Some(n - 1);
+const numPred = n => n === numMinBound
+  ? None
+  : Some(n - 1);
 
 
-const numSucc = n => Some(n + 1);
+const numSucc = n => n === numMaxBound
+  ? None
+  : Some(n + 1);
 
 
 const numToEnum = n => Some(n);
@@ -2155,7 +2175,7 @@ const numCreateRandomBytes_ = crypto => n => {
       crypto.getRandomValues(new Uint8Array(n)));
 
   else
-    _throw(new TypeError("missing crypto support"));
+    _throw(new ScriptumError("missing crypto support"));
 };
 
 
@@ -2345,8 +2365,7 @@ const strMatch = (r, flags) => s => {
     return Matched(None);
 
   else if (!("index" in xs))
-    throw new UnionError(
-      `invalid regular expression - greediness is not permitted in\n${r}`);
+    throw new RegExpError(`invalid greedy regular expression`);
 
   else if (xs.groups === undefined)
     xs.groups = {}; // add empty group instead of undefined
@@ -2497,7 +2516,7 @@ const strCreateCryptoHash_ = crypto => algo => s => {
           .join(""));
 
   else 
-    _throw(new TypeError("missing crypto support"));
+    _throw(new ScriptumError("missing crypto support"));
 };
 
 
@@ -4830,7 +4849,6 @@ module.exports = {
   curry3,
   curry4,
   curry5,
-  DateError,
   dateParse,
   dateParsex,
   debug,
@@ -4868,7 +4886,6 @@ module.exports = {
   evalState,
   execState,
   fileCopy_,
-  FileError,
   fileMove_,
   fileRead_,
   fileRename_,
@@ -5015,6 +5032,8 @@ module.exports = {
   numGte,
   numLt,
   numLte,
+  numMaxBound,
+  numMinBound,
   numPred,
   numSucc,
   numToEnum,
@@ -5105,7 +5124,6 @@ module.exports = {
   select,
   select11,
   select1N,
-  SemigroupError,
   _Set,
   setComp,
   setComp3,
@@ -5218,7 +5236,6 @@ module.exports = {
   uncurry5,
   union,
   unionGetter,
-  UnionError,
   varAp,
   varChain,
   varComp,
