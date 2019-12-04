@@ -498,9 +498,11 @@ const arrFoldr = alg => zero => xs => {
 ```
 # Error + Exception Handling
 
-scriptum relies on the `Option` and `Either` type to encode the error case. While the former doesn't include an error message, the latter does. As a consequence there is no need for exceptions in scriptum and hence no need for exception handling.
+scriptum relies on the `Option` and `Either` types to encode exceptions. Both types differ in that `Option` doesn't provide an exception message whereas `Either` does. It is totally up to the call site how to react in case of an exception. Please note that an exception differs from an error in that the former can't be ruled out at compile/interpretation time whereas the latter can just by altering the source code.
 
-We only throw errors that immediately terminate the program and are not recoverable. In order to do so just define a function (or lambda) that either throws or returns the original value and combine it with your composition:
+The only situation where scriptum encourages you to throw a native Javascript `Error` is in case of an error, i.e. a programmer caused malfunction of your program. Such errors can't be handled at runtime anyway so we should terminate the program immediately to avoid an inconsistant state.
+
+There are a couple of composable combinators that throw native Javascript errors:
 
 ```Javascript
 const throwOnFalse = x =>
