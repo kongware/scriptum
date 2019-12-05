@@ -58,10 +58,13 @@ class ExtendableError extends Error {
 class ScriptumError extends ExtendableError {};
     
 
-/***[Suclasses]***************************************************************/
+/***[Subclasses]**************************************************************/
 
 
 class DateError extends ScriptumError {};
+
+
+class EnumError extends ScriptumError {};
 
 
 class FileError extends ScriptumError {};
@@ -336,17 +339,10 @@ const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
 
 
 const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
-  loop((tx = Some(lower), n = 0) => {
-    switch (tx[TAG]) {
-      case "None": return tx;
-
-      case "Some": return gt(tx.runOption) (upper)
-        ? Some(n)
-        : recur(succ(tx.runOption), n + 1);
-
-      default: throw new UnionError("invalid tag");
-    }
-  });
+  loop((x = lower, n = 0) =>
+    gt(x) (upper)
+      ? n
+      : recur(succ(x), n + 1));
 
 
 /***[Foldable]****************************************************************/
@@ -494,7 +490,7 @@ const or = x => y =>
 /***[Alternative]*************************************************************/
 
 
-// arrAlt @dreived
+// arrAlt @derived
 
 
 // arrAltx @derived
@@ -1391,17 +1387,6 @@ const dateParse = s => {
 };
 
 
-const dateParsex = s => { // TODO: remove
-  const d = new Date(s);
-  
-  if (d.getTime === undefined || Number.isNaN(d.getTime()))
-    throw new DateError(`malformed date string "${s}"`);
-
-  else
-    return d;
-};
-
-
 const formatDate = sep => (...fs) => date =>
   fs.map(f => f(date))
     .join(sep);
@@ -2106,20 +2091,20 @@ const numMinBound = Number.MIN_SAFE_INTEGER;
 /***[Enum]********************************************************************/
 
 
-const numFromEnum = n => Some(n);
+const numFromEnum = id;
 
 
 const numPred = n => n === numMinBound
-  ? None
-  : Some(n - 1);
+  ? _throw(new EnumError("enumeration out of bound"))
+  : n - 1;
 
 
 const numSucc = n => n === numMaxBound
-  ? None
-  : Some(n + 1);
+  ? _throw(new EnumError("enumeration out of bound"))
+  : n + 1;
 
 
-const numToEnum = n => Some(n);
+const numToEnum = id;
 
 
 /***[Eq]**********************************************************************/
@@ -4846,8 +4831,8 @@ module.exports = {
   curry3,
   curry4,
   curry5,
+  DateError,
   dateParse,
-  dateParsex,
   debug,
   defAp,
   defChain,
@@ -4872,6 +4857,7 @@ module.exports = {
   endoEmpty,
   endoPrepend,
   _enum,
+  EnumError,
   EQ,
   eq,
   Equiv,
@@ -4883,6 +4869,7 @@ module.exports = {
   evalState,
   execState,
   fileCopy_,
+  FileError,
   fileMove_,
   fileRead_,
   fileRename_,
@@ -5110,6 +5097,7 @@ module.exports = {
   readOf,
   recur,
   recur_,
+  RegExpError,
   Return,
   returnHead,
   returnLast,
@@ -5121,6 +5109,7 @@ module.exports = {
   select,
   select11,
   select1N,
+  SemigroupError,
   _Set,
   setComp,
   setComp3,
@@ -5232,6 +5221,7 @@ module.exports = {
   uncurry4,
   uncurry5,
   union,
+  UnionError,
   unionGetter,
   varAp,
   varChain,
