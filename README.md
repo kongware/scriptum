@@ -454,26 +454,59 @@ We just add a continuation as the last formal parameter.
 With recrusive functions the recursive case must provide a distinct continuation for each iteration, which expects at least an accumulator as its argument. The recursive algorithm in CPS form then builds up a deferred function call tree that is evaluated when the initial continuation is provided:
 
 ```Javascript
+// non-tail recursive
 const mapR = f => ([x, ...xs]) =>
   x === undefined
     ? []
     : [f(x), ...mapR(f) (xs)];
 
- // becomes
- 
+// tail recursive
 const mapTR = f => ([x, ...xs], acc = []) =>
   x === undefined
     ? acc
     : mapTR(f) (xs, acc.concat(f(x)));
 
-// becomes
-
+// CPS encoded
 const mapCPS = f => ([x, ...xs]) => k => // initial continuation
   x === undefined
     ? k([])
     : mapCPS(f) (xs) (ys => k([f(x), ...ys]));
 ```
+Here is another example including an explicit accumulator:
 
+```Javascript
+// non-tail recursive
+const foldr = f => acc => ([x, ...xs]) =>
+  x === undefined
+    ? acc 
+    : f(x) (foldr(f) (acc) (xs));
+
+// tail recursive
+foldrTR = f => acc => xs => {
+  const go = (acc_, i) =>
+    i === xs.length
+      ? acc_
+      : go(f(xs[i]) (acc_), i + 1);
+            
+  return go(acc, 0);
+};
+
+// CPS encoding
+foldrCPS = f => acc => ([x, ...xs]) => k =>
+  x === undefined
+    ? k(acc)
+    : foldrCPS(f) (acc) (xs) (acc_ => k(f(x) (acc_)));
+
+// optimized CPS encoding
+const foldrCPS = f => acc => xs => k => {
+  const go = i => k_ =>
+    i === xs.length
+      ? k(k_(acc))
+      : go(i + 1) (acc_ => k_(f(xs[i]) (acc_)));
+            
+  return go(0) (x => x);
+};
+```
 #### Mutual Recursive Functions
 
 TODO
