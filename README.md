@@ -80,6 +80,38 @@ When you create a function the first thing to do is to define its type signature
 
 Use types as simple wrappers whose main reason is to add a semantic layer to your code. This approach guides you during development, renders your code more readable and minimizes the distance between thrown errors and their origin in many cases.
 
+# State Management
+
+How is state managed in functional programming? This common question is actually pretty easy to answer: In the call stack!
+
+## Pure Functions
+
+```Javascript
+// imperative
+
+const x = 2;
+let y = 3, z;
+
+z = x + y;
+y += 1;
+z *= (x + y);
+
+// functional
+
+const z = _let(
+  (x = 2, y = 3) =>
+    mul(
+      add(x) (y))
+        (add(x) (y + 1)));
+```
+In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you just create an expression and pass it to another function, so that the result is assigned to one of its arguments.
+
+If a value needs to be shared between expressions we assign it to a name so that we can use it as a constant as often as required. Since there are no let bindings as expressions in Javascript scriptum mimicks them with the `_let` combinator.
+
+## Impure Functions
+
+TODO
+
 # Custom Types
 
 There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
