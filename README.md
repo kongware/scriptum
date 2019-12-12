@@ -114,6 +114,8 @@ TODO
 
 # Custom Types
 
+TODO
+
 There are a couple of constructors both for union (`union`) and product types (`struct`). Both merely wrap a value into a plain old Javascript `Object`, which is augmented with some properties useful for reasoning and debugging.
 
 ## Product Types (Records)
