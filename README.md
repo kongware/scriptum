@@ -89,8 +89,8 @@ How is state managed in functional programming? This common question is actually
 ```Javascript
 // imperative
 
-const x = 2;
-let y = 3, z;
+const x = 2 ** 3;
+let y = 2, z;
 
 z = x + y;
 y += 1;
@@ -99,14 +99,14 @@ z *= (x + y);
 // functional
 
 const z = _let(
-  (x = 2, y = 3) =>
+  (x = 2 ** 3) =>
     mul(
-      add(x) (y))
-        (add(x) (y + 1)));
+      add(x) (2))
+        (add(x) (2 + 1)));
 ```
 In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you just create an expression and pass it to another function, so that the result is assigned to one of its arguments.
 
-If a value needs to be shared between expressions we assign it to a name so that we can use it as a constant as often as required. Since there are no let bindings as expressions in Javascript scriptum mimicks them with the `_let` combinator, which merely utilizes Javascript's default parameters in a creative way: `const _let = f => f();`
+If an expression is shared across different points in our code we assign it to a name so that it is only calculated once. Since there are only `let` statements in Javascript scriptum mimics the expression counterpart with the `_let` combinator, which merely utilizes Javascript's default parameters in a creative way: `const _let = f => f();`. Besides we use such let bindings if we want to avoid repitition.
 
 ## Impure Functions
 
