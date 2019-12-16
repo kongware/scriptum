@@ -99,14 +99,14 @@ z *= (x + y);
 // functional
 
 const z = _let(
-  (x = 2 ** 3) =>
+  (x = 2 ** 3) => // binds 8 to the name x
     mul(
       add(x) (2))
         (add(x) (2 + 1)));
 ```
-In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you just create an expression and pass it to another function, so that the result is assigned to one of its arguments.
+In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you take the respective expression and call an appropriate function with it, so that the result is assigned to one of its arguments.
 
-Alternatively, if there isn't a generic function and you don't want to create a lambda you can just use the `_let` combinator that creates let-like bindings by utilizing Javascript's default parameters in a creative way.
+Alternatively, if there isn't a suitable generic function and you don't want to create a lambda you can just use the `_let` combinator that creates let-like bindings by utilizing Javascript's default parameters in a creative way.
 
 ## Impure Functions
 
