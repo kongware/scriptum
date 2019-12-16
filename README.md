@@ -106,7 +106,7 @@ const z = _let(
 ```
 In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you just create an expression and pass it to another function, so that the result is assigned to one of its arguments.
 
-If an expression is shared across different points in our code we assign it to a name so that it is only calculated once. Since there are only `let` statements in Javascript scriptum mimics the expression counterpart with the `_let` combinator, which merely utilizes Javascript's default parameters in a creative way: `const _let = f => f();`. Besides we use such let bindings if we want to avoid repitition.
+Alternatively, if there isn't a generic function and you don't want to create a lambda you can just use the `_let` combinator that creates let-like bindings by utilizing Javascript's default parameters in a creative way.
 
 ## Impure Functions
 
