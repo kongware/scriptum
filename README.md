@@ -87,8 +87,6 @@ How is state managed in functional programming? This common question is actually
 ## Pure Functions
 
 ```Javascript
-// imperative
-
 const x = 2 ** 3;
 let y = 2, z;
 
@@ -98,20 +96,38 @@ z *= (x + y);
 
 // functional
 
+const _let = f => f(); // syntactic sugar for IIFE
+
 const z = _let(
-  (x = 2 ** 3) => // binds 8 to the name x
+  (x = 2 ** 3) => // binds the expression to the name x
     mul(
       add(x) (2))
         (add(x) (2 + 1)));
 ```
-In this admittedly contrieved example the underlying mechanism becomes apparent. If you need an reassignment you take the respective expression and call an appropriate function with it, so that the result is assigned to one of its arguments.
+This is a quite contrieved example yet the underlying mechanism becomes apparent. If you need a reassignment just take the respective expression and call a suitable function with it, so that the result is bound to one of its arguments inside a fresh scope.
 
-Alternatively, if there isn't a suitable generic function and you don't want to create a lambda you can just use the `_let` combinator that creates let-like bindings by utilizing Javascript's default parameters in a creative way.
+Alternatively, if there isn't a suitable generic function use a lambda or utilize scriptum's `_let` auxiliary function, which creates let-like bindings by utilizing Javascript's default parameters in a creative way.
 
 ## Impure Functions
 
-TODO
+For impure, asynchronous functions there is no call stack anymore when they are finally evaluated. Since a stack is required to hold the program's state we have to build our own on. The `Cont` type and its applicative/monad instance respectively do exactly that. They describe a nested deferred function call tree which creates a stack when it is actually evaluated:
 
+```Javascript
+const _let = f => f(); // syntactic sugar for IIFE
+
+const contChain2 = fm => mx => my =>
+  Cont(k => mx.runCont(
+    x => my.runCont(
+      y => fm(x) (y).runCont(z => k(z)))));
+
+const z = _let(
+  (x = 2 ** 3) => // binds the expression to the name x
+    contChain2(mul)
+      (add(x) (2))
+        (add(x) (2 + 1)));
+
+z.runCont(x => console.log(x)); // our own stack at work
+```
 # Custom Types
 
 TODO
