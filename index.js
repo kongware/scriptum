@@ -748,17 +748,11 @@ const arrEmpty = [];
 
 
 const arrAppend = xs => ys => { // NOTE: expects arrays in both arguments
-  const zs = arrClone(xs);
-
   if (!ys || ys.length === undefined)
     throw new SemigroupError(`array expected but "${ys}" given`);
 
-  else {
-    for (let i = 0; i < ys.length; i++)
-      zs.push(ys[i]);
-  }
-
-  return zs;
+  else
+    return xs.concat(ys);
 };
 
 
