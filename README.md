@@ -122,9 +122,9 @@ const contChain2 = fm => mx => my =>
 
 const z = _let(
   (x = 2 ** 3) => // binds the expression to the name x
-    contChain2(mul)
-      (add(x) (2))
-        (add(x) (2 + 1)));
+    contChain2(mulCont)
+      (addCont(x) (2))
+        (addCont(x) (2 + 1)));
 
 z.runCont(x => console.log(x)); // our own stack at work
 ```
