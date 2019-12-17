@@ -110,7 +110,7 @@ Alternatively, if there isn't a suitable generic function use a lambda or utiliz
 
 ## Impure Functions
 
-For impure, asynchronous functions there is no call stack anymore when they are finally evaluated. Since a stack is required to hold the program's state we have to build our own on. The `Cont` type and its applicative/monad instance respectively do exactly that. They describe a nested deferred function call tree which creates a stack when it is actually evaluated:
+For impure, asynchronous functions there is no call stack anymore when they are finally evaluated. Since a stack is required to hold the program's state we have to build our own. The `Cont` type and its applicative/monad instance respectively do exactly that. They describe a nested deferred function call tree that creates a stack when it is actually evaluated:
 
 ```Javascript
 const _let = f => f(); // syntactic sugar for IIFE
@@ -120,11 +120,14 @@ const contChain2 = fm => mx => my =>
     x => my.runCont(
       y => fm(x) (y).runCont(z => k(z)))));
 
+const cont2 = f => x => y =>
+  Cont(k => k(f(x) (y)));
+
 const z = _let(
   (x = 2 ** 3) => // binds the expression to the name x
-    contChain2(mulCont)
-      (addCont(x) (2))
-        (addCont(x) (2 + 1)));
+    contChain2(cont2(mul))
+      (cont2(add) (x) (2))
+        (cont2(add) (x) (2 + 1)));
 
 z.runCont(x => console.log(x)); // our own stack at work
 ```
