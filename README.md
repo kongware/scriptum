@@ -49,6 +49,6 @@ scriptum assumes immutable data. However, Javascript offers a mutable environmen
 
 Beyond that scriptum supplies both various techniques to avoid mutations and a persistent data structure based on hashed array mapped tries. So we have a rich toolset at hand to handle immutability quite well.
 
-## Course TOC
+## Functional programming course (TOC)
 
 1. [Statements, expressions and functions as values](https://github.com/kongware/scriptum/blob/master/ch-1.md)
