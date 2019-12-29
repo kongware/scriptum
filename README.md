@@ -51,6 +51,6 @@ Beyond that scriptum supplies both various techniques to avoid mutations and a p
 
 ## Functional programming course (TOC)
 
-The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types and missing tail call optimization stops us from pursuing the purely functional approach.
+The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types or missing tail call optimization stops us from pursuing the purely functional approach.
 
 1. [Statements, expressions and functions as values](https://github.com/kongware/scriptum/blob/master/ch-1.md)
