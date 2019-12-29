@@ -1,15 +1,15 @@
 ## Statements, expressions and functions as values
 
-### Expressions
+### First class expressions
 
-Purely functional programming only consists of expressions. An expression is a first class code unit that can be evaluated to a single value according to its particular rules of precedence. Expressions can be passed to and be returned by functions like any other ordinary value.
+Purely functional programming only consists of expressions. An expression is a first class code unit that can be evaluated to a single, fixed value according to its particular rules of precedence. First class means you can pass expressions to and return them from functions like any other ordinary value.
 
 ```Javascript
-mul(1 + 2) (2 + 3);
+mul(1 + 2) (2 + 3)
 ```
 
-* expressions evaluate to a single value
-* expressions are first class, i.e. can be passed around like values
+* expressions evaluate to a single, fixed value
+* expressions are first class, i.e. can be passed around like ordinary values
 
 ### Are statements harmful?
 
@@ -21,7 +21,7 @@ const y = 2 + 3;
 const z = x * y;
 ```
 
-I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them.
+I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
