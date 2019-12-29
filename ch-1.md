@@ -1,6 +1,6 @@
 ## Values, Expressions and Functions
 
-This first lesson introduces important functional programming jargon and describes a functional programmer's notion of some fundamental programming aspects.
+This first chapter introduces important functional programming jargon and describes a functional programmer's notion of some fundamental programming aspects.
 
 ### First class values
 
@@ -58,7 +58,7 @@ Ok, I oversimplified a bit. Actually there are two constraints necessary in orde
 * functions must return a result value no matter what arguments are provided
 * functions must not perform another visible effect than returning a result value
 
-The latter constraint is referred to as purity and will be examined in a subsequent lesson of this functional programming course.
+The latter constraint is referred to as purity and will be examined in a subsequent chapter of this functional programming course.
 
 ### Higher order functions
 
@@ -75,7 +75,7 @@ foo(sub) (2) (3) // -1
 
 What we are doing here is a kind of dependency injection and such functions are called higher order functions, because they except at least one function argument. Consequently functions without a function argument are called first order functions.
 
-Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later lesson.
+Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later chapter.
 
 You can most likely imagine how powerful higher order functions are because they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
 
