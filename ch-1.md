@@ -73,7 +73,7 @@ foo(add) (2) (3) // 5
 foo(sub) (2) (3) // -1
 ```
 
-What we are doing here is a kind of dependency injection and such functions are called higher order functions, because they except at least one function argument. Consequently functions without a function argument are called first order functions.
+What we are doing here is a kind of dependency injection and such functions are called higher order functions, because they expect at least one function argument. Consequently functions without a function argument are called first order functions.
 
 Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later chapter.
 
