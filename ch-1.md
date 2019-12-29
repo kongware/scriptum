@@ -36,7 +36,7 @@ A literal (e.g. `"foo"`, `123`, `true`, `[1, 2, 3]`) is usually the representati
 
 There are two additional function constrains in order that they behave like ordinary values. First they always have to return a value no matter what arguments are passed. Second they have to be pure. We will examine the latter in a subsequent lesson.
 
-* functions are just lazy evaluated expressions and hence are ordinary values
+* functions are just lazy evaluated expressions and hence are first class values
 * functions always have to return a value
 
 <sup>1</sup>`a => a` happens to be a literal of the function type, however, the exception proves the rule
