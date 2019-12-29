@@ -55,8 +55,8 @@ When functions are just first class expressions with holes in them what differen
 
 Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions act like normal values:
 
-* functions must return a result value no matter what arguments are provided
-* functions must not perform another visible effect than returning a result value
+* they must return a result value no matter what arguments are provided
+* they must not perform another visible effect than returning a result value
 
 The latter constraint is referred to as purity and will be examined in a subsequent chapter of this functional programming course.
 
