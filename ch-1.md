@@ -56,7 +56,7 @@ Ok, I oversimplified a bit. Actually there are two constraints necessary in orde
 * functions must return a result value no matter what arguments are provided
 * functions must not perform another visible effect than returning a result value
 
-The latter constraint is referred to as pure functions and will be examined in a subsequent lesson of this functional programming course.
+The latter constraint is referred to as purity and will be examined in a subsequent lesson of this functional programming course.
 
 ### Higher order functions
 
