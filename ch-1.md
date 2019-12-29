@@ -1,4 +1,4 @@
-## Values, expressions and functions
+## Values, Expressions and Functions
 
 ### First class values
 
