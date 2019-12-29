@@ -1,10 +1,10 @@
 <img src="./logo.png" width="366" height="114" alt="scriptum"><br><br><br>
 
-# What?
+# What
 
 scriptum is a no-frills functional language based on Javascript, which doesn‘t require additional deployment steps.
 
-# Why?
+# Why
 
 scriptum is designed in a way to facilitate learning functional programming. It is shipped with a comprehensive online course, which is for the time being only available in writing. Accompanying Video lectures are already planned though.
 
