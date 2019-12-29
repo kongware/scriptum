@@ -23,7 +23,7 @@ const z = x * y;
 
 I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind values to names.
 
-Later in this course you will see that statements obstruct the functional control flow that consists of various forms of function composition.
+Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
 ### Functions are expressions are values
 
