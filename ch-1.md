@@ -1,5 +1,7 @@
 ## Values, Expressions and Functions
 
+This first lesson introduces important functional programming jargon and describes a functional programmer's notion of some fundamental programming aspects.
+
 ### First class values
 
 Values are the simplest possible expression. In Javascript we can represent values of many data types in literal form:
