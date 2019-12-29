@@ -19,7 +19,7 @@ You can pass values to and return them from functions. This trait is referred to
 
 ### First class expressions
 
-Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. they gain a broader field of application.
+Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. applicable in more scenarios.
 
 ```Javascript
 “foo” + “bar”
