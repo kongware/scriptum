@@ -21,7 +21,7 @@ const y = 2 + 3;
 const z = x * y;
 ```
 
-I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind values to names.
+I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names.
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
