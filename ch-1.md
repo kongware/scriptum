@@ -2,7 +2,7 @@
 
 ### First class values
 
-Values are the most simplest expression. In Javascript we can represent values of many data types in literal form:
+Values are the simplest expression. In Javascript we can represent values of many data types in literal form:
 
 ```Javascript
 “foo”
