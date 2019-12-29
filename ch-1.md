@@ -39,7 +39,7 @@ There are two additional function constrains in order that they behave like ordi
 * functions are just lazy evaluated expressions and hence are first class values
 * functions always have to return a value
 
-<sup>1</sup>`a => a` happens to be a literal of the function type. However, when we talk about functions being just first class values we mean function calls rather than function declarations.
+<sup>1</sup>`a => a` happens to be a literal of the function type'and is evidently not a fixed value but a lazy evaluated one.
 
 ### Undefined is not a proper value
 
