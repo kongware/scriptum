@@ -38,7 +38,7 @@ Expressions are a great improvement compared to mere values. But we can use them
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when required. Such generalized expressions would be way more flexible because their behavior would depend on the provided values.
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their behavior would depend on the provided values.
 
 Since functions are just expressions with holes they are also first class:
 
