@@ -13,7 +13,7 @@ mul(1 + 2) (2 + 3);
 
 ### Are statements harmful?
 
-No, but they are like dead ends in your code, because they are decoupled from one another. You need to bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values.
+No, but they are like dead ends in your code, because they are decoupled from one another. Since they don't evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values.
 
 ```Javascript
 const x = 1 + 2;
