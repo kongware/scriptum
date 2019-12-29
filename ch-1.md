@@ -51,10 +51,10 @@ We can call `foo` once, twice, several times or not at all. It is only evaluated
 
 When functions are just first class expressions with holes in them what differentiates them from literals or other simpler expressions? Nothing actually, if you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
-Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions behave like normal values:
+Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions act like normal values:
 
-functions must return a result value no matter what arguments are provided
-functions must not perform another visible effect than returning a result value
+* functions must return a result value no matter what arguments are provided
+* functions must not perform another visible effect than returning a result value
 
 The latter constraint is referred to as pure functions and will be examined in a subsequent lesson of this functional programming course.
 
