@@ -2,7 +2,7 @@
 
 ### Expressions
 
-Purely functional programming only consists of expressions. An expression is a first class code unit that can be evaluated to a single value according to its particular rules of precedence. Expressions are first clas, that is they be passed to and be returned by functions like any other ordinary value.
+Purely functional programming only consists of expressions. An expression is a first class code unit that can be evaluated to a single value according to its particular rules of precedence. Expressions can be passed to and be returned by functions like any other ordinary value.
 
 ```Javascript
 mul(1 + 2) (2 + 3);
