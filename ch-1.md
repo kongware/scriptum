@@ -42,8 +42,11 @@ Imagine named expressions with holes in them and a mechanism to fill these holes
 
 Since functions are just expressions with holes they are also first class:
 
+```Javascript
 const foo = a => a.toUpperCase();
 foo(“bar”);
+```
+
 We can call foo once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
 
 When functions are just first class expressions with holes in them what differentiates them from literals or other simpler expressions? Nothing actually, if you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
@@ -54,20 +57,6 @@ functions must return a result value no matter what arguments are provided
 functions must not perform another visible effect than returning a result value
 
 The latter constraint is referred to as pure functions and will be examined in a subsequent lesson of this functional programming course.
-
-### Are statements harmful?
-
-No, but they are like dead ends in your code, because they are decoupled from one another. Since they don't evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values.
-
-```Javascript
-const x = 1 + 2;
-const y = 2 + 3;
-const z = x * y;
-```
-
-I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
-
-Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
 ### Higher order functions
 
@@ -87,6 +76,20 @@ What we are doing here is a kind of dependency injection and such functions are 
 Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later lesson.
 
 You can most likely imagine how powerful higher order functions are because they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
+
+### Are statements harmful?
+
+No, but they are like dead ends in your code, because they are decoupled from one another. Since they don't evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values.
+
+```Javascript
+const x = 1 + 2;
+const y = 2 + 3;
+const z = x * y;
+```
+
+I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
+
+Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
 ### Undefined is not a proper value
 
