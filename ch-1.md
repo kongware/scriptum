@@ -1,4 +1,4 @@
-## Statements, Expressions and Functions as Values
+## Statements, expressions and functions as values
 
 ### Expressions
 
