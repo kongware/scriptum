@@ -1,15 +1,59 @@
-## Statements, expressions and functions as values
+## Values, expressions and functions
+
+### First class values
+
+Values are the most simplest expression. In Javascript we can represent values of many data types in literal form:
+
+```Javascript
+“foo”
+123
+true
+[1, 2, 3]
+{foo: “bar”}
+a => a
+```
+
+You can pass values to and return them from functions. This trait is referred to as first class. Values are first class entities.
 
 ### First class expressions
 
-Purely functional programming only consists of expressions. An expression is a first class code unit that can be evaluated to a single, fixed value according to its particular rules of precedence. First class means you can pass expressions to and return them from functions like any other ordinary value.
+Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. they have a broader field of application.
 
 ```Javascript
-mul(1 + 2) (2 + 3)
+“foo” + “bar”
+123 – 1
+true && false
+[1, 2, 3] [0]
+({foo: “bar”).foo
+(a => a) (“foo”)
 ```
 
-* expressions evaluate to a single, fixed value
-* expressions are first class, i.e. can be passed around like ordinary values
+Since an expression can be reduced to a single value during evaluation, it is also a first class entity and it is composable. The latter means you can combine simple expressions to construct more complex ones.
+
+```Javascript
+(a => a) (“foo” + “bar”)
+```
+
+Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place as is. Is there a way to make them less ad-hoc? Let us generalize further!
+
+### First class functions
+
+Imagine named expressions with holes in them and a mechanism to fill these holes when required. Such generalized expressions would be way more flexible because their behavior would depend on the provided values.
+
+Since functions are just expressions with holes they are also first class:
+
+const foo = a => a.toUpperCase();
+foo(“bar”);
+We can call foo once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
+
+When functions are just first class expressions with holes in them what differentiates them from literals or other simpler expressions? Nothing actually, if you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
+
+Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions behave like normal values:
+
+functions must return a result value no matter what arguments are provided
+functions must not perform another visible effect than returning a result value
+
+The latter constraint is referred to as pure functions and will be examined in a subsequent lesson of this functional programming course.
 
 ### Are statements harmful?
 
@@ -25,21 +69,24 @@ I use the term name binding instead of variable, because there is no such thing 
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
-### Functions are expressions are values
+### Higher order functions
 
-Let‘s distinguish two important types of expressions that seem to have no relation to each other at all:
+We are not done generalizing. When functions are just first class values let us pass a function to another one and see what is happening.
 
-* literals
-* functions
+```Javascript
+const foo = f => x => f(x);
+const add = x => y => x + y;
+const sub = x => y => x – y;
 
-A literal (e.g. `"foo"`, `123`, `true`, `[1, 2, 3]`) is usually the representation of a fixed value<sup>1</sup> and is immediately evaluated as such. A function (e.g. `a => a`) is also evaluated to a fixed value when all its arguments are provided. You can already see that both expressions resemble each other. As a matter of fact in functional programming functions are regarded as ordinary values with the sole exception that they are lazily evaluated. You can picture them as expressions with holes in it that need to be filled to yield a final value.
+foo(add) (2) (3) // 5
+foo(sub) (2) (3) // -1
+```
 
-There are two additional function constrains in order that they behave like ordinary values. First they always have to return a value no matter what arguments are passed. Second they have to be pure. We will examine the latter in a subsequent lesson.
+What we are doing here is a kind of dependency injection and such functions are called higher order functions, because they except at least one function argument. Consequently functions without a function argument are called first order functions.
 
-* functions are just lazy evaluated expressions and hence are first class values
-* functions always have to return a value
+Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later lesson.
 
-<sup>1</sup>there are exceptions like `a => a` which happens to be a literal of the function type and is not a fixed value but a lazy evaluated one.
+You can most likely imagine how powerful higher order functions are because they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
 
 ### Undefined is not a proper value
 
