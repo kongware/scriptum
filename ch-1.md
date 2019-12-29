@@ -43,6 +43,6 @@ There are two additional function constrains in order that they behave like ordi
 
 ### Undefined is not a proper value
 
-scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on `undefined` nor use it in any way. You shouldn‘t even consider it a proper value. It is an error, a non-recoverable exception.
+scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on `undefined` nor create it. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
 
-Consequently a function that returns `undefined` isn‘t a function in the sense of functional programming.
+Consequently a function that returns `undefined` isn‘t a proper function in the sense of functional programming.
