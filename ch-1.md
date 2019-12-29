@@ -32,12 +32,14 @@ Let‘s distinguish two important types of expressions that seem to have no rela
 * literals
 * functions
 
-A literal (e.g. `"foo"`, `123`, `true`, `[1, 2, 3]`) is the representation of a fixed value and is immediately evaluated as such. A function (e.g. `a => a`) is also evaluated to a fixed value when all its arguments are provided. You can already see that both expressions resemble each other. As a matter of fact in functional programming functions are regarded as ordinary values with the sole exception that they are lazily evaluated. You can picture them as expressions with a hole in it that needs to be filled to yield a final value.
+A literal (e.g. `"foo"`, `123`, `true`, `[1, 2, 3]`) is usually the representation of a fixed value<sup>1</sup> and is immediately evaluated as such. A function (e.g. `a => a`) is also evaluated to a fixed value when all its arguments are provided. You can already see that both expressions resemble each other. As a matter of fact in functional programming functions are regarded as ordinary values with the sole exception that they are lazily evaluated. You can picture them as expressions with a hole in it that needs to be filled to yield a final value.
 
 There are two additional function constrains in order that they behave like ordinary values. First they always have to return a value no matter what arguments are passed. Second they have to be pure. We will examine the latter in a subsequent lesson.
 
 * functions are just lazy evaluated expressions and hence are ordinary values
 * functions always have to return a value
+
+<sup>1</sup>`a => a` happens to be a literal of the function type, however, the exception proves the rule
 
 ### Undefined is not a proper value
 
