@@ -39,7 +39,7 @@ There are two additional function constrains in order that they behave like ordi
 * functions are just lazy evaluated expressions and hence are first class values
 * functions always have to return a value
 
-<sup>1</sup>`a => a` happens to be a literal of the function type, however, the exception proves the rule
+<sup>1</sup>`a => a` happens to be a literal of the function type, however, the exception proves the rule.
 
 ### Undefined is not a proper value
 
