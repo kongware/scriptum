@@ -4,7 +4,7 @@ This first chapter introduces important functional programming jargon and illust
 
 ### First class values
 
-Values are the simplest possible expression. In Javascript we can represent values of many data types in literal form:
+Values are the simplest expressions. In Javascript we can represent values of many data types in literal form:
 
 ```Javascript
 “foo”
