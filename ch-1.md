@@ -47,7 +47,7 @@ const foo = a => a.toUpperCase();
 foo(“bar”);
 ```
 
-We can call foo once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
+We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
 
 When functions are just first class expressions with holes in them what differentiates them from literals or other simpler expressions? Nothing actually, if you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
