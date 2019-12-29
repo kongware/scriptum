@@ -36,7 +36,7 @@ Since an expression can be reduced to a single value during evaluation, it is al
 (a => a) (“foo” + “bar”)
 ```
 
-Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place as is. Is there a way to make them less ad-hoc? Let us generalize further!
+Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
 
 ### First class functions
 
