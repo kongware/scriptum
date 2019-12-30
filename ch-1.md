@@ -45,8 +45,8 @@ Imagine named expressions with holes in them and a mechanism to fill these holes
 Since functions are just expressions with holes they are also first class:
 
 ```Javascript
-const foo = a => a.toUpperCase();
-foo(“bar”);
+const app = f => x => f(x);
+app(x => y => x + y) (2) (3);
 ```
 
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
