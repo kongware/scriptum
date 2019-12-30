@@ -40,16 +40,14 @@ Expressions are a great improvement compared to mere values. But we can use them
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their result value would depend on the provided values. I am speaking about functions, of course.
-
-Since functions are just expressions with holes they are also first class:
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their result value would depend on the provided values. This is of course about functions and since functions are just expressions with holes they are also first class:
 
 ```Javascript
 const app = f => x => f(x);
 app(x => y => x + y) (2) (3);
 ```
 
-We can call `app` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
+We can call `app` and any other function once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
 
 When functions are just first class expressions with holes in them what differentiates them from literals or other more specific expressions? Nothing actually, provided you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
