@@ -2,7 +2,7 @@
 
 ## What
 
-scriptum is a no-frills functional language based on Javascript, which doesn‘t require additional deployment steps.
+scriptum is a no-frills functional language based on Javascript accompanied by an online course to learn the functional paradigm.
 
 ## Why
 
