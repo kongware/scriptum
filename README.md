@@ -6,7 +6,7 @@ scriptum is a no-frills functional language based on Javascript accompanied by a
 
 ## Why
 
-scriptum is designed in a way to facilitate learning functional programming. It is shipped with a comprehensive online course, which is for the time being only available in writing. Accompanying Video lectures are already planned though.
+scriptum is designed in a way to facilitate learning functional programming. It is shipped with a comprehensive online course, which is for the time being only available through a series of written posts. Accompanying video lectures are already planned though.
 
 ## Status
 
