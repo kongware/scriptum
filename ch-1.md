@@ -44,7 +44,7 @@ foo("bar") // expression
 
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
 
-Additionally we can compose functions if the types matches:
+Additionally we can compose functions if the types matches, that is we can make complex expressions out of simpler ones:
 
 ```Javascript
 add(length("foo")) (length("bar"))
