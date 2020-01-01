@@ -54,3 +54,4 @@ Beyond that scriptum supplies both various techniques to avoid mutations and a p
 The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types or missing tail call optimization stops us from pursuing the purely functional approach.
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
+2. Upcoming: Managing State
