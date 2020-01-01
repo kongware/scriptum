@@ -1,6 +1,6 @@
 ## 1. Values, Expressions and Functions
 
-This first chapter introduces important functional programming jargon and illustrates some fundamental notions of the functional paradigm.
+This first chapter introduces important functional programming jargon and illustrates some fundamental notions of the paradigm.
 
 ### First class values
 
@@ -40,7 +40,7 @@ Expressions are a great improvement compared to mere values. But we can use them
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their result value would depend on the provided values. This is of course about functions and since functions are just expressions with holes they are also first class.
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results depend on the provided values. I am obiously talking about functions. Since functions are just expressions with holes in them they are also first class.
 
 ```Javascript
 const foo = hole => `expression with a ${hole} in it`;
@@ -70,7 +70,7 @@ app(add) (2) (3) // 5
 app(sub) (2) (3) // -1
 ```
 
-What we are doing here is a kind of dependency injection and such functions are called higher order functions, because they expect at least one function argument. Consequently functions without a function argument are called first order functions.
+What we are doing here is a kind of dependency injection. Such functions are called higher order functions, because they expect at least one function argument. Consequently functions without a function argument are called first order functions.
 
 Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later chapter.
 
@@ -86,12 +86,12 @@ const y = 2 + 3;
 const z = x * y;
 ```
 
-I use the term name binding instead of variable, because there is no such thing as variables in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
+I use the term name binding instead of variable, because there is no such thing as a variable in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
 ### Undefined is not a proper value
 
-scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on `undefined` nor create it. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
+scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on nor create `undefined`. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
 
 Consequently a function that returns `undefined` isn‘t a proper function in the sense of functional programming.
