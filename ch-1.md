@@ -13,6 +13,7 @@ true
 [1, 2, 3]
 {foo: “bar”}
 a => a
+/^[A-Z]$/
 ```
 
 You can pass values to and return them from functions. This trait is referred to as first class. Values are first class entities.
@@ -38,6 +39,7 @@ Imagine named expressions with holes in them and a mechanism to fill these holes
 
 ```Javascript
 const foo = hole => `expression with a ${hole} in it`;
+foo("bar") // expression
 ```
 
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
