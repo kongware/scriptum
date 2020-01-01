@@ -30,13 +30,7 @@ true && false
 (a => a) (“foo”)
 ```
 
-Since an expression can be reduced to a single value during evaluation, it is also a first class entity and it is composable. The latter means you can combine simple expressions to construct more complex ones.
-
-```Javascript
-(a => a) (“foo” + “bar”)
-```
-
-Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
+Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
 
 ### First class functions
 
@@ -47,6 +41,12 @@ const foo = hole => `expression with a ${hole} in it`;
 ```
 
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
+
+Additionally we can compose functions if the types matches:
+
+```Javascript
+add(length("foo")) (length("bar"))
+```
 
 When functions are just first class expressions with holes in them what differentiates them from literals or other more specific expressions? Nothing actually, provided you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
