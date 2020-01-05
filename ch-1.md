@@ -98,4 +98,4 @@ scriptum and its underlying language Javascript are dynamically typed languages.
 
 Consequently a function that returns `undefined` isn‘t a proper function in the sense of functional programming.
 
-[forward to chapter 2 &#x2BC8;](https://github.com/kongware/scriptum/edit/master/ch-2.md)
+[chapter 2 &#x2BC8;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
