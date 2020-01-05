@@ -194,4 +194,4 @@ This is again an advanced functional idiom but the underlying idea is simple: In
 
 If we would formalize further and add a couple of combinators we wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
 
-[&lt;&lt; back to chapter 1](https://github.com/kongware/scriptum/edit/master/ch-1.md)
+[&#x2BC7; back to chapter 1](https://github.com/kongware/scriptum/edit/master/ch-1.md)
