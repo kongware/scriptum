@@ -97,3 +97,5 @@ Later in this course you will see that statements obstruct the functional contro
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on nor create `undefined`. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
 
 Consequently a function that returns `undefined` isn‘t a proper function in the sense of functional programming.
+
+[forward to chapter 2 &#x2BC8;](https://github.com/kongware/scriptum/edit/master/ch-2.md)
