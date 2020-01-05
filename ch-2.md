@@ -91,7 +91,7 @@ Otherwise we have to fall back to a recursive solution:
 const scanSqr = n => x => xs => // A
   n === 0
     ? xs
-    : scanSqr(n – 1) (sqr(x)) (xs.concat(sqr(x))); // C
+    : scanSqr(n - 1) (sqr(x)) (xs.concat(sqr(x))); // C
 
 const sqr = x => x * x;
 
