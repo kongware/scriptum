@@ -14,6 +14,14 @@ still experimental
 
 However, I have been using scriptum in production for several months now. It is not bullet proofed yet but has reached a quite stable state.
 
+## Functional programming course (TOC)
+
+The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types or missing tail call optimization stops us from pursuing the purely functional approach.
+
+1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
+2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+3. Upcoming: Function Composition and Currying
+
 ## Controversial issues
 
 ### No static typing
@@ -48,11 +56,3 @@ scriptum pursues a strict evaluation strategy as does Javascript. There are two 
 scriptum assumes immutable data. However, Javascript offers a mutable environment meant for imperative algorithms. Hence we relax the just given rule by allowing local mutations inside function bodies.
 
 Beyond that scriptum supplies both various techniques to avoid mutations and a persistent data structure based on hashed array mapped tries. So we have a rich toolset at hand to handle immutability quite well.
-
-## Functional programming course (TOC)
-
-The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types or missing tail call optimization stops us from pursuing the purely functional approach.
-
-1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
-2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. Upcoming: Function Composition and Currying
