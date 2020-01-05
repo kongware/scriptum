@@ -22,7 +22,7 @@ o.foo = false; // state
 
 ### Referential transparency also known as purity
 
-An expression is called referentially transparent (or pure) if it can be replaced with its associated result value without changing the program's behavior. Hence a function is referentially transparent (or pure) if you can replace all its invocations with the corresponding result values without changing the program's behavior.
+An expression is called referentially transparent (or pure) if it can be replaced with its final value without changing the program's behavior. Hence a function is referentially transparent (or pure) if you can replace all its invocations with the corresponding result values without changing the program's behavior.
 
 Please take the following two important rules into account:
 
