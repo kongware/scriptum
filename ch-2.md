@@ -38,6 +38,7 @@ Reassignments are banned in functional programming since they would violate refe
 ```Javascript
 let = y = 2;
 const sub2 = x => x – y
+
 sub2(2); // 0
 y = 3;
 sub2(2); // -1
@@ -106,10 +107,6 @@ The above example is both contrived, hard to read and inefficient. However, it i
 * the same expression is evaluated twice for each recursion (C)
 
 Functional languages often ship with recursive let bindings, i.e. syntactic sugar for creating anonymous, recursive functions that implicitly invoke themselves<sup>1</sup>. Javascript does not supply such bindings<sup>2</sup>, but we can use default parameters in a creative way to accomplish a similar effect:
-
-We can use let bindings, which are very common in the functional world. These bindings are merely syntactic sugar1 for immediately invoked function expressions (IIFE), i.e. lambdas that are immediately invoked. Unfortunately Javascript does not supply them, even though `let` declarations seem to prove otherwise.
-
-For this reason scriptum offers a `_let` combinator that utilized Javascript’s default parameters in a creative way.
 
 ```Javascript
 const _let = f => f();
