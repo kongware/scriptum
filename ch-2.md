@@ -83,7 +83,7 @@ const sqr = x => x * x;
 
 scanSqr3(2) ([]); // [4, 16, 256]
 ```
-[run example](https://repl.it/repls/BouncySpottedCallback)
+[&#x2BC8; run](https://repl.it/repls/BouncySpottedCallback)
 
 Otherwise we have to fall back to a recursive solution:
 
@@ -97,7 +97,7 @@ const sqr = x => x * x;
 
 scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
-[run example](https://repl.it/repls/HatefulUrbanOpengroup)
+[&#x2BC8; run](https://repl.it/repls/HatefulUrbanOpengroup)
 
 ### Let bindings
 
@@ -122,7 +122,7 @@ const scanSqr = n => x => xs => // (D)
 scanSqr3(2); // [4, 16, 256]
 scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
-[run example](https://repl.it/repls/LovingRegalParameter)
+[&#x2BC8; run](https://repl.it/repls/LovingRegalParameter)
 
 This looks good except for (C). It requires a fixed point combinator in order to abstract from the last parameter. However, we are still working with Javascript. Let us fall back to explicit assignments and function declarations with explicit return statement:
 
@@ -160,7 +160,7 @@ const main = compCont(sqrCont) (incCont) (2);
 
 main(log); // log(sqrCont(incCont(2))) A
 ```
-[run example](https://repl.it/repls/UtterDarkBytecode)
+[&#x2BC8; run](https://repl.it/repls/UtterDarkBytecode)
 
 This is advanced functional programming so I drop all the confusing details. The decisive part is that line (A) evaluates to a nested function call tree that when further evaluated creates its own function call stack where the asynchronous state is held.
 
@@ -188,7 +188,7 @@ const main = compState(addState) (modState(sqr)) (mulState) (2);
 
 main(3); // [15, 9] A
 ```
-[run example](https://repl.it/repls/BruisedAgonizingMatrix)
+[&#x2BC8; run](https://repl.it/repls/BruisedAgonizingMatrix)
 
 This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
 
