@@ -49,7 +49,7 @@ The same expression within the same scope must yield the same value no matter wh
 ### References and mutations
 
 The term referential transparency already dictates that the functional paradigm does not have 
-a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values have an identity:
+a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values form an identity:
 
 ```Javascript
 const o = {foo: true},
@@ -58,17 +58,17 @@ const o = {foo: true},
 o !== p; // true
 ```
 
-This expression compares references. In a referential transparent environment `o` and `p` are indistinguishable, because there values are exactly the same. While comparing two references in Javascript is possible it is an impure operation, which should be conducted with additional safety measures only. I will introduce a purely functional way to work with reference types in a later chapter.
+This expression compares references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation, which should be only conducted with additional safety measures. I will introduce a purely functional way to work with reference types in a later chapter.
 
-Without references there is no identity and thus no reasonable way to mutate values. The only alternative is to simply create new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
+Without references there is no identity and thus no reasonable way to mutate values. The only alternative is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
 
-Creating new values is an expensive operation if we have to deal with complex ones. Fortunately there are purely functional data types based on persistent data structures, which rely on structural sharing. They render the copy process quite efficient no matter how complex the data structures are. Purely functional data structures are covered in a later chapter of this course.
+Creating new values is an expensive operation if we have to deal with complex ones. Fortunately there are purely functional data types based on persistent data structures in the functional world, which are based on structural sharing. They render the copy process quite efficient no matter how complex the data structures are. Purely functional data structures are covered in a later chapter of this course.
 
 ### The function call stack
 
-If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. We are not allowed to rebind new values  to existing names in the same scope (or put imperatively: reassign a variable to a new value). But we work with functions after all. So let us utilize the function scope.
+If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope (or put imperatively: reassign a variable to a new value). But we work with functions after all. So let us utilize the function scope.
 
-Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can still think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
+Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can still think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
 
 If we know the number of reassignments upfront, we can manually nest function calls:
 
@@ -100,11 +100,11 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 
 ### Let bindings
 
-The above example is both contrived, hard to read and inefficient. However, it illustrates the fundamental concept of state is managed in functional programming. Here is a list of things we would like to improve:
+The above example is both contrived, hard to read and inefficient. However, it illustrates the fundamental concept of how state is managed in functional programming. Anyway, here is a list of things we would like to improve:
 
-* we leak API by defining the empty array as a formal parameters (A)
+* we leak API by defining the empty array as a formal parameter (A)
 * we have to create anonymous functions for each name binding (B)
-* the same expression is evaluated twice for each recursion (C)
+* the same expression is evaluated twice for each recursive step (C)
 
 Functional languages often ship with recursive let bindings, i.e. syntactic sugar for creating anonymous, recursive functions that implicitly invoke themselves<sup>1</sup>. Javascript does not supply such bindings<sup>2</sup>, but we can use default parameters in a creative way to accomplish a similar effect:
 
@@ -139,12 +139,14 @@ const scanSqr = n => x => {
 
 Just in case you are interested in fixed point combinators, they will be examined in a later chapter of this course.
 
+Please note that my `_let` combinator is not a recursive implementation of let bindings. If it were recrusive the default parameters defined on the left could depend on those further defined on the right.
+
 <sup>1</sup>This is only true for untyped languages.<br/>
 <sup>2</sup>native `let` declarations are a completely different thing.
 
 ### When the call stack vanishes
 
-Asynchronous functions lose the synchronous call stack, because when they are invoked the synchronous computations are already finished. While this is true we can easily build our own asynchronous call stack:
+Asynchronous functions lose the synchronous call stack, because when they are invoked the synchronous computation is already completed. While this is true we can easily build our own asynchronous call stack:
 
 ```Javascript
 const compCont = f => g => x => k =>
@@ -186,6 +188,6 @@ const main = compState(addState) (modState(sqr)) (mulState) (2);
 main(3); // [15, 9] A
 ```
 
-This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that return an value, namely the state. In the given example we pass the value `3` as the initial state to our main computation (A). This state is first multiplied with `2` and then multiplied by itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15`. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
+This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
 
 If we would formalize further and add a couple of combinators we wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
