@@ -13,7 +13,7 @@ let x = 1; // data
 x = x + 1; // state
 ```
 
-or by mutating a reference:
+or by mutating a reference value:
 
 ```Javascript
 const o = {foo: true}; // data
