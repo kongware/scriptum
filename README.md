@@ -20,7 +20,8 @@ The FP course addresses both purely functional programming idioms and scriptum s
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. Upcoming: Composition, Currying and Point-free Style <br/>
+
+?. Upcoming: Composition, Currying and Point-free Style <br/>
 ?. Upcoming: Recursion, Optimizations and Trampolining <br/>
 ?. Upcoming: Abstract from Recursion <br/>
 ?. Upcoming: Avoid Nesting through Variadic Interfaces <br/>
