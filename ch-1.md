@@ -61,7 +61,7 @@ The latter constraint is referred to as purity and will be examined in a subsequ
 
 ### Higher order functions
 
-We are not done generalizing. When functions are just first class values let us pass a function to another one and see what is happening.
+We are not done generalizing. When functions are just first class values let us pass a function to another one and see what is happening:
 
 ```Javascript
 const app = f => x => f(x);
@@ -80,7 +80,7 @@ You can most likely imagine how powerful higher order functions are because they
 
 ### Are statements harmful?
 
-No, but they are like dead ends in your code, because they are decoupled from one another. Since they do not evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values.
+No, but they are like dead ends in your code, because they are decoupled from one another. Since they do not evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values:
 
 ```Javascript
 const x = 1 + 2;
