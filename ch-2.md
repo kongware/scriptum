@@ -193,3 +193,5 @@ main(3); // [15, 9] A
 This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
 
 If we would formalize further and add a couple of combinators we wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
+
+[back to chapter 1](https://github.com/kongware/scriptum/edit/master/ch-1.md)
