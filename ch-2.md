@@ -139,7 +139,7 @@ const scanSqr = n => x => {
 
 Just in case you are interested in fixed point combinators, they will be examined in a later chapter of this course.
 
-<sup>1</sup>This is only true for untyped languages.
+<sup>1</sup>This is only true for untyped languages.<br/>
 <sup>2</sup>native `let` declarations are a completely different thing.
 
 ### When the call stack vanishes
