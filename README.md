@@ -20,37 +20,37 @@ The FP course addresses both purely functional programming idioms and scriptum s
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. Upcoming: Composition, Currying and Point-free Style
-?. Upcoming: Recursion, Optimizations and Trampolining
-?. Upcoming: Abstract from Recursion
-?. Upcoming: Avoid Nesting through Variadic Interfaces
-?. Upcoming: Local Continuation Passing Style
-?. Upcoming: Lazy Evaluation in a Strict Environment
-?. Upcoming: The Runtime - Edge of the Application
-?. Upcoming: How Haskell Differs
-?. Upcoming: Functional Debugging
-?. Upcoming: Functional Error Handling
-?. Upcoming: Functional Naming Convention
-?. Upcoming: Explicit Ad-hoc Polymorphism
-?. Upcoming: Loop Fusion through Transducers
-?. Upcoming: Almost Pattern Matching
-?. Upcoming: Adapted Hindley-Milner Type Annotations
-?. Upcoming: Tagged Unions of Records
-?. Upcoming: Effects Encoded as Values
-?. Upcoming: Composing Effects
-?. Upcoming: CPS Transformations
-?. Upcoming: Delimited Continuations
-?. Upcoming: Immutabilty through Persistent Data Structures
-?. Upcoming: Data and Event Streams
-?. Upcoming: Functor Typeclass
-?. Upcoming: Applicative Functor Typeclass
-?. Upcoming: Monad Typeclass
-?. Upcoming: Monad Transformers
-?. Upcoming: A Bunch of other Typeclasses
-?. Upcoming: A Bunch of Functional Types
-?. Upcoming: Functional Optics
-?. Upcoming: Recursion Schemes
-?. Upcoming: Free and Freer Monads
+3. Upcoming: Composition, Currying and Point-free Style <br/>
+?. Upcoming: Recursion, Optimizations and Trampolining <br/>
+?. Upcoming: Abstract from Recursion <br/>
+?. Upcoming: Avoid Nesting through Variadic Interfaces <br/>
+?. Upcoming: Local Continuation Passing Style <br/>
+?. Upcoming: Lazy Evaluation in a Strict Environment <br/>
+?. Upcoming: The Runtime - Edge of the Application <br/>
+?. Upcoming: How Haskell Differs <br/>
+?. Upcoming: Functional Debugging <br/>
+?. Upcoming: Functional Error Handling <br/>
+?. Upcoming: Functional Naming Convention <br/>
+?. Upcoming: Explicit Ad-hoc Polymorphism <br/>
+?. Upcoming: Loop Fusion through Transducers <br/>
+?. Upcoming: Almost Pattern Matching <br/>
+?. Upcoming: Adapted Hindley-Milner Type Annotations <br/>
+?. Upcoming: Tagged Unions of Records <br/>
+?. Upcoming: Effects Encoded as Values <br/>
+?. Upcoming: Composing Effects <br/>
+?. Upcoming: CPS Transformations <br/>
+?. Upcoming: Delimited Continuations <br/>
+?. Upcoming: Immutabilty through Persistent Data Structures <br/>
+?. Upcoming: Data and Event Streams <br/>
+?. Upcoming: Functor Typeclass <br/>
+?. Upcoming: Applicative Functor Typeclass <br/>
+?. Upcoming: Monad Typeclass <br/>
+?. Upcoming: Monad Transformers <br/>
+?. Upcoming: A Bunch of other Typeclasses <br/>
+?. Upcoming: A Bunch of Functional Types <br/>
+?. Upcoming: Functional Optics <br/>
+?. Upcoming: Recursion Schemes <br/>
+?. Upcoming: Free and Freer Monads <br/>
 ?. Upcoming: When FP does not save us
 
 ## Controversial issues
