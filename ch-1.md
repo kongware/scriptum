@@ -96,6 +96,18 @@ Later in this course you will see that statements obstruct the functional contro
 
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on nor create `undefined`. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
 
-Consequently a function that returns `undefined` isn‘t a proper function in the sense of functional programming.
+Consequently a function that returns `undefined` is not a proper function in the sense of functional programming. It is a partial function.
 
-[chapter 2 &#x2BC8;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+### Partial and total functions
+
+The functional paradigm considers functions as mappings from domain (arguments) to codomain (result values). If every argument (or set of arguments) yields a result value we are talking about total functions. Otherwise it is a partial one:
+
+```Javascript
+const head = xs => xs[0];
+head([1, 2, 3]); // 1
+head([]); // undefined
+```
+
+`head` is a partial function because it returns undefined, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. You can render any partial function into a total one by using the `Option` type, which will be introduced in a subsequent chapter.
+
+[chapter 2 &#x2192;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
