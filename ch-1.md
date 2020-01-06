@@ -110,4 +110,4 @@ head([]); // undefined
 
 `head` is a partial function because it returns undefined in certain cases, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. You can render any partial function into a total one by using the `Option` type, which will be introduced in a subsequent chapter.
 
-[chapter &lt;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+[next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
