@@ -6,7 +6,7 @@
 
 ### Variadic functions
 
-### The curry/Uncurry isomorphism
+### The curry/uncurry isomorphism
 
 ### Function compostion
 
