@@ -36,8 +36,9 @@ The FP course addresses both purely functional programming idioms and scriptum s
 ?. Upcoming: Loop Fusion through Transducers <br/>
 ?. Upcoming: Almost Pattern Matching <br/>
 ?. Upcoming: Adapted Hindley-Milner Type Annotations <br/>
-?. Upcoming: Type Wrappers for Improved Semantics<br/>
+?. Upcoming: Algebraic Data Types <br/>
 ?. Upcoming: Tagged Unions of Records <br/>
+?. Upcoming: Type Wrappers for Improved Semantics<br/>
 ?. Upcoming: Effects Encoded as Values <br/>
 ?. Upcoming: Composing Effects <br/>
 ?. Upcoming: CPS Transformations <br/>
