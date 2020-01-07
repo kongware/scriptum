@@ -121,7 +121,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-We managed to greatly improve the code. However, we could not eliminate the last parameter (C) with the recursive solution. It turns out that let bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to do that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
+We managed to greatly improve the code. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that let bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
 ```Javascript
 const scanSqr = n => x => {
