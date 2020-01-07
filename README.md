@@ -55,6 +55,7 @@ The FP course addresses both purely functional programming idioms and scriptum s
 * Planned: A Bunch of other Typeclasses <br/>
 * Planned: A Bunch of Functional Types <br/>
 * Planned: Functional Optics <br/>
+* Planned: Fixed Point Combinators <br/>
 * Planned: Recursion Schemes <br/>
 * Planned: Free and Freer Monads <br/>
 * Planned: When FP does not save us
