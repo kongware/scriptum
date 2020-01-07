@@ -47,7 +47,7 @@ The FP course addresses both purely functional programming idioms and scriptum s
 * Planned: Delimited Continuations <br/>
 * Planned: Reducing the Need for Mutabuility <br/>
 * Planned: Immutabilty through Persistent Data Structures <br/>
-* Planned: Data and Event Streams <br/>
+* Planned: Push and Pull Streams <br/>
 * Planned: Functor Typeclass <br/>
 * Planned: Applicative Functor Typeclass <br/>
 * Planned: Monad Typeclass <br/>
