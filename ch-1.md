@@ -4,7 +4,7 @@ This first chapter introduces important functional programming jargon and illust
 
 ### First class values
 
-Values are the simplest expressions. In Javascript we can represent values of many data types in literal form:
+Values are the result of expressions that cannot be evaluated any further. In Javascript we can represent values of many data types in literal form:
 
 ```Javascript
 “foo”
@@ -31,31 +31,31 @@ true && false
 (a => a) (“foo”)
 ```
 
-Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can use them only ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
+Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can only use them ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results depend on the provided values. I am obiously talking about functions. Since functions are just expressions with holes in them they are also first class.
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results vary by means of the provided values. I am obiously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
 
 ```Javascript
 const foo = hole => `expression with a ${hole} in it`;
 foo("bar") // expression
 ```
 
-We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This resembles the call-by-need evaluation strategy of functional programming languages like Haskell. Functions are inherently lazy evaluated.
+We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every expression. Functions are inherently lazy.
 
-Additionally we can compose functions if the types matches, that is we can make complex expressions out of simpler ones:
+Additionally we can compose functions if the types matches, that is we can create complex functions out of simpler ones and hence complex expressions out ouf simpler ones.
 
 ```Javascript
 add(length("foo")) (length("bar"))
 ```
 
-When functions are just first class expressions with holes in them what differentiates them from literals or other more specific expressions? Nothing actually, provided you are willing to neglect the temporal aspect, namely that they are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
+When functions are just first class expressions with holes in them what differentiates them from literals or other less general expressions? Nothing actually, provided you are willing to neglect the temporal aspect, namely that functions are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
-Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions act like normal values:
+Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions act like classical values:
 
 * they must return a result value no matter what arguments are provided
-* they must not perform another visible effect than returning a result value
+* they must not perform another visible effect than calculating and returning a result value
 
 The latter constraint is referred to as purity and will be examined in a subsequent chapter of this functional programming course.
 
@@ -94,9 +94,9 @@ Later in this course you will see that statements obstruct the functional contro
 
 ### Undefined is not a proper value
 
-scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should neither rely on nor create `undefined`. You shouldn‘t even consider it a proper value. It represents an error, a non-recoverable exception.
+scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You shouldn‘t even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
 
-Consequently a function that returns `undefined` is not a proper function in the sense of functional programming. It is a partial function.
+A function that returns `undefined` is less predictable and reliable as a normal function, because it is only a partial one. More on this in the next paragraph.
 
 ### Partial and total functions
 
