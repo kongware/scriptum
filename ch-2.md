@@ -1,8 +1,6 @@
 ## Managing State
 
-How does FP manage state? This is probably the second most frequently asked question<sup>1</sup> about functional programming. Before answering let us take a little detour at first, so that we are all on the same page.
-
-<sup>1</sup>exceeded by the question “What is a Monad?”
+How does FP manage state? This is probably the second most frequently asked question about functional programming exceeded only by "What is a Monad?". Let us take a little detour first, so that we are all on the same page before I answer that question.
 
 ### Defining state
 
@@ -22,16 +20,16 @@ o.foo = false; // state
 
 ### Referential transparency also known as purity
 
-An expression is called referentially transparent (or pure) if it can be replaced with its final value without changing the program's behavior. Hence a function is referentially transparent (or pure) if you can replace all its invocations with the corresponding result values without changing the program's behavior.
+An expression is called referentially transparent (or pure) if it can be substitute with its final value without changing the program's behavior. Hence a function is referentially transparent (or pure) if you can substitute all its invocations with the corresponding result values without changing the program's behavior.
 
 Please take the following two important rules into account:
 
-* if a function declaration includes impure expressions but the effect(s) are not visible outside the function scope, calling it is still a pure expression
+* if a function declaration includes impure expressions but the effect(s) are not visible outside the function scope, calling it can be still considered a pure expression
 * if an otherwise pure function depends on an impure one, it is also impure
 
 ### Variables and reassignments
 
-Although the term variable is used in functional programming and in math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name. 
+Although the term variable is used in functional programming and math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name. 
 
 Reassignments are banned in functional programming since they would violate referential transparency:
 
@@ -49,7 +47,7 @@ The same expression within the same scope must yield the same value no matter wh
 ### References and mutations
 
 The term referential transparency already dictates that the functional paradigm does not have 
-a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values form an identity:
+a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values constitute an identity:
 
 ```Javascript
 const o = {foo: true},
@@ -58,11 +56,11 @@ const o = {foo: true},
 o !== p; // true
 ```
 
-This expression compares references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation, which should be only conducted with additional safety measures. I will introduce a purely functional way to work with reference types in a later chapter.
+The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation, which should be only used with additional safety measures. I will introduce a purely functional way to work with reference types in a later chapter.
 
-Without references there is no identity and thus no reasonable way to mutate values. The only alternative is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
+Without references there is no identity and thus no reasonable way to mutate values anymore. The only alternative left is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
 
-Creating new values is an expensive operation if we have to deal with complex ones. Fortunately there are purely functional data types based on persistent data structures in the functional world, which are based on structural sharing. They render the copy process quite efficient no matter how complex the data structures are. Purely functional data structures are covered in a later chapter of this course.
+Creating new values is an expensive operation if we have to deal with complex ones. Fortunately the functional world have developed persistent data structures, which utilize structural sharing. This way only the parts of a value are copied that actually have changed whereas the common part is reused. Purely functional data structures are covered in a later chapter of this course.
 
 ### The function call stack
 
