@@ -99,15 +99,17 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 
 ### Let bindings
 
-The above example is both contrived, hard to read and inefficient. However, it illustrates the fundamental concept of how state is managed in functional programming. Anyway, here is a list of things we would like to improve:
+While the above examples illustrate the fundamental concept of how state is managed in functional programming, they both have drawbacks we would like to avoid:
 
 * we leak API by defining the empty array as a formal parameter (A)
-* we have to create anonymous functions for each name binding (B)
+* we have to create nested anonymous functions for each name binding (B)
 * the same expression is evaluated twice for each recursive step (C)
 
-Functional languages often ship with recursive let bindings, i.e. syntactic sugar for creating anonymous, recursive functions that implicitly invoke themselves<sup>1</sup>. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
+As I already mentioned we can declare name bindings in functional programming. This happens by means of let bindings, which are essentially immediately invoked function expressions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
 
 ```Javascript
+const _let = f => f();
+
 const scanSqr3 = w =>
   _let((x = sqr(w), y = sqr(x), z = sqr(y)) =>
     [x, y, z]);
@@ -122,7 +124,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-This looks good except for (C). It requires a fixed point combinator in order to abstract from the last parameter. However, we are still working with Javascript. There is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
+We managed to greatly improve the code. However, we could not eliminate the last parameter (C) with the recursive solution. It turns out that let bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to do that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
 ```Javascript
 const scanSqr = n => x => {
@@ -135,11 +137,7 @@ const scanSqr = n => x => {
 };
 ```
 
-Just in case you are interested in fixed point combinators, they will be examined in a later chapter of this course.
-
-Please note that my `_let` combinator is not a recursive implementation of let bindings. If it were recrusive a default parameters could depend on subsequent ones defined further to the right.
-
-<sup>1</sup>This is only true for untyped languages.<br/>
+Just in case you are interested in fixed point combinators they will be examined in a later chapter of this course.
 
 ### When the call stack vanishes
 
