@@ -64,9 +64,9 @@ Creating new values is an expensive operation if we have to deal with complex on
 
 ### The function call stack
 
-If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope (or put imperatively: reassign a variable to a new value). But we work with functions after all. So let us utilize the function scope.
+If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope (or put imperatively: reassign a variable to a new value). Well, we work with functions after all. Let us utilize the their scopes.
 
-Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can still think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
+Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
 
 If we know the number of reassignments upfront, we can manually nest function calls:
 
@@ -105,7 +105,7 @@ The above example is both contrived, hard to read and inefficient. However, it i
 * we have to create anonymous functions for each name binding (B)
 * the same expression is evaluated twice for each recursive step (C)
 
-Functional languages often ship with recursive let bindings, i.e. syntactic sugar for creating anonymous, recursive functions that implicitly invoke themselves<sup>1</sup>. Javascript does not supply such bindings<sup>2</sup>, but we can use default parameters in a creative way to accomplish a similar effect:
+Functional languages often ship with recursive let bindings, i.e. syntactic sugar for creating anonymous, recursive functions that implicitly invoke themselves<sup>1</sup>. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
 
 ```Javascript
 const scanSqr3 = w =>
@@ -122,7 +122,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-This looks good except for (C). It requires a fixed point combinator in order to abstract from the last parameter. However, we are still working with Javascript. Let us fall back to explicit assignments and function declarations with explicit return statement:
+This looks good except for (C). It requires a fixed point combinator in order to abstract from the last parameter. However, we are still working with Javascript. There is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
 ```Javascript
 const scanSqr = n => x => {
@@ -137,14 +137,13 @@ const scanSqr = n => x => {
 
 Just in case you are interested in fixed point combinators, they will be examined in a later chapter of this course.
 
-Please note that my `_let` combinator is not a recursive implementation of let bindings. If it were recrusive the default parameters defined on the left could depend on those further defined on the right.
+Please note that my `_let` combinator is not a recursive implementation of let bindings. If it were recrusive a default parameters could depend on subsequent ones defined further to the right.
 
 <sup>1</sup>This is only true for untyped languages.<br/>
-<sup>2</sup>native `let` declarations are a completely different thing.
 
 ### When the call stack vanishes
 
-Asynchronous functions lose the synchronous call stack, because when they are invoked the synchronous computation is already completed. While this is true we can easily build our own asynchronous call stack:
+Asynchronous functions lose the synchronous call stack, because at the time they are invoked the synchronous computation is already completed. While this is true we can easily define a function type that creates its very own call stack:
 
 ```Javascript
 const compCont = f => g => x => k =>
@@ -160,9 +159,9 @@ main(log); // log(sqrCont(incCont(2))) A
 ```
 [run code](https://repl.it/repls/UtterDarkBytecode)
 
-This is advanced functional programming so I drop all the confusing details. The decisive part is that line (A) evaluates to a nested function call tree that when further evaluated creates its own function call stack where the asynchronous state is held.
+This is advanced functional programming so I drop all the confusing details. The decisive part is that line (A) evaluates to a nested function call tree that inherently constitutes its own function call stack as soon as it is evaluated. This is where the asynchronous state is held.
 
-If we would formalize further and add a couple of combinators we wind up with the continuation type (`Cont`) and the associated `Cont` monad. I will deal with this in another chapter of this course.
+If we formalize further and add a couple of combinators we will wind up with the continuation type (`Cont`) and the associated `Cont` monad. I will deal with this in another chapter of this course.
 
 ### Mimicking imperative state
 
@@ -190,6 +189,6 @@ main(3); // [15, 9] A
 
 This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
 
-If we would formalize further and add a couple of combinators we wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
+If we formalize further and add a couple of combinators we will wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md)
