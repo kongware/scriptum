@@ -92,7 +92,7 @@ I use the term name binding instead of variable, because there is no such thing 
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
-### Operators are functions plus associativity + precedence
+### Operators are functions + associativity + precedence
 
 Operators differ from functions that they are in infix not prefix position like functions:
 
