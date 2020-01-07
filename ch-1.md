@@ -104,8 +104,8 @@ add(1) (2); // prefix position
 Infix position avoids nesting
 
 ```Javascript
-1 + 2 + 3; // infix position
-add(add(1) (2)) (3); // prefix position
+1 + 2 + 3; // flat
+add(add(1) (2)) (3); // nested
 ```
 
 but it comes at a price: Associativity and precedence must be defined for each operator somewhere, so that the correct evaluation order can be determined.
