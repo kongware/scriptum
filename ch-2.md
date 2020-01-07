@@ -77,7 +77,6 @@ const scanSqr3 = w => xs => // A
       app(z => [x, y, z]) (sqr(y))) (sqr(x))) (sqr(w)); // B
 
 const app = f => x => f(x); // auxiliary function
-const sqr = x => x * x;
 
 scanSqr3(2) ([]); // [4, 16, 256]
 ```
@@ -90,8 +89,6 @@ const scanSqr = n => x => xs => // A
   n === 0
     ? xs
     : scanSqr(n - 1) (sqr(x)) (xs.concat(sqr(x))); // C
-
-const sqr = x => x * x;
 
 scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
