@@ -92,6 +92,26 @@ I use the term name binding instead of variable, because there is no such thing 
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
+### Operators are functions plus associativity + precedence
+
+Operators differ from functions that they are in infix not prefix position like functions:
+
+```Javascript
+1 + 2; // infix position
+add(1) (2); // prefix position
+```
+
+Infix position avoids nesting
+
+```Javascript
+1 + 2 + 3; // infix position
+add(add(1) (2)) (3); // prefix position
+```
+
+but it comes at a price: Associativity and precedence must be defined for each operator somewhere, so that the correct evaluation order can be determined.
+
+In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Variadic functions are a way to bypass the nesting issue. I will introduce them in a later chapter.
+
 ### Undefined is not a proper value
 
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You shouldn‘t even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
