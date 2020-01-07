@@ -110,7 +110,7 @@ add(add(1) (2)) (3); // prefix position
 
 but it comes at a price: Associativity and precedence must be defined for each operator somewhere, so that the correct evaluation order can be determined.
 
-In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Variadic functions are a way to bypass the nesting issue. I will introduce them in a later chapter.
+In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Variadic functions are a way to bypass the nesting issue. I will introduce them in a later chapter of this course.
 
 ### Undefined is not a proper value
 
