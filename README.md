@@ -73,8 +73,8 @@ I want scriptum to be as simple and as general as possible without any distracti
 
 By giving up both features we lose the following two abilities:
 
-associate object types with methods
-create flat, sequential method chains
+* associate object types with methods
+* create flat, sequential method chains
 
 Luckily both can be replaced through functional techniques. I will introduce them in subsequent lessons.
 
