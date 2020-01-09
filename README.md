@@ -58,6 +58,7 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: Fixed Point Combinators <br/>
 * Planned: Recursion Schemes <br/>
 * Planned: Free and Freer Monads <br/>
+* Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
 
 ## Controversial issues
