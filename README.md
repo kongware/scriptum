@@ -10,7 +10,7 @@ scriptum is designed to come as close as possible to the purely functional parad
 
 I chose Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions and function literals we have all ingredients necessary to master the functional paradigm.
 
-However, Javascript is not a purely functional language hence we will encounter some drawbacks and techniques to bypass them. The respective sections are visually emphasized, so that you can skip them if you are mainly interested in the purely functional approach.
+However, Javascript is not a purely functional language hence we will encounter some drawbacks and techniques to bypass them. These techniques are rather useful since they allow you to apply functional programming also to multi-paradigm languages.
 
 ## Status
 
