@@ -2,7 +2,7 @@
 
 ## What
 
-scriptum is both a no-frills functional programming library and a comprehensive online course, which builds upon this library.
+scriptum is both a no-frills functional programming library and a comprehensive online course that builds upon this library.
 
 ## Why
 
