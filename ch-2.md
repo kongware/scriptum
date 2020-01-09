@@ -94,6 +94,8 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/HatefulUrbanOpengroup)
 
+The decisive point is that this approach scales. In a later chapter we will discuss how to structure large applications in a functional manner.
+
 ### Let bindings
 
 While the above examples illustrate the fundamental concept of how state is managed in functional programming, they both have drawbacks we would like to avoid:
