@@ -2,13 +2,15 @@
 
 ## What
 
-scriptum is a no-frills functional language based on Javascript accompanied by an online course to learn the functional paradigm.
+scriptum is both a no-frills functional programming library and a comprehensive online course, which builds upon this library.
 
 ## Why
 
-scriptum and the online course is designed to come as close as possible to the purely functional paradigm in order to facilitate the learning process. Goal is to be language agnostic so that you can transfer your new knowldge to your preferred language, provided this language is sufficient for functional programming. 
+scriptum is designed to come as close as possible to the purely functional paradigm in order to facilitate the learning process. Goal is to be language agnostic so that you can transfer your new knowldge to your preferred functional or multi-paradigm language. 
 
-I chose Javascript because it is both a multi paradigm language and the lingua franca of the web. The comprehensive online course consists of a series of consecutive articles based on each other. Accompanying video lectures are planned.
+I chose Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions and function literals we have all ingredients necessary to master the functional paradigm.
+
+However, Javascript is not a purely functional language hence we will encounter some drawbacks and techniques to bypass them. The respective sections are visually emphasizedd, so that you can skip them if you are mainly interested in the purely functional approach.
 
 ## Status
 
@@ -17,8 +19,6 @@ The scriptum library is still experimental.
 However, I have been using scriptum in production for several months now. It is not bullet proofed yet but has reached a quite stable state.
 
 ## Functional programming course (TOC)
-
-The FP course addresses both purely functional programming idioms and scriptum specific approaches. The latter is only used when specific properties of Javascript like its strict evaluation strategy, mutable data types or missing tail call optimization stops us from pursuing the purely functional approach.
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
