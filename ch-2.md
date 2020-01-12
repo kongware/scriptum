@@ -152,7 +152,7 @@ const log = x => console.log(`log(${x})`);
 
 const main = compCont(sqrCont) (incCont) (2);
 
-main(log); // log(sqrCont(incCont(2))) A
+main(log); // log(sqrCont(incCont(2))) (A)
 ```
 [run code](https://repl.it/repls/UtterDarkBytecode)
 
