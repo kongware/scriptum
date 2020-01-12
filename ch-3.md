@@ -46,11 +46,16 @@ Currying comes at the price of numerous additional function calls. So why it is 
 
 ```Javascript
 const comp = f => g => x => f(g(x));
-const main = comp(inc) (add(2));
+const pipe = g => f => x => f(g(x));
+const main = comp(inc) (sub(2));
+const main2 = pipe(inc) (sub(2));
 
-main(3); // 6
+main(3); // 0
+main2(3); // -2
 ```
 [run code](https://repl.it/repls/WorldlyElegantAbilities)
+
+Please note that function composition evaluates from right to left. This is a property from math. `pipe` just reverses this order.
 
 Since every function always expects a single argument there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface.
 
