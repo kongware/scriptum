@@ -22,7 +22,7 @@ However, I have been using scriptum in production for several months now. It is 
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. Upcoming: Currying, Composition and Point-free Style <br/>
+3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
 
 * Planned: Recursion, Optimizations and Trampolining <br/>
 * Planned: Abstract from Recursion <br/>
