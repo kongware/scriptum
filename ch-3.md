@@ -191,6 +191,6 @@ While abstractions assist us in avoiding boilerplate they tend to obfuscate code
 
 ### Composition in the general sense
 
-When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are individually solved the reverse process must be conducted, i.e. all parts must be recomposed to solve the original overall problem. You can probably see now that composition is not only the essence of functional programming but of how humans solve complex problems in general. It is probably the most successful strategy mankind has ever applied.
+When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are separately solved the reverse process must be conducted, i.e. all parts must be recomposed to solve the original overall problem. You can probably see now that composition is not only the essence of functional programming but of how humans solve complex problems in general. It is probably the most successful strategy mankind has ever applied.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-2.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
