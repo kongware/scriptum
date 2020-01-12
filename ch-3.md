@@ -55,13 +55,13 @@ main2(3); // -2
 ```
 [run code](https://repl.it/repls/WorldlyElegantAbilities)
 
-Please note that function composition evaluates from right to left. This is a property from math. `pipe` just reverses this order.
+With function composition you can build small, simple functions that each focus on a single task and combine them in various ways to more complex functions.
 
-Since every function always expects a single argument there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface.
+Please note that function composition evaluates from right to left. This is a property from math. `pipe` just reverses this order.
 
 ### Abstraction over arity
 
-Abstraction over arity seems to be a rewarding property. What else can we accomplish with it?
+Since every function always expects a single argument there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface. What else can we accomplish with it?
 
 ```Javascript
 const comp = f => g => x => f(g(x));
