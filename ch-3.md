@@ -145,11 +145,11 @@ const reduce = f => acc => xs =>
   xs.reduce(uncurry(f), acc);
 
 const uncurry = f => (x, y) => f(x) (y);
-const sum = reduce(add) (0);
-const sum_ = comp(sqr) (sum);
+const sum = reduce(add) (0); // partial application
+const main = comp(sqr) (sum); // function composition
 
 sum([1, 2, 3, 4, 5]); // 15
-sum_([1, 2, 3]); // 36
+main([1, 2, 3]); // 36
 ```
 [run code](https://repl.it/repls/CadetblueImprobableDatasets)
 
