@@ -75,7 +75,7 @@ comp(add) (add) (1) (2); // "y => x + y2" (B)
 ```
 [run code](https://repl.it/repls/NotableButterySection)
 
-Even though `comp` expects an unary function it can deal with the binary `add` combinator. This works as long as the binary function is passed as the first function argument (A). Let us keep combining and see if we can overcome the type error (B):
+Even though `comp` expects an unary function it can deal with the binary `add` combinator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the type error (B):
 
 ```Javascript
 const comp = f => g => x => f(g(x));
