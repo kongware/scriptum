@@ -188,4 +188,4 @@ This is again an advanced functional idiom but the underlying idea is simple: In
 
 If we formalize further and add a couple of combinators we will wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | (https://github.com/kongware/scriptum/blob/master/ch-1.md) [next chapter &gt;]
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-1.md)
