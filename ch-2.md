@@ -155,7 +155,10 @@ const sum = xs => {
 
   return go(0, 0);
 };
+
+sum([1, 2, 3, 4, 5]); // 15
 ```
+[run code](https://repl.it/repls/ButteryMeanModels)
 
 #### Asynchronous functions
 
