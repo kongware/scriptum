@@ -68,7 +68,7 @@ If we want to work with sequences of distinct values we need a way to bind them 
 
 Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
 
-If we know the number of reassignments upfront, we can manually nest function calls:
+If the number of reassignments is static, i.e. it can be determined upfront, we can manually nest function calls:
 
 ```Javascript
 const scanSqr3 = w => xs => // A
@@ -82,7 +82,7 @@ scanSqr3(2) ([]); // [4, 16, 256]
 ```
 [run code](https://repl.it/repls/BouncySpottedCallback)
 
-Otherwise we have to fall back to a recursive solution:
+Otherwise in a dynamic scenario we have to fall back to a recursive solution:
 
 ```Javascript
 const scanSqr = n => x => xs => // A
