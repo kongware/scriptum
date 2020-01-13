@@ -23,8 +23,8 @@ However, I have been using scriptum in production for several months now. It is 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
+4. Upcoming: Recursion, Tail Recursion and Trampolining </br>
 
-* Planned: Recursion, Optimizations and Trampolining <br/>
 * Planned: Abstract from Recursion <br/>
 * Planned: Avoid Nesting through Variadic Interfaces <br/>
 * Planned: Local Continuation Passing Style <br/>
@@ -33,7 +33,7 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: How Haskell Differs <br/>
 * Planned: Functional Debugging <br/>
 * Planned: Functional Error Handling <br/>
-* Planned: Functional Naming Convention <br/>
+* Planned: Functional Birds and Ornithology <br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Almost Pattern Matching <br/>
