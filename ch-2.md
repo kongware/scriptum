@@ -140,7 +140,26 @@ Just in case you are interested in fixed point combinators they will be examined
 
 ### When the call stack vanishes
 
-Asynchronous functions lose the synchronous call stack, because at the time they are invoked the synchronous computation is already completed. While this is true we can easily define a function type that creates its very own call stack:
+In some scenarios we cannot use the normal, synchronous function call stack but must rely on alternative structures.
+
+#### Tail recursive functions
+
+Tail recursion leads to the eliminination of the function call stack. We will examine this omptimization technique in a later chapter. It is replaced with an explicit data structure, which acccumulates the results of each recursive step. Hence it is called accumulator and it holds our state:
+
+```Javascript
+const sum = xs => {
+  const go = (acc, i) => // accumulator
+    i === xs.length
+      ? acc
+      : go(acc + xs[i], i + 1);
+
+  return go(0, 0);
+};
+```
+
+#### Asynchronous functions
+
+Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack, when the asynchronous computation takes place:
 
 ```Javascript
 const compCont = f => g => x => k =>
@@ -156,7 +175,7 @@ main(log); // log(sqrCont(incCont(2))) (A)
 ```
 [run code](https://repl.it/repls/UtterDarkBytecode)
 
-This is advanced functional programming so I drop all the confusing details. The decisive part is that line (A) evaluates to a nested function call tree that inherently constitutes its own function call stack as soon as it is evaluated. This is where the asynchronous state is held.
+This is advanced functional programming so do not let the details distract you. The decisive part is that line (A) evaluates to a nested function call tree that implicitly forms its own function call stack as soon as it is evaluated. This is where the asynchronous state is hidden.
 
 If we formalize further and add a couple of combinators we will wind up with the continuation type (`Cont`) and the associated `Cont` monad. I will deal with this in another chapter of this course.
 
