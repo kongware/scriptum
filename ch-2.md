@@ -162,7 +162,7 @@ sum([1, 2, 3, 4, 5]); // 15
 
 #### Asynchronous functions
 
-Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack, when the asynchronous computation takes place:
+Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack, when the asynchronous computations take place:
 
 ```Javascript
 const compCont = f => g => x => k =>
