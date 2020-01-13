@@ -82,7 +82,7 @@ scanSqr3(2) ([]); // [4, 16, 256]
 ```
 [run code](https://repl.it/repls/BouncySpottedCallback)
 
-Otherwise in a dynamic scenario we have to fall back to a recursive solution:
+In dynamic scenarios we have to fall back to recursive solutions:
 
 ```Javascript
 const scanSqr = n => x => xs => // A
