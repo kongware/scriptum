@@ -23,20 +23,21 @@ However, I have been using scriptum in production for several months now. It is 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining </br>
+4. Upcoming: When to Functionalize Control Structures and Operators </br>
 
-* Planned: From Direct to Structural Recursion<br/>
+* Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
+* Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Avoid Nesting through Variadic Interfaces <br/>
+* Planned: Functional Birds and Ornithology <br/>
+* Planned: Loop Fusion through Transducers <br/>
+* Planned: Almost Pattern Matching through Unification <br/>
 * Planned: Local Continuation Passing Style <br/>
 * Planned: Lazy Evaluation in a Strict Environment <br/>
 * Planned: The Runtime - Edge of the Application <br/>
 * Planned: How Haskell Differs <br/>
 * Planned: Functional Debugging <br/>
 * Planned: Functional Error Handling <br/>
-* Planned: Functional Birds and Ornithology <br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
-* Planned: Loop Fusion through Transducers <br/>
-* Planned: Pattern Matching and Conditional Branching<br/>
 * Planned: Adapted Hindley-Milner Type Annotations <br/>
 * Planned: Algebraic Data Types <br/>
 * Planned: Tagged Unions of Records <br/>
