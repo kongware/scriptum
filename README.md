@@ -44,7 +44,9 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: Type Wrappers for Improved Semantics<br/>
 * Planned: Effects Encoded as Values <br/>
 * Planned: Composing Effects <br/>
+* Planned: Persistent Iterators <br/>
 * Planned: CPS Transformations <br/>
+* Planned: CPS-backed Coroutines <br/>
 * Planned: Delimited Continuations <br/>
 * Planned: Reducing the Need for Mutabuility <br/>
 * Planned: Immutabilty through Persistent Data Structures <br/>
