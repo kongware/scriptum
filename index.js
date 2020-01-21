@@ -111,10 +111,22 @@ const match = ({[TYPE]: type, [TAG]: tag}, o) =>
     : o[tag];
 
 
+const match2 = ({[TYPE]: type1, [TAG]: tag1}, {[TYPE]: type2, [TAG]: tag2}, o) =>
+  o.type !== type1 || type1 !== type2 ? _throw(new UnionError("invalid type"))
+    : !(tag1 in o) || !(tag2 in o[tag1]) ? _throw(new UnionError("invalid tag"))
+    : o[tag1] [tag2];
+
+
 const matchExp = ({[TYPE]: type, [TAG]: tag, ["run" + type]: x}, o) =>
   o.type !== type ? _throw(new UnionError("invalid type"))
     : !(tag in o) ? _throw(new UnionError("invalid tag"))
     : o[tag] (x);
+
+
+const matchExp2 = ({[TYPE]: type1, [TAG]: tag1, ["run" + type]: x}, {[TYPE]: type2, [TAG]: tag2, ["run" + type]: y}, o) =>
+  o.type !== type1 || type1 !== type2 ? _throw(new UnionError("invalid type"))
+    : !(tag1 in o) || !(tag2 in o[tag1]) ? _throw(new UnionError("invalid tag"))
+    : o[tag1] [tag2] (x) (y);
 
 
 /******************************************************************************
@@ -2141,20 +2153,6 @@ const isIntStr = s =>
   s.search(new RegExp("^\\d+$")) !== NOT_FOUND;
 
 
-const numCreateRandomBytes_ = crypto => n => {
-  if (crypto && crypto.randomBytes)
-    return Lazy(() =>
-      crypto.randomBytes(n));
-
-  else if (crypto && crypto.getRandomValues)
-    return Lazy(() =>
-      crypto.getRandomValues(new Uint8Array(n)));
-
-  else
-    _throw(new ScriptumError("missing crypto support"));
-};
-
-
 /******************************************************************************
 **********************************[ OBJECT ]***********************************
 ******************************************************************************/
@@ -2474,43 +2472,6 @@ const strChunk = n =>
 
 const strConsNth = (t, i) => s =>
   s.slice(0, i + 1) + t + s.slice(i + 1);
-
-
-const strCreateCryptoHash_ = crypto => algo => s => {
-  if (crypto && crypto.createHash) // TODO: Change to a monadic action (Task returning)
-    return crypto.createHash(algo)
-      .update(s)
-      .digest("hex");
-
-  else if (crypto && crypto.subtle && crypto.subtle.digest) // TODO: Change to Task
-    return crypto
-      .subtle
-      .digest(algo, (new TextEncoder()).encode(s))
-      .then(buffer =>
-        Array.from(new Uint8Array(buffer))
-          .map(b => b.toString(16).padStart(2, "0"))
-          .join(""));
-
-  else 
-    _throw(new ScriptumError("missing crypto support"));
-};
-
-
-const strCreateHash = (str, seed = 0) => {
-  let h1 = 0xdeadbeef ^ seed,
-    h2 = 0x41c6ce57 ^ seed;
-
-  for (let i = 0, ch; i < str.length; i++) {
-    ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-
-  h1 = Math.imul(h1 ^ h1>>>16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
-  h2 = Math.imul(h2 ^ h2>>>16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
-  
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
-};
 
 
 const strLocaleCompare = locale => c => d => {
@@ -3031,7 +2992,7 @@ const getGet = tx => o =>
 ******************************************************************************/
 
 
-const Hashed = structGetter("Hashed")
+const Hashed = structGetter("Hashed") // TODO: remove
   (Hashed => tx => o => Hashed({
     runHashed: o,
     [Symbol.toPrimitive]: hint =>
@@ -5058,7 +5019,9 @@ module.exports = {
   mapper,
   mapperk,
   match,
+  match2,
   matchExp,
+  matchExp2,
   matCata,
   Matched,
   Max,
@@ -5079,7 +5042,6 @@ module.exports = {
   NOT_FOUND,
   notp,
   numCompare,
-  numCreateRandomBytes_,
   numEq,
   numFromEnum,
   numNeq,
@@ -5204,8 +5166,6 @@ module.exports = {
   strCapWord,
   strChunk,
   strConsNth,
-  strCreateCryptoHash_,
-  strCreateHash,
   strDel,
   strFold,
   strFoldChunks,
