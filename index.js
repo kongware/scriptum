@@ -1556,33 +1556,6 @@ const funLiftA2 = f => g => h => x =>
 // funVarLiftA @derived
 
 
-/***[Arguments]***************************************************************/
-
-
-const appVar = f =>
-  arrFold(g => x => g(x)) (f);
-
-
-const infixl = (x, f, y) =>
-  f(x) (y);
-
-
-const infixr = (y, f, x) =>
-  f(x) (y);
-
-
-const variadic = f => {
-  const go = args =>
-    Object.defineProperties(
-      arg => go(args.concat([arg])), {
-        "runVariadic": {get: function() {return f(args)}, enumerable: true},
-        [TYPE]: {value: "Variadic", enumerable: true}
-      });
-
-  return go([]);
-};
-
-
 /***[Choice]******************************************************************/
 
 
@@ -1641,17 +1614,6 @@ const pipeBin = g => f => x => y =>
 
 
 // funVarPipe @derived
-
-
-/***[Conditional Branching]***************************************************/
-
-
-const guard = p => f => x =>
-  p(x) ? f(x) : x;
-
-
-const select = p => f => g => x =>
-  p(x) ? f(x) : g(x);
 
 
 /***[Contravariant Functor]***************************************************/
@@ -1829,18 +1791,6 @@ const funRmap = g => hx => x =>
   g(hx(x));
 
 
-/***[Relation]****************************************************************/
-
-
-const select11 = m => (ks, vs) => k =>
-  vs[m.get(ks.indexOf(k))];
-
-
-const select1N = m => (ks, vs) => k =>
-  arrMap(l => vs[l])
-    (m.get(ks.indexOf(k)));
-
-
 /***[Semigroup]***************************************************************/
 
 
@@ -1984,6 +1934,96 @@ const takerWhilek = p => reduce => acc => x =>
     p(x)
       ? reduce(acc) (x).runCont(k)
       : acc);
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const appl = (x, f) => y => f(x) (y); // left section
+
+
+const appr = (f, y) => x => f(x) (y); // right section
+
+
+const appVar = f =>
+  arrFold(g => x => g(x)) (f);
+
+
+const guard = p => f => x =>
+  p(x) ? f(x) : x;
+
+
+const infix = (x, f, y) =>
+  f(x) (y);
+
+
+const infixr = (x, f, y) =>
+  f(y) (x);
+
+
+const infix2 = (x, f, y, g, z) =>
+  g(f(x) (y)) (z);
+
+
+const infixr2 = (x, f, y, g, z) =>
+  g(z) (f(y) (x));
+
+
+const infix3 = (w, f, x, g, y, h, z) =>
+  h(g(f(w) (x)) (y)) (z);
+
+
+const infixr3 = (w, f, x, g, y, h, z) =>
+  h(z) (g(y) (f(x) (w)));
+
+
+const infix4 = (v, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+
+const infixr4 = (v, f, w, g, x, h, y, i, z) =>
+  i(z) (h(y) (g(x) (f(w) (v))));
+
+
+const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+
+
+const infixr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(z) (i(y) (h(x) (g(w) (f(v) (u)))));
+
+
+const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+
+
+const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(z) (j(y) (i(x) (h(w) (g(v) (f(u) (t))))));
+
+
+const select = p => f => g => x =>
+  p(x) ? f(x) : g(x);
+
+
+const select11 = m => (ks, vs) => k =>
+  vs[m.get(ks.indexOf(k))];
+
+
+const select1N = m => (ks, vs) => k =>
+  arrMap(l => vs[l])
+    (m.get(ks.indexOf(k)));
+
+
+const variadic = f => { // TODO: remove (deprecated)
+  const go = args =>
+    Object.defineProperties(
+      arg => go(args.concat([arg])), {
+        "runVariadic": {get: function() {return f(args)}, enumerable: true},
+        [TYPE]: {value: "Variadic", enumerable: true}
+      });
+
+  return go([]);
+};
 
 
 /***[Derived]*****************************************************************/
@@ -4709,6 +4749,8 @@ module.exports = {
   anyEmpty,
   anyPrepend,
   app,
+  appl,
+  appr,
   appVar,
   arrAll,
   arrAlt,
@@ -4964,8 +5006,18 @@ module.exports = {
   idOf,
   imply,
   index,
-  infixl,
+  infix,
   infixr,
+  infix2,
+  infixr2,
+  infix3,
+  infixr3,
+  infix4,
+  infixr4,
+  infix5,
+  infixr5,
+  infix6,
+  infixr6,
   inRange,
   invoke,
   introspect,
