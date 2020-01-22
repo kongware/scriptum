@@ -27,7 +27,7 @@ However, I have been using scriptum in production for several months now. It is 
 
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
-* Planned: Avoid Nesting through Variadic Interfaces <br/>
+* Planned: Avoid Nesting through infix combinators <br/>
 * Planned: Functional Birds and Ornithology <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Almost Pattern Matching through Unification <br/>
