@@ -304,28 +304,6 @@ const tramp = f => (...args) => {
 ******************************************************************************/
 
 
-/***[Applicative]*************************************************************/
-
-
-const varAp = ap => tf =>
-  varComp({comp: ap, id: tf});
-
-
-const varLiftA = ({ap, of}) => f =>
-  varComp({comp: ap, id: of(f)});
-
-
-/***[Category]****************************************************************/
-
-
-const varComp = ({comp, id}) =>
-  variadic(arrFold(comp) (id));
-
-
-const varPipe = ({pipe, id}) =>
-  variadic(arrFold(pipe) (id));
-
-
 /***[Ix]**********************************************************************/
 
 
@@ -375,33 +353,12 @@ const foldMap = ({fold, append, empty}) => f =>
 /***[Monad]*******************************************************************/
 
 
-const varChain = ({map, of, chain, join}) => fm => // TODO: derive from varComp
-  variadic(args =>
-    join(arrFold(mg => mx =>
-      chain(g => map(g) (mx)) (mg)) (of(fm)) (args)));
-
-
 const kleisliComp = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const varKleisliComp = ({of, chain}) =>
-  varComp({comp: kleisliComp(chain), id: of});
-
-
 const kleisliPipe = chain => gm => fm => x =>
   chain(fm) (gm(x));
-
-
-const varKleisliPipe = ({of, chain}) =>
-  varPipe({comp: kleisliPipe(chain), id: of});
-
-
-const varLiftM = ({map, of, chain}) => f =>
-  varComp({
-    comp: mg => mx => chain(g => map(g) (mx)) (mg),
-    id: of(f)
-  });
 
 
 /***[Monoid]******************************************************************/
@@ -538,9 +495,6 @@ const arrLiftA3 = f => tx => ty => tz =>
 
 
 const arrOf = x => [x];
-
-
-const arrVarLiftA = varLiftA({ap: arrAp, of: arrOf});
 
 
 /***[ChainRec]****************************************************************/
@@ -1553,9 +1507,6 @@ const funLiftA2 = f => g => h => x =>
 // funOf @derived
 
 
-// funVarLiftA @derived
-
-
 /***[Choice]******************************************************************/
 
 
@@ -1610,12 +1561,6 @@ const pipeBin = g => f => x => y =>
   f(g(x) (y));
 
 
-// funVarComp @derived
-
-
-// funVarPipe @derived
-
-
 /***[Contravariant Functor]***************************************************/
 
 
@@ -1643,10 +1588,6 @@ const curry5 = f => v => w => x => y => z =>
 
 const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
-
-
-const partialCurry = (f, ...args) =>
-  variadic(args_ => f(...args, ...args_));
 
 
 const uncurry = f => (x, y) =>
@@ -1945,7 +1886,7 @@ const appl = (x, f) => y => f(x) (y); // left section
 const appr = (f, y) => x => f(x) (y); // right section
 
 
-const appVar = f =>
+const appTup = f =>
   arrFold(g => x => g(x)) (f);
 
 
@@ -2014,18 +1955,6 @@ const select1N = m => (ks, vs) => k =>
     (m.get(ks.indexOf(k)));
 
 
-const variadic = f => { // TODO: remove (deprecated)
-  const go = args =>
-    Object.defineProperties(
-      arg => go(args.concat([arg])), {
-        "runVariadic": {get: function() {return f(args)}, enumerable: true},
-        [TYPE]: {value: "Variadic", enumerable: true}
-      });
-
-  return go([]);
-};
-
-
 /***[Derived]*****************************************************************/
 
 
@@ -2033,15 +1962,6 @@ const funEmpty = id;
 
 
 const funOf = _const;
-
-
-const funVarComp = varComp({comp, id});
-
-
-const funVarLiftA = varLiftA({ap: funAp, of: funOf});
-
-
-const funVarPipe = varPipe({pipe, id});
 
 
 /******************************************************************************
@@ -2247,10 +2167,6 @@ const objModOrx = def => (k, f) => o =>
   k in o
     ? (o[k] = f(o[k]), o)
     : (o[k] = def, o);
-
-
-const objPathOr = def =>
-  variadic(arrFold(p => k => p[k] || def) (o));
 
 
 const objSet = (k, v) => o =>
@@ -3016,29 +2932,12 @@ const getComp3 = tx => ty => tz =>
 const getId = Lens(id);
 
 
-const getVarComp = varComp({comp: getComp, id: getId});
-
-
 /***[Misc. Combinators]*******************************************************/
 
 
 const getGet = tx => o =>
   tx.runLens(Const) (o)
     .runConst;
-
-
-/******************************************************************************
-**********************************[ HASHED ]***********************************
-******************************************************************************/
-
-
-const Hashed = structGetter("Hashed") // TODO: remove
-  (Hashed => tx => o => Hashed({
-    runHashed: o,
-    [Symbol.toPrimitive]: hint =>
-      hint === "string" || hint === "default"
-        ? tx.runLazy // hash is lazily created
-        : o.valueOf()}));
 
 
 /******************************************************************************
@@ -3269,9 +3168,6 @@ const lensComp3 = tx => ty => tz =>
 
 
 const lensId = Lens(id);
-
-
-const lensVarComp = varComp({comp: lensComp, id: lensId});
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3814,9 +3710,6 @@ const setComp3 = tx => ty => tz =>
 
 
 const setId = Lens(id);
-
-
-const setVarComp = varComp({comp: setComp, id: setId});
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -4751,7 +4644,7 @@ module.exports = {
   app,
   appl,
   appr,
-  appVar,
+  appTup,
   arrAll,
   arrAlt,
   arrAltx,
@@ -4855,7 +4748,6 @@ module.exports = {
   arrUnconsTailx,
   arrUnfold,
   arrUnzip,
-  arrVarLiftA,
   arrZero,
   arrZip,
   arrZipBy,
@@ -4977,9 +4869,6 @@ module.exports = {
   funMap,
   funPrepend,
   funRmap,
-  funVarComp,
-  funVarLiftA,
-  funVarPipe,
   getComp,
   getComp3,
   getDay,
@@ -4988,7 +4877,6 @@ module.exports = {
   getMonth,
   getMonthDays,
   getTimezoneOffset,
-  getVarComp,
   getYear,
   GT,
   guard,
@@ -4996,7 +4884,6 @@ module.exports = {
   hamtEmpty,
   hamtGet,
   hamtSet,
-  Hashed,
   headH,
   History,
   history,
@@ -5049,7 +4936,6 @@ module.exports = {
   lensId,
   lensMod,
   lensSet,
-  lensVarComp,
   _let,
   local,
   log,
@@ -5118,7 +5004,6 @@ module.exports = {
   objMemo,
   objModOr,
   objModOrx,
-  objPathOr,
   objSet,
   objSetter,
   objSetx,
@@ -5155,7 +5040,6 @@ module.exports = {
   parOr,
   parPrepend,
   partial,
-  partialCurry,
   pipe,
   pipe3,
   pipeBin,
@@ -5203,7 +5087,6 @@ module.exports = {
   setMap,
   setMod,
   setSet,
-  setVarComp,
   Some,
   State,
   stateAp,
@@ -5306,15 +5189,6 @@ module.exports = {
   union,
   UnionError,
   unionGetter,
-  varAp,
-  varChain,
-  varComp,
-  variadic,
-  varKleisliComp,
-  varKleisliPipe,
-  varLiftA,
-  varLiftM,
-  varPipe,
   Writer,
   writeAp,
   writeCensor,
