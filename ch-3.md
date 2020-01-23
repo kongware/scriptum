@@ -189,8 +189,10 @@ Point-free style is rather a side effect than something we deliberately aspire t
 
 While abstractions assist us in avoiding boilerplate they tend to obfuscate code, because you can only read it if you are familiar with the applied combinators. That means you should only consider widely used abstractions and not those that some arbitrary person just made up. In functional programming common abstractions are equivalent with principled ones, i.e. abstractions that adhere to mathematical laws.
 
-### Composition in the general sense
+### Composition in a broader sense
 
-When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are separately solved the reverse process must be conducted, i.e. all parts must be recomposed to solve the original overall problem. You can probably see now that composition is not only the essence of functional programming but of how humans solve complex problems in general. It is probably the most successful strategy mankind has ever applied.
+When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are separately solved the reverse process must be carried out, i.e. all sub-problems must be recomposed to solve the original overall problem. You can probably see now that composition is not only the essence of functional programming but of how humans solve complex problems in general.
+
+This chapter was mainly about function composition of pure functions. In subsequent chapters you will learn how you can compose functions that share a global configuration, write to a common log or share state. You will see how we can compose function that have a notion of failure or represent the rest of the computation. Function composition is not about functions, it is about composing all kinds of functions.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-2.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
