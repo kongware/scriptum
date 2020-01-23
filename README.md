@@ -23,12 +23,12 @@ However, I have been using scriptum in production for several months now. It is 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. Upcoming: When to Functionalize Control Structures and Operators </br>
+4. Upcoming: Common Functional Combinators </br>
 
+* Planned: Useful and Harmful Functionalization <br/>
+* Planned: Avoid Nesting through Infix Combinators <br/>
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
-* Planned: Avoid Nesting through infix combinators <br/>
-* Planned: Functional Birds and Ornithology <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Almost Pattern Matching through Unification <br/>
 * Planned: Local Continuation Passing Style <br/>
