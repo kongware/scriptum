@@ -39,6 +39,7 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: Functional Error Handling <br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Adapted Hindley-Milner Type Annotations <br/>
+* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
 * Planned: Algebraic Data Types <br/>
 * Planned: Tagged Unions of Records <br/>
 * Planned: Type Wrappers for Improved Semantics<br/>
