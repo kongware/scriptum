@@ -25,10 +25,13 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 const NOT_FOUND = -1;
 
 
-const TAG = Symbol("tag"); // the tag property of tagged unions
+const PREFIX = "s/"; // avoid name clashes
 
 
-const TYPE = Symbol.toStringTag; // used for debugging
+const TAG = PREFIX + "tag"; // the tag property of tagged unions
+
+
+const TYPE = Symbol.toStringTag; // useful for debugging
 
 
 /******************************************************************************
@@ -178,112 +181,40 @@ const match3 = (type,
 ******************************************************************************/
 
 
-const loop = f => {
-  let step = f();
-
-  while (step)
-    if (step.type === recur)
-      step = f(...step.args);
-
-    else if (step.type === call)
-      step = step.f(...step.args);
-
-    else
-      break;
-
-  return step;
-};
-
-
-const loop_ = f => {
-  let step = f();
-
-  while (step)
-    if (step.type === recur){
-      switch (step.args.length) {
-        case 1: {
-          step = f(step.args[0]);
-          break;
-        }
-
-        case 2: {
-          step = f(step.args[0], step.args[1]);
-          break;
-        }
-
-        case 3: {
-          step = f(step.args[0], step.args[1], step.args[2]);
-          break;
-        }
-
-        case 4: {
-          step = f(step.args[0], step.args[1], step.args[2], step.args[3]);
-          break;
-        }
-
-        case 5: {
-          step = f(step.args[0], step.args[1], step.args[2], step.args[3], step.args[4]);
-          break;
-        }
-
-        default:
-          step = f(...step.args);
-      }
-    }
-
-    else if (step.type === call) {
-      switch (step.args.length) {
-        case 1: {
-          step = step.f(step.args[0]);
-          break;
-        }
-
-        case 2: {
-          step = step.f(step.args[0], step.args[1]);
-          break;
-        }
-
-        case 3: {
-          step = step.f(step.args[0], step.args[1], step.args[2]);
-          break;
-        }
-
-        case 4: {
-          step = step.f(step.args[0], step.args[1], step.args[2], step.args[3]);
-          break;
-        }
-
-        case 5: {
-          step = step.f(step.args[0], step.args[1], step.args[2], step.args[3], step.args[4]);
-          break;
-        }
-
-        default:
-          step = step.f(...step.args);
-      }
-    }
-
-    else
-      break;
-
-  return step;
-};
-
-
 const call = (f, ...args) =>
-  ({type: call, f, args});
+  ({tag: "call", rec: true, f, args});
 
 
-const call_ = (f, args) =>
-  ({type: call, f, args});
+const rec = (...args) =>
+  ({tag: "rec", rec: true, args});
 
 
-const recur = (...args) =>
-  ({type: recur, args});
+const ret = x =>
+  ({tag: "ret", rec: false, x});
 
 
-const recur_ = args =>
-  ({type: recur, args});
+const loop = f => (...args) => {
+    let step = f(...args);
+
+    while (step.rec) {
+      switch (step.tag) {
+        case "call":
+          step = step.f(...step.args);
+          break;
+        
+        case "rec":
+          step = f(...step.args);
+          break;
+
+        default: throw new TypeError(); // TODO: error type
+      }
+    }
+
+    return step.x;
+};
+
+
+// TODO: optimised version
 
 
 /******************************************************************************
@@ -4808,7 +4739,6 @@ module.exports = {
   bind6,
   bind6_,
   call,
-  call_,
   ceil,
   Comp,
   comp,
@@ -4991,7 +4921,6 @@ module.exports = {
   local,
   log,
   loop,
-  loop_,
   LT,
   _Map,
   mapMap,
@@ -5113,9 +5042,9 @@ module.exports = {
   readJoin,
   readMap,
   readOf,
-  recur,
-  recur_,
+  rec,
   RegExpError,
+  ret,
   Return,
   returnHead,
   returnLast,
