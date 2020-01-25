@@ -22,9 +22,6 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 ******************************************************************************/
 
 
-const NO_ENC = null; // no encoding specified
-
-
 const NOT_FOUND = -1;
 
 
@@ -87,50 +84,7 @@ class UnionError extends ScriptumError {};
 
 
 /******************************************************************************
-********************************[ UNION TYPE ]*********************************
-******************************************************************************/
-
-
-const union = type => (tag, x) => ({
-  ["run" + type]: x,
-  [TAG]: tag,
-  [TYPE]: type
-});
-
-
-const unionGetter = type => (tag, o) => { // explicit getter for the runSomething prop
-  o[TAG] = tag;
-  o[TYPE] = type;
-  return o;
-};
-
-
-const match = ({[TYPE]: type, [TAG]: tag}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(tag in o) ? _throw(new UnionError("invalid tag"))
-    : o[tag];
-
-
-const match2 = ({[TYPE]: type1, [TAG]: tag1}, {[TYPE]: type2, [TAG]: tag2}, o) =>
-  o.type !== type1 || type1 !== type2 ? _throw(new UnionError("invalid type"))
-    : !(tag1 in o) || !(tag2 in o[tag1]) ? _throw(new UnionError("invalid tag"))
-    : o[tag1] [tag2];
-
-
-const matchExp = ({[TYPE]: type, [TAG]: tag, ["run" + type]: x}, o) =>
-  o.type !== type ? _throw(new UnionError("invalid type"))
-    : !(tag in o) ? _throw(new UnionError("invalid tag"))
-    : o[tag] (x);
-
-
-const matchExp2 = ({[TYPE]: type1, [TAG]: tag1, ["run" + type]: x}, {[TYPE]: type2, [TAG]: tag2, ["run" + type]: y}, o) =>
-  o.type !== type1 || type1 !== type2 ? _throw(new UnionError("invalid type"))
-    : !(tag1 in o) || !(tag2 in o[tag1]) ? _throw(new UnionError("invalid tag"))
-    : o[tag1] [tag2] (x) (y);
-
-
-/******************************************************************************
-********************************[ RECORD TYPE ]********************************
+*******************************[ PRODUCT TYPE ]********************************
 ******************************************************************************/
 
 
@@ -150,7 +104,7 @@ const structn = type => cons => { // multiple field types
 };
 
 
-const structGetter = type => cons => { // explicit getter for the runSomething prop
+const structGetter = type => cons => { // explicit getter for the runXY prop
   const f = o => {
     o[TYPE] = type;
     return o;
@@ -158,6 +112,58 @@ const structGetter = type => cons => { // explicit getter for the runSomething p
 
   return cons(f);
 };
+
+
+/******************************************************************************
+********************************[ UNION TYPE ]*********************************
+******************************************************************************/
+
+
+const union = type => (tag, x) => ({
+  ["run" + type]: x,
+  [TAG]: tag,
+  [TYPE]: type
+});
+
+
+const unionGetter = type => (tag, o) => { // explicit getter for the runXY prop
+  o[TAG] = tag;
+  o[TYPE] = type;
+  return o;
+};
+
+
+/******************************************************************************
+*******************************************************************************
+*****************************[ PATTERN MATCHING ]******************************
+*******************************************************************************
+******************************************************************************/
+
+
+const match = (type, {tag, ["run" + type]: x}, o) =>
+  x === undefined
+    ? _throw(new TypeError("invalid type"))
+    : o[tag] (x);
+
+
+const match2 = (type,
+  {tag: tagx, ["run" + type_]: x},
+  {tag: tagy, ["run" + type_]: y}, o) =>
+    x === undefined
+      || y === undefined
+        ? _throw(new TypeError("invalid type"))
+        : o[tagx] [tagy] (x) (y);
+
+
+const match3 = (type,
+  {tag: tagx, ["run" + type_]: x},
+  {tag: tagy, ["run" + type_]: y},
+  {tag: tagz, ["run" + type_]: z}, o) =>
+    x === undefined
+      || y === undefined
+      || z === undefined
+        ? _throw(new TypeError("invalid type"))
+        : o[tagx] [tagx] [tagz] (x) (y) (z);
 
 
 /******************************************************************************
@@ -347,7 +353,7 @@ const any = ({fold, append, empty}) => p =>
 
 
 const foldMap = ({fold, append, empty}) => f =>
-  fold(comp2nd(append) (f)) (empty);
+  fold(comp_(append) (f)) (empty);
 
 
 /***[Monad]*******************************************************************/
@@ -488,10 +494,6 @@ const arrApConstr = tf => tx =>
 
 const arrLiftA2 = f => tx => ty =>
   arrAp(arrMap(f) (tx)) (ty);
-
-
-const arrLiftA3 = f => tx => ty => tz =>
-  arrAp(arrAp(arrMap(f) (tx)) (ty)) (tz);
 
 
 const arrOf = x => [x];
@@ -673,13 +675,6 @@ const arrChain2 = fm => mx => my =>
       arrAppendx(acc_) (fm(x) (y))) (acc) (my)) ([]) (mx);
 
 
-const arrChain3 = fm => mx => my => mz =>
-  arrFold(acc => x =>
-    arrFold(acc_ => y =>
-      arrFold(acc__ => z =>
-        arrAppendx(acc__) (fm(x) (y) (z))) (acc_) (mz)) (acc) (my)) ([]) (mx);
-
-
 const arrJoin = xss => {
   let xs = [];
 
@@ -695,13 +690,6 @@ const arrLiftM2 = f => mx => my =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
       arrConsx(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
-
-
-const arrLiftM3 = f => mx => my => mz =>
-  arrFold(acc => x =>
-    arrFold(acc_ => y =>
-      arrFold(acc__ => z =>
-        arrConsx(f(x) (y) (z)) (acc__)) (acc_) (mz)) (acc) (my)) ([]) (mx);
 
 
 /***[Monoid]******************************************************************/
@@ -1525,12 +1513,8 @@ const comp = f => g => x =>
   f(g(x));
 
 
-const comp2nd = f => g => x => y =>
+const comp_ = f => g => x => y =>
   f(x) (g(y));
-
-
-const comp3 = f => g => h => x =>
-  f(g(h(x)));
 
 
 const compBin = f => g => x => y =>
@@ -1545,12 +1529,8 @@ const pipe = g => f => x =>
   f(g(x));
 
 
-const pipe2nd = g => f => x => y =>
+const pipe_ = g => f => x => y =>
   f(x) (g(y));
-
-
-const pipe3 = h => g => f => x =>
-  f(g(h(x)));
 
 
 const pipeBoth = g => f => x => y =>
@@ -1586,6 +1566,10 @@ const curry5 = f => v => w => x => y => z =>
   f(v, w, x, y, z);
 
 
+const curry6 = f => u => v => w => x => y => z =>
+  f(u, v, w, x, y, z);
+
+
 const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
@@ -1604,6 +1588,11 @@ const uncurry4 = f => (w, x, y, z) =>
 
 const uncurry5 = f => (v, w, x, y, z) =>
   f(v) (w) (x) (y) (z);
+
+
+const uncurry6 = f => (u, v, w, x, y, z) =>
+  f(u) (v) (w) (x) (y) (z);
+
 
 /***[Debugging]***************************************************************/
 
@@ -1702,10 +1691,13 @@ const funJoin = f => x =>
 const app = f => x => f(x);
 
 
+const app_ = x => f => f(x);
+
+
 const _const = x => y => x;
 
 
-const fixed = f => x => f(fixed(f)) (x); // fixed point (not stack safe)
+const fix = f => x => f(fix(f)) (x); // not stack safe
 
 
 const flip = f => y => x => f(x) (y);
@@ -1714,7 +1706,22 @@ const flip = f => y => x => f(x) (y);
 const id = x => x;
 
 
-const _let = f => f(); // simulates let binding as an expression
+const _let = (x, f) => f(x);
+
+
+const _let2 = (x, y, f) => f(x) (y);
+
+
+const _let3 = (x, y, z, f) => f(x) (y) (z);
+
+
+const _let4 = (w, x, y, z, f) => f(w) (x) (y) (z);
+
+
+const _let5 = (v, w, x, y, z, f) => f(v) (w) (x) (y) (z);
+
+
+const _let6 = (u, v, w, x, y, z, f) => f(u) (v) (w) (x) (y) (z);
 
 
 /***[Profunctor]**************************************************************/
@@ -1880,14 +1887,94 @@ const takerWhilek = p => reduce => acc => x =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const appl = (x, f) => y => f(x) (y); // left section
-
-
 const appr = (f, y) => x => f(x) (y); // right section
 
 
 const appTup = f =>
   arrFold(g => x => g(x)) (f);
+
+
+const appTup_ = f => args => 
+  f(...args);
+
+
+const bind2 = (x, f, y, g, c) =>
+  f(x) (x_ => g(y) (y_ => c(x_) (y_)));
+
+
+const bind2_ = (x, f, y, g, c) =>
+  f(x) (x_ => g(y) (y_ => c(x_) (y_)));
+
+
+const bind3 = (x, f, y, g, z, h, c) =>
+  f(x_ => g(y_ => h(z_ => c(x_) (y_) (z_)) (z)) (y)) (x);
+
+
+const bind3_ = (c, f, x, g, y, h, z) =>
+  f(x) (x_ => g(y) (y_ => h(z) (z_ => c(x_) (y_) (z_))));
+
+
+const bind4 = (w, f, x, g, y, h, z, i, c) =>
+  f(w_ => g(x_ => h(y_ => i(z_ => c(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
+
+
+const bind4_ = (c, f, w, g, x, h, y, i, z) =>
+  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => c(w_) (x_) (y_) (z_)))));
+
+
+const bind5 = (v, f, w, g, x, h, y, i, z, j, c) =>
+  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => c(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
+
+
+const bind5_ = (c, f, v, g, w, h, x, i, y, j, z) =>
+  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => c(v_) (w_) (x_) (y_) (z_))))));
+
+
+const bind6 = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
+  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => c(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
+
+
+const bind6_ = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => c(u_) (v_) (w_) (x_) (y_) (z_)))))));
+
+
+const comp2 = (x, f, y, g, z) =>
+  g(f(x) (y)) (z);
+
+
+const comp2_ = (x, f, y, g, z) =>
+  f(x) (g(y) (z));
+
+
+const comp3 = (w, f, x, g, y, h, z) =>
+  h(g(f(w) (x)) (y)) (z);
+
+const comp3_ = (w, f, x, g, y, h, z) =>
+  f(w) (g(x) (h(y) (z)));
+
+
+const comp4 = (v, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+
+const comp4_ = (v, f, w, g, x, h, y, i, z) =>
+  f(v) (g(w) (h(x) (i(y) (z))));
+
+
+const comp5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+
+
+const comp5_ = (u, f, v, g, w, h, x, i, y, j, z) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
+
+
+const comp6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+
+
+const comp6_ = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
 const guard = p => f => x =>
@@ -1898,48 +1985,8 @@ const infix = (x, f, y) =>
   f(x) (y);
 
 
-const infixr = (x, f, y) =>
-  f(y) (x);
-
-
-const infix2 = (x, f, y, g, z) =>
-  g(f(x) (y)) (z);
-
-
-const infixr2 = (x, f, y, g, z) =>
-  g(z) (f(y) (x));
-
-
-const infix3 = (w, f, x, g, y, h, z) =>
-  h(g(f(w) (x)) (y)) (z);
-
-
-const infixr3 = (w, f, x, g, y, h, z) =>
-  h(z) (g(y) (f(x) (w)));
-
-
-const infix4 = (v, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
-
-const infixr4 = (v, f, w, g, x, h, y, i, z) =>
-  i(z) (h(y) (g(x) (f(w) (v))));
-
-
-const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
-
-
-const infixr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(z) (i(y) (h(x) (g(w) (f(v) (u)))));
-
-
-const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(z) (j(y) (i(x) (h(w) (g(v) (f(u) (t))))));
+const infixr = (y, f, x) =>
+  f(x) (y);
 
 
 const select = p => f => g => x =>
@@ -3866,10 +3913,6 @@ const tLiftA2 = f => tx => ty =>
   tAp(tMap(f) (tx)) (ty);
 
 
-const tLiftA3 = f => tx => ty => tz =>
-  tAp(tAp(tMap(f) (tx)) (ty)) (tz);
-
-
 const tOf = x => Task((res, rej) => res(x));
 
 
@@ -4642,9 +4685,10 @@ module.exports = {
   anyEmpty,
   anyPrepend,
   app,
-  appl,
+  app_,
   appr,
   appTup,
+  appTup_,
   arrAll,
   arrAlt,
   arrAltx,
@@ -4657,7 +4701,6 @@ module.exports = {
   arrAppendx,
   arrChain,
   arrChain2,
-  arrChain3,
   arrChainRec,
   arrClone,
   arrConcat,
@@ -4690,9 +4733,7 @@ module.exports = {
   arrLens,
   arrLensx,
   arrLiftA2,
-  arrLiftA3,
   arrLiftM2,
-  arrLiftM3,
   arrHisto,
   arrHylo,
   arrJoin,
@@ -4756,13 +4797,32 @@ module.exports = {
   ascOrder_,
   ask,
   asks,
+  bind2,
+  bind2_,
+  bind3,
+  bind3_,
+  bind4,
+  bind4_,
+  bind5,
+  bind5_,
+  bind6,
+  bind6_,
   call,
   call_,
   ceil,
   Comp,
   comp,
-  comp2nd,
+  comp_,
+  comp2,
+  comp2_,
   comp3,
+  comp3_,
+  comp4,
+  comp4_,
+  comp5,
+  comp5_,
+  comp6,
+  comp6_,
   compBin,
   compBoth,
   compAp,
@@ -4797,6 +4857,7 @@ module.exports = {
   curry3,
   curry4,
   curry5,
+  curry6,
   DateError,
   dateParse,
   debug,
@@ -4847,7 +4908,7 @@ module.exports = {
   First,
   firstAppend,
   firstPrepend,
-  fixed,
+  fix,
   flip,
   floor,
   foldMap,
@@ -4895,16 +4956,6 @@ module.exports = {
   index,
   infix,
   infixr,
-  infix2,
-  infixr2,
-  infix3,
-  infixr3,
-  infix4,
-  infixr4,
-  infix5,
-  infixr5,
-  infix6,
-  infixr6,
   inRange,
   invoke,
   introspect,
@@ -4958,8 +5009,7 @@ module.exports = {
   mapperk,
   match,
   match2,
-  matchExp,
-  matchExp2,
+  match3,
   matCata,
   Matched,
   Max,
@@ -4976,7 +5026,6 @@ module.exports = {
   _new,
   None,
   not,
-  NO_ENC,
   NOT_FOUND,
   notp,
   numCompare,
@@ -5041,7 +5090,7 @@ module.exports = {
   parPrepend,
   partial,
   pipe,
-  pipe3,
+  pipe_,
   pipeBin,
   pipeBoth,
   Pred,
@@ -5161,7 +5210,6 @@ module.exports = {
   _throw,
   tJoin,
   tLiftA2,
-  tLiftA3,
   tLiftM2,
   tMap,
   tOf,
@@ -5186,6 +5234,7 @@ module.exports = {
   uncurry3,
   uncurry4,
   uncurry5,
+  uncurry6,
   union,
   UnionError,
   unionGetter,
