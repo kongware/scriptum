@@ -176,33 +176,28 @@ const match3 = (type,
 ******************************************************************************/
 
 
-/******************************************************************************
-******************************[ TAIL RECURSION ]*******************************
-******************************************************************************/
+const Call = (f, ...args) => // TODO: review
+  ({tag: Call, recur: true, f, args});
 
 
-const call = (f, ...args) =>
-  ({tag: "call", rec: true, f, args});
+const Recur = (...args) =>
+  ({tag: Recur, recur: true, args});
 
 
-const rec = (...args) =>
-  ({tag: "rec", rec: true, args});
+const Base = x =>
+  ({tag: Base, recur: false, x});
 
 
-const ret = x =>
-  ({tag: "ret", rec: false, x});
-
-
-const loop = f => (...args) => {
+const tailRec = f => (...args) => {
     let step = f(...args);
 
-    while (step.rec) {
+    while (step.recur) {
       switch (step.tag) {
-        case "call":
+        case Call:
           step = step.f(...step.args);
           break;
         
-        case "rec":
+        case Recur:
           step = f(...step.args);
           break;
 
@@ -215,23 +210,6 @@ const loop = f => (...args) => {
 
 
 // TODO: optimised version
-
-
-/******************************************************************************
-*****************************[ MUTUAL RECURSION ]******************************
-******************************************************************************/
-
-
-const tramp = f => (...args) => {
-  let step = f(...args);
-
-  while (step && step.type === recur) {
-    let [f, ...args_] = step.args;
-    step = f(...args_);
-  }
-
-  return step;
-};
 
 
 /******************************************************************************
@@ -3169,6 +3147,36 @@ const lensSet = tx => v => o =>
 
 
 /******************************************************************************
+***********************************[ LOOP ]************************************
+******************************************************************************/
+
+
+const Loop = f => (...args) => ({loop: true, f, args});
+
+
+const Loop_ = (f, ...args) => ({loop: true, f, args});
+
+
+const Done = x => ({loop: false, x});
+
+
+const monadRec = res => {
+    while (res.loop)
+      res = res.f(...res.args);
+
+    return res.x;
+};
+
+
+const loopOf = Done;
+
+
+const loopChain = (tf, fm) => tf.loop
+  ? Loop_(args => loopChain(tf.f(...args), fm), tf.args)
+  : fm(tf.x);
+
+
+/******************************************************************************
 **************************[ MATCHED (REGEXP RESULT) ]**************************
 ******************************************************************************/
 
@@ -4728,6 +4736,7 @@ module.exports = {
   ascOrder_,
   ask,
   asks,
+  Base,
   bind2,
   bind2_,
   bind3,
@@ -4738,7 +4747,7 @@ module.exports = {
   bind5_,
   bind6,
   bind6_,
-  call,
+  Call,
   ceil,
   Comp,
   comp,
@@ -4920,7 +4929,8 @@ module.exports = {
   _let,
   local,
   log,
-  loop,
+  loopChain,
+  loopOf,
   LT,
   _Map,
   mapMap,
@@ -4951,6 +4961,7 @@ module.exports = {
   minAppend,
   minEmpty,
   minPrepend,
+  monadRec,
   neq,
   _new,
   None,
@@ -5042,9 +5053,8 @@ module.exports = {
   readJoin,
   readMap,
   readOf,
-  rec,
+  Recur,
   RegExpError,
-  ret,
   Return,
   returnHead,
   returnLast,
@@ -5120,6 +5130,7 @@ module.exports = {
   takerWhilek,
   Task,
   taggedLog,
+  tailRec,
   tAnd,
   tAll,
   tAp,
@@ -5149,7 +5160,6 @@ module.exports = {
   strToUpper,
   toString,
   trace,
-  tramp,
   tryCatch,
   tup1,
   tup2,
