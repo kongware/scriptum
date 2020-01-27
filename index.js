@@ -176,34 +176,19 @@ const match3 = (type,
 ******************************************************************************/
 
 
-const Call = (f, ...args) => // TODO: review
-  ({tag: Call, recur: true, f, args});
+const Base = x =>
+  ({recur: false, x});
 
 
 const Recur = (...args) =>
-  ({tag: Recur, recur: true, args});
-
-
-const Base = x =>
-  ({tag: Base, recur: false, x});
+  ({recur: true, args});
 
 
 const tailRec = f => (...args) => {
     let step = f(...args);
 
-    while (step.recur) {
-      switch (step.tag) {
-        case Call:
-          step = step.f(...step.args);
-          break;
-        
-        case Recur:
-          step = f(...step.args);
-          break;
-
-        default: throw new TypeError(); // TODO: error type
-      }
-    }
+    while (step.recur)
+      step = f(...step.args);
 
     return step.x;
 };
@@ -4747,7 +4732,6 @@ module.exports = {
   bind5_,
   bind6,
   bind6_,
-  Call,
   ceil,
   Comp,
   comp,
