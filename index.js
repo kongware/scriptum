@@ -1830,7 +1830,7 @@ const appTup_ = f => args =>
 
 
 const bind2 = (x, f, y, g, c) =>
-  f(x) (x_ => g(y) (y_ => c(x_) (y_)));
+  f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
 
 
 const bind2_ = (x, f, y, g, c) =>
