@@ -136,16 +136,16 @@ const unionGetter = type => (tag, o) => { // explicit getter for the runXY prop
 };
 
 
-/***[Pattern Matching]********************************************************/
+/***[Elimination Rule]********************************************************/
 
 
-const match = (type, {tag, ["run" + type]: x}, o) =>
+const pick = (type, {tag, ["run" + type]: x}, o) =>
   x === undefined
     ? _throw(new TypeError("invalid type"))
     : o[tag] (x);
 
 
-const match2 = (type,
+const pick2 = (type,
   {tag: tagx, ["run" + type_]: x},
   {tag: tagy, ["run" + type_]: y}, o) =>
     x === undefined
@@ -154,7 +154,7 @@ const match2 = (type,
         : o[tagx] [tagy] (x) (y);
 
 
-const match3 = (type,
+const pick3 = (type,
   {tag: tagx, ["run" + type_]: x},
   {tag: tagy, ["run" + type_]: y},
   {tag: tagz, ["run" + type_]: z}, o) =>
@@ -4927,9 +4927,6 @@ module.exports = {
   mapSetx,
   mapper,
   mapperk,
-  match,
-  match2,
-  match3,
   matCata,
   Matched,
   Max,
@@ -5010,6 +5007,9 @@ module.exports = {
   parOr,
   parPrepend,
   partial,
+  pick,
+  pick2,
+  pick3,
   pipe,
   pipe_,
   pipeBin,
