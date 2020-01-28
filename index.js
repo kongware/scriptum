@@ -1788,7 +1788,7 @@ const appTup_ = f => args =>
   f(...args);
 
 
-const bind2 = (x, f, y, g, c) =>
+const bind2 = (c, f, x, g, y) =>
   f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
 
 
@@ -1796,35 +1796,35 @@ const bind2_ = (x, f, y, g, c) =>
   f(x) (x_ => g(y) (y_ => c(x_) (y_)));
 
 
-const bind3 = (x, f, y, g, z, h, c) =>
+const bind3 = (c, f, x, g, y, h, z) =>
   f(x_ => g(y_ => h(z_ => c(x_) (y_) (z_)) (z)) (y)) (x);
 
 
-const bind3_ = (c, f, x, g, y, h, z) =>
+const bind3_ = (x, f, y, g, z, h, c) =>
   f(x) (x_ => g(y) (y_ => h(z) (z_ => c(x_) (y_) (z_))));
 
 
-const bind4 = (w, f, x, g, y, h, z, i, c) =>
+const bind4 = (c, f, w, g, x, h, y, i, z) =>
   f(w_ => g(x_ => h(y_ => i(z_ => c(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
 
 
-const bind4_ = (c, f, w, g, x, h, y, i, z) =>
+const bind4_ = (w, f, x, g, y, h, z, i, c) =>
   f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => c(w_) (x_) (y_) (z_)))));
 
 
-const bind5 = (v, f, w, g, x, h, y, i, z, j, c) =>
+const bind5 = (c, f, v, g, w, h, x, i, y, j, z) =>
   f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => c(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
 
 
-const bind5_ = (c, f, v, g, w, h, x, i, y, j, z) =>
+const bind5_ = (v, f, w, g, x, h, y, i, z, j, c) =>
   f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => c(v_) (w_) (x_) (y_) (z_))))));
 
 
-const bind6 = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
+const bind6 = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => c(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
 
 
-const bind6_ = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const bind6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
   f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => c(u_) (v_) (w_) (x_) (y_) (z_)))))));
 
 
@@ -1838,6 +1838,7 @@ const comp2_ = (x, f, y, g, z) =>
 
 const comp3 = (w, f, x, g, y, h, z) =>
   h(g(f(w) (x)) (y)) (z);
+
 
 const comp3_ = (w, f, x, g, y, h, z) =>
   f(w) (g(x) (h(y) (z)));
