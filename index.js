@@ -1788,6 +1788,46 @@ const appTup_ = f => args =>
   f(...args);
 
 
+const ap2 = (x, f, y, g, z) =>
+  g(f(x) (y)) (z);
+
+
+const ap2_ = (x, f, y, g, z) =>
+  f(x) (g(y) (z));
+
+
+const ap3 = (w, f, x, g, y, h, z) =>
+  h(g(f(w) (x)) (y)) (z);
+
+
+const ap3_ = (w, f, x, g, y, h, z) =>
+  f(w) (g(x) (h(y) (z)));
+
+
+const ap4 = (v, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+
+const ap4_ = (v, f, w, g, x, h, y, i, z) =>
+  f(v) (g(w) (h(x) (i(y) (z))));
+
+
+const ap5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+
+
+const ap5_ = (u, f, v, g, w, h, x, i, y, j, z) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
+
+
+const ap6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+
+
+const ap6_ = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
+
+
 const bind2 = (c, f, x, g, y) =>
   f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
 
@@ -1826,46 +1866,6 @@ const bind6 = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
 
 const bind6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
   f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => c(u_) (v_) (w_) (x_) (y_) (z_)))))));
-
-
-const comp2 = (x, f, y, g, z) =>
-  g(f(x) (y)) (z);
-
-
-const comp2_ = (x, f, y, g, z) =>
-  f(x) (g(y) (z));
-
-
-const comp3 = (w, f, x, g, y, h, z) =>
-  h(g(f(w) (x)) (y)) (z);
-
-
-const comp3_ = (w, f, x, g, y, h, z) =>
-  f(w) (g(x) (h(y) (z)));
-
-
-const comp4 = (v, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
-
-const comp4_ = (v, f, w, g, x, h, y, i, z) =>
-  f(v) (g(w) (h(x) (i(y) (z))));
-
-
-const comp5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
-
-
-const comp5_ = (u, f, v, g, w, h, x, i, y, j, z) =>
-  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
-
-
-const comp6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-const comp6_ = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
 const guard = p => f => x =>
@@ -4605,6 +4605,16 @@ module.exports = {
   anyAppend,
   anyEmpty,
   anyPrepend,
+  ap2,
+  ap2_,
+  ap3,
+  ap3_,
+  ap4,
+  ap4_,
+  ap5,
+  ap5_,
+  ap6,
+  ap6_,
   app,
   app_,
   appr,
@@ -4733,16 +4743,6 @@ module.exports = {
   Comp,
   comp,
   comp_,
-  comp2,
-  comp2_,
-  comp3,
-  comp3_,
-  comp4,
-  comp4_,
-  comp5,
-  comp5_,
-  comp6,
-  comp6_,
   compBin,
   compBoth,
   compAp,
