@@ -1788,44 +1788,44 @@ const appTup_ = f => args =>
   f(...args);
 
 
-const ap2 = (x, f, y, g, z) =>
-  g(f(x) (y)) (z);
+const ap2 = (c, f, x, g, y) =>
+  g(f(c) (x)) (y);
 
 
-const ap2_ = (x, f, y, g, z) =>
-  f(x) (g(y) (z));
+const ap2_ = (x, f, y, g, c) =>
+  f(x) (g(y) (c));
 
 
-const ap3 = (w, f, x, g, y, h, z) =>
-  h(g(f(w) (x)) (y)) (z);
+const ap3 = (c, f, x, g, y, h, z) =>
+  h(g(f(c) (x)) (y)) (z);
 
 
-const ap3_ = (w, f, x, g, y, h, z) =>
-  f(w) (g(x) (h(y) (z)));
+const ap3_ = (x, f, y, g, z, h, c) =>
+  f(x) (g(y) (h(z) (c)));
 
 
-const ap4 = (v, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
+const ap4 = (c, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(c) (w)) (x)) (y)) (z);
 
 
-const ap4_ = (v, f, w, g, x, h, y, i, z) =>
-  f(v) (g(w) (h(x) (i(y) (z))));
+const ap4_ = (w, f, x, g, y, h, z, i, c) =>
+  f(w) (g(x) (h(y) (i(z) (c))));
 
 
-const ap5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+const ap5 = (c, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(c) (v)) (w)) (x)) (y)) (z);
 
 
-const ap5_ = (u, f, v, g, w, h, x, i, y, j, z) =>
-  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
+const ap5_ = (v, f, w, g, x, h, y, i, z, j, c) =>
+  f(v) (g(w) (h(x) (i(y) (j(z) (c)))));
 
 
-const ap6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+const ap6 = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(c) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const ap6_ = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
+const ap6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (k(z) (c))))));
 
 
 const bind2 = (c, f, x, g, y) =>
