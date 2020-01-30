@@ -1758,11 +1758,11 @@ const takerWhilek = p => reduce => acc => x =>
 const appr = (f, y) => x => f(x) (y); // right section
 
 
-const appTup = f =>
+const apply = f =>
   arrFold(g => x => g(x)) (f);
 
 
-const appTup_ = f => args => 
+const apply_ = f => args => 
   f(...args);
 
 
@@ -4622,8 +4622,8 @@ module.exports = {
   app,
   app_,
   appr,
-  appTup,
-  appTup_,
+  apply,
+  apply_,
   arrAll,
   arrAlt,
   arrAltx,
