@@ -1386,17 +1386,6 @@ const funLiftA2 = f => g => h => x =>
 // funOf @derived
 
 
-/***[Choice]******************************************************************/
-
-
-const funLeft = f =>
-  ethCata(x => Left(f(x))) (Right);
-
-
-const funRight = f =>
-  ethCata(Left) (x => Right(f(x)));
-
-
 /***[Composition]*************************************************************/
 
 
@@ -1595,16 +1584,16 @@ const id = x => x;
 /***[Profunctor]**************************************************************/
 
 
-const funDimap = f => g => hx => x =>
-  g(hx(f(x)));
+const funDimap = f => g => h => x =>
+  g(h(f(x)));
 
 
-const funLmap = f => hx => x =>
-  hx(f(x));
+const funLmap = f => h => x =>
+  h(f(x));
 
 
-const funRmap = g => hx => x =>
-  g(hx(x));
+const funRmap = g => h => x =>
+  g(h(x));
 
 
 /***[Semigroup]***************************************************************/
@@ -1614,142 +1603,6 @@ const funAppend = comp;
 
 
 const funPrepend = pipe;
-
-
-/***[Transducer]**************************************************************/
-
-
-const dropper = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, acc)
-      : reduce(acc) (x);
-};
-
-
-const dropperk = n => reduce => { 
-  let m = 0;
-
-  return acc => x => k =>
-    m < n
-      ? (m++, k(acc))
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? acc
-      : reduce(acc) (x);
-};
-
-
-const dropperNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x => k =>
-    ++n % nth === 0
-      ? k(acc)
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperWhile = p => reduce => {
-  let drop = true;
-
-  return acc => x => 
-    drop && p(x)
-      ? acc
-      : (drop = false, reduce(acc) (x));
-};
-
-
-const dropperWhilek = p => reduce => {
-  let drop = true;
-
-  return acc => x =>
-    Cont(k =>
-      drop && p(x)
-        ? k(acc)
-        : (drop = false, reduce(acc) (x).runCont(k)))};
-
-
-const filterer = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const filtererk = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : k(acc));
-
-
-const mapper = f => reduce => acc => x =>
-  reduce(acc) (f(x));
-
-
-const mapperk = f => reduce => acc => x =>
-  Cont(k =>
-    reduce(acc) (f(x)).runCont(k));
-
-
-const taker = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, reduce(acc) (x))
-      : acc;
-};
-
-
-const takerk = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    Cont(k =>
-      m < n
-        ? (m++, reduce(acc) (x).runCont(k))
-        : acc)};
-
-
-const takerNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? reduce(acc) (x)
-      : acc;
-};
-
-
-const takerNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    Cont(k =>
-      ++n % nth === 0
-        ? reduce(acc) (x).runCont(k)
-        : acc)};
-
-
-const takerWhile = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const takerWhilek = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : acc);
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3957,6 +3810,144 @@ const fromThese = (x, y) => tx =>
     get That() {return [x, tx.runThese]},
     get These() {return tx.runThese}
   });
+
+
+/******************************************************************************
+********************************[ TRANSDUCER ]*********************************
+******************************************************************************/
+
+
+const dropper = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, acc)
+      : reduce(acc) (x);
+};
+
+
+const dropperk = n => reduce => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, k(acc))
+      : reduce(acc) (x).runCont(k)};
+
+
+const dropperNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? acc
+      : reduce(acc) (x);
+};
+
+
+const dropperNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => k =>
+    ++n % nth === 0
+      ? k(acc)
+      : reduce(acc) (x).runCont(k)};
+
+
+const dropperWhile = p => reduce => {
+  let drop = true;
+
+  return acc => x => 
+    drop && p(x)
+      ? acc
+      : (drop = false, reduce(acc) (x));
+};
+
+
+const dropperWhilek = p => reduce => {
+  let drop = true;
+
+  return acc => x =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, reduce(acc) (x).runCont(k)))};
+
+
+const filterer = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+
+const filtererk = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).runCont(k)
+      : k(acc));
+
+
+const mapper = f => reduce => acc => x =>
+  reduce(acc) (f(x));
+
+
+const mapperk = f => reduce => acc => x =>
+  Cont(k =>
+    reduce(acc) (f(x)).runCont(k));
+
+
+const taker = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, reduce(acc) (x))
+      : acc;
+};
+
+
+const takerk = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, reduce(acc) (x).runCont(k))
+        : acc)};
+
+
+const takerNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? reduce(acc) (x)
+      : acc;
+};
+
+
+const takerNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    Cont(k =>
+      ++n % nth === 0
+        ? reduce(acc) (x).runCont(k)
+        : acc)};
+
+
+const takerWhile = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+
+const takerWhilek = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).runCont(k)
+      : acc);
 
 
 /******************************************************************************
