@@ -1424,12 +1424,12 @@ const pipe_ = g => f => x => y =>
   f(x) (g(y));
 
 
-const pipeBoth = g => f => x => y =>
-  f(g(x)) (g(y));
-
-
 const pipeBin = g => f => x => y =>
   f(g(x) (y));
+
+
+const pipeBoth = g => f => x => y =>
+  f(g(x)) (g(y));
 
 
 /***[Contravariant Functor]***************************************************/
@@ -1535,14 +1535,6 @@ const isUnit = x =>
     || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
-const returnHead = (...xs) =>
-  xs[0];
-
-
-const returnLast = (...xs) =>
-  xs[xs.length - 1];
-
-
 const _throw = e => {
   throw e;
 };
@@ -1588,6 +1580,9 @@ const app_ = x => f => f(x);
 const _const = x => y => x;
 
 
+const const_ = x => y => y;
+
+
 const fix = f => x => f(fix(f)) (x); // not stack safe
 
 
@@ -1595,24 +1590,6 @@ const flip = f => y => x => f(x) (y);
 
 
 const id = x => x;
-
-
-const _let = (x, f) => f(x);
-
-
-const _let2 = (x, y, f) => f(x) (y);
-
-
-const _let3 = (x, y, z, f) => f(x) (y) (z);
-
-
-const _let4 = (w, x, y, z, f) => f(w) (x) (y) (z);
-
-
-const _let5 = (v, w, x, y, z, f) => f(v) (w) (x) (y) (z);
-
-
-const _let6 = (u, v, w, x, y, z, f) => f(u) (v) (w) (x) (y) (z);
 
 
 /***[Profunctor]**************************************************************/
@@ -1829,6 +1806,14 @@ const ap6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
   f(u) (g(v) (h(w) (i(x) (j(y) (k(z) (c))))));
 
 
+const bind = f => g => x =>
+  f(x) (x_ => g(x_));
+
+
+const bind_ = f => g => x =>
+  f(x_ => g(x_)) (x);
+
+
 const bind2 = (c, f, x, g, y) =>
   f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
 
@@ -1879,6 +1864,24 @@ const infix = (x, f, y) =>
 
 const infixr = (y, f, x) =>
   f(x) (y);
+
+
+const _let = (x, f) => f(x);
+
+
+const _let2 = (x, y, f) => f(x) (y);
+
+
+const _let3 = (x, y, z, f) => f(x) (y) (z);
+
+
+const _let4 = (w, x, y, z, f) => f(w) (x) (y) (z);
+
+
+const _let5 = (v, w, x, y, z, f) => f(v) (w) (x) (y) (z);
+
+
+const _let6 = (u, v, w, x, y, z, f) => f(u) (v) (w) (x) (y) (z);
 
 
 const select = p => f => g => x =>
@@ -4730,6 +4733,8 @@ module.exports = {
   ask,
   asks,
   Base,
+  bind,
+  bind_,
   bind2,
   bind2_,
   bind3,
@@ -4758,6 +4763,7 @@ module.exports = {
   concat,
   Const,
   _const,
+  const_,
   constMap,
   constOf,
   Cont,
@@ -5038,8 +5044,6 @@ module.exports = {
   Recur,
   RegExpError,
   Return,
-  returnHead,
-  returnLast,
   Right,
   rightPrism,
   round,
