@@ -81,9 +81,12 @@ class UnionError extends ScriptumError {};
 
 /******************************************************************************
 *******************************************************************************
-*******************************[ CONSTRUCTORS ]********************************
+***************************[ ALGEBRAIC DATA TYPES ]****************************
 *******************************************************************************
 ******************************************************************************/
+
+
+const type = s => f => f(s); // type constructor
 
 
 /******************************************************************************
@@ -91,30 +94,22 @@ class UnionError extends ScriptumError {};
 ******************************************************************************/
 
 
-const struct = type => x => ({ // single field types
+const struct = type => x => ({
   ["run" + type]: x,
-  [TYPE]: type,
+  [TYPE]: type
 });
 
 
-const structn = type => cons => { // multiple field types
-  const f = x => ({
-    ["run" + type]: x,
-    [TYPE]: type,
-  });
-
-  return cons(f);
-};
+const structn = type => f => f(x => ({
+  ["run" + type]: x,
+  [TYPE]: type
+}));
 
 
-const structGetter = type => cons => { // explicit getter for the runXY prop
-  const f = o => {
-    o[TYPE] = type;
-    return o;
-  }
-
-  return cons(f);
-};
+const structRun = type => f => f(o => {
+  o[TYPE] = type;
+  return o;
+});
 
 
 /******************************************************************************
@@ -122,30 +117,36 @@ const structGetter = type => cons => { // explicit getter for the runXY prop
 ******************************************************************************/
 
 
-const union = type => (tag, x) => ({
+const union = tag => type => x => ({
   ["run" + type]: x,
   [TAG]: tag,
   [TYPE]: type
 });
 
 
-const unionGetter = type => (tag, o) => { // explicit getter for the runXY prop
+const union0 = tag => type => ({
+  [TAG]: tag,
+  [TYPE]: type
+});
+
+
+const unionRun = tag => type => f => f(o => {
   o[TAG] = tag;
   o[TYPE] = type;
   return o;
-};
+});
 
 
 /***[Elimination Rule]********************************************************/
 
 
-const pick = (type, {tag, ["run" + type]: x}, o) =>
+const match = (type, {tag, ["run" + type]: x}, o) =>
   x === undefined
     ? _throw(new TypeError("invalid type"))
     : o[tag] (x);
 
 
-const pick2 = (type,
+const match2 = (type,
   {tag: tagx, ["run" + type_]: x},
   {tag: tagy, ["run" + type_]: y}, o) =>
     x === undefined
@@ -154,7 +155,7 @@ const pick2 = (type,
         : o[tagx] [tagy] (x) (y);
 
 
-const pick3 = (type,
+const match3 = (type,
   {tag: tagx, ["run" + type_]: x},
   {tag: tagy, ["run" + type_]: y},
   {tag: tagz, ["run" + type_]: z}, o) =>
@@ -4928,6 +4929,9 @@ module.exports = {
   mapper,
   mapperk,
   matCata,
+  match,
+  match2,
+  match3,
   Matched,
   Max,
   max,
@@ -5007,9 +5011,6 @@ module.exports = {
   parOr,
   parPrepend,
   partial,
-  pick,
-  pick2,
-  pick3,
   pipe,
   pipe_,
   pipeBin,
@@ -5095,7 +5096,7 @@ module.exports = {
   strTrim,
   struct,
   structn,
-  structGetter,
+  structRun,
   strUnconsNth,
   strUnconsNthOr,
   Sum,
@@ -5156,8 +5157,9 @@ module.exports = {
   uncurry5,
   uncurry6,
   union,
+  union0,
   UnionError,
-  unionGetter,
+  unionRun,
   Writer,
   writeAp,
   writeCensor,
