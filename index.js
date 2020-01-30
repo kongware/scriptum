@@ -1401,7 +1401,7 @@ const compBin = f => g => x => y =>
   f(g(x) (y));
 
 
-const compBoth = f => g => x => y =>
+const compOn = f => g => x => y =>
   f(g(x)) (g(y));
 
 
@@ -2391,7 +2391,7 @@ const Compare = struct("Compare");
 
 
 const compContra = f => tf =>
-  Compare(compBoth(tf.runCompare) (f));
+  Compare(compOn(tf.runCompare) (f));
 
 
 /***[Monoid]******************************************************************/
@@ -2657,7 +2657,7 @@ const Equiv = struct("Equiv");
 
 
 const equivContra = f => tf =>
-  Equiv(compBoth(tf.runEquiv) (f));
+  Equiv(compOn(tf.runEquiv) (f));
 
 
 /***[Monoid]******************************************************************/
@@ -4741,7 +4741,7 @@ module.exports = {
   comp,
   comp_,
   compBin,
-  compBoth,
+  compOn,
   compAp,
   compAppend,
   compPrepend,
