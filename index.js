@@ -168,7 +168,7 @@ const match3 = (type,
 
 /******************************************************************************
 *******************************************************************************
-********************************[ TRAMPOLINES ]********************************
+********************************[ TRAMPOLINE ]*********************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -1417,7 +1417,7 @@ const pipeBin = g => f => x => y =>
   f(g(x) (y));
 
 
-const pipeBoth = g => f => x => y =>
+const pipeOn = g => f => x => y =>
   f(g(x)) (g(y));
 
 
@@ -1508,7 +1508,8 @@ const funMap = comp;
 /***[Impure]******************************************************************/
 
 
-const eff = f => x => (f(x), x); // aka tap
+const eff = f => x =>
+  (f(x), x); // aka tap
 
 
 const introspect = x =>
@@ -1605,18 +1606,7 @@ const funAppend = comp;
 const funPrepend = pipe;
 
 
-/***[Misc. Combinators]*******************************************************/
-
-
-const appr = (f, y) => x => f(x) (y); // right section
-
-
-const apply = f =>
-  arrFold(g => x => g(x)) (f);
-
-
-const apply_ = f => args => 
-  f(...args);
+/***[Infix Combinators]*******************************************************/
 
 
 const ap2 = (c, f, x, g, y) =>
@@ -1659,14 +1649,6 @@ const ap6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
   f(u) (g(v) (h(w) (i(x) (j(y) (k(z) (c))))));
 
 
-const bind = f => g => x =>
-  f(x) (x_ => g(x_));
-
-
-const bind_ = f => g => x =>
-  f(x_ => g(x_)) (x);
-
-
 const bind2 = (c, f, x, g, y) =>
   f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
 
@@ -1707,16 +1689,38 @@ const bind6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
   f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => c(u_) (v_) (w_) (x_) (y_) (z_)))))));
 
 
-const guard = p => f => x =>
-  p(x) ? f(x) : x;
-
-
 const infix = (x, f, y) =>
   f(x) (y);
 
 
 const infixr = (y, f, x) =>
   f(x) (y);
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const appr = (f, y) => x => f(x) (y); // right section
+
+
+const apply = f =>
+  arrFold(g => x => g(x)) (f);
+
+
+const apply_ = f => args => 
+  f(...args);
+
+
+const bind = f => g => x =>
+  f(x) (x_ => g(x_));
+
+
+const bind_ = f => g => x =>
+  f(x_ => g(x_)) (x);
+
+
+const guard = p => f => x =>
+  p(x) ? f(x) : x;
 
 
 const _let = (x, f) => f(x);
@@ -5011,7 +5015,7 @@ module.exports = {
   pipe,
   pipe_,
   pipeBin,
-  pipeBoth,
+  pipeOn,
   Pred,
   predAppend,
   predContra,
