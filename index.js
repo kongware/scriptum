@@ -1692,10 +1692,10 @@ const infixr = (y, f, x) =>
 
 
 const kleisli2 = (fm, chain1, gm, chain2, hm) =>
-  x => chain1(chain2(hm(x)) (gm)) (fm);
+  x => chain1(fm) (chain2(gm) (hm(x)));
 
 
-const kleisli2_ = (fm, chain1, gm, chain2, hm) =>
+const kleisli2_ = (hm, chain1, gm, chain2, fm) =>
   x => chain1(fm) (chain2(gm) (hm(x)));
 
 
