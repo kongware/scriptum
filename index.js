@@ -244,11 +244,11 @@ const foldMap = ({fold, append, empty}) => f =>
 /***[Monad]*******************************************************************/
 
 
-const kleisliComp = chain => fm => gm => x =>
+const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
 
-const kleisliPipe = chain => gm => fm => x =>
+const kleisli_ = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
@@ -1689,6 +1689,14 @@ const infix = (x, f, y) =>
 
 const infixr = (y, f, x) =>
   f(x) (y);
+
+
+const kleisli2 = (fm, f, gm, g, hm) =>
+  x => g(f(hm(x)) (gm)) (fm);
+
+
+const kleisli2_ = (fm, f, gm, g, hm) =>
+  x => f(fm) (g(gm) (hm(x)));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -4885,8 +4893,10 @@ module.exports = {
   isIntStr,
   isTrue,
   isUnit,
-  kleisliComp,
-  kleisliPipe,
+  kleisli,
+  kleisli_,
+  kleisli2,
+  kleisli2_,
   Last,
   lastAppend,
   lastPrepend,
