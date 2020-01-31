@@ -1712,11 +1712,11 @@ const apply_ = f => args =>
 
 
 const bind = f => g => x =>
-  f(x) (x_ => g(x_));
+  f(x) (g);
 
 
 const bind_ = f => g => x =>
-  f(x_ => g(x_)) (x);
+  f(g) (x);
 
 
 const guard = p => f => x =>
