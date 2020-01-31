@@ -25,13 +25,7 @@ P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I
 const NOT_FOUND = -1;
 
 
-const PREFIX = "s/"; // avoid name clashes
-
-
-const TAG = PREFIX + "tag"; // the tag property of tagged unions
-
-
-const TYPE = Symbol.toStringTag; // useful for debugging
+const TYPE = Symbol.toStringTag;
 
 
 /******************************************************************************
@@ -119,19 +113,19 @@ const structRun = type => f => f(o => {
 
 const union = tag => type => x => ({
   ["run" + type]: x,
-  [TAG]: tag,
+  tag,
   [TYPE]: type
 });
 
 
 const union0 = tag => type => ({
-  [TAG]: tag,
+  tag,
   [TYPE]: type
 });
 
 
 const unionRun = tag => type => f => f(o => {
-  o[TAG] = tag;
+  o.tag = tag;
   o[TYPE] = type;
   return o;
 });
@@ -142,7 +136,7 @@ const unionRun = tag => type => f => f(o => {
 
 const match = (type, {tag, ["run" + type]: x}, o) =>
   x === undefined
-    ? _throw(new TypeError("invalid type"))
+    ? _throw(new UnionError("invalid type"))
     : o[tag] (x);
 
 
@@ -151,7 +145,7 @@ const match2 = (type,
   {tag: tagy, ["run" + type_]: y}, o) =>
     x === undefined
       || y === undefined
-        ? _throw(new TypeError("invalid type"))
+        ? _throw(new UnionError("invalid type"))
         : o[tagx] [tagy] (x) (y);
 
 
@@ -162,7 +156,7 @@ const match3 = (type,
     x === undefined
       || y === undefined
       || z === undefined
-        ? _throw(new TypeError("invalid type"))
+        ? _throw(new UnionError("invalid type"))
         : o[tagx] [tagx] [tagz] (x) (y) (z);
 
 
@@ -655,7 +649,7 @@ const arrUnfold = coalg => x => {
   while (true) {
     let tx = coalg(x);
 
-    switch (tx[TAG]) {
+    switch (tx.tag) {
       case "None": return acc;
       
       case "Some": {
@@ -2113,7 +2107,7 @@ const strMatchAll = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched[TAG]) {
+      switch (tx.runMatched.tag) {
         case "None": return acc;
 
         case "Some": {
@@ -2141,7 +2135,7 @@ const strMatchLast = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched[TAG]) {
+      switch (tx.runMatched.tag) {
         case "None": return acc;
 
         case "Some": {
@@ -2172,7 +2166,7 @@ const strMatchNth = nth_ => (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched[TAG]) {
+      switch (tx.runMatched.tag) {
         case "None": return acc;
 
         case "Some": {
@@ -2761,7 +2755,7 @@ const history = alg => zero =>
 
 
 const headH = tx => {
-  switch (tx[TAG]) {
+  switch (tx.tag) {
     case "Ancient": return tx.runHistory;
     case "Age": return tx.runHistory[1];
     default: throw new UnionError("invalid tag");
@@ -2943,7 +2937,7 @@ const strLens = (i, len) => // String is immutable hence no typeclass functions
     map(t => {
       const tx = strUnconsNth(i, len) (s);
 
-      switch (tx[TAG]) {
+      switch (tx.tag) {
         case "None": return t;
 
         case "Some":
@@ -2994,13 +2988,16 @@ const lensSet = tx => v => o =>
 ******************************************************************************/
 
 
-const Loop = f => (...args) => ({loop: true, f, args});
+const Loop = f => (...args) =>
+  ({loop: true, f, args});
 
 
-const Loop_ = (f, ...args) => ({loop: true, f, args});
+const Loop_ = (f, ...args) =>
+  ({loop: true, f, args});
 
 
-const Done = x => ({loop: false, x});
+const Done = x =>
+  ({loop: false, x});
 
 
 const monadRec = res => {
@@ -3159,7 +3156,7 @@ const optChain = fm => mx =>
 
 const optChainT = ({chain, of}) => fmm => mmx =>
   chain(mx => {
-    switch (mx[TAG]) {
+    switch (mx.tag) {
       case "None": return of(None);
       case "Some": return fmm(mx.runOption);
     }
@@ -4793,6 +4790,7 @@ module.exports = {
   delay,
   descOrder,
   descOrder_,
+  Done,
   dropper,
   dropperk,
   dropperNth,
@@ -4912,6 +4910,8 @@ module.exports = {
   _let,
   local,
   log,
+  Loop,
+  Loop_,
   loopChain,
   loopOf,
   LT,
@@ -5102,7 +5102,6 @@ module.exports = {
   sumAppend,
   sumEmpty,
   sumPrepend,
-  TAG,
   taker,
   takerk,
   takerNth,
