@@ -1603,84 +1603,84 @@ const funPrepend = pipe;
 /***[Infix Combinators]*******************************************************/
 
 
-const ap2 = (c, f, x, g, y) =>
-  g(f(c) (x)) (y);
+const ap2 = (lift, f, x, g, y) =>
+  g(f(lift) (x)) (y);
 
 
-const ap2_ = (x, f, y, g, c) =>
-  f(x) (g(y) (c));
+const ap2_ = (x, f, y, g, lift) =>
+  f(x) (g(y) (lift));
 
 
-const ap3 = (c, f, x, g, y, h, z) =>
-  h(g(f(c) (x)) (y)) (z);
+const ap3 = (lift, f, x, g, y, h, z) =>
+  h(g(f(lift) (x)) (y)) (z);
 
 
-const ap3_ = (x, f, y, g, z, h, c) =>
-  f(x) (g(y) (h(z) (c)));
+const ap3_ = (x, f, y, g, z, h, lift) =>
+  f(x) (g(y) (h(z) (lift)));
 
 
-const ap4 = (c, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(c) (w)) (x)) (y)) (z);
+const ap4 = (lift, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(lift) (w)) (x)) (y)) (z);
 
 
-const ap4_ = (w, f, x, g, y, h, z, i, c) =>
-  f(w) (g(x) (h(y) (i(z) (c))));
+const ap4_ = (w, f, x, g, y, h, z, i, lift) =>
+  f(w) (g(x) (h(y) (i(z) (lift))));
 
 
-const ap5 = (c, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(c) (v)) (w)) (x)) (y)) (z);
+const ap5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(lift) (v)) (w)) (x)) (y)) (z);
 
 
-const ap5_ = (v, f, w, g, x, h, y, i, z, j, c) =>
-  f(v) (g(w) (h(x) (i(y) (j(z) (c)))));
+const ap5_ = (v, f, w, g, x, h, y, i, z, j, lift) =>
+  f(v) (g(w) (h(x) (i(y) (j(z) (lift)))));
 
 
-const ap6 = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(c) (u)) (v)) (w)) (x)) (y)) (z);
+const ap6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(lift) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const ap6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
-  f(u) (g(v) (h(w) (i(x) (j(y) (k(z) (c))))));
+const ap6_ = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (k(z) (lift))))));
 
 
-const bind2 = (c, f, x, g, y) =>
-  f(x_ => g(y_ => c(x_) (y_)) (y)) (x);
+const bind2 = (lift, f, x, g, y) =>
+  f(x_ => g(y_ => lift(x_) (y_)) (y)) (x);
 
 
-const bind2_ = (x, f, y, g, c) =>
-  f(x) (x_ => g(y) (y_ => c(x_) (y_)));
+const bind2_ = (x, f, y, g, lift) =>
+  f(x) (x_ => g(y) (y_ => lift(x_) (y_)));
 
 
-const bind3 = (c, f, x, g, y, h, z) =>
-  f(x_ => g(y_ => h(z_ => c(x_) (y_) (z_)) (z)) (y)) (x);
+const bind3 = (lift, f, x, g, y, h, z) =>
+  f(x_ => g(y_ => h(z_ => lift(x_) (y_) (z_)) (z)) (y)) (x);
 
 
-const bind3_ = (x, f, y, g, z, h, c) =>
-  f(x) (x_ => g(y) (y_ => h(z) (z_ => c(x_) (y_) (z_))));
+const bind3_ = (x, f, y, g, z, h, lift) =>
+  f(x) (x_ => g(y) (y_ => h(z) (z_ => lift(x_) (y_) (z_))));
 
 
-const bind4 = (c, f, w, g, x, h, y, i, z) =>
-  f(w_ => g(x_ => h(y_ => i(z_ => c(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
+const bind4 = (lift, f, w, g, x, h, y, i, z) =>
+  f(w_ => g(x_ => h(y_ => i(z_ => lift(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
 
 
-const bind4_ = (w, f, x, g, y, h, z, i, c) =>
-  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => c(w_) (x_) (y_) (z_)))));
+const bind4_ = (w, f, x, g, y, h, z, i, lift) =>
+  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => lift(w_) (x_) (y_) (z_)))));
 
 
-const bind5 = (c, f, v, g, w, h, x, i, y, j, z) =>
-  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => c(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
+const bind5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
+  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => lift(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
 
 
-const bind5_ = (v, f, w, g, x, h, y, i, z, j, c) =>
-  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => c(v_) (w_) (x_) (y_) (z_))))));
+const bind5_ = (v, f, w, g, x, h, y, i, z, j, lift) =>
+  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => lift(v_) (w_) (x_) (y_) (z_))))));
 
 
-const bind6 = (c, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => c(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
+const bind6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
 
 
-const bind6_ = (u, f, v, g, w, h, x, i, y, j, z, k, c) =>
-  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => c(u_) (v_) (w_) (x_) (y_) (z_)))))));
+const bind6_ = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
+  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)))))));
 
 
 const infix = (x, f, y) =>
@@ -1691,12 +1691,12 @@ const infixr = (y, f, x) =>
   f(x) (y);
 
 
-const kleisli2 = (fm, f, gm, g, hm) =>
-  x => g(f(hm(x)) (gm)) (fm);
+const kleisli2 = (fm, chain1, gm, chain2, hm) =>
+  x => chain1(chain2(hm(x)) (gm)) (fm);
 
 
-const kleisli2_ = (fm, f, gm, g, hm) =>
-  x => f(fm) (g(gm) (hm(x)));
+const kleisli2_ = (fm, chain1, gm, chain2, hm) =>
+  x => chain1(fm) (chain2(gm) (hm(x)));
 
 
 /***[Misc. Combinators]*******************************************************/
