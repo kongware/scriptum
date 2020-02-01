@@ -1,6 +1,6 @@
 <img src="./logo.png" width="366" height="114" alt="scriptum"><br><br><br>
 
-## What
+### What
 
 scriptum is both a no-frills functional programming library and a comprehensive online course that builds upon this library.
 
