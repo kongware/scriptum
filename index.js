@@ -1717,7 +1717,7 @@ const bind = f => g => x =>
   f(x) (g);
 
 
-const bind_ = f => g => x =>
+const bind_ = g => f => x =>
   f(g) (x);
 
 
