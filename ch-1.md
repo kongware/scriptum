@@ -39,7 +39,7 @@ Imagine named expressions with holes in them and a mechanism to fill these holes
 
 ```Javascript
 const foo = hole => `expression with a ${hole} in it`;
-foo("bar") // expression
+foo("bar") // function application is an expression
 ```
 
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every expression. Functions are inherently lazy.
