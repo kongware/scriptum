@@ -121,7 +121,7 @@ sum(1, 2, 3, 4, 5); // 15
 
 Such functions are not valid in functional programming and you can neither curry nor compose them. Only use them with care.
 
-### The curry-uncurry isomorphism
+### The curry/uncurry isomorphism
 
 There are only two functions necessary to transform a curried function into its uncurried counterpart and vice versa:
 
