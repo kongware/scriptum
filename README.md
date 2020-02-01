@@ -20,8 +20,6 @@ Roughly the first third of the course is addressed to functional programming nov
 
 The scriptum library is still experimental.
 
-However, I have been using scriptum in production for several months now. It is not bullet proofed yet but has reached a quite stable state.
-
 ## Functional programming course (TOC)
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
