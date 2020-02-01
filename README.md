@@ -8,9 +8,13 @@ scriptum is both a no-frills functional programming library and a comprehensive 
 
 scriptum is designed to come as close as possible to the purely functional paradigm in order to facilitate the learning process. Goal is to be language agnostic so that you can transfer your new knowldge to your preferred functional or multi-paradigm language. 
 
+## How
+
 I chose Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions and function literals we have all ingredients necessary to master the functional paradigm.
 
 However, Javascript is not a purely functional language hence we will encounter some drawbacks and techniques to bypass them. These techniques are rather useful since they allow you to apply functional programming to any multi-paradigm language.
+
+Roughly the first third of the course is addressed to functioanl programming novices and forgos static typing in order to lower the mental load. In the more advanced chapters we will switch to Typescript.
 
 ## Status
 
@@ -23,7 +27,7 @@ However, I have been using scriptum in production for several months now. It is 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. Upcoming: Common Functional Combinators </br>
+4. Upcoming: Lambda Abstractions and Common Functional Combinators </br>
 
 * Planned: Useful and Harmful Functionalization <br/>
 * Planned: Avoid Nesting through Infix Combinators <br/>
@@ -67,12 +71,6 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: When FP does not save us
 
 ## Controversial issues
-
-### No static typing
-
-scriptum is based on Javascript, not Typescript. Abandoning a static type system was actually the toughest choice I had to make. Static typing is not a prerequisite yet an important aspect of functional programming. But it is also a source of tremendous complexity because it introduces an additional layer of indirection, scatters type annotations throughout the code and thus impedes learning the underlying functional idioms.
-
-A reasonable compromise that scriptum pursues is to annotate functions with types in comment format. This way the understanding of types and there interaction with the term level can evolve without mingling code and type annotations and without introducing a proper type level.
 
 ### No prototype system and method chaining
 
