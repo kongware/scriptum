@@ -1,4 +1,4 @@
-## Managing State
+### Managing State
 
 How does FP manage state? This is probably the second most frequently asked question about functional programming exceeded only by "What is a Monad?". Let us take a little detour first, so that we are all on the same page before I answer that question.
 
