@@ -42,7 +42,7 @@ The scriptum library is still experimental.
 * Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Adapted Hindley-Milner Type Annotations <br/>
 * Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
-* Planned: Higher Kinded and Higher Rank Types with Typescript <br/>
+* Planned: Higher-Kinded and Higher-Rank Types with Typescript <br/>
 * Planned: Algebraic Data Types <br/>
 * Planned: Tagged Unions of Records <br/>
 * Planned: Type Wrappers for Improved Semantics<br/>
