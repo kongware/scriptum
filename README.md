@@ -14,7 +14,7 @@ I chose Javascript because it is the Lingua Franca of the web most programmers h
 
 However, Javascript is not a purely functional language hence we will encounter some drawbacks and techniques to bypass them. These techniques are rather useful since they allow you to apply functional programming to any multi-paradigm language.
 
-Roughly the first third of the course is addressed to functioanl programming novices and forgos static typing in order to lower the mental load. In the more advanced chapters we will switch to Typescript.
+Roughly the first third of the course is addressed to functional programming novices and forgos static typing in order to lower the mental load. In the more advanced chapters we will switch to Typescript.
 
 ## Status
 
