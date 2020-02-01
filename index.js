@@ -1717,8 +1717,8 @@ const bind = f => g => x =>
   f(x) (g);
 
 
-const bind_ = g => f => x =>
-  f(x) (g);
+const bind_ = f => g => x =>
+  f(g) (x);
 
 
 const guard = p => f => x =>
