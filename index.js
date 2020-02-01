@@ -1369,12 +1369,12 @@ const round = roundBy("round");
 /***[Applicative]*************************************************************/
 
 
-const funAp = f => g => x =>
-  f(x) (g(x));
+const funAp = tf => tg => x =>
+  tf(x) (tg(x));
 
 
-const funLiftA2 = f => g => h => x =>
-  f(g(x)) (h(x));
+const funLiftA2 = f => tg => th => x =>
+  f(tg(x)) (th(x));
 
 
 // funOf @derived
@@ -1538,12 +1538,16 @@ const tryCatch = f => g => x => {
 /***[Monad]*******************************************************************/
 
 
-const funChain = f => g => x =>
-  f(g(x)) (x);
+const funChain = fm => mg => x =>
+  fm(mg(x)) (x);
 
 
-const funJoin = f => x =>
-  f(x) (x);
+const funChain_ = mg => fm => x =>
+  fm(mg(x)) (x);
+
+
+const funJoin = mmf => x =>
+  mmf(x) (x);
 
 
 /***[Monoid]******************************************************************/
@@ -4834,6 +4838,7 @@ module.exports = {
   funAp,
   funAppend,
   funChain,
+  funChain_,
   funContra,
   funDimap,
   funEmpty,
