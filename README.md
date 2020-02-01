@@ -31,6 +31,7 @@ However, I have been using scriptum in production for several months now. It is 
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Almost Pattern Matching through Unification <br/>
+* Planned: From Sharing to Memoization <br/>
 * Planned: Local Continuation Passing Style <br/>
 * Planned: Lazy Evaluation in a Strict Environment <br/>
 * Planned: The Runtime - Edge of the Application <br/>
