@@ -123,7 +123,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-We managed to greatly improve the code. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
+We managed to improve the code a lot. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
 ```Javascript
 const scanSqr = n => x => {
@@ -135,7 +135,7 @@ const scanSqr = n => x => {
   return go([], x, n);
 };
 ```
-Please note that `_let` has no type, i.e. you cannot give it one in e.g. Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but implementing the combinator with mutual recursion results in even greater drawbacks.
+Please note that `_let` has no type, i.e. you cannot give it one in Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but alternative implementations of `_let` through mutual recursion results in even greater drawbacks.
 
 Just in case you are interested in fixed point combinators they will be examined in a later chapter of this course.
 
