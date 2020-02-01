@@ -27,7 +27,6 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
 4. Upcoming: Lambda Abstractions and Common Functional Combinators </br>
 
-* Planned: Useful and Harmful Functionalization <br/>
 * Planned: Avoid Nesting through Infix Combinators <br/>
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
@@ -43,6 +42,7 @@ The scriptum library is still experimental.
 * Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Adapted Hindley-Milner Type Annotations <br/>
 * Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
+* Planned: Higher Kinded and Higher Rank Types with Typescript <br/>
 * Planned: Algebraic Data Types <br/>
 * Planned: Tagged Unions of Records <br/>
 * Planned: Type Wrappers for Improved Semantics<br/>
