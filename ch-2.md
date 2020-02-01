@@ -135,6 +135,7 @@ const scanSqr = n => x => {
   return go([], x, n);
 };
 ```
+Please note that `_let` has no type, i.e. you cannot give it one in e.g. Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion).
 
 Just in case you are interested in fixed point combinators they will be examined in a later chapter of this course.
 
