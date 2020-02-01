@@ -137,7 +137,7 @@ const scanSqr = n => x => {
 ```
 Please note that `_let` has no type, i.e. you cannot give it one in Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but alternative implementations of `_let` through mutual recursion results in even greater drawbacks.
 
-Just in case you are interested in fixed point combinators they will be examined in a later chapter of this course.
+We will examine how to type all sorts of combinators in Typescript and delve into type theory in later chapters of this course.
 
 ### When the call stack vanishes
 
