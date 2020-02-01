@@ -96,7 +96,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 
 The decisive point is that this approach scales. In a later chapter we will discuss how to structure large applications in a functional manner.
 
-### Let bindings
+### Local bindings
 
 While the above examples illustrate the fundamental concept of how state is managed in functional programming, they both have drawbacks we would like to avoid:
 
@@ -104,7 +104,7 @@ While the above examples illustrate the fundamental concept of how state is mana
 * we have to create nested anonymous functions for each name binding (B)
 * the same expression is evaluated twice for each recursive step (C)
 
-As I already mentioned we can declare name bindings in functional programming. This happens by means of let bindings, which are essentially immediately invoked function expressions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
+As I already mentioned we can declare name bindings in functional programming. This happens by means of local bindings, which are essentially immediately invoked function expressions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
 
 ```Javascript
 const _let = f => f();
@@ -123,7 +123,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-We managed to greatly improve the code. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that let bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
+We managed to greatly improve the code. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
 ```Javascript
 const scanSqr = n => x => {
@@ -135,7 +135,7 @@ const scanSqr = n => x => {
   return go([], x, n);
 };
 ```
-Please note that `_let` has no type, i.e. you cannot give it one in e.g. Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion).
+Please note that `_let` has no type, i.e. you cannot give it one in e.g. Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but implementing the combinator with mutual recursion results in even greater drawbacks.
 
 Just in case you are interested in fixed point combinators they will be examined in a later chapter of this course.
 
