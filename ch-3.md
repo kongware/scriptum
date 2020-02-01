@@ -1,4 +1,4 @@
-## Currying, Composition and Point-Free Style
+### Currying, Composition and Point-Free Style
 
 ### Functions in curried form
 
