@@ -1717,14 +1717,6 @@ const apply_ = f => args =>
   f(...args);
 
 
-const bind = f => g => x =>
-  f(x) (g);
-
-
-const bind_ = f => g => x =>
-  f(g) (x);
-
-
 const guard = p => f => x =>
   p(x) ? f(x) : x;
 
@@ -4722,8 +4714,6 @@ module.exports = {
   ask,
   asks,
   Base,
-  bind,
-  bind_,
   bind2,
   bind2_,
   bind3,
