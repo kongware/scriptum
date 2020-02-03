@@ -195,6 +195,17 @@ const tailRec = f => (...args) => {
 ******************************************************************************/
 
 
+/***[Applicstive]*************************************************************/
+
+
+const apConst = ({map, ap}) => tf => tg =>
+  ap(map(_const) (tf)) (tg);
+
+
+const apConst_ = ({map, ap}) => tf => tg =>
+  ap(mapConst(map) (id) (tf)) (tg);
+
+
 /***[Ix]**********************************************************************/
 
 
@@ -241,6 +252,13 @@ const foldMap = ({fold, append, empty}) => f =>
   fold(comp_(append) (f)) (empty);
 
 
+/***[Functor]*****************************************************************/
+
+
+const mapConst = map => x =>
+  map(y => x);
+
+
 /***[Monad]*******************************************************************/
 
 
@@ -250,6 +268,10 @@ const kleisli = chain => fm => gm => x =>
 
 const kleisli_ = chain => gm => fm => x =>
   chain(fm) (gm(x));
+
+
+const monadAp = chain => mf => mg =>
+  chain(_ => mg) (mf);
 
 
 /***[Monoid]******************************************************************/
@@ -4600,6 +4622,8 @@ module.exports = {
   ap5_,
   ap6,
   ap6_,
+  apConst,
+  apConst_,
   app,
   app_,
   appr,
@@ -4906,6 +4930,7 @@ module.exports = {
   loopOf,
   LT,
   _Map,
+  mapConst,
   mapMap,
   mapDel,
   mapDelx,
@@ -4934,6 +4959,7 @@ module.exports = {
   minAppend,
   minEmpty,
   minPrepend,
+  monadAp,
   monadRec,
   neq,
   _new,
