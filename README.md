@@ -25,7 +25,7 @@ The scriptum library is still experimental.
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. Upcoming: Reasonable and Harmful Lambda Abstractions (99% done)</br>
+4. Upcoming: Reasonable and Harmful Lambda Abstractions + Common Combinators (99% done)</br>
 
 * Planned: Avoid Nesting with Infix Combinators <br/>
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
