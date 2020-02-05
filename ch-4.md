@@ -258,7 +258,7 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp`. It represents the functor typeclass of the function type on the term level. Phew! Simply put it is the same as the `map` function each functor has to implement.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. It represents the functor typeclass of the function type on the term level. Phew! Simply put it is the same as the `map` function each functor has to implement. `comp` as well as `map` for the function type allows us to apply an unary function to the result of another unary function.
 
 `ap = f => g => x => f(x) (g(x))`
 
