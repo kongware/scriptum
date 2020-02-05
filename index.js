@@ -249,7 +249,7 @@ const any = ({fold, append, empty}) => p =>
 
 
 const foldMap = ({fold, append, empty}) => f =>
-  fold(comp_(append) (f)) (empty);
+  fold(comp2nd(append) (f)) (empty);
 
 
 /***[Functor]*****************************************************************/
@@ -1409,7 +1409,7 @@ const comp = f => g => x =>
   f(g(x));
 
 
-const comp_ = f => g => x => y =>
+const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
 
@@ -4751,7 +4751,7 @@ module.exports = {
   ceil,
   Comp,
   comp,
-  comp_,
+  comp2nd,
   compBin,
   compOn,
   compAp,
