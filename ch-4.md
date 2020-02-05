@@ -50,6 +50,8 @@ const compAll = fs => x =>
 const compAll_ = fs => x =>
   reduce(comp) (id) (fs) (x);
 
+const inc = x => x + 1;
+
 compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
 However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises. Functional programming does not free you from thinking.
@@ -61,6 +63,8 @@ Every at least binary operator can be partially applied when it is converted to 
 ```Javascript
 const map = f => xs =>
   xs.map(x => f(x));
+  
+const mul = x => y => x * y;
 
 map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
@@ -82,27 +86,46 @@ Here using Javascript's native Boolean type is defenitely the better choice:
 const False = x => y => x;
 const True = x => y => y;
 
-const ifElse= b => x => y => b(x) (y);
-const eq = x => y => x === y ? True : False;
+const ifElse= b => x => y =>
+  b(x) (y);
+  
+const eq = x => y =>
+  x === y
+    ? True
+    : False;
 
 const x = 1, y = 2, z = 2;
 
-ifElse(eq(x) (y)) (“equal”) (“unequal”); // “unequal” 
-ifElse(eq(y) (z)) (“equal”) (“unequal”); // “equal” 
+ifElse(eq(x) (y))
+  ("equal")
+    ("unequal"); // "unequal" 
+    
+ifElse(eq(y) (z))
+  ("equal")
+    ("unequal"); // "equal" 
 ```
-While this approach gives us implicit pattern matching and a notion of union types the drawbacks lack of readability and inefficiency predominate.
+While this approach gives us implicit pattern matching and a notion of union types the drawbacks predominate: Lack of readability and inefficiency.
 
 #### Example of making things up
 
-I guess we can all agree that nested function calls are hideous and should be avoided. Since we are clever we just make up a solution. May I introduce a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition:
+I guess we can all agree that nested function calls are incomprehensable and should be avoided by all means. Since we are clever let us just make up a solution. How about a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition? Here we go:
 
 ```Javascript
 const compn = f =>
-  Object.assign(g => compn(x => f(g(x))), {runCompn: f});
+  Object.assign(
+    g => compn(x => f(g(x))),
+    {runCompn: f});
 
-compn(inc) (inc) (inc) (inc) (inc) (inc).runCompn(0); // 5
+compn(inc)
+  (inc)
+    (inc)
+      (inc)
+        (inc)
+          (inc).runCompn(0); // 5
 ```
-This is a clever bit of Javascript engineering. Are you able to see all the long term consequences of this approach though? Did you recognize that `compn` has no type in Typescript, for instance? Does this approach work for all sorts of compositions or only for composing pure functions? This combinator is not type directed. It is a lawless abstraction.
+This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
+
+This combinator is not type directed. It is a lawless abstraction and unless you are a very seasoned developer you cannot anticipate the consequences of using it.
 
 #### Example of misusing things
 
@@ -114,37 +137,39 @@ const fold = f => init => xs =>
 
 const sqr = x => x * x;
 
-fold(xs => x => [x, ....xs]) ([]) ([1, 2, 3]); // [1, 4, 9]
+fold(xs => x => xs.concat(sqr(x)))
+  ([])
+    ([1, 2, 3]); // [1, 4, 9]
 ```
-While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation above preserves the structure of the array, a simple map would have sufficed.
+While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims through the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation at hand is structure preserving, a simple map would have sufficed.
 
 ### Common functional combinators
 
-The following section lists well-known functional combinators that do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there are primitive types in a type system.
+The following paragraphs list well-known functional combinators that do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there are primitive types in a type system.
 
-Please note that a successive underscore within a combinator’s name indicates a slightly different version of an existing combinator. A preceding underscore on the other hand is merely used to avoid name clashes with Javascript’s reserved words.
+Please note that a successive underscore within a combinator's name indicates a slightly different version of an existing combinator. A preceding underscore on the other hand is merely used to avoid name clashes with Javascript's reserved words.
 
 #### Unary combinators
 
 `id = x => x`
 
-`id` is is the neutral element of the function type. It is similar to `1` for multiplication, `0` for addition and `[]` for Arrays. As you need `0`/`1` for arithmetic you need `id` when working with functions.
+`id` is is the neutral element of the function type. It is similar to `1` for multiplication, `0` for addition or `[]` for arrays. As you need `0`/`1` for arithmetic operations you need `id` together with functions.
 
 #### Binary combinators
 
-`_const = x => y => x`
+`_const = x => y => x`<br/>
 `const_ = x => y => y`
 
-Both constant combinators ignore one of their two arguments. It acts like a functional constant, hence the name.
+Both constant combinators ignore either of their two arguments. It acts like a functional constant, hence the name.
 
 #### Binary combinators with one function argument
 
-`app = f => x => f(x)`
+`app = f => x => f(x)`<br/>
 `app_ = x => f => f(x)`
 
-The applicator is helpful when you need an immediately invoked function expression. It is more readable then using parentheses.
+The applicator is helpful when you need an immediately invoked function expression. It is more readable then using syntax with parentheses.
 
-You can also use it to functionalize `if`/`switch` statements:
+You can also utilize it to functionalize `if`/`switch` statements:
 
 ```Javascript
   app_([“f”, “o”, “o”].join())
@@ -161,7 +186,7 @@ You can also use it to functionalize `if`/`switch` statements:
 ```
 `join = f => x => f(x) (x)`
 
-In rare scenarios there is one redundant layer of nested functions. You can get rid of it by flattening with `join`:
+If you want to get rid of a redundant layer of nested functions you can apply `join`:
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -172,7 +197,7 @@ join(comp(const_) (inc)) (2); // 3
 ```
 `eff = f => x => (f(x), x)`
 
-The effect combinator is also known as `tap` in the imperative world. You can use `eff` when you are only interested in the side effect of a function:
+The effect combinator is also known as `tap` in the imperative world. You can use `eff` when you are only interested in the side effect of a function, not its return value:
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -181,35 +206,34 @@ const get = k => o => o[k];
 const log = s => console.log(s);
 
 eff(log)
-  (comp(sqr) (get(“length”) (“foo”)); // logs/returns 9
+  (comp(sqr) (get("length") ("foo")); // logs/returns 9
 ```
 `fix = f => x => f(fix(f)) (x)`
 
-The fixed point combinator allows anonymous recursion but is not stack safe, i.e. might exhaust the call stack for long running computations:
-
-fix (\rec n -> if n == 0 then 1 else n * rec (n-1)) 5
-
-const fix = f => x => f(fix(f)) (x)
+The fixed point combinator allows anonymous recursion, that is you can define an anonymous recursive function in place:
 
 ```Javascript
+const fix = f => x => f(fix(f)) (x)
+
 fix(rec => n =>
   n === 0
     ? 1
     : n * rec(n - 1)) (5); // 120
 ```
-As you can see we can recursively calculate the faculty of `5` without requiring a named function.
+Although `fix` is not stack safe and might exhaust the call stack it is important to understand the underlying mechanism.
 
-`_let = (x, f) => f(x)`
+`_let = () => f()`
 
-Javascript lacks `let` expressions to create name bindings. The `_let` combinator is specific for imperative languages and mimics such bindings:
-_let2(“foo”, “foo”.length,
-  s => n => `${s} has ${n} letters`);
+Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds remedy by mimicing such bindings:
 
-`_let` is an arity aware combinator, i.e. depending of how many name bindings you need there is a suited combinator. Usually we try to avoid arity awareness, but sometimes we have to resort to it.
+_let((x = 2, y = x * x, z = y * y, total = x + y + z) =>
+  [x, y, z, total]); // [2, 4, 16, 22]
+
+But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that can depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
 
 `appr = (f, y) => x => f(x) (y)`
 
-`appr` applies the right argument of a binary function, i.e. it flips the argument order. In the literature this combinator is subsumed under the term. Since `appr` applies the right argument it represents the right section:
+`appr` applies the right argument of a binary function, i.e. it effectively flips the argument order. In the literature this combinator is subsumed under the term sectioning, namely the right section:
 
 ```Javascript
 const sub = x => y => x - y,
@@ -219,22 +243,22 @@ const sub = x => y => x - y,
 sub2(5); // -3
 sub2_(5); // 3
 ```
-The second application yields a more intuitive result.
+Clearly the second application yields a more intuitive result.
 
 #### Ternary combinators with one function argument
 
-`curry = f => x => y => f(x, y)`
-`uncurry = f => (x, y) => f(x) (y)`
+`curry = f => x => y => f(x, y)`<br/>
+`uncurry = f => (x, y) => f(x) (y)`<br/>
 `flip = f => y => x => f(x) (y)`
 
-I talked about these combinators in a previous chapter. Please look it up for more information on applying them.
+I talked about these combinators in a previous chapter. Please look it up for more information.
 
 #### Ternary combinators with two function arguments
 
-`comp = f => g => x => f(g(x))`
+`comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I am going to leave out details in this section. Please note though that `comp` implements the functor of the function type. Functors are a very fundamental structure in functional programming.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp`. It represents the functor typeclass of the function type on the term level. Phew! Simply put it is the same as the `map` function each functor has to implement.
 
 `ap = f => g => x => f(x) (g(x))`
 
