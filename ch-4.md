@@ -16,7 +16,7 @@ Please note that I will not discuss the first two points, because they are rathe
 
 #### Replace statements with expressions
 
-You can replace statements with an expression by wrapping it in a function:
+You can replace statements with an expression by simply wrapping it in a function:
 
 ```Javascript
 const app_ = x => f => f(x);
@@ -34,11 +34,11 @@ app_({tag: “foo”}) (({tag}) => {
   }
 });
 ```
-This way statements become composable and you can pass them around like data. Beyond that you do not lose beneficial properties like readability.
+This way statements become composable and can be passed around like data. Beyond that you do not lose beneficial properties like readability and conciseness.
 
 #### Avoid explicit lambdas
 
-You can render algorithms terse and more readable by avoiding explicit lambdas, provided the used combinators are well-known:
+You can render algorithms concise and more readable by avoiding explicit lambdas provided the used combinators are well-known:
 
 ```Javascript
 const reduce = f => init => xs =>
@@ -52,11 +52,11 @@ const compAll_ = fs => x =>
 
 compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
-This isn’t a mechanical process though. Sometimes it is the other way around and explicit lambdas are more readable. You have to decide ad hoc.
+However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises.
 
 #### Utilize partial application
 
-Every at least binary operator can be partially applied when it is converted to curried function form. Partial application is useful when only some of the required operands are available upfront:
+Every at least binary operator can be partially applied when it is converted to curried form. Partial application is useful when only some of the required operands are available in advance:
 
 ```Javascript
 const map = f => xs =>
@@ -66,13 +66,11 @@ map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
 ### Harmful lambda abstractions
 
-There are a couple of good reasons to use lambda abstractions. However, like any tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with them. Some function encodings just render your code hard to read and obfuscate your intentions.
+Usually it is a very good idea to use lambda abstractions in order to improve your code. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
 
-The following guidelines may be helpful to avoid common pitfalls:
-
-do not encode something with functions that has a simpler representation (over-abstracting)
-only create principled abstractions that are both directed by math and types (do not  make things up)
-use principled abstractions as they are intended (do not misuse things)
+* do not encode something with functions that has a simpler representation (over-abstracting)
+* only create principled abstractions that are both directed by math and types (do not  make things up)
+* use principled abstractions as they are intended (do not misuse things)
 
 #### Example of over-abstracting
 
