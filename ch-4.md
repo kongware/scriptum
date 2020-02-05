@@ -52,7 +52,7 @@ const compAll_ = fs => x =>
 
 compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
-However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises.
+However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises. Functional programming does not free you from thinking.
 
 #### Utilize partial application
 
@@ -64,9 +64,11 @@ const map = f => xs =>
 
 map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
+The capability to defer computations is one of the strong suits of the functional paradigm. This is a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
+
 ### Harmful lambda abstractions
 
-Usually it is a very good idea to use lambda abstractions in order to improve your code. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
+Usually it is a very great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
 
 * do not encode something with functions that has a simpler representation (over-abstracting)
 * only create principled abstractions that are both directed by math and types (do not  make things up)
@@ -74,7 +76,7 @@ Usually it is a very good idea to use lambda abstractions in order to improve yo
 
 #### Example of over-abstracting
 
-Although we can encode booleans with functions, we obviously should not and use the native Boolean type instead:
+Here using Javascript's native Boolean type is defenitely the better choice:
 
 ```Javascript
 const False = x => y => x;
@@ -88,9 +90,11 @@ const x = 1, y = 2, z = 2;
 ifElse(eq(x) (y)) (“equal”) (“unequal”); // “unequal” 
 ifElse(eq(y) (z)) (“equal”) (“unequal”); // “equal” 
 ```
+While this approach gives us implicit pattern matching and a notion of union types the drawbacks lack of readability and inefficiency predominate.
+
 #### Example of making things up
 
-Let us define a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition:
+I guess we can all agree that nested function calls are hideous and should be avoided. Since we are clever we just make up a solution. May I introduce a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition:
 
 ```Javascript
 const compn = f =>
@@ -98,7 +102,7 @@ const compn = f =>
 
 compn(inc) (inc) (inc) (inc) (inc) (inc).runCompn(0); // 5
 ```
-How great is that! Well, this is an lawless abstraction, because variadic functions are incompatible with currying. Apart from that `compn` does not have a type, thus you cannot ever use it with e.g. Typescript.
+This is a clever bit of Javascript engineering. Are you able to see all the long term consequences of this approach though? Did you recognize that `compn` has no type in Typescript, for instance? Does this approach work for all sorts of compositions or only for composing pure functions? This combinator is not type directed. It is a lawless abstraction.
 
 #### Example of misusing things
 
@@ -112,7 +116,7 @@ const sqr = x => x * x;
 
 fold(xs => x => [x, ....xs]) ([]) ([1, 2, 3]); // [1, 4, 9]
 ```
-While this is technically correct it obfuscates the purpose of the program. Everyone who is familiar with array functions and skims the code would assume that some sort of reduction takes place, because the purpose of a fold is to reduce or eliminate a data structure. Since the operation above preserves the array’s structure, a simple map would have sufficed.
+While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation above preserves the structure of the array, a simple map would have sufficed.
 
 ### Common functional combinators
 
