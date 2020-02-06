@@ -259,13 +259,15 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be the same as `map` for the function type. As you may already know `map` implements the functor interface for a given type, i.e. mapping over a function just means function composition. With `comp` or `map` respectively we can apply an unary function to the result of another unary function.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be `map` for the function type. So while composing functions is a different operation than mapping over an array the underlying concept is the same.
+
+As you may know `map` implements the functor interface. Functors are besides functions the most important thing in functional programming. A functor lifts a pure unary function into another context. We will learn more about functors in a later chapter of this course. For the time being we stick with the notion that with `comp` we can apply an unary function to the result of another unary one.
 
 `ap = f => g => x => f(x) (g(x))`
 
 `ap` implements the applicative functor interface of the function type. As the name implies applicatives are also functors, but more general ones. `ap` allows us to apply an n-ary function to the results of n unary functions.
 
-The combinator is rarely used for the function type but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `comp` followed by successive calls to `ap`. This applicative pattern witnesses the close relationship between functors and applicatives:
+The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `comp` followed by successive calls to `ap`. This applicative pattern witnesses the close relationship between functors and applicatives:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x))
@@ -285,7 +287,7 @@ main(0); // [Infinity, 1, 0]
 
 `chain = f => g => x => f(g(x)) (x)`
 
-If we continue the chosen path we inevitably wind up with monads, which represent the most general structure of the three. Monads are implemented by the `chain` combinator. As with applicatives we can apply a n-ary function to the results of n unary functions. But in contrast to applicatives the unary function can depend on the previous value:
+The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But in contrast to applicatives the unary function can depend on the previous value:
 
 ```Javascript
 const main = chain(x =>
@@ -298,7 +300,7 @@ const main = chain(x =>
 main(3); // [3, 4, 9]
 main(4); // [0, 1, 0]
 ```
-This seems to be an arbitrary property but as a matter of fact it is a rather important one. It renders monads to an effective tool to chain effects of all sorts. This was just a brief introduction to these important functional structures. We will learn more about functors, applicatives and monads in later chapters of this course.
+In the function context the previous value is the initial value provided to the inner function. This seems to be a marginal property but as a matter of fact it is a rather important one. It makes monads to the preverred tool to chain effectful computations of all sorts.
 
 #### Quaternary combinators with two function arguments
 
@@ -340,10 +342,11 @@ const compBin = f => g => x => y => f(g(x) (y));
 const add = x => y => x + y;
 
 compBin(sqr) (add) (2) (3); // 25
+compBin(add) (add) (2) (3) (4); // 9
 ```
 `compOn = f => g => x => y => f(g(x)) (g(y))`
 
-One of the main use cases of `compOn` are sorting algorithms of compound values, where the order is determined by an element of the overall value:
+The main use case of `compOn` is sorting algorithms of compound values where the order is determined by an element of the compound value:
 
 ```Javascript
 const compOn = f => g => x => y => f(g(x)) (g(y));
@@ -363,12 +366,13 @@ sortBy(compOn(compare) (fst)) ([[2, "world"], [4, "!"], [1, "hello"]]);
 ```
 #### Quaternary combinators with three function arguments
 
-`lift = f => g => h => x => f(g(x)) (h(x))`
+`lift2 = f => g => h => x => f(g(x)) (h(x))`
 
 This is the last useful combinator in this series, since we will not look into functions with more than four arguments:
 
 ```Javascript
-const lift = f => g => h => x => f(g(x)) (h(x));
+const lift2 = f => g => h => x => f(g(x)) (h(x)),
+  lift3 = f => g => h => i => x => f(g(x)) (h(x)) (i(x));
 
 const get = k => o => o[k];
 const getLen = get("length");
@@ -376,6 +380,8 @@ const getLen = get("length");
 const countVowels = s => s.match(/[aeuio]/gi).length
 const div = x => y => x / y;
 
-lift(div) (countVowels) (getLen) ("hello world!"); // 0.25
+lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 ```
-Please note that `lift` is just the encoding for the applicative pattern `ap(comp(div) (countVowels)) (getLen) ("hello world!")` I introduced a few paragraphs above.
+Please note that `lift` is just a more terse and more performant encoding for the applicative pattern `ap(comp(div) (countVowels)) (getLen) ("hello world!")` I introduced a few paragraphs above.
+
+It is an arity aware combinator, that is depending on the arity of the function you want to lift you need to use the matching lifting function. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not that elegeant. However, an exception confirms the rule.
