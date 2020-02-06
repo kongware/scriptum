@@ -425,3 +425,5 @@ lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 Please note that `lift` is just a more terse and more performant encoding for the applicative pattern `ap(comp(div) (countVowels)) (getLen) ("hello world!")` I introduced a few paragraphs above.
 
 It is an arity aware combinator, that is depending on the arity of the function you want to lift you need to use the matching lifting function. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not that elegeant. However, an exception confirms the rule.
+
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
