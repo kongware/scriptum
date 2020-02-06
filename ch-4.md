@@ -4,15 +4,11 @@ This chapter is about abstracting code with functions, i.e. creating function en
 
 ### Reasons for lambda abstractions
 
-In an imperative or multi-paradigm language there are four reasonable motives to abstract code with functions:
+In an imperative or multi-paradigm language there are among others three reasonable motives to abstract code with functions:
 
-* Code reuse
-* Avoid intermediate values
 * Replace statements with expressions
 * Avoid explicit lambdas
 * Utilize partial application
-
-Please note that I will not discuss the first two points, because they are rather irrelevant to the subject at hand.
 
 #### Replace statements with expressions
 
