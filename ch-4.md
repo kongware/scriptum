@@ -12,7 +12,7 @@ In an imperative or multi-paradigm language there are four reasonable motives to
 * Avoid explicit lambdas
 * Utilize partial application
 
-Please note that I will not discuss the first two points, because they are rather irrelevant to the given issue.
+Please note that I will not discuss the first two points, because they are rather irrelevant to the subject at hand.
 
 #### Replace statements with expressions
 
