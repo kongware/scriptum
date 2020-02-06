@@ -226,10 +226,11 @@ Although `fix` is not stack safe and might exhaust the call stack it is importan
 
 Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds remedy by mimicing such bindings:
 
+```Javascript
 _let((x = 2, y = x * x, z = y * y, total = x + y + z) =>
   [x, y, z, total]); // [2, 4, 16, 22]
-
-But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that can depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
+```
+But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that may depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
 
 `appr = (f, y) => x => f(x) (y)`
 
