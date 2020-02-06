@@ -44,6 +44,9 @@ You can render algorithms concise and more readable by avoiding explicit lambdas
 const reduce = f => init => xs =>
   xs.reduce((acc, x) => f(acc) (x));
 
+const comp = f => g => x =>
+  f(g(x));
+  
 const compAll = fs => x =>
   reduce(f => g => x => f(g(x))) (id) (fs) (x); 
 
@@ -54,6 +57,8 @@ const inc = x => x + 1;
 
 compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
+[run code](https://repl.it/repls/DisfiguredGiddyLead)
+
 However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises. Functional programming does not free you from thinking.
 
 #### Utilize partial application
@@ -68,6 +73,8 @@ const mul = x => y => x * y;
 
 map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
+[run code](https://repl.it/repls/ThisTrivialScans)
+
 The capability to defer computations is one of the strong suits of the functional paradigm. This is a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
 
 ### Harmful lambda abstractions
@@ -104,6 +111,8 @@ ifElse(eq(y) (z))
   ("equal")
     ("unequal"); // "equal" 
 ```
+[run code](https://repl.it/repls/UnsungSnarlingLead)
+
 While this approach gives us implicit pattern matching and a notion of union types the drawbacks predominate: Lack of readability and inefficiency.
 
 #### Example of making things up
@@ -120,9 +129,10 @@ compn(inc)
   (inc)
     (inc)
       (inc)
-        (inc)
-          (inc).runCompn(0); // 5
+        (inc).runCompn(0); // 5
 ```
+[run code](https://repl.it/repls/BruisedLightcyanDevice)
+
 This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
 
 This combinator is not type directed. It is a lawless abstraction and unless you are a very seasoned developer you cannot anticipate the consequences of using it.
@@ -141,6 +151,8 @@ fold(xs => x => xs.concat(sqr(x)))
   ([])
     ([1, 2, 3]); // [1, 4, 9]
 ```
+[run code](https://repl.it/repls/HonorableAcclaimedCoderesource)
+
 While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims through the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation at hand is structure preserving, a simple map would have sufficed.
 
 ### Common functional combinators
@@ -172,42 +184,55 @@ The applicator is helpful when you need an immediately invoked function expressi
 You can also utilize it to functionalize `if`/`switch` statements:
 
 ```Javascript
-  app_([“f”, “o”, “o”].join())
+  const app_ = x => f => f(x);
+  
+  app_(["f", "o", "o"].join(""))
     (s => {
-      if (s === “foo”)
-        return s + “l”;
+      if (s === "foo")
+        return s + "l";
 
-      else if (s === “bar”)
-        return “bar” + “k”;
+      else if (s === "bar")
+        return "bar" + "k";
 
       else
         return s;
-    }); // “fool”
+    }); // "fool"
 ```
+[run code](https://repl.it/repls/BruisedHarmlessWrapper)
+
 `join = f => x => f(x) (x)`
 
 If you want to get rid of a redundant layer of nested functions you can apply `join`:
 
 ```Javascript
+const join = f => x => f(x) (x);
 const comp = f => g => x => f(g(x));
+
 const const_ = x => y => x;
 const inc = x => x + 1;
 
 join(comp(const_) (inc)) (2); // 3
 ```
+[run code](https://repl.it/repls/OldfashionedPastelSdk)
+
 `eff = f => x => (f(x), x)`
 
 The effect combinator is also known as `tap` in the imperative world. You can use `eff` when you are only interested in the side effect of a function, not its return value:
 
 ```Javascript
+const eff = f => x => (f(x), x);
 const comp = f => g => x => f(g(x));
+
 const sqr = x => x * x;
 const get = k => o => o[k];
 const log = s => console.log(s);
 
-eff(log)
-  (comp(sqr) (get("length") ("foo")); // logs/returns 9
+comp(sqr)
+  (s => eff(log) (get("length") (s)))
+    ("foo"); // logs 3 + returns 9 
 ```
+[run code](https://repl.it/repls/ElegantTrivialCertification)
+
 `fix = f => x => f(fix(f)) (x)`
 
 The fixed point combinator allows anonymous recursion, that is you can define an anonymous recursive function in place:
@@ -220,16 +245,22 @@ fix(rec => n =>
     ? 1
     : n * rec(n - 1)) (5); // 120
 ```
+[run code](https://repl.it/repls/KosherWarmheartedControlpanel)
+
 Although `fix` is not stack safe and might exhaust the call stack it is important to understand the underlying mechanism.
 
-`_let = () => f()`
+`_let = f => f()`
 
 Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds remedy by mimicing such bindings:
 
 ```Javascript
-_let((x = 2, y = x * x, z = y * y, total = x + y + z) =>
-  [x, y, z, total]); // [2, 4, 16, 22]
+const _let = f => f();
+
+_let((x = 2, y = x * x, z = y * y, total = x + y + z, foo = "foo") =>
+  [x, y, z, total]); // [2, 4, 16, 22, foo]
 ```
+[run code](https://repl.it/repls/MistyGrimyDesigners)
+
 But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that may depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
 
 `appr = (f, y) => x => f(x) (y)`
@@ -237,6 +268,8 @@ But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. Howev
 `appr` applies the right argument of a binary function, i.e. it effectively flips the argument order. In the literature this combinator is subsumed under the term sectioning, namely the right section:
 
 ```Javascript
+const appr = (f, y) => x => f(x) (y);
+
 const sub = x => y => x - y,
   sub2 = sub(2),
   sub2_ = appr(sub, 2);
@@ -244,6 +277,8 @@ const sub = x => y => x - y,
 sub2(5); // -3
 sub2_(5); // 3
 ```
+[run code](https://repl.it/repls/SillySlateblueGreyware)
+
 Clearly the second application yields a more intuitive result.
 
 #### Ternary combinators with one function argument
@@ -282,12 +317,15 @@ const main = ap(
 main(3); // [3, 4, 9]
 main(0); // [Infinity, 1, 0]
 ```
+[run code](https://repl.it/repls/IndigoOrnateDoom)
 
 `chain = f => g => x => f(g(x)) (x)`
 
 The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But in contrast to applicatives the unary function can depend on the previous value:
 
 ```Javascript
+const chain = f => g => x => f(g(x)) (x);
+
 const main = chain(x =>
   chain(y =>
     chain(z => w =>
@@ -296,8 +334,10 @@ const main = chain(x =>
         : [x, y, z]) (sqr)) (inc)) (div(9));
 
 main(3); // [3, 4, 9]
-main(4); // [0, 1, 0]
+main(0); // [0, 1, 0]
 ```
+[run code](https://repl.it/repls/NeighboringFrayedAnalysis)
+
 In the function context the previous value is the initial value provided to the inner function. This seems to be a marginal property but as a matter of fact it is a rather important one. It makes monads to the preverred tool to chain effectful computations of all sorts.
 
 #### Quaternary combinators with two function arguments
@@ -326,6 +366,8 @@ foldComp = foldMap({fold, append: comp, empty: id});
 
 foldComp(add) ([1, 2, 3]) (100); // 106
 ```
+[run code](https://repl.it/repls/CapitalRosyEntropy)
+
 The reason why we need to compose in the second argument of `append` is that `foldMap` does not depend on a right associative fold but on a left associative one. As you may know both folds differ in the order the accumulator `acc` and the current element `x` is provided to the algebra `f`.
 
 `compBin = f => g => x => y => f(g(x) (y))`
@@ -338,6 +380,8 @@ const compBin = f => g => x => y => f(g(x) (y));
 compBin(sqr) (add) (2) (3); // 25
 compBin(add) (add) (2) (3) (4); // 9
 ```
+[run code](https://repl.it/repls/DraftySlategrayProgramminglanguage)
+
 `compOn = f => g => x => y => f(g(x)) (g(y))`
 
 The main use case of `compOn` is sorting algorithms of compound values where the order is determined by an element of the compound value:
@@ -358,6 +402,8 @@ const fst = ([x, y]) => x;
 sortBy(compOn(compare) (fst))
   ([[2, "world"], [4, "!"], [1, "hello"]]); // [[1, "hello"], [2, "world"], [4, "!"]]
 ```
+[run code](https://repl.it/repls/ThankfulMoralFiles)
+
 #### Quaternary combinators with three function arguments
 
 `lift2 = f => g => h => x => f(g(x)) (h(x))`
@@ -374,6 +420,8 @@ const countVowels = s => s.match(/[aeuio]/gi).length
 
 lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 ```
+[run code](https://repl.it/repls/TurbulentTediousImplementation)
+
 Please note that `lift` is just a more terse and more performant encoding for the applicative pattern `ap(comp(div) (countVowels)) (getLen) ("hello world!")` I introduced a few paragraphs above.
 
 It is an arity aware combinator, that is depending on the arity of the function you want to lift you need to use the matching lifting function. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not that elegeant. However, an exception confirms the rule.
