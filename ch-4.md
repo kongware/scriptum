@@ -270,11 +270,9 @@ As you may know `map` implements the functor interface. Functors are besides fun
 The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `comp` followed by successive calls to `ap`. This applicative pattern witnesses the close relationship between functors and applicatives:
 
 ```Javascript
-const ap = f => g => x => f(x) (g(x))
-const comp = f => g => x => f(g(x))
+const ap = f => g => x => f(x) (g(x));
+const comp = f => g => x => f(g(x));
 const div = x => y => x / y;
-const inc = x => x + 1;
-const sqr = x => x * x;
 
 const main = ap(
   ap(
@@ -318,10 +316,7 @@ const fold = f => init => xs =>
 const comp = f => g => x =>
   f(g(x));
 
-const add = x => y => x + y;
-
 const id = x => x;
-
 const empty = [];
 
 const foldMap = ({fold, append, empty}) => f =>
@@ -339,7 +334,6 @@ With `compBin` both function arguments can be a binary function:
 
 ```Javascript
 const compBin = f => g => x => y => f(g(x) (y));
-const add = x => y => x + y;
 
 compBin(sqr) (add) (2) (3); // 25
 compBin(add) (add) (2) (3) (4); // 9
@@ -361,8 +355,8 @@ const compare = x => y =>
 
 const fst = ([x, y]) => x;
 
-sortBy(compOn(compare) (fst)) ([[2, "world"], [4, "!"], [1, "hello"]]);
-// [[1, "hello"], [2, "world"], [4, "!"]]
+sortBy(compOn(compare) (fst))
+  ([[2, "world"], [4, "!"], [1, "hello"]]); // [[1, "hello"], [2, "world"], [4, "!"]]
 ```
 #### Quaternary combinators with three function arguments
 
@@ -376,9 +370,7 @@ const lift2 = f => g => h => x => f(g(x)) (h(x)),
 
 const get = k => o => o[k];
 const getLen = get("length");
-
 const countVowels = s => s.match(/[aeuio]/gi).length
-const div = x => y => x / y;
 
 lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 ```
