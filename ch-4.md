@@ -259,7 +259,7 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. It represents the functor typeclass of the function type on the term level. Phew! Simply put it is the same as the `map` function each functor has to implement. `comp` as well as `map` for the function type allows us to apply an unary function to the result of another unary function.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be the same as `map` for the function type. As you may already know `map` implements the functor interface for a given type, i.e. mapping over a function just means function composition. With `comp` or `map` respectively we can apply an unary function to the result of another unary function.
 
 `ap = f => g => x => f(x) (g(x))`
 
@@ -298,7 +298,7 @@ const main = chain(x =>
 main(3); // [3, 4, 9]
 main(4); // [0, 1, 0]
 ```
-This seems to be an arbitrary property but as a matter of fact it is a rather important one. It renders monads to an effective tool to chain effects of all sorts. We will learn more about functors, applicatives and monads in later chapters in later chapters of this course.
+This seems to be an arbitrary property but as a matter of fact it is a rather important one. It renders monads to an effective tool to chain effects of all sorts. This was just a brief introduction to these important functional structures. We will learn more about functors, applicatives and monads in later chapters of this course.
 
 #### Quaternary combinators with two function arguments
 
