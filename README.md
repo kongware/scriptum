@@ -25,9 +25,9 @@ The scriptum library is still experimental.
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. Upcoming: Reasonable and Harmful Lambda Abstractions + Common Combinators (99% done)</br>
+4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)</br>
+5. Upcoming: Avoid Nesting with Infix Combinators (Part 1)<br/>
 
-* Planned: Avoid Nesting with Infix Combinators <br/>
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Loop Fusion through Transducers <br/>
@@ -58,6 +58,7 @@ The scriptum library is still experimental.
 * Planned: Functor Typeclass <br/>
 * Planned: Applicative Functor Typeclass <br/>
 * Planned: Monad Typeclass <br/>
+* Planned: Avoid Nesting with Infix Combinators (Part 2)<br/>
 * Planned: Monad Transformers <br/>
 * Planned: A Bunch of other Typeclasses <br/>
 * Planned: A Bunch of Functional Types <br/>
