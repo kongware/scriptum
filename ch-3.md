@@ -195,4 +195,4 @@ When people encounter a problem that is to complex to be solved at once they rec
 
 This chapter was mainly about composition of pure functions. In subsequent chapters you will learn how you can compose functions that share a global configuration, write to a common log or share state. You will see how we can compose function that have a notion of failure, are asynchronous or represent the rest of the computation. Function composition is not about functions, it is about how to compose them in any context.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-2.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-2.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-4.md)
