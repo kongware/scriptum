@@ -334,7 +334,7 @@ main(0); // [0, 1, 0]
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
-Having such a choice seems to be a merely subordinate property. However, it renders monads to the preverred tool to chain effectful computations of all sorts.
+Having such a choice seems to be a merely subordinate property. However, it renders monads to a superior tool to chain effectful computations of all sorts.
 
 #### Quaternary combinators with two function arguments
 
