@@ -151,9 +151,9 @@ fold(xs => x => xs.concat(sqr(x)))
 
 While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims through the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation at hand is structure preserving, a simple map would have sufficed.
 
-### Common functional combinators
+### Well-known functional combinators
 
-The following paragraphs list well-known functional combinators that do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there are primitive types in a type system.
+The following paragraphs list well-known functional combinators that you can familiarize yourself with.  They do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there are primitive types in a type system. 
 
 Please note that a successive underscore within a combinator's name indicates a slightly different version of an existing combinator. A preceding underscore on the other hand is merely used to avoid name clashes with Javascript's reserved words.
 
@@ -290,15 +290,15 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be `map` for the function type. So while composing functions is a different operation than mapping over an array the underlying concept is the same.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be `map` for the function type. Composing functions may be a different operation than mapping over an array, but the underlying concept is the same.
 
-As you may know `map` implements the functor interface. Functors are besides functions the most important thing in functional programming. A functor lifts a pure unary function into another context. We will learn more about functors in a later chapter of this course. For the time being we stick with the notion that with `comp` we can apply an unary function to the result of another unary one.
+As you may know `map` implements the functor interface. Functors are besides functions the most important structure in functional programming. A functor lifts a pure unary function into another context. We will learn more about functors in a later chapter of this course. For the time being we stick with the notion that with `comp` we can apply an unary function to the result of another unary one.
 
 `ap = f => g => x => f(x) (g(x))`
 
 `ap` implements the applicative functor interface of the function type. As the name implies applicatives are also functors, but more general ones. `ap` allows us to apply an n-ary function to the results of n unary functions.
 
-The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `comp` followed by successive calls to `ap`. This applicative pattern witnesses the close relationship between functors and applicatives:
+The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `map` (alias of `comp`) followed by successive calls to `ap`:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
@@ -308,33 +308,33 @@ const div = x => y => x / y;
 const main = ap(
   ap(
     map(x => y => z =>
-      [x, y, z]) (div(9))) (inc)) (sqr);
+      [x, y, z]) (inc)) (sqr)) (div(9));
 
-main(3); // [3, 4, 9]
-main(0); // [Infinity, 1, 0]
+main(3); // [9, 4, 3]
+main(0); // [0, 1, Infinity]
 ```
 [run code](https://repl.it/repls/IndigoOrnateDoom)
 
 `chain = f => g => x => f(g(x)) (x)`
 
-The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But in contrast to applicatives the unary function can depend on the previous value:
+The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But additionaly to applicatives a monad can choose the subsequent monadic action depending on a previous value: 
 
 ```Javascript
 const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
-  chain(y =>
-    chain(z => w =>
-      w === 0
-        ? [0, y, z]
-        : [x, y, z]) (sqr)) (inc)) (div(9));
+  x === 0 // choose next action depending on previous value
+    ? w => [0, 1, 0]
+    : chain(y =>
+        chain(z => w =>
+          [x, y, z]) (div(9))) (inc)) (sqr);
 
 main(3); // [3, 4, 9]
 main(0); // [0, 1, 0]
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
-In the function context the previous value is the initial value provided to the inner function. This seems to be a marginal property but as a matter of fact it is a rather important one. It makes monads to the preverred tool to chain effectful computations of all sorts.
+Having such a choice seems to be a merely subordinate property. However, it renders monads to the preverred tool to chain effectful computations of all sorts.
 
 #### Quaternary combinators with two function arguments
 
