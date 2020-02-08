@@ -79,7 +79,7 @@ Usually it is a very great idea to use lambda abstractions in order to develop y
 
 * do not encode something with functions that has a simpler representation (over-abstracting)
 * only create principled abstractions that are both directed by math and types (do not  make things up)
-* use principled abstractions as they are intended (do not misuse things)
+* apply combinators to tasks for which they are intended (do not misuse things)
 
 #### Example of over-abstracting
 
