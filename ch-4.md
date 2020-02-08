@@ -302,12 +302,12 @@ The combinator is rarely used but we should take the opportunity to familiarize 
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
-const comp = f => g => x => f(g(x));
+const map = f => g => x => f(g(x)); // aka comp
 const div = x => y => x / y;
 
 const main = ap(
   ap(
-    comp(x => y => z =>
+    map(x => y => z =>
       [x, y, z]) (div(9))) (inc)) (sqr);
 
 main(3); // [3, 4, 9]
