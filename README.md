@@ -79,7 +79,7 @@ By giving up both features we lose the following two abilities:
 * associate object types with methods
 * create flat, sequential method chains
 
-Luckily both can be replaced through functional techniques. I will introduce them in subsequent lessons.
+Luckily both can be replaced through functional techniques. I will introduce them in subsequent chapters of these course.
 
 ### Curried functions only
 
@@ -89,7 +89,7 @@ You could argue that the curry/uncurry combinators trivially transform a curried
 
 ### Lazy evaluation on demand
 
-scriptum pursues a strict evaluation strategy as does Javascript. There are two distinct types that enable lazy evaluation through explicit thunks though. I will introduce them in subsequent lessons.
+scriptum pursues a strict evaluation strategy as does Javascript. There are two distinct types that enable lazy evaluation through explicit thunks though. I will introduce them in subsequent chapters.
 
 ### Immutability as the default
 
