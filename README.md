@@ -31,6 +31,7 @@ The scriptum library is still experimental.
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Loop Fusion through Transducers <br/>
+* Planned: Data Flow, Data Dependencies and Evaluation Order <br/>
 * Planned: Almost Pattern Matching through Unification <br/>
 * Planned: From Sharing to Memoization <br/>
 * Planned: Local Continuation Passing Style <br/>
