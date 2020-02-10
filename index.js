@@ -1629,124 +1629,44 @@ const funPrepend = pipe;
 /***[Infix Combinators]*******************************************************/
 
 
-const appA2 = (x, f, y, g, z) =>
+const app2 = (x, f, y, g, z) =>
   g(f(x) (y)) (z);
 
 
-const appA3 = (w, f, x, g, y, h, z) =>
+const app3 = (w, f, x, g, y, h, z) =>
   h(g(f(w) (x)) (y)) (z);
 
 
-const appA4 = (v, f, w, g, x, h, y, i, z) =>
+const app4 = (v, f, w, g, x, h, y, i, z) =>
   i(h(g(f(v) (w)) (x)) (y)) (z);
 
 
-const appA5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+const app5 = (u, f, v, g, w, h, x, i, y, j, z) =>
   j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
 
 
-const appA6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const app6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const appK2 = (x, f, y, g, z) =>
-  w => z(g(f(x) (y)) (z)) (w);
-
-
-const appK3 = (w, f, x, g, y, h, z) =>
-  v => z(h(g(f(w) (x)) (y)) (z)) (v);
-
-
-const appK4 = (v, f, w, g, x, h, y, i, z) =>
-  u => z(i(h(g(f(v) (w)) (x)) (y)) (z)) (u);
-
-
-const appK5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  t => z(j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z)) (t);
-
-
-const appK6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  s => z(k(j(i(h(g(f(t) (t)) (v)) (w)) (x)) (y)) (z)) (s);
-
-
-const appM2 = (lift, f, x, g, y) =>
-  f(x_ => g(y_ => lift(x_) (y_)) (y)) (x);
-
-
-const appM3 = (lift, f, x, g, y, h, z) =>
-  f(x_ => g(y_ => h(z_ => lift(x_) (y_) (z_)) (z)) (y)) (x);
-
-
-const appM4 = (lift, f, w, g, x, h, y, i, z) =>
-  f(w_ => g(x_ => h(y_ => i(z_ => lift(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
-
-
-const appM5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
-  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => lift(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
-
-
-const appM6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
-
-
-const apprA2 = (x, f, y, g, z) =>
+const appr2 = (x, f, y, g, z) =>
   f(x) (g(y) (z));
 
 
-const apprA3 = (w, f, x, g, y, h, z) =>
+const appr3 = (w, f, x, g, y, h, z) =>
   f(w) (g(x) (h(y) (z)));
 
 
-const apprA4 = (v, f, w, g, x, h, y, i, z) =>
+const appr4 = (v, f, w, g, x, h, y, i, z) =>
   f(v) (g(w) (h(x) (i(y) (z))));
 
 
-const apprA5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+const appr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
   f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
 
 
-const apprA6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const appr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
-
-
-const apprK2 = (x, f, y, g, z) =>
-  w => f(x) (g(y) (z(w)));
-
-
-const apprK3 = (w, f, x, g, y, h, z) =>
-  v => f(w) (g(x) (h(y) (z(v))));
-
-
-const apprK4 = (v, f, w, g, x, h, y, i, z) =>
-  u => f(v) (g(w) (h(x) (i(y) (z(u)))));
-
-
-const apprK5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  t => f(u) (g(v) (h(w) (i(x) (j(y) (z(t))))));
-
-
-const apprK6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  s => f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z(s)))))));
-
-
-const apprM2 = (x, f, y, g, lift) =>
-  f(x) (x_ => g(y) (y_ => lift(x_) (y_)));
-
-
-const apprM3 = (x, f, y, g, z, h, lift) =>
-  f(x) (x_ => g(y) (y_ => h(z) (z_ => lift(x_) (y_) (z_))));
-
-
-const apprM4 = (w, f, x, g, y, h, z, i, lift) =>
-  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => lift(w_) (x_) (y_) (z_)))));
-
-
-const apprM5 = (v, f, w, g, x, h, y, i, z, j, lift) =>
-  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => lift(v_) (w_) (x_) (y_) (z_))))));
-
-
-const apprM6 = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
-  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)))))));
 
 
 const infix = (x, f, y) =>
@@ -4648,39 +4568,19 @@ module.exports = {
   apConst_,
   app,
   app_,
-  appA2,
-  appA3,
-  appA4,
-  appA5,
-  appA6,
-  appK2,
-  appK3,
-  appK4,
-  appK5,
-  appK6,
-  appM2,
-  appM3,
-  appM4,
-  appM5,
-  appM6,
-  appr,
+  app2,
+  app3,
+  app4,
+  app5,
+  app6,
   apply,
   apply_,
-  apprA2,
-  apprA3,
-  apprA4,
-  apprA5,
-  apprA6,
-  apprK2,
-  apprK3,
-  apprK4,
-  apprK5,
-  apprK6,
-  apprM2,
-  apprM3,
-  apprM4,
-  apprM5,
-  apprM6,
+  appr,
+  appr2,
+  appr3,
+  appr4,
+  appr5,
+  appr6,
   arrAll,
   arrAlt,
   arrAltx,
