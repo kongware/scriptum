@@ -1587,10 +1587,10 @@ const app = f => x => f(x);
 const app_ = x => f => f(x);
 
 
-const _const = x => y => x;
+const _const = x => _ => x;
 
 
-const const_ = x => y => y;
+const const_ = _ => y => y;
 
 
 const fix = f => x => f(fix(f)) (x); // not stack safe
