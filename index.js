@@ -256,7 +256,7 @@ const foldMap = ({fold, append, empty}) => f =>
 
 
 const mapConst = map => x =>
-  map(y => x);
+  map(_ => x);
 
 
 /***[Monad]*******************************************************************/
