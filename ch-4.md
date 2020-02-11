@@ -82,7 +82,7 @@ Usually it is a very great idea to use lambda abstractions in order to develop y
 
 #### Over-abstracting
 
-Here using Javascript's native Boolean type is defenitely the better choice:
+In the followng example using Javascript's native Boolean type would defenitely lower the cognitive load:
 
 ```Javascript
 const False = x => y => x;
@@ -108,11 +108,11 @@ ifElse(eq(y) (z))
 ```
 [run code](https://repl.it/repls/UnsungSnarlingLead)
 
-While this approach gives us implicit pattern matching and a notion of union types the drawbacks predominate: Lack of readability and inefficiency.
+Please note that a boolean function encoding is not only hard to read but also rather inefficiently.
 
 #### Lawless abstraction
 
-I guess we can all agree that nested function calls are incomprehensable and should be avoided by all means. Since we are clever let us just make up a solution. How about a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition? Here we go:
+Avoiding nested function calls is a reasonable endeavour. However, if you accomplish it with the wrong tool you will eventually run into other unforeseen problems:
 
 ```Javascript
 const compn = f =>
@@ -128,9 +128,9 @@ compn(inc)
 ```
 [run code](https://repl.it/repls/BruisedLightcyanDevice)
 
-This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
+This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least not in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
 
-This combinator is not type directed. It is a lawless abstraction and unless you are a very seasoned developer you cannot anticipate the consequences of using it.
+This combinator is not a lawfull and type directed one. Unless you are a very seasoned developer you most likely cannot anticipate the consequences of using it.
 
 ### Well-known functional combinators
 
