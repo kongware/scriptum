@@ -271,46 +271,39 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be the `map` operation of the function type. Composing functions may be a different operation than mapping over an array, but the underlying concept is the same.
-
-As you may know `map` implements the functor interface. Functors are besides functions the most important structure in functional programming. A functor lifts a pure unary function into another context. We will learn more about functors in a later chapter of this course. For the time being we stick with the notion that with `comp` we can apply an unary function to the result of another unary one.
+Function composition is covered in a previous chapter of this course.
 
 `ap = f => g => x => f(x) (g(x))`
 
-`ap` implements the applicative functor interface of the function type. As the name implies applicatives are also functors, but more general ones. `ap` allows us to apply an n-ary function to the results of n unary functions.
-
-The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it in conjunciton with other data types. Please note that the innermost call is `map` (alias of `comp`) followed by successive calls to `ap`. This is the applicative call pattern:
+`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually it is not used on its own but together with other combinators as we are going to see in a subsequent chapter. For now here is a schematic application:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
-const map = f => g => x => f(g(x)); // aka comp
-const div = x => y => x / y;
 
 const main = ap(
   ap(
-    map(x => y => z =>
-      [x, y, z]) (inc)) (sqr)) (div(9));
+    ap(w => x => y => z =>
+      [w, x, y, z]) (inc)) (inc)) (sqr);
 
-main(3); // [9, 4, 3]
-main(0); // [0, 1, Infinity]
+main(3); // [3, 4, 4, 9]
 ```
 [run code](https://repl.it/repls/IndigoOrnateDoom)
 
 `chain = f => g => x => f(g(x)) (x)`
 
-The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But beyond applicatives a monad can choose the subsequent monadic computation depending on a previous value:
+`chain` does the same as `ap` but additionally allows you to choose the subsequent computation depending on a previous value:
 
 ```Javascript
 const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
-  x === 0 // choose next computation depending on previous value
-    ? _ => []
-    : chain(y =>
-        chain(z => w =>
-          [x, y, z]) (div(9))) (inc)) (sqr);
+  chain(y =>
+    chain(z =>
+      z === 0
+        ? _ => []
+        : w => [w, x, y, z]) (sqr)) (inc)) (inc);
 
-main(3); // [9, 4, 3]
+main(3); // [3, 4, 4, 9]
 main(0); // []
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
@@ -399,6 +392,8 @@ lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 ```
 [run code](https://repl.it/repls/TurbulentTediousImplementation)
 
-`lift` is just an abstraction of the applicative pattern I introduced above. It is an arity aware combinator, that is there is a corresponding version for each arity. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not particularly elegant. However, sometimes they are without alternative.
+`lift` abstracts nested `ap` calls and is hence just a convenience function. In a subsequent chapter we will introduce an alternative approach to avoid nesting.
+
+`lift` is an arity aware combinator, that is there is a corresponding version for each arity. Arity aware combinators are usually avoided in functional programming, since they cause a lot of code repetition.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
