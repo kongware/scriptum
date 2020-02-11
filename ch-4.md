@@ -271,11 +271,11 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course.
+Function composition is covered in a previous chapter of this course. Please look it up for more information.
 
 `ap = f => g => x => f(x) (g(x))`
 
-`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually it is not used on its own but together with other combinators as we are going to see in a subsequent chapter. For now here is a schematic application:
+`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually it is not used on its own but together with other combinators as we are going to see in a subsequent chapter. For the time being here is a schematic application:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
