@@ -78,9 +78,9 @@ The capability to defer computations is one of the strong suits of the functiona
 Usually it is a very great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
 
 * do not encode something with functions that has a simpler representation (over-abstracting)
-* only create principled abstractions that are both directed by math and types (do not  make things up)
+* only create principled and lawfull abstractions that are both directed by math and types
 
-#### Example of over-abstracting
+#### Over-abstracting
 
 Here using Javascript's native Boolean type is defenitely the better choice:
 
@@ -110,7 +110,7 @@ ifElse(eq(y) (z))
 
 While this approach gives us implicit pattern matching and a notion of union types the drawbacks predominate: Lack of readability and inefficiency.
 
-#### Example of making things up
+#### Lawless abstraction
 
 I guess we can all agree that nested function calls are incomprehensable and should be avoided by all means. Since we are clever let us just make up a solution. How about a variadic composition function in curried form that takes an arbitrary number of arguments and offers a mechanism to finally run the composition? Here we go:
 
