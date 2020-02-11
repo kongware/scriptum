@@ -304,7 +304,7 @@ The `chain` combinator implements the monad interface of the function type. Mona
 const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
-  x === 0 // choose next action depending on previous value
+  x === 0 // choose next computation depending on previous value
     ? w => [0, 1, 0]
     : chain(y =>
         chain(z => w =>
