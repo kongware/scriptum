@@ -305,13 +305,13 @@ const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
   x === 0 // choose next computation depending on previous value
-    ? w => [0, 1, 0]
+    ? _ => []
     : chain(y =>
         chain(z => w =>
           [x, y, z]) (div(9))) (inc)) (sqr);
 
-main(3); // [3, 4, 9]
-main(0); // [0, 1, 0]
+main(3); // [9, 4, 3]
+main(0); // []
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
