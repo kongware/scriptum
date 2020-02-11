@@ -79,7 +79,6 @@ Usually it is a very great idea to use lambda abstractions in order to develop y
 
 * do not encode something with functions that has a simpler representation (over-abstracting)
 * only create principled abstractions that are both directed by math and types (do not  make things up)
-* apply combinators to tasks for which they are intended (do not misuse things)
 
 #### Example of over-abstracting
 
@@ -132,24 +131,6 @@ compn(inc)
 This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
 
 This combinator is not type directed. It is a lawless abstraction and unless you are a very seasoned developer you cannot anticipate the consequences of using it.
-
-#### Example of misusing things
-
-Consider the following array fold:
-
-```Javascript
-const fold = f => init => xs =>
-  xs.reduce((acc, x) => f(acc) (x), init);
-
-const sqr = x => x * x;
-
-fold(xs => x => xs.concat(sqr(x)))
-  ([])
-    ([1, 2, 3]); // [1, 4, 9]
-```
-[run code](https://repl.it/repls/HonorableAcclaimedCoderesource)
-
-While this is technically correct it obfuscates the purpose of the algorithm. Everyone who is familiar with array functions and skims through the code would assume that some sort of reduction takes place. The purpose of a fold is to reduce or eliminate a data structure. Since the operation at hand is structure preserving, a simple map would have sufficed.
 
 ### Well-known functional combinators
 
@@ -290,7 +271,7 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be `map` for the function type. Composing functions may be a different operation than mapping over an array, but the underlying concept is the same.
+Function composition is covered in a previous chapter of this course so I drop the details. I am going to shed some light on another important property of `comp` though. `comp` happens to be the `map` operation of the function type. Composing functions may be a different operation than mapping over an array, but the underlying concept is the same.
 
 As you may know `map` implements the functor interface. Functors are besides functions the most important structure in functional programming. A functor lifts a pure unary function into another context. We will learn more about functors in a later chapter of this course. For the time being we stick with the notion that with `comp` we can apply an unary function to the result of another unary one.
 
@@ -298,7 +279,7 @@ As you may know `map` implements the functor interface. Functors are besides fun
 
 `ap` implements the applicative functor interface of the function type. As the name implies applicatives are also functors, but more general ones. `ap` allows us to apply an n-ary function to the results of n unary functions.
 
-The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it together with other types. Please note that the innermost call is `map` (alias of `comp`) followed by successive calls to `ap`:
+The combinator is rarely used but we should take the opportunity to familiarize ourselves with the corresponding pattern, because you will frequently encounter it in conjunciton with other data types. Please note that the innermost call is `map` (alias of `comp`) followed by successive calls to `ap`. This is the applicative call pattern:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
@@ -317,7 +298,7 @@ main(0); // [0, 1, Infinity]
 
 `chain = f => g => x => f(g(x)) (x)`
 
-The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But additionaly to applicatives a monad can choose the subsequent monadic action depending on a previous value: 
+The `chain` combinator implements the monad interface of the function type. Monads are also applicatives and functors. They are the most general structure of the three. As with applicatives we can apply an n-ary function to the results of n unary functions. But beyond applicatives a monad can choose the subsequent monadic computation depending on a previous value:
 
 ```Javascript
 const chain = f => g => x => f(g(x)) (x);
@@ -418,8 +399,6 @@ lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 ```
 [run code](https://repl.it/repls/TurbulentTediousImplementation)
 
-Please note that `lift` is just a convenient function for the applicative pattern `ap(comp(div) (countVowels)) (getLen) ("hello world!")` I introduced a few paragraphs above.
-
-It is an arity aware combinator, that is depending on the arity of the function you want to lift you need to use the matching lift function. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not that elegant. However, sometimes they are without alternative.
+`lift` is just an abstraction of the applicative pattern I introduced above. It is an arity aware combinator, that is there is a corresponding version for each arity. We usualy try to avoid arity aware combinators in functional programming, since they cause a lot of repetition and are not particularly elegant. However, sometimes they are without alternative.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
