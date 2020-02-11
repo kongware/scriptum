@@ -1629,92 +1629,92 @@ const funPrepend = pipe;
 /***[Infix Combinators]*******************************************************/
 
 
-const app2 = (x, f, y, g, z) =>
-  g(f(x) (y)) (z);
-
-
-const app3 = (w, f, x, g, y, h, z) =>
-  h(g(f(w) (x)) (y)) (z);
-
-
-const app4 = (v, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
-
-const app5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
-
-
-const app6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-const appM2 = (lift, f, x, g, y) =>
-  f(x_ => g(y_ => lift(x_) (y_)) (y)) (x);
-
-
-const appM3 = (lift, f, x, g, y, h, z) =>
-  f(x_ => g(y_ => h(z_ => lift(x_) (y_) (z_)) (z)) (y)) (x);
-
-
-const appM4 = (lift, f, w, g, x, h, y, i, z) =>
-  f(w_ => g(x_ => h(y_ => i(z_ => lift(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
-
-
-const appM5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
-  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => lift(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
-
-
-const appM6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
-
-
-const appr2 = (x, f, y, g, z) =>
-  f(x) (g(y) (z));
-
-
-const appr3 = (w, f, x, g, y, h, z) =>
-  f(w) (g(x) (h(y) (z)));
-
-
-const appr4 = (v, f, w, g, x, h, y, i, z) =>
-  f(v) (g(w) (h(x) (i(y) (z))));
-
-
-const appr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
-
-
-const appr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
-
-
-const apprM2 = (x, f, y, g, lift) =>
-  f(x) (x_ => g(y) (y_ => lift(x_) (y_)));
-
-
-const apprM3 = (x, f, y, g, z, h, lift) =>
-  f(x) (x_ => g(y) (y_ => h(z) (z_ => lift(x_) (y_) (z_))));
-
-
-const apprM4 = (w, f, x, g, y, h, z, i, lift) =>
-  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => lift(w_) (x_) (y_) (z_)))));
-
-
-const apprM5 = (v, f, w, g, x, h, y, i, z, j, lift) =>
-  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => lift(v_) (w_) (x_) (y_) (z_))))));
-
-
-const apprM6 = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
-  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)))))));
-
-
 const infix = (x, f, y) =>
   f(x) (y);
 
 
 const infixr = (y, f, x) =>
   f(x) (y);
+
+
+const infix2 = (x, f, y, g, z) =>
+  g(f(x) (y)) (z);
+
+
+const infix3 = (w, f, x, g, y, h, z) =>
+  h(g(f(w) (x)) (y)) (z);
+
+
+const infix4 = (v, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+
+const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+
+
+const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+
+
+const infixM2 = (lift, f, x, g, y) =>
+  f(x_ => g(y_ => lift(x_) (y_)) (y)) (x);
+
+
+const infixM3 = (lift, f, x, g, y, h, z) =>
+  f(x_ => g(y_ => h(z_ => lift(x_) (y_) (z_)) (z)) (y)) (x);
+
+
+const infixM4 = (lift, f, w, g, x, h, y, i, z) =>
+  f(w_ => g(x_ => h(y_ => i(z_ => lift(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
+
+
+const infixM5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
+  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => lift(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
+
+
+const infixM6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
+
+
+const infixr2 = (x, f, y, g, z) =>
+  f(x) (g(y) (z));
+
+
+const infixr3 = (w, f, x, g, y, h, z) =>
+  f(w) (g(x) (h(y) (z)));
+
+
+const infixr4 = (v, f, w, g, x, h, y, i, z) =>
+  f(v) (g(w) (h(x) (i(y) (z))));
+
+
+const infixr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
+
+
+const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
+
+
+const infixrM2 = (x, f, y, g, lift) =>
+  f(x) (x_ => g(y) (y_ => lift(x_) (y_)));
+
+
+const infixrM3 = (x, f, y, g, z, h, lift) =>
+  f(x) (x_ => g(y) (y_ => h(z) (z_ => lift(x_) (y_) (z_))));
+
+
+const infixrM4 = (w, f, x, g, y, h, z, i, lift) =>
+  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => lift(w_) (x_) (y_) (z_)))));
+
+
+const infixrM5 = (v, f, w, g, x, h, y, i, z, j, lift) =>
+  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => lift(v_) (w_) (x_) (y_) (z_))))));
+
+
+const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
+  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)))))));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -4608,29 +4608,9 @@ module.exports = {
   apConst_,
   app,
   app_,
-  app2,
-  app3,
-  app4,
-  app5,
-  app6,
-  appM2,
-  appM3,
-  appM4,
-  appM5,
-  appM6,
   apply,
   apply_,
   appr,
-  appr2,
-  appr3,
-  appr4,
-  appr5,
-  appr6,
-  apprM2,
-  apprM3,
-  apprM4,
-  apprM5,
-  apprM6,
   arrAll,
   arrAlt,
   arrAltx,
@@ -4879,7 +4859,27 @@ module.exports = {
   imply,
   index,
   infix,
+  infix2,
+  infix3,
+  infix4,
+  infix5,
+  infix6,
+  infixM2,
+  infixM3,
+  infixM4,
+  infixM5,
+  infixM6,
   infixr,
+  infixr2,
+  infixr3,
+  infixr4,
+  infixr5,
+  infixr6,
+  infixrM2,
+  infixrM3,
+  infixrM4,
+  infixrM5,
+  infixrM6,
   inRange,
   invoke,
   introspect,
