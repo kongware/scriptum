@@ -26,7 +26,7 @@ The scriptum library is still experimental.
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)</br>
-5. Upcoming: Linear Data Flow with Applicators (30% done)<br/>
+5. Upcoming: Linear Data Flow with Applicators (50% done)<br/>
 
 * Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
