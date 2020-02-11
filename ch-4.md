@@ -308,7 +308,7 @@ main(0); // []
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
-Having such a choice seems to be a merely subordinate property. However, it renders monads to a superior tool to chain effectful computations of all sorts.
+Having such a choice seems to be a merely subordinate property. In later chapters of this course you will learn that `chain` and its counterparts for other data types are an extremely general and powerful tool. They are also known as monads.
 
 #### Quaternary combinators with two function arguments
 
