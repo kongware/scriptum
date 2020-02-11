@@ -77,10 +77,10 @@ The capability to defer computations is one of the strong suits of the functiona
 
 Usually it is a very great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
 
-* do not encode something with functions that has a simpler representation (over-abstracting)
+* do not encode something with functions that has a simpler representation
 * only create principled and lawfull abstractions that are both directed by math and types
 
-#### Over-abstracting
+#### Over-abstraction example
 
 In the followng example using Javascript's native Boolean type would defenitely lower the cognitive load:
 
@@ -110,7 +110,7 @@ ifElse(eq(y) (z))
 
 Please note that a boolean function encoding is not only hard to read but also rather inefficiently.
 
-#### Lawless abstraction
+#### Lawless abstraction example
 
 Avoiding nested function calls is a reasonable endeavour. However, if you accomplish it with the wrong tool you will eventually run into other unforeseen problems:
 
