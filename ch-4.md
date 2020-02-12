@@ -134,7 +134,7 @@ This combinator is not a lawfull and type directed one. Unless you are a very se
 
 ### Well-known functional combinators
 
-Funtional programming can afford a higher degree of abstraction, because the used abstractions are either well-known or lawfull/principled. Higher abstraction leads to more code reuse.
+Funtional programming can afford a higher degree of abstraction, because the used abstractions are either well-known or lawfull/principled. Greater abstraction leads to more code reuse.
 
 The following paragraphs include a first set of well-known functional combinators that you should familiarize yourself with. They do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there exist primitives in a type system. 
 
