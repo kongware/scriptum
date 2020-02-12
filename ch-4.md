@@ -299,18 +299,18 @@ main(3); // [3, 4, 4, 9]
 const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
-  chain(y =>
-    chain(z =>
-      z === 0
-        ? _ => []
-        : w => [w, x, y, z]) (sqr)) (inc)) (inc);
+  x === 1
+    ? _ => [] // A
+    : chain(y =>
+        chain(z =>
+          w => [w, x, y, z]) (sqr)) (inc)) (inc);
 
 main(3); // [3, 4, 4, 9]
 main(0); // []
 ```
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
-Having such a choice seems to be a merely subordinate property. In later chapters of this course you will learn that `chain` and its counterparts for other data types are an extremely general and powerful tool. They are also known as monads.
+As you can see in line `A` we can short circuit the compostion depending on `x`. This is not possible with the `ap` backed composition.
 
 #### Quaternary combinators with two function arguments
 
