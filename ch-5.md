@@ -166,7 +166,7 @@ Finally it works as expected, but the implementation comes at a price. We have t
 
 chain(x =>
   x === 1
-    ? _ => [] // A
+    ? _ => []
     : chain(y =>
         chain(z =>
           w => [w, x, y, z]) (sqr)) (inc)) (inc);
