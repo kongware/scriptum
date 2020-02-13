@@ -277,7 +277,7 @@ Function composition is covered in a previous chapter of this course. Please loo
 
 `ap = f => g => x => f(x) (g(x))`
 
-`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually `ap` is not used that often since it quickly leads to nesting. I will describe a technique to bypass this behavior in a subsequent chapter. For the time being we stick with the following schematic example:
+`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually `ap` is not used that often since it quickly leads to nested function calls. I will describe a technique to bypass this behavior in a subsequent chapter. For the time being we stick with the following schematic example:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
@@ -311,6 +311,8 @@ main(0); // []
 [run code](https://repl.it/repls/NeighboringFrayedAnalysis)
 
 As you can see in line `A` we can short circuit the compostion depending on `x`. This is not possible with the `ap` backed composition.
+
+Both `comp`, `ap` and `chain` happen to be instances of the functor, applicative and monad typeclass respectively. They are fundamental idioms of functional programming and pop up throughout the paradigm. We will examine them from various angles in subsequent chapters.
 
 #### Quaternary combinators with two function arguments
 
