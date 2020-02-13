@@ -47,8 +47,8 @@ infix3(1,
 // or alternatively
 
 infix3(1, sub, 2,
-             sub, 3,
-             sub, 4); // -8
+          sub, 3,
+          sub, 4); // -8
 ```
 Functions themselves are left associative, but we can trivially define a right associative infix applicator:
 
