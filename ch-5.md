@@ -164,7 +164,7 @@ main(0); // []
 ```
 [run code](https://repl.it/repls/FirstAlarmingProblems)
 
-Finally it works as expected, but the implementation comes at a price. We have to rely on local continuations, which render the control flow hard to follow and we still have a certain amount of nesting. However, the use of continuations is absolutely mechanical and I still believe we have made progress in terms of readability:
+Finally it works as expected, but the implementation comes at a price. We have to rely on local continuations, which add a certain noise to the nested lambda functions and we are still stuck in nesting. However, the structure of the nested lambdas is quite mechanical: Each lambda layer receives a pair of arguments consisting of the bound value and the continuation. It can then either apply the continuation or discard it, which shorts circuits the whole computation. I still believe we have made progress in terms of readability:
 
 ```Javascript
 // explicit chaining
