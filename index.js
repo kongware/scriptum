@@ -1633,10 +1633,6 @@ const infix = (x, f, y) =>
   f(x) (y);
 
 
-const infixr = (y, f, x) =>
-  f(x) (y);
-
-
 const infix2 = (x, f, y, g, z) =>
   g(f(x) (y)) (z);
 
@@ -1657,24 +1653,50 @@ const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infixM2 = (lift, f, x, g, y) =>
-  f(x_ => g(y_ => lift(x_) (y_)) (y)) (x);
+const infixM2 = (λ, f, x, g, y) =>
+  f(x_ =>
+    λ(x_, α => g(y_ =>
+      α(y_, id) (y))) (x);
 
 
-const infixM3 = (lift, f, x, g, y, h, z) =>
-  f(x_ => g(y_ => h(z_ => lift(x_) (y_) (z_)) (z)) (y)) (x);
+const infixM3 = (λ, f, x, g, y, h, z) =>
+  f(x_ =>
+    λ(x_, α => g(y_ =>
+      α(y_, β => h(z_ =>
+        β(z_, id)) (z))) (y))) (x);
 
 
-const infixM4 = (lift, f, w, g, x, h, y, i, z) =>
-  f(w_ => g(x_ => h(y_ => i(z_ => lift(w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w);
+const infixM4 = (λ, f, w, g, x, h, y, i, z) =>
+  f(w_ =>
+    λ(w_, α => g(x_ =>
+      α(x_, β => h(y_ =>
+        β(y_, γ => i(z_ =>
+          γ(z_, id)) (z))) (y))) (x))) (w);
 
 
-const infixM5 = (lift, f, v, g, w, h, x, i, y, j, z) =>
-  f(v_ => g(w_ => h(x_ => i(y_ => j(z_ => lift(v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v);
+
+const infixM5 = (λ, f, v, g, w, h, x, i, y, j, z) =>
+  f(v_ =>
+    λ(v_, α => g(w_ =>
+      α(w_, β => h(x_ =>
+        β(x_, γ => i(y_ =>
+          γ(y_, δ => j(z_ =>
+            δ(z_, id)) (z))) (y))) (x))) (w))) (v);
 
 
-const infixM6 = (lift, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(u_ => g(v_ => h(w_ => i(x_ => j(y_ => k(z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)) (z)) (y)) (x)) (w)) (v)) (u);
+
+const infixM6 = (λ, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(u_ =>
+    λ(u_, α => g(v_ =>
+      α(v_, β => h(w_ =>
+        β(w_, γ => i(x_ =>
+          γ(x_, δ => j(y_ =>
+            δ(y_, ε => k(z_ =>
+              ε(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
+
+
+const infixr = (y, f, x) =>
+  f(x) (y);
 
 
 const infixr2 = (x, f, y, g, z) =>
@@ -1697,24 +1719,44 @@ const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
-const infixrM2 = (x, f, y, g, lift) =>
-  f(x) (x_ => g(y) (y_ => lift(x_) (y_)));
+const infixrM2 = (x, f, y, g, λ) =>
+  f(x) (x_ =>
+    λ(x_, α => g(y) (y_ =>
+      α(y_, id))));
 
 
-const infixrM3 = (x, f, y, g, z, h, lift) =>
-  f(x) (x_ => g(y) (y_ => h(z) (z_ => lift(x_) (y_) (z_))));
+const infixrM3 = (x, f, y, g, z, h, λ) =>
+  f(x) (x_ =>
+    λ(x_, α => g(y) (y_ =>
+      α(y_, β => h(z) (z_ =>
+        β(z_, id))))));
 
 
-const infixrM4 = (w, f, x, g, y, h, z, i, lift) =>
-  f(w) (w_ => g(x) (x_ => h(y) (y_ => i(z) (z_ => lift(w_) (x_) (y_) (z_)))));
+const infixrM4 = (w, f, x, g, y, h, z, i, λ) =>
+  f(w) (w_ =>
+    λ(w_, α => g(x) (x_ =>
+      α(x_, β => h(y) (y_ =>
+        β(y_, γ => i(z) (z_ =>
+          γ(z_, id))))))));
 
 
-const infixrM5 = (v, f, w, g, x, h, y, i, z, j, lift) =>
-  f(v) (v_ => g(w) (w_ => h(x) (x_ => i(y) (y_ => j(z) (z_ => lift(v_) (w_) (x_) (y_) (z_))))));
+const infixrM5 = (v, f, w, g, x, h, y, i, z, j, λ) =>
+  f(v) (v_ =>
+    λ(v_, α => g(w) (w_ =>
+      α(w_, β => h(x) (x_ =>
+        β(x_, γ => i(y) (y_ =>
+          γ(y_, δ => j(z) (z_ =>
+            δ(z_, id))))))))));
 
 
-const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, lift) =>
-  f(u) (u_ => g(v) (v_ => h(w) (w_ => i(x) (x_ => j(y) (y_ => k(z) (z_ => lift(u_) (v_) (w_) (x_) (y_) (z_)))))));
+const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, λ) =>
+  f(u) (u_ =>
+    λ(u_, α => g(v) (v_ =>
+      α(w_, β => h(w) (w_ =>
+        β(x_, γ => i(x) (x_ =>
+          γ(y_, δ => j(y) (y_ =>
+            δ(y_, ε => k(z) (z_ =>
+              ε(z_, id))))))))))));
 
 
 /***[Misc. Combinators]*******************************************************/
