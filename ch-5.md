@@ -136,11 +136,11 @@ main(0); // []
  Let us see if we can implement a corresponding applicator:
 
 ```Javascript
-const infixM3 = (w, f, x, g, y, h, z) =>
+const infixM3 = (λ, f, x, g, y, h, z) =>
   f(x_ =>
-    w(x_, w_ => g(y_ =>
-      w_(y_, w__ => h(z_ =>
-        w__(z_, id)) (z))) (y))) (x);
+    λ(x_, α => g(y_ =>
+      α(y_, β => h(z_ =>
+        β(z_, id)) (z))) (y))) (x);
 
 const chain = f => g => x => f(g(x)) (x);
 const id = x => x;
@@ -191,13 +191,15 @@ There are three alternatives to achieve a linear data flow in Javascript.
 
 #### Depending on the prototype system
 
-TODO
+This course is about functional programming applied to all sorts of multi-paradigm languages, hence I will not depend on constructs as specific to Javascript as the prototype system.
 
 #### A object factory approach
 
-TODO
+Another approach would be to create plain old Javascript objects with all necessary methods for the desired operations through factories. While this ad-hoc approach seems nice for small projects it does not scale well in my opinion. It is rather inefficient to recreate dozens of methods for each and every created object.
 
 #### A method based applicator
+
+Here is a more efficient approach that uses an augmented `Identity` functor to create a linear data flow through mehtod chaining:
 
 ```Javascript
 const App = x =>
@@ -216,3 +218,4 @@ App(w => x => y => z => [w, x, y, z])
   .map(ap)
   .app(sqr).runApp(3); // [3, 4, 4, 9]
 ```
+I do not see the advantage of this approach compared to purely functional applicators. Besides this solution lacks the short circuiting mechanism monadic operations require.
