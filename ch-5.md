@@ -50,19 +50,21 @@ infix3(1, sub, 2,
           sub, 3,
           sub, 4); // -8
 ```
+[run code](https://repl.it/repls/AmbitiousSaneGuiltware)
+
 Functions themselves are left associative, but we can trivially define a right associative infix applicator:
 
 ```Javascript
 const infixr3 = (w, f, x, g, y, h, z) =>
   f(w) (g(x) (h(y) (z)));
 
-const sub = x => y => x - y;
-
 infixr3(1,
   sub, 2,
   sub, 3,
   sub, 4); // -2
 ```
+[run code](https://repl.it/repls/PunctualUncomfortableModulus)
+
 A new approach is only worth exploring if it is sufficiently generic, i.e. applicable to a wide range of tasks. Let us examine if `infix3` can be applied to higher order functions:
 
 ```Javascript
@@ -85,6 +87,8 @@ infix3(inc,
   pipe, inc,
   pipe, sqr) (3); // 36
 ```
+[run code](https://repl.it/repls/FuchsiaDangerousAnimatronics)
+
 What about higher order functions with function arguments expecting more than one argument? Let us express applicative and monadic computations:
 
 ```Javascript
@@ -93,8 +97,6 @@ const infix3 = (w, f, x, g, y, h, z) =>
 
 const ap = f => g => x => f(x) (g(x));
 const chain = f => g => x => f(g(x)) (x);
-const inc = x => x + 1;
-const sqr = x => x * x;
 
 const mainA = infix3(w => x => y => z => [w, x, y, z],
   ap, inc,
@@ -114,6 +116,8 @@ mainA(3); // [3, 4, 4, 9]
 mainM(3); // [11, 10, 9, 3]
 mainM(0); // []
 ```
+[run code](https://repl.it/repls/VivaciousCommonCone)
+
 The applicative example works as expected. However, the monadic one raises two issues. First it yields `[11, 10, 9, 3]` instead of the expected `[3, 4, 4, 9]`. The result seems to represent the intermediate values of the composition in reverse order. Second, we cannot short circuit the computation (line `A`), but have to use the entire computational structure. As you may remember the ability to choose the next computation depending on a previous values is the special property of monads. This seems to be the first limitation of the applicator approach. 
 
 ### A monadic infix applicator
@@ -133,6 +137,8 @@ const main = chain(x =>
 main(3); // [3, 4, 4, 9]
 main(0); // []
 ```
+[run code](https://repl.it/repls/ZealousGrayMolecule)
+
  Let us see if we can implement a corresponding applicator:
 
 ```Javascript
@@ -145,9 +151,6 @@ const infixM3 = (λ, f, x, g, y, h, z) =>
 const chain = f => g => x => f(g(x)) (x);
 const id = x => x;
 
-const inc = x => x + 1;
-const sqr = x => x * x;
-
 const main = infixM3((x, k) =>
   x === 1
     ? _ => [] // short circuiting
@@ -159,6 +162,8 @@ const main = infixM3((x, k) =>
 main(3); // [3, 4, 4, 9]
 main(0); // []
 ```
+[run code](https://repl.it/repls/FirstAlarmingProblems)
+
 Finally it works as expected, but the implementation comes at a price. We have to rely on local continuations, which render the control flow hard to follow and we still have a certain amount of nesting. However, the use of continuations is absolutely mechanical and I still believe we have made progress in terms of readability:
 
 ```Javascript
@@ -181,6 +186,7 @@ infixM3((x, k) =>
   chain, inc,
   chain, sqr);
 ```
+
 It turns out that our applicator approach is quite expressive. We can apply it to various operator like functions with a linear syntax and they still behave like expected. We successfully abstracted from the nested function call trees. Since infix accumulators are just multi-argument functions we can also compose them, provided they are curried in their last argument.
 
 Unfortunately, this approach requires arity aware combinators. There is no way to bypass it. Along with the right associate versions we end up with a bunch of slightly different combinators. Abstracting from nested function call trees is still worth the effort.
@@ -193,22 +199,19 @@ There are three alternatives to achieve a linear data flow in Javascript.
 
 This course is about functional programming applied to all sorts of multi-paradigm languages, hence I will not depend on constructs as specific to Javascript as the prototype system.
 
-#### A object factory approach
+#### Object factory
 
 Another approach would be to create plain old Javascript objects with all necessary methods for the desired operations through factories. While this ad-hoc approach seems nice for small projects it does not scale well in my opinion. It is rather inefficient to recreate dozens of methods for each and every created object.
 
-#### A method based applicator
+#### Identity based applicator
 
-Here is a more efficient approach that uses an augmented `Identity` functor to create a linear data flow through mehtod chaining:
+Here is a more efficient approach that utilizes an augmented `Identity` functor to create a linear data flow through mehtod chaining:
 
 ```Javascript
 const App = x =>
   ({runApp: x, map: f => App(f(x)), app: y => App(x(y))});
 
 const ap = f => g => x => f(x) (g(x));
-
-const inc = x => x + 1;
-const sqr = x => x * x;
 
 App(w => x => y => z => [w, x, y, z])
   .map(ap)
@@ -218,4 +221,8 @@ App(w => x => y => z => [w, x, y, z])
   .map(ap)
   .app(sqr).runApp(3); // [3, 4, 4, 9]
 ```
-I do not see the advantage of this approach compared to purely functional applicators. Besides this solution lacks the short circuiting mechanism monadic operations require.
+[run code](https://repl.it/repls/HandyOutlyingBlogware)
+
+I do not see the advantage of the `Identity` functor method chaining compared to purely functional applicators. Besides this solution lacks the short circuiting mechanism monadic operations require.
+
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
