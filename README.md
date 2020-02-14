@@ -24,11 +24,11 @@ The scriptum library is still experimental.
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md) <br/>
-4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)</br>
-5. Upcoming: Linear Data Flow with Infix Applicators (90% done)<br/>
+3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
+4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
+5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-4.md)
+6. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining (0% done)
 
-* Planned: Recursion, Tail Recursion, Custom Stacks and Trampolining <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Data Flow, Data Dependencies and Evaluation Order <br/>
