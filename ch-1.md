@@ -93,25 +93,23 @@ I use the term name binding instead of variable, because there is no such thing 
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
-### Operators are functions + associativity + precedence
+### Operators as functions
 
-Operators usually differ from functions in their fixity. They are used in infix position whereas functions are written in prefix notation:
+While functions create nested structures as soon as you compose them consecutive operators remain flat: 
+
+```javascript
+add(add(1) (2)) (3); // nested
+1 + 2 + 3; // flat
+```
+The reason for this opposite behavior lies in the different fixity of functions and operators. The fixity describes the position of an operator relative to its operands: 
 
 ```javascript
 1 + 2; // infix position
 add(1) (2); // prefix position
 ```
+Infix notation comes along with two additional properties, namely precedence and associativity to determine in which order an expression has to be evaluated. As you can see functions and operators are not that different after all and it would be a nice feature if we could treat one as the other and vice versa. Unfortunately Javascript strictly distinguishes between the two.
 
-Infix position avoids nesting
-
-```javascript
-1 + 2 + 3; // flat
-add(add(1) (2)) (3); // nested
-```
-
-but it comes at a price: Associativity and precedence must be defined for each operator somewhere, so that the correct evaluation order can be determined.
-
-In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Later in this course I will introduce special applicators that replace nested function calls with a comprehensable linear data flow.
+So we are stuck with a fixed set of native Javascript operators without the ability to define new ones. Since operators are not first class it makes a lot of sense to complement them with their functional counterparts. This may aggravate the nesting issue, however, in a subsequent chapter we will examine special applicators that enable a linear data flow with a succinct and flat syntax.
 
 ### Undefined is not a proper value
 
