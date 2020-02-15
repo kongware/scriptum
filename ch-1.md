@@ -81,7 +81,7 @@ You can most likely imagine how powerful higher order functions are, since they 
 
 ### Are statements harmful?
 
-No, but they are like dead ends in your code, because they are decoupled from one another. Since they do not evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values:
+No, but they are like dead ends in your code, because they are decoupled from one another. Since they do not evaluate to a value you need to bind their (intermediate) results to names explicitly in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values:
 
 ```javascript
 const x = 1 + 2;
@@ -117,7 +117,7 @@ In Javascript operators are not first class, that is to say it makes sense to co
 
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You should not even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
 
-### Partial and total functions
+### Total and partial functions
 
 The functional paradigm considers functions as mappings from domain (arguments) to codomain (result values). If every argument (or set of arguments) yields a result value we are talking about total functions. Otherwise it is a partial one:
 
