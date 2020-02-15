@@ -127,8 +127,8 @@ head([1, 2, 3]); // 1
 head([]); // undefined
 ```
 
-`head` is a partial function because it returns undefined in certain cases, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. Partial functions are per se less predictable and reliable as total functions.
+`head` is a partial function because it returns undefined in certain cases, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. Partial functions are per se less predictable and reliable than total functions.
 
-You can render any partial function into a total one by using the `Option` type. `Option` is one of the most common functional types. It will be covered in a later chapter.
+You can transform any partial function into a total one by using the `Option` type. `Option` is one of the most common functional types. It will be covered in a later chapter.
 
 [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
