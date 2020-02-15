@@ -58,7 +58,7 @@ Admittedly, I oversimplified a bit. Actually there are three constraints necessa
 * they must return the same result value for the same arguments
 * they must not perform another visible effect than creating and returning a result value
 
-The second constrain renders function deterministic. The latter is referred to as purity and will be described in a subsequent chapter of this functional programming course.
+The second constraint renders function deterministic. The latter is referred to as purity and will be described in a subsequent chapter of this functional programming course.
 
 ### Higher order functions
 
