@@ -27,7 +27,7 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-6. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining (0% done)
+6. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining (10% done)
 
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Loop Fusion through Transducers <br/>
@@ -37,6 +37,7 @@ The scriptum library is still experimental.
 * Planned: Local Continuation Passing Style <br/>
 * Planned: Lazy Evaluation in a Strict Environment <br/>
 * Planned: The Runtime - Edge of the Application <br/>
+* Planned: Trees in-depth <br/>
 * Planned: How Haskell Differs <br/>
 * Planned: Functional Debugging <br/>
 * Planned: Functional Error Handling <br/>
@@ -64,7 +65,6 @@ The scriptum library is still experimental.
 * Planned: A Bunch of Functional Types <br/>
 * Planned: Functional Optics <br/>
 * Planned: Fixed Point Combinators <br/>
-* Planned: Recursion Schemes <br/>
 * Planned: Free and Freer Monads <br/>
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
