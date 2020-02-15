@@ -114,7 +114,7 @@ In Javascript operators are not first class, that is to say it makes sense to co
 
 ### Undefined is not a proper value
 
-scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You shouldn‘t even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
+scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You should not even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
 
 ### Partial and total functions
 
