@@ -29,42 +29,45 @@ The scriptum library is still experimental.
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 6. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining (10% done)
 
-* Planned: Abstract from Recursion with Recursion Schemes <br/>
+* Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Data Flow, Data Dependencies and Evaluation Order <br/>
-* Planned: Almost Pattern Matching through Unification <br/>
-* Planned: From Sharing to Memoization <br/>
-* Planned: Local Continuation Passing Style <br/>
-* Planned: Lazy Evaluation in a Strict Environment <br/>
-* Planned: The Runtime - Edge of the Application <br/>
-* Planned: Trees in-depth <br/>
-* Planned: Corecursion and codata <br/>
-* Planned: Functional Debugging <br/>
-* Planned: Functional Error Handling <br/>
+* Planned: CPS-Transformation and Local Continuation Passing Style <br/>
+* Planned: Tuples, Records, Tagged Unions and Algebraic Data Types <br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
-* Planned: Adapted Hindley-Milner Type Annotations <br/>
-* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
-* Planned: Higher-Kinded and Higher-Rank Types with Typescript <br/>
-* Planned: Algebraic Data Types <br/>
-* Planned: Tagged Unions of Records <br/>
-* Planned: Type Wrappers for Improved Semantics<br/>
-* Planned: Effects Encoded as Values <br/>
-* Planned: Composing Effects <br/>
-* Planned: Persistent Iterators <br/>
-* Planned: CPS Transformations <br/>
-* Planned: CPS-backed Coroutines <br/>
-* Planned: Delimited Continuations <br/>
-* Planned: Reducing the Need for Mutabuility <br/>
-* Planned: Immutabilty through Persistent Data Structures <br/>
-* Planned: Push and Pull Streams <br/>
+* Planned: Abstract from Recursion with Recursion Schemes <br/>
+* Planned: Trees in-depth <br/>
+* Planned: Functional Error Handling and Debugging <br/>
 * Planned: Functor Typeclass <br/>
 * Planned: Applicative Functor Typeclass <br/>
 * Planned: Monad Typeclass <br/>
-* Planned: Monad Transformers <br/>
-* Planned: A Bunch of other Typeclasses <br/>
-* Planned: A Bunch of Functional Types <br/>
-* Planned: Functional Optics <br/>
-* Planned: Fixed Point Combinators <br/>
+* Planned: Lazy Evaluation in a Strict Environment <br/>
+* Planned: Corecursion and codata <br/>
+* Planned: Push and Pull Streams <br/>
+* Planned: The Runtime - Edge of the Application <br/>
+* Planned: Adapted Hindley-Milner Type Annotations <br/>
+* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
+* Planned: Higher-Kinded and Higher-Rank Types with Typescript <br/>
+* Planned: Type Wrappers for Improved Semantics<br/>
+* Planned: Effects Encoded as Values <br/>
+* Planned: Composing Effects with Monad Transformers<br/>
+* Planned: Immutabilty through Persistent Data Structures <br/>
+* Planned: Alleviating the Need for Mutability <br/>
+* Planned: From Sharing to Memoization <br/>
+* Planned: Delimited Continuations <br/>
+* Planned: Coroutines Backed by Delimited Continuations <br/>
+* Planned: Persistent Iterators and Generators<br/>
+* Planned: Almost Pattern Matching through Unification <br/>
+* Planned: The Most Common Typeclasses <br/>
+* Planned: The Most Common Functional Types <br/>
+* Planned: Functional Iso (Optics) <br/>
+* Planned: Functional Lenses (Optics) <br/>
+* Planned: Functional Prism (Optics) <br/>
+* Planned: Functional Optional (Optics) <br/>
+* Planned: Functional Traversals (Optics) <br/>
+* Planned: Functional Getters (Optics) <br/>
+* Planned: Functional Setters (Optics) <br/>
+* Planned: Functional Folds (Optics) <br/>
 * Planned: Free and Freer Monads <br/>
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
