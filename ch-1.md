@@ -7,11 +7,11 @@ This first chapter introduces important functional programming jargon and illust
 Values are the result of expressions that cannot be evaluated any further. In Javascript we can represent values of many data types in literal form:
 
 ```Javascript
-“foo”
+"foo"
 123
 true
 [1, 2, 3]
-{foo: “bar”}
+{foo: "bar"}
 a => a
 /^[A-Z]$/
 ```
@@ -23,12 +23,12 @@ You can pass values to and return them from functions. This trait is referred to
 Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. applicable in more scenarios.
 
 ```Javascript
-“foo” + “bar”
+"foo" + "bar"
 123 – 1
 true && false
 [1, 2, 3] [0]
-({foo: “bar”).foo
-(a => a) (“foo”)
+({foo: "bar").foo
+(a => a) ("foo")
 ```
 
 Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can only use them ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
