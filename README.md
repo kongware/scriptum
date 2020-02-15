@@ -38,7 +38,7 @@ The scriptum library is still experimental.
 * Planned: Lazy Evaluation in a Strict Environment <br/>
 * Planned: The Runtime - Edge of the Application <br/>
 * Planned: Trees in-depth <br/>
-* Planned: How Haskell Differs <br/>
+* Planned: Corecursion and codata <br/>
 * Planned: Functional Debugging <br/>
 * Planned: Functional Error Handling <br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
