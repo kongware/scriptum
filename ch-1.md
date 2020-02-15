@@ -52,12 +52,13 @@ add(length("foo")) (length("bar"))
 
 When functions are just first class expressions with holes in them what differentiates them from, say, literals or other expressions? Apart from the fact that they are more general nothing actually. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
-Admittedly, I oversimplified a bit. Actually there are two constraints necessary in order that functions are able to act like ordinary values:
+Admittedly, I oversimplified a bit. Actually there are three constraints necessary in order that functions are able to act like ordinary values:
 
 * they must return a result value no matter what arguments are provided
+* they must return the same result value for the same arguments
 * they must not perform another visible effect than creating and returning a result value
 
-The latter constraint is referred to as purity and will be described in a subsequent chapter of this functional programming course.
+The first constrain renders function deterministic. The latter is referred to as purity and will be described in a subsequent chapter of this functional programming course.
 
 ### Higher order functions
 
