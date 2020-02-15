@@ -6,7 +6,7 @@ This first chapter introduces important functional programming jargon and illust
 
 Values are the result of expressions that cannot be evaluated any further. In Javascript we can represent values of many data types in literal form:
 
-```Javascript
+```javascript
 "foo"
 123
 true
@@ -22,7 +22,7 @@ You can pass values to and return them from functions. This trait is referred to
 
 Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. applicable to a wide range of scenarios.
 
-```Javascript
+```javascript
 "foo" + "bar"
 123 – 1
 true && false
@@ -37,7 +37,7 @@ Since an expression can be reduced to a single value during evaluation, it is al
 
 Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results vary by means of the provided values. I am obviously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
 
-```Javascript
+```javascript
 const foo = hole => `expression with a ${hole} in it`;
 foo("bar") // expression
 ```
@@ -46,7 +46,7 @@ We can call `foo` once, twice, several times or not at all. It is only evaluated
 
 Additionally we can compose functions if the types matches, that is we can create complex functions out of simpler ones and hence complex expressions out ouf simpler ones.
 
-```Javascript
+```javascript
 add(length("foo")) (length("bar"))
 ```
 
@@ -63,7 +63,7 @@ The latter constraint is referred to as purity and will be described in a subseq
 
 We are not done generalizing. If functions are just first class values let us pass a function to another one and see what is happening:
 
-```Javascript
+```javascript
 const app = f => x => f(x);
 const add = x => y => x + y;
 const sub = x => y => x – y;
@@ -82,7 +82,7 @@ You can most likely imagine how powerful higher order functions are, since they 
 
 No, but they are like dead ends in your code, because they are decoupled from one another. Since they do not evaluate to a value you need to explicitly bind their (intermediate) results to names in order to use them in other statements. As a result you have to declare a lot of name bindings to store all these accruing intermediate values:
 
-```Javascript
+```javascript
 const x = 1 + 2;
 const y = 2 + 3;
 const z = x * y;
@@ -96,14 +96,14 @@ Later in this course you will see that statements obstruct the functional contro
 
 Operators usually differ from functions in their fixity. They are used in infix position whereas functions are written in prefix notation:
 
-```Javascript
+```javascript
 1 + 2; // infix position
 add(1) (2); // prefix position
 ```
 
 Infix position avoids nesting
 
-```Javascript
+```javascript
 1 + 2 + 3; // flat
 add(add(1) (2)) (3); // nested
 ```
@@ -120,7 +120,7 @@ scriptum and its underlying language Javascript are dynamically typed languages.
 
 The functional paradigm considers functions as mappings from domain (arguments) to codomain (result values). If every argument (or set of arguments) yields a result value we are talking about total functions. Otherwise it is a partial one:
 
-```Javascript
+```javascript
 const head = xs => xs[0];
 head([1, 2, 3]); // 1
 head([]); // undefined
