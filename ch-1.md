@@ -20,7 +20,7 @@ You can pass values to and return them from functions. This trait is referred to
 
 ### First class expressions
 
-Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. applicable in more scenarios.
+Values are the most fundamental entity of programming but not particularly useful on their own. Fortunately we can generalize them to expressions. Generally speaking (pun intended) the process of generalization means to make things more useful, i.e. applicable to a wide range of scenarios.
 
 ```Javascript
 "foo" + "bar"
@@ -35,14 +35,14 @@ Since an expression can be reduced to a single value during evaluation, it is al
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results vary by means of the provided values. I am obiously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results vary by means of the provided values. I am obviously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
 
 ```Javascript
 const foo = hole => `expression with a ${hole} in it`;
 foo("bar") // expression
 ```
 
-We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every expression. Functions are inherently lazy.
+We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every computation. Functions are inherently lazy.
 
 Additionally we can compose functions if the types matches, that is we can create complex functions out of simpler ones and hence complex expressions out ouf simpler ones.
 
@@ -50,18 +50,18 @@ Additionally we can compose functions if the types matches, that is we can creat
 add(length("foo")) (length("bar"))
 ```
 
-When functions are just first class expressions with holes in them what differentiates them from literals or other less general expressions? Nothing actually, provided you are willing to neglect the temporal aspect, namely that functions are only evaluated when needed. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
+When functions are just first class expressions with holes in them what differentiates them from, say, literals or other expressions? Apart from the fact that they are more general nothing actually. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
 
-Ok, I oversimplified a bit. Actually there are two constraints necessary in order that functions act like classical values:
+Admittedly, I oversimplified a bit. Actually there are two constraints necessary in order that functions are able to act like ordinary values:
 
 * they must return a result value no matter what arguments are provided
-* they must not perform another visible effect than calculating and returning a result value
+* they must not perform another visible effect than creating and returning a result value
 
-The latter constraint is referred to as purity and will be examined in a subsequent chapter of this functional programming course.
+The latter constraint is referred to as purity and will be described in a subsequent chapter of this functional programming course.
 
 ### Higher order functions
 
-We are not done generalizing. When functions are just first class values let us pass a function to another one and see what is happening:
+We are not done generalizing. If functions are just first class values let us pass a function to another one and see what is happening:
 
 ```Javascript
 const app = f => x => f(x);
@@ -74,9 +74,9 @@ app(sub) (2) (3) // -1
 
 What we are doing here is a kind of dependency injection. Such functions are called higher order functions, because they expect at least one function argument. Consequently functions without a function argument are called first order functions.
 
-Please note that a function without function arguments that returns another function is not a higher order function but a curried one. Currying will be presented in a later chapter.
+Please note that a function without function arguments that returns another function is not a higher order function but a curried one. We will deal with currying in a later chapter of this course..
 
-You can most likely imagine how powerful higher order functions are because they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
+You can most likely imagine how powerful higher order functions are, since they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
 
 ### Are statements harmful?
 
@@ -94,7 +94,7 @@ Later in this course you will see that statements obstruct the functional contro
 
 ### Operators are functions + associativity + precedence
 
-Operators differ from functions that they are in infix not prefix position like functions:
+Operators usually differ from functions in their fixity. They are used in infix position whereas functions are written in prefix notation:
 
 ```Javascript
 1 + 2; // infix position
@@ -110,13 +110,11 @@ add(add(1) (2)) (3); // nested
 
 but it comes at a price: Associativity and precedence must be defined for each operator somewhere, so that the correct evaluation order can be determined.
 
-In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Variadic functions are a way to bypass the nesting issue. I will introduce them in a later chapter of this course.
+In Javascript operators are not first class, that is to say it makes sense to complement them with their functional counterparts. Later in this course I will introduce special applicators that replace nested function calls with a comprehensable linear data flow.
 
 ### Undefined is not a proper value
 
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You shouldn‘t even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
-
-A function that returns `undefined` is less predictable and reliable as a normal function, because it is only a partial one. More on this in the next paragraph.
 
 ### Partial and total functions
 
@@ -128,6 +126,8 @@ head([1, 2, 3]); // 1
 head([]); // undefined
 ```
 
-`head` is a partial function because it returns undefined in certain cases, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. You can render any partial function into a total one by using the `Option` type, which will be introduced in a subsequent chapter.
+`head` is a partial function because it returns undefined in certain cases, which indicates a type error. You should either avoid such functions or throw an error explicitly instead of silently returning `undefined`. Partial functions are per se less predictable and reliable as total functions.
+
+You can render any partial function into a total one by using the `Option` type. `Option` is one of the most common functional types. It will be covered in a later chapter.
 
 [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
