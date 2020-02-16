@@ -6,34 +6,23 @@ How does FP manage state? This is probably the second most frequently asked ques
 
 State is data that changes over the runtime of a program. In imperative programming you usually get state either by reassigning a variable
 
-```Javascript
+```javascript
 let x = 1; // data
 x = x + 1; // state
 ```
-
 or by mutating a reference value:
 
-```Javascript
+```javascript
 const o = {foo: true}; // data
 o.foo = false; // state
 ```
-
-### Referential transparency also known as purity
-
-An expression is called referentially transparent (or pure) if it can be substitute with its final value without changing the program's behavior. Hence a function is referentially transparent (or pure) if you can substitute all its invocations with the corresponding result values without changing the program's behavior.
-
-Please take the following two important rules into account:
-
-* if a function declaration includes impure expressions but the effect(s) are not visible outside the function scope, calling it can be still considered a pure expression
-* if an otherwise pure function depends on an impure one, it is also impure
-
 ### Variables and reassignments
 
 Although the term variable is used in functional programming and math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name. 
 
 Reassignments are banned in functional programming since they would violate referential transparency:
 
-```Javascript
+```javascript
 let = y = 2;
 const sub2 = x => x – y
 
@@ -41,21 +30,19 @@ sub2(2); // 0
 y = 3;
 sub2(2); // -1
 ```
-
-The same expression within the same scope must yield the same value no matter when the runtime decides to actually evaluate it.
+The same expression within the same scope must yield the same value no matter when the runtime decides to actually evaluate it. Referential transparency is a property of purity and was already discussed in a previous chapter of this course.
 
 ### References and mutations
 
 The term referential transparency already dictates that the functional paradigm does not have 
 a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values constitute an identity:
 
-```Javascript
+```javascript
 const o = {foo: true},
   p = {foo: true};
 
 o !== p; // true
 ```
-
 The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation, which should be only used with additional safety measures. I will introduce a purely functional way to work with reference types in a later chapter.
 
 Without references there is no identity and thus no reasonable way to mutate values anymore. The only alternative left is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
@@ -70,7 +57,7 @@ Whenever we need a reassignment we just call a function with the desired value a
 
 If the number of reassignments is static, i.e. it can be determined upfront, we can manually nest function calls:
 
-```Javascript
+```javascript
 const scanSqr3 = w => xs => // A
   app(x => // B
     app(y => // B
@@ -84,7 +71,7 @@ scanSqr3(2) ([]); // [4, 16, 256]
 
 In dynamic scenarios we have to fall back to recursive solutions:
 
-```Javascript
+```javascript
 const scanSqr = n => x => xs => // A
   n === 0
     ? xs
@@ -106,7 +93,7 @@ While the above examples illustrate the fundamental concept of how state is mana
 
 As I already mentioned we can declare name bindings in functional programming. This happens by means of local bindings, which are essentially immediately invoked function expressions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
 
-```Javascript
+```javascript
 const _let = f => f();
 
 const scanSqr3 = w =>
@@ -125,7 +112,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 
 We managed to improve the code a lot. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
 
-```Javascript
+```javascript
 const scanSqr = n => x => {
   const go = (xs, x_, n_) =>
     n_ === 0
@@ -147,7 +134,7 @@ In some scenarios we cannot use the normal, synchronous function call stack but 
 
 Tail recursion leads to the eliminination of the function call stack. We will examine this omptimization technique in a later chapter. It is replaced with an explicit data structure, which acccumulates the results of each recursive step. Hence it is called accumulator and it holds our state:
 
-```Javascript
+```javascript
 const sum = xs => {
   const go = (acc, i) => // accumulator
     i === xs.length
@@ -165,7 +152,7 @@ sum([1, 2, 3, 4, 5]); // 15
 
 Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack, when the asynchronous computations take place:
 
-```Javascript
+```javascript
 const compCont = f => g => x => k =>
   g(x) (y => f(y) (k));
 
@@ -187,7 +174,7 @@ If we formalize further and add a couple of combinators we will wind up with the
 
 This way of managing state is hard to digest for imperative programmers. Luckily we can mimic imperative state with functions:
 
-```Javascript
+```javascript
 const compState = f => g => h => x => s => {
   const [x_, s_] = h(x) (s);
     [x__, s__] = g(x_) (s_);
