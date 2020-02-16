@@ -1,4 +1,4 @@
-## 1. Values, Expressions and Functions
+## Values, Expressions and Functions
 
 This first chapter introduces important functional programming jargon and illustrates some fundamental notions of the paradigm.
 
