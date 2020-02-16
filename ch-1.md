@@ -56,7 +56,7 @@ Admittedly, I oversimplified a bit. In fact three restrictions are necessary in 
 * they must return the same result value for the same arguments
 * they must not perform another visible effect than creating and returning a result value
 
-The first restriction forms total functions and we are going to discuss them in the next paragraph. The latter two constitute pure functions. A pure function must be deterministic and must not perform visible side effects so that you can substitute its invocations with the respective result values without changing the behavior of the program. Only pure functions can be regarded as ordinary values.
+The first restriction forms total functions and we are going to discuss them in the next paragraph. The latter two constitute pure functions. A pure function must be deterministic and must not perform visible side effects so that you can substitute its invocations with the respective result values without changing the behavior of the program. In the literature this restriction is called referential transparency. Only such pure functions can be regarded as ordinary values.
 
 These two related questions frequently come up on the topic:
 
