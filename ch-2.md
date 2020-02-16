@@ -1,6 +1,6 @@
 ## Managing State
 
-How does FP manage state? This is probably the second most frequently asked question about functional programming exceeded only by "What is a Monad?". Let us take a little detour first, so that we are all on the same page before I answer that question.
+How does FP manage state? This is probably the second most frequently asked question about functional programming exceeded only by "what is a Monad?". Let us take a little detour first, so that we are all on the same page before beginning to answer this question.
 
 ### Defining state
 
@@ -34,8 +34,7 @@ The same expression within the same scope must yield the same value no matter wh
 
 ### References and mutations
 
-The term referential transparency already dictates that the functional paradigm does not have 
-a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values constitute an identity:
+The term referential transparency already dictates that the functional paradigm does not have a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values constitute an identity:
 
 ```javascript
 const o = {foo: true},
@@ -43,15 +42,15 @@ const o = {foo: true},
 
 o !== p; // true
 ```
-The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation, which should be only used with additional safety measures. I will introduce a purely functional way to work with reference types in a later chapter.
+The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation. Only use it with great care. I will introduce a purely functional way to work with reference types in a later chapter.
 
 Without references there is no identity and thus no reasonable way to mutate values anymore. The only alternative left is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
 
-Creating new values is an expensive operation if we have to deal with complex ones. Fortunately the functional world have developed persistent data structures, which utilize structural sharing. This way only the parts of a value are copied that actually have changed whereas the common part is reused. Purely functional data structures are covered in a later chapter of this course.
+Creating new values is an expensive operation if we have to deal with complex composite structures. Fortunately the functional world has developed persistent data structures that utilize structural sharing. With structural sharing only those parts of a composite value are actually copied that have been changed whereas the rest is simply reused. Purely functional data structures are covered in a later chapter of this course.
 
 ### The function call stack
 
-If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope (or put imperatively: reassign a variable to a new value). Well, we work with functions after all. Let us utilize the their scopes.
+If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope - or imperatively put: reassign a variable to a new value. How do we get out of this dilemma? Well, in FP it is all about functions. Let us just utilize their scopes.
 
 Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
 
@@ -91,7 +90,7 @@ While the above examples illustrate the fundamental concept of how state is mana
 * we have to create nested anonymous functions for each name binding (B)
 * the same expression is evaluated twice for each recursive step (C)
 
-As I already mentioned we can declare name bindings in functional programming. This happens by means of local bindings, which are essentially immediately invoked function expressions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
+We can simplify the above code by creating local bindings. Local bindings are just a special syntax to create name bindings within a scope. They are nothing more than implicitly called nested anonymous functions under the hood. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
 
 ```javascript
 const _let = f => f();
@@ -110,7 +109,7 @@ scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
 ```
 [run code](https://repl.it/repls/LovingRegalParameter)
 
-We managed to improve the code a lot. However, we could not eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion in order to achieve that. Since we are dealing with Javascript there is no harm in falling back to function declarations with brackets and explicit return statement, so that we can define an inner auxiliary function through an assignment statement:
+We have managed to improve the code considerably. However, we were not able to eliminate the last parameter (D) with the recursive solution. It turns out that local bindings are not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion to achieve that. Since we are dealing with Javascript we should not be dogmatic anyway, so let us declare an imperative function with brackets and explicit return statement, so that we can use an inner auxiliary function:
 
 ```javascript
 const scanSqr = n => x => {
@@ -122,9 +121,7 @@ const scanSqr = n => x => {
   return go([], x, n);
 };
 ```
-Please note that `_let` has no type, i.e. you cannot give it one in Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but alternative implementations of `_let` through mutual recursion results in even greater drawbacks.
-
-We will examine how to type all sorts of combinators in Typescript and delve into type theory in later chapters of this course.
+Please note that `_let` has no type, i.e. you cannot give it one in Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but there seems to be no alternatives to accomplish a syntax even remotely terse as with the given implementation of `_let`. At least none that I could find. We will learn how to type all sorts of combinators in Typescript and delve into type theory in later chapters of this course.
 
 ### When the call stack vanishes
 
@@ -132,7 +129,7 @@ In some scenarios we cannot use the normal, synchronous function call stack but 
 
 #### Tail recursive functions
 
-Tail recursion leads to the eliminination of the function call stack. We will examine this omptimization technique in a later chapter. It is replaced with an explicit data structure, which acccumulates the results of each recursive step. Hence it is called accumulator and it holds our state:
+Tail recursion leads to eliminination of the function call stack. We will examine this omptimization technique in a later chapter. It is replaced with an explicit data structure that acccumulates the results of each recursive step. Hence this data structure is called accumulator, which holds the state:
 
 ```javascript
 const sum = xs => {
@@ -150,7 +147,7 @@ sum([1, 2, 3, 4, 5]); // 15
 
 #### Asynchronous functions
 
-Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack, when the asynchronous computations take place:
+Asynchronous functions cannot be based on the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need a type that somehow creates its own call stack when the asynchronous computations take place:
 
 ```javascript
 const compCont = f => g => x => k =>
@@ -168,7 +165,7 @@ main(log); // log(sqrCont(incCont(2))) (A)
 
 This is advanced functional programming so do not let the details distract you. The decisive part is that line (A) evaluates to a nested function call tree that implicitly forms its own function call stack as soon as it is evaluated. This is where the asynchronous state is hidden.
 
-If we formalize further and add a couple of combinators we will wind up with the continuation type (`Cont`) and the associated `Cont` monad. I will deal with this in another chapter of this course.
+If we formalize further and add a couple of combinators we will wind up with the continuation type (`Cont`) and the associated `Cont` monad. I will deal with this advanced functional programming idioms in another chapter of this course.
 
 ### Mimicking imperative state
 
@@ -196,6 +193,6 @@ main(3); // [15, 9] A
 
 This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with “stateful” functions both values the result and the current state are returned in a pair tuple like array.
 
-If we formalize further and add a couple of combinators we will wind up with the `State` type and the associated `State` monad. I will deal with this in another chapter of this course.
+If we formalize further and add a couple of combinators we will wind up with the `State` type and the associated `State` monad. I will deal with them in another chapter of this course.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-3.md)
