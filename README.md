@@ -23,7 +23,7 @@ The scriptum library is still experimental.
 ## Functional programming course (TOC)
 
 1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
-2. [Managing State](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+2. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
