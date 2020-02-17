@@ -2,7 +2,7 @@
 
 ### Functions in curried form
 
-Currying is a rather simple approach that can be applied in a mechanical way. Instead of defining a single function with several parameters you define a series of nested functions that each expect a single argument:
+Currying is a simple approach that can be applied in a rather mechanical way. Instead of defining a single function with several parameters you define a series of nested functions that each expect a single parameter:
 
 ```Javascript
 const add = (x, y) => x + y;
@@ -38,11 +38,11 @@ main(3, 4, 5); // 15
 ```
 [run code](https://repl.it/repls/SupportiveSizzlingLists)
 
-`partial` is a sensible implementation of the this imperative technique. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. Only with the subsequent call all remaining arguments are provided.
+`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a runtime technique whereas currying is a compile time one.
 
 ### Function composition and piping
 
-Currying comes at the price of numerous additional function calls. So why it is useful? It happens to work well with function composition:
+Currying is accompanied by a lots of additional function calls. So why it is useful? It happens to work well with function composition:
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -55,27 +55,25 @@ main2(3); // -2
 ```
 [run code](https://repl.it/repls/WorldlyElegantAbilities)
 
-With function composition you can build small, simple functions that each focus on a single task and combine them in various ways to more complex functions.
-
-Please note that function composition evaluates from right to left. This is a property from math. `pipe` just reverses this order.
+With function composition you can build small, simple functions that each focus on a single task and combine them to more complex ones. Please note that function composition evaluates from right to left. `pipe` just reverses this order.
 
 ### Abstraction over arity
 
-Since every function always expects a single argument there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface. What else can we accomplish with it?
+Since every curried function expects a single argument without exception there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface. Let us examine a practical application:
 
 ```Javascript
 const comp = f => g => x => f(g(x));
 const add = x => y => x + y;
 const inc = x => x + 1;
-const main = comp(add) (inc);
-const main2 = comp(add) (add);
+const main = comp(add) (inc); (A)
+const main2 = comp(add) (add); (B)
 
-comp(add) (inc) (1) (2); // 4 (A)
-comp(add) (add) (1) (2); // "y => x + y2" (B)
+comp(add) (inc) (1) (2); // 4 
+comp(add) (add) (1) (2); // "y => x + y2"
 ```
 [run code](https://repl.it/repls/NotableButterySection)
 
-Even though `comp` expects an unary function it can deal with the binary `add` combinator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the type error (B):
+Even though `comp` expects an unary function it can deal with the binary `add` combinator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the implicit type error (B):
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -89,11 +87,11 @@ main2(1) (2) (3); // 6
 ```
 [run code](https://repl.it/repls/JudiciousSadAgent)
 
-Abstraction over arity allows us to combine functions as if they were bricks. The underlying types and our creativity are the only limits!
+Abstraction over arity allows us to combine curried functions in various ways and only the underlying types act limiting. This is a huge win in terms of reusability. Reusing functions is not just a nice theoretical thought anymore, but becomes a fact.
 
 ### Composable functions
 
-In order to spare a couple of function calls it is a viable alternative to merely curry a function in its last argument, so that it stays composable:
+In order to spare a couple of function calls it is a viable alternative to merely curry a function in its last argument, so that it remains composable:
 
 ```Javascript
 const comp = (f, g) => x => f(g(x));
@@ -134,11 +132,11 @@ uncurry(x => y => x + x) (2, 3); // 5
 ```
 [run code](https://repl.it/repls/AntiqueHonoredServicepack)
 
-These combinators witness an isomorphism between functions in curried and uncurried form. As a result you you can switch back and forth between both forms. Please note that scriptum prefers curried functions.
+These combinators witness an isomorphism between functions in curried and uncurried form. As a result you can switch back and forth between both forms. Please note that scriptum prefers curried functions as a default.
 
 ### Why parameter order matters
 
-When you create your own functions the argument you want to compose over should be defined as the innermost curried function. Arguments you want to partially apply your function with should be defined as the outermost curried function. If you adhere to these rules both function composition and partial application works quite naturally:
+When you define your own functions the argument you want to compose over should be defined as the innermost curried function. Arguments you quite likely want to partially apply your function with should be defined as the outermost ones. If you adhere to these rules both function composition and partial application will work quite naturally:
 
 ```Javascript
 const reduce = f => acc => xs =>
@@ -164,7 +162,7 @@ sub2(3); // -1 (1 expected)
 ```
 [run code](https://repl.it/repls/GiddyWheatCoins)
 
-`sub2(3)` reads like “sub 2 from 3”, hence you would expect it to yield 1 instead of -1. Either way one use case will yield unnatural results. However, we can fix this issue by applying the well-known `flip` combinator:
+`sub2(3)` reads like "sub 2 from 3", hence you would expect it to yield `1` instead of `-1`. Either way one use case will yield unnatural results. Fortunately we can fix this issue by applying the well-known `flip` combinator:
 
 ```Javascript
 const flip = f => y => x => f(x) (y);
@@ -176,7 +174,7 @@ sub2(3); // 1 (as expected)
 
 ### Point-free style
 
-Curried function applied to function composition or other higher order combinators often leads to point-free style code. Point-free means that the arguments of a function are only implicitly defined. Here is a simple example:
+Curried functions applied to function composition or other higher order combinators often lead to point-free style code. Point-free means that the arguments of a function are only implicitly defined. Here is a simple example:
 
 ```Javascript
 const inc = x => x + 1;
@@ -187,12 +185,12 @@ const add2 = x => inc(inc(x)), // explicit argument
 
 Point-free style is rather a side effect than something we deliberately aspire to. The term already implies that we drop or abstract something, namely the arguments.
 
-While abstractions assist us in avoiding boilerplate they tend to obfuscate code, because you can only read it if you are familiar with the applied combinators. That means you should only consider widely used abstractions and not those that some arbitrary person just made up. In functional programming common abstractions are equivalent with principled ones, i.e. abstractions that adhere to mathematical laws.
+While abstractions often assist us in avoiding boilerplate they sometimes tend to obfuscate code, because you can only read it if you are familiar with the applied combinators. That means you should only consider common abstractions and not those that arbitrary persons just made up. In functional programming common abstractions are lawful or principled, i.e. abstractions that adhere to mathematical laws or widespread functional idioms.
 
 ### Composition in a broader sense
 
-When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are separately solved the reverse process must be carried out, i.e. all sub-problems must be recomposed to solve the original overall problem. You can probably see now that composition is not only the essence of functional programming but of how humans solve complex problems in general.
+When people encounter a problem that is to complex to be solved at once they recursively decompose that problem into smaller sub-problems until the complexity reaches a workable level. As soon as all sub-problems are separately solved the reverse process must be carried out, i.e. all sub-problems must be recomposed to solve the original overall problem. You can probably already see that composition is not only the essence of functional programming but of how humans solve complex problems in general.
 
-This chapter was mainly about composition of pure functions. In subsequent chapters you will learn how you can compose functions that share a global configuration, write to a common log or share state. You will see how we can compose function that have a notion of failure, are asynchronous or represent the rest of the computation. Function composition is not about functions, it is about how to compose them in any context.
+This chapter was mainly about composition of pure functions. In subsequent chapters you will learn how you can compose functions that share a global configuration, write to a common log or share state. You will see how we can compose function that have a notion of failure, are asynchronous or represent the rest of the computation. Composition is not only about functions, it is about how to compose functions in various contexts.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-2.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-4.md)
