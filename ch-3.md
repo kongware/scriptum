@@ -4,7 +4,7 @@
 
 Currying is a simple approach that can be applied in a rather mechanical way. Instead of defining a single function with several parameters you define a series of nested functions that each expect a single parameter:
 
-```Javascript
+```javascript
 const add = (x, y) => x + y;
 const add_ = x => y => x + y;
 
@@ -18,7 +18,7 @@ A curried function returns another function until all arguments are provided.
 
 Functions in curried form are inherently partially applicable:
 
-```Javascript
+```javascript
 const add = x => y => x + y;
 const inc = add(1);
 
@@ -27,7 +27,7 @@ inc(2); // 3
 
 Please note that this has little in common with partial application used in imperative programming:
 
-```Javascript
+```javascript
 const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
@@ -38,13 +38,13 @@ main(3, 4, 5); // 15
 ```
 [run code](https://repl.it/repls/SupportiveSizzlingLists)
 
-`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a runtime technique whereas currying takes place at compile time.
+`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a dynamic process whereas currying is static.
 
 ### Function composition and piping
 
 Currying is accompanied by lots of additional function calls. So why it is useful? It happens to work well with function composition:
 
-```Javascript
+```javascript
 const comp = f => g => x => f(g(x));
 const pipe = g => f => x => f(g(x));
 const main = comp(inc) (sub(2));
@@ -61,7 +61,7 @@ With function composition you can build small, specialized functions that each f
 
 Since every curried function expects a single argument without exception there is no meaningful notion of arity anymore. Currying abstracts over arity and thus tremendously simplifies the functional interface. Let us examine a practical application:
 
-```Javascript
+```javascript
 const comp = f => g => x => f(g(x));
 const add = x => y => x + y;
 const inc = x => x + 1;
@@ -75,7 +75,7 @@ comp(add) (add) (1) (2); // "y => x + y2"
 
 Even though `comp` expects an unary function it can deal with the binary `add` operator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the implicit type error (B):
 
-```Javascript
+```javascript
 const comp = f => g => x => f(g(x));
 const comp2 = comp(comp) (comp);
 const add = x => y => x + y;
@@ -93,7 +93,7 @@ Abstraction over arity allows us to combine curried functions in various ways an
 
 In order to spare a couple of function calls it is a viable alternative to merely curry a function in its last argument, so that it remains composable:
 
-```Javascript
+```javascript
 const comp = (f, g) => x => f(g(x));
 const visualize = s => x => `${s}(${x})`;
 const f = visualize("f");
@@ -110,7 +110,7 @@ main(2); // f(g(h(i(2))))
 
 Variadic functions have a non-deterministic number of arguments:
 
-```Javascript
+```javascript
 const sum = (...xs) => xs.reduce((acc, x) => acc + x, 0);
 sum(1, 2, 3); // 6
 sum(1, 2, 3, 4, 5); // 15
@@ -123,7 +123,7 @@ Such functions are not valid in functional programming and you can neither curry
 
 There are only two functions necessary to transform a curried function into its uncurried counterpart and vice versa:
 
-```Javascript
+```javascript
 const curry = f => x => y => f(x, y);
 const uncurry = f => (x, y) => f(x) (y);
 
@@ -138,7 +138,7 @@ These combinators witness an isomorphism between functions in curried and uncurr
 
 When you define your own functions the argument you want to compose over should be defined as the innermost curried function. Arguments you quite likely want to partially apply should be defined as the outermost ones. If you adhere to these rules both function composition and partial application will work quite naturally:
 
-```Javascript
+```javascript
 const reduce = f => acc => xs =>
   xs.reduce(uncurry(f), acc);
 
@@ -153,7 +153,7 @@ main([1, 2, 3]); // 36
 
 There is another issue with parameter order along with non-associative operators:
 
-```Javascript
+```javascript
 const sub = x => y => x – y;
 const sub2 = sub(2);
 
@@ -164,7 +164,7 @@ sub2(3); // -1 (1 expected)
 
 `sub2(3)` reads like "sub 2 from 3", hence you would expect it to yield `1` instead of `-1`. Either way one use case will yield unnatural results. Fortunately we can fix this issue by applying the well-known `flip` combinator:
 
-```Javascript
+```javascript
 const flip = f => y => x => f(x) (y);
 const sub2 = flip(sub) (2);
 
@@ -176,7 +176,7 @@ sub2(3); // 1 (as expected)
 
 Curried functions applied to function composition or other higher order combinators often lead to point-free style code. Point-free means that the arguments of a function are only implicitly defined. Here is a simple example:
 
-```Javascript
+```javascript
 const inc = x => x + 1;
 
 const add2 = x => inc(inc(x)), // explicit argument
