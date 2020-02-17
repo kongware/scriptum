@@ -38,11 +38,11 @@ main(3, 4, 5); // 15
 ```
 [run code](https://repl.it/repls/SupportiveSizzlingLists)
 
-`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a runtime technique whereas currying is a compile time one.
+`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a runtime technique whereas currying takes place at compile time.
 
 ### Function composition and piping
 
-Currying is accompanied by a lots of additional function calls. So why it is useful? It happens to work well with function composition:
+Currying is accompanied by lots of additional function calls. So why it is useful? It happens to work well with function composition:
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -55,7 +55,7 @@ main2(3); // -2
 ```
 [run code](https://repl.it/repls/WorldlyElegantAbilities)
 
-With function composition you can build small, simple functions that each focus on a single task and combine them to more complex ones. Please note that function composition evaluates from right to left. `pipe` just reverses this order.
+With function composition you can build small, specialized functions that each focus on a single task and combine them to more complex ones. Please note that function composition evaluates from right to left. `pipe` just reverses this order.
 
 ### Abstraction over arity
 
@@ -73,7 +73,7 @@ comp(add) (add) (1) (2); // "y => x + y2"
 ```
 [run code](https://repl.it/repls/NotableButterySection)
 
-Even though `comp` expects an unary function it can deal with the binary `add` combinator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the implicit type error (B):
+Even though `comp` expects an unary function it can deal with the binary `add` operator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the implicit type error (B):
 
 ```Javascript
 const comp = f => g => x => f(g(x));
@@ -87,7 +87,7 @@ main2(1) (2) (3); // 6
 ```
 [run code](https://repl.it/repls/JudiciousSadAgent)
 
-Abstraction over arity allows us to combine curried functions in various ways and only the underlying types act limiting. This is a huge win in terms of reusability. Reusing functions is not just a nice theoretical thought anymore, but becomes a fact.
+Abstraction over arity allows us to combine curried functions in various ways and only the underlying types act limiting. This is a huge win in terms of reusability. Reusing functions is not just a nice theoretical thought anymore, but becomes the daily routine!
 
 ### Composable functions
 
@@ -136,7 +136,7 @@ These combinators witness an isomorphism between functions in curried and uncurr
 
 ### Why parameter order matters
 
-When you define your own functions the argument you want to compose over should be defined as the innermost curried function. Arguments you quite likely want to partially apply your function with should be defined as the outermost ones. If you adhere to these rules both function composition and partial application will work quite naturally:
+When you define your own functions the argument you want to compose over should be defined as the innermost curried function. Arguments you quite likely want to partially apply should be defined as the outermost ones. If you adhere to these rules both function composition and partial application will work quite naturally:
 
 ```Javascript
 const reduce = f => acc => xs =>
