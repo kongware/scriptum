@@ -27,7 +27,7 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-6. Upcoming: Recursion, Tail Recursion, Custom Stacks and Trampolining (20% done)
+6. Upcoming: From Natural Recursion to Trampolining (20% done)
 
 * Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
