@@ -74,7 +74,11 @@ The scriptum library is still experimental.
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
 
-## Controversial issues
+## Important/controversial issues
+
+### No Preprocessors or other language extensions
+
+This course is meant to be about vanilla Javascript. I will not use any preprocessors or language extensions like macros.
 
 ### No prototype system and method chaining
 
