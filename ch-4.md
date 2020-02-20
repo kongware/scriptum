@@ -55,11 +55,11 @@ compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
 [run code](https://repl.it/repls/DisfiguredGiddyLead)
 
-However, sometimes it is the other way around and the lack of explicit lambdas impair the readability. You have to decide as the case arises. Functional programming does not free you from thinking.
+However, sometimes it is the other way around and the lack of explicit lambdas impair readability. There is no rule of thumb but you have to decide ad-hoc.
 
 #### Utilize partial application
 
-Every at least binary operator can be partially applied when it is converted to curried form. Partial application is useful when only some of the required operands are available in advance:
+Every at least binary operator can be partially applied when it is converted to curried form. Partial application is useful when only some of the required operands are available upfront:
 
 ```Javascript
 const map = f => xs =>
@@ -71,11 +71,11 @@ map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
 [run code](https://repl.it/repls/ThisTrivialScans)
 
-The capability to defer computations is one of the strong suits of the functional paradigm. This is a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
+The capability to defer computations is one of the strong suits of the functional paradigm. Functions provide a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
 
 ### Harmful lambda abstractions
 
-Usually it is a very great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
+Usually it is a great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
 
 * do not encode something with functions that has a simpler representation
 * only create principled and lawfull abstractions that are both directed by math and types
@@ -108,7 +108,7 @@ ifElse(eq(y) (z))
 ```
 [run code](https://repl.it/repls/UnsungSnarlingLead)
 
-Please note that a boolean function encoding is not only hard to read but also rather inefficiently.
+Please note that a boolean function encoding is not only hard to read but also rather inefficient.
 
 #### Lawless abstraction example
 
@@ -130,15 +130,15 @@ compn(inc)
 
 This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least not in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
 
-This combinator is not a lawfull and type directed one. Unless you are a very seasoned developer you most likely cannot anticipate the consequences of using it.
+This combinator is not a lawfull and type directed one. Unless you are a very seasoned developer you most likely cannot anticipate all consequences of using it.
 
 ### Well-known functional combinators
 
-Funtional programming can afford a higher degree of abstraction, because the used abstractions are either well-known or lawfull/principled. Greater abstraction leads to more code reuse.
+Funtional programming can afford a higher degree of abstraction, because the applied ones are either well-known or lawfull/principled. Greater abstraction leads to increased code reuse.
 
 The following paragraphs include a first set of well-known functional combinators that you should familiarize yourself with. They do not depend on a particular type but are polymorphic. You can think of them as functional primitives as there exist primitives in a type system. 
 
-Please note that a successive underscore within a combinator's name indicates a slightly different version of an existing combinator. A preceding underscore on the other hand is merely used to avoid name clashes with Javascript's reserved words.
+Please note that a trailing underscore within a combinator's name indicates a slightly different version of an existing combinator. A prefixed underscore on the other hand is merely used to avoid name clashes with Javascript's reserved words.
 
 #### Unary combinators
 
@@ -158,7 +158,7 @@ Both constant combinators ignore either of their two arguments. It acts like a f
 `app = f => x => f(x)`<br/>
 `app_ = x => f => f(x)`
 
-The applicator is helpful when you need an immediately invoked function expression. It is more readable then using syntax with parentheses.
+The applicator is helpful when you need an immediately invoked function expression. It is more readable then using the parentheses syntax.
 
 You can also utilize it to functionalize `if`/`switch` statements:
 
@@ -230,7 +230,7 @@ Although `fix` is not stack safe and might exhaust the call stack it is importan
 
 `_let = f => f()`
 
-Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds remedy by mimicing such bindings:
+Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds a remedy by mimicing such bindings:
 
 ```Javascript
 const _let = f => f();
@@ -240,7 +240,7 @@ _let((x = 2, y = x * x, z = y * y, total = x + y + z, foo = "foo") =>
 ```
 [run code](https://repl.it/repls/MistyGrimyDesigners)
 
-But wait, `_let` has no type. Is not it a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that may depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
+But wait, `_let` has no type. Is not that a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that may depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
 
 `appr = (f, y) => x => f(x) (y)`
 
@@ -273,11 +273,11 @@ I talked about these combinators in a previous chapter. Please look it up for mo
 `comp = f => g => x => f(g(x))`<br/>
 `pipe = g => f => x => f(g(x))`
 
-Function composition is covered in a previous chapter of this course. Please look it up for more information.
+Function composition is covered in a previous chapter. Please look it up for more information.
 
 `ap = f => g => x => f(x) (g(x))`
 
-`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually `ap` is not used that often since it quickly leads to nested function calls. I will describe a technique to bypass this behavior in a subsequent chapter. For the time being we stick with the following schematic example:
+`ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually `ap` is not used that often since it quickly leads to nested function calls. However, I will describe a technique to bypass this behavior in a subsequent chapter. For the time being we stick with the following schematic example:
 
 ```Javascript
 const ap = f => g => x => f(x) (g(x));
@@ -358,7 +358,7 @@ compBin(add) (add) (2) (3) (4); // 9
 
 `compOn = f => g => x => y => f(g(x)) (g(y))`
 
-The main use case of `compOn` is sorting algorithms of compound values where the order is determined by an element of the compound value:
+The main use case of `compOn` is sorting algorithms of compound values where the order is determined by another element of the compound value:
 
 ```Javascript
 const compOn = f => g => x => y => f(g(x)) (g(y));
@@ -398,6 +398,6 @@ lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 
 `lift` abstracts nested `ap` calls and is hence just a convenience function. In a subsequent chapter we will introduce an alternative approach to avoid nesting.
 
-`lift` is an arity aware combinator, that is there is a corresponding version for each arity. Arity aware combinators are usually avoided in functional programming, since they cause a lot of code repetition.
+It is an arity aware combinator, that is there is a corresponding version for each arity. Arity aware combinators are usually avoided in functional programming, since they cause a lot of code repetition.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-5.md)
