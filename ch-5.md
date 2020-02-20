@@ -129,7 +129,7 @@ const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
   x === 1
-    ? _ => [] // A
+    ? _ => [] // short circuiting
     : chain(y =>
         chain(z =>
           w => [w, x, y, z]) (sqr)) (inc)) (inc);
