@@ -14,7 +14,7 @@ In an imperative or multi-paradigm language there are three reasonable motives a
 
 You can replace statements with an expression by simply wrapping it in a function:
 
-```Javascript
+```javascript
 const app_ = x => f => f(x);
 
 app_({tag: “foo”}) (({tag}) => {
@@ -36,7 +36,7 @@ This way statements become composable and can be passed around like data. Beyond
 
 You can render algorithms concise and more readable by avoiding explicit lambdas provided the used combinators are well-known:
 
-```Javascript
+```javascript
 const reduce = f => init => xs =>
   xs.reduce((acc, x) => f(acc) (x));
 
@@ -61,7 +61,7 @@ However, sometimes it is the other way around and the lack of explicit lambdas i
 
 Every at least binary operator can be partially applied when it is converted to curried form. Partial application is useful when only some of the required operands are available upfront:
 
-```Javascript
+```javascript
 const map = f => xs =>
   xs.map(x => f(x));
   
@@ -84,7 +84,7 @@ Usually it is a great idea to use lambda abstractions in order to develop your c
 
 In the followng example using Javascript's native Boolean type would defenitely lower the cognitive load:
 
-```Javascript
+```javascript
 const False = x => y => x;
 const True = x => y => y;
 
@@ -114,7 +114,7 @@ Please note that a boolean function encoding is not only hard to read but also r
 
 Avoiding nested function calls is a reasonable endeavour. However, if you accomplish it with the wrong tool you will eventually run into other unforeseen problems:
 
-```Javascript
+```javascript
 const compn = f =>
   Object.assign(
     g => compn(x => f(g(x))),
@@ -162,7 +162,7 @@ The applicator is helpful when you need an immediately invoked function expressi
 
 You can also utilize it to functionalize `if`/`switch` statements:
 
-```Javascript
+```javascript
   const app_ = x => f => f(x);
   
   app_(["f", "o", "o"].join(""))
@@ -183,7 +183,7 @@ You can also utilize it to functionalize `if`/`switch` statements:
 
 If you want to get rid of a redundant layer of nested functions you can apply `join`:
 
-```Javascript
+```javascript
 const join = f => x => f(x) (x);
 const comp = f => g => x => f(g(x));
 
@@ -198,7 +198,7 @@ join(comp(const_) (inc)) (2); // 3
 
 The effect combinator is also known as `tap` in the imperative world. You can use `eff` when you are only interested in the side effect of a function, not its return value:
 
-```Javascript
+```javascript
 const eff = f => x => (f(x), x);
 const comp = f => g => x => f(g(x));
 
@@ -216,7 +216,7 @@ comp(sqr)
 
 The fixed point combinator allows anonymous recursion, that is you can define an anonymous recursive function in place:
 
-```Javascript
+```javascript
 const fix = f => x => f(fix(f)) (x)
 
 fix(rec => n =>
@@ -232,7 +232,7 @@ Although `fix` is not stack safe and might exhaust the call stack it is importan
 
 Javascript lacks `let` expressions to create local name bindings. The `_let` combinator finds a remedy by mimicing such bindings:
 
-```Javascript
+```javascript
 const _let = f => f();
 
 _let((x = 2, y = x * x, z = y * y, total = x + y + z, foo = "foo") =>
@@ -246,7 +246,7 @@ But wait, `_let` has no type. Is not that a lawless abstraction? Yes, it is. How
 
 `appr` applies the right argument of a binary function, i.e. it effectively flips the argument order. In the literature this combinator is subsumed under the term sectioning, namely the right section:
 
-```Javascript
+```javascript
 const appr = (f, y) => x => f(x) (y);
 
 const sub = x => y => x - y,
@@ -279,7 +279,7 @@ Function composition is covered in a previous chapter. Please look it up for mor
 
 `ap` is a more general form of function composition. It allows us to apply an n-ary function to the results of n unary functions. Usually `ap` is not used that often since it quickly leads to nested function calls. However, I will describe a technique to bypass this behavior in a subsequent chapter. For the time being we stick with the following schematic example:
 
-```Javascript
+```javascript
 const ap = f => g => x => f(x) (g(x));
 
 const main = ap(
@@ -295,7 +295,7 @@ main(3); // [3, 4, 4, 9]
 
 `chain` does the same as `ap` but additionally allows you to choose the subsequent computation depending on a previous value:
 
-```Javascript
+```javascript
 const chain = f => g => x => f(g(x)) (x);
 
 const main = chain(x =>
@@ -320,7 +320,7 @@ Both `comp`, `ap` and `chain` happen to be instances of the functor, applicative
 
 If we deal with binary functions it is sometimes convenient to defer a composition until we provide the second argument. In the example `comp2nd` is used to construct the famous `foldMap` combinator. It is a rather complex ad-hoc polymorphic combinator, so do not worry too much about the details:
 
-```Javascript
+```javascript
 const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
@@ -348,7 +348,7 @@ The reason why we need to compose in the second argument of `append` is that `fo
 
 With `compBin` both function arguments can be a binary function:
 
-```Javascript
+```javascript
 const compBin = f => g => x => y => f(g(x) (y));
 
 compBin(sqr) (add) (2) (3); // 25
@@ -360,7 +360,7 @@ compBin(add) (add) (2) (3) (4); // 9
 
 The main use case of `compOn` is sorting algorithms of compound values where the order is determined by another element of the compound value:
 
-```Javascript
+```javascript
 const compOn = f => g => x => y => f(g(x)) (g(y));
 
 const sortBy = f => xs =>
@@ -384,7 +384,7 @@ sortBy(compOn(compare) (fst))
 
 This is the last useful combinator in this series, since we will not look into functions with more than four arguments:
 
-```Javascript
+```javascript
 const lift2 = f => g => h => x => f(g(x)) (h(x)),
   lift3 = f => g => h => i => x => f(g(x)) (h(x)) (i(x));
 
