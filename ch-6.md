@@ -4,6 +4,8 @@
 
 ### A bit compiler optimization theory
 
+### Natural recursion
+
 ### Direct vs. indirect recursion
 
 ### Corecursion
