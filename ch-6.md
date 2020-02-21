@@ -1,15 +1,17 @@
-## Recursion, Tail Recursion, Custom Stacks and Trampolining
+## From Natural Recursion over Trampolining to Corecursion
 
 ### Recursion vs tail recursion
 
+### A bit compiler optimization theory
+
 ### Direct vs. indirect recursion
 
-### Tail recursion modulo x
-
-### Trampolining
+### Corecursion
 
 ### Reification of the call stack
 
 ### Anonymous recursion
+
+### Trampolining
 
 ### Recursion as a last resort
