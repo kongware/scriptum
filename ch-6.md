@@ -1,19 +1,21 @@
-## From Natural Recursion over Trampolining to Corecursion
+## From Tail over Natural Recursion to Trampolining and Corecursion
 
-### Recursion vs tail recursion
+### Stack-based and tail recursion
 
-### A bit compiler optimization theory
+#### When to use recursion?
 
 ### Natural recursion
 
-### Direct vs. indirect recursion
-
 ### Corecursion
 
-### Reification of the call stack
+### Indirect recursion
+
+### Custom call stacks
 
 ### Anonymous recursion
 
 ### Trampolining
+
+#### A bit compiler optimization theory
 
 ### Recursion as a last resort
