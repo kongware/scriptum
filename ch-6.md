@@ -1,4 +1,4 @@
-## From Tail over Natural Recursion to Trampolining and Corecursion
+## From Tail Recursion over Trampolining to Natural and Corecursion
 
 ### Stack-based and tail recursion
 
