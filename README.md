@@ -38,6 +38,7 @@ The scriptum library is still experimental.
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Trees in-depth <br/>
 * Planned: Functional Error Handling and Debugging <br/>
+* Planned: Working properly with imperative iterators <br/>
 * Planned: Functor Typeclass <br/>
 * Planned: Applicative Functor Typeclass <br/>
 * Planned: Monad Typeclass <br/>
