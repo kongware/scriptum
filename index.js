@@ -167,18 +167,6 @@ const match3 = (type,
 ******************************************************************************/
 
 
-const Base = x =>
-  ({loop: false, x});
-
-
-const Rec = (...args) =>
-  ({loop: true, args});
-
-
-const Step = (f, rec) =>
-  ({loop: true, f, rec});
-
-
 const rec = f => (...args) => {
   let step = f(...args);
   const stack = [];
@@ -201,6 +189,21 @@ const tailRec = f => (...args) => {
 
     return step.x;
 };
+
+
+/***[Tags]********************************************************************/
+
+
+const Base = x =>
+  ({loop: false, x});
+
+
+const Rec = (...args) =>
+  ({loop: true, args});
+
+
+const Step = (f, rec) =>
+  ({loop: true, f, rec});
 
 
 /******************************************************************************
