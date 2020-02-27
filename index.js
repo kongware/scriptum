@@ -4023,65 +4023,34 @@ const takerWhilek = p => reduce => acc => x =>
 
 
 /******************************************************************************
-***********************************[ TUPLE ]***********************************
+*******************************[ TUPLE (PAIR) ]********************************
 ******************************************************************************/
 
 
-const Pair = structn("Pair")
-  (Pair => (x, y) => Pair([x, y]));
+class Pair extends Array {
+  constructor(x, y) {
+    const r = super(2);
+    r[0] = x;
+    r[1] = y;
+    return r;
+  }
+}
 
 
-const Pair_ = structn("Pair")
-  (Pair_ => x => y => Pair_([x, y]));
+/******************************************************************************
+******************************[ TUPLE (TRIPLE) ]*******************************
+******************************************************************************/
 
 
-const Triple = struct("Triple")
-  (Triple => (x, y, z) => Triple([x, y, z]));
-
-
-const Triple_ = structn("Triple")
-  (Triple_ => x => y => z => Triple_([x, y, z]));
-
-
-/***[Bifunctor]***************************************************************/
-
-
-const tupBimap = f => g => ([x, y]) =>
-  [f(x), g(y)];
-
-
-/***[Functor]*****************************************************************/
-
-
-const tupMap = f => ([x, y]) =>
-  [f(x), y];
-
-
-const tupSecond = f => ([x, y]) =>
-  [x, f(y)];
-
-
-const tupThird = f => ([x, y, z]) =>
-  [x, y, f(z)];
-
-
-/***[Trifunctor]**************************************************************/
-
-
-const tupTrimap = f => g => h => ([x, y, z]) =>
-  [f(x), g(y), h(z)];
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const tup1 = ([x]) => x;
-
-
-const tup2 = ([x, y]) => y;
-
-
-const tup3 = ([x, y, z]) => z;
+class Triple extends Array {
+  constructor(x, y, z) {
+    const r = super(3);
+    r[0] = x;
+    r[1] = y;
+    r[2] = z;
+    return r;
+  }
+}
 
 
 /******************************************************************************
@@ -5064,7 +5033,6 @@ module.exports = {
   Ordering,
   orp,
   Pair,
-  Pair_,
   Parallel,
   parAll,
   parAnd,
@@ -5203,19 +5171,11 @@ module.exports = {
   tOf,
   toFixedFloat,
   Triple,
-  Triple_,
   strToLower,
   strToUpper,
   toString,
   trace,
   tryCatch,
-  tup1,
-  tup2,
-  tup3,
-  tupBimap,
-  tupSecond,
-  tupThird,
-  tupTrimap,
   TYPE,
   uncurry,
   uncurry3,
