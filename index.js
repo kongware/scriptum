@@ -756,16 +756,6 @@ const arrCons = x => xs =>
   (xs.unshift(x), xs);
 
 
-const arrConsNth = (i, x) => xs =>
-  (xs.splice(i + 1, 0, x), xs);
-
-
-const arrCreateMatrix = (i, j, x) => xs =>
-  Array.isArray(xs[i])
-    ? (xs[i] [j] = x, xs)
-    : (xs[i] = [], xs[i] [j] = x, xs);
-
-
 const arrDedupe = xs => {
   const s = new Set();
 
@@ -818,13 +808,6 @@ const arrHeadOr = def => xs =>
 
 const arrInit = xs =>
   xs.slice(0, -1);
-
-
-const arrInvert =
-  arrFold(
-    acc => (x, i) =>
-      acc.set(x, i))
-        (new Map());
 
 
 const arrLast = xs =>
@@ -4394,8 +4377,6 @@ module.exports = {
   arrConcat,
   arrSnoc,
   arrCons,
-  arrConsNth,
-  arrCreateMatrix,
   arrDedupe,
   arrDedupeBy,
   arrDedupeOn,
@@ -4411,7 +4392,6 @@ module.exports = {
   arrHead,
   arrHeadOr,
   arrInit,
-  arrInvert,
   arrLast,
   arrLastOr,
   arrLens,
