@@ -598,7 +598,7 @@ const arrJoin = xss => {
 const arrLiftM2 = f => mx => my =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
-      arrCons(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
+      arrSnoc(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
 
 
 /***[Monoid]******************************************************************/
@@ -645,7 +645,7 @@ const arrTransducek = alg => reduce =>
 
 
 const arrMapA = ({liftA2, of}) => f =>
-  arrFold(acc => x => liftA2(arrCons) (f(x)) (acc)) (of([]));
+  arrFold(acc => x => liftA2(arrSnoc) (f(x)) (acc)) (of([]));
 
 
 const arrSeqA = dict =>
@@ -752,12 +752,8 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrConsHead = x => xs =>
-  (xs.unshift(x), xs);
-
-
 const arrCons = x => xs =>
-  (xs.push(x), xs);
+  (xs.unshift(x), xs);
 
 
 const arrConsNth = (i, x) => xs =>
@@ -886,6 +882,10 @@ const arrSliceAt = (i, len) => xs =>
   xs.slice(i, i + len);
 
 
+const arrSnoc = x => xs =>
+  (xs.push(x), xs);
+
+
 const arrSortBy = f => xs =>
   xs.sort((x, y) => f(x) (y));
 
@@ -914,7 +914,7 @@ const arrTranspose = matrix =>
     matrix.map(xs => xs[i]));
 
 
-const arrUnconsHead = xs => {
+const arrUncons = xs => {
   if (xs.length === 0)
     return None;
 
@@ -923,7 +923,7 @@ const arrUnconsHead = xs => {
 };
 
 
-const arrUnconsHeadOr = def => xs => {
+const arrUnconsOr = def => xs => {
   if (xs.length === 0)
     return [def, xs];
 
@@ -932,18 +932,7 @@ const arrUnconsHeadOr = def => xs => {
 };
 
 
-const arrUnconsInit = n => xs => {
-  if (xs.length < n)
-    return [[], xs];
-
-  else {
-    const ys = xs.splice(n + 1);
-    return (xs.push(ys), xs);
-  }
-};
-
-
-const arrUnconsLast = xs => {
+const arrUnsnoc = xs => {
   if (xs.length === 0)
     return None;
 
@@ -952,36 +941,12 @@ const arrUnconsLast = xs => {
 };
 
 
-const arrUnconsLastOr = def => xs => {
+const arrUnsnocOr = def => xs => {
   if (xs.length === 0)
     return [def, xs];
 
   else
     return [xs.pop(), xs];
-};
-
-
-const arrUnconsNth = i => xs => {
-  if (xs.length < i)
-    return None;
-
-  else
-    return Some([xs.splice(i, 1), xs]);
-};
-
-
-const arrUnconsNthOr = def => i => xs =>
-  [xs.length < i ? def : xs.splice(i, 1), xs];
-
-
-const arrUnconsTail = n => xs => {
-  if (xs.length < n)
-    return [[], xs];
-
-  else {
-    const ys = xs.splice(n + 1);
-    return (ys.push(xs), ys);
-  }
 };
 
 
@@ -4427,8 +4392,8 @@ module.exports = {
   arrChainRec,
   arrClone,
   arrConcat,
+  arrSnoc,
   arrCons,
-  arrConsHead,
   arrConsNth,
   arrCreateMatrix,
   arrDedupe,
@@ -4481,14 +4446,10 @@ module.exports = {
   arrTransduce,
   arrTransducek,
   arrTranspose,
-  arrUnconsHead,
-  arrUnconsHeadOr,
-  arrUnconsInit,
-  arrUnconsLast,
-  arrUnconsLastOr,
-  arrUnconsNth,
-  arrUnconsNthOr,
-  arrUnconsTail,
+  arrUncons,
+  arrUnconsOr,
+  arrUnsnoc,
+  arrUnsnocOr,
   arrUnfold,
   arrUnzip,
   arrZero,
