@@ -203,9 +203,6 @@ const tailRec = f => (...args) => {
 };
 
 
-// TODO: add optimised versions
-
-
 /******************************************************************************
 *******************************************************************************
 ***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
@@ -580,13 +577,6 @@ const arrMapConst = x => xs =>
   xs.map(_const(x));
 
 
-const arrMapx = f => xs =>
-  loop(i =>
-    i === xs.length
-      ? xs
-      : recur(arrSetx(f(xs[i]))));
-
-
 /***[Monad]*******************************************************************/
 
 
@@ -630,15 +620,6 @@ const arrAppend = xs => ys => { // NOTE: expects arrays in both arguments
   if (!ys || ys.length === undefined)
     throw new SemigroupError(`array expected but "${ys}" given`);
 
-  else
-    return xs.concat(ys);
-};
-
-
-const arrAppendx = xs => ys => { // NOTE: expects arrays in both arguments
-  if (!ys || ys.length === undefined)
-    throw new SemigroupError(`array expected but "${ys}" given`);
-
   else {
     for (let i = 0; i < ys.length; i++)
       xs.push(ys[i]);
@@ -653,9 +634,6 @@ const arrConcat =
 
 
 // arrPrepend @derived
-
-
-// arrPrependx @derived
 
 
 /***[Transduce]***************************************************************/
@@ -673,7 +651,7 @@ const arrTransducek = alg => reduce =>
 
 
 const arrMapA = ({liftA2, of}) => f =>
-  arrFold(acc => x => liftA2(arrConsx) (f(x)) (acc)) (of([]));
+  arrFold(acc => x => liftA2(arrCons) (f(x)) (acc)) (of([]));
 
 
 const arrSeqA = dict =>
@@ -780,35 +758,15 @@ const arrFutu = coalg => x => {
 /***[Misc. Combinators]*******************************************************/
 
 
-const arrConsHead = x => xs => {
-  const ys = arrClone(xs);
-  ys.unshift(x);
-  return ys;
-};
-
-
-const arrConsHeadx = x => xs =>
+const arrConsHead = x => xs =>
   (xs.unshift(x), xs);
 
 
-const arrCons = x => xs => {
-  const ys = arrClone(xs);
-  ys.push(x);
-  return ys;
-};
-
-
-const arrConsx = x => xs =>
+const arrCons = x => xs =>
   (xs.push(x), xs);
 
 
-const arrConsNth = (i, x) => xs => {
-  const ys = arrClone(xs);
-  return (ys.splice(i + 1, 0, x), ys);
-};
-
-
-const arrConsNthx = (i, x) => xs =>
+const arrConsNth = (i, x) => xs =>
   (xs.splice(i + 1, 0, x), xs);
 
 
@@ -852,13 +810,7 @@ const arrDedupeOn = k => xs => {
 };
 
 
-const arrDel = i => xs => {
-  const ys = arrClone(xs);
-  return (ys.splice(i, 1), ys);
-};
-
-
-const arrDelx = i => xs =>
+const arrDel = i => xs =>
   (xs.splice(i, 1), xs);
 
 
@@ -912,10 +864,6 @@ const arrMapChunk = f => n => xs =>
 
 
 const arrModOr = def => (i, f) => xs =>
-  arrModOrx(def) (i, f) (arrClone(xs));
-
-
-const arrModOrx = def => (i, f) => xs =>
   i in xs
     ? (xs[i] = f(xs[i]), xs)
     : xs[i] = def;
@@ -937,10 +885,6 @@ const arrScan = f => x_ => xs => // TODO: use fold
 
 
 const arrSet = (i, x) => xs =>
-  arrSetx(i, x) (arrClone(xs));
-
-
-const arrSetx = (i, x) => xs =>
   (xs[i] = x, xs);
 
 
@@ -948,52 +892,12 @@ const arrSliceAt = (i, len) => xs =>
   xs.slice(i, i + len);
 
 
-const arrSliceAtx = (i, len) => xs => {
-  if (len === undefined)
-    if (i < 0)
-      return xs.splice(i);
-
-    else
-      return (xs.splice(i), xs);
-
-  else if (len < 0)
-    return (xs.splice(xs.length + len), xs);
-
-  else if (len === 0)
-    return [];
-           
-  else
-    return xs.splice(i, len);
-};
-
-
 const arrSortBy = f => xs =>
-  arrClone(xs).sort((x, y) => f(x) (y));
-
-
-const arrSortByx = f => xs =>
   xs.sort((x, y) => f(x) (y));
-
-
-const arrSplitAt = i => xs => {
-  const ys = arrClone(xs);
-  return [ys, ys.splice(i + 1)];
-};
 
 
 const arrSplitAtx = i => xs =>
   [xs, xs.splice(i + 1)];
-
-
-const arrSplitBy = p => xs => // aka span
-  arrFoldk(
-    acc => (x, i) =>
-      Cont(k =>
-        p(x)
-          ? arrSplitAt(i) (xs)
-          : k(acc)))
-              ([xs, []])
-                (xs);
 
 
 const arrSplitByx = p => xs =>
@@ -1001,7 +905,7 @@ const arrSplitByx = p => xs =>
     acc => (x, i) =>
       Cont(k =>
         p(x)
-          ? arrSplitAtx(i) (xs)
+          ? arrSplitAt(i) (xs)
           : k(acc)))
               ([xs, []])
                 (xs);
@@ -1017,17 +921,6 @@ const arrTranspose = matrix =>
 
 
 const arrUnconsHead = xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([ys.shift(), ys]);
-};
-
-
-const arrUnconsHeadx = xs => {
   if (xs.length === 0)
     return None;
 
@@ -1037,17 +930,6 @@ const arrUnconsHeadx = xs => {
 
 
 const arrUnconsHeadOr = def => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return [def, ys];
-
-  else
-    return [ys.shift(), ys];
-};
-
-
-const arrUnconsHeadOrx = def => xs => {
   if (xs.length === 0)
     return [def, xs];
 
@@ -1061,19 +943,6 @@ const arrUnconsInit = n => xs => {
     return [[], xs];
 
   else {
-    const ys = arrClone(xs),
-      zs = ys.splice(n + 1);
-
-    return (ys.push(zs), ys);
-  }
-};
-
-
-const arrUnconsInitx = n => xs => {
-  if (xs.length < n)
-    return [[], xs];
-
-  else {
     const ys = xs.splice(n + 1);
     return (xs.push(ys), xs);
   }
@@ -1081,17 +950,6 @@ const arrUnconsInitx = n => xs => {
 
 
 const arrUnconsLast = xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return None;
-
-  else
-    return Some([ys.pop(), ys]);
-};
-
-
-const arrUnconsLastx = xs => {
   if (xs.length === 0)
     return None;
 
@@ -1101,17 +959,6 @@ const arrUnconsLastx = xs => {
 
 
 const arrUnconsLastOr = def => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length === 0)
-    return [def, ys];
-
-  else
-    return [ys.pop(), ys];
-};
-
-
-const arrUnconsLastOrx = def => xs => {
   if (xs.length === 0)
     return [def, xs];
 
@@ -1121,17 +968,6 @@ const arrUnconsLastOrx = def => xs => {
 
 
 const arrUnconsNth = i => xs => {
-  const ys = arrClone(xs);
-
-  if (xs.length < i)
-    return None;
-
-  else
-    return Some([ys.splice(i, 1), ys]);
-};
-
-
-const arrUnconsNthx = i => xs => {
   if (xs.length < i)
     return None;
 
@@ -1140,30 +976,11 @@ const arrUnconsNthx = i => xs => {
 };
 
 
-const arrUnconsNthOr = def => i => xs => {
-  const ys = arrClone(xs);
-  return [xs.length < i ? def : ys.splice(i, 1), ys];
-};
-
-
-const arrUnconsNthOrx = def => i => xs =>
+const arrUnconsNthOr = def => i => xs =>
   [xs.length < i ? def : xs.splice(i, 1), xs];
 
 
 const arrUnconsTail = n => xs => {
-  if (xs.length < n)
-    return [[], xs];
-
-  else {
-    const ys = arrClone(xs),
-      zs = ys.splice(n + 1);
-
-    return (zs.push(ys), zs);
-  }
-};
-
-
-const arrUnconsTailx = n => xs => {
   if (xs.length < n)
     return [[], xs];
 
@@ -1214,9 +1031,6 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 
 
 const arrAlt = arrAppend;
-
-
-const arrAltx = arrAppendx;
 
 
 const arrZero = arrEmpty;
@@ -2355,9 +2169,6 @@ const arrApConstl = arrLiftA2(_const);
 
 
 const arrPrepend = flip(arrAppend);
-
-
-const arrPrependx = flip(arrAppendx);
 
 
 const getDay = d => d.getDate();
@@ -4626,14 +4437,12 @@ module.exports = {
   appr,
   arrAll,
   arrAlt,
-  arrAltx,
   arrAny,
   arrAp,
   arrApConstl,
   arrApConstr,
   arrApo,
   arrAppend,
-  arrAppendx,
   arrChain,
   arrChain2,
   arrChainRec,
@@ -4641,16 +4450,13 @@ module.exports = {
   arrConcat,
   arrCons,
   arrConsHead,
-  arrConsHeadx,
   arrConsNth,
-  arrConsNthx,
   arrConsx,
   arrCreateMatrix,
   arrDedupe,
   arrDedupeBy,
   arrDedupeOn,
   arrDel,
-  arrDelx,
   arrEmpty,
   arrFilter,
   arrFold,
@@ -4678,9 +4484,7 @@ module.exports = {
   arrMapAdjacent,
   arrMapChunk,
   arrMapConst,
-  arrMapx,
   arrModOr,
-  arrModOrx,
   arrMutu,
   arrNull,
   arrOf,
@@ -4688,19 +4492,13 @@ module.exports = {
   arrParak,
   arrPartition,
   arrPrepend,
-  arrPrependx,
   arrScan,
   arrSeqA,
   arrSet,
-  arrSetx,
   arrSliceAt,
-  arrSliceAtx,
   arrSortBy,
-  arrSortByx,
   arrSplitAt,
-  arrSplitAtx,
   arrSplitBy,
-  arrSplitByx,
   arrSum,
   arrTail,
   arrTransduce,
@@ -4708,20 +4506,12 @@ module.exports = {
   arrTranspose,
   arrUnconsHead,
   arrUnconsHeadOr,
-  arrUnconsHeadOrx,
-  arrUnconsHeadx,
   arrUnconsInit,
-  arrUnconsInitx,
   arrUnconsLast,
   arrUnconsLastOr,
-  arrUnconsLastOrx,
-  arrUnconsLastx,
   arrUnconsNth,
-  arrUnconsNthx,
   arrUnconsNthOr,
-  arrUnconsNthOrx,
   arrUnconsTail,
-  arrUnconsTailx,
   arrUnfold,
   arrUnzip,
   arrZero,
