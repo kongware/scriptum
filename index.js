@@ -453,14 +453,8 @@ const arrChainRec = f => {
 /***[Clonable]****************************************************************/
 
 
-const arrClone = xs => {
-  const ys = [];
-
-  for (let i = 0; i < xs.length; i++)
-    ys[i] = xs[i];
-
-  return ys;
-};
+const arrClone = xs =>
+  xs.slice(0);
 
 
 /***[Filterable]**************************************************************/
