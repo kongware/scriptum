@@ -1878,11 +1878,10 @@ const mapSet = (k, v) => m =>
   m.set(k, v);
 
 
-const mapSetM = ({append, empty}) => p => (k, v) => m =>
-  _let((w = m.get(k)) =>
-    p(w)
-      ? m.set(k, append(w) (v))
-      : m.set(k, append(empty()) (v)));
+const mapSetM = ({append, empty}) => (k, v) => m =>
+  m.has(k)
+    ? m.set(k, append(m.get(k)) (v))
+    : m.set(k, append(empty()) (v));
 
 
 /******************************************************************************
