@@ -1857,10 +1857,6 @@ const mapMap = f => m => {
 
 
 const mapDel = k => m =>
-  new Map(m).delete(k);
-
-
-const mapDelx = k => m =>
   m.delete(k);
 
 
@@ -1878,22 +1874,19 @@ const mapGetOr = def => k => m =>
 
 const mapModOr = def => (k, f) => m =>
   m.has(k)
-    ? new Map(m).set(k, f(m.get(k)))
-    : new Map(m).set(k, def);
-
-
-const mapModOrx = def => (k, f) => m =>
-  m.has(k)
     ? m.set(k, f(m.get(k)))
     : m.set(k, def);
 
 
 const mapSet = (k, v) => m =>
-  new Map(m).set(k, v);
-
-
-const mapSetx = (k, v) => m =>
   m.set(k, v);
+
+
+const mapSetM = ({append, empty}) => p => (k, v) => m =>
+  _let((w = m.get(k)) =>
+    p(w)
+      ? m.set(k, append(w) (v))
+      : m.set(k, append(empty()) (v)));
 
 
 /******************************************************************************
@@ -4952,15 +4945,13 @@ module.exports = {
   mapConst,
   mapMap,
   mapDel,
-  mapDelx,
   mapGet,
   mapGetOr,
   mapLens,
   mapLensx,
   mapModOr,
-  mapModOrx,
   mapSet,
-  mapSetx,
+  mapSetM,
   mapper,
   mapperk,
   matCata,
