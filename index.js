@@ -610,14 +610,9 @@ const arrEmpty = () => [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => { // NOTE: expects arrays in both arguments
-  if (!ys || ys.length === undefined)
-    throw new SemigroupError(`array expected but "${ys}" given`);
-
-  else {
-    for (let i = 0; i < ys.length; i++)
-      xs.push(ys[i]);
-  }
+const arrAppend = xs => ys => {
+  for (let i = 0; i < ys.length; i++)
+    xs.push(ys[i]);
 
   return xs;
 };
