@@ -267,7 +267,7 @@ const any = ({fold, append, empty}) => p =>
 
 
 const foldMap = ({fold, append, empty}) => f =>
-  fold(comp2nd(append) (f)) (empty);
+  fold(comp2nd(append) (f)) (empty());
 
 
 /***[Functor]*****************************************************************/
@@ -296,7 +296,7 @@ const monadAp = chain => mf => mg =>
 
 
 const concat = ({append, empty}) =>
-  arrFold(append) (empty);
+  arrFold(append) (empty());
 
 
 /******************************************************************************
@@ -484,7 +484,7 @@ const arrFold = alg => zero => xs => {
 
 
 const arrFoldM = ({append, empty}) =>
-  arrFold(append) (empty);
+  arrFold(append) (empty());
 
 
 const arrFoldr = f => acc => xs =>
@@ -604,7 +604,7 @@ const arrLiftM2 = f => mx => my =>
 /***[Monoid]******************************************************************/
 
 
-const arrEmpty = [];
+const arrEmpty = () => [];
 
 
 /***[Semigroup]***************************************************************/
@@ -1479,46 +1479,46 @@ const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infixM2 = (λ, f, x, g, y) =>
+const infixM2 = (?, f, x, g, y) =>
   f(x_ =>
-    λ(x_, α => g(y_ =>
-      α(y_, id) (y))) (x);
+    ?(x_, a => g(y_ =>
+      a(y_, id) (y))) (x);
 
 
-const infixM3 = (λ, f, x, g, y, h, z) =>
+const infixM3 = (?, f, x, g, y, h, z) =>
   f(x_ =>
-    λ(x_, α => g(y_ =>
-      α(y_, β => h(z_ =>
-        β(z_, id)) (z))) (y))) (x);
+    ?(x_, a => g(y_ =>
+      a(y_, ß => h(z_ =>
+        ß(z_, id)) (z))) (y))) (x);
 
 
-const infixM4 = (λ, f, w, g, x, h, y, i, z) =>
+const infixM4 = (?, f, w, g, x, h, y, i, z) =>
   f(w_ =>
-    λ(w_, α => g(x_ =>
-      α(x_, β => h(y_ =>
-        β(y_, γ => i(z_ =>
-          γ(z_, id)) (z))) (y))) (x))) (w);
+    ?(w_, a => g(x_ =>
+      a(x_, ß => h(y_ =>
+        ß(y_, ? => i(z_ =>
+          ?(z_, id)) (z))) (y))) (x))) (w);
 
 
 
-const infixM5 = (λ, f, v, g, w, h, x, i, y, j, z) =>
+const infixM5 = (?, f, v, g, w, h, x, i, y, j, z) =>
   f(v_ =>
-    λ(v_, α => g(w_ =>
-      α(w_, β => h(x_ =>
-        β(x_, γ => i(y_ =>
-          γ(y_, δ => j(z_ =>
-            δ(z_, id)) (z))) (y))) (x))) (w))) (v);
+    ?(v_, a => g(w_ =>
+      a(w_, ß => h(x_ =>
+        ß(x_, ? => i(y_ =>
+          ?(y_, d => j(z_ =>
+            d(z_, id)) (z))) (y))) (x))) (w))) (v);
 
 
 
-const infixM6 = (λ, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const infixM6 = (?, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(u_ =>
-    λ(u_, α => g(v_ =>
-      α(v_, β => h(w_ =>
-        β(w_, γ => i(x_ =>
-          γ(x_, δ => j(y_ =>
-            δ(y_, ε => k(z_ =>
-              ε(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
+    ?(u_, a => g(v_ =>
+      a(v_, ß => h(w_ =>
+        ß(w_, ? => i(x_ =>
+          ?(x_, d => j(y_ =>
+            d(y_, e => k(z_ =>
+              e(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
 
 
 const infixr = (y, f, x) =>
@@ -1545,44 +1545,44 @@ const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
-const infixrM2 = (x, f, y, g, λ) =>
+const infixrM2 = (x, f, y, g, ?) =>
   f(x) (x_ =>
-    λ(x_, α => g(y) (y_ =>
-      α(y_, id))));
+    ?(x_, a => g(y) (y_ =>
+      a(y_, id))));
 
 
-const infixrM3 = (x, f, y, g, z, h, λ) =>
+const infixrM3 = (x, f, y, g, z, h, ?) =>
   f(x) (x_ =>
-    λ(x_, α => g(y) (y_ =>
-      α(y_, β => h(z) (z_ =>
-        β(z_, id))))));
+    ?(x_, a => g(y) (y_ =>
+      a(y_, ß => h(z) (z_ =>
+        ß(z_, id))))));
 
 
-const infixrM4 = (w, f, x, g, y, h, z, i, λ) =>
+const infixrM4 = (w, f, x, g, y, h, z, i, ?) =>
   f(w) (w_ =>
-    λ(w_, α => g(x) (x_ =>
-      α(x_, β => h(y) (y_ =>
-        β(y_, γ => i(z) (z_ =>
-          γ(z_, id))))))));
+    ?(w_, a => g(x) (x_ =>
+      a(x_, ß => h(y) (y_ =>
+        ß(y_, ? => i(z) (z_ =>
+          ?(z_, id))))))));
 
 
-const infixrM5 = (v, f, w, g, x, h, y, i, z, j, λ) =>
+const infixrM5 = (v, f, w, g, x, h, y, i, z, j, ?) =>
   f(v) (v_ =>
-    λ(v_, α => g(w) (w_ =>
-      α(w_, β => h(x) (x_ =>
-        β(x_, γ => i(y) (y_ =>
-          γ(y_, δ => j(z) (z_ =>
-            δ(z_, id))))))))));
+    ?(v_, a => g(w) (w_ =>
+      a(w_, ß => h(x) (x_ =>
+        ß(x_, ? => i(y) (y_ =>
+          ?(y_, d => j(z) (z_ =>
+            d(z_, id))))))))));
 
 
-const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, λ) =>
+const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, ?) =>
   f(u) (u_ =>
-    λ(u_, α => g(v) (v_ =>
-      α(w_, β => h(w) (w_ =>
-        β(x_, γ => i(x) (x_ =>
-          γ(y_, δ => j(y) (y_ =>
-            δ(y_, ε => k(z) (z_ =>
-              ε(z_, id))))))))))));
+    ?(u_, a => g(v) (v_ =>
+      a(w_, ß => h(w) (w_ =>
+        ß(x_, ? => i(x) (x_ =>
+          ?(y_, d => j(y) (y_ =>
+            d(y_, e => k(z) (z_ =>
+              e(z_, id))))))))))));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -1622,7 +1622,7 @@ const select1N = m => (ks, vs) => k =>
 /***[Derived]*****************************************************************/
 
 
-const funEmpty = id;
+const funEmpty = () => id;
 
 
 const funOf = _const;
@@ -2189,7 +2189,7 @@ const All = struct("All");
 /***[Monoid]******************************************************************/
 
 
-const allEmpty = All(true);
+const allEmpty = () => All(true);
 
 
 /***[Semigroup]***************************************************************/
@@ -2213,7 +2213,7 @@ const Any = struct("Any");
 /***[Monoid]******************************************************************/
 
 
-const anyEmpty = Any(false);
+const anyEmpty = () => Any(false);
 
 
 /***[Semigroup]***************************************************************/
@@ -2244,7 +2244,7 @@ const compContra = f => tf =>
 /***[Monoid]******************************************************************/
 
 
-const compEmpty = Compare(x => y => EQ);
+const compEmpty = () => Compare(x => y => EQ);
 
 
 /***[Semigroup]***************************************************************/
@@ -2479,7 +2479,7 @@ const Endo = struct("Endo");
 /***[Monoid]******************************************************************/
 
 
-const endoEmpty = Endo(id);
+const endoEmpty = () => Endo(id);
 
 
 /***[Semigroup]***************************************************************/
@@ -2510,7 +2510,7 @@ const equivContra = f => tf =>
 /***[Monoid]******************************************************************/
 
 
-const equivEmpty = Equiv(x => y => true);
+const equivEmpty = () => Equiv(x => y => true);
 
 
 /***[Semigroup]***************************************************************/
@@ -2886,7 +2886,7 @@ const Max = struct("Max");
 /***[Monoid]******************************************************************/
 
 
-const maxEmpty = minBound => Max(minBound);
+const maxEmpty = minBound => () => Max(minBound);
 
 
 /***[Semigroup]***************************************************************/
@@ -2910,7 +2910,7 @@ const Min = struct("Min");
 /***[Monoid]******************************************************************/
 
 
-const minEmpty = maxBound => Min(maxBound);
+const minEmpty = maxBound => () => Min(maxBound);
 
 
 /***[Semigroup]***************************************************************/
@@ -3038,7 +3038,7 @@ const ordCata = lt => eq => gt => tx =>
 /***[Monoid]******************************************************************/
 
 
-const ordEmpty = EQ;
+const ordEmpty = () => EQ;
 
 
 /***[Semigroup]***************************************************************/
@@ -3097,7 +3097,7 @@ const parMap = f => tx =>
 /***[Monoid]******************************************************************/
 
 
-const parEmpty = Parallel((res, rej) => null);
+const parEmpty = () => Parallel((res, rej) => null);
 
 
 /***[Semigroup]***************************************************************/
@@ -3168,7 +3168,7 @@ const parAll = ts => // eta abstraction to create a new tOf([]) for each invocat
 const parAny =
   arrFold(acc => tf =>
     parOr(acc) (tf))
-      (parEmpty);
+      (parEmpty());
 
 
 /***[Derived]*****************************************************************/
@@ -3198,7 +3198,7 @@ const predContra = f => tf =>
 /***[Monoid]******************************************************************/
 
 
-const predEmpty = Pred(x => true);
+const predEmpty = () => Pred(x => true);
 
 
 /***[Semigroup]***************************************************************/
@@ -3270,7 +3270,7 @@ const Prod = struct("Prod");
 /***[Monoid]******************************************************************/
 
 
-const prodEmpty = Prod(1);
+const prodEmpty = () => Prod(1);
 
 
 /***[Semigroup]***************************************************************/
@@ -3489,7 +3489,7 @@ const Sum = struct("Sum");
 /***[Monoid]******************************************************************/
 
 
-const sumEmpty = Sum(0);
+const sumEmpty = () => Sum(0);
 
 
 /***[Semigroup]***************************************************************/
@@ -3574,7 +3574,7 @@ const tLiftM2 = f => mx => my =>
 /***[Monoid]*******************************************************************/
 
 
-const tEmpty = x => Task((res, rej) => res(x));
+const tEmpty = () => x => Task((res, rej) => res(x));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3844,7 +3844,7 @@ const writeAp = append => ({runWriter: [f, y]}) => ({runWriter: [x, y_]}) =>
 
 
 const writeOf = empty => x =>
-  Writer(x, empty);
+  Writer(x, empty());
 
 
 /***[Functor]*****************************************************************/
