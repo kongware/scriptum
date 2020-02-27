@@ -390,9 +390,6 @@ const or = x => y =>
 // arrAlt @derived
 
 
-// arrAltx @derived
-
-
 // arrZero @derived
 
 
@@ -401,7 +398,7 @@ const or = x => y =>
 
 const arrAp = tf => tx =>
   arrFold(acc => f =>
-    arrAppendx(acc)
+    arrAppend(acc)
       (arrMap(x => f(x)) (tx)))
         ([])
           (tf);
@@ -431,19 +428,19 @@ const arrChainRec = f => {
   let step = f();
 
   if (step && step.type === recur)
-    arrAppendx(stack) (step.arg);
+    arrAppend(stack) (step.arg);
 
   else
-    arrAppendx(acc) (step.arg);
+    arrAppend(acc) (step.arg);
 
   while (stack.length > 0) {
     step = f(stack.shift());
 
     if (step && step.type === recur)
-      arrAppendx(stack) (step.arg);
+      arrAppend(stack) (step.arg);
 
     else
-      arrAppendx(acc) (step);
+      arrAppend(acc) (step);
   }
 
   return acc;
@@ -581,13 +578,13 @@ const arrMapConst = x => xs =>
 
 
 const arrChain = fm =>
-  arrFold(acc => x => arrAppendx(acc) (fm(x))) ([]);
+  arrFold(acc => x => arrAppend(acc) (fm(x))) ([]);
 
 
 const arrChain2 = fm => mx => my =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
-      arrAppendx(acc_) (fm(x) (y))) (acc) (my)) ([]) (mx);
+      arrAppend(acc_) (fm(x) (y))) (acc) (my)) ([]) (mx);
 
 
 const arrJoin = xss => {
@@ -604,7 +601,7 @@ const arrJoin = xss => {
 const arrLiftM2 = f => mx => my =>
   arrFold(acc => x =>
     arrFold(acc_ => y =>
-      arrConsx(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
+      arrCons(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
 
 
 /***[Monoid]******************************************************************/
@@ -694,7 +691,7 @@ const arrApo = coalg => x => {
       case "Some": {
         switch (tx.runOption[1].tag) {
           case "Left": {
-            arrAppendx(acc)
+            arrAppend(acc)
               ((tx.runOption[1].runEither.unshift(tx.runOption[0]),
                 tx.runOption[1].runEither));
             
@@ -733,12 +730,12 @@ const arrFutu = coalg => x => {
 
         switch(optX_.tag) {
           case "None": {
-            arrAppendx(acc) ((ys.unshift(y), ys));
+            arrAppend(acc) ((ys.unshift(y), ys));
             return acc;
           }
 
           case "Some": {
-            arrAppendx(acc) ((ys.unshift(y), ys)); 
+            arrAppend(acc) ((ys.unshift(y), ys)); 
             x = optX_.runOption;
             break;
           }
@@ -896,11 +893,11 @@ const arrSortBy = f => xs =>
   xs.sort((x, y) => f(x) (y));
 
 
-const arrSplitAtx = i => xs =>
+const arrSplitAt = i => xs =>
   [xs, xs.splice(i + 1)];
 
 
-const arrSplitByx = p => xs =>
+const arrSplitBy = p => xs =>
   arrFoldk(
     acc => (x, i) =>
       Cont(k =>
@@ -1796,10 +1793,6 @@ const objClone = o => {
 
 
 const objDel = k => o =>
-  objDelx(k) (objClone(o));
-
-
-const objDelx = k => o =>
   (delete o[k], o);
 
 
@@ -1818,28 +1811,16 @@ const objMemo = k => f => o => Object.defineProperty(o, k, {get: function() {
 
 
 const objModOr = def => (k, f) => o =>
-  objModOrx(def) (k, f) (objClone(o));
-
-
-const objModOrx = def => (k, f) => o =>
   k in o
     ? (o[k] = f(o[k]), o)
     : (o[k] = def, o);
 
 
 const objSet = (k, v) => o =>
-  objSetx(k, v) (objClone(o));
-
-
-const objSetx = (k, v) => o =>
   (o[k] = v, o);
 
 
-const objUnion = o => p =>
-  objUnionx(objClone(o)) (p);
-
-
-const objUnionx = o => p => {
+const objUnion = o => p => {
   for ([k, v] of objEntries(p))
     o[k] = v;
 
@@ -2076,7 +2057,7 @@ const strCapWord = s =>
 const strChunk = n =>
   strFoldChunks(
     acc => (s, i) =>
-      [arrAppendx(acc) ([s.slice(i, i + n)]), i])
+      [arrAppend(acc) ([s.slice(i, i + n)]), i])
         ([]);
 
 
@@ -2744,9 +2725,6 @@ const arrLens_ = ({set, del}) => i =>
 const arrLens = arrLens_({set: arrSet, del: arrDel});
 
 
-const arrLensx = arrLens_({set: arrSetx, del: arrDelx});
-
-
 // Map
 
 
@@ -2764,9 +2742,6 @@ const mapLens_ = ({set, del}) => k =>
 const mapLens = mapLens_({set: mapSet, del: mapDel});
 
 
-const mapLensx = mapLens_({set: mapSetx, del: mapDelx});
-
-
 // Object
 
 
@@ -2782,9 +2757,6 @@ const objLens_ = ({set, del}) => k =>
 
 
 const objLens = objLens_({set: objSet, del: objDel});
-
-
-const objLensx = objLens_({set: objSetx, del: objDelx});
 
 
 // String
@@ -3368,7 +3340,7 @@ const local = f => tg =>
 const objSetter_ = objDel => k =>
   Lens(_ => ft => o =>
     idMap(v =>
-      objUnionx(
+      objUnion(
         objDel(k) (o))
           (v === null
             ? {}
@@ -3377,9 +3349,6 @@ const objSetter_ = objDel => k =>
 
 
 const objSetter = objSetter_(objDel);
-
-
-const objSetterx = objSetter_(objDelx);
 
 
 /***[Category]****************************************************************/
@@ -4451,7 +4420,6 @@ module.exports = {
   arrCons,
   arrConsHead,
   arrConsNth,
-  arrConsx,
   arrCreateMatrix,
   arrDedupe,
   arrDedupeBy,
@@ -4472,7 +4440,6 @@ module.exports = {
   arrLast,
   arrLastOr,
   arrLens,
-  arrLensx,
   arrLiftA2,
   arrLiftM2,
   arrHisto,
@@ -4728,7 +4695,6 @@ module.exports = {
   mapGet,
   mapGetOr,
   mapLens,
-  mapLensx,
   mapModOr,
   mapSet,
   mapSetM,
@@ -4772,21 +4738,16 @@ module.exports = {
   numToEnum,
   objClone,
   objDel,
-  objDelx,
   objEntries,
   objGetOr,
   objGetter,
   objKeys,
   objLens,
-  objLensx,
   objMemo,
   objModOr,
-  objModOrx,
   objSet,
   objSetter,
-  objSetx,
   objUnion,
-  objUnionx,
   objValues,
   Option,
   optAp,
