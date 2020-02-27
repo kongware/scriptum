@@ -168,24 +168,42 @@ const match3 = (type,
 
 
 const Base = x =>
-  ({recur: false, x});
+  ({loop: false, x});
 
 
-const Recur = (...args) =>
-  ({recur: true, args});
+const Rec = (...args) =>
+  ({loop: true, args});
+
+
+const Step = (f, rec) =>
+  ({loop: true, f, rec});
+
+
+const rec = f => (...args) => {
+  let step = f(...args);
+  const stack = [];
+
+  while (step.loop) {
+    stack.push(step.f);
+    step = f(...step.rec.args);
+  }
+
+  return stack.reduceRight(
+    (x, f) => f(x), step.x);
+};
 
 
 const tailRec = f => (...args) => {
     let step = f(...args);
 
-    while (step.recur)
+    while (step.loop)
       step = f(...step.args);
 
     return step.x;
 };
 
 
-// TODO: optimised version
+// TODO: add optimised versions
 
 
 /******************************************************************************
@@ -5084,7 +5102,8 @@ module.exports = {
   readJoin,
   readMap,
   readOf,
-  Recur,
+  rec,
+  Rec,
   RegExpError,
   Return,
   Right,
@@ -5114,6 +5133,7 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
+  Step,
   strAppend,
   strCapWord,
   strChunk,
