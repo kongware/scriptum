@@ -166,23 +166,33 @@ const rec = f => (...args) => {
   let step = f(...args);
   const stack = [];
 
-  while (step.loop) {
+  while (step.tag !== Base) {
     stack.push(step.f);
     step = f(...step.step.args);
   }
 
-  return stack.reduceRight(
-    (x, f) => f(x), step.x);
+  let r = step.x;
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    r = stack[i] (r);
+    
+    if (r && r.tag === Base) {
+      r = r.x;
+      break;
+    }
+  }
+
+  return r;
 };
 
 
 const tailRec = f => (...args) => {
-  let step = f(...args);
+    let step = f(...args);
 
-  while (step.loop)
-    step = f(...step.args);
+    while (step.tag !== Base)
+      step = f(...step.args);
 
-  return step.x;
+    return step.x;
 };
 
 
@@ -190,15 +200,15 @@ const tailRec = f => (...args) => {
 
 
 const Base = x =>
-  ({loop: false, x});
+  ({tag: Base, x});
 
 
 const Call = (f, step) =>
-  ({loop: true, f, step});
+  ({tag: Call, f, step});
 
 
 const Step = (...args) =>
-  ({loop: true, args});
+  ({tag: Step, args});
 
 
 /******************************************************************************
@@ -293,8 +303,7 @@ const apM = chain => mf => mg =>
 /***[Monoid]******************************************************************/
 
 
-const concat = ({append, empty}) =>
-  arrFold(append) (empty());
+// TODO: add concat
 
 
 /******************************************************************************
@@ -442,18 +451,25 @@ const arrFold = f => acc => xs => {
 };
 
 
-const arrFoldr = f => acc => xs =>
-  rec(i =>
-    i === xs.length
-      ? Base(acc)
-      : Call(f(xs[i]), Step(i + 1))) (0);
-
-
 const arrFoldk = f => acc => xs =>
   tailRec((acc_, i) =>
     i === xs.length
       ? Base(acc_)
       : f(acc_) (xs[i], i).runCont(acc__ => Step(acc__, i + 1))) (acc, 0);
+
+
+const arrFoldkr = f => acc => xs =>
+  rec((acc_, i) =>
+    i === xs.length
+      ? Base(acc_)
+      : Call(y => f(xs[i]) (y).runCont(id), Step(acc_, i + 1))) (acc, 0);
+
+
+const arrFoldr = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(f(xs[i]), Step(i + 1))) (0);
 
 
 const arrLen = xs => xs.length;
@@ -465,7 +481,7 @@ const arrNull = xs => xs.length === 0;
 // arrSum @derived
 
 
-// TODO: add arrFoldkr, arrFoldMap, toArray, arrMax, arrMin, arrProd
+// TODO: add arrFoldMap, toArray, arrMax, arrMin, arrProd
 
 
 /***[Functor]*****************************************************************/
@@ -497,8 +513,8 @@ const arrChain = fm =>
 /***[Monoid]******************************************************************/
 
 
-const arrConcat =
-  concat({append: arrAppend, empty: arrEmpty});
+const concat = ({append, empty}) =>
+  arrFold(append) (empty());
 
 
 const arrEmpty = () => [];
@@ -4206,6 +4222,7 @@ module.exports = {
   arrFilter,
   arrFold,
   arrFoldk,
+  arrFoldkr,
   arrFoldr,
   arrFutu,
   arrHead,
