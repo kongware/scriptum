@@ -1,17 +1,12 @@
 /*
-                                                                                      
-                                                   I8                                 
-                                                   I8                                 
-                                 gg             88888888                              
-                                 ""                I8                                 
-   ,g,       ,gggg,   ,gggggg,   gg   gg,gggg,     I8   gg      gg   ,ggg,,ggg,,ggg,  
-  ,8'8,     dP"  "Yb  dP""""8I   88   I8P"  "Yb    I8   I8      8I  ,8" "8P" "8P" "8, 
- ,8'  Yb   i8'       ,8'    8I   88   I8'    ,8i  ,I8,  I8,    ,8I  I8   8I   8I   8I 
-,8'_   8) ,d8,_    _,dP     Y8,_,88,_,I8 _  ,d8' ,d88b,,d8b,  ,d8b,,dP   8I   8I   Yb,
-P' "YY8P8PP""Y8888PP8P      `Y88P""Y8PI8 YY88888P8P""Y88P'"Y88P"`Y88P'   8I   8I   `Y8
-                                      I8                                              
-                                      I8                                              
-                                      I8                                              
+                                                                                 
+                               _|              _|                                
+   _|_|_|    _|_|_|  _|  _|_|      _|_|_|    _|_|_|_|  _|    _|  _|_|_|  _|_|    
+ _|_|      _|        _|_|      _|  _|    _|    _|      _|    _|  _|    _|    _|  
+     _|_|  _|        _|        _|  _|    _|    _|      _|    _|  _|    _|    _|  
+ _|_|_|      _|_|_|  _|        _|  _|_|_|        _|_|    _|_|_|  _|    _|    _|  
+                                   _|                                            
+                                   _|                                            
 */
 
 
@@ -173,7 +168,7 @@ const rec = f => (...args) => {
 
   while (step.loop) {
     stack.push(step.f);
-    step = f(...step.rec.args);
+    step = f(...step.step.args);
   }
 
   return stack.reduceRight(
@@ -182,12 +177,12 @@ const rec = f => (...args) => {
 
 
 const tailRec = f => (...args) => {
-    let step = f(...args);
+  let step = f(...args);
 
-    while (step.loop)
-      step = f(...step.args);
+  while (step.loop)
+    step = f(...step.args);
 
-    return step.x;
+  return step.x;
 };
 
 
@@ -198,12 +193,12 @@ const Base = x =>
   ({loop: false, x});
 
 
-const Rec = (...args) =>
+const Call = (f, step) =>
+  ({loop: true, f, step});
+
+
+const Step = (...args) =>
   ({loop: true, args});
-
-
-const Step = (f, rec) =>
-  ({loop: true, f, rec});
 
 
 /******************************************************************************
@@ -216,12 +211,12 @@ const Step = (f, rec) =>
 /***[Applicative]*************************************************************/
 
 
-const apConst = ({map, ap}) => tf => tg =>
-  ap(map(_const) (tf)) (tg);
+const apEff1 = ({map, ap}) => tx => ty =>
+  ap(map(_const) (tx)) (ty);
 
 
-const apConst_ = ({map, ap}) => tf => tg =>
-  ap(mapConst(map) (id) (tf)) (tg);
+const apEff2 = ({map, ap}) => tx => ty =>
+  ap(mapEff(map) (id) (tx)) (ty);
 
 
 /***[Ix]**********************************************************************/
@@ -273,7 +268,7 @@ const foldMap = ({fold, append, empty}) => f =>
 /***[Functor]*****************************************************************/
 
 
-const mapConst = map => x =>
+const mapEff = map => x =>
   map(_ => x);
 
 
@@ -288,8 +283,11 @@ const kleisli_ = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const monadAp = chain => mf => mg =>
+const apM = chain => mf => mg =>
   chain(_ => mg) (mf);
+  
+  
+// TODO: add chainEff
 
 
 /***[Monoid]******************************************************************/
@@ -322,10 +320,6 @@ const ascOrder = x => y => z =>
   x <= y && y <= z;
 
 
-const ascOrder_ = (x, y, z) =>
-  x <= y && y <= z;
-
-
 const compare = x => y =>
   x < y ? LT
     : x === y ? EQ
@@ -333,10 +327,6 @@ const compare = x => y =>
       
 
 const descOrder = x => y => z =>
-  x >= y && y >= z;
-
-
-const descOrder_ = (x, y, z) =>
   x >= y && y >= z;
 
 
@@ -407,11 +397,11 @@ const arrAp = tf => tx =>
           (tf);
 
 
-// arrApConstl @derived
+// arrApEff1 @derived
 
 
-const arrApConstr = tf => tx =>
-  arrAp(arrMapConst(id) (tf)) (tx);
+const arrApEff2 = apEff2(
+  {map: arrMap, ap: arrAp});
 
 
 const arrLiftA2 = f => tx => ty =>
@@ -419,35 +409,6 @@ const arrLiftA2 = f => tx => ty =>
 
 
 const arrOf = x => [x];
-
-
-/***[ChainRec]****************************************************************/
-
-
-const arrChainRec = f => {
-  const stack = [],
-    acc = [];
-
-  let step = f();
-
-  if (step && step.type === recur)
-    arrAppend(stack) (step.arg);
-
-  else
-    arrAppend(acc) (step.arg);
-
-  while (stack.length > 0) {
-    step = f(stack.shift());
-
-    if (step && step.type === recur)
-      arrAppend(stack) (step.arg);
-
-    else
-      arrAppend(acc) (step);
-  }
-
-  return acc;
-};
 
 
 /***[Clonable]****************************************************************/
@@ -473,91 +434,38 @@ const arrFilter = p => xs =>
 // arrAny @derived
 
 
-const arrFold = alg => zero => xs => {
-  let acc = zero;
-
+const arrFold = f => acc => xs => {
   for (let i = 0; i < xs.length; i++)
-    acc = alg(acc) (xs[i], i);
+    acc = f(acc) (xs[i], i);
 
   return acc;
 };
 
 
-const arrFoldM = ({append, empty}) =>
-  arrFold(append) (empty());
-
-
 const arrFoldr = f => acc => xs =>
-  loop_((i = 0, k = id) => 
-      i === xs.length
-        ? call_(k, [acc])
-        : recur_([i + 1, acc_ => call_(k, [f(xs[i]) (acc_)])]));
-
-
-const arrFoldStr = s => ss =>
-  ss.join(s);
-
-
-const arrFoldk = alg => zero => xs =>
-  loop((acc = zero, i = 0) =>
+  rec(i =>
     i === xs.length
-      ? acc
-      : alg(acc) (xs[i], i).runCont(acc_ => recur(acc_, i + 1)));
+      ? Base(acc)
+      : Call(f(xs[i]), Step(i + 1))) (0);
 
 
-const arrHisto = alg => zero =>
-  comp(headH) (history(alg) (zero));
+const arrFoldk = f => acc => xs =>
+  tailRec((acc_, i) =>
+    i === xs.length
+      ? Base(acc_)
+      : f(acc_) (xs[i], i).runCont(acc__ => Step(acc__, i + 1))) (acc, 0);
 
 
-const arrHylo = alg => zero => coalg =>
-  comp(arrFold(alg) (zero)) (arrAna(coalg));
-
-
-const arrLength = xs => xs.length;
-
-
-const arrMutu = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFold(([acc1, acc2]) => x =>
-      [alg1(acc1) (acc2) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
+const arrLen = xs => xs.length;
 
 
 const arrNull = xs => xs.length === 0;
 
 
-const arrPara = alg => zero => xs => {
-  const ys = arrClone(xs);
-  
-  let acc = zero,
-    len = 0,
-    x;
-
-  while (x = ys.shift()) 
-    acc = alg(acc) (ys) (x, len++);
-
-  return acc;
-};
-
-
-const arrParak = alg => zero => xs => {
-  const ys = arrClone(xs);
-
-  return loop((acc = zero, i = 0) =>
-    i === xs.length
-      ? acc
-      : alg(acc) (ys) (ys.shift(), i).runCont(acc_ => recur(acc_, i + 1)));
-};
-
-
 // arrSum @derived
 
 
-const arrZygo = alg1 => alg2 => zero1 => zero2 =>
-  comp(snd)
-    (arrFold(([acc1, acc2]) => x =>
-      [alg1(acc1) (x), alg2(acc1) (acc2) (x)])
-        ([zero1, zero2]));
+// TODO: add arrFoldkr, arrFoldMap, toArray, arrMax, arrMin, arrProd
 
 
 /***[Functor]*****************************************************************/
@@ -567,41 +475,30 @@ const arrMap = f => xs =>
   xs.map((x, i) => f(x, i));
 
 
-const arrMapConst = x => xs =>
-  xs.map(_const(x));
+const arrMapEff = mapEff(arrMap);
 
 
 /***[Monad]*******************************************************************/
+
+
+// arrApM @derived
 
 
 const arrChain = fm =>
   arrFold(acc => x => arrAppend(acc) (fm(x))) ([]);
 
 
-const arrChain2 = fm => mx => my =>
-  arrFold(acc => x =>
-    arrFold(acc_ => y =>
-      arrAppend(acc_) (fm(x) (y))) (acc) (my)) ([]) (mx);
+// arrJoin @derived
 
 
-const arrJoin = xss => {
-  let xs = [];
-
-  for (let i = 0; i < xss.length; i++)
-    for (let j = 0; j < xss[i].length; j++)
-      xs.push(xss[i] [j]);
-
-  return xs;
-};
-
-
-const arrLiftM2 = f => mx => my =>
-  arrFold(acc => x =>
-    arrFold(acc_ => y =>
-      arrSnoc(f(x) (y)) (acc_)) (acc) (my)) ([]) (mx);
+// TODO: add arrChainEff
 
 
 /***[Monoid]******************************************************************/
+
+
+const arrConcat =
+  concat({append: arrAppend, empty: arrEmpty});
 
 
 const arrEmpty = () => [];
@@ -610,30 +507,26 @@ const arrEmpty = () => [];
 /***[Semigroup]***************************************************************/
 
 
-const arrAppend = xs => ys => {
-  for (let i = 0; i < ys.length; i++)
-    xs.push(ys[i]);
-
-  return xs;
-};
+const arrAppend = xs => ys =>
+  xs.concat(ys);
 
 
-const arrConcat =
-  concat({append: arrAppend, empty: arrEmpty});
-
-
-// arrPrepend @derived
+const arrPrepend ys => xs =>
+  xs.concat(ys);
 
 
 /***[Transduce]***************************************************************/
 
 
-const arrTransduce = alg => reduce =>
-  arrFold(alg(reduce));
+const arrTransduce = f => reduce =>
+  arrFold(f(reduce));
 
 
-const arrTransducek = alg => reduce =>
-  arrFoldk(alg(reduce));
+const arrTransducek = f => reduce =>
+  arrFoldk(f(reduce));
+
+
+// TODO: add arrTransducer, arrTransducekr
 
 
 /***[Traversable]*************************************************************/
@@ -643,18 +536,17 @@ const arrMapA = ({liftA2, of}) => f =>
   arrFold(acc => x => liftA2(arrSnoc) (f(x)) (acc)) (of([]));
 
 
-const arrSeqA = dict =>
-  arrMapA(dict) (id);
+// arrSeqA @derived
 
 
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = coalg => x => {
+const arrUnfold = f => x => {
   const acc = [];
 
   while (true) {
-    let tx = coalg(x);
+    let tx = f(x);
 
     switch (tx.tag) {
       case "None": return acc;
@@ -662,79 +554,6 @@ const arrUnfold = coalg => x => {
       case "Some": {
         acc.push(tx.runOption[0]);
         x = tx.runOption[1];
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
-
-
-const arrApo = coalg => x => {
-  const acc = [];
-
-  while (true) {
-    let tx = coalg(x);
-
-    switch (tx.tag) {
-      case "None": return acc;
-      
-      case "Some": {
-        switch (tx.runOption[1].tag) {
-          case "Left": {
-            arrAppend(acc)
-              ((tx.runOption[1].runEither.unshift(tx.runOption[0]),
-                tx.runOption[1].runEither));
-            
-            return acc;
-          }
-
-          case "Right": {
-            acc.push(tx.runOption[0]);
-            x = tx.runOption[1].runEither;
-            break;
-          }
-
-          default: throw new UnionError("invalid tag");
-        }
-        
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
-
-
-const arrFutu = coalg => x => {
-  const acc = [];
-
-  while (true) {
-    let optX = coalg(x);
-
-    switch (optX.tag) {
-      case "None": return acc;
-
-      case "Some": {
-        let [y, [ys, optX_]] = optX.runOption;
-
-        switch(optX_.tag) {
-          case "None": {
-            arrAppend(acc) ((ys.unshift(y), ys));
-            return acc;
-          }
-
-          case "Some": {
-            arrAppend(acc) ((ys.unshift(y), ys)); 
-            x = optX_.runOption;
-            break;
-          }
-
-          default: throw new UnionError("invalid tag");
-        }
-
         break;
       }
 
@@ -968,6 +787,12 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 
 
 const arrAlt = arrAppend;
+
+
+const arrApM = apM(arrChain);
+
+
+const arrJoin = arrConcat;
 
 
 const arrZero = arrEmpty;
@@ -2099,10 +1924,11 @@ const toString = x => x.toString();
 ******************************************************************************/
 
 
-const arrApConstl = arrLiftA2(_const);
+const arrApEff1 = apEff1(
+  {map: arrMap, ap: arrAp});
 
 
-const arrPrepend = flip(arrAppend);
+const arrSeqA = flip(arrMapA) (id);
 
 
 const getDay = d => d.getDate();
@@ -3841,23 +3667,23 @@ const writeTell = y => Writer(null, y);
 ******************************************************************************/
 
 
-const arrAll = all({ // with short circuit semantics
+const arrAll = all({
   fold: arrFoldk,
   append: compBin(tx =>
     Cont(k =>
       tx.runAll
         ? k(tx)
-        : tx))
+        : Base(tx)))
             (allAppend),
   empty: allEmpty});
 
 
-const arrAny = any({ // with short circuit semantics
+const arrAny = any({
   fold: arrFoldk,
   append: compBin(tx =>
     Cont(k =>
       tx.runAny
-        ? tx
+        ? Base(tx)
         : k(tx)))
             (anyAppend),
   empty: anyEmpty});
@@ -4325,7 +4151,9 @@ const fileUnlink_ = fs => path =>
 ******************************************************************************/
 
 
-const arrSum = arrFoldM({append: sumAppend, empty: sumEmpty});
+const arrSum = arrFold(
+  sumAppend)
+    (sumEmpty());
 
 
 /******************************************************************************
@@ -4350,8 +4178,8 @@ module.exports = {
   anyAppend,
   anyEmpty,
   anyPrepend,
-  apConst,
-  apConst_,
+  apEff1,
+  apEff2,
   app,
   app_,
   apply,
@@ -4361,13 +4189,11 @@ module.exports = {
   arrAlt,
   arrAny,
   arrAp,
-  arrApConstl,
-  arrApConstr,
+  arrApEff1,
+  arrApEff2,
   arrApo,
   arrAppend,
   arrChain,
-  arrChain2,
-  arrChainRec,
   arrClone,
   arrConcat,
   arrSnoc,
@@ -4380,9 +4206,7 @@ module.exports = {
   arrFilter,
   arrFold,
   arrFoldk,
-  arrFoldM,
   arrFoldr,
-  arrFoldStr,
   arrFutu,
   arrHead,
   arrHeadOr,
@@ -4391,16 +4215,15 @@ module.exports = {
   arrLastOr,
   arrLens,
   arrLiftA2,
-  arrLiftM2,
   arrHisto,
   arrHylo,
   arrJoin,
-  arrLength,
+  arrLen,
   arrMap,
   arrMapA,
   arrMapAdjacent,
   arrMapChunk,
-  arrMapConst,
+  arrMapEff,
   arrModOr,
   arrMutu,
   arrNull,
@@ -4432,10 +4255,10 @@ module.exports = {
   arrZipBy,
   arrZygo,
   ascOrder,
-  ascOrder_,
   ask,
   asks,
   Base,
+  Call,
   ceil,
   Comp,
   comp,
@@ -4488,7 +4311,6 @@ module.exports = {
   defOf,
   delay,
   descOrder,
-  descOrder_,
   Done,
   dropper,
   dropperk,
@@ -4636,7 +4458,7 @@ module.exports = {
   loopChain,
   loopOf,
   LT,
-  mapConst,
+  mapEff,
   mapMap,
   mapDel,
   mapGet,
@@ -4662,7 +4484,7 @@ module.exports = {
   minAppend,
   minEmpty,
   minPrepend,
-  monadAp,
+  apM,
   monadRec,
   neq,
   _new,
@@ -4750,7 +4572,6 @@ module.exports = {
   readMap,
   readOf,
   rec,
-  Rec,
   RegExpError,
   Return,
   Right,
