@@ -285,6 +285,10 @@ const mapEff = map => x =>
 /***[Monad]*******************************************************************/
 
 
+const chainEff = chain => mx => my =>
+  chain(_ => my) (mx);
+
+
 const kleisli = chain => fm => gm => x =>
   chain(fm) (gm(x));
 
@@ -293,17 +297,8 @@ const kleisli_ = chain => gm => fm => x =>
   chain(fm) (gm(x));
 
 
-const apM = chain => mf => mg =>
-  chain(_ => mg) (mf);
-  
-  
-// TODO: add chainEff
-
-
-/***[Monoid]******************************************************************/
-
-
-// TODO: add concat
+const apM = ({chain, of}) => mf => mx =>
+  chain(f => chain(x => of(f(x))) (mx)) (mf);
 
 
 /******************************************************************************
@@ -507,13 +502,13 @@ const arrChain = fm =>
 // arrJoin @derived
 
 
-// TODO: add arrChainEff
+const arrChainEff = chainEff(arrChain);
 
 
 /***[Monoid]******************************************************************/
 
 
-const concat = ({append, empty}) =>
+const arrConcat = ({append, empty}) =>
   arrFold(append) (empty());
 
 
@@ -710,10 +705,10 @@ const arrSplitAt = i => xs =>
 const arrSplitBy = p => xs =>
   arrFoldk(
     acc => (x, i) =>
-      Cont(k =>
+      Cont(Step =>
         p(x)
-          ? arrSplitAt(i) (xs)
-          : k(acc)))
+          ? Base(arrSplitAt(i) (xs))
+          : Step(acc)))
               ([xs, []])
                 (xs);
 
@@ -805,7 +800,7 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 const arrAlt = arrAppend;
 
 
-const arrApM = apM(arrChain);
+const arrApM = apM({arrChain, arrOf});
 
 
 const arrJoin = arrConcat;
@@ -3686,9 +3681,9 @@ const writeTell = y => Writer(null, y);
 const arrAll = all({
   fold: arrFoldk,
   append: compBin(tx =>
-    Cont(k =>
+    Cont(Step =>
       tx.runAll
-        ? k(tx)
+        ? Step(tx)
         : Base(tx)))
             (allAppend),
   empty: allEmpty});
@@ -3697,10 +3692,10 @@ const arrAll = all({
 const arrAny = any({
   fold: arrFoldk,
   append: compBin(tx =>
-    Cont(k =>
+    Cont(Step =>
       tx.runAny
         ? Base(tx)
-        : k(tx)))
+        : Step(tx)))
             (anyAppend),
   empty: anyEmpty});
 
@@ -4277,6 +4272,7 @@ module.exports = {
   Base,
   Call,
   ceil,
+  chainEff,
   Comp,
   comp,
   comp2nd,
