@@ -358,24 +358,6 @@ const max = x => y =>
     : x;
 
 
-/***[Misc. Combinators]*******************************************************/
-
-
-const and = x => y =>
-  x && y;
-
-
-const imply = x => y =>
-  !x || y;
-
-
-const not = x => !x;
-
-
-const or = x => y =>
-  x || y;
-
-
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
@@ -814,8 +796,16 @@ const arrZero = arrEmpty;
 ******************************************************************************/
 
 
+const and = x => y =>
+  x && y;
+
+
 const andp = p => q => x =>
   p(x) && q(x);
+
+
+const imply = x => y =>
+  !x || y;
 
 
 const isFalse = x => x === false;
@@ -824,7 +814,14 @@ const isFalse = x => x === false;
 const isTrue = x => x === true;
 
 
+const not = x => !x;
+
+
 const notp = p => x => !p(x);
+
+
+const or = x => y =>
+  x || y;
 
 
 const orp = p => q => x =>
@@ -840,7 +837,7 @@ const dateParse = s => {
   const d = new Date(s);
   
   if (d.getTime === undefined || Number.isNaN(d.getTime()))
-    return Left(`malformed date string "${s}"`);
+    return Left("invalid date string");
 
   else
     return Right(d);
@@ -894,8 +891,10 @@ const getMonthDays = y => m =>
 // getMonth @derived
 
 
-const getTimezoneOffset = () => 
-  new Date().getTimezoneOffset() * 60 * 1000;
+const getTimezoneOffset = Lazy(
+  () => 
+	new Date()
+		.getTimezoneOffset() * 60);
 
 
 // getYear @derived
@@ -937,21 +936,8 @@ const isDateStr = s => {
 // floor @derived
 
 
-const formatFloat = thdSep => decSep => decDigits => n => {
-  const [s, dec] = round(decDigits) (n)
-    .toString().concat(".00").split("."),
-      hnd = s.slice(-3),
-      thd = hnd.length < s
-        ? s.slice(0, s.length - hnd.length)
-        : "";
-
-  let r = "";
-
-  if (thd)
-    r += thd + thdSep;
-
-  return r + hnd + decSep + strPadr(decDigits) ("0") (dec);
-};
+const formatFloat = fracPlaces => f =>
+  f.toFixed(fracPlaces)
 
 
 const isFloatStr = s =>
@@ -969,6 +955,20 @@ const roundBy = k => digits => fp => {
   r = Number(`${n}e${Number(ex) - digits}`);
 
   return fp < 0 ? -r : r;
+};
+
+
+const setFracSep = sep => s =>
+  s.replace(".", sep);
+
+
+const setGroupSep = sep => fracSep => s => {
+  const [integral, fraction] = s.split(fracSep);
+  
+  return [
+    integral.replace(/\B(?=(\d{3})+(?!\d))/g, sep),
+	fraction]
+      .join(fracSep);
 };
 
 
@@ -1418,9 +1418,38 @@ const _enum = function* (n) {
 };
 
 
+function* objEntries(o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+}
+
+
+function* objKeys(o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
+
+
+function* objValues(o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
+
+
 /******************************************************************************
-*********************************[ ITERATOR ]**********************************
+*****************************[ ITERATOR/ITERABLE ]*****************************
 ******************************************************************************/
+
+
+const itFilter = ({append, empty}) => p =>
+  itFold(acc => x =>
+    p(x)
+      ? append(acc) (x)
+      : acc)
+        (empty());
 
 
 const itFold = f => acc => it => {
@@ -1429,6 +1458,12 @@ const itFold = f => acc => it => {
 
   return acc;
 };
+
+
+const itMap = ({append, empty}) => f =>
+  itFold(acc => x =>
+    append(acc) (f(x)))
+      (empty());
 
 
 /******************************************************************************
@@ -1585,18 +1620,25 @@ const objDel = k => o =>
   (delete o[k], o);
 
 
+const objGet = k => o =>
+  k in o
+    ? Some(o[k])
+	: None;
+
+
 const objGetOr = def => k => o =>
   k in o ? o[k] : def;
 
 
-const objMemo = k => f => o => Object.defineProperty(o, k, {get: function() {
-  return x => {
-    const r = f(x);
-    delete this[k];
-    this[k] = () => r;
-    return r;
-  };
-}, configurable: true});
+const objMemo = k => f => o =>
+  Object.defineProperty(o, k, {get: function() {
+    return x => {
+      const r = f(x);
+      delete this[k];
+      this[k] = () => r;
+      return r;
+    };
+  }, configurable: true});
 
 
 const objModOr = def => (k, f) => o =>
@@ -1605,11 +1647,15 @@ const objModOr = def => (k, f) => o =>
     : (o[k] = def, o);
 
 
+const objPathOr = def => (...ks) => o =>
+  ks.reduce((acc, k) => acc && acc[k] || def, o);
+
+
 const objSet = (k, v) => o =>
   (o[k] = v, o);
 
 
-const objUnion = o => p => {
+const objUnion = o => p => { // TODO: replace with getter/setter safe version
   for ([k, v] of objEntries(p))
     o[k] = v;
 
@@ -1617,31 +1663,7 @@ const objUnion = o => p => {
 };
 
 
-const thisify = f => f({}); // mimics this context
-
-
-/***[Generators]**************************************************************/
-
-
-function* objEntries(o) {
-  for (let prop in o) {
-    yield [prop, o[prop]];
-  }
-}
-
-
-function* objKeys(o) {
-  for (let prop in o) {
-    yield prop;
-  }
-}
-
-
-function* objValues(o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-}
+const thisify = f => f({});
 
 
 /******************************************************************************
@@ -1670,27 +1692,15 @@ const setMap = f => s => {
 /***[Foldable]****************************************************************/
 
 
-const strFold = alg => zero => s => {
-  let acc = zero;
-
+const strFold = f => acc => s => {
   for (let i = 0; i < s.length; i++)
-    acc = alg(acc) (s[i], i);
+    [acc, i] = f(acc) (s, i);
 
   return acc;
 };
 
 
-const strFoldChunks = alg => zero => s => {
-  let acc = zero;
-
-  for (let i = 0; i < s.length; i++)
-    [acc, i] = alg(acc) (s, i);
-
-  return acc;
-};
-
-
-const strLength = s => s.length;
+const strLen = s => s.length;
 
 
 const strNull = s => s === "";
@@ -1822,12 +1832,12 @@ const strMod = (r, f, flags) => s =>
   s.replace(new RegExp(r, flags), f);
 
 
-const strNormalize = pairs => s =>
+const strNormalize = (...pairs) => s =>
   arrFold(acc => ([from, to]) =>
     strSet(from, to, "gi") (acc)) (s) (pairs);
       
       
-const strNormalizeBy = pairs => s =>
+const strNormalizeBy = (...pairs) => s =>
   arrFold(acc => ([from, f]) =>
     strMod(from, f, "gi") (acc)) (s) (pairs);
 
@@ -1839,23 +1849,35 @@ const strSet = (r, t, flags) => s =>
 /***[Misc. Combinators]*******************************************************/
 
 
-const strCapWord = s =>
+const strCapWord = s => // TODO: add word separators like "-"
   s[0].toUpperCase() + s.slice(1);
 
 
 const strChunk = n =>
-  strFoldChunks(
+  strFold(
     acc => (s, i) =>
       [arrAppend(acc) ([s.slice(i, i + n)]), i])
         ([]);
 
 
-const strConsNth = (t, i) => s =>
+const strExtract = (i, len) => s => // TODO: revise
+  i >= s.length
+    ? None
+    : Some([s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)]);
+
+
+const strExtractOr = def => (i, len) => s => // TODO: revise
+  i >= s.length
+    ? [def, s]
+    : [s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)];
+
+
+const strInsert = (t, i) => s => // TODO: revise
   s.slice(0, i + 1) + t + s.slice(i + 1);
 
 
-const strLocaleCompare = locale => c => d => {
-  switch (c.localeCompare(d, locale)) {
+const strLocaleCompare = locale => s => t => {
+  switch (s.localeCompare(t, locale)) {
     case -1: return LT;
     case 0: return EQ;
     case 1: return GT;
@@ -1884,7 +1906,7 @@ const strSplitAt = i => s =>
 
 
 const strSplitBy = p =>
-  strFoldChunks(
+  strFold(
     acc => (s, i) =>
       p(s[i])
         ? [strSplitAt(i) (s), s.length]
@@ -1892,42 +1914,15 @@ const strSplitBy = p =>
             (["", ""]);
 
 
-const strSplitWords = excl => s => {
+const strSplitWords = blacklist => s => {
   const xs = s.split(
-    new RegExp(`[^\\p{L}\\p{N}${excl}]+(?=\\p{L}|$)`, "gu"));
+    new RegExp(`[^\\p{L}\\p{N}${blacklist}]+(?=\\p{L}|$)`, "gu"));
 
   if (xs[xs.length - 1] === "")
     xs.pop();
 
   return xs;
 };
-
-
-const strToLower = s =>
-  s.toLowerCase();
-
-
-const strToUpper = s =>
-  s.toUpperCase();
-
-
-const strTrim = s =>
-  s.trim();
-
-
-const strUnconsNth = (i, len) => s =>
-  i >= s.length
-    ? None
-    : Some([s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)]);
-
-
-const strUnconsNthOr = def => (i, len) => s =>
-  i >= s.length
-    ? [def, s]
-    : [s.slice(i, i + len), s.slice(0, i) + s.slice(i + len)];
-
-
-const toString = x => x.toString();
 
 
 /******************************************************************************
@@ -2555,13 +2550,13 @@ const objLens = objLens_({set: objSet, del: objDel});
 const strLens = (i, len) => // String is immutable hence no typeclass functions
   Lens(map => ft => s =>
     map(t => {
-      const tx = strUnconsNth(i, len) (s);
+      const tx = strExtract(i, len) (s);
 
       switch (tx.tag) {
         case "None": return t;
 
         case "Some":
-          return strConsNth(t, i - 1) (tx.runOption[1]);
+          return strInsert(t, i - 1) (tx.runOption[1]);
       }
     })
       (ft(s.slice(i, len + i))));
@@ -4440,7 +4435,9 @@ module.exports = {
   isIntStr,
   isTrue,
   isUnit,
+  itFilter,
   itFold,
+  itMap,
   kleisli,
   kleisli_,
   Last,
@@ -4521,12 +4518,14 @@ module.exports = {
   objClone,
   objDel,
   objEntries,
+  objGet,
   objGetOr,
   objGetter,
   objKeys,
   objLens,
   objMemo,
   objModOr,
+  objPathOr,
   objSet,
   objSetter,
   objUnion,
@@ -4599,6 +4598,8 @@ module.exports = {
   setComp,
   setComp3,
   setDel,
+  setFracSep,
+  setGroupSep,
   setId,
   setMap,
   setMod,
@@ -4617,11 +4618,12 @@ module.exports = {
   strAppend,
   strCapWord,
   strChunk,
-  strConsNth,
   strDel,
+  strExtract,
+  strExtractOr,
   strFold,
-  strFoldChunks,
-  strLength,
+  strInsert,
+  strLen,
   strLens,
   strLocaleCompare,
   strMatch,
@@ -4640,12 +4642,9 @@ module.exports = {
   strSplitAt,
   strSplitBy,
   strSplitWords,
-  strTrim,
   struct,
   structn,
   structRun,
-  strUnconsNth,
-  strUnconsNthOr,
   Sum,
   sumAppend,
   sumEmpty,
@@ -4683,9 +4682,6 @@ module.exports = {
   tOf,
   toFixedFloat,
   Triple,
-  strToLower,
-  strToUpper,
-  toString,
   trace,
   tryCatch,
   TYPE,
