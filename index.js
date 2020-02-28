@@ -459,10 +459,10 @@ const arrFoldk = f => acc => xs =>
 
 
 const arrFoldkr = f => acc => xs =>
-  rec((acc_, i) =>
+  rec(i =>
     i === xs.length
-      ? Base(acc_)
-      : Call(y => f(xs[i]) (y).runCont(id), Step(acc_, i + 1))) (acc, 0);
+      ? Base(acc)
+      : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
 
 
 const arrFoldr = f => acc => xs =>
