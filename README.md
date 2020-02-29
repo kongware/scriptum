@@ -29,7 +29,7 @@ The scriptum library is still experimental.
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 6. Upcoming: From Tail Recursion over Trampolining to Natural and Corecursion (60% done)
 
-* Planned: Algebraic Data Types, Data Flow and Data Dependencies<br/>
+* Planned: Functional Data Modelling, Data Flow and Dependencies<br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
