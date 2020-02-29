@@ -1,21 +1,21 @@
-## From Tail Recursion over Trampolining to Natural and Corecursion
+## From Tail Recursion over Trampolining to Corecursion
 
-### Stack-based and tail recursion
+### The structure of recursive implementations
 
-#### When to use recursion?
+### Body and tail recursion
 
-### Natural recursion
+### Natural or structural recursion
 
-### Corecursion
+### Tail call and CPS transformation
 
-### Indirect recursion
-
-### Custom call stacks
+### Indirect or mutual recursion
 
 ### Anonymous recursion
 
-### Trampolining
+### Compiler/Interpreter optimization strategies
 
-#### A bit compiler optimization theory
+### From trampolines to fully-fledged evaluators
 
-### Recursion as a last resort
+### Corecursion
+
+### Co-/Recursion as a last resort
