@@ -27,14 +27,13 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-6. Upcoming: From Tail Recursion over Trampolining to Natural and Corecursion (50% done)
+6. Upcoming: From Tail Recursion over Trampolining to Natural and Corecursion (60% done)
 
+* Planned: Algebraic Data Types, Data Flow and Data Dependencies<br/>
+* Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
-* Planned: Data Flow, Data Dependencies and Evaluation Order <br/>
 * Planned: CPS-Transformation and Local Continuation Passing Style <br/>
-* Planned: Tuples, Records, Tagged Unions and Algebraic Data Types <br/>
-* Planned: Explicit Ad-hoc Polymorphism <br/>
 * Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Trees in-depth <br/>
 * Planned: Functional Error Handling and Debugging <br/>
