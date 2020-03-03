@@ -34,7 +34,6 @@ const fibTail = n => {
 };
 
 fibBody(10); // logs 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0
-
 fibTail(10); // logs 55
 ```
 We are logging at the base case. Since the body recursive Fibonacci algorithm starts its work from here on the way back to the initial case, the smallest, simplest instances of the problem are logged. The tail recursive algorithm on the other hand starts its work from the initial case, consequently it has already finished its work when the base case is reached. Let us prove this assertion by logging at the initial case:
@@ -51,8 +50,37 @@ const fibTail = n => {
 
 fibTail(10); // 1, 1, 2, 3, 5, 8, 13, 21, 34
 ```
+Since body recursion depends on the function call stack the problem size that can be handled is limited according to the available stack size. In constrast to this tail recursion can share a single stack frame throughout the whole computation, provided that the environment conducts tail call elimination. You can think of tail recursion as the functional equivalent of bare imperative loops, whereas body recursion requires a loop with a custom stack data structure.
+
+Calculating the Fibonacci sequence is a problem structure that lends itself naturally to a recursive definition. Let us have a closer look at data that is inherently recursive in structure, namely the single linked list:
+
+```Javascript
+// body recursive
+
+const foldr = f => acc => ([h, t]) =>
+  h === undefined
+    ? acc
+    : f(h) (foldr(f) (acc) (t));
+
+// tail recursive
+
+const foldl = f => acc => ([h, t]) =>
+  h === undefined
+    ? acc
+    : foldl(f) (f(acc) (h)) (t);
+
+const sub = x => y => x - y;
+
+const xs = [1, [2, [3, []]]];
+
+foldr(sub) (xs); (1 - (2 - (3 - 0))) = 2
+foldl(sub) (xs); (((0 - 1) - 2) - 3) = -6
+```
+As it turns out body recursion along with lists naturally forms a right associative fold whereas tail recursion naturally forms a left associative one. That means both versions vary depending on the problem. A proper functional language should allow for that and supply both recursive approaches in a stack safe manner.
 
 ### Natural or structural recursion
+
+It’s important for the recursive step to transform the problem instance into something smaller, otherwise the recursion may never end. If every recursive step shrinks the problem, and the base case lies at the bottom, then the recursion is guaranteed to be finite.
 
 ### Tail call and CPS transformation
 
