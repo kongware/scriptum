@@ -73,8 +73,8 @@ const sub = x => y => x - y;
 
 const xs = [1, [2, [3, []]]];
 
-foldr(sub) (xs); (1 - (2 - (3 - 0))) = 2
-foldl(sub) (xs); (((0 - 1) - 2) - 3) = -6
+foldr(sub) (xs); // (1 - (2 - (3 - 0))) = 2
+foldl(sub) (xs); // (((0 - 1) - 2) - 3) = -6
 ```
 As it turns out body recursion along with lists naturally forms a right associative fold whereas tail recursion naturally forms a left associative one. That means both versions vary depending on the problem. A proper functional language should allow for that and supply both recursive approaches in a stack safe manner.
 
@@ -92,6 +92,7 @@ This is the first time I talk about types, so let us clarify the jargon. `Nat` i
 
 Value constructors represent the introduction rules of a type. Consequently we can define the elimination rule by inversing this procedure:
 
+```Javascript
 const foldNat = zero => succ => n => {
   const go = m =>
     m <= 0
@@ -109,7 +110,7 @@ const fib = comp(fst)
     (([x, y]) => [y, x + y]));
 
 fib(10); // 55
-
+```
 `foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constrcutors to be valid.
 
 ### Tail call and CPS transformation
