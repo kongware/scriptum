@@ -80,7 +80,37 @@ As it turns out body recursion along with lists naturally forms a right associat
 
 ### Natural or structural recursion
 
-It’s important for the recursive step to transform the problem instance into something smaller, otherwise the recursion may never end. If every recursive step shrinks the problem, and the base case lies at the bottom, then the recursion is guaranteed to be finite.
+If every recursive step shrinks the problem, and the base case lies at the bottom, then the recursion is guaranteed to be finite. With the previous approaches it is up to the developer to ensure that and thus to avoid infinite recursion. With natural recursion (a.k.a. structural or primitive recursion) we can free us from this obligation.
+
+In the previous section I stated that the Fibonacci sequence is a naturally recursive problem. It indeed is but we can still define the underlying natural numbers as a recursive type (pseudo code):
+
+`Nat = Zero | Succ(Nat)`
+
+This reads as follows: A natural number `Nat` can either be defined as `Zero` or as the successor of another natural number. If we replace `Zero` with `0` and `Succ(Nat)` with `1+` the underlying idea is pretty obvious. Using this type definition the natural number `3` is encoded as `Succ(Succ(Succ(Zero)))`.
+
+This is the first time I talk about types, so let us clarify the jargon. `Nat` itself is a type whereas `Zero` and `Succ` are value constructors. While `Zero` is a nullary value constructor, because it does not take any type arguments, `Succ` is an unary constructor expecting a single type argument. A type can comprise one or several value constructors.
+
+Value constructors represent the introduction rules of a type. Consequently we can define the elimination rule by inversing this procedure:
+
+const foldNat = zero => succ => n => {
+  const go = m =>
+    m <= 0
+      ? zero
+      : succ(go(m - 1));
+
+  return go(n)
+};
+
+const comp = f => g => x => f(g(x));
+const fst = ([x, y]) => x;
+
+const fib = comp(fst)
+  (foldNat([0, 1])
+    (([x, y]) => [y, x + y]));
+
+fib(10); // 55
+
+`foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constrcutors to be valid.
 
 ### Tail call and CPS transformation
 
