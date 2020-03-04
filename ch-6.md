@@ -435,6 +435,11 @@ takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 
 Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before. Viewed from a different angle recursion forms algorithms that consume data in a way which stops whereas corecursion forms algorithms that produce data in a way which continues.
 
+* data is always finite
+* codata may be infinite
+* recursion works on data
+* corecursion works on codata
+
 ```javascript
 const fibs = i => {
   const go = (x, y, j) =>
