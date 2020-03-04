@@ -27,7 +27,7 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-6. Upcoming: The Vast Field of Co-/Recursion (90% done)
+6. Upcoming: From Natural over Tail to Corecursion (90% done)
 
 * Planned: Functional Data Modelling, Data Flow and Dependencies<br/>
 * Planned: Explicit Ad-hoc Polymorphism <br/>
