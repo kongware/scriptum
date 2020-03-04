@@ -224,6 +224,22 @@ The CPS version pursues the same computation strategy as the body recursive appr
 
 ### Indirect or mutual recursion
 
+If function `foo` calls function `bar`, which calls function `bat`, which in turn calls `foo` again then all three involved functions are recursive, indirectly recursive to be precise. The following example is not very efficient and a bit contrived but serves the purpose to illustrate the mechanism:
+
+```Javascript
+const fib1 = n => fib(n - 1);
+const fib2 = n => fib(n - 2);
+
+const fib = n =>
+  n > 1
+    ? fib1(n) + fib2(n)
+    : n;
+
+fib(10); // 55
+```
+
+Indirect recursion allows very elegant algorithms when working with tree data structures. We will look into such algorithms in the corresponding chapter of this course.
+
 ### Anonymous recursion
 
 ### Compiler/Interpreter optimization strategies
