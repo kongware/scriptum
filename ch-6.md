@@ -144,6 +144,84 @@ Defining the elimination rule for the list type is based on the same rules as fo
 
 ### Tail call and CPS transformation
 
+Tail recursive algorithms are more efficient than body recursive ones and are sufficient for many recursive tasks. But what are the rules to transform a body recursive function into a tail recursive one and which elements are involved? Let us go through an example step by step:
+
+```Javascript
+const factBody = n =>
+  n === 0
+    ? 1 // base case + neutral element
+    : factBody(n - 1) * n; // recursive step + implicit function call stack
+```
+First we must identify the portion of this body recursive code that is evaluated after the recursive step: `[...] * n`. Please note that I denoted the hole in the expression with `[...]`. Next we take this expression and use it as the second argument of the recursive function. The hole is replaced with another argument, which accumulates the result: `factBody(n - 1, acc * n)`.
+
+In order to hide the internal API we use an inner auxiliary function `go` so that `factBody` still only requires a number as an argument: `go(n - 1, acc * n)`. Usually I only use curried functions but since `go` is not visible in the pasrent scope and recursion often has a heavy workload a multi argument function is used for performance reasons.
+
+As a last step we replace the neutral element of the base case with the accumulator `acc`, because when the base case is reached, a tail recursive algorithm has already finished its work and can just return the accumulated result:
+
+```Javascript
+const factTail = n => {
+  const go = (acc, m) =>
+    m === 0
+      ? acc // base case
+      : go(m * acc, m - 1); // recursive step + explicit accumulator
+
+    return go(1, n); // neutral element
+};
+
+factTail(5); // 120
+```
+As you can see the implicit function call stack is substituted by an explicit accumulator. The neutral element is passed as an argument of the initial call. It is thus no longer used within the last iteration of the recursive algorithm but in the first one.
+
+We could just stop at this point since we have successfully completed the tail call transformation. However, there is an even more powerful encoding which we can transform into, so let us keep transforming. What happens if we defer the multiplication `m * acc` by putting it into a lambda, which itself is passed as the last argument of `go`: `go(m - 1) (acc => m * acc)`.
+
+Now we have a bunch of disconnected function arguments, one for each iteration. In order to connect them with each other we have to apply each result of the multiplication to the previous function argument: `go(m - 1) (acc => k(m * acc))`. Here is the big picture:
+
+```Javascript
+const factCont = n => {
+  const go = m => k =>
+    m === 0
+      ? k(1) // base case + neutral element
+      : go(m - 1) (acc => k(m * acc)); // recursive step + explicit accumulator
+
+    return go(n) (x => x); 
+};
+
+factCont(5); // 120
+```
+Do you see the pattern? Each function invocation ends with a continuation, i.e. a function argument, which is finally called within the function body. This pattern is called continuation passing style and will be covered in deatil in a later chapter.
+
+We have succeeded in writing three different recursive algorithms for the factorial numbers. Let us examine if the CPS version creates a computational structure that is body or tail recursive. A viable approach to do so is to visualize the nested expression each algorithm builds:
+
+```Javascript
+const factBody = n =>
+  n === 0
+    ? 1 // base case + neutral element
+    : `(${factBody(n - 1)} * ${n})`; // recursive step
+
+const factTail = n => {
+  const go = (acc, m) =>
+    m === 0
+      ? acc // base case
+      : go((`(${m} * ${acc})`), m - 1); // recursive case
+
+    return go(1, n); // neutral element
+};
+
+const factCont = n => {
+  const go = m => k =>
+    m === 0
+      ? k(1) // base case + neutral element
+      : go(m - 1) (acc => k(`(${acc} * ${m})`)); // recursive case
+
+    return go(n) (x => x); 
+};
+
+factBody(5); // (((((1 * 1) * 2) * 3) * 4) * 5)
+factTail(5); // (1 * (2 * (3 * (4 * (5 * 1)))))
+factCont(5); // (((((1 * 1) * 2) * 3) * 4) * 5)
+```
+The CPS version pursues the same computation strategy as the body recursive approach. Since with CPS all continuation invocations are in tail position we can have both, efficient tail calls and a body recursive computation strategy. This is a big win!
+
 ### Indirect or mutual recursion
 
 ### Anonymous recursion
