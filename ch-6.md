@@ -140,7 +140,7 @@ const xs = Cons(1) (Cons(2) (Cons(3) (Nil)));
 
 foldList(0) (sub) (xs); // 2
 ```
-Defining the elimination rule for the list type is based on the same rules as for natural numbers. It is a rather mechanical process. Almost every recursive problem or data structure can be expressed with a natural recursive algorithm.
+Defining the elimination rule for the list type is based on the same rules as for natural numbers. It is a rather mechanical process. Almost every recursive problem or data structure can be expressed with a naturally recursive algorithm.
 
 ### Tail call and CPS transformation
 
