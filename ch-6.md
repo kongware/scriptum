@@ -12,7 +12,7 @@ You can distinguish recursion by the position of the recursive step in the code.
 
 As a consequence a body recursive algorithm builds its result from the way back from the base case whereas a tail recursive one builds its result on the way forward from the initial case. The following examples illustrate this distinction:
 
-```Javascript
+```javascript
 const log = x => (console.log(x), x);
 
 // body recursive
@@ -38,7 +38,7 @@ fibTail(10); // logs 55
 ```
 Here we are logging at the base case. Since the body recursive Fibonacci algorithm starts its work from this very base case on the way back to the initial case, the smallest, simplest instances (`0` and `1`) of the problem are logged. The tail recursive algorithm on the other hand starts its work from the initial case. Consequently it has already finished its work when the base case is reached and only the final result is logged. Let us prove this assertion by logging at the initial case:
 
-```Javascript
+```javascript
 const fibTail = n => {
   const go = (x, acc, m) =>
     m > 1
@@ -54,7 +54,7 @@ Since body recursion depends on the function call stack the problem size that ca
 
 Calculating the Fibonacci sequence is a problem structure that lends itself naturally to a recursive definition. Let us have a closer look at data that is inherently recursive in structure, namely the single linked list:
 
-```Javascript
+```javascript
 // body recursive
 
 const foldr = f => acc => ([h, t]) =>
@@ -94,7 +94,7 @@ This is the first time I talk about types, so let us clarify the jargon. `Nat` i
 
 Value constructors represent the introduction rules of a type. Consequently we can define the elimination rule by inversing this procedure:
 
-```Javascript
+```javascript
 const foldNat = zero => succ => n => {
   const go = m =>
     m <= 0
@@ -121,7 +121,7 @@ Here is another example for the single linked list type (pseudo code again):
 
 Before we move on to the implementation let us have a look on the given type definition, because it differs from the previous one in two aspects. First `List a` is not just a type but a type constructor, because it requires a type argument to become a complete type. It is a composite type so to speak. Secondly `Cons` takes two type arguments and is thus a binary value constructor.
 
-```Javascript
+```javascript
 const foldList = nil => cons => xs => {
   const go = ([head, tail]) =>
     head === undefined
@@ -146,7 +146,7 @@ Defining the elimination rule for the list type is based on the same rules as fo
 
 Tail recursive algorithms are more efficient than body recursive ones and are sufficient for many recursive tasks. But what are the rules to transform a body recursive function into a tail recursive one and which elements are involved? Let us go through an example step by step:
 
-```Javascript
+```javascript
 const factBody = n =>
   n === 0
     ? 1 // base case + neutral element
@@ -158,7 +158,7 @@ In order to hide the internal API we use an inner auxiliary function `go` so tha
 
 As a last step we replace the neutral element of the base case with the accumulator `acc`, because when the base case is reached, a tail recursive algorithm has already finished its work and can just return the accumulated result:
 
-```Javascript
+```javascript
 const factTail = n => {
   const go = (acc, m) =>
     m === 0
@@ -176,7 +176,7 @@ We could just stop at this point since we have successfully completed the tail c
 
 Now we have a bunch of disconnected function arguments, one for each iteration. In order to connect them with each other we have to apply each result of the multiplication to the previous function argument: `go(m - 1) (acc => k(m * acc))`. Here is the big picture:
 
-```Javascript
+```javascript
 const factCont = n => {
   const go = m => k =>
     m === 0
@@ -192,7 +192,7 @@ Do you see the pattern? Each function invocation ends with a continuation, i.e. 
 
 We have succeeded in writing three different recursive algorithms for the factorial numbers. Let us examine if the CPS version creates a computational structure that is body or tail recursive. A viable approach to do so is to visualize the nested expression each algorithm builds:
 
-```Javascript
+```javascript
 const factBody = n =>
   n === 0
     ? 1 // base case + neutral element
@@ -226,7 +226,7 @@ The CPS version pursues the same computation strategy as the body recursive appr
 
 If function `foo` calls function `bar`, which calls function `bat`, which in turn calls `foo` again then all three involved functions are recursive, indirectly recursive to be precise. The following example is not very efficient and a bit contrived but serves the purpose to illustrate the mechanism:
 
-```Javascript
+```javascript
 const fib1 = n => fib(n - 1);
 const fib2 = n => fib(n - 2);
 
@@ -259,19 +259,170 @@ While having an elegant API `fix` is not tail recursive and hence not stack safe
 
 If the recursive step of an algorithm is in tail position compilers/interpreters can conduct tail call optimization, i.e. they can share a single stack frame throughout the whole recursive computation by eliminating additional frames. This is not only much more efficient but also avoids exhausting the function call stack. Even though Ecmascript 2015 defines TCO it is not implemented yet in any major browser.
 
-Tail call optimization can be further generalized to tail recursion modulo cons (short for constructor). Where TCO only kicks in when the recursive step is in tail position TCOMC allows the recursive step to be passed as the second argument of a binary function, as long as this function performs an associative operation:
+Tail call optimization can be further generalized to tail recursion modulo cons (short for constructor). Where TCO only kicks in when the recursive step is in tail position TRMC allows the recursive step to be passed as the second argument of a binary function, as long as this function performs an associative operation:
 
-```Javascript
+```javascript
 const foldr = f => acc => ([h, t]) =>
   h === undefined
     ? acc
     : f(h) (foldr(f) (acc) (t));
-            ^^^^^^^^^^^^^^^^^^ performs TCOMC provided f is associative
+            ^^^^^^^^^^^^^^^^^^ performs TRMC provided f is associative
 ```
-Please note that in lazily evaluated languages like Haskell this optimization technique is called guarded recursion. Javascript does not support TCOMC either.
+Please note that in lazily evaluated languages like Haskell this optimization technique is called guarded recursion. Javascript does not support TRMC either.
 
-### From trampolines to fully-fledged evaluators
+### From trampolines to full-grown evaluators
 
+Trampolines offer a functional interface to write pseudo-recursive algorithms, while under the hood an imperative loop does all the work. Usually trampolines merely cover tail recursive algorithms. However, we can extend the concept to full-grown evaluators that are equally powerful as tail recursion modulo cons:
+
+```javascript
+// body recursion
+
+const rec = f => (...args) => {
+  let step = f(...args);
+  const stack = [];
+
+  while (step.tag !== Base) {
+    stack.push(step.f);
+    step = f(...step.step.args);
+  }
+
+  let r = step.x;
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    r = stack[i] (r);
+    
+    if (r && r.tag === Base) {
+      r = r.x;
+      break;
+    }
+  }
+
+  return r;
+};
+
+// tail recursion
+
+const tailRec = f => (...args) => {
+    let step = f(...args);
+
+    while (step.tag !== Base)
+      step = f(...step.args);
+
+    return step.x;
+};
+
+// tags
+
+const Base = x =>
+  ({tag: Base, x});
+
+
+const Call = (f, step) =>
+  ({tag: Call, f, step});
+
+
+const Step = (...args) =>
+  ({tag: Step, args});
+```
+#### Mimicking tail recursion
+
+Let us encode a tail recursive list fold using a trampoline:
+
+```javascript
+fold = f => acc => xs => {
+  const go = (acc_, i) =>
+    i === xs.length
+      ? acc
+      : go(f(acc_) (xs[i]) (i + 1);
+
+  return go([], 0);
+};
+
+fold_ = f => acc => xs =>
+  tailRec((acc_, i) =>
+    i === xs.length
+      ? Base(acc)
+      : Step(f(acc_) (xs[i]), i + 1))
+          (acc, 0);
+  
+
+The same procedure for the Fibnacci sequence:
+
+const fibTail = n => {
+  const go = (x, y, m) =>
+    m > 1
+      ? go(y, x + y, m - 1) // recursive step
+      : y; // base case
+
+  return go(0, 1, n);
+};
+
+fibTail_ = n =>
+  tailRec((x, y, m) =>
+    m > 1
+      ? Step(y, x + y, m - 1)
+      : Base(x))
+          (1, 1, n);
+```
+#### Mimicking tail recursion modulo cons
+
+Next comes the transformation of a right associative fold implemented as a body recursive algorithm:
+
+```javascript
+foldr = f => acc => xs => {
+  const go = i =>
+    i === xs.length
+      ? acc
+      : f(xs[i]) (go(i + 1));
+
+  return go(0);
+};
+
+const foldr_ = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(f(xs[i]), Step(i + 1))) (0);
+```
+The same procedure for Fibonacci fails, because the underlying algorithm has two recursive steps for each operand of the addition:
+
+````javascript
+const fibBody = n =>
+  n > 1
+    ? fib(n - 1) + fib(n - 2) // recursive step
+    : n; // base case
+```
+We cannot express this form of recursion using our `rec` trampoline. Like with TRMC we can only optimize if the recursive call is only in the second argument of the operation. But going beyond TRMC we can also optimize non-associative operations like subtraction or division.
+
+#### Trampolines with short circuit semantics
+
+It is easy to break out of imperative loops prematurely and likewise it is with recursion. A proper trampoline implementation must offer such a feature as well:
+
+```javascript
+const cons = x => xs => (xs.unshift(x), xs);
+const snoc = x => xs => (xs.push(x), xs);
+
+const take = n => xs =>
+  tailRec((acc, i) =>
+    i === n
+      ? Base(acc)
+      : Step(snoc(xs[i]) (acc), i + 1))
+          ([], 0);
+
+take(3) ([1, 2, 3, 4, 5]); // [1, 2, 3]
+```
+With `rec` we can also break out of a right associative recursive operation. Please note that the following implementation is very inefficient and just serves for illustration:
+
+```javascript
+const takeLast = n => xs =>
+  rec(i =>
+    xs.length === i ? Base([])
+      : xs.length - i <= n ? Call(cons(xs[i]), Step(i + 1))
+      : Call(id, Step(i + 1)))
+          (0);
+
+takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
+```
 ### Corecursion
 
 ### Co-/Recursion as a last resort
