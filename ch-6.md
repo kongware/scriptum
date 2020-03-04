@@ -82,7 +82,7 @@ As it turns out body recursion along with lists naturally forms a right associat
 
 ### Natural or structural recursion
 
-If every recursive step shrinks the problem, and the base case lies at the bottom, then the recursion is guaranteed to be finite. With the previous approaches it is up to the developer to ensure that and thus to avoid infinite recursion. With natural recursion (a.k.a. structural or primitive recursion) we can free us from this obligation.
+If every recursive step shrinks the problem, and the base case lies at the bottom, then the recursion is guaranteed to be finite. With the previous approaches it is up to the developer to ensure that and thus to avoid infinite recursion. With natural recursion (a.k.a. structural or primitive recursion) we can free us from this obligation. It forms recursive algorithms that consume data in a way which stops.
 
 In the previous section I stated that the Fibonacci sequence is a naturally recursive problem. It indeed is but we can still define the underlying natural numbers as a recursive type (pseudo code):
 
@@ -114,6 +114,33 @@ const fib = comp(fst)
 fib(10); // 55
 ```
 `foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constructors to be complete and valid.
+
+Here is another example for the single linked list type (pseudo code again):
+
+`List a = NIL | Cons(a, List a)`
+
+Before we move on to the implementation let us have a look on the given type definition, because it differs from the previous one in two aspects. First `List a` is not just a type but a type constructor, because it requires a type argument to become a complete type. It is a composite type so to speak. Secondly `Cons` takes two type arguments and is thus a binary value constructor.
+
+```Javascript
+const foldList = nil => cons => xs => {
+  const go = ([head, tail]) =>
+    head === undefined
+      ? nil
+      : cons(head) (go(tail));
+
+  return go(xs);
+}
+
+const Nil = []
+const Cons = x => xs => ([x, xs]);
+
+const sub = x => y => x - y;
+
+const xs = Cons(1) (Cons(2) (Cons(3) (Nil)));
+
+foldList(0) (sub) (xs); // 2
+```
+Defining the elimination rule for the list type is based on the same rules as for natural numbers. It is a rather mechanical process. Almost every recursive problem or data structure can be expressed with a natural recursive algorithm.
 
 ### Tail call and CPS transformation
 
