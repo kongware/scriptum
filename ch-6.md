@@ -253,9 +253,22 @@ const fib = fix(go => n =>
 
 fib(10); // 55
 
-While being very elegantly `fix` is not tail recursive and hence not stack safe. In the following sectrions we are going to see that trampolines are the better alternative in a language without TCOMC/guarded recursion.
+While having an elegant API `fix` is not tail recursive and hence not stack safe. In the following sections we are going to see that trampolines are the better alternative for almost all cases.
 
 ### Compiler/Interpreter optimization strategies
+
+If the recursive step of an algorithm is in tail position compilers/interpreters can conduct tail call optimization, i.e. they can share a single stack frame throughout the whole recursive computation by eliminating additional frames. This is not only much more efficient but also avoids exhausting the function call stack. Even though Ecmascript 2015 defines TCO it is not implemented yet in any major browser.
+
+Tail call optimization can be further generalized to tail recursion modulo cons (short for constructor). Where TCO only kicks in when the recursive step is in tail position TCOMC allows the recursive step to be passed as the second argument of a binary function, as long as this function performs an associative operation:
+
+```Javascript
+const foldr = f => acc => ([h, t]) =>
+  h === undefined
+    ? acc
+    : f(h) (foldr(f) (acc) (t));
+            ^^^^^^^^^^^^^^^^^^ performs TCOMC provided f is associative
+```
+Please note that in lazily evaluated languages like Haskell this optimization technique is called guarded recursion. Javascript does not support TCOMC either.
 
 ### From trampolines to fully-fledged evaluators
 
