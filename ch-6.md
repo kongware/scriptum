@@ -352,10 +352,10 @@ fold_ = f => acc => xs =>
       ? Base(acc)
       : Step(f(acc_) (xs[i]), i + 1))
           (acc, 0);
-  
-
+```
 The same procedure for the Fibnacci sequence:
 
+```javascript
 const fibTail = n => {
   const go = (x, y, m) =>
     m > 1
