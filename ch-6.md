@@ -433,4 +433,68 @@ takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 ```
 ### Corecursion
 
+```javascript
+const fibs = i => {
+  const go = (x, y, j) =>
+    j === 1
+      ? [x]
+      : [x].concat(go(y, x + y, j - 1));
+
+  return go(1, 1, i);
+};
+
+fib(10); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+```
+This builds the Fibonacci sequence up to the requested position, that is for the given example.
+
 ### Co-/Recursion as a last resort
+
+Recursion is a functional primitive
+We usually prefer abstractions like folds/unfolds
+Recursion is just a last resort
+
+```javascript
+const take = n => xs =>
+  tailRec((acc, i) =>
+    i === n
+      ? Base(acc)
+      : Step(snoc(xs[i]) (acc), i + 1))
+          ([], 0);
+
+const takeLast = n => xs =>
+  rec(i =>
+    xs.length === i ? Base([])
+      : xs.length - i <= n ? Call(cons(xs[i]), Step(i + 1))
+      : Call(id, Step(i + 1)))
+          (0);
+
+const foldk = f => acc => xs =>
+  tailRec((acc_, i) =>
+    i === xs.length
+      ? Base(acc_)
+      : f(acc_) (xs[i], i).runCont(acc__ => Step(acc__, i + 1))) (acc, 0);
+
+const foldkr = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
+
+take = n => xs =>
+  foldk(
+    acc => x =>
+      n === acc.length
+        ? Cont(_ => Base(acc))
+        : Cont(k => k(acc.concat([x]))))
+            ([])
+              (xs);
+
+takeLast = n => xs =>
+  foldkr(
+    x => acc =>
+      n === acc.length
+        ? Cont(_ => Base(acc))
+        : Cont(k => k([x].concat(acc))))
+            ([])
+              (xs);
+```
