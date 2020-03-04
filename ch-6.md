@@ -242,6 +242,19 @@ Indirect recursion allows very elegant algorithms when working with tree data st
 
 ### Anonymous recursion
 
+The `fix` combinator allows anonymous recursion by supplying the deferred recursive step as a function argument:
+
+const fix = f => x => f(fix(f)) (x);
+
+const fib = fix(go => n =>
+  n > 1
+    ? go(n - 1) + go(n - 2)
+    : n);
+
+fib(10); // 55
+
+While being very elegantly `fix` is not tail recursive and hence not stack safe. In the following sectrions we are going to see that trampolines are the better alternative in a language without TCOMC/guarded recursion.
+
 ### Compiler/Interpreter optimization strategies
 
 ### From trampolines to fully-fledged evaluators
