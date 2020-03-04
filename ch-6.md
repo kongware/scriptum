@@ -394,7 +394,7 @@ const foldr_ = f => acc => xs =>
 ```
 The same procedure for Fibonacci fails, because the underlying algorithm has two recursive steps for each operand of the addition:
 
-````javascript
+```javascript
 const fibBody = n =>
   n > 1
     ? fib(n - 1) + fib(n - 2) // recursive step
