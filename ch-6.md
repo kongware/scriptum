@@ -257,7 +257,15 @@ While having an elegant API `fix` is not tail recursive and hence not stack safe
 
 ### Compiler/Interpreter optimization strategies
 
-If the recursive step of an algorithm is in tail position compilers/interpreters can conduct tail call optimization, i.e. they can share a single stack frame throughout the whole recursive computation by eliminating additional frames. This is not only much more efficient but also avoids exhausting the function call stack. Even though Ecmascript 2015 defines TCO it is not implemented yet in any major browser.
+If the recursive step of an algorithm is in tail position compilers/interpreters can conduct tail call optimization, i.e. they can share a single stack frame throughout the whole recursive computation by eliminating additional frames. This is not only much more efficient but also avoids exhausting the function call stack. Even though Ecmascript 2015 defines TCO it is not implemented yet in any major browser:
+
+```javascript
+const foldl = f => acc => ([h, t]) =>
+  h === undefined
+    ? acc
+    : foldl(f) (f(acc) (h)) (t);
+      ^^^^^^^^^^^^^^^^^^^^^^^^^ performs TCO
+```
 
 Tail call optimization can be further generalized to tail recursion modulo cons (short for constructor). Where TCO only kicks in when the recursive step is in tail position TRMC allows the recursive step to be passed as the second argument of a binary function, as long as this function performs an associative operation:
 
