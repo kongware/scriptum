@@ -462,7 +462,7 @@ const take = n => codata => {
 
 take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
-`fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata leads to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
+`fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata would lead to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
 
 ### Co-/Recursion as a last resort
 
