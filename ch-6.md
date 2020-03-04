@@ -48,7 +48,7 @@ const fibTail = n => {
   return go(0, 1, n);
 };
 
-fibTail(10); // 1, 1, 2, 3, 5, 8, 13, 21, 34
+fibTail(10); // logs 1, 1, 2, 3, 5, 8, 13, 21, 34
 ```
 Since body recursion depends on the function call stack the problem size that can be handled is limited to the available stack size. In constrast to this tail recursion can share a single stack frame<sup>1</sup> throughout the whole computation, because it relies on an accumulator passed around as an argument. You can think of tail recursion as the functional equivalent of bare imperative loops, whereas body recursion requires a loop with a custom stack data structure.
 
