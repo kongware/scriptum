@@ -435,24 +435,34 @@ takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 
 Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before. Viewed from a different angle recursion forms algorithms that consume data in a way which stops whereas corecursion forms algorithms that produce data in a way which continues.
 
-* data is always finite
-* codata may be infinite
-* recursion works on data
-* corecursion works on codata
+The same distinction can be made with the values recursion and corecursion work with. Recursion on the one hand works with data that is always finite. Corecursion on the other hand works with codata that may be infinite. This was a great deal of theory. Let the practice speak for itself:
 
 ```javascript
-const fibs = i => {
-  const go = (x, y, j) =>
-    j === 1
-      ? [x]
-      : [x].concat(go(y, x + y, j - 1));
+const Defer = thunk =>
+  ({get runDefer() {return thunk()}})
 
-  return go(1, 1, i);
+const app = f => x => f(x);
+
+const fibs = app(x_ => y_ => {
+  const go = x => y =>
+    Defer(() =>
+      [x, go(y) (x + y)]);
+
+  return go(x_) (y_).runDefer;
+}) (1) (1);
+
+const take = n => codata => {
+  const go = ([x, tx], acc, i) =>
+    i === n
+      ? acc
+      : go(tx.runDefer, acc.concat(x), i + 1);
+
+  return go(codata, [], 0);
 };
 
-fib(10); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
-This builds the Fibonacci sequence up to the requested position, that is for the given example.
+`fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata leads to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
 
 ### Co-/Recursion as a last resort
 
