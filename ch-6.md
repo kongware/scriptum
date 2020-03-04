@@ -1,6 +1,6 @@
 ## From Natural over Tail to Corecursion
 
-Recursion and corecursion are a primitives of the functional paradigm and you can easily get lost in the details. As a decent functional programmer you try to abstract from them to reduce the mental load. However, sometimes there is no way around them. Hence it is good idea to make yourself acquianted with the concepts and to get an eye for when to use which technique.
+Recursion and corecursion are a primitives of the functional paradigm and you can easily get lost in the details. As a decent functional programmer you try to abstract from them to reduce the mental load. However, sometimes there is no way around them. Hence it is good idea to make yourself acquainted with the concepts and to get an eye for when to use which technique.
 
 ### The structure of recursion
 
@@ -432,6 +432,8 @@ const takeLast = n => xs =>
 takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 ```
 ### Corecursion
+
+Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before. Viewed from a different angle recursion forms algorithms that consume data in a way which stops whereas corecursion forms algorithms that produce data in a way which continues.
 
 ```javascript
 const fibs = i => {
