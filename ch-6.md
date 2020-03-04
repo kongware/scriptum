@@ -1,6 +1,6 @@
-## The Vast Field of Recursion + Corecursion
+## From Natural over Tail to Corecursion
 
-Recursion is a vast field where you can easily get lost in the details. It is a primitive of the functional paradigm. As a decent functional programmer you try to abstract from it to reduce the mental load. However, sometimes there is no way around recursion hence it is good to make yourself acquianted with the concept. Corecursion is a type of operation that is dual to recursion and you should get an eye for it when to use which. 
+Recursion and corecursion are a primitives of the functional paradigm and you can easily get lost in the details. As a decent functional programmer you try to abstract from them to reduce the mental load. However, sometimes there is no way around them. Hence it is good idea to make yourself acquianted with the concepts and to get an eye for when to use which technique.
 
 ### The structure of recursion
 
@@ -8,9 +8,9 @@ Recursion can be defined in terms of a base case and a recursive step. The base 
 
 ### Body and tail recursion
 
-You can distinguish recursion by the position of the recursive step in the code. If it is the last operation within the function body, it is in tail otherwise in non-tail position. Both forms are hence referred to as tail and non-tail (or body) recursion. Body recursion keeps its state in the implicit function call stack whereas tail recursion keeps it in an explicit accumulator, which substitutes the call stack.
+You can distinguish recursion by the position of the recursive step in the code. If it is the last operation within the function body, it is in tail otherwise in non-tail position. Both forms are hence referred to as tail and non-tail recursion. In order to avoid the negation I am going to use the term body recursion for the latter. Body recursion keeps its state in the implicit function call stack whereas tail recursion keeps it in an explicit accumulator, which serves as a substitute of the call stack.
 
-As a consequence a body recursive algorithm builds its result from the way back from the base case whereas a tail recursive one builds its result on the way forward from the starting case. The following examples illustrate these meachnisms:
+As a consequence a body recursive algorithm builds its result from the way back from the base case whereas a tail recursive one builds its result on the way forward from the initial case. The following examples illustrate this distinction:
 
 ```Javascript
 const log = x => (console.log(x), x);
@@ -36,7 +36,7 @@ const fibTail = n => {
 fibBody(10); // logs 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0
 fibTail(10); // logs 55
 ```
-We are logging at the base case. Since the body recursive Fibonacci algorithm starts its work from here on the way back to the initial case, the smallest, simplest instances of the problem are logged. The tail recursive algorithm on the other hand starts its work from the initial case, consequently it has already finished its work when the base case is reached. Let us prove this assertion by logging at the initial case:
+Here we are logging at the base case. Since the body recursive Fibonacci algorithm starts its work from this very base case on the way back to the initial case, the smallest, simplest instances (`0` and `1`) of the problem are logged. The tail recursive algorithm on the other hand starts its work from the initial case. Consequently it has already finished its work when the base case is reached and only the final result is logged. Let us prove this assertion by logging at the initial case:
 
 ```Javascript
 const fibTail = n => {
@@ -50,7 +50,7 @@ const fibTail = n => {
 
 fibTail(10); // 1, 1, 2, 3, 5, 8, 13, 21, 34
 ```
-Since body recursion depends on the function call stack the problem size that can be handled is limited according to the available stack size. In constrast to this tail recursion can share a single stack frame throughout the whole computation, provided that the environment conducts tail call elimination. You can think of tail recursion as the functional equivalent of bare imperative loops, whereas body recursion requires a loop with a custom stack data structure.
+Since body recursion depends on the function call stack the problem size that can be handled is limited to the available stack size. In constrast to this tail recursion can share a single stack frame<sup>1</sup> throughout the whole computation, because it relies on an accumulator passed around as an argument. You can think of tail recursion as the functional equivalent of bare imperative loops, whereas body recursion requires a loop with a custom stack data structure.
 
 Calculating the Fibonacci sequence is a problem structure that lends itself naturally to a recursive definition. Let us have a closer look at data that is inherently recursive in structure, namely the single linked list:
 
@@ -76,7 +76,9 @@ const xs = [1, [2, [3, []]]];
 foldr(sub) (xs); // (1 - (2 - (3 - 0))) = 2
 foldl(sub) (xs); // (((0 - 1) - 2) - 3) = -6
 ```
-As it turns out body recursion along with lists naturally forms a right associative fold whereas tail recursion naturally forms a left associative one. That means both versions vary depending on the problem. A proper functional language should allow for that and supply both recursive approaches in a stack safe manner.
+As it turns out body recursion along with lists naturally forms a right associative fold whereas tail recursion naturally forms a left associative one. That means both versions may vary depending on the given problem. A proper functional language should allow for that and supply both recursive approaches in a stack safe manner.
+
+<sup>1</sup>provided that the environment conducts tail call elimination
 
 ### Natural or structural recursion
 
@@ -111,7 +113,7 @@ const fib = comp(fst)
 
 fib(10); // 55
 ```
-`foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constrcutors to be valid.
+`foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constructors to be complete and valid.
 
 ### Tail call and CPS transformation
 
