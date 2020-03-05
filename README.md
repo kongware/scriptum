@@ -20,6 +20,10 @@ However, Javascript is not a purely functional language hence we will encounter 
 
 Roughly the first third of the course is addressed to functional programming novices and forgos static typing in order to lower the mental load. In the more advanced chapters we will switch to Typescript.
 
+## Contribution
+
+Please report an issue if you find a mistake, ambiguous wording or inconsistent statements in the course. And please let me know if there is an important subject missing in the chapter pipeline. Your help is much appreciated!
+
 ## Status
 
 The scriptum library is still experimental.
