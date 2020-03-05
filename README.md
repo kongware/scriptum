@@ -83,33 +83,18 @@ The scriptum library is still experimental.
 
 ## Important/controversial issues
 
-### No Preprocessors or other language extensions
+### No Preprocessors or external dependencies
 
-This course is meant to be about vanilla Javascript. I will not use any preprocessors or language extensions like macros.
+This course is meant to lower the threshold for imperative programmers and functional novices to become familiar with the paradigm. Consequently this course and the underlying library solely depend on vanilla Javascript without any external dependencies or additional compiling steps.
 
-### No prototype system and method chaining
+### No language specific idioms
 
-I want scriptum to be as simple and as general as possible without any distractions. The prototype system and method chaining are both specific to Javascript and not necessary for functional programming. Hence I don’t use them.
-
-By giving up both features we lose the following two abilities:
-
-* associate object types with methods
-* create flat, sequential method chains
-
-Luckily both can be replaced through functional techniques. I will introduce them in subsequent chapters of these course.
+I want scriptum to be as simple and as general as possible without any Javascript specific idioms. Hence I won't use the prototype system and method chaining only in rare cases. All we need for functional programming are first class functions, which are pure and a bunch of object wrappers to mimic types.
 
 ### Curried functions only
 
-Curried functions are not a prerequisite for functional programming. However they simplify the function interface by abstracting over arity: Every function unexceptionally expects a single argument.
+scriptum relies on curried functions. They are not a prerequisite of functional programming but help simplifying the function interface. For performance reasons I will sporadically use local multi-parameter functions in a recursive context, where large amounts of data are processed.
 
-You could argue that the curry/uncurry combinators trivially transform a curried function into its multi-argument form and vice versa, because they constitute their isomorphism. Having these combinators scattered throughout your code is tedious and distracting though. Let’s adhere to the one argument per function rule to make our lives easer.
+### Mixed Im-/mutability
 
-### Lazy evaluation on demand
-
-scriptum pursues a strict evaluation strategy as does Javascript. There are two distinct types that enable lazy evaluation through explicit thunks though. I will introduce them in subsequent chapters.
-
-### Immutability as the default
-
-scriptum assumes immutable data. However, Javascript offers a mutable environment meant for imperative algorithms. Hence we relax the just given rule by allowing local mutations inside function bodies.
-
-Beyond that scriptum supplies both various techniques to avoid mutations and a persistent data structure based on hashed array mapped tries. So we have a rich toolset at hand to handle immutability quite well.
+Javascript's plain old `Object` type lends itself to immutability and is treated as such by scriptum. However, `Array`, `Map`, `Set` et al. are designed for a mutable setting. Treating them as immutable leads to extremely inefficient code. As a result scriptum treats them as mutable. It is the responsibility of the programmer to copy them prior to destructive updates.
