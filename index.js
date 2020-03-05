@@ -442,6 +442,10 @@ const arrFoldkr = f => acc => xs =>
       : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
 
 
+const arrFoldMap = foldMap(
+  {fold: arrFold, append: arrAppend, arrEmpty});
+
+
 const arrFoldr = f => acc => xs =>
   rec(i =>
     i === xs.length
@@ -455,10 +459,13 @@ const arrLen = xs => xs.length;
 const arrNull = xs => xs.length === 0;
 
 
-// arrSum @derived
+// arrProd @DERIVED
 
 
-// TODO: add arrFoldMap, toArray, arrMax, arrMin, arrProd
+// arrSum @DERIVED
+
+
+// TODO: add toArray, arrMax, arrMin
 
 
 /***[Functor]*****************************************************************/
@@ -4162,6 +4169,11 @@ const arrSum = arrFold(
     (sumEmpty());
 
 
+const arrProd = arrFold(
+  prodAppend)
+    (prodEmpty());
+
+
 /******************************************************************************
 *******************************************************************************
 ************************************[ API ]************************************
@@ -4213,6 +4225,7 @@ module.exports = {
   arrFold,
   arrFoldk,
   arrFoldkr,
+  arrFoldMap,
   arrFoldr,
   arrFutu,
   arrHead,
@@ -4239,6 +4252,7 @@ module.exports = {
   arrParak,
   arrPartition,
   arrPrepend,
+  arrProd,
   arrScan,
   arrSeqA,
   arrSet,
