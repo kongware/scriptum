@@ -367,10 +367,12 @@ fold = f => acc => xs => {
 fold_ = f => acc => xs =>
   tailRec((acc_, i) =>
     i === xs.length
-      ? Base(acc)
+      ? Base(acc_)
       : Step(f(acc_) (xs[i]), i + 1))
           (acc, 0);
 ```
+[run code](https://repl.it/repls/DangerousFearfulCache)
+
 The same procedure for the Fibnacci sequence:
 
 ```javascript
@@ -390,6 +392,8 @@ fibTail_ = n =>
       : Base(x))
           (1, 1, n);
 ```
+[run code](https://repl.it/repls/EachPerfumedWearable)
+
 #### Mimicking tail recursion modulo cons
 
 Next comes the transformation of a right associative fold implemented as a body recursive algorithm:
@@ -410,6 +414,8 @@ const foldr_ = f => acc => xs =>
       ? Base(acc)
       : Call(f(xs[i]), Step(i + 1))) (0);
 ```
+[run code](https://repl.it/repls/SpecificBasicDebugger)
+
 The same procedure for Fibonacci fails, because the underlying algorithm has two recursive steps for each operand of the addition:
 
 ```javascript
@@ -436,10 +442,13 @@ const take = n => xs =>
 
 take(3) ([1, 2, 3, 4, 5]); // [1, 2, 3]
 ```
+[run code](https://repl.it/repls/CornyPiercingLivedistro)
+
 With `rec` we can also break out of a right associative recursive operation. Please note that the following implementation is very inefficient and just serves for illustration:
 
 ```javascript
 const cons = x => xs => (xs.unshift(x), xs);
+const id = x => x;
 
 const takeLast = n => xs =>
   rec(i =>
@@ -450,6 +459,8 @@ const takeLast = n => xs =>
 
 takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 ```
+[run code](https://repl.it/repls/HonorableGlamorousComputergames)
+
 #### Mimicking indirect recursion
 
 There is actually a third trampoline implementation that covers indirect recursion, namely the trampoline monad. However, since the main purpose of the trampoline monad is to deal with monadic recursion, I will demonstrate it only in the corresponding chapter on monads of this course. Please bear with me!
@@ -485,6 +496,8 @@ const take = n => codata => {
 
 take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
+[run code](https://repl.it/repls/SvelteHotpinkCarrier)
+
 `fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata would lead to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
 
 ### Recursion as a last resort
@@ -510,6 +523,8 @@ const takeLast = n => xs =>
 In order to build `take` and `takeLast` from scratch with bare recursion you have to take care of a lot of internals. Both algorithms are very different from each other because we are forced to program on a rather low level. We already have lambda abstractions in our toolset to deal with this class of recursive algorithms with premature termination semantics: `foldk` and `foldkr`. Let us apply them to see if they are able to simplify the implementation:
 
 ```javascript
+const Cont = f => ({runCont: f});
+
 const foldk = f => acc => xs =>
   tailRec((acc_, i) =>
     i === xs.length
@@ -539,7 +554,13 @@ const takeLast = n => xs =>
         : Cont(k => k([x].concat(acc))))
             ([])
               (xs);
+const xs = [1, 2, 3, 4, 5];
+
+take(3) (xs); // [1, 2, 3]
+takeLast(3) (xs); // [3, 4, 5]
 ```
+[run code](https://repl.it/repls/FuzzySpiritedRelationaldatabase)
+
 It turns out that deriving `take`/`takeLast` from these folds is indeed a good idea to get rid of the details. Both algorithms resemble each other, because we program on a higher level of abstraction now. Whether the new implementations are more readable depends on your knowlegde of the used abstractions though.
 
 Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
