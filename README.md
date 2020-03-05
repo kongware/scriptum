@@ -27,17 +27,17 @@ The scriptum library is still experimental.
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-6. Upcoming: From Natural over Tail to Corecursion (90% done)
+6. [From Natural over Tail to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-6.md)
+6. Upcoming: Functional Data Modelling, Data Flow and Data Dependencies (0% done)
 
-* Planned: Functional Data Modelling, Data Flow and Dependencies<br/>
-* Planned: Explicit Ad-hoc Polymorphism <br/>
+* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
 * Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
+* Planned: Generalizing Folds and Unfolds with Recursion Schemes <br/>
 * Planned: CPS-Transformation and Local Continuation Passing Style <br/>
-* Planned: Abstract from Recursion with Recursion Schemes <br/>
 * Planned: Trees in-depth <br/>
 * Planned: Functional Error Handling and Debugging <br/>
-* Planned: Working properly with imperative iterators <br/>
+* Planned: Working Correctly with imperative iterators <br/>
 * Planned: Functor Typeclass <br/>
 * Planned: Applicative Functor Typeclass <br/>
 * Planned: Monad Typeclass <br/>
@@ -46,7 +46,6 @@ The scriptum library is still experimental.
 * Planned: Push and Pull Streams <br/>
 * Planned: The Runtime - Edge of the Application <br/>
 * Planned: Adapted Hindley-Milner Type Annotations <br/>
-* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
 * Planned: Higher-Kinded and Higher-Rank Types with Typescript <br/>
 * Planned: Type Wrappers for Improved Semantics<br/>
 * Planned: Effects Encoded as Values <br/>
