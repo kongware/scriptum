@@ -28,9 +28,9 @@ The scriptum library is still experimental.
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 5. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 6. [From Natural over Tail to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-6.md)
-6. Upcoming: Functional Data Modelling, Data Flow and Data Dependencies (0% done)
+6. Upcoming: Functional Data Modelling and Data Dependencies (0% done)
 
-* Planned: Parametric, Ad-hoc and Row Polymorphism <br/>
+* Planned: Nominal and Structural Typing of Polymorphic Types<br/>
 * Planned: Random Access, Single Linked and Difference Lists <br/>
 * Planned: Loop Fusion through Transducers <br/>
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes <br/>
