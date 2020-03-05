@@ -10,7 +10,7 @@ scriptum is designed to come as close as possible to the purely functional parad
 
 ## Who
 
-This course addresses both experienced imperative programmers who want to explore the functional paradigm or functional programming novices who want to delve deeper into the subject.
+This course addresses both experienced imperative programmers who want to explore the functional paradigm and functional programming novices who want to delve deeper into the functional way of reasoning.
 
 ## How
 
