@@ -554,6 +554,7 @@ const takeLast = n => xs =>
         : Cont(k => k([x].concat(acc))))
             ([])
               (xs);
+
 const xs = [1, 2, 3, 4, 5];
 
 take(3) (xs); // [1, 2, 3]
