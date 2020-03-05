@@ -244,6 +244,7 @@ Indirect recursion allows very elegant algorithms when working with tree data st
 
 The `fix` combinator allows anonymous recursion by supplying the deferred recursive step as a function argument:
 
+```javascript
 const fix = f => x => f(fix(f)) (x);
 
 const fib = fix(go => n =>
@@ -252,7 +253,7 @@ const fib = fix(go => n =>
     : n);
 
 fib(10); // 55
-
+```
 While having an elegant API `fix` is not tail recursive and hence not stack safe. In the following sections we are going to see that trampolines are the better alternative for almost all cases.
 
 ### Compiler/Interpreter optimization strategies
@@ -280,7 +281,23 @@ Please note that in lazily evaluated languages like Haskell this optimization te
 
 ### From trampolines to full-grown evaluators
 
-Trampolines offer a functional interface to write pseudo-recursive algorithms, while under the hood an imperative loop does all the work. Usually trampolines merely cover tail recursive algorithms. However, we can extend the concept to full-grown evaluators that are equally powerful as tail recursion modulo cons:
+Trampolines offer a functional interface to write pseudo-recursive algorithms, while under the hood an imperative loop does all the work. Usually trampolines merely cover tail recursive algorithms. However, we can extend the concept to full-grown evaluators that are equally powerful as tail recursion modulo cons.
+
+An ordinary trampoline for tail recursion:
+
+```javascript
+// tail recursion
+
+const tailRec = f => (...args) => {
+    let step = f(...args);
+
+    while (step.tag !== Base)
+      step = f(...step.args);
+
+    return step.x;
+};
+```
+An extended trampoline for limited body recursion:
 
 ```javascript
 // body recursion
@@ -307,18 +324,10 @@ const rec = f => (...args) => {
 
   return r;
 };
+```
+The necessary tags to build pseudo-recursive algorithms:
 
-// tail recursion
-
-const tailRec = f => (...args) => {
-    let step = f(...args);
-
-    while (step.tag !== Base)
-      step = f(...step.args);
-
-    return step.x;
-};
-
+```javascript
 // tags
 
 const Base = x =>
