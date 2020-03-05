@@ -410,7 +410,6 @@ We cannot express this form of recursion using our `rec` trampoline. Like with T
 It is easy to break out of imperative loops prematurely and likewise it is with recursion. A proper trampoline implementation must offer such a feature as well:
 
 ```javascript
-const cons = x => xs => (xs.unshift(x), xs);
 const snoc = x => xs => (xs.push(x), xs);
 
 const take = n => xs =>
@@ -425,6 +424,8 @@ take(3) ([1, 2, 3, 4, 5]); // [1, 2, 3]
 With `rec` we can also break out of a right associative recursive operation. Please note that the following implementation is very inefficient and just serves for illustration:
 
 ```javascript
+const cons = x => xs => (xs.unshift(x), xs);
+
 const takeLast = n => xs =>
   rec(i =>
     xs.length === i ? Base([])
