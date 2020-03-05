@@ -264,7 +264,7 @@ const foldl = f => acc => ([h, t]) =>
   h === undefined
     ? acc
     : foldl(f) (f(acc) (h)) (t);
-      ^^^^^^^^^^^^^^^^^^^^^^^^^ performs TCO
+//    ^^^^^^^^^^^^^^^^^^^^^^^^^ performs TCO
 ```
 
 Tail call optimization can be further generalized to tail recursion modulo cons (short for constructor). Where TCO only kicks in when the recursive step is in tail position TRMC allows the recursive step to be passed as the second argument of a binary function, as long as this function performs an associative operation:
@@ -274,7 +274,7 @@ const foldr = f => acc => ([h, t]) =>
   h === undefined
     ? acc
     : f(h) (foldr(f) (acc) (t));
-            ^^^^^^^^^^^^^^^^^^ performs TRMC provided f is associative
+//          ^^^^^^^^^^^^^^^^^^ performs TRMC provided f is associative
 ```
 Please note that in lazily evaluated languages like Haskell this optimization technique is called guarded recursion. Javascript does not support TRMC either.
 
