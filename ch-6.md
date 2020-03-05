@@ -451,7 +451,7 @@ const Defer = thunk =>
 
 const app = f => x => f(x);
 
-const fibs = app(x_ => y_ => {
+const fibs = app(x_ => y_ => { // codata
   const go = x => y =>
     Defer(() =>
       [x, go(y) (x + y)]);
@@ -472,7 +472,7 @@ take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
 `fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata would lead to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
 
-### Co-/Recursion as a last resort
+### Recursion as a last resort
 
 As I have already mentioned at the beginning of this chapter recursion und corecursion are functional primitives. Functional programmers usually prefer I higher level of abstraxction to work with. Abstractions are a mixed blessing though: On the one hand they spare us a lot of details and reduce the mental load. But on the other hand you have to be familiar with these abstractions and be trained how to handle them effectively. Let us take two function from a previous section to illustrate this:
 
