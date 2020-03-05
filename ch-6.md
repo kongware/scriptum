@@ -466,9 +466,7 @@ take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 ### Co-/Recursion as a last resort
 
-Recursion is a functional primitive
-We usually prefer abstractions like folds/unfolds
-Recursion is just a last resort
+As I have already mentioned at the beginning of this chapter recursion und corecursion are functional primitives. Functional programmers usually prefer I higher level of abstraxction to work with. Abstractions are a mixed blessing though: On the one hand they spare us a lot of details and reduce the mental load. But on the other hand you have to be familiar with these abstractions and be trained how to handle them effectively. Let us take two function from a previous section to illustrate this:
 
 ```javascript
 const take = n => xs =>
@@ -484,7 +482,11 @@ const takeLast = n => xs =>
       : xs.length - i <= n ? Call(cons(xs[i]), Step(i + 1))
       : Call(id, Step(i + 1)))
           (0);
+```
 
+In order to build `take` and `takeLast` from scratch with bare recursion you have to take care of a lot of internals. Both algorithms are very different from each other because we are forced to program on a rather low level. We already have lambda abstractions in our toolset to deal with this class of recursive algorithms with premature termination semantics: `foldk` and `foldkr`. Let us apply them to see if they are able to simplify the implementation:
+
+```javascript
 const foldk = f => acc => xs =>
   tailRec((acc_, i) =>
     i === xs.length
@@ -497,7 +499,7 @@ const foldkr = f => acc => xs =>
       ? Base(acc)
       : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
 
-take = n => xs =>
+const take = n => xs =>
   foldk(
     acc => x =>
       n === acc.length
@@ -506,7 +508,7 @@ take = n => xs =>
             ([])
               (xs);
 
-takeLast = n => xs =>
+const takeLast = n => xs =>
   foldkr(
     x => acc =>
       n === acc.length
@@ -515,3 +517,6 @@ takeLast = n => xs =>
             ([])
               (xs);
 ```
+It turns out that deriving `take`/`takeLast` from these folds is indeed a good idea to get rid of the details. Both algorithms resemble each other, because we program on a higher level of abstraction now. Whether the new implementations are more readable depends on your knowlegde of the used abstractions though.
+
+Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
