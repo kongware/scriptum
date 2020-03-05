@@ -431,6 +431,10 @@ const takeLast = n => xs =>
 
 takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 ```
+#### Mimicking indirect recursion
+
+There is actually a third trampoline implementation that covers indirect recursion, namely the trampoline monad. However, since the main purpose of the trampoline monad is to deal with monadic recursion, I will demonstrate it only in the corresponding chapter on monads of this course. Please bear with me!
+
 ### Corecursion
 
 Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before. Viewed from a different angle recursion forms algorithms that consume data in a way which stops whereas corecursion forms algorithms that produce data in a way which continues.
