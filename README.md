@@ -8,6 +8,10 @@ scriptum is both a no-frills functional programming library and a comprehensive 
 
 scriptum is designed to come as close as possible to the purely functional paradigm in order to facilitate the learning process. Goal is to be language agnostic so that you can transfer your new knowldge to your preferred functional or multi-paradigm language. 
 
+## WHo
+
+This course addresses both experienced imperative programmers who want to explore the functional paradigm or functional programming novices who want to delve deeper into the subject.
+
 ## How
 
 I chose Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions and function literals we have all ingredients necessary to master the functional paradigm.
