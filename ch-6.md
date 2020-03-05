@@ -286,8 +286,6 @@ Trampolines offer a functional interface to write pseudo-recursive algorithms, w
 An ordinary trampoline for tail recursion:
 
 ```javascript
-// tail recursion
-
 const tailRec = f => (...args) => {
     let step = f(...args);
 
@@ -300,8 +298,6 @@ const tailRec = f => (...args) => {
 An extended trampoline for limited body recursion:
 
 ```javascript
-// body recursion
-
 const rec = f => (...args) => {
   let step = f(...args);
   const stack = [];
@@ -328,8 +324,6 @@ const rec = f => (...args) => {
 The necessary tags to build pseudo-recursive algorithms:
 
 ```javascript
-// tags
-
 const Base = x =>
   ({tag: Base, x});
 
