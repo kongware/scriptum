@@ -152,7 +152,7 @@ const match3 = (type,
       || y === undefined
       || z === undefined
         ? _throw(new UnionError("invalid type"))
-        : o[tagx] [tagx] [tagz] (x) (y) (z);
+        : o[tagx] [tagy] [tagz] (x) (y) (z);
 
 
 /******************************************************************************
@@ -508,11 +508,11 @@ const arrEmpty = () => [];
 
 
 const arrAppend = xs => ys =>
-  xs.concat(ys);
+  xs.push.apply(xs, ys)
 
 
 const arrPrepend ys => xs =>
-  xs.concat(ys);
+  xs.push.apply(xs, ys)
 
 
 /***[Transduce]***************************************************************/
