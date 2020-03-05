@@ -1,6 +1,6 @@
 ## From Natural Recursion to Corecursion
 
-Recursion and corecursion are a primitives of the functional paradigm and you can easily get lost in the details. As a decent functional programmer you try to abstract from them to reduce the mental load. However, sometimes there is no way around them. Hence it is good idea to make yourself acquainted with the concepts and to get an eye for when to use which technique.
+Recursion and corecursion are primitives of the functional paradigm and you can easily get lost in the details. As a decent functional programmer you try to abstract from them to reduce the mental load. However, sometimes there is no way around. Hence it is good idea to make yourself acquainted with the concepts and to get an eye for when to use which technique.
 
 ### The structure of recursion
 
