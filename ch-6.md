@@ -520,3 +520,5 @@ const takeLast = n => xs =>
 It turns out that deriving `take`/`takeLast` from these folds is indeed a good idea to get rid of the details. Both algorithms resemble each other, because we program on a higher level of abstraction now. Whether the new implementations are more readable depends on your knowlegde of the used abstractions though.
 
 Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
+
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
