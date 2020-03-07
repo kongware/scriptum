@@ -70,12 +70,71 @@ class UnionError extends ScriptumError {};
 
 /******************************************************************************
 *******************************************************************************
-***************************[ ALGEBRAIC DATA TYPES ]****************************
+***************************[ WEAK HEAD NORMAL FORM ]***************************
 *******************************************************************************
 ******************************************************************************/
 
 
-const type = s => f => f(s); // type constructor
+/*** experimental ***/
+
+
+class ProxyHandler {
+  constructor(f) {
+    this.f = f;
+    this.memo = undefined;
+  }
+
+  apply(g, that, args) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    return this.memo(...args);
+  }
+
+  defineProperty(g, k, descriptor) { debugger;
+    if (this.memo === undefined)
+      this.memo = g();
+
+    Object.defineProperty(this.memo, k, descriptor);
+    return true;
+  }
+
+  get(g, k) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    if (typeof this.memo[k] === "function")
+      return this.memo[k].bind(this.memo);
+
+    else return this.memo[k];
+  }
+
+  has(g, k) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    return k in this.memo;
+  }
+
+  set(g, k, v) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    this.memo[k] = v;
+    return true;
+  }  
+}
+
+
+const thunk = f =>
+  new Proxy(f, new ProxyHandler(f));
+
+
+/******************************************************************************
+*******************************************************************************
+***************************[ ALGEBRAIC DATA TYPES ]****************************
+*******************************************************************************
+******************************************************************************/
 
 
 /******************************************************************************
@@ -83,22 +142,8 @@ const type = s => f => f(s); // type constructor
 ******************************************************************************/
 
 
-const struct = type => x => ({
-  ["run" + type]: x,
-  [TYPE]: type
-});
-
-
-const structn = type => f => f(x => ({
-  ["run" + type]: x,
-  [TYPE]: type
-}));
-
-
-const structRun = type => f => f(o => {
-  o[TYPE] = type;
-  return o;
-});
+const struct = (type, o) =>
+  (o[TYPE] = type.name || type, o);
 
 
 /******************************************************************************
@@ -106,53 +151,29 @@ const structRun = type => f => f(o => {
 ******************************************************************************/
 
 
-const union = tag => type => x => ({
-  ["run" + type]: x,
-  tag,
-  [TYPE]: type
-});
-
-
-const union0 = tag => type => ({
-  tag,
-  [TYPE]: type
-});
-
-
-const unionRun = tag => type => f => f(o => {
-  o.tag = tag;
-  o[TYPE] = type;
-  return o;
-});
+const union = type => (tag, o) =>
+  (o[TYPE] = type.name || type, o.tag = tag.name || tag, o);
 
 
 /***[Elimination Rule]********************************************************/
 
 
-const match = (type, {tag, ["run" + type]: x}, o) =>
-  x === undefined
+const match = (type, tx, o) =>
+  tx[TYPE] !== type
     ? _throw(new UnionError("invalid type"))
-    : o[tag] (x);
+    : o[tx.tag] (tx);
 
 
-const match2 = (type,
-  {tag: tagx, ["run" + type_]: x},
-  {tag: tagy, ["run" + type_]: y}, o) =>
-    x === undefined
-      || y === undefined
-        ? _throw(new UnionError("invalid type"))
-        : o[tagx] [tagy] (x) (y);
+/******************************************************************************
+****************************[ AUXILIARY FUNCTION ]*****************************
+******************************************************************************/
 
 
-const match3 = (type,
-  {tag: tagx, ["run" + type_]: x},
-  {tag: tagy, ["run" + type_]: y},
-  {tag: tagz, ["run" + type_]: z}, o) =>
-    x === undefined
-      || y === undefined
-      || z === undefined
-        ? _throw(new UnionError("invalid type"))
-        : o[tagx] [tagy] [tagz] (x) (y) (z);
+const lazyProp = (k, v) => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = v()},
+    configurable: true,
+    enumerable: true});
 
 
 /******************************************************************************
@@ -366,10 +387,10 @@ const max = x => y =>
 /***[Alternative]*************************************************************/
 
 
-// arrAlt @derived
+// arrAlt @Derived
 
 
-// arrZero @derived
+// arrZero @Derived
 
 
 /***[Applicative]*************************************************************/
@@ -383,11 +404,10 @@ const arrAp = tf => tx =>
           (tf);
 
 
-// arrApEff1 @derived
+// arrApEff1 @Derived
 
 
-const arrApEff2 = apEff2(
-  {map: arrMap, ap: arrAp});
+// arrApEff2 @Derived
 
 
 const arrLiftA2 = f => tx => ty =>
@@ -414,10 +434,10 @@ const arrFilter = p => xs =>
 /***[Foldable]****************************************************************/
 
 
-// arrAll @derived
+// arrAll @Derived
 
 
-// arrAny @derived
+// arrAny @Derived
 
 
 const arrFold = f => acc => xs => {
@@ -442,8 +462,7 @@ const arrFoldkr = f => acc => xs =>
       : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
 
 
-const arrFoldMap = foldMap(
-  {fold: arrFold, append: arrAppend, arrEmpty});
+// arrFoldMap @Derived
 
 
 const arrFoldr = f => acc => xs =>
@@ -481,14 +500,14 @@ const arrMapEff = mapEff(arrMap);
 /***[Monad]*******************************************************************/
 
 
-// arrApM @derived
+// arrApM @Derived
 
 
 const arrChain = fm =>
   arrFold(acc => x => arrAppend(acc) (fm(x))) ([]);
 
 
-// arrJoin @derived
+// arrJoin @Derived
 
 
 const arrChainEff = chainEff(arrChain);
@@ -511,7 +530,7 @@ const arrAppend = xs => ys =>
   xs.push.apply(xs, ys)
 
 
-const arrPrepend ys => xs =>
+const arrPrepend = ys => xs =>
   xs.push.apply(xs, ys)
 
 
@@ -536,31 +555,25 @@ const arrMapA = ({liftA2, of}) => f =>
   arrFold(acc => x => liftA2(arrSnoc) (f(x)) (acc)) (of([]));
 
 
-// arrSeqA @derived
+// arrSeqA @DERIVED
 
 
 /***[Unfoldable]**************************************************************/
 
 
-const arrUnfold = f => x => {
-  const acc = [];
+const arrUnfold = f => x =>
+  tailRec((acc, tx) =>
+    match("Option", tx, {
+      None: _ => Base(acc),
+      Some: ({x: [x_, y]}) => Step(arrSnoc(x_) (acc), f(y))
+    })) ([], f(x));
 
-  while (true) {
-    let tx = f(x);
 
-    switch (tx.tag) {
-      case "None": return acc;
-      
-      case "Some": {
-        acc.push(tx.runOption[0]);
-        x = tx.runOption[1];
-        break;
-      }
-
-      default: throw new UnionError("invalid tag");
-    }
-  }
-};
+const arrUnfoldr = f => x =>
+  match("Option", f(x), {
+    None: _ => [],
+    Some: ({x: [x_, y]}) => cons(x_) (thunk(() => unfoldr(f) (y)))
+  });
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -786,10 +799,22 @@ const arrZipBy = f => xs => ys => // TODO: use fold
 /***[Derived]*****************************************************************/
 
 
+const arrApEff1 = apEff1(
+  {map: arrMap, ap: arrAp});
+
+
+const arrApEff2 = apEff2(
+  {map: arrMap, ap: arrAp});
+
+
 const arrAlt = arrAppend;
 
 
 const arrApM = apM({arrChain, arrOf});
+
+
+const arrFoldMap = foldMap(
+  {fold: arrFold, append: arrAppend, arrEmpty});
 
 
 const arrJoin = arrConcat;
@@ -888,23 +913,20 @@ const formatYear = digits => n => {
 };
 
 
-// getDay @derived
+// getDay @DERIVED
 
 
 const getMonthDays = y => m =>
   new Date(new Date(y, m + 1, 1) - 1).getDate();
 
 
-// getMonth @derived
+// getMonth @DERIVED
 
 
-const getTimezoneOffset = Lazy(
-  () => 
-	new Date()
-		.getTimezoneOffset() * 60);
+// getTimezoneOffet @DERIVED
 
 
-// getYear @derived
+// getYear @DERIVED
 
 
 const isDate = x =>
@@ -937,10 +959,10 @@ const isDateStr = s => {
 ******************************************************************************/
 
 
-// ceil @derived
+// ceil @Derived
 
 
-// floor @derived
+// floor @Derived
 
 
 const formatFloat = fracPlaces => f =>
@@ -951,7 +973,7 @@ const isFloatStr = s =>
   s.search(new RegExp("^\\d+\\.\\d+$")) !== NOT_FOUND;
 
 
-// round @derived
+// round @Derived
 
 
 const roundBy = k => digits => fp => {
@@ -1011,7 +1033,7 @@ const funLiftA2 = f => tg => th => x =>
   f(tg(x)) (th(x));
 
 
-// funOf @derived
+// funOf @Derived
 
 
 /***[Composition]*************************************************************/
@@ -1187,7 +1209,7 @@ const funJoin = mmf => x =>
 /***[Monoid]******************************************************************/
 
 
-// funEmpty @derived
+// funEmpty @Derived
 
 
 /***[Primitive]***************************************************************/
@@ -1265,46 +1287,46 @@ const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infixM2 = (?, f, x, g, y) =>
+const infixM2 = (λ, f, x, g, y) =>
   f(x_ =>
-    ?(x_, a => g(y_ =>
-      a(y_, id) (y))) (x);
+    λ(x_, α => g(y_ =>
+      α(y_, id)) (y))) (x);
 
 
-const infixM3 = (?, f, x, g, y, h, z) =>
+const infixM3 = (λ, f, x, g, y, h, z) =>
   f(x_ =>
-    ?(x_, a => g(y_ =>
-      a(y_, ß => h(z_ =>
-        ß(z_, id)) (z))) (y))) (x);
+    λ(x_, α => g(y_ =>
+      α(y_, β => h(z_ =>
+        β(z_, id)) (z))) (y))) (x);
 
 
-const infixM4 = (?, f, w, g, x, h, y, i, z) =>
+const infixM4 = (λ, f, w, g, x, h, y, i, z) =>
   f(w_ =>
-    ?(w_, a => g(x_ =>
-      a(x_, ß => h(y_ =>
-        ß(y_, ? => i(z_ =>
-          ?(z_, id)) (z))) (y))) (x))) (w);
+    λ(w_, α => g(x_ =>
+      α(x_, β => h(y_ =>
+        β(y_, γ => i(z_ =>
+          γ(z_, id)) (z))) (y))) (x))) (w);
 
 
 
-const infixM5 = (?, f, v, g, w, h, x, i, y, j, z) =>
+const infixM5 = (λ, f, v, g, w, h, x, i, y, j, z) =>
   f(v_ =>
-    ?(v_, a => g(w_ =>
-      a(w_, ß => h(x_ =>
-        ß(x_, ? => i(y_ =>
-          ?(y_, d => j(z_ =>
-            d(z_, id)) (z))) (y))) (x))) (w))) (v);
+    λ(v_, α => g(w_ =>
+      α(w_, β => h(x_ =>
+        β(x_, γ => i(y_ =>
+          γ(y_, δ => j(z_ =>
+            δ(z_, id)) (z))) (y))) (x))) (w))) (v);
 
 
 
-const infixM6 = (?, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const infixM6 = (λ, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(u_ =>
-    ?(u_, a => g(v_ =>
-      a(v_, ß => h(w_ =>
-        ß(w_, ? => i(x_ =>
-          ?(x_, d => j(y_ =>
-            d(y_, e => k(z_ =>
-              e(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
+    λ(u_, α => g(v_ =>
+      α(v_, β => h(w_ =>
+        β(w_, γ => i(x_ =>
+          γ(x_, δ => j(y_ =>
+            δ(y_, ε => k(z_ =>
+              ε(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
 
 
 const infixr = (y, f, x) =>
@@ -1331,44 +1353,44 @@ const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
-const infixrM2 = (x, f, y, g, ?) =>
+const infixrM2 = (x, f, y, g, λ) =>
   f(x) (x_ =>
-    ?(x_, a => g(y) (y_ =>
-      a(y_, id))));
+    λ(x_, α => g(y) (y_ =>
+      α(y_, id))));
 
 
-const infixrM3 = (x, f, y, g, z, h, ?) =>
+const infixrM3 = (x, f, y, g, z, h, λ) =>
   f(x) (x_ =>
-    ?(x_, a => g(y) (y_ =>
-      a(y_, ß => h(z) (z_ =>
-        ß(z_, id))))));
+    λ(x_, α => g(y) (y_ =>
+      α(y_, β => h(z) (z_ =>
+        β(z_, id))))));
 
 
-const infixrM4 = (w, f, x, g, y, h, z, i, ?) =>
+const infixrM4 = (w, f, x, g, y, h, z, i, λ) =>
   f(w) (w_ =>
-    ?(w_, a => g(x) (x_ =>
-      a(x_, ß => h(y) (y_ =>
-        ß(y_, ? => i(z) (z_ =>
-          ?(z_, id))))))));
+    λ(w_, α => g(x) (x_ =>
+      α(x_, β => h(y) (y_ =>
+        β(y_, γ => i(z) (z_ =>
+          γ(z_, id))))))));
 
 
-const infixrM5 = (v, f, w, g, x, h, y, i, z, j, ?) =>
+const infixrM5 = (v, f, w, g, x, h, y, i, z, j, λ) =>
   f(v) (v_ =>
-    ?(v_, a => g(w) (w_ =>
-      a(w_, ß => h(x) (x_ =>
-        ß(x_, ? => i(y) (y_ =>
-          ?(y_, d => j(z) (z_ =>
-            d(z_, id))))))))));
+    λ(v_, α => g(w) (w_ =>
+      α(w_, β => h(x) (x_ =>
+        β(x_, γ => i(y) (y_ =>
+          γ(y_, δ => j(z) (z_ =>
+            δ(z_, id))))))))));
 
 
-const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, ?) =>
+const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, λ) =>
   f(u) (u_ =>
-    ?(u_, a => g(v) (v_ =>
-      a(w_, ß => h(w) (w_ =>
-        ß(x_, ? => i(x) (x_ =>
-          ?(y_, d => j(y) (y_ =>
-            d(y_, e => k(z) (z_ =>
-              e(z_, id))))))))))));
+    λ(u_, α => g(v) (v_ =>
+      α(w_, β => h(w) (w_ =>
+        β(x_, γ => i(x) (x_ =>
+          γ(y_, δ => j(y) (y_ =>
+            δ(y_, ε => k(z) (z_ =>
+              ε(z_, id))))))))))));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -1937,10 +1959,6 @@ const strSplitWords = blacklist => s => {
 ******************************************************************************/
 
 
-const arrApEff1 = apEff1(
-  {map: arrMap, ap: arrAp});
-
-
 const arrSeqA = flip(arrMapA) (id);
 
 
@@ -2320,7 +2338,7 @@ const First = struct("First");
 const firstAppend = x => _ => x;
 
 
-// firstPrepend @derived
+// firstPrepend @Derived
 
 
 /******************************************************************************
@@ -2606,6 +2624,15 @@ const lensSet = tx => v => o =>
 
 
 /******************************************************************************
+***********************************[ LIST ]************************************
+******************************************************************************/
+
+
+const listCons = x => xs =>
+  new Pair(x, xs);
+
+
+/******************************************************************************
 ***********************************[ LOOP ]************************************
 ******************************************************************************/
 
@@ -2885,10 +2912,10 @@ const parEmpty = () => Parallel((res, rej) => null);
 /***[Semigroup]***************************************************************/
 
 
-// parAppend @derived
+// parAppend @Derived
 
 
-// parPrepend @derived
+// parPrepend @Derived
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -4174,6 +4201,12 @@ const arrProd = arrFold(
     (prodEmpty());
 
 
+const getTimezoneOffset = Lazy(
+  () => 
+	new Date()
+		.getTimezoneOffset() * 60);
+
+
 /******************************************************************************
 *******************************************************************************
 ************************************[ API ]************************************
@@ -4209,7 +4242,6 @@ module.exports = {
   arrAp,
   arrApEff1,
   arrApEff2,
-  arrApo,
   arrAppend,
   arrChain,
   arrClone,
@@ -4227,7 +4259,6 @@ module.exports = {
   arrFoldkr,
   arrFoldMap,
   arrFoldr,
-  arrFutu,
   arrHead,
   arrHeadOr,
   arrInit,
@@ -4235,8 +4266,6 @@ module.exports = {
   arrLastOr,
   arrLens,
   arrLiftA2,
-  arrHisto,
-  arrHylo,
   arrJoin,
   arrLen,
   arrMap,
@@ -4245,11 +4274,8 @@ module.exports = {
   arrMapChunk,
   arrMapEff,
   arrModOr,
-  arrMutu,
   arrNull,
   arrOf,
-  arrPara,
-  arrParak,
   arrPartition,
   arrPrepend,
   arrProd,
@@ -4270,6 +4296,7 @@ module.exports = {
   arrUnsnoc,
   arrUnsnocOr,
   arrUnfold,
+  arrUnfoldr,
   arrUnzip,
   arrZero,
   arrZip,
@@ -4475,6 +4502,7 @@ module.exports = {
   lensMod,
   lensSet,
   _let,
+  listCons,
   local,
   log,
   Loop,
@@ -4495,8 +4523,6 @@ module.exports = {
   mapperk,
   matCata,
   match,
-  match2,
-  match3,
   Matched,
   Max,
   max,
@@ -4657,8 +4683,6 @@ module.exports = {
   strSplitBy,
   strSplitWords,
   struct,
-  structn,
-  structRun,
   Sum,
   sumAppend,
   sumEmpty,
@@ -4705,9 +4729,7 @@ module.exports = {
   uncurry5,
   uncurry6,
   union,
-  union0,
   UnionError,
-  unionRun,
   Writer,
   writeAp,
   writeCensor,
