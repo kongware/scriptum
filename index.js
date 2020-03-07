@@ -469,6 +469,14 @@ const arrFoldr = f => acc => xs =>
   rec(i =>
     i === xs.length
       ? Base(acc)
+      : Call(f(xs[i]), thunk(() => Step(i + 1))))
+          (0);
+
+
+const arrFoldr_ = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
       : Call(f(xs[i]), Step(i + 1))) (0);
 
 
@@ -2383,36 +2391,6 @@ const getGet = tx => o =>
 
 
 /******************************************************************************
-**********************************[ HISTORY ]**********************************
-******************************************************************************/
-
-
-// part of the histomorpishm
-
-const History = union("History");
-
-
-const Ancient = x => History("Ancient", x);
-
-
-const Age = x => y => History("Age", [x, y, z]);
-
-
-const history = alg => zero =>
-  arrFoldr(x => acc => Age(x) (alg(x) (acc)) (acc))
-    (Ancient(zero));
-
-
-const headH = tx => {
-  switch (tx.tag) {
-    case "Ancient": return tx.runHistory;
-    case "Age": return tx.runHistory[1];
-    default: throw new UnionError("invalid tag");
-  }
-};
-
-
-/******************************************************************************
 ************************************[ ID ]*************************************
 ******************************************************************************/
 
@@ -4215,13 +4193,11 @@ const getTimezoneOffset = Lazy(
 
 
 module.exports = {
-  Age,
   All,
   all,
   allAppend,
   allEmpty,
   allPrepend,
-  Ancient,
   and,
   andp,
   Any,
@@ -4259,6 +4235,7 @@ module.exports = {
   arrFoldkr,
   arrFoldMap,
   arrFoldr,
+  arrFoldr_,
   arrHead,
   arrHeadOr,
   arrInit,
@@ -4436,9 +4413,6 @@ module.exports = {
   hamtEmpty,
   hamtGet,
   hamtSet,
-  headH,
-  History,
-  history,
   Id,
   id,
   idMap,
