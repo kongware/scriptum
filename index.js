@@ -261,24 +261,24 @@ const range = ({succ, gt}) => (lower, upper) =>
 
 
 const index = ({succ, eq}) => (lower, upper) => x =>
-  loop((y = lower, i = 0) =>
-    eq(y) (upper) ? None
-      : eq(x) (y) ? Some(i)
-      : recur(succ(y), i + 1));
+  tailRec((y = lower, i = 0) =>
+    eq(y) (upper) ? Base(None)
+      : eq(x) (y) ? Base(Some(i))
+      : Step(succ(y), i + 1));
 
 
 const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
-  loop((y = lower) =>
-    gt(y) (upper) ? false
-      : eq(x) (y) ? true
-      : recur(succ(y)));
+  tailRec((y = lower) =>
+    gt(y) (upper) ? Base(false)
+      : eq(x) (y) ? Base(true)
+      : Step(succ(y)));
 
 
 const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
-  loop((x = lower, n = 0) =>
+  tailRec((x = lower, n = 0) =>
     gt(x) (upper)
-      ? n
-      : recur(succ(x), n + 1));
+      ? Base(n)
+      : Step(succ(x), n + 1));
 
 
 /***[Foldable]****************************************************************/
@@ -798,17 +798,17 @@ const arrLastOr = def => xs =>
 
 
 const arrMapAdjacent = f => n => xs =>
-  loop((i = 0, acc = []) =>
+  tailRec((i = 0, acc = []) =>
     i + n > xs.length
-      ? acc
-      : recur(i + 1, (acc.push(f(xs.slice(i, i + n))), acc)));
+      ? Base(acc)
+      : Step(i + 1, (acc.push(f(xs.slice(i, i + n))), acc)));
 
 
 const arrMapChunk = f => n => xs =>
-  loop((i = 0, remainder = xs.length % n, acc = []) =>
+  tailRec((i = 0, remainder = xs.length % n, acc = []) =>
     i >= xs.length - remainder
-      ? acc
-      : recur(i + n, remainder, (acc.push(f(xs.slice(i, i + n))), acc)));
+      ? Base(acc)
+      : Step(i + n, remainder, (acc.push(f(xs.slice(i, i + n))), acc)));
 
 
 const arrModOr = def => (i, f) => xs =>
@@ -824,10 +824,10 @@ const arrPartition = f => xs => // TODO: use fold
 
 
 const arrScan = f => x_ => xs => // TODO: use fold
-  loop((acc = [], x = x_, i = 0) =>
+  tailRec((acc = [], x = x_, i = 0) =>
     i === xs.length
-      ? acc
-      : recur(
+      ? Base(acc)
+      : Step(
         (acc.push(f(x) (xs[i])), acc),
         acc[acc.length - 1], i + 1));
 
@@ -909,37 +909,37 @@ const arrUnsnocOr = def => xs => {
 
 
 const arrUnzip = xss => // TODO: use fold
-  loop((acc = [[], []], i = 0) =>
+  tailRec((acc = [[], []], i = 0) =>
     i === xss.length
-      ? acc
-      : recur((
+      ? Base(acc)
+      : Step((
           acc[0].push(xss[i] [0]),
           acc[1].push(xss[i] [1]),
           acc), i + 1));
 
 
 const arrZip = xs => ys => // TODO: use fold
-  loop((acc = [], i = 0) => {
+  tailRec((acc = [], i = 0) => {
     const x = xs[i], y = ys[i];
 
     if (x === undefined || y === undefined)
-      return acc;
+      return Base(acc);
 
     else
-      return recur(
+      return Step(
         (acc.push([xs[i], ys[i]]), acc), i + 1);
   });
 
 
 const arrZipBy = f => xs => ys => // TODO: use fold
-  loop((acc = [], i = 0) => {
+  tailRec((acc = [], i = 0) => {
     const x = xs[i], y = ys[i];
 
     if (x === undefined || y === undefined)
-      return acc;
+      return Base(acc);
 
     else
-      return recur(
+      return Step(
         (acc.push(f(xs[i]) (ys[i])), acc), i + 1);
   });
 
@@ -1918,22 +1918,22 @@ const strMatch = (r, flags) => s => {
 
 
 const strMatchAll = (r, flags) => s_ =>
-  loop((acc = [], s = s_, i = 0) => {
+  tailRec((acc = [], s = s_, i = 0) => {
     if (s === "")
-      return acc;
+      return Base(acc);
 
     else {
       const tx = strMatch(r, flags) (s);
 
       switch (tx.mat.tag) {
-        case "None": return acc;
+        case "None": return Base(acc);
 
         case "Some": {
           const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
-          return recur(
+          return Step(
             (acc.push(tx), acc),
             s_.slice(xs.index + xs[0].length),
             xs.index + xs[0].length);
@@ -1946,22 +1946,22 @@ const strMatchAll = (r, flags) => s_ =>
 
 
 const strMatchLast = (r, flags) => s_ =>
-  loop((acc = Matched(None), s = s_, i = 0) => {
+  tailRec((acc = Matched(None), s = s_, i = 0) => {
     if (s === "")
-      return acc;
+      return Base(acc);
 
     else {
       const tx = strMatch(r, flags) (s);
 
       switch (tx.mat.tag) {
-        case "None": return acc;
+        case "None": return Base(acc);
 
         case "Some": {
           const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
-          return recur(
+          return Step(
             tx,
             s_.slice(xs.index + xs[0].length),
             xs.index + xs[0].length);
@@ -1974,25 +1974,25 @@ const strMatchLast = (r, flags) => s_ =>
 
 
 const strMatchNth = nth_ => (r, flags) => s_ =>
-  loop((acc = Matched(None), s = s_, i = 0, nth = 0) => {
+  tailRec((acc = Matched(None), s = s_, i = 0, nth = 0) => {
     if (nth_ === nth)
-      return acc;
+      return Base(acc);
 
     else if (s === "")
-      return Matched(None);
+      return Base(Matched(None));
 
     else {
       const tx = strMatch(r, flags) (s);
 
       switch (tx.mat.tag) {
-        case "None": return acc;
+        case "None": return Base(acc);
 
         case "Some": {
           const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
-          return recur(
+          return Step(
             tx,
             s_.slice(xs.index + xs[0].length),
             xs.index + xs[0].length,
@@ -2830,7 +2830,7 @@ const optChainT = ({chain, of}) => fmm => mmx => // TODO: fix
     match("Option", mx, {
       None: _ => of(None),
       Some: ({some: x}) => fmm(x)
-    }) (mmx);
+    })) (mmx);
 
 
 /******************************************************************************
@@ -3445,7 +3445,7 @@ const These = _this => that =>
 
 
 const fromThese = _this => that => tx =>
-  match("These, tx, {
+  match("These", tx, {
     This: ({this: x}) => new Pair(x, that),
     That: ({that: y}) => new Pair(_this, y),
     These: ({this: x, that: y}) => new Pair(x, y)
