@@ -2321,10 +2321,9 @@ const Either = union("Either");
 
 
 const either = left => right => tx =>
-  match(tx, {
-    type: "Either",
-    get Left() {return left(tx.eith)},
-    get Right() {return right(tx.eith)}
+  match("Either", tx, {
+    Left: ({left: x}) => left(x),
+    Right: ({right: y}) => right(y)
   });
 
 
@@ -2709,10 +2708,9 @@ const Matched = mat => struct("Matched", {mat});
 
 
 const matched = x => tx =>
-  match(tx.mat, {
-    type: "Option",
-    None: x,
-    Some: tx.mat.some
+  match("Option", tx.mat, {
+    None: _ => x,
+    Some: ({some: y}) => y
   });
 
 
@@ -2773,10 +2771,9 @@ const Option = union("Option");
 
 
 const option = none => some => tx =>
-  match(tx, {
-    type: "Option",
-    None: none,
-    get Some() {return some(tx.opt)}
+  match("Option", tx, {
+    None: _ => none,
+    Some: ({some: x}) => some(x)
   });
 
 
@@ -2790,14 +2787,12 @@ const Some = some => Option(Some, {some});
 
 
 const optAp = tf => tx =>
-  match(tf, {
-    type: "Option",
-    None: None,
-    get Some() {
-      return match(tx, {
-        type: "Option",
-        None: None,
-        get Some() {return Some(tf.opt(tx.opt))}
+  match("Option", tf, {
+    None: _ => None,
+    Some: ({some: f}) => {
+      return match("Option", tx, {
+        None: _ => None,
+        Some: ({some: x}) => Some(f(x))
       });
     }
   });
@@ -2814,10 +2809,9 @@ const optOf = x => Some(x);
 
 
 const optMap = f => tx =>
-  match(tx, {
-    type: "Option",
-    None: None,
-    get Some() {return Some(f(tx.opt))}
+  match("Option", tx, {
+    None: _ => None,
+    Some: ({some: x}) => Some(f(x))
   });
 
 
@@ -2825,20 +2819,18 @@ const optMap = f => tx =>
 
 
 const optChain = fm => mx =>
-  match(mx, {
-    type: "Option",
-    None: None,
-    get Some() {return fm(mx.opt)}
+  match("Option", mx, {
+    None: _ => None,
+    Some: ({some: x}) => fm(x)
   });
 
 
-const optChainT = ({chain, of}) => fmm => mmx =>
-  chain(mx => {
-    switch (mx.tag) {
-      case "None": return of(None);
-      case "Some": return fmm(mx.opt);
-    }
-  }) (mmx);
+const optChainT = ({chain, of}) => fmm => mmx => // TODO: fix
+  chain(mx =>
+    match("Option", mx, {
+      None: _ => of(None),
+      Some: ({some: x}) => fmm(x)
+    }) (mmx);
 
 
 /******************************************************************************
@@ -2850,11 +2842,10 @@ const Ordering = ord => union("Ordering");
 
 
 const ordering = lt => eq => gt => tx =>
-  match(tx, {
-    type: "Ordering",
-    LT: lt,
-    EQ: eq,
-    GT: gt
+  match("Ordering", tx, {
+    LT: _ => lt,
+    EQ: _ => eq,
+    GT: _ => gt
   });
 
 
@@ -3065,19 +3056,17 @@ const predPrepend = predAppend;
 
 const leftPrism =
   Lens(({map, of}) => ft => tx =>
-    match(tx, {
-      type: "Either",
-      get Left() {return map(Left) (ft(tx.eith))},
-      get Right() {return of(tx)}
+    match("Either", tx, {
+      Left: ({left: x}) => map(Left) (ft(x)),
+      Right: _ => of(tx)
     }));
 
 
 const rightPrism =
   Lens(({map, of}) => ft => tx =>
-    match(tx, {
-      type: "Either",
-      get Left() {return of(tx)},
-      get Right() {return map(Right) (ft(tx.eith))}
+    match("Either", tx, {
+      Left: _ => of(tx),
+      Right: ({right: y}) => map(Right) (ft(y))
     }));
 
 
@@ -3433,11 +3422,10 @@ const These_ = union("These");
 
 
 const these = _this => that => these => tx =>
-  match(tx, {
-    type: "These",
-    get This() {return _this(tx.this)},
-    get That() {return that(tx.that)},
-    get These() {return these(tx.this) (tx.that)}
+  match("These", tx, {
+    This: ({this: x}) => _this(x),
+    That: ({that: y}) => that(y),
+    These: ({this: x, that: y}) => these(x) (y)
   });
 
 
@@ -3457,11 +3445,10 @@ const These = _this => that =>
 
 
 const fromThese = _this => that => tx =>
-  match(tx) ({
-    type: "These",
-    get This() {return [tx.this, that]},
-    get That() {return [_this, tx.that]},
-    get These() {return [tx.this, tx.that]}
+  match("These, tx, {
+    This: ({this: x}) => new Pair(x, that),
+    That: ({that: y}) => new Pair(_this, y),
+    These: ({this: x, that: y}) => new Pair(x, y)
   });
 
 
