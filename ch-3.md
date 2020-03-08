@@ -172,7 +172,7 @@ sub2(3); // 1 (as expected)
 ```
 [run code](https://repl.it/repls/RemarkableAmpleTag)
 
-An alternative to `flip` is `appr`, which mimics infix operators:
+An alternative to `flip` is `appr`, which mimics operators in infix position:
 
 ```javascript
 const appl = (x, f) => y => // left section (unnecessary) 
@@ -191,7 +191,7 @@ sub2(3); // 1
 ```
 [run code](https://repl.it/repls/FondNoxiousQuery)
 
-We spare the left section, because it does not make sense to mimic it with functions in prefix position.
+We will learn about prefix and infix notation in a later chapter of this course.
 
 ### Point-free style
 
