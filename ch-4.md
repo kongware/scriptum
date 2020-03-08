@@ -4,11 +4,16 @@ This chapter is about abstracting code with functions, i.e. creating function en
 
 ### Reasons for lambda abstractions
 
-In an imperative or multi-paradigm language there are three reasonable motives among others to abstract code with functions:
+Abstraction is an end in itself in programming, because it allows us to reduce the necessary portion of boilerplate in our code. If we insist on defining some specific and reasonable motives to abstract code with lambdas then there are at least six reasonable ones, assumed we are not in a purely functional setting:
 
+* code reuse (self-explanatory)
+* pass state around (see chapter managing state)
+* share the result of expressions (see chapter managing state section let bindings)
 * Replace statements with expressions
 * Avoid explicit lambdas
 * Utilize partial application
+
+We are going to take a closer look at the three last points in the following sections.
 
 #### Replace statements with expressions
 
@@ -200,15 +205,19 @@ The effect combinator is also known as `tap` in the imperative world. You can us
 
 ```javascript
 const eff = f => x => (f(x), x);
-const comp = f => g => x => f(g(x));
 
-const sqr = x => x * x;
-const get = k => o => o[k];
-const log = s => console.log(s);
+const _throw = e => {
+  throw e;
+};
 
-comp(sqr)
-  (s => eff(log) (get("length") (s)))
-    ("foo"); // logs 3 + returns 9 
+const div = x => y => x / y;
+
+const safeDiv = x =>
+  eff(y => {
+    if (y === 0)
+      _throw(TypeError("division by zero"))});
+
+safeDiv(2) (0);
 ```
 [run code](https://repl.it/repls/ElegantTrivialCertification)
 
