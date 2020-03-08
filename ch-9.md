@@ -463,106 +463,63 @@ takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 
 #### Mimicking indirect recursion
 
-There is actually a third trampoline implementation that covers indirect recursion, namely the trampoline monad. However, since the main purpose of the trampoline monad is to deal with monadic recursion, I will demonstrate it only in the corresponding chapter on monads of this course. Please bear with me!
+TODO: add
 
 ### Corecursion
 
-Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before. Viewed from a different angle recursion forms algorithms that consume data in a way which stops whereas corecursion forms algorithms that produce data in a way which continues.
+Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before.
 
-The same distinction can be made with the values recursion and corecursion work with. Recursion on the one hand works with data that is always finite. Corecursion on the other hand works with codata that may be infinite. This was a great deal of theory. Let the practice speak for itself:
+Reducting data inevitably stops at some point when the smallest possible data is reached, hence a recursion can be considered as an algorithm that consumes data in a way that stops. Expanding data is an infinite process limited only by system resources and time, hence corecursion can be regarded as an algorithm that consumes data in a way that continues. 
+
+This difference in behavior has implications for the data both algorithms can work with. Recursion works with finite data whereas corecursion works with possibly infinite codata. The following corecursive example illustrates this:
 
 ```javascript
-const Defer = thunk =>
-  ({get runDefer() {return thunk()}})
+const snoc = x => xs => (xs.push(x), xs);
 
-const app = f => x => f(x);
+const Nil = null;
+const Cons = head => tail => ({head, get tail() {return tail()}});
 
-const fibs = app(x_ => y_ => { // codata
-  const go = x => y =>
-    Defer(() =>
-      [x, go(y) (x + y)]);
+const fibs = Cons(0) (() => Cons(1) (() => {
+  const go = (xs, ys) =>
+    Cons(xs.head + ys.head) (() => go(xs.tail, ys.tail));
 
-  return go(x_) (y_).runDefer;
-}) (1) (1);
+  return go(fibs, fibs.tail);
+}));
 
-const take = n => codata => {
-  const go = ([x, tx], acc, i) =>
-    i === n
+const take = n => xs => {
+  const go = (acc, {head, tail}) =>
+    head === undefined || acc.length === n
       ? acc
-      : go(tx.runDefer, acc.concat(x), i + 1);
+      : go(snoc(head) (acc), tail);
 
-  return go(codata, [], 0);
+  return go([], xs);
 };
 
-take(10) (fibs); // [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+take(10) (fibs); // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 ```
 [run code](https://repl.it/repls/SvelteHotpinkCarrier)
 
-`fibs` represents codata, because it is an infinite stream of natural numbers. The actual type of `fibs` is a pair tuple consisting of the current value of the stream and a thunk (wrapped in an object), which only delivers the next value when requested. This type may be unfamiliar and a bit awkward, however, it renders codata incompatible with recursive functions. This is actually a desired behavior, since a recursive function applied to codata would lead to infinite recursion. Only corecursive functions like `take` can process possibly infinite codata properly.
+`fibs` is codata, because it is an infinite stream of natural numbers. Corecursion is pull-based, that is the algorithm only produces a single value when needed. As opposed to that recursion is push-based, that is once started it continues until the base case is reached. 
 
 ### Recursion as a last resort
 
-As I have already mentioned at the beginning of this chapter recursion und corecursion are functional primitives. Functional programmers usually prefer I higher level of abstraxction to work with. Abstractions are a mixed blessing though: On the one hand they spare us a lot of details and reduce the mental load. But on the other hand you have to be familiar with these abstractions and be trained how to handle them effectively. Let us take two function from a previous section to illustrate this:
+As I have already mentioned at the beginning of this chapter recursion und corecursion are functional primitives. Functional programmers usually prefer I higher level of abstraxction to work with. Abstractions are a mixed blessing though: On the one hand they spare us a lot of details and reduce the mental load. But on the other hand you have to be familiar with these abstractions and be trained how to handle them effectively. Let us illustrate the issue by taking another look at the corecursive `fibs` function:
 
 ```javascript
-const take = n => xs =>
-  tailRec((acc, i) =>
-    i === n
-      ? Base(acc)
-      : Step(snoc(xs[i]) (acc), i + 1))
-          ([], 0);
+const fibs = Cons(0) (() => Cons(1) (() => {
+  const go = (xs, ys) =>
+    Cons(xs.head + ys.head) (() => go(xs.tail, ys.tail));
 
-const takeLast = n => xs =>
-  rec(i =>
-    xs.length === i ? Base([])
-      : xs.length - i <= n ? Call(cons(xs[i]), Step(i + 1))
-      : Call(id, Step(i + 1)))
-          (0);
+  return go(fibs, fibs.tail);
+}));
 ```
-
-In order to build `take` and `takeLast` from scratch with bare recursion you have to take care of a lot of internals. Both algorithms are very different from each other because we are forced to program on a rather low level. We already have lambda abstractions in our toolset to deal with this class of recursive algorithms with premature termination semantics: `foldk` and `foldkr`. Let us apply them to see if they are able to simplify the implementation:
+We can greatly simplify it by using a fold abstraction:
 
 ```javascript
-const Cont = f => ({runCont: f});
-
-const foldk = f => acc => xs =>
-  tailRec((acc_, i) =>
-    i === xs.length
-      ? Base(acc_)
-      : f(acc_) (xs[i], i).runCont(acc__ => Step(acc__, i + 1))) (acc, 0);
-
-const foldkr = f => acc => xs =>
-  rec(i =>
-    i === xs.length
-      ? Base(acc)
-      : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
-
-const take = n => xs =>
-  foldk(
-    acc => x =>
-      n === acc.length
-        ? Cont(_ => Base(acc))
-        : Cont(k => k(acc.concat([x]))))
-            ([])
-              (xs);
-
-const takeLast = n => xs =>
-  foldkr(
-    x => acc =>
-      n === acc.length
-        ? Cont(_ => Base(acc))
-        : Cont(k => k([x].concat(acc))))
-            ([])
-              (xs);
-
-const xs = [1, 2, 3, 4, 5];
-
-take(3) (xs); // [1, 2, 3]
-takeLast(3) (xs); // [3, 4, 5]
+const fibs = unfoldr(
+  ([x, y]) => Some([x, [y, x + y]])) ([0, 1]);
 ```
-[run code](https://repl.it/repls/FuzzySpiritedRelationaldatabase)
-
-It turns out that deriving `take`/`takeLast` from these folds is indeed a good idea to get rid of the details. Both algorithms resemble each other, because we program on a higher level of abstraction now. Whether the new implementations are more readable depends on your knowlegde of the used abstractions though.
+Of course you can only comprehend this abstraction if you are familiar with `unfoldr` and unfolding in general. And applying it yourself takes even more experience. However, when you are an experienced functional programmer you will highly appreciate a certain level of abstraction, because it spares you a lot of distracting details and unnecessary boilerplate.
 
 Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
 
