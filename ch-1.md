@@ -4,7 +4,7 @@ This first chapter introduces important functional programming jargon and illust
 
 ### First class values
 
-Values are the result of expressions that cannot be evaluated any further. In Javascript we can represent values of many data types in literal form:
+Values are expressions that cannot be evaluated any further. Technically speaking they are expressions in normal form (NF). In Javascript we can represent values of most data types in literal form:
 
 ```javascript
 "foo"
