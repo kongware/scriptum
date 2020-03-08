@@ -227,4 +227,4 @@ App(w => x => y => z => [w, x, y, z])
 
 I do not see the advantage of the `Identity` functor method chaining compared to purely functional applicators. Besides this solution lacks the short circuiting mechanism monadic operations require.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-6.md)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-9.md)
