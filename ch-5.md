@@ -1,5 +1,7 @@
 ## Linear Data Flow with Infix Applicators
 
+In this chapter we will examine an alternative manner to maintain a linear data flow and flat syntax while composing and combining functions extensively.
+
 ### From prefix functions to nesting
 
 Nesting occurs as soon as you compose several functions where the result of a function is fed to another:
