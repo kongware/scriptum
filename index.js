@@ -285,11 +285,11 @@ const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
 
 
 const all = ({fold, append, empty}) => p =>
-  comp(tx => tx.runAll) (foldMap({fold, append, empty}) (comp(All) (p)));
+  comp(tx => tx.all) (foldMap({fold, append, empty}) (comp(All) (p)));
 
 
 const any = ({fold, append, empty}) => p =>
-  comp(tx => tx.runAny) (foldMap({fold, append, empty}) (comp(Any) (p)));
+  comp(tx => tx.any) (foldMap({fold, append, empty}) (comp(Any) (p)));
 
 
 const foldMap = ({fold, append, empty}) => f =>
@@ -320,6 +320,146 @@ const kleisli_ = chain => gm => fm => x =>
 
 const apM = ({chain, of}) => mf => mx =>
   chain(f => chain(x => of(f(x))) (mx)) (mf);
+
+
+/******************************************************************************
+*******************************************************************************
+********************************[ TRANSDUCER ]*********************************
+*******************************************************************************
+******************************************************************************/
+
+
+const dropper = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, acc)
+      : reduce(acc) (x);
+};
+
+
+const dropperk = n => reduce => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, k(acc))
+      : reduce(acc) (x).cont(k)};
+
+
+const dropperNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? acc
+      : reduce(acc) (x);
+};
+
+
+const dropperNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x => k =>
+    ++n % nth === 0
+      ? k(acc)
+      : reduce(acc) (x).cont(k)};
+
+
+const dropperWhile = p => reduce => {
+  let drop = true;
+
+  return acc => x => 
+    drop && p(x)
+      ? acc
+      : (drop = false, reduce(acc) (x));
+};
+
+
+const dropperWhilek = p => reduce => {
+  let drop = true;
+
+  return acc => x =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, reduce(acc) (x).cont(k)))};
+
+
+const filterer = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+
+const filtererk = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).cont(k)
+      : k(acc));
+
+
+const mapper = f => reduce => acc => x =>
+  reduce(acc) (f(x));
+
+
+const mapperk = f => reduce => acc => x =>
+  Cont(k =>
+    reduce(acc) (f(x)).cont(k));
+
+
+const taker = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, reduce(acc) (x))
+      : acc;
+};
+
+
+const takerk = n => reduce => { 
+  let m = 0;
+
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, reduce(acc) (x).cont(k))
+        : acc)};
+
+
+const takerNth = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? reduce(acc) (x)
+      : acc;
+};
+
+
+const takerNthk = nth => reduce => { 
+  let n = 0;
+
+  return acc => x =>
+    Cont(k =>
+      ++n % nth === 0
+        ? reduce(acc) (x).cont(k)
+        : acc)};
+
+
+const takerWhile = p => reduce => acc => x =>
+  p(x)
+    ? reduce(acc) (x)
+    : acc;
+
+
+const takerWhilek = p => reduce => acc => x =>
+  Cont(k =>
+    p(x)
+      ? reduce(acc) (x).cont(k)
+      : acc);
 
 
 /******************************************************************************
@@ -452,14 +592,14 @@ const arrFoldk = f => acc => xs =>
   tailRec((acc_, i) =>
     i === xs.length
       ? Base(acc_)
-      : f(acc_) (xs[i], i).runCont(acc__ => Step(acc__, i + 1))) (acc, 0);
+      : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
 
 
 const arrFoldkr = f => acc => xs =>
   rec(i =>
     i === xs.length
       ? Base(acc)
-      : Call(acc => f(xs[i]) (acc).runCont(id), Step(i + 1))) (0);
+      : Call(acc => f(xs[i]) (acc).cont(id), Step(i + 1))) (0);
 
 
 // arrFoldMap @Derived
@@ -1004,7 +1144,7 @@ const setGroupSep = sep => fracSep => s => {
   
   return [
     integral.replace(/\B(?=(\d{3})+(?!\d))/g, sep),
-	fraction]
+    fraction]
       .join(fracSep);
 };
 
@@ -1660,7 +1800,7 @@ const objDel = k => o =>
 const objGet = k => o =>
   k in o
     ? Some(o[k])
-	: None;
+    : None;
 
 
 const objGetOr = def => k => o =>
@@ -1785,11 +1925,11 @@ const strMatchAll = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched.tag) {
+      switch (tx.mat.tag) {
         case "None": return acc;
 
         case "Some": {
-          const xs = tx.runMatched.runOption;
+          const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
@@ -1813,11 +1953,11 @@ const strMatchLast = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched.tag) {
+      switch (tx.mat.tag) {
         case "None": return acc;
 
         case "Some": {
-          const xs = tx.runMatched.runOption;
+          const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
@@ -1844,11 +1984,11 @@ const strMatchNth = nth_ => (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.runMatched.tag) {
+      switch (tx.mat.tag) {
         case "None": return acc;
 
         case "Some": {
-          const xs = tx.runMatched.runOption;
+          const xs = tx.mat.some;
           xs.index += i;
           xs.input = s_;
 
@@ -1991,7 +2131,7 @@ const getYear = d => d.getFullYear();
 ******************************************************************************/
 
 
-const All = struct("All");
+const All = all => struct("All", {all});
 
 
 /***[Monoid]******************************************************************/
@@ -2004,7 +2144,7 @@ const allEmpty = () => All(true);
 
 
 const allAppend = tx => ty =>
-  All(tx.runAll && ty.runAll);
+  All(tx.all && ty.all);
 
 
 const allPrepend = allAppend;
@@ -2015,7 +2155,7 @@ const allPrepend = allAppend;
 ******************************************************************************/
 
 
-const Any = struct("Any");
+const Any = any => struct("Any", {any});
 
 
 /***[Monoid]******************************************************************/
@@ -2028,7 +2168,7 @@ const anyEmpty = () => Any(false);
 
 
 const anyAppend = tx => ty =>
-  Any(tx.runAny || ty.runAny);
+  Any(tx.any || ty.any);
 
 
 const anyPrepend = anyAppend;
@@ -2039,31 +2179,31 @@ const anyPrepend = anyAppend;
 ******************************************************************************/
 
 
-const Compare = struct("Compare");
+const Compare = cmp => struct("Compare", {cmp});
 
 
 /***[Contravariant Functor]***************************************************/
 
 
-const compContra = f => tf =>
-  Compare(compOn(tf.runCompare) (f));
+const cmpContra = f => tf =>
+  Compare(compOn(tf.cmp) (f));
 
 
 /***[Monoid]******************************************************************/
 
 
-const compEmpty = () => Compare(x => y => EQ);
+const cmpEmpty = () => Compare(x => y => EQ);
 
 
 /***[Semigroup]***************************************************************/
 
 
-const compAppend = tf => tg =>
+const cmpAppend = tf => tg =>
   Compare(x => y =>
-    ordAppend(tf.runCompare(x) (y)) (tg.runCompare(x) (y)));
+    ordAppend(tf.cmp(x) (y)) (tg.cmp(x) (y)));
 
 
-const compPrepend = flip(compAppend);
+const cmpPrepend = flip(cmpAppend);
 
 
 /******************************************************************************
@@ -2071,7 +2211,7 @@ const compPrepend = flip(compAppend);
 ******************************************************************************/
 
 
-const Comp = struct("Comp");
+const Comp = comp => struct("Comp", {comp});
 
 
 /***[Applicative]*************************************************************/
@@ -2082,14 +2222,14 @@ const compOf = ({of1, of2}) => x =>
 
 
 const compAp = ({map1, ap1, ap2}) => ttf => ttx =>
-  Comp(ap1(map1(ap2) (ttf.runComp)) (ttx.runComp));
+  Comp(ap1(map1(ap2) (ttf.comp)) (ttx.comp));
 
 
 /***[Functor]*****************************************************************/
 
 
 const compMap = ({map1, map2}) => f => ttx =>
-  Comp(map1(map2(f)) (ttx.runComp));
+  Comp(map1(map2(f)) (ttx.comp));
 
 
 /******************************************************************************
@@ -2097,7 +2237,7 @@ const compMap = ({map1, map2}) => f => ttx =>
 ******************************************************************************/
 
 
-const Const = struct("Const");
+const Const = const_ => struct("Const", {const: const_});
 
 
 /***[Applicative]*************************************************************/
@@ -2110,7 +2250,7 @@ const constOf = x => Const(x);
 
 
 const constMap = f => tx =>
-  Const(tx.runConst);
+  Const(tx.const);
 
 
 /******************************************************************************
@@ -2118,7 +2258,7 @@ const constMap = f => tx =>
 ******************************************************************************/
 
 
-const Cont = struct("Cont");
+const Cont = cont => struct("Cont", {cont});
 
 
 const cont = f => x =>
@@ -2133,7 +2273,7 @@ const cont2 = f => x => y =>
 
 
 const contAp = tf => tx =>
-  Cont(k => tf.runCont(f => tx.runCont(x => k(f(x)))));
+  Cont(k => tf.cont(f => tx.cont(x => k(f(x)))));
 
 
 const contLiftA2 = f => tx => ty =>
@@ -2143,110 +2283,33 @@ const contLiftA2 = f => tx => ty =>
 const contOf = x => Cont(k => k(x));
 
 
-/***[ChainRec]****************************************************************/
-
-
-const contChainRec = f =>
-  Cont(k => {
-    let acc = f();
-
-    while (acc && acc.type === recur) {
-      acc.args[0] = acc.args[0] (id);
-      acc = f(...acc.args);
-    }
-
-    return k(acc);
-  });
-
-
 /***[Functor]*****************************************************************/
 
 
 const contMap = f => tx =>
-  Cont(k => tx.runCont(x => k(f(x))));
+  Cont(k => tx.cont(x => k(f(x))));
                                   
 
 /***[Monad]*******************************************************************/
 
 
 const contChain = fm => mx =>
-  Cont(k => mx.runCont(x => fm(x).runCont(y => k(y))));
-
-
-const contChain2 = fm => mx => my =>
-  Cont(k => mx.runCont(x => my.runCont(y => fm(x) (y).runCont(z => k(z)))));
+  Cont(k => mx.cont(x => fm(x).cont(y => k(y))));
 
 
 const contJoin = mmx =>
-  Cont(k => mmx.runCont(mx => mx.runCont(x => k(x))));
-
-
-const contLiftM2 = f => mx => my =>
-  Cont(k => mx.runCont(x => my.runCont(y => k(f(x) (y)))));
+  Cont(k => mmx.cont(mx => mx.cont(x => k(x))));
 
 
 /***[Misc. Combinators]*******************************************************/
 
 
 const contReset = tx => // delimited continuations
-  contOf(tx.runCont(id));
+  contOf(tx.cont(id));
   
 
 const contShift = f => // delimited continuations
-  Cont(k => f(k).runCont(id));
-
-
-/******************************************************************************
-***********************[ DEFER (LAZY EVAL W/O SHARING ]************************
-******************************************************************************/
-
-
-const Defer = structGetter("Defer")
-  (Defer => thunk => Defer({get runDefer() {return thunk()}}));
-
-
-/***[Applicative]*************************************************************/
-
-
-const defAp = tf => tx =>
-  Defer(() => tf.runDefer(tx.runDefer));
-
-
-const defOf = x => Defer(() => x);
-
-
-/***[ChainRec]****************************************************************/
-
-
-const defChainRec = f =>
-  Defer(() => {
-    let acc = f();
-
-    while(acc && acc.type === recur) {
-      acc.args[0] = acc.args[0].runDefer();
-      acc = f(...acc.args);
-    }
-
-    return acc.runDefer();
-  });
-
-
-/***[Functor]*****************************************************************/
-
-
-const defMap = f => tx =>
-  Defer(() => f(tx.runDefer));
-
-
-/***[Monad]*******************************************************************/
-
-
-const defChain = fm => mx =>
-  Defer(() => fm(mx.runDefer).runDefer);
-
-
-const defJoin = mmx =>
-  Defer(() => mmx.runDefer.runDefer);
+  Cont(k => f(k).cont(id));
 
 
 /******************************************************************************
@@ -2257,23 +2320,20 @@ const defJoin = mmx =>
 const Either = union("Either");
 
 
-const Left = x =>
-  Either("Left", x);
-
-
-const Right = x =>
-  Either("Right", x);
-
-
-/***[Foldable]****************************************************************/
-
-
-const ethCata = left => right => tx =>
+const either = left => right => tx =>
   match(tx, {
     type: "Either",
-    get Left() {return left(tx.runEither)},
-    get Right() {return right(tx.runEither)}
+    get Left() {return left(tx.eith)},
+    get Right() {return right(tx.eith)}
   });
+
+
+const Left = left =>
+  Either(Left, {left});
+
+
+const Right = right =>
+  Either(Right, {right});
 
 
 /******************************************************************************
@@ -2281,7 +2341,7 @@ const ethCata = left => right => tx =>
 ******************************************************************************/
 
 
-const Endo = struct("Endo");
+const Endo = endo => struct("Endo", {endo});
 
 
 /***[Monoid]******************************************************************/
@@ -2294,7 +2354,7 @@ const endoEmpty = () => Endo(id);
 
 
 const endoAppend = tf => tg => x =>
-  Endo(tf.runEndo(tg.runEndo(x)));
+  Endo(tf.endo(tg.endo(x)));
 
 
 const endoPrepend = flip(endoAppend);
@@ -2305,14 +2365,14 @@ const endoPrepend = flip(endoAppend);
 ******************************************************************************/
 
 
-const Equiv = struct("Equiv");
+const Equiv = equiv => struct("Equiv", {equiv});
 
 
 /***[Contravariant Functor]***************************************************/
 
 
 const equivContra = f => tf =>
-  Equiv(compOn(tf.runEquiv) (f));
+  Equiv(compOn(tf.equiv) (f));
 
 
 /***[Monoid]******************************************************************/
@@ -2326,7 +2386,7 @@ const equivEmpty = () => Equiv(x => y => true);
 
 const equivAppend = tf => tg =>
   Equiv(x => y =>
-    tf.runEquiv(x) (y) && tg.runEquiv(x) (y));
+    tf.equiv(x) (y) && tg.equiv(x) (y));
 
 
 const equivPrepend = equivAppend;
@@ -2337,7 +2397,7 @@ const equivPrepend = equivAppend;
 ******************************************************************************/
 
 
-const First = struct("First");
+const First = first => struct("First", {first});
 
 
 /***[Semigroup]***************************************************************/
@@ -2354,7 +2414,7 @@ const firstAppend = x => _ => x;
 ******************************************************************************/
 
 
-const Lens = struct("Lens");
+const Lens = lens => struct("Lens", {lens});
 
 
 /***[Instances]***************************************************************/
@@ -2372,11 +2432,11 @@ const objGetter = k =>
 
 
 const getComp = tx => ty =>
-  Lens(x => tx.runLens() (ty.runLens() (x)));
+  Lens(x => tx.lens() (ty.lens() (x)));
 
 
 const getComp3 = tx => ty => tz =>
-  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
+  Lens(x => tx.lens() (ty.lens() (tz.lens() (x))));
 
 
 const getId = Lens(id);
@@ -2386,8 +2446,8 @@ const getId = Lens(id);
 
 
 const getGet = tx => o =>
-  tx.runLens(Const) (o)
-    .runConst;
+  tx.lens(Const) (o)
+    .const;
 
 
 /******************************************************************************
@@ -2395,7 +2455,7 @@ const getGet = tx => o =>
 ******************************************************************************/
 
 
-const Id = struct("Id");
+const Id = id => struct("Id", {id});
 
 
 /***[Applicative]*************************************************************/
@@ -2408,7 +2468,7 @@ const idOf = x => Id(x);
 
 
 const idMap = f => tx =>
-  Id(f(tx.runId));
+  Id(f(tx.id));
 
 
 /******************************************************************************
@@ -2416,7 +2476,7 @@ const idMap = f => tx =>
 ******************************************************************************/
 
 
-const Last = struct("Last");
+const Last = last => struct("Last", {last});
 
 
 /***[Semigroup]***************************************************************/
@@ -2433,56 +2493,38 @@ const lastPrepend = firstAppend;
 ******************************************************************************/
 
 
-const Lazy = structGetter("Lazy")
-  (Lazy => thunk => Lazy({
-    get runLazy() {
-      delete this.runLazy;
-      return this.runLazy = thunk();
-    }}));
+const Lazy = lazy => struct(Lazy, {get lazy() {
+    delete this.lazy
+    return this.lazy = lazy();
+}});
 
 
 /***[Applicative]*************************************************************/
 
 
 const lazyAp = tf => tx =>
-  Lazy(() => tf.runLazy (tx.runLazy));
+  Lazy(() => tf.lazy(tx.lazy));
 
 
 const lazyOf = x => Lazy(() => x);
-
-
-/***[ChainRec]****************************************************************/
-
-
-const lazyChainRec = f =>
-  Lazy(() => {
-    let acc = f();
-
-    while(acc && acc.type === recur) {
-      acc.args[0] = acc.args[0].runLazy();
-      acc = f(...acc.args);
-    }
-
-    return acc.runLazy();
-  });
 
 
 /***[Functor]*****************************************************************/
 
 
 const lazyMap = f => tx =>
-  Lazy(() => f(tx.runLazy));
+  Lazy(() => f(tx.lazy));
 
 
 /***[Monad]*******************************************************************/
 
 
 const lazyChain = fm => mx =>
-  Lazy(() => fm(mx.runLazy).runLazy);
+  Lazy(() => fm(mx.lazy).lazy);
 
 
 const lazyJoin = mmx =>
-  Lazy(() => mmx.runLazy.runLazy);
+  Lazy(() => mmx.lazy.lazy);
 
 
 /******************************************************************************
@@ -2559,7 +2601,7 @@ const strLens = (i, len) => // String is immutable hence no typeclass functions
         case "None": return t;
 
         case "Some":
-          return strInsert(t, i - 1) (tx.runOption[1]);
+          return strInsert(t, i - 1) (tx.opt[1]);
       }
     })
       (ft(s.slice(i, len + i))));
@@ -2570,12 +2612,12 @@ const strLens = (i, len) => // String is immutable hence no typeclass functions
 
 const lensComp = tx => ty =>
   Lens(map => ft =>
-    tx.runLens(map) (ty.runLens(map) (ft)));
+    tx.lens(map) (ty.lens(map) (ft)));
 
 
 const lensComp3 = tx => ty => tz =>
   Lens(map => ft =>
-    tx.runLens(map) (ty.runLens(map) (tz.runLens(map) (ft))));
+    tx.lens(map) (ty.lens(map) (tz.lens(map) (ft))));
 
 
 const lensId = Lens(id);
@@ -2585,25 +2627,37 @@ const lensId = Lens(id);
 
 
 const lensDel = tx => o =>
-  tx.runLens(idMap) (_const(Id(null))) (o);
+  tx.lens(idMap) (_const(Id(null))) (o);
 
 
 const lensGet = tx => o =>
-  tx.runLens(constMap) (Const) (o)
-    .runConst;
+  tx.lens(constMap) (Const) (o)
+    .const;
 
 
 const lensMod = tx => f => o =>
-  tx.runLens(idMap) (v => Id(f(v))) (o);
+  tx.lens(idMap) (v => Id(f(v))) (o);
 
 
 const lensSet = tx => v => o =>
-  tx.runLens(idMap) (_const(Id(v))) (o);
+  tx.lens(idMap) (_const(Id(v))) (o);
 
 
 /******************************************************************************
 ***********************************[ LIST ]************************************
 ******************************************************************************/
+
+
+const List = union("List");
+
+
+const Nil = List("Nil", {});
+
+
+const Cons = head => tail => List(Cons, {head, tail});
+
+
+/***[Misc. Combinators]********************************************************/
 
 
 const listCons = x => xs =>
@@ -2613,6 +2667,9 @@ const listCons = x => xs =>
 /******************************************************************************
 ***********************************[ LOOP ]************************************
 ******************************************************************************/
+
+
+// TODO: revise
 
 
 const Loop = f => (...args) =>
@@ -2648,17 +2705,14 @@ const loopChain = (tf, fm) => tf.loop
 ******************************************************************************/
 
 
-const Matched = struct("Matched");
+const Matched = mat => struct("Matched", {mat});
 
 
-/***[Foldable]****************************************************************/
-
-
-const matCata = x => tx =>
-  match(tx.runMatched, {
+const matched = x => tx =>
+  match(tx.mat, {
     type: "Option",
     None: x,
-    Some: tx.runMatched.runOption
+    Some: tx.mat.some
   });
 
 
@@ -2667,7 +2721,7 @@ const matCata = x => tx =>
 ******************************************************************************/
 
 
-const Max = struct("Max");
+const Max = max => struct("Max", {max});
 
 
 /***[Monoid]******************************************************************/
@@ -2691,7 +2745,7 @@ const maxPrepend = maxAppend;
 ******************************************************************************/
 
 
-const Min = struct("Min");
+const Min = min => struct("Min", {min});
 
 
 /***[Monoid]******************************************************************/
@@ -2715,13 +2769,21 @@ const minPrepend = minAppend;
 ******************************************************************************/
 
 
-const Option = unionGetter("Option");
+const Option = union("Option");
 
 
-const None = Option("None", {get runOption() {return None}});
+const option = none => some => tx =>
+  match(tx, {
+    type: "Option",
+    None: none,
+    get Some() {return some(tx.opt)}
+  });
 
 
-const Some = x => Option("Some", {runOption: x});
+const None = Option("None", {});
+
+
+const Some = some => Option(Some, {some});
 
 
 /***[Applicative]*************************************************************/
@@ -2735,7 +2797,7 @@ const optAp = tf => tx =>
       return match(tx, {
         type: "Option",
         None: None,
-        get Some() {return Some(tf.runOption(tx.runOption))}
+        get Some() {return Some(tf.opt(tx.opt))}
       });
     }
   });
@@ -2748,17 +2810,6 @@ const optLiftA2 = f => tx => ty =>
 const optOf = x => Some(x);
 
 
-/***[Folding]*****************************************************************/
-
-
-const optCata = none => some => tx =>
-  match(tx, {
-    type: "Option",
-    None: none,
-    get Some() {return some(tx.runOption)}
-  });
-
-
 /***[Functor]*****************************************************************/
 
 
@@ -2766,7 +2817,7 @@ const optMap = f => tx =>
   match(tx, {
     type: "Option",
     None: None,
-    get Some() {return Some(f(tx.runOption))}
+    get Some() {return Some(f(tx.opt))}
   });
 
 
@@ -2777,7 +2828,7 @@ const optChain = fm => mx =>
   match(mx, {
     type: "Option",
     None: None,
-    get Some() {return fm(mx.runOption)}
+    get Some() {return fm(mx.opt)}
   });
 
 
@@ -2785,7 +2836,7 @@ const optChainT = ({chain, of}) => fmm => mmx =>
   chain(mx => {
     switch (mx.tag) {
       case "None": return of(None);
-      case "Some": return fmm(mx.runOption);
+      case "Some": return fmm(mx.opt);
     }
   }) (mmx);
 
@@ -2795,31 +2846,28 @@ const optChainT = ({chain, of}) => fmm => mmx =>
 ******************************************************************************/
 
 
-const Ordering = unionGetter("Ordering");
+const Ordering = ord => union("Ordering");
 
 
-const LT = Ordering("LT",
-  {get runOrdering() {return LT}, valueOf: () => -1});
-
-
-const EQ = Ordering("EQ",
-  {get runOrdering() {return EQ}, valueOf: () => 0});
-
-
-const GT = Ordering("GT",
-  {get runOrdering() {return GT}, valueOf: () => 1});
-
-
-/***[Foldable]****************************************************************/
-
-
-const ordCata = lt => eq => gt => tx =>
+const ordering = lt => eq => gt => tx =>
   match(tx, {
     type: "Ordering",
     LT: lt,
     EQ: eq,
     GT: gt
   });
+
+
+const LT = Ordering("LT",
+  {get ord() {return LT}, valueOf: () => -1});
+
+
+const EQ = Ordering("EQ",
+  {get ord() {return EQ}, valueOf: () => 0});
+
+
+const GT = Ordering("GT",
+  {get ord() {return GT}, valueOf: () => 1});
 
 
 /***[Monoid]******************************************************************/
@@ -2832,7 +2880,7 @@ const ordEmpty = () => EQ;
 
 
 const ordAppend = tx => ty =>
-  ordCata(LT) (ty) (GT) (tx);
+  ordering(LT) (ty) (GT) (tx);
 
 
 const ordPrepend = ordAppend;
@@ -2843,24 +2891,25 @@ const ordPrepend = ordAppend;
 ******************************************************************************/
 
 
-// NOTE: This type is mainly untested and may undergo major changes in the future. 
+// TODO: review
 
 
-const Parallel = structGetter("Parallel")
-  (Parallel => k => Parallel(thisify(o => {
-    o.runParallel = (res, rej) => k(x => {
-      o.runParallel = l => l(x);
+/*** experimental ***/
+
+
+const Parallel = par => struct(
+  "Parallel",
+  thisify(o => {
+    o.par = (res, rej) => k(x => {
+      o.par = l => l(x);
       return res(x);
     }, rej);
     
     return o;
-  })));
+  }));
 
 
-/***[Foldable]****************************************************************/
-
-
-const parCata = alg => tf.runParallel;
+const parallel = _ => tf.par;
 
 
 /***[Applicative]*************************************************************/
@@ -2868,7 +2917,7 @@ const parCata = alg => tf.runParallel;
 
 const parAp = tf => tx =>
   Parallel((res, rej) =>
-    parAnd(tf) (tx).runParallel(([f, x]) => res(f(x)), rej));
+    parAnd(tf) (tx).par(([f, x]) => res(f(x)), rej));
 
 
 const parOf = x => Parallel((res, rej) => res(x));
@@ -2878,7 +2927,7 @@ const parOf = x => Parallel((res, rej) => res(x));
 
 
 const parMap = f => tx =>
-  Parallel((res, rej) => tx.runParallel(x => res(f(x)), rej));
+  Parallel((res, rej) => tx.par(x => res(f(x)), rej));
 
 
 /***[Monoid]******************************************************************/
@@ -2918,8 +2967,8 @@ const parAnd = tf => tg => {
 
   return Parallel(
     (res, rej) => (
-      tf.runParallel(...guard(res, rej, 0)),
-      tg.runParallel(...guard(res, rej, 1))));
+      tf.par(...guard(res, rej, 0)),
+      tg.par(...guard(res, rej, 1))));
 };
 
 
@@ -2939,17 +2988,19 @@ const parOr = tf => tg => {
 
   return Parallel(
     (res, rej) => (
-      tf.runParallel(...guard(res, rej)),
-      tg.runParallel(...guard(res, rej))))
+      tf.par(...guard(res, rej)),
+      tg.par(...guard(res, rej))))
 };
 
 
-const parAll = ts => // eta abstraction to create a new tOf([]) for each invocation
-  arrFold(acc => tf =>
-    parMap(([xs, x]) =>
-      (xs.push(x), xs))
-        (parAnd(acc) (tf)))
-          (parOf([])) (ts);
+const parAll =
+  ts =>
+    arrFold(acc => tf =>
+      parMap(([xs, x]) =>
+        (xs.push(x), xs))
+          (parAnd(acc) (tf)))
+            (parOf([]))
+              (ts);
 
 
 const parAny =
@@ -2972,14 +3023,14 @@ const parPrepend = parOr;
 ******************************************************************************/
 
 
-const Pred = struct("Pred");
+const Pred = pred => struct("Pred", {pred});
 
 
 /***[Contravariant Functor]***************************************************/
 
 
 const predContra = f => tf =>
-  x => Pred(tf.runPred(f(x)));
+  x => Pred(tf.pred(f(x)));
 
 
 /***[Monoid]******************************************************************/
@@ -2992,7 +3043,7 @@ const predEmpty = () => Pred(x => true);
 
 
 const predAppend = tf => tg =>
-  Pred(x => tf.runPred(x) && tg.runPred(x));
+  Pred(x => tf.pred(x) && tg.pred(x));
 
 
 const predPrepend = predAppend;
@@ -3003,7 +3054,7 @@ const predPrepend = predAppend;
 ******************************************************************************/
 
 
-// const Prism = struct("Prism"); Prism don't have its own type for the time beeing
+// constructor defined @getter
 
 
 /***[Instances]***************************************************************/
@@ -3016,7 +3067,7 @@ const leftPrism =
   Lens(({map, of}) => ft => tx =>
     match(tx, {
       type: "Either",
-      get Left() {return map(Left) (ft(tx.runEither))},
+      get Left() {return map(Left) (ft(tx.eith))},
       get Right() {return of(tx)}
     }));
 
@@ -3026,7 +3077,7 @@ const rightPrism =
     match(tx, {
       type: "Either",
       get Left() {return of(tx)},
-      get Right() {return map(Right) (ft(tx.runEither))}
+      get Right() {return map(Right) (ft(tx.eith))}
     }));
 
 
@@ -3034,16 +3085,16 @@ const rightPrism =
 
 
 const prismGet = prism => tx => // TODO: falsify
-  prism(constMap).runPrism(tx => Const(tx)) (tx);
+  prism(constMap).lens(tx => Const(tx)) (tx);
 
 
 const prismMod = prism => f => tx => // aka prismOver
-  prism(idMap).runPrism(ty =>
+  prism(idMap).lens(ty =>
     Id(optMap(f) (ty))) (tx);
 
 
 const prismSet = prism => x => tx =>
-  prism(idMap).runPrism(_const(Id(Some(x)))) (tx);
+  prism(idMap).lens(_const(Id(Some(x)))) (tx);
 
 
 /******************************************************************************
@@ -3051,7 +3102,7 @@ const prismSet = prism => x => tx =>
 ******************************************************************************/
 
 
-const Prod = struct("Prod");
+const Prod = prod => struct("Prod", {prod});
 
 
 /***[Monoid]******************************************************************/
@@ -3064,7 +3115,7 @@ const prodEmpty = () => Prod(1);
 
 
 const prodAppend = tm => tn =>
-  Sum(tm.runProd * tn.runProd);
+  Sum(tm.prod * tn.prod);
 
 
 const prodPrepend = prodAppend;
@@ -3075,14 +3126,14 @@ const prodPrepend = prodAppend;
 ******************************************************************************/
 
 
-const Reader = struct("Reader");
+const Reader = read => struct("Reader", {read});
 
 
 /***[Applicative]**************************************************************/
 
 
 const readAp = tf => tg =>
-  Reader(x => tf.runReader(x) (tg.runReader(x)));
+  Reader(x => tf.read(x) (tg.read(x)));
 
 
 const readOf = x => Reader(_ => x);
@@ -3092,18 +3143,18 @@ const readOf = x => Reader(_ => x);
 
 
 const readMap = f => tg =>
-  Reader(x => f(tg.runReader(x)));
+  Reader(x => f(tg.read(x)));
 
 
 /***[Monad]********************************************************************/
 
 
 const readChain = fm => mg =>
-  Reader(x => fm(mg.runReader(x)).runReader(x));
+  Reader(x => fm(mg.read(x)).read(x));
 
 
 const readJoin = mmf =>
-  Reader(x => mmf.runReader(x).runReader(x));
+  Reader(x => mmf.read(x).read(x));
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3117,7 +3168,7 @@ const asks = f =>
 
 
 const local = f => tg =>
-  Reader(x => tg.runReader(f(x)));
+  Reader(x => tg.read(f(x)));
 
 
 /******************************************************************************
@@ -3125,7 +3176,7 @@ const local = f => tg =>
 ******************************************************************************/
 
 
-//const Setter = struct("Setter");
+// constructor defined @getter
 
 
 /***[Instances]***************************************************************/
@@ -3152,11 +3203,11 @@ const objSetter = objSetter_(objDel);
 
 
 const setComp = tx => ty =>
-  Lens(x => tx.runLens() (ty.runLens() (x)));
+  Lens(x => tx.lens() (ty.lens() (x)));
 
 
 const setComp3 = tx => ty => tz =>
-  Lens(x => tx.runLens() (ty.runLens() (tz.runLens() (x))));
+  Lens(x => tx.lens() (ty.lens() (tz.lens() (x))));
 
 
 const setId = Lens(id);
@@ -3166,15 +3217,15 @@ const setId = Lens(id);
 
 
 const setDel = tx => o =>
-  tx.runLens(_const(Id(null))) (o);
+  tx.lens(_const(Id(null))) (o);
 
 
 const setMod = tx => f => o =>
-  tx.runLens(v => Id(f(v))) (o);
+  tx.lens(v => Id(f(v))) (o);
 
 
 const setSet = tx => v => o =>
-  tx.runLens(_const(Id(v))) (o);
+  tx.lens(_const(Id(v))) (o);
 
 
 /******************************************************************************
@@ -3182,7 +3233,7 @@ const setSet = tx => v => o =>
 ******************************************************************************/
 
 
-const State = struct("State");
+const State = state => struct("State", {state});
 
 
 /***[Applicative]*************************************************************/
@@ -3190,8 +3241,8 @@ const State = struct("State");
 
 const stateAp = tf => tx =>
   State(y => {
-    const [f, y_] = tf.runState(y),
-      [x, y__] = tx.runState(y_);
+    const [f, y_] = tf.state(y),
+      [x, y__] = tx.state(y_);
 
     return [f(x), y__];
   });
@@ -3205,7 +3256,7 @@ const stateOf = x => State(y => [x, y]);
 
 const stateMap = f => tx =>
   State(y => {
-    const [x, y_] = tx.runState(y);
+    const [x, y_] = tx.state(y);
     return [f(x), y_];
   });
 
@@ -3215,8 +3266,8 @@ const stateMap = f => tx =>
 
 const stateChain = fm => mx =>
   State(y => {
-    const [x, y_] = mx.runState(y);
-    return fm(x).runState(y_);
+    const [x, y_] = mx.state(y);
+    return fm(x).state(y_);
   });
 
 
@@ -3224,11 +3275,11 @@ const stateChain = fm => mx =>
 
 
 const evalState = tf =>
-  y => tf.runState(y) [0];
+  y => tf.state(y) [0];
 
 
 const execState = tf =>
-  y => tf.runState(y) [1];
+  y => tf.state(y) [1];
 
 
 const stateGet = State(y => [y, y]);
@@ -3250,19 +3301,10 @@ const statePut = y => State(_ => [null, y]);
 ******************************************************************************/
 
 
-const Stream = union("Stream");
+// TODO: add streams
 
 
-const Yield = value => next =>
-  Stream("Yield", {value, next});
-
-
-const Skip = next =>
-  Stream("Skip", {next});
-
-
-const Return = value =>
-  Stream("Return", {value});
+const Stream = stream => union("Stream");
 
 
 /******************************************************************************
@@ -3270,7 +3312,7 @@ const Return = value =>
 ******************************************************************************/
 
 
-const Sum = struct("Sum");
+const Sum = sum => struct("Sum", {sum});
 
 
 /***[Monoid]******************************************************************/
@@ -3283,7 +3325,7 @@ const sumEmpty = () => Sum(0);
 
 
 const sumAppend = tm => tn =>
-  Sum(tm.runSum + tn.runSum);
+  Sum(tm.sum + tn.sum);
 
 
 const sumPrepend = sumAppend;
@@ -3294,22 +3336,26 @@ const sumPrepend = sumAppend;
 ******************************************************************************/
 
 
-const Task = structGetter("Task")
-  (Task => k => Task(thisify(o => {
-    o.runTask = (res, rej) => k(x => {
-      o.runTask = l => l(x);
+const Task = task => struct(
+  Task,
+  thisify(o => {
+    o.task = (res, rej) => k(x => {
+      o.task = l => l(x);
       return res(x);
     }, rej);
     
     return o;
-  })));
+  }));
+
+
+const task = _ => tf.task;
 
 
 /***[Applicative]*************************************************************/
 
 
 const tAp = tf => tx =>
-  Task((res, rej) => tf.runTask(f => tx.runTask(x => res(f(x)), rej), rej));
+  Task((res, rej) => tf.task(f => tx.task(x => res(f(x)), rej), rej));
 
 
 const tLiftA2 = f => tx => ty =>
@@ -3319,43 +3365,27 @@ const tLiftA2 = f => tx => ty =>
 const tOf = x => Task((res, rej) => res(x));
 
 
-/***[Foldable]****************************************************************/
-
-
-const tCata = alg => tf.runTask;
-
-
 /***[Functor]*****************************************************************/
 
 
 const tMap = f => tx =>
-  Task((res, rej) => tx.runTask(x => res(f(x)), rej));
+  Task((res, rej) => tx.task(x => res(f(x)), rej));
 
 
 /***[Monad]*******************************************************************/
 
 
 const tChain = fm => mx =>
-  Task((res, rej) => mx.runTask(x => fm(x).runTask(res, rej), rej));
+  Task((res, rej) => mx.task(x => fm(x).task(res, rej), rej));
 
 
-const tChain2 = fm => mx => my =>
-  Task((res, rej) => mx.runTask(x =>
-    my.runTask(y =>
-      fm(x) (y).runTask(res, rej), rej), rej));
-
-
-const tChainT = ({chain, of}) => fm => mmx => // NOTE: fm only returns the inner monad hence of is necessary
+const tChainT = ({chain, of}) => fm => mmx => // TODO: fix
   chain(mx =>
     of(tChain(fm) (mx))) (mmx);
 
 
 const tJoin = mmx =>
-  Task((res, rej) => mmx.runTask(mx => mx.runTask(res, rej), rej));
-
-
-const tLiftM2 = f => mx => my =>
-  tChain(mx) (x => tChain(my) (y => tOf(f(x) (y))));
+  Task((res, rej) => mmx.task(mx => mx.task(res, rej), rej));
 
 
 /***[Monoid]*******************************************************************/
@@ -3369,19 +3399,20 @@ const tEmpty = () => x => Task((res, rej) => res(x));
 
 const tAnd = tf => tg =>
   Task((res, rej) =>
-    tf.runTask(f =>
-      tg.runTask(g =>
+    tf.task(f =>
+      tg.task(g =>
         res([f, g]), rej),
         rej));
 
 
-const tAll = ts => // eta abstraction to create a new tOf([]) for each invocation
-  arrFold(acc => tf =>
-    tMap(([xs, x]) =>
-      (xs.push(x), xs))
-        (tAnd(acc) (tf)))
-          (tOf([])) (ts);
-
+const tAll =
+  ts =>
+    arrFold(acc => tf =>
+      tMap(([xs, x]) =>
+        (xs.push(x), xs))
+          (tAnd(acc) (tf)))
+            (tOf([]))
+              (ts);
 
 
 /***[Derived]*****************************************************************/
@@ -3401,178 +3432,37 @@ const tPrepend = flip(tAnd);
 const These_ = union("These");
 
 
-const This = x =>
-  These_("This", x);
-
-
-const That = x =>
-  These_("That", x);
-
-
-const These = (x, y) =>
-  These_("These", [x, y]);
-
-
-/***[Foldable]****************************************************************/
-
-
-const theseCata = _this => that => these => tx =>
+const these = _this => that => these => tx =>
   match(tx, {
     type: "These",
-    get This() {return _this(tx.runThese)},
-    get That() {return that(tx.runThese)},
-    get These() {return these(...tx.runThese)}
+    get This() {return _this(tx.this)},
+    get That() {return that(tx.that)},
+    get These() {return these(tx.this) (tx.that)}
   });
+
+
+const This = _this =>
+  These_(This, {this: _this});
+
+
+const That = that =>
+  These_(That, {that});
+
+
+const These = _this => that =>
+  These_(These, {this: _this, that});
 
 
 /***[Misc. Combinators]*******************************************************/
 
 
-const fromThese = (x, y) => tx =>
+const fromThese = _this => that => tx =>
   match(tx) ({
     type: "These",
-    get This() {return [tx.runThese, y]},
-    get That() {return [x, tx.runThese]},
-    get These() {return tx.runThese}
+    get This() {return [tx.this, that]},
+    get That() {return [_this, tx.that]},
+    get These() {return [tx.this, tx.that]}
   });
-
-
-/******************************************************************************
-********************************[ TRANSDUCER ]*********************************
-******************************************************************************/
-
-
-const dropper = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, acc)
-      : reduce(acc) (x);
-};
-
-
-const dropperk = n => reduce => { 
-  let m = 0;
-
-  return acc => x => k =>
-    m < n
-      ? (m++, k(acc))
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? acc
-      : reduce(acc) (x);
-};
-
-
-const dropperNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x => k =>
-    ++n % nth === 0
-      ? k(acc)
-      : reduce(acc) (x).runCont(k)};
-
-
-const dropperWhile = p => reduce => {
-  let drop = true;
-
-  return acc => x => 
-    drop && p(x)
-      ? acc
-      : (drop = false, reduce(acc) (x));
-};
-
-
-const dropperWhilek = p => reduce => {
-  let drop = true;
-
-  return acc => x =>
-    Cont(k =>
-      drop && p(x)
-        ? k(acc)
-        : (drop = false, reduce(acc) (x).runCont(k)))};
-
-
-const filterer = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const filtererk = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : k(acc));
-
-
-const mapper = f => reduce => acc => x =>
-  reduce(acc) (f(x));
-
-
-const mapperk = f => reduce => acc => x =>
-  Cont(k =>
-    reduce(acc) (f(x)).runCont(k));
-
-
-const taker = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    m < n
-      ? (m++, reduce(acc) (x))
-      : acc;
-};
-
-
-const takerk = n => reduce => { 
-  let m = 0;
-
-  return acc => x =>
-    Cont(k =>
-      m < n
-        ? (m++, reduce(acc) (x).runCont(k))
-        : acc)};
-
-
-const takerNth = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    ++n % nth === 0
-      ? reduce(acc) (x)
-      : acc;
-};
-
-
-const takerNthk = nth => reduce => { 
-  let n = 0;
-
-  return acc => x =>
-    Cont(k =>
-      ++n % nth === 0
-        ? reduce(acc) (x).runCont(k)
-        : acc)};
-
-
-const takerWhile = p => reduce => acc => x =>
-  p(x)
-    ? reduce(acc) (x)
-    : acc;
-
-
-const takerWhilek = p => reduce => acc => x =>
-  Cont(k =>
-    p(x)
-      ? reduce(acc) (x).runCont(k)
-      : acc);
 
 
 /******************************************************************************
@@ -3619,14 +3509,13 @@ class Triple extends Array {
 ******************************************************************************/
 
 
-const Writer = structn("Writer")
-  (Writer => (x, y) => Writer([x, y]));
+const Writer = write => struct(Writer, {write});
 
 
 /***[Applicative]*************************************************************/
 
 
-const writeAp = append => ({runWriter: [f, y]}) => ({runWriter: [x, y_]}) =>
+const writeAp = append => ({write: [f, y]}) => ({write: [x, y_]}) =>
   Writer(f(x), append(y) (y_));  
 
 
@@ -3637,15 +3526,15 @@ const writeOf = empty => x =>
 /***[Functor]*****************************************************************/
 
 
-const writeMap = f => ({runWriter: [x, y]}) =>
+const writeMap = f => ({write: [x, y]}) =>
   Writer(f(x), y);
 
 
 /***[Monad]*******************************************************************/
 
 
-const writeChain = append => fm => ({runWriter: [x, y]}) => {
-  const [x_, y_] = fm(x).runWriter;
+const writeChain = append => fm => ({write: [x, y]}) => {
+  const [x_, y_] = fm(x).write;
   return Writer(x_, append(y) (y_));
 };
 
@@ -3654,27 +3543,27 @@ const writeChain = append => fm => ({runWriter: [x, y]}) => {
 
 
 const evalWriter = tx =>
-  tx.runWriter(([x, y]) => x);
+  tx.write(([x, y]) => x);
 
 
 const execWriter = tx =>
-  tx.runWriter(([x, y]) => y);
+  tx.write(([x, y]) => y);
 
 
 const writeCensor = f => mx =>
-  pass(mx.runWriter(pair => Writer(pair, f)));
+  pass(mx.write(pair => Writer(pair, f)));
 
 
 const writeListen = tx =>
-  tx.runWriter(([x, y]) => Writer([x, y], y));
+  tx.write(([x, y]) => Writer([x, y], y));
 
 
 const writeListens = f => mx =>
-  listen(mx).runWriter(([pair, y]) => Writer(pair, f(y)));
+  listen(mx).write(([pair, y]) => Writer(pair, f(y)));
 
 
 const writePass = tx =>
-  tx.runWriter(([[x, f], y]) => Writer([x, f(x)]));
+  tx.write(([[x, f], y]) => Writer([x, f(x)]));
 
 
 const writeTell = y => Writer(null, y);
@@ -3689,7 +3578,7 @@ const arrAll = all({
   fold: arrFoldk,
   append: compBin(tx =>
     Cont(Step =>
-      tx.runAll
+      tx.all
         ? Step(tx)
         : Base(tx)))
             (allAppend),
@@ -3700,7 +3589,7 @@ const arrAny = any({
   fold: arrFoldk,
   append: compBin(tx =>
     Cont(Step =>
-      tx.runAny
+      tx.any
         ? Base(tx)
         : Step(tx)))
             (anyAppend),
@@ -4119,7 +4008,7 @@ const fileCopy_ = fs => flags => newPath => path =>
 
 const fileMove_ = fs => flags => newPath => path =>
   renameFile(path, newPath)
-    .runTask(id, e => {
+    .task(id, e => {
       if (e.code !== "EXDEV") // TODO: there are other error codes to take into account
         throw new FileError(e);
 
@@ -4181,8 +4070,8 @@ const arrProd = arrFold(
 
 const getTimezoneOffset = Lazy(
   () => 
-	new Date()
-		.getTimezoneOffset() * 60);
+    new Date()
+      .getTimezoneOffset() * 60);
 
 
 /******************************************************************************
@@ -4286,21 +4175,22 @@ module.exports = {
   Call,
   ceil,
   chainEff,
+  cmpAppend,
+  cmpContra,
+  cmpEmpty,
+  cmpPrepend,
   Comp,
   comp,
   comp2nd,
   compBin,
   compAp,
-  compAppend,
   Compare,
   compare,
-  compContra,
-  compEmpty,
   compMap,
   compOf,
   compOn,
-  compPrepend,
   concrat,
+  Cons,
   Const,
   _const,
   const_,
@@ -4311,11 +4201,8 @@ module.exports = {
   cont2,
   contAp,
   contChain,
-  contChain2,
-  contChainRec,
   contJoin,
   contLiftA2,
-  contLiftM2,
   contMap,
   contReset,
   contShift,
@@ -4328,13 +4215,6 @@ module.exports = {
   DateError,
   dateParse,
   debug,
-  defAp,
-  defChain,
-  defChainRec,
-  Defer,
-  defJoin,
-  defMap,
-  defOf,
   delay,
   descOrder,
   Done,
@@ -4346,6 +4226,7 @@ module.exports = {
   dropperWhilek,
   eff,
   Either,
+  either,
   Endo,
   endoAppend,
   endoEmpty,
@@ -4359,7 +4240,6 @@ module.exports = {
   equivContra,
   equivEmpty,
   equivPrepend,
-  ethCata,
   evalState,
   execState,
   fileCopy_,
@@ -4461,7 +4341,6 @@ module.exports = {
   Lazy,
   lazyAp,
   lazyChain,
-  lazyChainRec,
   lazyJoin,
   lazyMap,
   lazyOf,
@@ -4476,6 +4355,7 @@ module.exports = {
   lensMod,
   lensSet,
   _let,
+  List,
   listCons,
   local,
   log,
@@ -4495,9 +4375,9 @@ module.exports = {
   mapSetM,
   mapper,
   mapperk,
-  matCata,
   match,
   Matched,
+  matched,
   Max,
   max,
   maxEmpty,
@@ -4512,6 +4392,7 @@ module.exports = {
   monadRec,
   neq,
   _new,
+  Nil,
   None,
   not,
   NOT_FOUND,
@@ -4545,8 +4426,8 @@ module.exports = {
   objUnion,
   objValues,
   Option,
+  option,
   optAp,
-  optCata,
   optChain,
   optChainT,
   optLiftA2,
@@ -4554,19 +4435,19 @@ module.exports = {
   optOf,
   or,
   ordAppend,
-  ordCata,
   ordEmpty,
   ordPrepend,
   Ordering,
+  ordering,
   orp,
   Pair,
   Parallel,
+  parallel,
   parAll,
   parAnd,
   parAny,
   parAp,
   parAppend,
-  parCata,
   parEmpty,
   parMap,
   parOf,
@@ -4599,7 +4480,6 @@ module.exports = {
   readOf,
   rec,
   RegExpError,
-  Return,
   Right,
   rightPrism,
   round,
@@ -4668,28 +4548,26 @@ module.exports = {
   takerWhile,
   takerWhilek,
   Task,
+  task,
   taggedLog,
   tailRec,
   tAnd,
   tAll,
   tAp,
   tAppend,
-  tCata,
   tChain,
   tChainT,
-  tChain2,
   tEmpty,
   tPrepend,
   That,
   These,
   These_,
-  theseCata,
+  these,
   This,
   thisify,
   _throw,
   tJoin,
   tLiftA2,
-  tLiftM2,
   tMap,
   tOf,
   toFixedFloat,
@@ -4714,5 +4592,4 @@ module.exports = {
   writeOf,
   writePass,
   writeTell,
-  Yield,
 };
