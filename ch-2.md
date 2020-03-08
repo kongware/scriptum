@@ -1,6 +1,6 @@
 ## Managing State in Functional Programming
 
-How does FP manage state? This is probably the second most frequently asked question about functional programming exceeded only by "what is a Monad?". Let us take a little detour first, so that we are all on the same page before beginning to answer this question.
+How does FP manage state when their are neither mutations nor reassignments? Let us take a little detour first, so that we are all on the same page before beginning to answer this question.
 
 ### Defining state
 
