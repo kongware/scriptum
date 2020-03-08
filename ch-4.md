@@ -210,13 +210,17 @@ const _throw = e => {
   throw e;
 };
 
+const comp2nd = f => g => x => y =>
+  f(x) (g(y));
+
 const div = x => y => x / y;
 
-const safeDiv = x =>
-  eff(y => {
-    if (y === 0)
-      _throw(TypeError("division by zero"))});
+const safeDiv = comp2nd(div)
+  (eff(x => {
+    if (x === 0)
+      _throw(TypeError("div by zero"))}));
 
+safeDiv(4) (2);
 safeDiv(2) (0);
 ```
 [run code](https://repl.it/repls/ElegantTrivialCertification)
