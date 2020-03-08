@@ -6,12 +6,14 @@ scriptum is a no-frills functional programming library and a detailed course bas
 
 ## Why
 
-scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be as language agnostic as possbile so that you can transfer the acquired knowldge to your preferred language.
+scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowldge to your preferred language.
 
-All we need to achieve this are...
+As it turned out all we need to get there is...
 
 * first class functions
 * a mechanism to allow expressions to be in weak head normal form
+
+It is remarkable how many purely functional idioms we can express with these two.
 
 ## Who
 
@@ -39,8 +41,8 @@ The scriptum library is still experimental.
 2. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
-5. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
-6. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
+5. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
+6. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
 7. Upcoming: Effects Encoded as Values (0% done)
 8. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 9. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-6.md)
