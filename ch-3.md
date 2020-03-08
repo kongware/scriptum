@@ -172,6 +172,27 @@ sub2(3); // 1 (as expected)
 ```
 [run code](https://repl.it/repls/RemarkableAmpleTag)
 
+An alternative to `flip` is `appr`, which mimics infix operators:
+
+```javascript
+const appl = (x, f) => y => // left section (unnecessary) 
+  f(x) (y);
+
+const infix = (x, f, y) => x => // infix position
+  f(x) (y);
+
+const appr = (f, y) => x => // right section
+  f(x) (y);
+
+const sub2 = appr(sub, 2);
+
+infix(3, sub, 2); // 1
+sub2(3); // 1
+```
+[run code](https://repl.it/repls/FondNoxiousQuery)
+
+We spare the left section, because it does not make sense to mimic it with functions in prefix position.
+
 ### Point-free style
 
 Curried functions applied to function composition or other higher order combinators often lead to point-free style code. Point-free means that the arguments of a function are only implicitly defined. Here is a simple example:
