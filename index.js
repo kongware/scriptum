@@ -307,21 +307,21 @@ const range = ({succ, gt}) => (lower, upper) =>
 
 
 const index = ({succ, eq}) => (lower, upper) => x =>
-  tailRec((y = lower, i = 0) =>
+  tailRec((y = lower, i = 0) => // TODO: replace with fold
     eq(y) (upper) ? Base(None)
       : eq(x) (y) ? Base(Some(i))
       : Step(succ(y), i + 1));
 
 
 const inRange = ({succ, eq, gt}) => (lower, upper) => x =>
-  tailRec((y = lower) =>
+  tailRec((y = lower) => // TODO: replace with fold
     gt(y) (upper) ? Base(false)
       : eq(x) (y) ? Base(true)
       : Step(succ(y)));
 
 
 const rangeSize = ({succ, eq, gt}) => (lower, upper) =>
-  tailRec((x = lower, n = 0) =>
+  tailRec((x = lower, n = 0) => // TODO: replace with fold
     gt(x) (upper)
       ? Base(n)
       : Step(succ(x), n + 1));
@@ -844,14 +844,14 @@ const arrLastOr = def => xs =>
 
 
 const arrMapAdjacent = f => n => xs =>
-  tailRec((i = 0, acc = []) =>
+  tailRec((i = 0, acc = []) => // TODO: replace with fold
     i + n > xs.length
       ? Base(acc)
       : Step(i + 1, (acc.push(f(xs.slice(i, i + n))), acc)));
 
 
 const arrMapChunk = f => n => xs =>
-  tailRec((i = 0, remainder = xs.length % n, acc = []) =>
+  tailRec((i = 0, remainder = xs.length % n, acc = []) => // TODO: replace with fold
     i >= xs.length - remainder
       ? Base(acc)
       : Step(i + n, remainder, (acc.push(f(xs.slice(i, i + n))), acc)));
@@ -863,14 +863,14 @@ const arrModOr = def => (i, f) => xs =>
     : xs[i] = def;
 
 
-const arrPartition = f => xs => // TODO: use fold
-  xs.reduce((m, x) =>
+const arrPartition = f => xs =>
+  xs.reduce((m, x) => // TODO: replace with fold
     _let((r = f(x), ys = m.get(r) || []) =>
       m.set(r, (ys.push(x), ys))), new Map());
 
 
-const arrScan = f => x_ => xs => // TODO: use fold
-  tailRec((acc = [], x = x_, i = 0) =>
+const arrScan = f => x_ => xs =>
+  tailRec((acc = [], x = x_, i = 0) => // TODO: replace with fold
     i === xs.length
       ? Base(acc)
       : Step(
@@ -954,8 +954,8 @@ const arrUnsnocOr = def => xs => {
 };
 
 
-const arrUnzip = xss => // TODO: use fold
-  tailRec((acc = [[], []], i = 0) =>
+const arrUnzip = xss =>
+  tailRec((acc = [[], []], i = 0) => // TODO: replace with fold
     i === xss.length
       ? Base(acc)
       : Step((
@@ -964,8 +964,8 @@ const arrUnzip = xss => // TODO: use fold
           acc), i + 1));
 
 
-const arrZip = xs => ys => // TODO: use fold
-  tailRec((acc = [], i = 0) => {
+const arrZip = xs => ys =>
+  tailRec((acc = [], i = 0) => { // TODO: replace with fold
     const x = xs[i], y = ys[i];
 
     if (x === undefined || y === undefined)
@@ -977,8 +977,8 @@ const arrZip = xs => ys => // TODO: use fold
   });
 
 
-const arrZipBy = f => xs => ys => // TODO: use fold
-  tailRec((acc = [], i = 0) => {
+const arrZipBy = f => xs => ys =>
+  tailRec((acc = [], i = 0) => { // TODO: replace with fold
     const x = xs[i], y = ys[i];
 
     if (x === undefined || y === undefined)
@@ -1971,7 +1971,7 @@ const strMatchAll = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.mat.tag) {
+      switch (tx.mat.tag) { // TODO: replace with match
         case "None": return Base(acc);
 
         case "Some": {
@@ -1999,7 +1999,7 @@ const strMatchLast = (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.mat.tag) {
+      switch (tx.mat.tag) { // TODO: replace with match
         case "None": return Base(acc);
 
         case "Some": {
@@ -2030,7 +2030,7 @@ const strMatchNth = nth_ => (r, flags) => s_ =>
     else {
       const tx = strMatch(r, flags) (s);
 
-      switch (tx.mat.tag) {
+      switch (tx.mat.tag) { // TODO: replace with match
         case "None": return Base(acc);
 
         case "Some": {
@@ -2642,7 +2642,7 @@ const strLens = (i, len) => // String is immutable hence no typeclass functions
     map(t => {
       const tx = strExtract(i, len) (s);
 
-      switch (tx.tag) {
+      switch (tx.tag) { // TODO: replace with match
         case "None": return t;
 
         case "Some":
@@ -4164,7 +4164,6 @@ module.exports = {
   arrZero,
   arrZip,
   arrZipBy,
-  arrZygo,
   ascOrder,
   ask,
   asks,
@@ -4186,7 +4185,6 @@ module.exports = {
   compMap,
   compOf,
   compOn,
-  concrat,
   Cons,
   Const,
   _const,
