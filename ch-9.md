@@ -501,6 +501,8 @@ take(10) (fibs); // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 
 `fibs` is codata, because it is an infinite stream of natural numbers. Corecursion is pull-based, that is the algorithm only produces a single value when needed. As opposed to that recursion is push-based, that is once started it continues until the base case is reached. 
 
+Maybe you have noticed that the Fibonacci sequence produced by the last example starts with `0`, whereas all recursive examples started with `1`. The former is actually the correct sequence and I merely am a bit sloppy with the the recursive examples to keep the implementations simple. I hope you do not mind!
+
 ### Recursion as a last resort
 
 As I have already mentioned at the beginning of this chapter recursion und corecursion are functional primitives. Functional programmers usually prefer I higher level of abstraxction to work with. Abstractions are a mixed blessing though: On the one hand they spare us a lot of details and reduce the mental load. But on the other hand you have to be familiar with these abstractions and be trained how to handle them effectively. Let us illustrate the issue by taking another look at the corecursive `fibs` function:
