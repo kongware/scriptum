@@ -44,8 +44,8 @@ The scriptum library is still experimental.
 5. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
 6. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
 7. Upcoming: Effects Encoded as Values (0% done)
-8. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-9. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-6.md)
+8. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-8.md)
+9. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 
 * Planned: CPS-Transformation and Local Continuation Passing Style <br/>
 * Planned: Random Access, Single Linked and Difference Lists <br/>
