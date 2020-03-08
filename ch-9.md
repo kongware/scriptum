@@ -566,4 +566,4 @@ It turns out that deriving `take`/`takeLast` from these folds is indeed a good i
 
 Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-8.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
