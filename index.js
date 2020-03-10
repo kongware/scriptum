@@ -232,38 +232,29 @@ const tailRec = f => (...args) => {
 ******************************************************************************/
 
 
-// TODO: revise
+const monadRec = step => {
+    while (step.tag !== Base)
+      step = step.f(...step.args);
 
-
-const Loop = f => (...args) =>
-  ({loop: true, f, args});
-
-
-const Loop_ = (f, ...args) =>
-  ({loop: true, f, args});
-
-
-const Done = x =>
-  ({loop: false, x});
-
-
-const monadRec = res => {
-    while (res.loop)
-      res = res.f(...res.args);
-
-    return res.x;
+    return step.x;
 };
 
 
-const loopOf = Done;
+/***[Monad]*******************************************************************/
 
 
-const loopChain = (tf, fm) => tf.loop
-  ? Loop_(args => loopChain(tf.f(...args), fm), tf.args)
-  : fm(tf.x);
+const recChain = tf => fm =>
+  tf.tag === Chain
+    ? Chain(args => recChain(tf.f(...args)) (fm)) (tf.args)
+    : fm(tf.x);
 
 
-/***[Tags]********************************************************************/
+const recOf = Base;
+
+
+/******************************************************************************
+***********************************[ TAGS ]************************************
+******************************************************************************/
 
 
 const Base = x =>
@@ -272,6 +263,10 @@ const Base = x =>
 
 const Call = (f, step) =>
   ({tag: Call, f, step});
+
+
+const Chain = f => (...args) =>
+  ({tag: Chain, f, args});
 
 
 const Step = (...args) =>
@@ -4212,7 +4207,6 @@ module.exports = {
   debug,
   delay,
   descOrder,
-  Done,
   dropper,
   dropperk,
   dropperNth,
@@ -4354,10 +4348,6 @@ module.exports = {
   listCons,
   local,
   log,
-  Loop,
-  Loop_,
-  loopChain,
-  loopOf,
   LT,
   mapEff,
   mapMap,
