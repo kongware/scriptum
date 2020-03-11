@@ -463,7 +463,46 @@ takeLast(3) ([1, 2, 3, 4, 5]); // [3, 4, 5]
 
 #### Mimicking indirect recursion
 
-TODO: add
+TODO: description
+
+Instead of `fib` I use the classic `even`/`odd` example, because the implementation is more natural and easer to follow:
+
+```javascript
+const monadRec = step => {
+    while (step.tag !== Base)
+      step = step.f(...step.args);
+
+    return step.x;
+};
+
+const Base = x =>
+  ({tag: Base, x});
+
+const Chain = f => (...args) =>
+  ({tag: Chain, f, args});
+
+const recChain = mx => fm =>
+  mx.tag === Chain
+    ? Chain(args => recChain(mx.f(...args)) (fm)) (mx.args)
+    : fm(mx.x);
+
+const recOf = Base;
+
+const even = Chain(n =>
+  n === 0
+    ? recOf(true)
+    : recChain(recOf(n - 1)) (m => odd(m)));
+
+const odd = Chain(n =>
+  n === 0
+    ? recOf(false)
+    : recChain(recOf(n - 1)) (m => even(m)));
+
+monadRec(even(10000)); // true
+
+monadRec(odd(10000)); // false
+```
+[runnable code](https://repl.it/repls/LawfulStaleAnalysts)
 
 ### Corecursion
 
