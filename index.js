@@ -243,10 +243,10 @@ const monadRec = step => {
 /***[Monad]*******************************************************************/
 
 
-const recChain = tf => fm =>
-  tf.tag === Chain
-    ? Chain(args => recChain(tf.f(...args)) (fm)) (tf.args)
-    : fm(tf.x);
+const recChain = mx => fm =>
+  mx.tag === Chain
+    ? Chain(args => recChain(mx.f(...args)) (fm)) (mx.args)
+    : fm(mx.x);
 
 
 const recOf = Base;
@@ -692,8 +692,8 @@ const arrMapEff = mapEff(arrMap);
 // arrApM @Derived
 
 
-const arrChain = fm =>
-  arrFold(acc => x => arrAppend(acc) (fm(x))) ([]);
+const arrChain = mx => fm =>
+  arrFold(acc => x => arrAppend(acc) (fm(x))) ([]) (mx);
 
 
 // arrJoin @Derived
@@ -1383,11 +1383,7 @@ const tryCatch = f => g => x => {
 /***[Monad]*******************************************************************/
 
 
-const funChain = fm => mg => x =>
-  fm(mg(x)) (x);
-
-
-const funChain_ = mg => fm => x =>
+const funChain = mg => fm => x =>
   fm(mg(x)) (x);
 
 
@@ -2334,7 +2330,7 @@ const contMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const contChain = fm => mx =>
+const contChain = mx => fm =>
   Cont(k => mx.cont(x => fm(x).cont(y => k(y))));
 
 
@@ -2559,7 +2555,7 @@ const lazyMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const lazyChain = fm => mx =>
+const lazyChain = mx => fm =>
   Lazy(() => fm(mx.lazy).lazy);
 
 
@@ -2823,19 +2819,20 @@ const optMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const optChain = fm => mx =>
+const optChain = mx => fm =>
   match("Option", mx, {
     None: _ => None,
     Some: ({some: x}) => fm(x)
   });
 
 
-const optChainT = ({chain, of}) => fmm => mmx => // TODO: fix
-  chain(mx =>
-    match("Option", mx, {
-      None: _ => of(None),
-      Some: ({some: x}) => fmm(x)
-    })) (mmx);
+const optChainT = ({chain, of}) => mmx => fmm =>
+  chain(mmx)
+    (mx =>
+      match("Option", mx, {
+        None: _ => of(None),
+        Some: ({some: x}) => fmm(x)
+      }));
 
 
 /******************************************************************************
@@ -3143,7 +3140,7 @@ const readMap = f => tg =>
 /***[Monad]********************************************************************/
 
 
-const readChain = fm => mg =>
+const readChain = mg => fm =>
   Reader(x => fm(mg.read(x)).read(x));
 
 
@@ -3158,7 +3155,8 @@ const ask = Reader(id);
 
 
 const asks = f =>
-  readChain(x => readOf(f(x))) (ask);
+  readChain(ask)
+    (x => readOf(f(x)));
 
 
 const local = f => tg =>
@@ -3258,7 +3256,7 @@ const stateMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const stateChain = fm => mx =>
+const stateChain = mx => fm =>
   State(y => {
     const [x, y_] = mx.state(y);
     return fm(x).state(y_);
@@ -3280,11 +3278,13 @@ const stateGet = State(y => [y, y]);
 
 
 const stateGets = f =>
-  stateChain(y => stateOf(f(x))) (stateGet);
+  stateChain(stateGet)
+    (y => stateOf(f(x)));
 
 
 const stateModify = f =>
-  stateChain(y => statePut(f(y))) (stateGet);
+  stateChain(stateGet)
+    (y => statePut(f(y)));
 
 
 const statePut = y => State(_ => [null, y]);
@@ -3369,13 +3369,13 @@ const tMap = f => tx =>
 /***[Monad]*******************************************************************/
 
 
-const tChain = fm => mx =>
+const tChain = mx => fm =>
   Task((res, rej) => mx.task(x => fm(x).task(res, rej), rej));
 
 
-const tChainT = ({chain, of}) => fm => mmx => // TODO: fix
-  chain(mx =>
-    of(tChain(fm) (mx))) (mmx);
+const tChainT = ({chain, of}) => mmx => fm => // TODO: fix
+  chain(mmx)
+    (mx => of(tChain(fm) (mx))); // invalid
 
 
 const tJoin = mmx =>
@@ -3525,7 +3525,7 @@ const writeMap = f => ({write: [x, y]}) =>
 /***[Monad]*******************************************************************/
 
 
-const writeChain = append => fm => ({write: [x, y]}) => {
+const writeChain = append => ({write: [x, y]}) => fm => {
   const [x_, y_] = fm(x).write;
   return Writer(x_, append(y) (y_));
 };
@@ -4258,7 +4258,6 @@ module.exports = {
   funAp,
   funAppend,
   funChain,
-  funChain_,
   funContra,
   funDimap,
   funEmpty,
