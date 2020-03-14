@@ -43,10 +43,9 @@ The scriptum library is still experimental.
 04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 05. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
 06. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
-07. Upcoming: Effects Encoded as Values (0% done)
-08. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-8.md)
-09. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-10.md)
+07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
+08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
+09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 
 * Planned: CPS-Transformation and Local Continuation Passing Style
 * Planned: Random Access, Single Linked and Difference Lists
