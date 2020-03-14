@@ -1,1 +1,0 @@
-## Effects Encoded as Values
