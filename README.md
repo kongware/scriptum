@@ -46,7 +46,7 @@ The scriptum library is still experimental.
 07. Upcoming: Effects Encoded as Values (0% done)
 08. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. Upcoming: Trading Stack for Heap with Trampolines (90% done)
+10. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-10.md)
 
 * Planned: CPS-Transformation and Local Continuation Passing Style
 * Planned: Random Access, Single Linked and Difference Lists
