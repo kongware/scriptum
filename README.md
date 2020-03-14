@@ -37,54 +37,55 @@ The scriptum library is still experimental.
 
 ## Functional programming course (TOC)
 
-1. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
-2. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
-3. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
-4. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
-5. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
-6. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
-7. Upcoming: Effects Encoded as Values (0% done)
-8. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-8.md)
-9. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-9.md)
+01. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
+02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
+04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
+05. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
+06. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
+07. Upcoming: Effects Encoded as Values (0% done)
+08. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-8.md)
+09. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-9.md)
+10. Upcoming: Trading Stack for Heap with Trampolines (90% done)
 
-* Planned: CPS-Transformation and Local Continuation Passing Style <br/>
-* Planned: Random Access, Single Linked and Difference Lists <br/>
-* Planned: Loop Fusion through Transducers <br/>
-* Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async <br/>
-* Planned: Mastering Tree Data Structures <br/>
-* Planned: Generalizing Folds and Unfolds with Recursion Schemes <br/>
-* Planned: Functional Error Handling and Debugging <br/>
-* Planned: Safly Using Imperative Iterators <br/>
-* Planned: Foldable and Unfoldable Typeclasses <br/>
-* Planned: Functor Typeclass <br/>
-* Planned: Applicative Functor Typeclass <br/>
-* Planned: Monad Typeclass <br/>
-* Planned: The Most Common Typeclasses <br/>
-* Planned: The Most Common Functional Types <br/>
-* Planned: Composing Effects with Monad Transformers<br/>
-* Planned: The Runtime - Edge of the Application <br/>
-* Planned: Type Wrappers for Improved Semantics<br/>
-* Planned: Immutabilty through Persistent Data Structures <br/>
-* Planned: Alleviating the Need for Mutability <br/>
-* Planned: From Sharing to Memoization <br/>
-* Planned: Delimited Continuations <br/>
-* Planned: Coroutines Backed by Delimited Continuations <br/>
-* Planned: Almost Pattern Matching through Unification <br/>
-* Planned: Functional Iso (Optics) <br/>
-* Planned: Functional Lenses (Optics) <br/>
-* Planned: Functional Prism (Optics) <br/>
-* Planned: Functional Optional (Optics) <br/>
-* Planned: Functional Traversals (Optics) <br/>
-* Planned: Functional Getters (Optics) <br/>
-* Planned: Functional Setters (Optics) <br/>
-* Planned: Functional Folds (Optics) <br/>
-* Planned: Encode DSLs with Free and Freer Monads <br/>
-* Planned: Encode DSLs with Tagless Final Encoding <br/>
-* Planned: Encode DSLs with ZIO <br/>
-* Planned: Adapted Hindley-Milner Type Annotations (Type Theory) <br/>
-* Planned: Nominal and Structural Typing and Polymorphism (Type Theory)<br/>
-* Planned: Higher Kinded and Higher Rank Types (Type Theory)<br/>
-* Planned: Functional Programming with Typescript <br/>
+* Planned: CPS-Transformation and Local Continuation Passing Style
+* Planned: Random Access, Single Linked and Difference Lists
+* Planned: Loop Fusion through Transducers
+* Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
+* Planned: Mastering Tree Data Structures
+* Planned: Generalizing Folds and Unfolds with Recursion Schemes
+* Planned: Functional Error Handling and Debugging
+* Planned: Safly Using Imperative Iterators
+* Planned: Foldable and Unfoldable Typeclasses
+* Planned: Functor Typeclass
+* Planned: Applicative Functor Typeclass
+* Planned: Monad Typeclass
+* Planned: The Most Common Typeclasses
+* Planned: The Most Common Functional Types
+* Planned: Composing Effects with Monad Transformers
+* Planned: The Runtime - Edge of the Application
+* Planned: Type Wrappers for Improved Semantics
+* Planned: Immutabilty through Persistent Data Structures
+* Planned: Alleviating the Need for Mutability
+* Planned: From Sharing to Memoization
+* Planned: Delimited Continuations
+* Planned: Coroutines Backed by Delimited Continuations
+* Planned: Almost Pattern Matching through Unification
+* Planned: Functional Iso (Optics)
+* Planned: Functional Lenses (Optics)
+* Planned: Functional Prism (Optics)
+* Planned: Functional Optional (Optics)
+* Planned: Functional Traversals (Optics)
+* Planned: Functional Getters (Optics)
+* Planned: Functional Setters (Optics)
+* Planned: Functional Folds (Optics)
+* Planned: Encode DSLs with Free and Freer Monads
+* Planned: Encode DSLs with Tagless Final Encoding
+* Planned: Encode DSLs with ZIO
+* Planned: Adapted Hindley-Milner Type Annotations (Type Theory)
+* Planned: Nominal and Structural Typing and Polymorphism (Type Theory)
+* Planned: Higher Kinded and Higher Rank Types (Type Theory)
+* Planned: Functional Programming with Typescript
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
 
