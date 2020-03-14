@@ -257,10 +257,10 @@ const recOf = Base;
 ******************************************************************************/
 
 
-const postRec = cont => {
+const postRec = tx => {
   do {
-    cont = cont.k(id);
-  } while (cont && cont.tag === "Cont")
+    tx = tx.cont(id);
+  } while (tx && tx.tag === "Cont")
 
   return cont;
 };
