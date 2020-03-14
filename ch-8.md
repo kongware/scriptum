@@ -331,4 +331,4 @@ Of course you can only comprehend this abstraction if you are familiar with `unf
 
 Bottom line recursion and corecursion are a last resort that we sometimes need when we have to deal with a very specific problem or rely on micro optimizations for a performance critical portion of our code. Otherwise we try to avoid the low level work and appreciate the blessing of higher abstractions.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-8.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-10.md)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-7.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-9.md)
