@@ -1,17 +1,15 @@
 ## Lazy Evaluation and WHNF in a Strictly Evaluated Setting
 
-### Lazy through implicit thunks
-
-### Lazy through expressions in WHNF
+Definition
 
 ### Lazy through explicit thunks
 
-### Lazy through functions and ETA abstraction
+### Lazy through functions and ETA abstractions
 
-### Lazy arguments through Function composition
+### Lazy through transparent thunks and WHNF
 
 ### Lazy through continuation passing style
 
 ### Lazy through streams
 
-### Sharing of evaluated values
+### Sharing of once computed expressions
