@@ -96,9 +96,9 @@ const fib = n =>
     m > 1
       ? Step(y, x + y, m - 1)
       : Base(x))
-          (1, 1, n);
+          (0, 1, n);
           
-fib(10); // 55
+fib(10); // 34
 ```
 [run code](https://repl.it/repls/ImmediatePuzzledRegisters)
 
