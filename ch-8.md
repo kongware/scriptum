@@ -239,17 +239,19 @@ The CPS version pursues the same computation strategy as the body recursive appr
 If function `foo` calls function `bar`, which calls function `bat`, which in turn calls `foo` again then all three involved functions are recursive, indirectly recursive to be precise. The following example is not very efficient and a bit contrived but serves the purpose to illustrate the mechanism:
 
 ```javascript
-const fib1 = n => fib(n - 1);
-const fib2 = n => fib(n - 2);
+const fib_ = n =>
+  n === 1
+    ? 1
+    : fib(n - 1);
 
 const fib = n =>
-  n > 1
-    ? fib1(n) + fib2(n)
-    : n;
+  n === 1
+    ? 0
+    : fib(n - 1) + fib_(n - 1);
 
-fib(10); // 55
+fib(10); // 34
 ```
-[run code](https://repl.it/repls/ExtraneousDecimalApplicationpackage)
+[run code](https://repl.it/repls/FlippantRedundantVisitor)
 
 Indirect recursion allows very elegant algorithms when working with tree data structures. We will look into such algorithms in the corresponding chapter of this course.
 
