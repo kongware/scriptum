@@ -240,16 +240,16 @@ If function `foo` calls function `bar`, which calls function `bat`, which in tur
 
 ```javascript
 const fib_ = n =>
-  n === 1
+  n < 1
     ? 1
     : fib(n - 1);
 
 const fib = n =>
-  n === 1
+  n < 1
     ? 0
     : fib(n - 1) + fib_(n - 1);
 
-fib(10); // 34
+fib(10); // 55
 ```
 [run code](https://repl.it/repls/FlippantRedundantVisitor)
 
