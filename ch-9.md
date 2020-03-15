@@ -172,7 +172,7 @@ Please note that the `rec` trampoline goes beyond TRMC by allowing the value con
 Instead of `fib` I use the classic `even`/`odd` example, because it can be expressed more naturally through an indirect recursive definition and is thus easer to comprehend:
 
 ```javascript
-const monadRec = step => {
+const mutuRec = step => {
     while (step.tag !== Base)
       step = step.f(...step.args);
 
@@ -182,34 +182,25 @@ const monadRec = step => {
 const Base = x =>
   ({tag: Base, x});
 
-const Chain = f => (...args) =>
-  ({tag: Chain, f, args});
+const Mutu = f => (...args) =>
+  ({tag: Mutu, f, args});
 
-const recChain = mx => fm =>
-  mx.tag === Chain
-    ? Chain(args => recChain(mx.f(...args)) (fm)) (mx.args)
-    : fm(mx.x);
-
-const recOf = Base;
-
-const even = Chain(n =>
+const even = Mutu(n =>
   n === 0
-    ? recOf(true)
-    : recChain(recOf(n - 1)) (m => odd(m)));
+    ? Base(true)
+    : odd(n - 1));
 
-const odd = Chain(n =>
+const odd = Mutu(n =>
   n === 0
-    ? recOf(false)
-    : recChain(recOf(n - 1)) (m => even(m)));
+    ? Base(false)
+    : even(n - 1));
 
-monadRec(even(10000)); // true
-monadRec(odd(10000)); // false
+mutuRec(even(1e5)); // true
+mutuRec(odd(1e5)); // false
 ```
-[runnable code](https://repl.it/repls/LawfulStaleAnalysts)
+[runnable code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
 
-As you can see the trampoline API for `monadRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this. 
-
-Please note that the name is no coincidence. `monadRec` is actually part of the `Trampoline` monad API and besides mutual recursion used for monadic recursion. We will learn more about monads in a subsequent chapter of this course.
+As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this.
 
 ### Making deferred nested function call trees stack safe
 
