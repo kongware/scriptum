@@ -198,7 +198,7 @@ const odd = Mutu(n =>
 mutuRec(even(1e5)); // true
 mutuRec(odd(1e5)); // false
 ```
-[runnable code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
+[run code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
 
 As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this.
 
