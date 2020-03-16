@@ -200,7 +200,7 @@ mutuRec(odd(1e5)); // false
 ```
 [run code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
 
-As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this.
+As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this. However, `even(1e5)` and `odd(1e5)` are lazy evaluated, i.e. we can fully define them and enforce their evaluation later when needed.
 
 ### Making deferred nested function call trees stack safe
 
