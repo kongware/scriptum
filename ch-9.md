@@ -61,17 +61,17 @@ Trampolines offer a functional interface to write pseudo-recursive algorithms, w
 const tailRec = f => (...args) => {
     let step = f(...args);
 
-    while (step.tag !== Base)
+    while (step.tag !== "Base")
       step = f(...step.args);
 
     return step.x;
 };
 
 const Base = x =>
-  ({tag: Base, x});
+  ({tag: "Base", x});
 
 const Step = (...args) =>
-  ({tag: Step, args});
+  ({tag: "Step", args});
 
 const fold = f => acc => xs =>
   tailRec((acc_, i) =>
@@ -111,7 +111,7 @@ const rec = f => (...args) => {
   let step = f(...args);
   const stack = [];
 
-  while (step.tag !== Base) {
+  while (step.tag !== "Base") {
     stack.push(step.f);
     step = f(...step.step.args);
   }
@@ -121,7 +121,7 @@ const rec = f => (...args) => {
   for (let i = stack.length - 1; i >= 0; i--) {
     r = stack[i] (r);
     
-    if (r && r.tag === Base) {
+    if (r && r.tag === "Base") {
       r = r.x;
       break;
     }
@@ -131,13 +131,13 @@ const rec = f => (...args) => {
 };
 
 const Base = x =>
-  ({tag: Base, x});
+  ({tag: "Base", x});
 
 const Call = (f, step) =>
-  ({tag: Call, f, step});
+  ({tag: "Call", f, step});
 
 const Step = (...args) =>
-  ({tag: Step, args});
+  ({tag: "Step", args});
 ```
 Now we are able to implement a right associative fold:
 
@@ -173,14 +173,14 @@ First I demonstrate indirect recursion using the the classic `even`/`odd` exampl
 
 ```javascript
 const mutuRec = step => {
-    while (step.tag !== Base)
+    while (step.tag !== "Base")
       step = step.f(...step.args);
 
     return step.x;
 };
 
 const Base = x =>
-  ({tag: Base, x});
+  ({tag: "Base", x});
 
 const Mutu = f => (...args) =>
   ({tag: Mutu, f, args});
