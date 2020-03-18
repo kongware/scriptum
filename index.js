@@ -192,7 +192,7 @@ const rec = f => (...args) => {
   let step = f(...args);
   const stack = [];
 
-  while (step.tag !== Base) {
+  while (step.tag !== "Base") {
     stack.push(step.f);
     step = f(...step.step.args);
   }
@@ -202,7 +202,7 @@ const rec = f => (...args) => {
   for (let i = stack.length - 1; i >= 0; i--) {
     r = stack[i] (r);
     
-    if (r && r.tag === Base) {
+    if (r && r.tag === "Base") {
       r = r.x;
       break;
     }
@@ -220,7 +220,7 @@ const rec = f => (...args) => {
 const tailRec = f => (...args) => {
     let step = f(...args);
 
-    while (step.tag !== Base)
+    while (step.tag !== "Base")
       step = f(...step.args);
 
     return step.x;
@@ -233,7 +233,7 @@ const tailRec = f => (...args) => {
 
 
 const monadRec = step => {
-    while (step.tag !== Base)
+    while (step.tag !== "Base")
       step = step.f(...step.args);
 
     return step.x;
@@ -244,7 +244,7 @@ const monadRec = step => {
 
 
 const recChain = mx => fm =>
-  mx.tag === Chain
+  mx.tag === "Chain"
     ? Chain(args => recChain(mx.f(...args)) (fm)) (mx.args)
     : fm(mx.x);
 
@@ -280,22 +280,22 @@ const postRec = tx => {
 
 
 const Base = x =>
-  ({tag: Base, x});
+  ({tag: "Base", x});
 
 
 const Call = (f, step) =>
-  ({tag: Call, f, step});
+  ({tag: "Call", f, step});
 
 
 const Chain = f => (...args) =>
-  ({tag: Chain, f, args});
+  ({tag: "Chain", f, args});
 
 
 const Mutu = Chain;
 
 
 const Step = (...args) =>
-  ({tag: Step, args});
+  ({tag: "Step", args});
 
 
 /******************************************************************************
