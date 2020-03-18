@@ -8,14 +8,20 @@ Lazy evaluation in the strict sense means that expressions are only evaluated
 
 In this chapter, however, I will use the term in a broader, less technical sense. Lazy is every mechanism that somehow suppresses the immediate evaluation of expressions.
 
-### Lazy through explicit thunks
+#### Normal order
 
-### Lazy through functions and ETA abstractions
+#### WHNF
 
-### Lazy through transparent thunks and WHNF
+#### Sharing
 
-### Lazy through continuation passing style
+### Lambda abstractions
 
-### Lazy through streams
+### Nullary functions
 
-### Sharing of once computed expressions
+### Thunks
+
+#### Infinite recursion
+
+#### Value recursion
+
+#### Forcing evaluation
