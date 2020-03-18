@@ -41,7 +41,7 @@ The scriptum library is still experimental.
 02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
-05. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (0% done)
+05. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (20% done)
 06. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
@@ -59,8 +59,9 @@ The scriptum library is still experimental.
 * Planned: Functor Typeclass
 * Planned: Applicative Functor Typeclass
 * Planned: Monad Typeclass
-* Planned: The Most Common Typeclasses
-* Planned: The Most Common Functional Types
+* Planned: Common Typeclasses
+* Planned: Common Functional Types
+* Planned: Respecting the Structure with Natural Transformations
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
 * Planned: Type Wrappers for Improved Semantics
