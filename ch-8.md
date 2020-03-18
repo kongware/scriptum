@@ -239,7 +239,7 @@ The CPS version pursues the same computation strategy as the body recursive appr
 If function `foo` calls function `bar`, which calls function `bat`, which in turn calls `foo` again then all three involved functions are recursive, indirectly recursive to be precise. The following example is not very efficient and a bit contrived but serves the purpose to illustrate the mechanism:
 
 ```javascript
-const fib_ = n =>
+const fibChild = n =>
   n < 1
     ? 1
     : fib(n - 1);
@@ -247,7 +247,7 @@ const fib_ = n =>
 const fib = n =>
   n < 1
     ? 0
-    : fib(n - 1) + fib_(n - 1);
+    : fib(n - 1) + fibChild(n - 1);
 
 fib(10); // 55
 ```
