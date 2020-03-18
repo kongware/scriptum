@@ -205,17 +205,20 @@ As you can see the trampoline API for `mutuRec` leaked into the calling site of 
 In order to make the mutual recursive Fibonacci algorithm stack safe using a suitable trampoline we have to apply a CPS transformation first to bring all recursive steps in tail position. I omit the CPS transformation step because we will examine this technique in a later chapter of this course:
 
 ```javascript
-const fib_ = Mutu((n, k) =>
+const fib = n =>
+  fibParent(n, x => Base(x));
+
+const fibChild = Mutu((n, k) =>
   n < 1
     ? k(1)
-    : fib(n - 1, k));
+    : fibParent(n - 1, k));
 
-const fib = Mutu((n, k) =>
+const fibParent = Mutu((n, k) =>
   n < 1
     ? k(0)
-    : fib(n - 1, m => fib_(n - 1, m_ => k(m + m_))));
+    : fibParent(n - 1, m => fibChild(n - 1, m_ => k(m + m_))));
 
-mutuRec(fib(10, x => Base(x))); // 55
+mutuRec(fib(10)); // 55
 ```
 [run code](https://repl.it/repls/RoughPoorButtons)
 
