@@ -6,6 +6,8 @@ Lazy evaluation in the strict sense means that expressions are only evaluated
 * at the leftmost, outermost level
 * once
 
+In this chapter, however, I will use the term in a broader, less technical sense. Lazy is every mechanism that somehow suppresses the immediate evaluation of expressions.
+
 ### Lazy through explicit thunks
 
 ### Lazy through functions and ETA abstractions
