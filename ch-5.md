@@ -3,7 +3,7 @@
 Lazy evaluation in the strict sense means that expressions are only evaluated
 
 * when needed
-* at leftmost outermost level
+* at the leftmost, outermost level
 * once
 
 ### Lazy through explicit thunks
