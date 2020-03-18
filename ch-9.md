@@ -169,7 +169,7 @@ Please note that the `rec` trampoline goes beyond TRMC by allowing the value con
 
 ### A trampoline that mimics indirect or mutual recursion
 
-Instead of `fib` I use the classic `even`/`odd` example, because it can be expressed more naturally through an indirect recursive definition and is thus easer to comprehend:
+First I demonstrate indirect recursion using the the classic `even`/`odd` example, because its implementation is more natural and thus easer to comprehend:
 
 ```javascript
 const mutuRec = step => {
@@ -201,6 +201,23 @@ mutuRec(odd(1e5)); // false
 [run code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
 
 As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this. However, `even(1e5)` and `odd(1e5)` are lazy evaluated, i.e. we can fully define them and enforce their evaluation later when needed.
+
+In order to make the mutual recursive Fibonacci algorithm stack safe using a suitable trampoline we have to apply a CPS transformation first to bring all recursive steps in tail position. I omit the CPS transformation step because we will examine this technique in a later chapter of this course:
+
+```javascript
+const fib_ = Mutu((n, k) =>
+  n < 1
+    ? k(1)
+    : fib(n - 1, k));
+
+const fib = Mutu((n, k) =>
+  n < 1
+    ? k(0)
+    : fib(n - 1, m => fib_(n - 1, m_ => k(m + m_))));
+
+mutuRec(fib(10, x => Base(x))); // 55
+```
+[run code](https://repl.it/repls/RoughPoorButtons)
 
 ### Making deferred nested function call trees stack safe
 
