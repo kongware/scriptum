@@ -6,13 +6,13 @@ Lazy evaluation in the strict sense means that expressions are only evaluated
 * just enough
 * once
 
-In this chapter, however, I will use the term in a broader, less technical sense. Lazy is every mechanism that somehow suppresses the immediate evaluation of expressions.
+In this chapter, however, I will use the term in a broader, less technical sense. Lazy is every mechanism that somehow suppresses the immediate evaluation of expressions. The next sections will discuss each point in detail.
 
-#### Normal vs. applicative order
+#### Normal order
 
 Applicative order is the common evaluation strategie of imperative and multi-paradigm languages. It evaluates all subexpressions passed to a function as its arguments right before the function is called.
 
-Normal order evaluaton passes argument subexpressions to functions as they are and proceeds with their evaluation only if the resuts are actually needed within the function body. Normal order corresponds to the first bullet of the above enumeration.
+Normal order evaluaton passes argument subexpressions to functions as they are and proceeds with their evaluation only if the resuts are actually needed within the function body:
 
 ```javascript
 const add = x => y => x + y;
@@ -38,7 +38,7 @@ foo + 1
 25 + 1
 26 // normal form
 ```
-#### Weak Head Normal Form
+#### Weak Head Normal Form (WHNF)
 
 Lazy evaluation also means to evaluate subexpressions just enough, that is to pause evaluation as early as possible. The evaluation can be paused when an expression has been evaluated to the outermost lambda abstraction. Such an expression in WHNF may contain unevaluated subexpressions. Taking the above example the add function call is in WHNF:
 
@@ -54,9 +54,21 @@ add(2 + 3)
 
 add(2 + 3) (4 * 5) + 1
 ```
-The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. WHNF is the technical term for the second bullet of the enumeration of at the beginning of this chapter.
+The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. Hence, the expressions requires further evaluation. Since the `+ 1` part forces the full evaluation of the preceding function call, the expression is evaluated to normal form instead of WHNF.
 
 #### Sharing
+
+Lazy evaluation would be very inefficient if it would have to evaluate the same subexpression each time it occurs in a function body. For that reason the result of once evaluated subexpressions is stored and shared within the same scope:
+
+```javascript
+const foo = x => [
+  x + x,
+  x - x,
+  x * x];
+  
+foo(2 + 3); // A
+```
+As soon as the evaluation is forced the subexpression `2 + 3` is evaluated once and than shared inside `foo`.
 
 ### Lambda abstractions
 
