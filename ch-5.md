@@ -169,7 +169,7 @@ main + 0; // logs 5, 20, 25 and yields 25
 ```
 [run code](https://repl.it/repls/FarawayImmediateSyntax)
 
-This is the example from the beginning and it seems to beahve in the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify how solid this approach is. As you can see we can mimic normal evaluation order and expressions in WHNF. Are once evaluated thunks shared across the same scope?
+This is the example from the beginning and it seems to behave in the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify how solid this approach is. As you can see we can mimic normal evaluation order and expressions in WHNF. Real lazy evaluation requires sharing. Can we deliver?
 
 ```javascript
 const add = x => y =>
