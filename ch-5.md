@@ -114,13 +114,13 @@ main(id); // 25
 
 With CPS we are able to compose arbitrarily complex compositions of deferred function calls.
 
-#### Description of operations
+### Description of operations
 
 What are the practical implications of this sort of lazyness?
 
-### Nullary functions
+### Nullary functions and real thunks
 
-### Simulating thunks
+#### Guarded recursion for free
 
 #### Infinite recursion
 
