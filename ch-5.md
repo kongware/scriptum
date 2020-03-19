@@ -148,11 +148,12 @@ class ProxyHandler {
   }
 }
 
-const log = x => (console.log("log", x), x);
-
 const thunk = f =>
   new Proxy(f, new ProxyHandler(f));
   
+const log = x =>
+  (console.log("log", x), x);
+
 const add = x => y =>
   thunk(() => log(x + y));
 
