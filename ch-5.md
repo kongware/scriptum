@@ -116,7 +116,7 @@ With CPS we are able to compose arbitrarily complex compositions of deferred fun
 
 ### Description of operations
 
-What are the practical implications of this sort of lazyness?
+What are the practical implications of this sort of lazyness? Instead of writing expressions that are immediately evaluated up to their normal form we write description of expressions whose time of evaluation is totally up to us. Taking over control of when an expression is evaluated is a big deal. Imagine the code we describe has side effects and is thus impure. Since our description is pure we are now able to defer these effects as long as possible until we actually run the description. Keeping most parts of our code pure is a very desirable property, because it facilitates to reason about the it.
 
 ### Nullary functions and real thunks
 
