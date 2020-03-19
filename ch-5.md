@@ -120,7 +120,7 @@ What are the practical implications of this sort of lazyness? Instead of writing
 
 ### Nullary functions and real thunks
 
-Javascript pursues an eager evaluation strategy and thus lacks WHNF.
+Javascript pursues an eager evaluation strategy and thus lacks lazy evaluation in the strict sense, namely normal order, WHNF and sharing.
 
 #### Guarded recursion for free
 
