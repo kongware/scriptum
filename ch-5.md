@@ -160,7 +160,7 @@ const mul = x => y =>
   thunk(() => log(x * y));
 
 const main = add(add(2) (3)) (mul(4) (5)); // WHNF
-//               ^^^^^^^^^^   ^^^^^^^^^^^ not immdiately evaluated
+//               ^^^^^^^^^^   ^^^^^^^^^^^ not immediately evaluated
 
 // nothing logged yet!
 
