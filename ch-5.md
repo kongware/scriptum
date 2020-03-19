@@ -114,7 +114,7 @@ main(id); // 25
 
 With CPS we are able to compose arbitrarily complex compositions of deferred function calls.
 
-### Description of operations
+### Description of expressions
 
 What are the practical implications of this sort of lazyness? Instead of writing expressions that are immediately evaluated up to their normal form we write description of expressions whose time of evaluation is totally up to us. Taking over control of when an expression is evaluated is a big deal. Imagine the code we describe is impure and will thus perform side effects once actually run. Since our description itself remains pure we are now able to defer these effects as long as possible. Keeping most parts of our code pure is a very desirable property, because it reduce the mental load to reason about it.
 
