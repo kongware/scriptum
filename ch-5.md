@@ -45,10 +45,14 @@ Lazy evaluation also means to evaluate subexpressions just enough, that is to pa
 ```javascript
 // hypothetical WHNF in Javascript
 
-add(2 + 3) (4 * 5) // WHNF
-add(2 + 3) // also WHNF
+// WHNF
 
-add(2 + 3) (4 * 5) + 1 // not in WHNF
+add(2 + 3) (4 * 5)
+add(2 + 3)
+
+// not in WHNF
+
+add(2 + 3) (4 * 5) + 1
 ```
 The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. WHNF is the technical term for the second bullet of the enumeration of at the beginning of this chapter.
 
