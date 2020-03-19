@@ -6,7 +6,7 @@ Lazy evaluation in the strict sense means that expressions are only evaluated
 * just enough
 * once
 
-In this chapter, however, I will use the term in a broader, less technical sense. Lazy is every mechanism that somehow suppresses the immediate evaluation of expressions. The next sections will discuss each point in detail.
+The next sections will discuss each point in detail. Please note that we will later on also look at lazyness from a different angle and discuss it in a broader, less technical sense.
 
 #### Normal order
 
@@ -58,7 +58,7 @@ The expression in the last line is not in WHNF, because the outermost level is n
 
 #### Sharing
 
-Lazy evaluation would be very inefficient if it would have to evaluate the same subexpression each time it occurs in a function body. For that reason the result of once evaluated subexpressions is stored and shared within the same scope:
+Lazy evaluation would be very inefficient if it had to evaluate the same subexpression each time it occurs in a function body. For that reason the result of once evaluated subexpressions is stored and shared within the same scope:
 
 ```javascript
 const foo = x => [
@@ -71,6 +71,48 @@ foo(2 + 3); // A
 As soon as the evaluation is forced the subexpression `2 + 3` is evaluated once and than shared inside `foo`.
 
 ### Lambda abstractions
+
+When we talk about lazy evaluation in a broader sense then functions can be regarded as inherently lazy, because they are only evaluated when needed, namely when the required arguments are provided:
+
+```javascript
+const add = x => y => x + y,
+  add2 = add(2);
+```
+#### Function composition
+
+Pursuing this perspective function composition allows lazy evaluated arguments:
+
+```javascript
+const comp f => g =>
+  x => f(g(x));
+//       ^^^^  
+```
+`f`'s argument `g(x)` is only evaluated when `x` is provided.
+
+#### Continuation passing style
+
+Can we render function composition even more lazy?
+
+```javascript
+const compk = f => g => x => k =>
+  k(f(g(x)));
+  
+const inc = x => x + 1;
+
+const sqr = x => x * x;
+
+const id = x => x;
+
+const main = compk(
+  sqr) (inc) (4);
+
+// main is still unevaluated
+
+main(id); // 25
+```
+[run code](https://repl.it/repls/AppropriateBestObjectmodel)
+
+With CPS we are able to compose arbitrarily complex compositions of deferred function calls.
 
 ### Nullary functions
 
