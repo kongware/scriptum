@@ -42,14 +42,14 @@ foo + 1
 
 Lazy evaluation also means to evaluate subexpressions just enough, that is to pause evaluation as early as possible. The evaluation can be paused when an expression has been evaluated to the outermost lambda abstraction. Such an expression in WHNF may contain unevaluated subexpressions. Taking the above example the add function call is in WHNF:
 
-``javascript
+```javascript
 // hypothetical WHNF in Javascript
 
 add(2 + 3) (4 * 5) // WHNF
 add(2 + 3) // also WHNF
 
 add(2 + 3) (4 * 5) + 1 // not in WHNF
-````
+```
 The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. WHNF is the technical term for the second bullet of the enumeration of at the beginning of this chapter.
 
 #### Sharing
