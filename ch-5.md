@@ -62,7 +62,7 @@ The expression in the last line is not in WHNF, because the outermost level is n
 
 ### Nullary functions
 
-### Thunks
+### Simulating thunks
 
 #### Infinite recursion
 
