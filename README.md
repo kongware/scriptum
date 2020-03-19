@@ -13,7 +13,7 @@ As it turned out all we need to get there is...
 * first class functions
 * a mechanism to allow expressions to be in weak head normal form
 
-It is remarkable how many purely functional idioms we can express with these two.
+It is remarkable how many purely functional idioms we can express with these two requirements.
 
 ## Who
 
