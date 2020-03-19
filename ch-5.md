@@ -120,7 +120,71 @@ What are the practical implications of this sort of lazyness? Instead of writing
 
 ### Nullary functions and real thunks
 
-Javascript pursues an eager evaluation strategy and thus lacks lazy evaluation in the strict sense, namely normal order, WHNF and sharing.
+Javascript pursues an eager evaluation strategy and thus lacks lazy evaluation in the strict sense, namely normal order, WHNF and sharing. Usually people use nullary functions to create a similar effect:
+
+```javascript
+const comp = f => g => x =>
+  () => f(g(x));
+```
+This functions without arguments are also referred to as thunks in Javascript. Nullary functions are infectious, that is other functions have to be aware of and handle them appropriately. Can we do better? `Proxy` to the rescue:
+
+```javascript
+// simplified version
+
+class ProxyHandler {
+  constructor(f) {
+    this.f = f;
+    this.memo = undefined;
+  }
+
+  get(g, k) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    if (typeof this.memo[k] === "function")
+      return this.memo[k].bind(this.memo);
+
+    else return this.memo[k];
+  }
+}
+
+const log = x => (console.log("log", x), x);
+
+const thunk = f =>
+  new Proxy(f, new ProxyHandler(f));
+  
+const add = x => y =>
+  thunk(() => log(x + y));
+
+const mul = x => y =>
+  thunk(() => log(x * y));
+
+const main = add(add(2) (3)) (mul(4) (5)); // WHNF
+//               ^^^^^^^^^^   ^^^^^^^^^^^ not immdiately evaluated
+
+// nothing logged yet!
+
+main + 0; // logs 5, 20, 25 and yields 25
+```
+[run code](https://repl.it/repls/FarawayImmediateSyntax)
+
+This is the example from the beginning and it seems to beahve in the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify how solid this approach is. As you can see we can mimic normal evaluation order and expressions in WHNF. Are once evaluated thunks shared across the same scope?
+
+```javascript
+const add = x => y =>
+  thunk(() => log(x + y));
+
+const foo = x => [
+  x + x,
+//^ at this point the thunk x is once evaluated and shared afterwards
+  x - x,
+  x * x];
+  
+foo(add(2) (3)); // logs 5 once and yields [10, 0, 25]
+```
+[run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
+
+The result of evaluating the thunk is shared indeed!
 
 #### Guarded recursion for free
 
