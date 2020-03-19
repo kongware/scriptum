@@ -19,24 +19,24 @@ const add = x => y => x + y;
 
 const foo = add(2 + 3) (4 * 5); // A
                 ^^^^^   ^^^^^
-const main = foo + 1; // B
+const main = foo + 0; // B
 ```
 With normal evaluation order both subexpressions are not evaluated but passed to `add` as is (line `A`). However, in line `B` the evaluation is forced, because the result of the addition is needed. Let us further look into the evaluation process:
 
 ```javascript
 // hypothetical normal evaluation order in Javascript
 
-foo + 1
+foo + 0
 
 // first add's body is inlined with the unevaluated arguments
 
-((2 + 3) + (4 * 5)) + 1
+((2 + 3) + (4 * 5)) + 0
 
 // then the resulting expression is further reduced to normal form
 
-(5 + 20) + 1
-25 + 1
-26 // normal form
+(5 + 20) + 0
+25 + 0
+25 // normal form
 ```
 #### Weak Head Normal Form (WHNF)
 
