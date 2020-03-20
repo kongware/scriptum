@@ -133,6 +133,10 @@ const thunk = f =>
   new Proxy(f, new ProxyHandler(f));
 
 
+const strict = thunk =>
+  thunk.valueOf();
+
+
 /******************************************************************************
 *******************************************************************************
 ***************************[ ALGEBRAIC DATA TYPES ]****************************
@@ -4534,6 +4538,7 @@ module.exports = {
   strExtract,
   strExtractOr,
   strFold,
+  strict,
   strInsert,
   strLen,
   strLens,
