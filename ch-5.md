@@ -189,6 +189,8 @@ The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation i
 
 #### Guarded recursion for free
 
+Guarded recursion pauses the evaluation after an expression is reduced to WHNF and is thus stack safe:
+
 ```javascript
 const foldr = f => acc => ([x, ...xs]) =>
   x === undefined
@@ -212,6 +214,8 @@ const cons = head => tail => [head, tail];
 const xs = Array(1e6).fill(0).map((_, i) => i + 1);
 
 const main = foldr(cons) ([]) (xs); // WHNF
+
+const main2 = foldr(add) ([]) (xs); // exhausts the stack
 
 take(3) (main); // [1, 2, 3]
 ```
