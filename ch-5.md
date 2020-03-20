@@ -209,7 +209,7 @@ const arrAppend = xs => ys =>
 
 const cons = head => tail => [head, tail];
 
-const xs = [1, 2, 3, 4, 5];
+const xs = Array(1e6).fill(0).map((_, i) => i + 1);
 
 const main = foldr(cons) ([]) (xs); // WHNF
 
