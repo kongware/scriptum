@@ -109,9 +109,6 @@ class ProxyHandler {
     else if (k === "valueOf")
       return () => this.memo;
 
-    else if (typeof this.memo[k] === "function")
-      return this.memo[k].bind(this.memo);
-
     else return this.memo[k];
   }
 
