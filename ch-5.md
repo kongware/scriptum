@@ -231,6 +231,35 @@ take(3) (main); // [1, 2, 3]
 
 #### Infinite recursion
 
+```javascript
+const fix = f => thunk(() => f(fix(f)));
+
+const fact = fix(go => n =>
+  n === 0
+    ? 1
+    : n * go(n - 1));
+    
+fact(5); // 120
+```
+[run code](https://repl.it/repls/MurkyDetailedAutosketch)
+
 #### Value recursion
 
+```javascript
+const fibs = [0, [1, thunk(() => {
+  const next = ([x, [y, ys]]) =>
+    [x + y, thunk(() => next([y, ys]))];
+
+  return next(fibs);
+})]];
+
+fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
+```
+[run code](https://repl.it/repls/WiltedDarkseagreenCoolingfan)
+
 #### Forcing evaluation
+
+```javascript
+strict = thunk =>
+  thunk.valueOf();
+```
