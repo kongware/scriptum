@@ -188,7 +188,7 @@ foo(add(2) (3)); // logs 5 once and yields [10, 0, 25]
 ```
 [run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
 
-The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation is not an end in itself though. In which scenarios we can benefit from this evaluation strategy?
+The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation is not an end in itself though. How can we benefit from this in practice?
 
 #### Guarded recursion for free
 
@@ -228,6 +228,8 @@ take(3) (main); // [1, 2, 3]
 
 #### Infinite recursion
 
+We can define a recursive algorithm that is reduced until the outmost level hits WHNF. Then the evaluation stops which allows us to express infinite recursion that does not exhaust the stack:
+
 ```javascript
 const fix = f => thunk(() => f(fix(f)));
 
@@ -242,6 +244,8 @@ fact(5); // 120
 
 #### Value recursion
 
+Value recursion is infinite by design and thus requires WHNF:
+
 ```javascript
 const fibs = [0, [1, thunk(() => {
   const next = ([x, [y, ys]]) =>
@@ -255,6 +259,8 @@ fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
 [run code](https://repl.it/repls/WiltedDarkseagreenCoolingfan)
 
 #### Forcing evaluation
+
+The mechanism we use to mimic lazy evaluation in Javascripts works on demand whereas the default is still eagerly evaluated. Yet there might be some rare situations where we sometimes want a lazy and sometimes a eager evaluation strategy. The following combinator forces further evaluation of expressions in WHNF:
 
 ```javascript
 const strict = thunk =>
