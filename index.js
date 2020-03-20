@@ -741,11 +741,11 @@ const arrEmpty = () => [];
 
 
 const arrAppend = xs => ys =>
-  xs.push.apply(xs, ys);
+  (xs.push.apply(xs, ys), xs);
 
 
 const arrPrepend = ys => xs =>
-  xs.push.apply(xs, ys);
+  (xs.push.apply(xs, ys), xs);
 
 
 /***[Transduce]***************************************************************/
