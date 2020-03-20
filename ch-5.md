@@ -185,9 +185,36 @@ foo(add(2) (3)); // logs 5 once and yields [10, 0, 25]
 ```
 [run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
 
-The result of evaluating the thunk is shared indeed!
+The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation is not an end in itself though. In which scenarios we can benefit from this evaluation strategy?
 
 #### Guarded recursion for free
+
+```javascript
+const foldr = f => acc => ([x, ...xs]) =>
+  x === undefined
+    ? acc
+    : f(x) (thunk(() => foldr(f) (acc) (xs))); // guarded recursion
+
+const take = n => xs => {
+  const go = (acc, [y, ys]) =>
+    y === undefined || acc.length === n
+      ? acc
+      : go(arrAppend(acc) ([y]), ys);
+
+  return go([], xs);
+};
+
+const arrAppend = xs => ys =>
+  (xs.push.apply(xs, ys), xs);
+
+const cons = head => tail => [head, tail];
+
+const xs = [1, 2, 3, 4, 5];
+
+const main = foldr(cons) ([]) (xs); // WHNF
+
+take(3) (main); // [1, 2, 3]
+```
 
 #### Infinite recursion
 
