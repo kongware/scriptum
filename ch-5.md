@@ -211,9 +211,11 @@ const arrAppend = xs => ys =>
 
 const cons = head => tail => [head, tail];
 
-const xs = Array(1e6).fill(0).map((_, i) => i + 1);
+const add = x => y => x + y;
 
-const main = foldr(cons) ([]) (xs); // WHNF
+const xs = Array(1e4).fill(0).map((_, i) => i + 1);
+
+const main = foldr(cons) ([]) (xs); // stack safe due to WHNF
 
 const main2 = foldr(add) ([]) (xs); // exhausts the stack
 
