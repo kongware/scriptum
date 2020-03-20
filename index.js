@@ -103,7 +103,13 @@ class ProxyHandler {
     if (this.memo === undefined)
       this.memo = g();
 
-    if (typeof this.memo[k] === "function")
+    if (k === Symbol.toPrimitive)
+      return () => this.memo;
+
+    else if (k === "valueOf")
+      return () => this.memo;
+
+    else if (typeof this.memo[k] === "function")
       return this.memo[k].bind(this.memo);
 
     else return this.memo[k];
