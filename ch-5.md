@@ -215,6 +215,7 @@ const main = foldr(cons) ([]) (xs); // WHNF
 
 take(3) (main); // [1, 2, 3]
 ```
+[run code](https://repl.it/repls/ShadowyFlimsySmalltalk)
 
 #### Infinite recursion
 
