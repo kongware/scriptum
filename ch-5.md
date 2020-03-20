@@ -189,7 +189,7 @@ The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation i
 
 #### Guarded recursion for free
 
-Guarded recursion pauses the evaluation after an expression is reduced to WHNF and is thus stack safe:
+Guarded recursion pauses the evaluation after an expression is reduced to WHNF and is thus stack safe, provided the binary operator is non-strict in its second argument:
 
 ```javascript
 const foldr = f => acc => ([x, ...xs]) =>
