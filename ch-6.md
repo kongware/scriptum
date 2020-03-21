@@ -37,6 +37,8 @@ The functional paradigm does not have a notion of dependency injection in the or
 
 ### General Algebraic Data Types (GADT)
 
+Algebraic data types can be combined out of simpler existing types to form more complex composite types. It is not an coincidence that this resembles function composition. Composition is ubiquitous in the functional paradigm. What kind of GADTs can be distinguished?
+
 #### Sum types
 
 #### Product types
