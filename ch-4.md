@@ -413,4 +413,4 @@ lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
 
 It is an arity aware combinator, that is there is a corresponding version for each arity. Arity aware combinators are usually avoided in functional programming, since they cause a lot of code repetition.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-8.md) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-5.md)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-3.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-5.md)
