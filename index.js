@@ -159,7 +159,7 @@ const record = (type, o) =>
 
 
 const union = type => (tag, o) =>
-  (o[TYPE] = type.name || type, o.tag = tag.name || tag, o);
+  (o[TYPE] = type, o.tag = tag.name || tag, o);
 
 
 /***[Elimination Rule]********************************************************/
