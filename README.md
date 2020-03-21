@@ -41,7 +41,7 @@ The scriptum library is still experimental.
 02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
-05. Upcoming: Lazy Evaluation and WHNF in a Strictly Evaluated Setting (90% done)
+05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 06. Upcoming: GADTs, Functional Data Modelling and Data Dependencies (0% done)
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
