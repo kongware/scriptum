@@ -88,6 +88,9 @@ The scriptum library is still experimental.
 * Planned: Functional Programming with Typescript
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
+* Planned: Functional Reactive Programming
+* Planned: Event Sourcing and Stores
+* Planned: Conflict-free Replicated Data Types
 
 ## Important/controversial issues
 
