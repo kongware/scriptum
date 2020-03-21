@@ -54,47 +54,66 @@ const Bool = union("Bool"); // type constructor
 const True = Bool("True", {});
 const False = Bool("False", {});
 ```
-`Bool` can either be `True` or `False`. It is inhabited by two possible values. Since it is a sum type the underlying algebra is `1 + 1`.
+`Bool` can either be `True` or `False`. It is inhabited by two possible values. We can alternatively use the algebraic notation `1 + 1` to represent it.
 
 ```javascript
-const These_ = union("These");
+const Option = union("Option"); // type constructor
 
-const This = _this => These_("This", {this: _this});
-const That = that => These_("That", {that});
-const These = these => These_("These", {these});
+// value constructors
+
+const None = Option("None", {});
+const Some = some => Option("Some", {some});
 ```
+`Option` can either be `None` or `Some<a>`. This corresponding algebraic notation is `1 + a`. `None` is a nullary value constructor whereas `Some` is a unary one. The cardinality of a type thus depends on the arity of the involved value constructors.
 
 #### Product types
 
+A product type has only one shape and contains several data fields:
+
+```javascript
+const record = (type, o) =>
+  (o[TYPE] = type.name || type, o);
+
+const Point = x => y => record("Point", {x, y});
+
+Point(1) (2); // Point {x: 1, y, 2}
+```
+`Point<a, a>` contains two fields. The corresponding algebraic notation is `a * a`, i.e. its cardinality is calculated from the product of these fields.
+
 #### Other algebraic types
-
-#### The algebra of GADTs
-
-* composite type
-* product type (tuples/records)
-* sum type (tagged union)
-* product type has fields
-* sum type has variants
-* sums of products
-* products encode hierarchies
-* sums encode alternatives
-* sums of products encode alternative hierarchies
 
 * Void (0)
 * Unit (1)
-* Sum (a + b)
-+ Prod (a * b)
 * Functon (a^b)
+
+#### Does the algebra hold?
 
 * Sum<Void | Unit> ~ Unit (0 + 1 = 1)
 * Prod<Void & Unit> ~ Void (0 * 1 = 0)
 
+### Pattern matching
+
+* product type has fields
+* sum type has variants
 * type vs data constrcutor
 * type level vs term level
 * parameterized types
 * type variables
 * cardinality
 
-### Pattern matching
-
 ### Modeling alternatives of hierarchies
+
+* sums of products
+* products encode hierarchies
+* sums encode alternatives
+
+```javascript
+const These_ = union("These"); // type constructor
+
+// value constructors
+
+const This = _this => These_("This", {this: _this});
+const That = that => These_("That", {that});
+const These = _this => that => These_("These", {this: _this, that});
+```
+`These` can either be `This<a>` or `That<b>` or `These<a, b>`. This corresponds to `a + b + a * b`.
