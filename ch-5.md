@@ -179,7 +179,7 @@ Please note that this is the example from the beginning of this chapter. It seem
 
 ```javascript
 const log = x =>
-  (console.log("log", x), x);
+  (console.log("evaluating x to", x), x);
 
 const add = x => y =>
   thunk(() => log(x + y));
@@ -188,18 +188,17 @@ const mul = x => y =>
   thunk(() => x * y);
 
 const foo = x => [
-  x + x,
-//^ at this point x is once evaluated
+  x + x, // x is needed to process the operation
   x - x,
-  mul(x) (x)];
+  mul(x) (x)]; // the result of the multiplication is not needed yet
   
-const main = foo(add(2) (3)); // logs "log 5" onece and yields [10, 0, thunk]
+const main = foo(add(2) (3)); // logs "evaluating x to 5" only once and yields [10, 0, thunk]
 
 main.map(x => -x); // forces evaluation of the thunk and yields [-10, -0, -25]
 ```
 [run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
 
-`foo` evaluates its argument only when needed, i.e. it pursues normal evalutaion order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates the subexpression in `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
+`foo` evaluates its argument only when needed after the actual function invocation, i.e. it pursues normal evalutaion order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates its argument `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
 
 Mimicking lazy evaluation is not an end in itself though. How can we benefit from this in practice?
 
