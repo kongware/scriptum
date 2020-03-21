@@ -115,19 +115,21 @@ main(id); // 25
 
 With CPS we are able to compose arbitrarily complex compositions of deferred function call trees.
 
-### Description of expressions
+### Description of code
 
-What are the practical implications of this sort of lazyness? Instead of writing expressions that are immediately evaluated up to their normal form we write description of expressions whose time of evaluation is totally up to us. Taking over control of when an expression is evaluated is a big deal. Imagine the code we describe is impure and will thus perform side effects once actually run. Since our description itself remains pure we are now able to defer these effects as long as possible. Keeping most parts of our code pure is a very desirable property, because it reduce the mental load to reason about it.
+What does this inherently deferring effect of functions buys us? Instead of writing expressions and statements that are immediately evaluated up to their normal form we are able to express descriptions of code whose evaluation time is totally up to us. Taking back control over the evaluation time is a big deal.
+
+Imagine impure code, which will perform side effects when run. If we merely describe such impure code the description itself remains pure and the effects are deferred to the edge of our program. Keeping most parts of our code pure is a very desirable property, because it reduces the mental load to reason about it.
 
 ### Nullary functions and real thunks
 
-Javascript pursues an eager evaluation strategy and thus lacks lazy evaluation in the strict sense, namely normal order, WHNF and sharing. Usually people use nullary functions to create a similar effect:
+Javascript pursues an eager evaluation strategy and thus lacks lazy evaluation. Usually people fall back to nullary functions to obtain  similar behavior:
 
 ```javascript
 const comp = f => g => x =>
   () => f(g(x));
 ```
-This functions without arguments are also referred to as thunks in Javascript. Nullary functions are infectious, that is other functions have to be aware of and handle them appropriately. Can we do better? `Proxy` to the rescue:
+Nullary functions are also referred to as thunks in Javascript. They are infectious, that is other functions have to be aware of and handle them appropriately. Can we render lazy evaluated code less laborious? `Proxy` to the rescue:
 
 ```javascript
 // simplified version
@@ -173,23 +175,33 @@ main + 0; // logs 5, 20, 25 and yields 25
 ```
 [run code](https://repl.it/repls/FarawayImmediateSyntax)
 
-This is the example from the beginning and it seems to behave in the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify how solid this approach is. As you can see we can mimic normal evaluation order and expressions in WHNF. Real lazy evaluation requires sharing. Can we deliver?
+Please note that this is the example from the beginning of this chapter. It seems to behave the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify whether we meet all three requirements of lazy evaluation, namely normal order, WHNF and sharing:
 
 ```javascript
+const log = x =>
+  (console.log("log", x), x);
+
 const add = x => y =>
   thunk(() => log(x + y));
 
+const mul = x => y =>
+  thunk(() => x * y);
+
 const foo = x => [
   x + x,
-//^ at this point the thunk x is once evaluated and shared afterwards
+//^ at this point x is once evaluated
   x - x,
-  x * x];
+  mul(x) (x)];
   
-foo(add(2) (3)); // logs 5 once and yields [10, 0, 25]
+const main = foo(add(2) (3)); // logs "log 5" onece and yields [10, 0, thunk]
+
+main.map(x => -x); // forces evaluation of the thunk and yields [-10, -0, -25]
 ```
 [run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
 
-The result of evaluating the thunk is shared indeed! Mimicking lazy evaluation is not an end in itself though. How can we benefit from this in practice?
+`foo` evaluates its argument only when needed, i.e. it pursues normal evalutaion order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates the subexpression in `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
+
+Mimicking lazy evaluation is not an end in itself though. How can we benefit from this in practice?
 
 #### Guarded recursion for free
 
