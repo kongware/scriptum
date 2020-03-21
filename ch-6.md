@@ -125,3 +125,5 @@ const That = that => These_(That, {that});
 const These = _this => that => These_(These, {this: _this, that});
 ```
 `These` can either be `This<a>` or `That<b>` or `These<a, b>`. This corresponds to `a + b + a * b`.
+
+### Lazy properties
