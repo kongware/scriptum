@@ -1,31 +1,31 @@
-## Lazy Evaluation and WHNF in a Strictly Evaluated Setting
+## Lazy Evaluation on Demand
 
-Lazy evaluation in the strict sense means that expressions are only evaluated
+Lazy evaluation means that expressions are evaluated
 
-* when needed
+* only when needed
 * just enough
-* once
+* only once
 
-The next sections will discuss each point in detail. Please note that we will later on also look at lazyness from a different angle and discuss it in a broader, less technical sense.
+The next sections will discuss each point in detail.
 
-#### Normal order
+#### Normal order evaluation
 
 Applicative order is the common evaluation strategie of imperative and multi-paradigm languages. It evaluates all subexpressions passed to a function as its arguments right before the function is called.
 
-Normal order evaluaton passes argument subexpressions to functions as they are and proceeds with their evaluation only if the resuts are actually needed within the function body:
+Normal order evaluation passes argument subexpressions to functions as they are and proceeds with their evaluation only if the resuts are actually needed within the function body:
 
 ```javascript
+// hypothetical normal evaluation order in Javascript
+
 const add = x => y => x + y;
 
 const foo = add(2 + 3) (4 * 5); // A
-                ^^^^^   ^^^^^
+                ^^^^^   ^^^^^ subexpressions
 const main = foo + 0; // B
 ```
 With normal evaluation order both subexpressions are not evaluated but passed to `add` as is (line `A`). However, in line `B` the evaluation is forced, because the result of the addition is needed. Let us further look into the evaluation process:
 
 ```javascript
-// hypothetical normal evaluation order in Javascript
-
 foo + 0
 
 // first add's body is inlined with the unevaluated arguments
@@ -40,7 +40,7 @@ foo + 0
 ```
 #### Weak Head Normal Form (WHNF)
 
-Lazy evaluation also means to evaluate subexpressions just enough, that is to pause evaluation as early as possible. The evaluation can be paused when an expression has been evaluated to the outermost lambda abstraction. Such an expression in WHNF may contain unevaluated subexpressions. Taking the above example the add function call is in WHNF:
+Lazy evaluation also means to evaluate subexpressions just enough, that is to pause evaluation as early as possible. An expression need not to be further reduced when the outermost level is a lambda abstraction. Such an expression is in WHNF, that is it may contain unevaluated subexpressions referred to as thunks. Taking the above example the add function call is in WHNF:
 
 ```javascript
 // hypothetical WHNF in Javascript
@@ -54,7 +54,7 @@ add(2 + 3)
 
 add(2 + 3) (4 * 5) + 1
 ```
-The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. Hence, the expressions requires further evaluation. Since the `+ 1` part forces the full evaluation of the preceding function call, the expression is evaluated to normal form instead of WHNF.
+The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. Hence the expressions requires further reduction. Since the `+` operator eagerly requires both operands to be fully evaluated the preceding `add` function call is forced to normal form.
 
 #### Sharing
 
@@ -66,13 +66,13 @@ const foo = x => [
   x - x,
   x * x];
   
-foo(2 + 3); // A
+foo(2 + 3);
 ```
-As soon as the evaluation is forced the subexpression `2 + 3` is evaluated once and than shared inside `foo`.
+The invocation of `foo` triggers the evaluation of `2 + 3` only once, even though it is used six times.
 
 ### Lambda abstractions
 
-When we talk about lazy evaluation in a broader sense then functions can be regarded as inherently lazy, because they are only evaluated when needed, namely when the required arguments are provided:
+As we have seen lazyness defers the evaluation of subexpressions. When we squint hard enough this also applies to ordinary functions, because they are only evaluated when the required arguments are provided. As a consequence of this inherently deferring effect of functions we are able to partially apply them:
 
 ```javascript
 const add = x => y => x + y,
@@ -80,22 +80,23 @@ const add = x => y => x + y,
 ```
 #### Function composition
 
-Pursuing this perspective function composition allows lazy evaluated arguments:
+Pursuing this perspective function composition allows a deferring effect on the outer function's argument:
 
 ```javascript
 const comp f => g =>
   x => f(g(x));
-//       ^^^^  
+//       ^^^^ deferring effect
 ```
 `f`'s argument `g(x)` is only evaluated when `x` is provided.
 
 #### Continuation passing style
 
-Can we render function composition even more lazy?
+Can we defer function composition even further?
 
 ```javascript
 const compk = f => g => x => k =>
   k(f(g(x)));
+//  ^^^^^^^ deferring effect
   
 const inc = x => x + 1;
 
@@ -112,7 +113,7 @@ main(id); // 25
 ```
 [run code](https://repl.it/repls/AppropriateBestObjectmodel)
 
-With CPS we are able to compose arbitrarily complex compositions of deferred function calls.
+With CPS we are able to compose arbitrarily complex compositions of deferred function call trees.
 
 ### Description of expressions
 
