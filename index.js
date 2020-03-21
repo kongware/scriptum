@@ -149,7 +149,7 @@ const strict = thunk =>
 ******************************************************************************/
 
 
-const struct = (type, o) =>
+const record = (type, o) =>
   (o[TYPE] = type.name || type, o);
 
 
@@ -2200,7 +2200,7 @@ const getYear = d => d.getFullYear();
 ******************************************************************************/
 
 
-const All = all => struct("All", {all});
+const All = all => record("All", {all});
 
 
 /***[Monoid]******************************************************************/
@@ -2224,7 +2224,7 @@ const allPrepend = allAppend;
 ******************************************************************************/
 
 
-const Any = any => struct("Any", {any});
+const Any = any => record("Any", {any});
 
 
 /***[Monoid]******************************************************************/
@@ -2248,7 +2248,7 @@ const anyPrepend = anyAppend;
 ******************************************************************************/
 
 
-const Compare = cmp => struct("Compare", {cmp});
+const Compare = cmp => record("Compare", {cmp});
 
 
 /***[Contravariant Functor]***************************************************/
@@ -2280,7 +2280,7 @@ const cmpPrepend = flip(cmpAppend);
 ******************************************************************************/
 
 
-const Comp = comp => struct("Comp", {comp});
+const Comp = comp => record("Comp", {comp});
 
 
 /***[Applicative]*************************************************************/
@@ -2306,7 +2306,7 @@ const compMap = ({map1, map2}) => f => ttx =>
 ******************************************************************************/
 
 
-const Const = const_ => struct("Const", {const: const_});
+const Const = const_ => record("Const", {const: const_});
 
 
 /***[Applicative]*************************************************************/
@@ -2327,7 +2327,7 @@ const constMap = f => tx =>
 ******************************************************************************/
 
 
-const Cont = cont => struct("Cont", {cont});
+const Cont = cont => record("Cont", {cont});
 
 
 const cont = f => x =>
@@ -2409,7 +2409,7 @@ const Right = right =>
 ******************************************************************************/
 
 
-const Endo = endo => struct("Endo", {endo});
+const Endo = endo => record("Endo", {endo});
 
 
 /***[Monoid]******************************************************************/
@@ -2433,7 +2433,7 @@ const endoPrepend = flip(endoAppend);
 ******************************************************************************/
 
 
-const Equiv = equiv => struct("Equiv", {equiv});
+const Equiv = equiv => record("Equiv", {equiv});
 
 
 /***[Contravariant Functor]***************************************************/
@@ -2465,7 +2465,7 @@ const equivPrepend = equivAppend;
 ******************************************************************************/
 
 
-const First = first => struct("First", {first});
+const First = first => record("First", {first});
 
 
 /***[Semigroup]***************************************************************/
@@ -2482,7 +2482,7 @@ const firstAppend = x => _ => x;
 ******************************************************************************/
 
 
-const Lens = lens => struct("Lens", {lens});
+const Lens = lens => record("Lens", {lens});
 
 
 /***[Instances]***************************************************************/
@@ -2523,7 +2523,7 @@ const getGet = tx => o =>
 ******************************************************************************/
 
 
-const Id = id => struct("Id", {id});
+const Id = id => record("Id", {id});
 
 
 /***[Applicative]*************************************************************/
@@ -2544,7 +2544,7 @@ const idMap = f => tx =>
 ******************************************************************************/
 
 
-const Last = last => struct("Last", {last});
+const Last = last => record("Last", {last});
 
 
 /***[Semigroup]***************************************************************/
@@ -2561,7 +2561,7 @@ const lastPrepend = firstAppend;
 ******************************************************************************/
 
 
-const Lazy = lazy => struct(Lazy, {get lazy() {
+const Lazy = lazy => record(Lazy, {get lazy() {
     delete this.lazy
     return this.lazy = lazy();
 }});
@@ -2737,7 +2737,7 @@ const listCons = x => xs =>
 ******************************************************************************/
 
 
-const Matched = mat => struct("Matched", {mat});
+const Matched = mat => record("Matched", {mat});
 
 
 const matched = x => tx =>
@@ -2752,7 +2752,7 @@ const matched = x => tx =>
 ******************************************************************************/
 
 
-const Max = max => struct("Max", {max});
+const Max = max => record("Max", {max});
 
 
 /***[Monoid]******************************************************************/
@@ -2776,7 +2776,7 @@ const maxPrepend = maxAppend;
 ******************************************************************************/
 
 
-const Min = min => struct("Min", {min});
+const Min = min => record("Min", {min});
 
 
 /***[Monoid]******************************************************************/
@@ -2922,7 +2922,7 @@ const ordPrepend = ordAppend;
 /*** experimental ***/
 
 
-const Parallel = par => struct(
+const Parallel = par => record(
   "Parallel",
   thisify(o => {
     o.par = (res, rej) => k(x => {
@@ -3048,7 +3048,7 @@ const parPrepend = parOr;
 ******************************************************************************/
 
 
-const Pred = pred => struct("Pred", {pred});
+const Pred = pred => record("Pred", {pred});
 
 
 /***[Contravariant Functor]***************************************************/
@@ -3125,7 +3125,7 @@ const prismSet = prism => x => tx =>
 ******************************************************************************/
 
 
-const Prod = prod => struct("Prod", {prod});
+const Prod = prod => record("Prod", {prod});
 
 
 /***[Monoid]******************************************************************/
@@ -3149,7 +3149,7 @@ const prodPrepend = prodAppend;
 ******************************************************************************/
 
 
-const Reader = read => struct("Reader", {read});
+const Reader = read => record("Reader", {read});
 
 
 /***[Applicative]**************************************************************/
@@ -3257,7 +3257,7 @@ const setSet = tx => v => o =>
 ******************************************************************************/
 
 
-const State = state => struct("State", {state});
+const State = state => record("State", {state});
 
 
 /***[Applicative]*************************************************************/
@@ -3338,7 +3338,7 @@ const Stream = stream => union("Stream");
 ******************************************************************************/
 
 
-const Sum = sum => struct("Sum", {sum});
+const Sum = sum => record("Sum", {sum});
 
 
 /***[Monoid]******************************************************************/
@@ -3362,7 +3362,7 @@ const sumPrepend = sumAppend;
 ******************************************************************************/
 
 
-const Task = task => struct(
+const Task = task => record(
   Task,
   thisify(o => {
     o.task = (res, rej) => k(x => {
@@ -3533,7 +3533,7 @@ class Triple extends Array {
 ******************************************************************************/
 
 
-const Writer = write => struct(Writer, {write});
+const Writer = write => record(Writer, {write});
 
 
 /***[Applicative]*************************************************************/
@@ -4559,7 +4559,7 @@ module.exports = {
   strSplitAt,
   strSplitBy,
   strSplitWords,
-  struct,
+  record,
   Sum,
   sumAppend,
   sumEmpty,
