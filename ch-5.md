@@ -238,12 +238,14 @@ take(3) (main); // [1, 2, 3]
 ```
 [run code](https://repl.it/repls/ShadowyFlimsySmalltalk)
 
+`main2` is not stack safe because `add` is eager in both of its arguments.
+
 #### Infinite recursion
 
-We can define a recursive algorithm that is reduced until the outmost level hits WHNF. Then the evaluation stops which allows us to express infinite recursion that does not exhaust the stack:
+We can define a recursive algorithm that is reduced until the outmost level hits WHNF. At this point the evaluation stops, which allows us to express infinite recursion that does not exhaust the stack:
 
 ```javascript
-const fix = f => thunk(() => f(fix(f)));
+const fix = f => thunk(() => f(fix(f))); // stack safe infinite recursion
 
 const fact = fix(go => n =>
   n === 0
@@ -256,7 +258,7 @@ fact(5); // 120
 
 #### Value recursion
 
-Value recursion is infinite by design and thus requires WHNF:
+Value recursion is infinite by design and thus requires the ability to encode WHNF:
 
 ```javascript
 const fibs = [0, [1, thunk(() => {
@@ -272,7 +274,7 @@ fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
 
 #### Forcing evaluation
 
-The mechanism we use to mimic lazy evaluation in Javascripts works on demand whereas the default is still eagerly evaluated. Yet there might be some rare situations where we sometimes want a lazy and sometimes a eager evaluation strategy. The following combinator forces further evaluation of expressions in WHNF:
+The mechanism I demonstrated in this chapter is based on creating explicit thunks and thus results in lazy evaluation on demand. The default evaluation strategy is still strict. Yet there might be some situations where we want both, lazy and eager evaluation on a case-by-case basis. The following combinator enables to programmatically convert a lazy function into a strict one:
 
 ```javascript
 const strict = thunk =>
