@@ -108,9 +108,12 @@ const Void = record(
 
 ### Modeling alternatives of hierarchies
 
-* sums of products
 * products encode hierarchies
 * sums encode alternatives
+* These type
+* List type (recursive type)
+* sums of products
+* demonstrate using the name example
 
 ```javascript
 const These_ = union("These"); // type constructor
