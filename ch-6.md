@@ -62,7 +62,7 @@ const Option = union("Option"); // type constructor
 // value constructors
 
 const None = Option("None", {});
-const Some = some => Option("Some", {some});
+const Some = some => Option(Some, {some});
 ```
 `Option` can either be `None` or `Some<a>`. This corresponding algebraic notation is `1 + a`. `None` is a nullary value constructor whereas `Some` is a unary one. The cardinality of a type thus depends on the arity of the involved value constructors.
 
@@ -74,7 +74,7 @@ A product type has only one shape and contains several data fields:
 const record = (type, o) =>
   (o.type = type.name || type, o);
 
-const Point = x => y => record("Point", {x, y});
+const Point = x => y => record(Point, {x, y});
 
 Point(1) (2); // Point {x: 1, y, 2}
 ```
@@ -120,8 +120,8 @@ const These_ = union("These"); // type constructor
 
 // value constructors
 
-const This = _this => These_("This", {this: _this});
-const That = that => These_("That", {that});
-const These = _this => that => These_("These", {this: _this, that});
+const This = _this => These_(This, {this: _this});
+const That = that => These_(That, {that});
+const These = _this => that => These_(These, {this: _this, that});
 ```
 `These` can either be `This<a>` or `That<b>` or `These<a, b>`. This corresponds to `a + b + a * b`.
