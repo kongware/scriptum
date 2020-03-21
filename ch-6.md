@@ -41,6 +41,29 @@ Algebraic data types can be combined out of simpler existing types to form more 
 
 #### Sum types
 
+A sum type, also known as tagged union, can have various shapes called variants:
+
+```javascript
+const union = type => (tag, o) =>
+  (o.type = type, o.tag = tag.name || tag, o);
+
+const Bool = union("Bool"); // type constructor
+
+// value constructor
+
+const True = Bool("True", {});
+const False = Bool("False", {});
+```
+`Bool` can either be `True` or `False`. It is inhabited by two possible values. Since it is a sum type the underlying algebra is `1 + 1`.
+
+```javascript
+const These_ = union("These");
+
+const This = _this => These_("This", {this: _this});
+const That = that => These_("That", {that});
+const These = these => These_("These", {these});
+```
+
 #### Product types
 
 #### Other algebraic types
@@ -73,7 +96,5 @@ Algebraic data types can be combined out of simpler existing types to form more 
 * cardinality
 
 ### Pattern matching
-
-### Javascript Encoding
 
 ### Modeling alternatives of hierarchies
