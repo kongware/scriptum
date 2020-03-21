@@ -72,7 +72,7 @@ A product type has only one shape and contains several data fields:
 
 ```javascript
 const record = (type, o) =>
-  (o[TYPE] = type.name || type, o);
+  (o.type = type.name || type, o);
 
 const Point = x => y => record("Point", {x, y});
 
@@ -80,11 +80,24 @@ Point(1) (2); // Point {x: 1, y, 2}
 ```
 `Point<a, a>` contains two fields. The corresponding algebraic notation is `a * a`, i.e. its cardinality is calculated from the product of these fields.
 
-#### Other algebraic types
+#### Unit type
 
-* Void (0)
-* Unit (1)
-* Functon (a^b)
+The `Unit` type has exactly one value and thus correspond to the number `1` in algebraic notation.
+
+```javascript
+const Unit = record("Unit", {});
+```
+Javascript's native unit-like type is `null` or `undefined`.
+
+#### Void type
+
+The `Void` type has no value and thus correspond to the number `0` in algebraic notation. We cannot express such a type in Javascipt, therefore I mimic it with a thunk that throws an error once it is evaluated:
+
+```javascript
+const Void = record(
+  "Void", thunk(() => throw new TypeError("uninhabited type")));
+```
+#### Exponential type
 
 #### Does the algebra hold?
 
@@ -92,14 +105,6 @@ Point(1) (2); // Point {x: 1, y, 2}
 * Prod<Void & Unit> ~ Void (0 * 1 = 0)
 
 ### Pattern matching
-
-* product type has fields
-* sum type has variants
-* type vs data constrcutor
-* type level vs term level
-* parameterized types
-* type variables
-* cardinality
 
 ### Modeling alternatives of hierarchies
 
