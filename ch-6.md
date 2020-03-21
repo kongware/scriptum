@@ -25,15 +25,25 @@ const main = comp(sqr) (len);
 
 main("hallo"); // 25
 ```
-Now `comp` dynamically establishes a data dependency between both passed function arguments. It froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
+Now `comp` dynamically establishes a data dependency between both passed function arguments. To be precise it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
 
 If functional dependent functions like `main` from the first or `comp` from the second example only depend on pure functions they are also pure provided they do not themselves perform visible side effects. The order of evaluation of such code can be altered, parallelized for instance, as long as this optimization does not interfere with the given data dependencies.
+
+Please note that the Javascript interpreter pursues a rather fixed, sequential evaluation order, which is consistent with the lexical occurrence of expressions and statements, because each these code entities may include side effects.
 
 #### Dependency injection
 
 The functional paradigm does not have a notion of dependency injection in the original object oriented sense. However, it achieves a similar effect by relying on higher order functions, currying and partial application.
 
 ### General Algebraic Data Types (GADT)
+
+#### Sum types
+
+#### Product types
+
+#### Other algebraic types
+
+#### The algebra of GADTs
 
 * composite type
 * product type (tuples/records)
@@ -64,3 +74,4 @@ The functional paradigm does not have a notion of dependency injection in the or
 
 ### Javascript Encoding
 
+### Modeling alternatives of hierarchies
