@@ -1,10 +1,10 @@
 ## Functional Data Modelling with Algebraic Data Types
 
-The way data is modeled in functional programming is a source of confusion for many object oriented programmer, because familiar concepts like inheritance or dipendency injection are (mostly) orthogonal to the functional paradigm.
+The way data is modeled in functional programming is a source of confusion for many object oriented programmer, because familiar concepts like inheritance or dependency injection are (mostly) orthogonal to the functional paradigm. This chapter illustrates the functional approach.
 
 ### Data and functional dependencies
 
-Data and behavior is strictly decoupled in functional programming. What we have to deal with are data and functional dependencies:
+While data and behavior is strictly decoupled in functional programming, we still have to deal with data and functional dependencies:
 
 ```javascript
 const sqr = x => x * x;
@@ -91,20 +91,49 @@ Javascript's native unit-like type is `null` or `undefined`.
 
 #### Void type
 
-The `Void` type has no value and thus correspond to the number `0` in algebraic notation. We cannot express such a type in Javascipt, therefore I mimic it with a thunk that throws an error once it is evaluated:
+The `Void` type has no value and thus correspond to the number `0` in algebraic notation. We cannot express such a type in Javascipt, therefore I mimic it with a nullary function:
 
 ```javascript
-const Void = record(
-  "Void", thunk(() => throw new TypeError("uninhabited type")));
+const Void = () => record(
+  "Void", throw new TypeError("uninhabited"));
 ```
-#### Exponential type
-
 #### Does the algebra hold?
 
-* Sum<Void | Unit> ~ Unit (0 + 1 = 1)
-* Prod<Void & Unit> ~ Void (0 * 1 = 0)
+We have represented GADTs in algebraic notation, but do the corresponding laws hold? Let us examine two of them:
+
+```javascript
+// 0 + x = x
+
+const Foo = union("Foo");
+
+// A Bar value cannot be constructed, because this variant of Foo has no values
+// const Bar = Foo("Bar", Void());
+
+const Bat = bat => Foo("Bat", {bat});
+Bat(123); // Foo {bat: 123}
+```
+We can only construct `Foo` values of the `Bat` variant, hence `0 + a = a` holds.
+
+```javascript
+// 0 * x = 0
+
+const Foo = bat => record("Foo", {bar: Void(), bat});
+
+// A Foo value cannot be constructed, because Foo's first field has no values
+// Foo(123);
+```
+We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 
 ### Pattern matching
+
+Pattern matching is essentially an unification algorithm and must be implemented on the language level to properly work with all types of a language. Javascript does not ship with pattern matching therefore I resort to an auxiliary function for tagged unions:
+
+```javascript
+const match = (type, tx, o) =>
+  tx[TYPE] !== type
+    ? _throw(new UnionError("invalid type"))
+    : o[tx.tag] (tx);
+```
 
 ### Modeling alternatives of hierarchies
 
