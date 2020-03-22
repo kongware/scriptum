@@ -106,7 +106,7 @@ Javascript's native unit types are `null` and `undefined`.
 
 ### The algebra of GADTs
 
-So where is the algebra of GADTs? We can simply use algebraic notation for describing data structures constructed by GADTs:
+So how works the algebra of algebraic data types? We can simply use the algebraic notation for describing data structures constructed by GADTs:
 
 * `+` represents tagged unions
 * `*` represents records
@@ -162,4 +162,8 @@ The cardinality of `List` is calculated as `List<a> = 1 + a * List<a>`, that is 
 
 ### From product types to hierarchical data and invariants
 
-We have learned so far how we can construct arbirarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we chose one over the other?
+We have learned so far how we can construct arbitrarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we choose one over the other? As a rule of thumb we can state:
+
+* if two data components depend on each other a sum type should be used to avoid invariants
+* if two data components do not depend on each other a product type should be used to allow all combinations
+
