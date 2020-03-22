@@ -104,6 +104,19 @@ Javascript's native unit types are `null` and `undefined`.
 
 ### Lazy types
 
+TODO: add description
+
+```javascript
+const lazyProp = (k, v) => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = v()},
+    configurable: true,
+    enumerable: true});
+
+const Lazy = lazy => record(Lazy, lazyProp("lazy", lazy));
+
+// TODO: add example
+```
 ### The algebra of GADTs
 
 So how works the algebra of algebraic data types? We can simply use the algebraic notation for describing data structures constructed by GADTs:
