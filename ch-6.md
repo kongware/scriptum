@@ -133,7 +133,7 @@ Bool        = True | False   ~ 1 + 1
 Option<a>   = None | Some<a> ~ 1 + a
 Point<a, a>                  ~ a * a
 ```
-What these terms represent are the cardinality of each type, that is the number of values each type take. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
+What these terms represent are the cardinality of each type, that is the number of values each type takes. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
 
 #### Algebraic laws
 
