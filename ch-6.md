@@ -41,7 +41,7 @@ Algebraic data types can be combined out of simpler existing types to form more 
 
 #### Sum types
 
-A sum type, also known as tagged union, can have various shapes called variants:
+A sum type, also known as tagged union, can have various shapes called variants. I use the `union` auxiliary function to create values of that type:
 
 ```javascript
 const union = type => (tag, o) =>
@@ -68,7 +68,7 @@ const Some = some => Option(Some, {some});
 
 #### Product types
 
-A product type has only one shape and contains several data fields:
+A product type has only one shape and contains several data fields. I use the `record` auxiliary function to create values of this type:
 
 ```javascript
 const record = (type, o) =>
@@ -126,14 +126,31 @@ We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 
 ### Pattern matching
 
-Pattern matching is essentially an unification algorithm and must be implemented on the language level to properly work with all types of a language. Javascript does not ship with pattern matching therefore I resort to an auxiliary function for tagged unions:
+Pattern matching is essentially an unification algorithm and must be implemented on the language level to properly and efficiently work with all types of that language. Javascript does not ship with pattern matching. We will use the following auxiliary function for tagged unions as a construct remotely similar to it:
 
 ```javascript
 const match = (type, tx, o) =>
-  tx[TYPE] !== type
+  tx.type !== type
     ? _throw(new UnionError("invalid type"))
     : o[tx.tag] (tx);
+    
+const Option = union("Option");
+
+const None = Option("None", {});
+const Some = some => Option(Some, {some});
+
+const option = none => some => tx =>
+  match("Option", tx, {
+    None: _ => none,
+    Some: ({some: x}) => some(x)
+  });
+
+const main = option(0) (x => x * x);
+
+main(None); // 0
+main(Some(5)); // 25
 ```
+[run code](https://repl.it/repls/BogusFullButtons)
 
 ### Modeling alternatives of hierarchies
 
