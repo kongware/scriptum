@@ -120,7 +120,7 @@ Bool        = True | False   ~ 1 + 1
 Option<a>   = None | Some<a> ~ 1 + a
 Point<a, a>                  ~ a * a
 ```
-What these terms represent are the cardinality of each type, that is the number of values it can take. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
+What these terms represent are the cardinality of each type, that is the number of values each type take. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
 
 #### Algebraic laws
 
@@ -167,3 +167,40 @@ We have learned so far how we can construct arbitrarily complex data structures 
 * if two data components depend on each other a sum type should be used to avoid invariants
 * if two data components do not depend on each other a product type should be used to allow all combinations
 
+I am going to demonstrate this using a type that encodes a computation that may yield an error:
+
+```javascript
+const Either = union("Either");
+
+const Left = left => Either(Left, {left}); // error case
+const Right = right => Either(Right, {right}); // right case
+
+const safeDiv = x => y =>
+  y === 0
+    ? Left("division by zero")
+    : Right(x / y);
+    
+safeDiv(2) (6); // Either {tag: "Right", right: 3}
+safeDiv(2) (0); // Either {tag: "Left", left: "division by zero"}
+```
+What would happen if we express `Either` as a product type?
+
+```javascript
+const Either = left => right => record(Either, {left, right});
+
+const safeDiv = x => y =>
+  y === 0
+    ? Either("division by zero") (null)
+    : Either(null) (x / y);
+    
+safeDiv(2) (6); // Either {left: null, right: 3}
+safeDiv(2) (0); // Either {left: "division by zero", right: null}
+```
+The hideous `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields this could would not rule out the invariants of a computation that may fail:
+
+Left | Right | valid?
+---- | ----- | ------
+string | null | true
+null | data | true
+string | data | false
+null | null | false
