@@ -154,22 +154,25 @@ main(Some(5)); // 25
 
 ### Modeling alternatives of hierarchies
 
-* products encode hierarchies
-* sums encode alternatives
-* These type
-* List type (recursive type)
-* sums of products
-* demonstrate using the name example
+GADTs are extremely expressive because you can compose them to arbitrarily complex composite types. Simply put you can imagine such composite types as sums of products:
 
 ```javascript
-const These_ = union("These"); // type constructor
+const List = union("List");
 
-// value constructors
-
-const This = _this => These_(This, {this: _this});
-const That = that => These_(That, {that});
-const These = _this => that => These_(These, {this: _this, that});
+const Nil = List("Nil", {});
+const Cons = head => tail => List(Cons, {head, tail});
 ```
-`These` can either be `This<a>` or `That<b>` or `These<a, b>`. This corresponds to `a + b + a * b`.
+The `List` type is a tagged union with two interesting traits. Even though we do not use the `record` auxiliary function `Cons` is a product type, because the value constructor expects more than one argument. Additionally `Cons` takes another `List` as its second argument, i.e. `List` has a recursive type definition. `List` is a sum of product written as `List = 0 + a * List` in algebraic notation.
+
+What basic idea do sum and product type each embody? Simply put, the former encodes alternatives and the latter hierarchies. Let us demonstrate that on an simple example:
+
+```javascript
+
+```
+
+* products encode hierarchies
+* sums encode alternatives
+* sums of products
+* demonstrate using the name example
 
 ### Lazy properties
