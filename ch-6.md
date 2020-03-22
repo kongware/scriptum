@@ -222,7 +222,7 @@ safeDiv(2) (0); // Either {left: "division by zero", right: null}
 ```
 The hideous `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields it does not rule out the invariants of a computation that may fail:
 
-Left | Right | valid?
+left | right | valid
 ---- | ----- | ------
 string | null | true
 null | data | true
