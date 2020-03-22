@@ -115,9 +115,9 @@ With CPS we are able to compose arbitrarily complex compositions of deferred fun
 
 ### Description of code
 
-What does this inherently lazy behavior of functions buys us? Instead of writing expressions and statements that are immediately evaluated up to their normal form we are able to express descriptions of code whose evaluation time is totally up to us. Taking back control over the evaluation time is a big deal.
+What does this inherently lazy behavior of functions buy us? Instead of writing expressions and statements that are immediately evaluated up to their normal form we are able to express descriptions of code whose evaluation time is totally up to us. Taking back control over the evaluation time is a big deal.
 
-Imagine impure code, which will perform side effects when run. If we merely describe such impure code the description itself remains pure and the effects are deferred to the edge of our program. Keeping most parts of our code pure is a very desirable property, because it reduces the mental load to reason about it.
+Imagine impure code that will perform side effects immediately during its evaluation. If we merely describe such code the description itself can remain pure and the effects can be deferred to the edge of the program. Keeping most parts of our code pure is a very desirable property, because it reduces the mental load to reason about it.
 
 ### Nullary functions and real thunks
 
