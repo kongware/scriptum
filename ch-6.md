@@ -18,8 +18,11 @@ const Bool = union("Bool"); // type constructor
 
 // value constructor
 
-const True = Bool("True", {});
 const False = Bool("False", {});
+const True = Bool("True", {});
+
+False; // Bool {tag: "False"}
+True; // Bool {tag: "True"}
 ```
 The `Bool` type can either be `True` or `False`.
 
@@ -30,6 +33,9 @@ const Option = union("Option"); // type constructor
 
 const None = Option("None", {});
 const Some = some => Option(Some, {some});
+
+None; // Option {tag: "None"}
+Some(5); // Option {tag: "Some", some: 5}
 ```
 `Option` can either be `None` or `Some<a>`. It is a more robust alternative for Javascript's `Null` type.
 
@@ -65,14 +71,51 @@ main(Some(5)); // 25
 
 ### Product types
 
+A product type has only one shape but can contain several data fields. There is the `record` auxiliary function to easily create product types of various fields:
+
+```javascript
+const record = (type, o) =>
+  (o.type = type.name || type, o);
+
+const Point = x => y => record(Point, {x, y});
+
+Point(1) (2); // Point {x: 1, y, 2}
+```
+`Point<a, a>` contains two fields with values of the same type.
+
 ### Void type
 
+The `Void` type has no inhabitant, i.e. it has no value. We cannot express such a type in Javascipt, therefore I mimic it with a nullary function that once called immediately throws an error:
+
+```javascript
+const Void = () => record(
+  "Void", throw new TypeError("uninhabited"));
+```
+`Void` has not many uses cases but it is useful to explain the algebra of GADTs, which is going to happen in a later section in this chapter.
+
 ### Unit type
+
+The `Unit` type has exactly one inhabitant, namely itself:
+
+```javascript
+const Unit = record("Unit", {});
+```
+Javascript's native unit types are `null` and `undefined`.
 
 ### Lazy types
 
 ### The algebra of GADTs
 
+So where is the algebra of GADTs? We can simply use algebraic notation for describing data structures constructed by GADTs:
+
+* `+` represents tagged unions
+* `*` represents records
+* `0` represents the `Void` type
+* `1` represents the `Unit` type
+
+```javascript
+False; //
+```
 ### From product types to hierarchical data and invariants
 
 ### Sums of products
