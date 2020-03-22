@@ -116,9 +116,9 @@ So where is the algebra of GADTs? We can simply use algebraic notation for descr
 Let us express the types defined so far:
 
 ```
-Bool   = True | False   ~ 1 + 1
-Option = None | Some<a> ~ 1 + a
-Point<a, a>             ~ a * a
+Bool        = True | False   ~ 1 + 1
+Option<a>   = None | Some<a> ~ 1 + a
+Point<a, a>                  ~ a * a
 ```
 What these terms represent are the cardinality of each type, that is the number of values it can take. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
 
