@@ -160,7 +160,7 @@ const Cons = head => tail => List(Cons, {head, tail});
 ```
 The cardinality of `List` is calculated as `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type defintion. Event though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
 
-### From product types to hierarchical data and invariants
+### From product types to invariants
 
 We have learned so far how we can construct arbitrarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we choose one over the other? As a rule of thumb we can state:
 
@@ -196,7 +196,7 @@ const safeDiv = x => y =>
 safeDiv(2) (6); // Either {left: null, right: 3}
 safeDiv(2) (0); // Either {left: "division by zero", right: null}
 ```
-The hideous `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields this could would not rule out the invariants of a computation that may fail:
+The hideous `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields it does not rule out the invariants of a computation that may fail:
 
 Left | Right | valid?
 ---- | ----- | ------
@@ -204,3 +204,9 @@ string | null | true
 null | data | true
 string | data | false
 null | null | false
+
+The `Left` and `Right` data components depend on each other and thus need to be encoded as a sum type.
+
+### Form product types to hierarchical data
+
+In the previous section we saw that the product encoding needed the `Null` type to fill all of its fields with a value. This points to another issue for languages that supply product types as the only mean to construct data structures.
