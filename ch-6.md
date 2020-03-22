@@ -113,9 +113,53 @@ So where is the algebra of GADTs? We can simply use algebraic notation for descr
 * `0` represents the `Void` type
 * `1` represents the `Unit` type
 
-```javascript
-False; //
+Let us express the types defined so far:
+
 ```
-### From product types to hierarchical data and invariants
+Bool   = True | False   ~ 1 + 1
+Option = None | Some<a> ~ 1 + a
+Point<a, a>             ~ a * a
+```
+What these terms represent are the cardinality of each type, that is the number of values it can take. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
+
+#### Algebraic laws
+
+Now that we know how to calculate the cardinality of an GADT let us verify that the algebraic laws for addtion and multiplication hold:
+
+```javascript
+// 0 + x = x
+
+const Foo = union("Foo");
+
+const Bar = () => Foo("Bar", Void());
+const Bat = bat => Foo("Bat", {bat});
+
+Bar(); // type error
+Bat(123); // Foo {bat: 123}
+```
+We can only construct `Foo` values of the `Bat` variant, hence `0 + a = a` holds.
+
+```javascript
+// 0 * x = 0
+
+const Foo = bat => record("Foo", {bar: Void(), bat});
+
+Foo(123); // type error
+```
+We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 
 ### Sums of products
+
+Usually we combine tagged unions and records to define more complex data structures:
+
+```javascript
+const List = union("List");
+
+const Nil = List("Nil", {});
+const Cons = head => tail => List(Cons, {head, tail});
+```
+The cardinality of `List` is calculated as `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type defintion. Event though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
+
+### From product types to hierarchical data and invariants
+
+We have learned so far how we can construct arbirarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we chose one over the other?
