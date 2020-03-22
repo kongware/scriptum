@@ -72,7 +72,7 @@ The invocation of `foo` triggers the evaluation of `2 + 3` only once, even thoug
 
 ### Lambda abstractions
 
-As we have seen lazyness defers the evaluation of subexpressions. When we squint hard enough this also applies to ordinary functions, because they are only evaluated when the required arguments are provided. As a consequence of this inherently deferring effect of functions we are able to partially apply them:
+As we have seen lazyness defers the evaluation of subexpressions. When we squint hard enough this also applies to ordinary functions, because they are only evaluated when the required arguments are provided. This inherently lazy behavior allows us to partially apply them:
 
 ```javascript
 const add = x => y => x + y,
@@ -80,18 +80,16 @@ const add = x => y => x + y,
 ```
 #### Function composition
 
-Pursuing this perspective function composition allows a deferring effect on the outer function's argument:
+Pursuing this perspective function composition can be regarded as lazy argument evaluation:
 
 ```javascript
 const comp f => g =>
   x => f(g(x));
-//       ^^^^ deferring effect
+//       ^^^^ only evaluated when x is provided
 ```
-`f`'s argument `g(x)` is only evaluated when `x` is provided.
-
 #### Continuation passing style
 
-Can we defer function composition even further?
+Can we defer the function composition even further?
 
 ```javascript
 const compk = f => g => x => k =>
@@ -117,7 +115,7 @@ With CPS we are able to compose arbitrarily complex compositions of deferred fun
 
 ### Description of code
 
-What does this inherently deferring effect of functions buys us? Instead of writing expressions and statements that are immediately evaluated up to their normal form we are able to express descriptions of code whose evaluation time is totally up to us. Taking back control over the evaluation time is a big deal.
+What does this inherently lazy behavior of functions buys us? Instead of writing expressions and statements that are immediately evaluated up to their normal form we are able to express descriptions of code whose evaluation time is totally up to us. Taking back control over the evaluation time is a big deal.
 
 Imagine impure code, which will perform side effects when run. If we merely describe such impure code the description itself remains pure and the effects are deferred to the edge of our program. Keeping most parts of our code pure is a very desirable property, because it reduces the mental load to reason about it.
 
