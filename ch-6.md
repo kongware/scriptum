@@ -160,7 +160,7 @@ const Cons = head => tail => List(Cons, {head, tail});
 ```
 The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type defintion. Event though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
 
-Here is another example of a sum of product, which represents the boolean operation `x || y || (x && y)`:
+Here is another example of a sum of product, which represents the boolean operation `(x && y) || x || y`:
 
 ```javascript
 const These_ = union("These");
