@@ -223,3 +223,5 @@ The `Left` and `Right` data components depend on each other and thus need to be 
 In the previous section we saw that the product encoding needed the `Null` type to fill all of its fields with a value. This points to another issue for languages that supply product types as the only mean to construct data structures.
 
 When we combine product types to get more complex ones we can only add fields. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies.
+
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
