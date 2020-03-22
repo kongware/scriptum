@@ -42,7 +42,7 @@ The scriptum library is still experimental.
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/ch-5.md)
-06. Upcoming: Functional Data Modeling with Algebraic Data Types (50% done)
+06. [Data Modelling with Algebraic Data Types (GADTs)](https://github.com/kongware/scriptum/blob/master/ch-6.md)
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
@@ -54,7 +54,7 @@ The scriptum library is still experimental.
 * Planned: Mastering Tree Data Structures
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Functional Error Handling and Debugging
-* Planned: Safly Using Imperative Iterators
+* Planned: Safely Using Imperative Iterators
 * Planned: Foldable and Unfoldable Typeclasses
 * Planned: Functor Typeclass
 * Planned: Applicative Functor Typeclass
