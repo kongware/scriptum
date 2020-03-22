@@ -278,4 +278,4 @@ The mechanism I demonstrated in this chapter is based on creating explicit thunk
 const strict = thunk =>
   thunk.valueOf();
 ```
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-6.md)
