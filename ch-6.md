@@ -4,7 +4,7 @@ I have found it rather hard to get further information about how to model your d
 
 ### Separation of data and behavior
 
-As opposed to object oriented programming data and behavior is strictly decoupled in functional programming. We still have to deal with data dependencies
+As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. We still have to deal with data dependencies
 
 ```javascript
 const comp = f => g => x => f(g(x));
@@ -21,7 +21,7 @@ Since all functions are pure the order of evaluation do not have to adhere to th
 
 ### GADTs
 
-Algebraic data types are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
+Algebraic data types are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
 
 ### Sum types
 
