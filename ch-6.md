@@ -4,7 +4,7 @@ I have found it rather hard to get further information about how to model your d
 
 ### Data dependencies
 
-As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. We still have to deal with data dependencies
+As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. We still have to deal with data dependencies and try to make them as explicit as possible:
 
 ```javascript
 const comp = f => g => x => f(g(x));
