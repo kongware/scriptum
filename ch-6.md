@@ -246,7 +246,7 @@ null | data | true
 string | data | false
 null | null | false
 
-The `Left` and `Right` data components depend on each other and thus need to be encoded as a sum type.
+The `left` and `right` data components depend on each other and thus need to be encoded as a sum type.
 
 ### Form product types to type hierarchies
 
