@@ -2,7 +2,7 @@
 
 I have found it rather hard to get further information about how to model your domain in functional programming than merely the reference to GADTs. This chapter is an attempt to give you a rough idea.
 
-### Separation of data and behavior
+### Data dependencies
 
 As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. We still have to deal with data dependencies
 
