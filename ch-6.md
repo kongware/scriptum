@@ -186,11 +186,11 @@ const Threse = _this => that => These_(These, {this: _this, that});
 ```
 The cardinality of `These<a, b>` is calculated by `These<a, b> = a + b + a * b`.
 
-### From product types to invariants
+### From product types to invalid states
 
 We have learned so far how we can construct arbitrarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we choose one over the other? As a rule of thumb we can state:
 
-* if two data components depend on each other a sum type should be used to avoid invariants
+* if two data components depend on each other a sum type should be used to avoid invalid states
 * if two data components do not depend on each other a product type should be used to allow all combinations
 
 I am going to demonstrate this using a type that encodes a computation that may yield an error:
@@ -222,7 +222,7 @@ const safeDiv = x => y =>
 safeDiv(2) (6); // Either {left: null, right: 3}
 safeDiv(2) (0); // Either {left: "division by zero", right: null}
 ```
-The wrong looking `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields it does not rule out the invariants of a computation that may fail:
+The wrong looking `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields it does not rule out the invalid states of a computation that may fail:
 
 left | right | valid
 ---- | ----- | ------
