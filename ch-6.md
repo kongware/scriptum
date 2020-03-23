@@ -264,4 +264,6 @@ const main = Lazy(() => log(2 * 3));
 main.lazy + main.lazy; // logs 6 once and yields 12
 //          ^^^^^^^^^ subsequent access
 ```
+[run code](https://repl.it/repls/GlisteningPalegreenAnalyst)
+
 `main.lazy` is only evaluated when needed and only once. All subsequent accesses resort to the initially computed result.
