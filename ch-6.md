@@ -9,15 +9,15 @@ As opposed to object oriented programming data and behavior are strictly decoupl
 ```javascript
 const comp = f => g => x => f(g(x));
 const sqr = x => x * x;
-const add = x => y => x + y;
+const len = xs => xs.length;
 
-const main = comp(sqr) (add(2));
+const main = comp(sqr) (len);
 
-main(3); // 25
+main("hello"); // 25
 ```
-`comp` establishes a data dependency between `sqr` and the partially applied `add(2)`, in which the former depends on the resulting data of the latter. Strictly speaking it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
+`comp` establishes a data dependency between `sqr` and the `len`, in which the former depends on the resulting data of the latter. Strictly speaking it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
 
-Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript's interpreter pursues rather limited optimizations since it has to take possible side effects into account.
+Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language, that is every expression may include side effects which limits the possible optimizations.
 
 ### Algebraic data types
 
