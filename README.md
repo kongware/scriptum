@@ -21,7 +21,7 @@ This course addresses both experienced imperative programmers and functional pro
 
 ## How
 
-I've chosen Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions and lazy `Object` getter/setter we have all ingredients to transform it into a fully-fledged functional language.
+I've chosen Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions, `Proxy`s and lazy `Object` getter/setter we have all ingredients to transform it into a fully-fledged functional language.
 
 However, Javascript is not a purely functional language hence we will encounter some drawbacks and corresponding techniques to bypass them. These techniques are particularly useful since they allow you to apply functional programming to arbitrary multi-paradigm languages.
 
@@ -46,27 +46,26 @@ The scriptum library is still experimental.
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
+* Planned: Loop Fusion through Transducers (0% done)
 
-* Planned: CPS Transformation and Local Continuation Passing Style
-* Planned: Random Access, Single Linked and Difference Lists
-* Planned: Loop Fusion through Transducers
-* Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
-* Planned: Mastering Tree Data Structures
-* Planned: Generalizing Folds and Unfolds with Recursion Schemes
-* Planned: Functional Error Handling and Debugging
-* Planned: Safely Using Imperative Iterators
-* Planned: Foldable and Unfoldable Typeclasses
+* Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Functor Typeclass
 * Planned: Applicative Functor Typeclass
 * Planned: Monad Typeclass
-* Planned: Common Typeclasses
-* Planned: Common Functional Types
 * Planned: Respecting the Structure with Natural Transformations
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
+* Planned: Mastering Tree Data Structures
+* Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
+* Planned: Functional Error Handling and Debugging
+* Planned: Safely Using Imperative Iterators
+* Planned: Common Typeclasses
+* Planned: Common Functional Types and Data Structures
+* Planned: Random Access, Single Linked and Difference Lists
+* Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
 * Planned: Immutabilty through Persistent Data Structures
-* Planned: Alleviating the Need for Mutability
+* Planned: Mitigating the Need for Mutability
 * Planned: From Sharing to Memoization
 * Planned: Delimited Continuations
 * Planned: Coroutines Backed by Delimited Continuations
