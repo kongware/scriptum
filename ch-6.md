@@ -2,6 +2,23 @@
 
 I have found it rather hard to get further information about how to model your domain in functional programming than merely the reference to GADTs. This chapter is an attempt to give you a rough idea.
 
+### Separation of data and behavior
+
+As opposed to object oriented programming data and behavior is strictly decoupled in functional programming. We still have to deal with data dependencies
+
+```javascript
+const comp = f => g => x => f(g(x));
+const sqr = x => x * x;
+const add = x => y => x + y;
+
+const main = comp(sqr) (add(2));
+
+main(3); // 25
+```
+`comp` establishes a data dependency between `sqr` and the partially applied `add(2)`, in which the former depends on the resulting data of the latter. Strictly speaking it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
+
+Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript's interpreter pursues rather limited optimizations since it has to take possible side effects into account.
+
 ### GADTs
 
 Algebraic data types are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
