@@ -119,21 +119,6 @@ const Unit = record("Unit", {});
 ```
 Javascript's native unit types are `null` and `undefined`.
 
-### Lazy types
-
-TODO: add description
-
-```javascript
-const lazyProp = (k, v) => o =>
-  Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = v()},
-    configurable: true,
-    enumerable: true});
-
-const Lazy = lazy => record(Lazy, lazyProp("lazy", lazy));
-
-// TODO: add example
-```
 ### The algebra of GADTs
 
 So how works the algebra of algebraic data types? We can simply use the algebraic notation for describing data structures constructed by GADTs:
@@ -255,3 +240,28 @@ In the previous section we saw that the product encoding needed the `Null` type 
 When we combine product types to get more complex ones we can only add fields. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
+
+### Lazy types
+
+I use plain old Javascript objects to define GADTs. Javascript object properties are eagerly evaluated but we can benefit from lazy getters to create GADTs with lazy property access semantics:
+
+```javascript
+const lazyProp = (k, v) => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = v()},
+    configurable: true,
+    enumerable: true});
+
+const Lazy = lazy =>
+  record(Lazy, lazyProp("lazy", lazy) ({}));
+
+const log = x => (console.log(x), x);
+
+const main = Lazy(() => log(2 * 3));
+
+// nothing logged so far
+
+main.lazy + main.lazy; // logs 6 once and yields 12
+//          ^^^^^^^^^ subsequent access
+```
+`main.lazy` is only evaluated when needed and only once. All subsequent accesses resort to the initially computed result.
