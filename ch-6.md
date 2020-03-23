@@ -21,7 +21,7 @@ Since all functions are pure the order of evaluation do not have to adhere to th
 
 ### Algebraic data types
 
-Algebraic data types are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
+GADTs are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
 
 ### Sum types
 
