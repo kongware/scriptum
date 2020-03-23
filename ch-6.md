@@ -180,7 +180,7 @@ We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 
 ### Sums of products
 
-Usually we combine tagged unions and records to define more complex data structures:
+In order to obtain more complex data structures we compose sum types with product types in various ways:
 
 ```javascript
 const List = union("List");
