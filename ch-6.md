@@ -19,7 +19,7 @@ main(3); // 25
 
 Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript's interpreter pursues rather limited optimizations since it has to take possible side effects into account.
 
-### GADTs
+### Algebraic data types
 
 Algebraic data types are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
 
