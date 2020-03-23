@@ -231,7 +231,7 @@ null | data | true
 string | data | false
 null | null | false
 
-The `left` and `right` data components depend on each other and thus need to be encoded as a sum type.
+The `left` and `right` data components depend on each other and thus need to be encoded as a sum type, which only considers valid variants.
 
 ### Form product types to type hierarchies
 
@@ -241,7 +241,7 @@ When we combine product types to get more complex ones we can only add fields. B
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 
-### Lazy types
+### GADTs with lazy property access
 
 I use plain old Javascript objects to define GADTs. Javascript object properties are eagerly evaluated but we can benefit from lazy getters to create GADTs with lazy property access semantics:
 
