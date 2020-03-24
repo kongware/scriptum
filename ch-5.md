@@ -10,9 +10,9 @@ The next sections will discuss each point in detail.
 
 #### Normal order evaluation
 
-Applicative order is the common evaluation strategie of imperative and multi-paradigm languages. It evaluates all subexpressions passed to a function as its arguments right before the function is called.
+Applicative order is the common evaluation strategy of imperative and multi-paradigm languages. It evaluates all subexpressions passed to a function as its arguments right before the function is called.
 
-Normal order evaluation passes argument subexpressions to functions as they are and proceeds with their evaluation only if the resuts are actually needed within the function body:
+Normal order evaluation passes argument subexpressions to functions as they are and proceeds with their evaluation only if the results are actually needed within the function body:
 
 ```javascript
 // hypothetical normal evaluation order in Javascript
@@ -54,7 +54,7 @@ add(2 + 3)
 
 add(2 + 3) (4 * 5) + 1
 ```
-The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. Hence the expressions requires further reduction. Since the `+` operator eagerly requires both operands to be fully evaluated the preceding `add` function call is forced to normal form.
+The expression in the last line is not in WHNF, because the outermost level is not a lambda abstraction but the `+` operator with two operands. Hence the expressions require further reduction. Since the `+` operator eagerly requires both operands to be fully evaluated the preceding `add` function call is forced to normal form.
 
 #### Sharing
 
@@ -196,13 +196,13 @@ main.map(x => -x); // forces evaluation of the thunk and yields [-10, -0, -25]
 ```
 [run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
 
-`foo` evaluates its argument only when needed after the actual function invocation, i.e. it pursues normal evalutaion order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates its argument `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
+`foo` evaluates its argument only when needed after the actual function invocation, i.e. it pursues normal evaluation order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates its argument `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
 
 Mimicking lazy evaluation is not an end in itself though. How can we benefit from this in practice?
 
 #### Guarded recursion for free
 
-Guarded recursion is a consequence of lazy evaluation. It pauses the evaluation after an expression is reduced to WHNF and is thus stack safe, provided the binary operator is non-strict in its second argument:
+Guarded recursion is a consequence of lazy evaluation. It breaks the evaluation after an expression is reduced to WHNF and is thus stack safe, provided the binary operator is non-strict in its second argument:
 
 ```javascript
 const foldr = f => acc => ([x, ...xs]) =>
