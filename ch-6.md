@@ -17,7 +17,7 @@ main("hello"); // 25
 ```
 `comp` establishes a data dependency between `sqr` and the `len`, in which the former depends on the resulting data of the latter. Strictly speaking it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
 
-Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language, that is every expression may include side effects which limits the possible optimizations.
+Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language, that is every expression may include side effects, which limits the possible optimizations.
 
 ### Algebraic data types
 
@@ -58,7 +58,7 @@ Some(5); // Option {tag: "Some", some: 5}
 
 #### Pattern matching
 
-Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm with some extras on the language level that guarantees case exhaustiveness. Unfortunately Javascript does not ship with pattern matching, hence we have to resort to simple folds, which each encode the elimination rule of its tagged union. The `match` auxiliary function aliviates the definition of such folds:
+Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm with some extras on the language level that guarantees case exhaustiveness. Unfortunately Javascript does not ship with pattern matching, hence we have to resort to simple folds, which each encode the elimination rule of its tagged union. The `match` auxiliary function facilitates the definition of such folds:
 
 ```javascript
 const match = (type, tx, o) =>
@@ -139,7 +139,7 @@ What these terms represent are the cardinality of each type, that is the number 
 
 #### Algebraic laws
 
-Now that we know how to calculate the cardinality of an GADT let us verify that the algebraic laws for addtion and multiplication hold:
+Now that we know how to calculate the cardinality of an GADT let us verify that the algebraic laws for addition and multiplication hold:
 
 ```javascript
 // 0 + x = x
@@ -173,7 +173,7 @@ const List = union("List");
 const Nil = List("Nil", {});
 const Cons = head => tail => List(Cons, {head, tail});
 ```
-The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type defintion. Event though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
+The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type definition. Even though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
 
 Here is another example of a sum of product, which represents the boolean operation `(x && y) || x || y`:
 
@@ -267,3 +267,5 @@ main.lazy + main.lazy; // logs 6 once and yields 12
 [run code](https://repl.it/repls/GlisteningPalegreenAnalyst)
 
 `main.lazy` is only evaluated when needed and only once. All subsequent accesses resort to the initially computed result.
+
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
