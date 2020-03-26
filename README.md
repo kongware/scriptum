@@ -46,7 +46,7 @@ The scriptum library is still experimental.
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. Planned: Loop Fusion through Yoneda, Coyoneda or Transducers (0% done)
+10. Planned: Static and Dynamic Loop Fusion with Transducers and Yoneda (0% done)
 
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Functor Typeclass
@@ -61,6 +61,7 @@ The scriptum library is still experimental.
 * Planned: Safely Using Imperative Iterators
 * Planned: Common Typeclasses
 * Planned: Common Functional Types and Data Structures
+* Planned: Prentending Functors with Coyoneda
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
