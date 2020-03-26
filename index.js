@@ -158,15 +158,19 @@ const record = (type, o) =>
 ******************************************************************************/
 
 
-const union = type => (tag, o) =>
-  (o[TYPE] = type, o.tag = tag.name || tag, o);
+const union = type =>
+  Object.defineProperty(
+    (tag, o) =>
+      (o.type = type, o.tag = tag.name || tag, o),
+    "name",
+    {value: type});
 
 
 /***[Elimination Rule]********************************************************/
 
 
 const match = (type, tx, o) =>
-  tx[TYPE] !== type
+  tx[TYPE] !== type.name
     ? _throw(new UnionError("invalid type"))
     : o[tx.tag] (tx);
 
@@ -784,14 +788,14 @@ const arrMapA = ({liftA2, of}) => f =>
 
 const arrUnfold = f => x =>
   tailRec((acc, tx) =>
-    match("Option", tx, {
+    match(Option, tx, {
       None: _ => Base(acc),
       Some: ({x: [x_, y]}) => Step(arrSnoc(x_) (acc), f(y))
     })) ([], f(x));
 
 
 const arrUnfoldr = f => x =>
-  match("Option", f(x), {
+  match(Option, f(x), {
     None: _ => [],
     Some: ({x: [x_, y]}) => cons(x_) (thunk(() => unfoldr(f) (y)))
   });
@@ -2390,7 +2394,7 @@ const Either = union("Either");
 
 
 const either = left => right => tx =>
-  match("Either", tx, {
+  match(Either, tx, {
     Left: ({left: x}) => left(x),
     Right: ({right: y}) => right(y)
   });
@@ -2741,7 +2745,7 @@ const Matched = mat => record("Matched", {mat});
 
 
 const matched = x => tx =>
-  match("Option", tx.mat, {
+  match(Option, tx.mat, {
     None: _ => x,
     Some: ({some: y}) => y
   });
@@ -2804,7 +2808,7 @@ const Option = union("Option");
 
 
 const option = none => some => tx =>
-  match("Option", tx, {
+  match(Option, tx, {
     None: _ => none,
     Some: ({some: x}) => some(x)
   });
@@ -2820,10 +2824,10 @@ const Some = some => Option(Some, {some});
 
 
 const optAp = tf => tx =>
-  match("Option", tf, {
+  match(Option, tf, {
     None: _ => None,
     Some: ({some: f}) => {
-      return match("Option", tx, {
+      return match(Option, tx, {
         None: _ => None,
         Some: ({some: x}) => Some(f(x))
       });
@@ -2842,7 +2846,7 @@ const optOf = x => Some(x);
 
 
 const optMap = f => tx =>
-  match("Option", tx, {
+  match(Option, tx, {
     None: _ => None,
     Some: ({some: x}) => Some(f(x))
   });
@@ -2852,7 +2856,7 @@ const optMap = f => tx =>
 
 
 const optChain = mx => fm =>
-  match("Option", mx, {
+  match(Option, mx, {
     None: _ => None,
     Some: ({some: x}) => fm(x)
   });
@@ -2861,7 +2865,7 @@ const optChain = mx => fm =>
 const optChainT = ({chain, of}) => mmx => fmm =>
   chain(mmx)
     (mx =>
-      match("Option", mx, {
+      match(Option, mx, {
         None: _ => of(None),
         Some: ({some: x}) => fmm(x)
       }));
@@ -2876,7 +2880,7 @@ const Ordering = ord => union("Ordering");
 
 
 const ordering = lt => eq => gt => tx =>
-  match("Ordering", tx, {
+  match(Ordering, tx, {
     LT: _ => lt,
     EQ: _ => eq,
     GT: _ => gt
@@ -3090,7 +3094,7 @@ const predPrepend = predAppend;
 
 const leftPrism =
   Lens(({map, of}) => ft => tx =>
-    match("Either", tx, {
+    match(Either, tx, {
       Left: ({left: x}) => map(Left) (ft(x)),
       Right: _ => of(tx)
     }));
@@ -3098,7 +3102,7 @@ const leftPrism =
 
 const rightPrism =
   Lens(({map, of}) => ft => tx =>
-    match("Either", tx, {
+    match(Either, tx, {
       Left: _ => of(tx),
       Right: ({right: y}) => map(Right) (ft(y))
     }));
@@ -3459,7 +3463,7 @@ const These_ = union("These");
 
 
 const these = _this => that => these => tx =>
-  match("These", tx, {
+  match(These, tx, {
     This: ({this: x}) => _this(x),
     That: ({that: y}) => that(y),
     These: ({this: x, that: y}) => these(x) (y)
@@ -3482,7 +3486,7 @@ const These = _this => that =>
 
 
 const fromThese = _this => that => tx =>
-  match("These", tx, {
+  match(These, tx, {
     This: ({this: x}) => new Pair(x, that),
     That: ({that: y}) => new Pair(_this, y),
     These: ({this: x, that: y}) => new Pair(x, y)
