@@ -62,7 +62,7 @@ Functions that expect tagged unions must always consider all possible cases in o
 
 ```javascript
 const match = (type, tx, o) =>
-  tx.type !== type
+  tx.type !== type.name
     ? _throw(new UnionError("invalid type"))
     : o[tx.tag] (tx);
     
@@ -72,7 +72,7 @@ const None = Option("None", {});
 const Some = some => Option(Some, {some});
 
 const option = none => some => tx =>
-  match("Option", tx, {
+  match(Option, tx, {
     None: _ => none,
     Some: ({some: x}) => some(x)
   });
