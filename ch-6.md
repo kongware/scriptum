@@ -28,8 +28,12 @@ GADTs are the fundamental mean to construct custom data structures in functional
 A sum type - also known as tagged union - can have alternative shapes called variants where only one variant can exist at a time. There is the `union` auxiliary function to easily create tagged unions:
 
 ```javascript
-const union = type => (tag, o) =>
-  (o.type = type, o.tag = tag.name || tag, o);
+const union = type =>
+  Object.defineProperty(
+    (tag, o) =>
+      (o.type = type, o.tag = tag.name || tag, o),
+    "name",
+    {value: type});
 
 const Bool = union("Bool"); // type constructor
 
