@@ -46,12 +46,14 @@ The scriptum library is still experimental.
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. Planned: Static and Dynamic Loop Fusion with Transducers and Yoneda (10% done)
+10. Planned: Mimicking Pattern Matching (10% done)
 
+* Planned: Data Structure Abstraction and Loop Fusion with Transducers
 * Planned: CPS Transformation for Stack-safe Recursion
-* Planned: Functor Typeclass
-* Planned: Applicative Functor Typeclass
-* Planned: Monad Typeclass
+* Planned: Lifting Pure Functions with Functors
+* Planned: Combine Lifted Functions with Applicatives
+* Planned: Combine Kleisli Arrows with Monads
+* Planned: Functorial Loop Fusion with Yoneda
 * Planned: Respecting the Structure with Natural Transformations
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
@@ -61,7 +63,6 @@ The scriptum library is still experimental.
 * Planned: Safely Using Imperative Iterators
 * Planned: Common Typeclasses
 * Planned: Common Functional Types and Data Structures
-* Planned: Prentending Functors with Coyoneda
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
@@ -70,7 +71,6 @@ The scriptum library is still experimental.
 * Planned: From Sharing to Memoization
 * Planned: Delimited Continuations
 * Planned: Coroutines Backed by Delimited Continuations
-* Planned: Almost Pattern Matching through Unification
 * Planned: Functional Iso (Optics)
 * Planned: Functional Lenses (Optics)
 * Planned: Functional Prism (Optics)
