@@ -1,4 +1,4 @@
-## Data Modelling with Algebraic Data Types (GADTs)
+## Data Modeling with Algebraic Data Types (GADTs)
 
 I have found it rather hard to get further information about how to model your domain in functional programming than merely the reference to GADTs. This chapter is an attempt to give you a rough idea.
 
