@@ -172,16 +172,8 @@ We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 In order to obtain more complex data structures we compose sum types with product types in various ways:
 
 ```javascript
-const union = type => (tag, o) =>
-  (o[type] = type, o.tag = tag.name || tag, o);
-
-const match = (tx, o) =>
-  o[tx.tag] (tx);
-
 const List = union("List");
-
 const Nil = List("Nil", {});
-
 const Cons = head => tail => List(Cons, {head, tail});
 
 const listFold = f => acc => {
@@ -207,25 +199,9 @@ The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is 
 Here is another example of a sum of product, which represents the boolean operation `(x && y) || x || y`:
 
 ```javascript
-const union = type => (tag, o) =>
-  (o[type] = type, o.tag = tag.name || tag, o);
-
-const match = (tx, o) =>
-  o[tx.tag] (tx);
-
-const arrSnoc = xs => x =>
-  (xs.push(x), xs);
-
-const Pair = x => y => [x, y];
-
-const Triple = x => y => z => [x, y, z];
-
 const These_ = union("These");
-
 const This = _this => These_(This, {this: _this});
-
 const That = that => These_(That, {that});
-
 const These = _this => that => These_(These, {this: _this, that});
 
 const arrAlign = f => xs => ys => {
