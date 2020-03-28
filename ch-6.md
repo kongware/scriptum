@@ -172,22 +172,109 @@ We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
 In order to obtain more complex data structures we compose sum types with product types in various ways:
 
 ```javascript
+const union = type => (tag, o) =>
+  (o[type] = type, o.tag = tag.name || tag, o);
+
+const match = (tx, o) =>
+  o[tx.tag] (tx);
+
 const List = union("List");
 
 const Nil = List("Nil", {});
+
 const Cons = head => tail => List(Cons, {head, tail});
+
+const listFold = f => acc => {
+  const go = tx =>
+    match(tx, {
+      Nil: _ => acc,
+      Cons: ({head, tail}) => f(head) (go(tail))
+    });
+
+  return go;
+};
+
+const listSum = listFold(x => acc => x + acc) (0);
+
+const tx = Cons(1) (Cons(2) (Cons(3) (Nil)));
+
+listSum(tx); // 6
 ```
+[run code](https://repl.it/repls/TerribleRoughSorting)
+
 The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type definition. Even though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
 
 Here is another example of a sum of product, which represents the boolean operation `(x && y) || x || y`:
 
 ```javascript
+const union = type => (tag, o) =>
+  (o[type] = type, o.tag = tag.name || tag, o);
+
+const match = (tx, o) =>
+  o[tx.tag] (tx);
+
+const arrSnoc = xs => x =>
+  (xs.push(x), xs);
+
+const Pair = x => y => [x, y];
+
+const Triple = x => y => z => [x, y, z];
+
 const These_ = union("These");
 
 const This = _this => These_(This, {this: _this});
+
 const That = that => These_(That, {that});
-const Threse = _this => that => These_(These, {this: _this, that});
+
+const These = _this => that => These_(These, {this: _this, that});
+
+const arrAlign = f => xs => ys => {
+  const go = (acc, i) => {
+    if (i >= xs.length && i >= ys.length)
+      return acc;
+
+    else if (i >= ys.length)
+      return go(arrSnoc(acc) (f(This(xs[i]))), i + 1);
+
+    else if (i >= xs.length)
+      return go(arrSnoc(acc) (f(That(ys[i]))), i + 1);
+
+    else
+      return go(arrSnoc(acc) (f(These(xs[i]) (ys[i]))), i + 1);
+  };
+
+  return go([], 0);
+};
+
+const liftAlign = align => f => x => y =>
+  align(tx =>
+    match(tx, {
+      This: ({this: x_}) => f(x_) (y),
+      That: ({that: y_}) => f(x) (y_),
+      These: ({this: x_, that: y_}) => f(x_) (y_)
+    }));
+
+const zipPad = align => liftAlign(align) (Pair);
+
+const liftAlign3 = align => f => x => y => z => xs => ys =>
+  align(tx =>
+    match(tx, {
+      This: ({this: [x_, y_]}) => f(x_) (y_) (z),
+      That: ({that: z_}) => f(x) (y) (z_),
+      These: ({this: [x_, y_], that: z_}) => f(x_) (y_) (z_)}))
+        (zipPad(align) (x) (y) (xs) (ys));
+
+const zipPad3 = align => liftAlign3(align) (Triple);
+
+const main = zipPad3(arrAlign) ("") (0) (false);
+
+main(
+  ["foo", "bar"])
+    ([2, 4, 6, 8])
+      ([true, true]); // [["foo", 2, true], ["bar", 4, true], ["", 6, false], ["", 8, false]]
 ```
+[run code](https://repl.it/repls/FocusedDeepCodeview)
+
 The cardinality of `These<a, b>` is calculated by `These<a, b> = a + b + a * b`.
 
 ### From product types to invalid states
