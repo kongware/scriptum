@@ -173,7 +173,7 @@ const Bat = bat => Foo("Bat", {bat});
 Bar(); // type error
 Bat(123); // Foo {bat: 123}
 ```
-We can only construct `Foo` values of the `Bat` variant, hence `0 + a = a` holds.
+We can only construct `Foo` values of the `Bat` variant, hence `0 + a = a` applies.
 
 ```javascript
 // 0 * x = 0
@@ -182,14 +182,58 @@ const Foo = bat => record("Foo", {bar: Void(), bat});
 
 Foo(123); // type error
 ```
-We cannot construct a single `Foo` value, hence `0 * a = 0` holds.
+We cannot construct a single `Foo` value, hence `0 * a = 0` applies. I leave it as an exercise to the reader to see that the other laws hold as well.
+
+### When to use sums and when to use products?
+
+Sums are dual to products but when do we choose one over the other? We can state the following a s a rule of thumb:
+
+* if two data components depend on each other a sum type should be used to avoid invalid states
+* if two data components do not depend on each other a product type should be used to allow all combinations
+
+A computation that may fail can either yield a result value or an error message. Both data components depend on each other, because there are several invalid combinations:
+
+left | right | valid
+---- | ----- | ------
+string | null | true
+null | data | true
+string | data | false
+null | null | false
+
+We rule out these invalid states by encoding the computation with a sum type:
+
+```javascript
+const Either = union("Either");
+
+const Left = left => Either(Left, {left}); // error case
+const Right = right => Either(Right, {right}); // right case
+
+const safeDiv = x => y =>
+  y === 0
+    ? Left("division by zero")
+    : Right(x / y);
+    
+safeDiv(2) (6); // Either {tag: "Right", right: 3}
+safeDiv(2) (0); // Either {tag: "Left", left: "division by zero"}
+```
+This way only valid combinations of the involved data components are possible.
+
+The data fields of the following data type on the other hand are completely independent of each other, hence we encode it with a product type:
+
+```javascript
+const Time = h => m => s => record(Time, {h, m, s});
+
+Time(11) (59) (59); // {Time: true, h: 11, m: 59, s: 59}
+```
+All combinations of hours, minutes and seconds are valid. The number of possible combinations is formed by the product of all three data fields.
 
 ### Sums of products
 
-In order to obtain more complex data structures we compose sum types with product types in various ways:
+Simply put the composition of sum and product types usually results in a sums of products shape. The `List` type is a simple example of such a sum of product, which has additionally a recursive definition: 
 
 ```javascript
 const List = union("List");
+
 const Nil = List("Nil", {});
 const Cons = head => tail => List(Cons, {head, tail});
 
@@ -211,12 +255,13 @@ listSum(tx); // 6
 ```
 [run code](https://repl.it/repls/TerribleRoughSorting)
 
-The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`, that is to say `List` is a sum of product and has a recursive type definition. Even though we did not use the `record` auxiliary function the `Cons` value constructor expects two arguments and thus forms a product type with two fields. `List` is recursive because `Cons` takes value of type `List` as its second argument.
+`List` includes a product type, because the `Cons` data constructor expects more than a single argument. The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`. It has a recursive definition, because `Cons` second argument `tail` is of type `List`.
 
-Here is another example of a sum of product, which represents the boolean operation `(x && y) || x || y`:
+Here is another more complex example of a sum of product, which represents an either or both operation:
 
 ```javascript
 const These_ = union("These");
+
 const This = _this => These_(This, {this: _this});
 const That = that => These_(That, {that});
 const These = _this => that => These_(These, {this: _this, that});
@@ -268,60 +313,11 @@ main(
 ```
 [run code](https://repl.it/repls/FocusedDeepCodeview)
 
-The cardinality of `These<a, b>` is calculated by `These<a, b> = a + b + a * b`.
-
-### From product types to invalid states
-
-We have learned so far how we can construct arbitrarily complex data structures by composing sum and product types. Sums are obviously dual to products but when do we choose one over the other? As a rule of thumb we can state:
-
-* if two data components depend on each other a sum type should be used to avoid invalid states
-* if two data components do not depend on each other a product type should be used to allow all combinations
-
-I am going to demonstrate this using a type that encodes a computation that may yield an error:
-
-```javascript
-const Either = union("Either");
-
-const Left = left => Either(Left, {left}); // error case
-const Right = right => Either(Right, {right}); // right case
-
-const safeDiv = x => y =>
-  y === 0
-    ? Left("division by zero")
-    : Right(x / y);
-    
-safeDiv(2) (6); // Either {tag: "Right", right: 3}
-safeDiv(2) (0); // Either {tag: "Left", left: "division by zero"}
-```
-What would happen if we express `Either` as a product type?
-
-```javascript
-const Either = left => right => record(Either, {left, right});
-
-const safeDiv = x => y =>
-  y === 0
-    ? Either("division by zero") (null)
-    : Either(null) (x / y);
-    
-safeDiv(2) (6); // Either {left: null, right: 3}
-safeDiv(2) (0); // Either {left: "division by zero", right: null}
-```
-The wrong looking `null` values are not the only issue with this code. Since a product type expresses all possible combinations of its fields it does not rule out the invalid states of a computation that may fail:
-
-left | right | valid
----- | ----- | ------
-string | null | true
-null | data | true
-string | data | false
-null | null | false
-
-The `left` and `right` data components depend on each other and thus need to be encoded as a sum type, which only considers valid variants.
+Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such compositions. The cardinality of `These<a, b>` is calculated by `These<a, b> = a + b + a * b`.
 
 ### Form product types to type hierarchies
 
-In the previous section we saw that the product encoding needed the `Null` type to fill all of its fields with a value. This points to another issue for languages that supply product types as the only mean to construct data structures.
-
-When we combine product types to get more complex ones we can only add fields. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies.
+In many imperative or object oriented languages the only means to express new data structures is to combine product types. This way we can only add fields to a data structure. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies. Such data models are often too inflexible to reflect the chaotic, non-hiearchical world. 
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 
