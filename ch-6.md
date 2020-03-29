@@ -39,9 +39,9 @@ main(xs); // ["FOO!", "BAR!", "BAT!", "BAT!"]
 ```
 [run code](https://repl.it/repls/JointFullValue)
 
-`arrDedupe` has static function dependencies on `arrFilter` and the `Set` constructor (lines `A`). The function composition in line `B` however creates a data dependency, between `arrMap`, `toUC`, `shout` and `arrDedupe` by the former depending on the result of the latter. The functional programming style tends to make such data dependencies explicit.
+`arrDedupe` has static function dependencies on `arrFilter` and the `Set` constructor (lines `A`). The function composition in line `B` however creates a data dependency of the form `arrMap >> toUC >> shout >> arrDedupe`, where each function depends on the result of its predecessor. The functional programming style tends to make such data dependencies more explicit.
 
-In line `C` there is another function dependency between `arrMap` and a function composition. As opposed to the static function dependency in lines `A` this is a dynamic one. Since almost all functions in the functional paradigm are global this is all we need to obtain dependency injection. Static function dependencies are not harmful, but dynamic ones lead to more general, more expressive solutions:
+In line `C` there is another function dependency between `arrMap` and a function composition. As opposed to the static function dependency in lines `A` this is a dynamic one. Since almost all functions in the functional paradigm are global this is all we need to obtain dependency injection. Static function dependencies are not bad, but dynamic ones lead to more general, more expressive solutions:
 
 ```javascript
 const arrDedupeBy = f => xs => {
@@ -70,7 +70,7 @@ Since all functions are pure in functional programming the order of evaluation d
 
 ### Algebraic data types
 
-GADTs are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. The next sections will introduce the basic GADTs and their mathematical foundation.
+GADTs are the fundamental means to construct custom data structures in functional programming. They are composable and may have a recursive definition. The next sections will introduce the basic GADTs and their mathematical foundation.
 
 #### Sum types
 
@@ -90,7 +90,7 @@ const True = Bool("True", {});
 False; // {Bool: true, tag: "False"}
 True; // {Bool: true, tag: "True"}
 ```
-The `Bool` type can either be `True` or `False`. Please note that the `Bool` property is needed, because we will use Typescript to type our code in more advanced chapters. Typesript is based on structural typing though, which is a rather weak form of typing. In order to render each type structural unique they carry a corresponding type property around.
+The `Bool` type can either be `True` or `False`. Please note that the `Bool` property is needed, because we will use Typescript to type our code in more advanced chapters. Typesript is based on structural typing though, which is a rather weak form of typing. In order to render each type structural unique, they have to carry a corresponding type property around.
 
 Here is another tagged union, which comprises the variants `None` and `Some<a>`. It is a less error prone alternative to Javascript's `Null` type:
 
@@ -127,7 +127,7 @@ The `Void` type has no inhabitants, i.e. it has no value. We cannot express such
 const Void = () => record(
   "Void", throw new TypeError("uninhabited"));
 ```
-As far as I know `Void` has not many uses cases on its own. However, it is useful to explain the algebra of GADTs hence I introduce it here.
+As far as I know `Void` has not many uses cases on its own. However, it is useful to explain the algebra of GADTs, hence I introduce it here.
 
 #### Unit type
 
@@ -147,16 +147,16 @@ What exactly is the algebra of algebraic data types? Well, we can use algebraic 
 * `0` represents the `Void` type
 * `1` represents the `Unit` type
 
-Let us express the types defined so far:
+Let us express the types defined so far using this notation:
 
 ```
 Bool        = True | False   ~ 1 + 1
 Option<a>   = None | Some<a> ~ 1 + a
 Point<a, a>                  ~ a * a
 ```
-What these terms represent are the cardinality of each type, that is the number of values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `a`. `Point`'s number of possible values is the product of the inhabitants of `a` multiplied by itself.
+What these terms represent are the cardinality of each type, that is the number of possible values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `a`. `Point`'s number of possible values is the product of the inhabitants of `a` multiplied by itself.
 
-Now it is obvious that sum and product types got their name by the operation that determine their cardinality.
+Now it is obvious that sum and product types got their name by the operation that determines their cardinality.
 
 #### Algebraic laws
 
@@ -186,7 +186,7 @@ We cannot construct a single `Foo` value, hence `0 * a = 0` applies. I leave it 
 
 ### When to use sums and when to use products?
 
-Sums are dual to products but when do we choose one over the other? We can state the following a s a rule of thumb:
+Sums are dual to products but when do we choose one over the other? We can state the following as a rule of thumb:
 
 * if two data components depend on each other a sum type should be used to avoid invalid states
 * if two data components do not depend on each other a product type should be used to allow all combinations
@@ -200,7 +200,7 @@ null | data | true
 string | data | false
 null | null | false
 
-We rule out these invalid states by encoding the computation with a sum type:
+We rule out these invalid states by encoding such a computation with sum types:
 
 ```javascript
 const Either = union("Either");
@@ -216,20 +216,20 @@ const safeDiv = x => y =>
 safeDiv(2) (6); // Either {tag: "Right", right: 3}
 safeDiv(2) (0); // Either {tag: "Left", left: "division by zero"}
 ```
-This way only valid combinations of the involved data components are possible.
+Now only valid combinations of the involved data components are possible.
 
-The data fields of the following data type on the other hand are completely independent of each other, hence we encode it with a product type:
+The data fields of the following data type on the other hand are completely independent of each other, hence we encode them with a product type:
 
 ```javascript
 const Time = h => m => s => record(Time, {h, m, s});
 
 Time(11) (59) (59); // {Time: true, h: 11, m: 59, s: 59}
 ```
-All combinations of hours, minutes and seconds are valid. The number of possible combinations is formed by the product of all three data fields.
+All combinations of hours, minutes and seconds are valid. The number of possible combinations is only limited by the product of the three data fields `Time<Nat, Nat, Nat> ~ Nat * Nat * Nat`.
 
 ### Sums of products
 
-Simply put the composition of sum and product types usually results in a sums of products shape. The `List` type is a simple example of such a sum of product, which has additionally a recursive definition: 
+Simply put the composition of sum and product types usually results in a sums of products shape. The `List` type is a simple example of such a sum of product, which has additionally a recursive type definition: 
 
 ```javascript
 const List = union("List");
@@ -255,7 +255,7 @@ listSum(tx); // 6
 ```
 [run code](https://repl.it/repls/TerribleRoughSorting)
 
-`List` includes a product type, because the `Cons` data constructor expects more than a single argument. The cardinality of `List` is calculated by `List<a> = 1 + a * List<a>`. It has a recursive definition, because `Cons` second argument `tail` is of type `List`.
+Even though we do not use the `record` auxiliary function `List` includes a product type, because the `Cons` data constructor expects more than a single argument. The cardinality of `List` is calculated by `List<a> ~ 1 + a * List<a>`. It has a recursive definition, because `Cons` second argument `tail` is of type `List`.
 
 Here is another more complex example of a sum of product, which represents an either or both operation:
 
@@ -313,7 +313,7 @@ main(
 ```
 [run code](https://repl.it/repls/FocusedDeepCodeview)
 
-Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such compositions. The cardinality of `These<a, b>` is calculated by `These<a, b> = a + b + a * b`.
+Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such composed algorithm. This course will hopefully help you to get there. The cardinality of `These<a, b>` is calculated by `These<a, b> ~ a + b + a * b`.
 
 ### Form product types to type hierarchies
 
