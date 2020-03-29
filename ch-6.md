@@ -313,7 +313,7 @@ main(
 ```
 [run code](https://repl.it/repls/FocusedDeepCodeview)
 
-Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such composed algorithm. This course will hopefully help you to get there. The cardinality of `These<a, b>` is calculated by `These<a, b> ~ a + b + a * b`.
+Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such an extendable composition. This course will hopefully help you to get there. The cardinality of `These<a, b>` is calculated by `These<a, b> ~ a + b + a * b`.
 
 ### From product types to type hierarchies
 
