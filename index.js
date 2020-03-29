@@ -162,11 +162,11 @@ const union = type => (tag, o) =>
 /***[Elimination Rule]********************************************************/
 
 
-match = (tx, o) =>
+const match = (tx, o) =>
   o[tx.tag] (tx);
 
 
-match2 = (tx, ty, o) =>
+const match2 = (tx, ty, o) =>
   o[tx.tag] [ty.tag] (tx) (ty);
 
 
