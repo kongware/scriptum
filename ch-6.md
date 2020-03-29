@@ -319,8 +319,6 @@ Do not be intimidated by the complexity of this algorithm. It requires quite a b
 
 In many imperative or object oriented languages the only means to express new data structures is to combine product types. This way we can only add fields to a data structure. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies. Such data models are often too inflexible to reflect the chaotic, non-hiearchical world. 
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
-
 ### GADTs with lazy property access
 
 I use plain old Javascript objects to define GADTs. Javascript object properties are eagerly evaluated but we can benefit from lazy getters to create GADTs with lazy property access semantics:
@@ -350,13 +348,13 @@ main.lazy + main.lazy; // logs 6 once and yields 12
 
 ### Pattern matching
 
-Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm with some extras on the language level that guarantees case exhaustiveness. Unfortunately Javascript does not ship with pattern matching, hence we have to resort to simple folds, which each encode the elimination rule of its tagged union. The `match` auxiliary function facilitates the definition of such folds:
+Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm along with local bindings and special syntax that guarantees case exhaustiveness. It is one of a few techniques that cannot be accomplished in userland but needs to be implemented on the language level.
+
+Unfortunately Javascript does not ship with pattern matching, hence we have to resort to folds, which represent the elimination rule of a type and to auxiliary functions like `match`:
 
 ```javascript
-const match = (type, tx, o) =>
-  tx.type !== type.name
-    ? _throw(new UnionError("invalid type"))
-    : o[tx.tag] (tx);
+const match = (tx, o) =>
+  o[tx.tag] (tx);
     
 const Option = union("Option");
 
@@ -376,6 +374,6 @@ main(Some(5)); // 25
 ```
 [run code](https://repl.it/repls/BogusFullButtons)
 
-`match` only works with tagged unions and it does not prevent us from supplying non-exhaustive patterns. It is the best we can get in Javascript though.
+`match` only works with tagged unions and it does not prevent us from supplying non-exhaustive patterns. This will change as soon as we start working with Typescript.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
