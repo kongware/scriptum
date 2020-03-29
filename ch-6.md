@@ -315,7 +315,7 @@ main(
 
 Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such composed algorithm. This course will hopefully help you to get there. The cardinality of `These<a, b>` is calculated by `These<a, b> ~ a + b + a * b`.
 
-### Form product types to type hierarchies
+### From product types to type hierarchies
 
 In many imperative or object oriented languages the only means to express new data structures is to combine product types. This way we can only add fields to a data structure. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies. Such data models are often too inflexible to reflect the chaotic, non-hiearchical world. 
 
