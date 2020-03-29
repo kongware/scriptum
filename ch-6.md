@@ -1,39 +1,84 @@
 ## Data Modeling with Algebraic Data Types (GADTs)
 
-I have found it rather hard to get further information about how to model your domain in functional programming than merely the reference to GADTs. This chapter is an attempt to give you a rough idea.
+Modeling a domain in functional programming means to compose simple types to arbitrarily complex composite ones, while these types have their foundation in math. The goal of this chapter is to give you a first impression of this procedure.
 
-### Data dependencies
+### Data and function dependencies
 
-As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. Instead we have to deal with data dependencies. Goal is to make them as explicit as possible:
+As opposed to object oriented programming data and behavior are strictly decoupled in functional programming. What we have to deal with are data and function dependencies though:
 
 ```javascript
 const comp = f => g => x => f(g(x));
-const sqr = x => x * x;
-const len = xs => xs.length;
 
-const main = comp(sqr) (len);
+const arrMap = f => xs =>
+  xs.map(f);
+  
+const arrFilter = p => xs =>
+  xs.filter(p);
 
-main("hello"); // 25
+const arrDedupe = xs => {
+  const s = new Set(); // A
+
+  return arrFilter(x => { // A
+    return s.has(x)
+      ? null
+      : (s.add(x), x);
+  }) (xs);
+};
+
+const toUC = s => s.toUpperCase();
+
+const shout = s => s + "!";
+
+const xs = ["foo", "bar", "bar", "bat", "foo", "BAT"];
+
+const main = comp( // B
+  arrMap(comp(shout) (toUC))) // C
+    (arrDedupe);
+
+main(xs); // ["FOO!", "BAR!", "BAT!", "BAT!"]
 ```
-`comp` establishes a data dependency between `sqr` and the `len`, in which the former depends on the resulting data of the latter. Strictly speaking it froms a read-after-write data dependency. Since reassignments and mutations are banned in functional programming there are actually no other data dependency forms.
+[run code](https://repl.it/repls/JointFullValue)
 
-Since all functions are pure the order of evaluation do not have to adhere to the lexical order of expressions but can be altered, parallelized for instance, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language, that is every expression may include side effects, which limits the possible optimizations.
+`arrDedupe` has static function dependencies on `arrFilter` and the `Set` constructor (lines `A`). The function composition in line `B` however creates a data dependency, between `arrMap`, `toUC`, `shout` and `arrDedupe` by the former depending on the result of the latter. The functional programming style tends to make such data dependencies explicit.
+
+In line `C` there is another function dependency between `arrMap` and a function composition. As opposed to the static function dependency in lines `A` this is a dynamic one. Since almost all functions in the functional paradigm are global this is all we need to obtain dependency injection. Static function dependencies are not harmful, but dynamic ones lead to more general, more expressive solutions:
+
+```javascript
+const arrDedupeBy = f => xs => {
+  const s = new Set();
+
+  return arrFilter(x => {
+    const r = f(x);
+    
+    return s.has(r)
+      ? null
+      : (s.add(r), x);
+  }) (xs);
+};
+
+const xs = ["foo", "bar", "bar", "bat", "foo", "BAT"];
+
+const main = comp(
+  arrMap(comp(shout) (toUC)))
+    (arrDedupeBy(toUC));
+
+main(xs); // ["FOO!", "BAR!", "BAT!"]
+```
+[run code](https://repl.it/repls/DeliriousLuckySoftwareengineer)
+
+Since all functions are pure in functional programming the order of evaluation do not have to adhere to the lexical order of expressions but can be optimized, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language. Every expression may include side effects and thus the order of evaluation is rather strict.
 
 ### Algebraic data types
 
-GADTs are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. It is not a coincidence that both properties, composition and recursion, are also applied to the type level. They are ubiquitous in the functional paradigm. The next sections will introduce the basic GADTs, which can be composed to more complex composite types.
+GADTs are the fundamental mean to construct custom data structures in functional programming. They are composable and may have a recursive definition. The next sections will introduce the basic GADTs and their mathematical foundation.
 
-### Sum types
+#### Sum types
 
-A sum type - also known as tagged union - can have alternative shapes called variants where only one variant can exist at a time. There is the `union` auxiliary function to easily create tagged unions:
+A sum type, also known as tagged union, can have alternative shapes called variants, where only one variant can exist at a time. There is the `union` auxiliary function to easily create tagged unions:
 
 ```javascript
-const union = type =>
-  Object.defineProperty(
-    (tag, o) =>
-      (o.type = type, o.tag = tag.name || tag, o),
-    "name",
-    {value: type});
+const union = type => (tag, o) =>
+  (o[type] = type, o.tag = tag.name || tag, o);
 
 const Bool = union("Bool"); // type constructor
 
@@ -42,10 +87,12 @@ const Bool = union("Bool"); // type constructor
 const False = Bool("False", {});
 const True = Bool("True", {});
 
-False; // Bool {tag: "False"}
-True; // Bool {tag: "True"}
+False; // {Bool: true, tag: "False"}
+True; // {Bool: true, tag: "True"}
 ```
-The `Bool` type can either be `True` or `False`.
+The `Bool` type can either be `True` or `False`. Please note that the `Bool` property is needed, because we will use Typescript to type our code in more advanced chapters. Typesript is based on structural typing though, which is a rather weak form of typing. In order to render each type structural unique they carry a corresponding type property around.
+
+Here is another tagged union, which comprises the variants `None` and `Some<a>`. It is a less error prone alternative to Javascript's `Null` type:
 
 ```javascript
 const Option = union("Option"); // type constructor
@@ -55,44 +102,12 @@ const Option = union("Option"); // type constructor
 const None = Option("None", {});
 const Some = some => Option(Some, {some});
 
-None; // Option {tag: "None"}
-Some(5); // Option {tag: "Some", some: 5}
+None; // {Option: true, tag: "None"}
+Some(5); // {Option: true, tag: "Some", some: 5}
 ```
-`Option` can either be `None` or `Some<a>`. It is a more robust alternative for Javascript's `Null` type.
+#### Product types
 
-#### Pattern matching
-
-Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm with some extras on the language level that guarantees case exhaustiveness. Unfortunately Javascript does not ship with pattern matching, hence we have to resort to simple folds, which each encode the elimination rule of its tagged union. The `match` auxiliary function facilitates the definition of such folds:
-
-```javascript
-const match = (type, tx, o) =>
-  tx.type !== type.name
-    ? _throw(new UnionError("invalid type"))
-    : o[tx.tag] (tx);
-    
-const Option = union("Option");
-
-const None = Option("None", {});
-const Some = some => Option(Some, {some});
-
-const option = none => some => tx =>
-  match(Option, tx, {
-    None: _ => none,
-    Some: ({some: x}) => some(x)
-  });
-
-const main = option(0) (x => x * x);
-
-main(None); // 0
-main(Some(5)); // 25
-```
-[run code](https://repl.it/repls/BogusFullButtons)
-
-`match` only works with tagged unions and it does not prevent us from supplying non-exhaustive patterns. It is the best we can get in Javascript though.
-
-### Product types
-
-A product type has only one shape but can contain several data fields. There is the `record` auxiliary function to easily create product types of various fields:
+A product type has only one shape but can contain several data fields, which are independent of each other. There is the `record` auxiliary function to easily create product types of various fields:
 
 ```javascript
 const record = (type, o) =>
@@ -100,21 +115,21 @@ const record = (type, o) =>
 
 const Point = x => y => record(Point, {x, y});
 
-Point(1) (2); // Point {x: 1, y, 2}
+Point(1) (2); // {Point: true, x: 1, y, 2}
 ```
 `Point<a, a>` contains two fields with values of the same type.
 
-### Void type
+#### Void type
 
-The `Void` type has no inhabitant, i.e. it has no value. We cannot express such a type in Javascipt, therefore I mimic it with a nullary function that once called immediately throws an error:
+The `Void` type has no inhabitants, i.e. it has no value. We cannot express such a type in Javascipt, therefore I mimic it with a nullary function that once called immediately throws an error:
 
 ```javascript
 const Void = () => record(
   "Void", throw new TypeError("uninhabited"));
 ```
-`Void` has not many uses cases but it is useful to explain the algebra of GADTs, which is going to happen in a later section in this chapter.
+As far as I know `Void` has not many uses cases on its own. However, it is useful to explain the algebra of GADTs hence I introduce it here.
 
-### Unit type
+#### Unit type
 
 The `Unit` type has exactly one inhabitant, namely itself:
 
@@ -123,9 +138,9 @@ const Unit = record("Unit", {});
 ```
 Javascript's native unit types are `null` and `undefined`.
 
-### The algebra of GADTs
+#### The algebra of GADTs
 
-So how works the algebra of algebraic data types? We can simply use the algebraic notation for describing data structures constructed by GADTs:
+What exactly is the algebra of algebraic data types? Well, we can use algebraic notation for describing data structures constructed by GADTs:
 
 * `+` represents tagged unions
 * `*` represents records
@@ -139,11 +154,13 @@ Bool        = True | False   ~ 1 + 1
 Option<a>   = None | Some<a> ~ 1 + a
 Point<a, a>                  ~ a * a
 ```
-What these terms represent are the cardinality of each type, that is the number of values each type takes. `Bool` has two inhabitants. `Option` has one inhabitant plus all inhabitants of the type `a`, which still has to be provided. `Point`'s number of possible values is yielded by the product of the inhabitants of `a`.
+What these terms represent are the cardinality of each type, that is the number of values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `a`. `Point`'s number of possible values is the product of the inhabitants of `a` multiplied by itself.
+
+Now it is obvious that sum and product types got their name by the operation that determine their cardinality.
 
 #### Algebraic laws
 
-Now that we know how to calculate the cardinality of an GADT let us verify that the algebraic laws for addition and multiplication hold:
+Do the algebraic laws for addition and multiplication hold for GADTs?
 
 ```javascript
 // 0 + x = x
@@ -334,5 +351,35 @@ main.lazy + main.lazy; // logs 6 once and yields 12
 [run code](https://repl.it/repls/GlisteningPalegreenAnalyst)
 
 `main.lazy` is only evaluated when needed and only once. All subsequent accesses resort to the initially computed result.
+
+### Pattern matching
+
+Functions that expect tagged unions must always consider all possible cases in order to work reliably. Pattern matching is a unification algorithm with some extras on the language level that guarantees case exhaustiveness. Unfortunately Javascript does not ship with pattern matching, hence we have to resort to simple folds, which each encode the elimination rule of its tagged union. The `match` auxiliary function facilitates the definition of such folds:
+
+```javascript
+const match = (type, tx, o) =>
+  tx.type !== type.name
+    ? _throw(new UnionError("invalid type"))
+    : o[tx.tag] (tx);
+    
+const Option = union("Option");
+
+const None = Option("None", {});
+const Some = some => Option(Some, {some});
+
+const option = none => some => tx =>
+  match(Option, tx, {
+    None: _ => none,
+    Some: ({some: x}) => some(x)
+  });
+
+const main = option(0) (x => x * x);
+
+main(None); // 0
+main(Some(5)); // 25
+```
+[run code](https://repl.it/repls/BogusFullButtons)
+
+`match` only works with tagged unions and it does not prevent us from supplying non-exhaustive patterns. It is the best we can get in Javascript though.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
