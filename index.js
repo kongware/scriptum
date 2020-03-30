@@ -47,7 +47,7 @@ class ExtendableError extends Error {
 class ScriptumError extends ExtendableError {};
     
 
-/***[Subclasses]**************************************************************/
+/***[ Subclasses ]************************************************************/
 
 
 /******************************************************************************
@@ -141,7 +141,7 @@ const union = type => (tag, o) =>
   (o[type] = type, o.tag = tag.name || tag, o);
 
 
-/***[Elimination Rule]********************************************************/
+/***[ Elimination Rule ]******************************************************/
 
 
 const match = (tx, o) =>
@@ -232,7 +232,7 @@ const monadRec = step => {
 };
 
 
-/***[Monad]*******************************************************************/
+/***[ Monad ]*****************************************************************/
 
 
 const recChain = mx => fm =>
@@ -318,7 +318,7 @@ const recOf = Base;
 ******************************************************************************/
 
 
-/***[Applicative]*************************************************************/
+/***[ Applicative ]***********************************************************/
 
 
 const funAp = tf => tg => x =>
@@ -332,7 +332,7 @@ const funLiftA2 = f => tg => th => x =>
 // funOf @Derived
 
 
-/***[Composition]*************************************************************/
+/***[ Composition ]***********************************************************/
 
 
 const comp = f => g => x =>
@@ -367,13 +367,13 @@ const pipeOn = g => f => x => y =>
   f(g(x)) (g(y));
 
 
-/***[Contravariant Functor]***************************************************/
+/***[ Contravariant Functor ]*************************************************/
 
 
 const funContra = pipe;
 
 
-/***[Currying/Partial Application]********************************************/
+/***[ Currying/Partial Application ]******************************************/
 
 
 const curry = f => x => y =>
@@ -420,7 +420,7 @@ const uncurry6 = f => (u, v, w, x, y, z) =>
   f(u) (v) (w) (x) (y) (z);
 
 
-/***[Debugging]***************************************************************/
+/***[ Debugging ]*************************************************************/
 
 
 const debug = f => (...args) => {
@@ -441,21 +441,21 @@ const taggedLog = tag => s =>
   (console.log(tag, s), s);
 
 
-const trace = f =>
-  eff(x => console.log(JSON.stringify(x) || x.toString()));
+const trace = x =>
+  (x => console.log(JSON.stringify(x) || x.toString()), x);
 
 
-/***[Functor]*****************************************************************/
+/***[ Functor ]***************************************************************/
 
 
 const funMap = comp;
 
 
-/***[Impure]******************************************************************/
+/***[ Impure ]****************************************************************/
 
 
 const eff = f => x =>
-  (f(x), x); // aka tap
+  (f(x), x);
 
 
 const introspect = x =>
@@ -482,77 +482,16 @@ const tryCatch = f => g => x => {
   }
 
   catch(e) {
-    return g([x, e]);
+    return g(x) (e);
   }
 };
 
 
-/***[Monad]*******************************************************************/
+/***[ Infix Combinators ]*****************************************************/
 
 
-const funChain = mg => fm => x =>
-  fm(mg(x)) (x);
-
-
-const funJoin = mmf => x =>
-  mmf(x) (x);
-
-
-/***[Monoid]******************************************************************/
-
-
-// funEmpty @Derived
-
-
-/***[Primitive]***************************************************************/
-
-
-const app = f => x => f(x);
-
-
-const app_ = x => f => f(x);
-
-
-const _const = x => _ => x;
-
-
-const const_ = _ => y => y;
-
-
-const fix = f => x => f(fix(f)) (x); // not stack safe
-
-
-const flip = f => y => x => f(x) (y);
-
-
-const id = x => x;
-
-
-/***[Profunctor]**************************************************************/
-
-
-const funDimap = f => g => h => x =>
-  g(h(f(x)));
-
-
-const funLmap = f => h => x =>
-  h(f(x));
-
-
-const funRmap = g => h => x =>
-  g(h(x));
-
-
-/***[Semigroup]***************************************************************/
-
-
-const funAppend = comp;
-
-
-const funPrepend = pipe;
-
-
-/***[Infix Combinators]*******************************************************/
+const appr = (f, y) => x =>
+  f(x) (y);
 
 
 const infix = (x, f, y) =>
@@ -685,41 +624,76 @@ const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, λ) =>
               ε(z_, id))))))))))));
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Local Binding ]*********************************************************/
 
 
-const appr = (f, y) => x => f(x) (y); // right section
+const _let = f => f();
 
 
-const apply = f =>
-  arrFold(g => x => g(x)) (f);
+/***[ Monad ]*****************************************************************/
 
 
-const apply_ = f => args => 
-  f(...args);
+const funChain = mg => fm => x =>
+  fm(mg(x)) (x);
+
+
+const funJoin = mmf => x =>
+  mmf(x) (x);
+
+
+/***[ Monoid ]****************************************************************/
+
+
+// funEmpty @Derived
+
+
+/***[ Primitive Combinators ]*************************************************/
+
+
+const app = f => x => f(x);
+
+
+const app_ = x => f => f(x);
+
+
+const _const = x => _ => x;
+
+
+const const_ = _ => y => y;
+
+
+const fix = f => // partial function (not stack safe)
+  thunk(() => f(fix(f)));
+
+
+const flip = f => y => x =>
+  f(x) (y);
+
+
+const id = x => x;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const funAppend = comp;
+
+
+const funPrepend = pipe;
+
+
+/***[ Conditional Combinators ]***********************************************/
 
 
 const guard = p => f => x =>
   p(x) ? f(x) : x;
 
 
-const _let = f => f();
-
-
 const select = p => f => g => x =>
   p(x) ? f(x) : g(x);
 
 
-const select11 = m => (ks, vs) => k =>
-  vs[m.get(ks.indexOf(k))];
-
-
-const select1N = m => (ks, vs) => k =>
-  arrMap(l => vs[l])
-    (m.get(ks.indexOf(k)));
-
-
-/***[Derived]*****************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const funEmpty = () => id;
@@ -1135,8 +1109,6 @@ const hamtDelNode = (node, hash, k, depth) => {
 module.exports = {
   app,
   app_,
-  apply,
-  apply_,
   appr,
   Base,
   Call,
@@ -1217,8 +1189,6 @@ module.exports = {
   recOf,
   record,
   select,
-  select11,
-  select1N,
   Step,
   strict,
   taggedLog,
