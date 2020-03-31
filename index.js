@@ -964,18 +964,34 @@ const Cons = head => tail =>
   List(Cons, {head, tail});
 
 
+/***[ Foldable ]**************************************************************/
+
+
+const listFold = f => acc => xs =>
+  tailRec((acc_, xs) =>
+    match(xs, {
+      Nil: _ => Base(acc_),
+      Cons: ({head, tail}) => Step(f(acc_) (head), tail)
+    })) (acc, xs);
+
+
+const listFoldr = f => acc =>
+  rec(xs =>
+    match(xs, {
+      Nil: _ => Base(acc),
+      Cons: ({head, tail}) => Call(f(head), Step(tail))
+    }));
+
+
 /***[ Functor ]***************************************************************/
 
 
-const listMap = f => {
-  const go = tx =>
-    match(tx, {
-      Nil: _ => Nil,
-      Cons: ({head, tail}) => Cons(f(head)) (go(tail))
-    });
-
-  return go;
-};
+const listMap = f =>
+  rec(xs =>
+    match(xs, {
+      Nil: _ => Base(Nil),
+      Cons: ({head, tail}) => Call(Cons(f(head)), Step(tail))
+    }));
 
 
 /******************************************************************************
@@ -1508,6 +1524,8 @@ module.exports = {
   lazyProp,
   _let,
   List,
+  listFold,
+  listFoldr,
   listMap,
   log,
   map,
