@@ -314,6 +314,99 @@ const recOf = Base;
 
 
 /******************************************************************************
+***********************************[ ARRAY ]***********************************
+******************************************************************************/
+
+
+/***[ De-/Constructor ]*******************************************************/
+
+
+const arrCons = x => xs =>
+  (xs.unshift(x), xs);
+
+
+const arrCons_ = xs => x =>
+  (xs.unshift(x), xs);
+
+
+const arrSnoc = x => xs =>
+  (xs.push(x), xs);
+
+
+const arrSnoc_ = xs => x =>
+  (xs.push(x), xs);
+
+
+const arrUncons = xs => {
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([xs.shift(), xs]);
+};
+
+
+const arrUnsnoc = xs => {
+  if (xs.length === 0)
+    return None;
+
+  else
+    return Some([xs.pop(), xs]);
+};
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const arrFold = f => acc => xs => {
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc) (xs[i], i);
+
+  return acc;
+};
+
+
+const arrFoldk = f => acc => xs =>
+  tailRec((acc_, i) =>
+    i === xs.length
+      ? Base(acc_)
+      : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
+
+
+const arrFoldr = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(f(xs[i]), Step(i + 1))) (0);
+
+
+const arrFoldr_ = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(f(xs[i]), thunk(() => Step(i + 1))))
+          (0);
+
+
+const arrFoldrk = f => acc => xs =>
+  rec(i =>
+    i === xs.length
+      ? Base(acc)
+      : Call(acc => f(xs[i]) (acc).cont(id), Step(i + 1))) (0);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const arrAppend = xs => ys =>
+  (xs.push.apply(xs, ys), xs);
+
+
+const arrPrepend = ys => xs =>
+  (xs.push.apply(xs, ys), xs);
+
+
+/******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
 
@@ -365,6 +458,17 @@ const pipeBin = g => f => x => y =>
 
 const pipeOn = g => f => x => y =>
   f(g(x)) (g(y));
+
+
+/***[ Conditional Combinators ]***********************************************/
+
+
+const guard = p => f => x =>
+  p(x) ? f(x) : x;
+
+
+const select = p => f => g => x =>
+  p(x) ? f(x) : g(x);
 
 
 /***[ Contravariant Functor ]*************************************************/
@@ -682,15 +786,144 @@ const funAppend = comp;
 const funPrepend = pipe;
 
 
-/***[ Conditional Combinators ]***********************************************/
+/***[ Transducer ]************************************************************/
 
 
-const guard = p => f => x =>
-  p(x) ? f(x) : x;
+const drop = n => append => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, acc)
+      : append(acc) (x);
+};
 
 
-const select = p => f => g => x =>
-  p(x) ? f(x) : g(x);
+const dropk = n => append => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, k(acc))
+      : append(acc) (x).cont(k)};
+
+
+const dropNth = nth => append => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? acc
+      : append(acc) (x);
+};
+
+
+const dropNthk = nth => append => { 
+  let n = 0;
+
+  return acc => x => k =>
+    ++n % nth === 0
+      ? k(acc)
+      : append(acc) (x).cont(k)};
+
+
+const dropWhile = p => append => {
+  let drop = true;
+
+  return acc => x => 
+    drop && p(x)
+      ? acc
+      : (drop = false, append(acc) (x));
+};
+
+
+const dropWhilek = p => append => {
+  let drop = true;
+
+  return acc => x =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, append(acc) (x).cont(k)))};
+
+
+const filter = p => append => acc => x =>
+  p(x)
+    ? append(acc) (x)
+    : acc;
+
+
+const filterk = p => append => acc => x =>
+  Cont(k =>
+    p(x)
+      ? append(acc) (x).cont(k)
+      : k(acc));
+
+
+const map = f => append => acc => x =>
+  append(acc) (f(x));
+
+
+const mapk = f => append => acc => x =>
+  Cont(k =>
+    append(acc) (f(x)).cont(k));
+
+
+const take = n => append => { 
+  let m = 0;
+
+  return acc => x =>
+    m < n
+      ? (m++, append(acc) (x))
+      : acc;
+};
+
+
+const takek = n => append => { 
+  let m = 0;
+
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, append(acc) (x).cont(k))
+        : acc)};
+
+
+const takeNth = nth => append => { 
+  let n = 0;
+
+  return acc => x =>
+    ++n % nth === 0
+      ? append(acc) (x)
+      : acc;
+};
+
+
+const takeNthk = nth => append => { 
+  let n = 0;
+
+  return acc => x =>
+    Cont(k =>
+      ++n % nth === 0
+        ? append(acc) (x).cont(k)
+        : acc)};
+
+
+const takeWhile = p => append => acc => x =>
+  p(x)
+    ? append(acc) (x)
+    : acc;
+
+
+const takeWhilek = p => append => acc => x =>
+  Cont(k =>
+    p(x)
+      ? append(acc) (x).cont(k)
+      : acc);
+
+
+const transduce = ({append, fold}) => f =>
+  fold(f(append));
 
 
 /***[ Derived ]***************************************************************/
@@ -707,6 +940,27 @@ const funOf = _const;
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
 ******************************************************************************/
+
+/******************************************************************************
+***********************************[ CONT ]************************************
+******************************************************************************/
+
+
+const Cont = cont => record("Cont", {cont});
+
+
+/******************************************************************************
+**********************************[ OPTION ]***********************************
+******************************************************************************/
+
+
+const Option = union("Option");
+
+
+const None = Option("None", {});
+
+
+const Some = some => Option(Some, {some});
 
 
 /******************************************************************************
@@ -1141,6 +1395,19 @@ module.exports = {
   app,
   app_,
   appr,
+  arrAppend,
+  arrPrepend,
+  arrCons,
+  arrCons_,
+  arrFold,
+  arrFoldk,
+  arrFoldr,
+  arrFoldr_,
+  arrFoldrk,
+  arrSnoc,
+  arrSnoc_,
+  arrUncons,
+  arrUnsnoc,
   Base,
   Call,
   Chain,
@@ -1150,6 +1417,7 @@ module.exports = {
   compOn,
   _const,
   const_,
+  Cont,
   curry,
   curry3,
   curry4,
@@ -1157,7 +1425,15 @@ module.exports = {
   curry6,
   debug,
   delay,
+  drop,
+  dropk,
+  dropNth,
+  dropNthk,
+  dropWhile,
+  dropWhilek,
   eff,
+  filter,
+  filterk,
   fix,
   flip,
   funAp,
@@ -1202,13 +1478,17 @@ module.exports = {
   lazyProp,
   _let,
   log,
+  map,
+  mapk,
   match,
   match2,
   match3,
   monadRec,
   Mutu,
   mutuRec,
+  None,
   NOT_FOUND,
+  Option,
   Pair,
   partial,
   pipe,
@@ -1221,13 +1501,21 @@ module.exports = {
   recOf,
   record,
   select,
+  Some,
   Step,
   strict,
   taggedLog,
   tailRec,
+  take,
+  takek,
+  takeNth,
+  takeNthk,
+  takeWhile,
+  takeWhilek,
   _throw,
   thunk,
   trace,
+  transduce,
   Triple,
   tryCatch,
   TYPE,
