@@ -1,4 +1,4 @@
-## Data Modeling with Algebraic Data Types (GADTs)
+## Data Modeling with Algebraic Data Types (ADTs)
 
 Modeling a domain in functional programming means to compose simple types to arbitrarily complex composite ones, while these types have their foundation in math. The goal of this chapter is to give you a first impression of this procedure.
 
@@ -70,7 +70,7 @@ Since all functions are pure in functional programming the order of evaluation d
 
 ### Algebraic data types
 
-GADTs are the fundamental means to construct custom data structures in functional programming. They are composable and may have a recursive definition. The next sections will introduce the basic GADTs and their mathematical foundation.
+ADTs are the fundamental means to construct custom data structures in functional programming. They are composable and may have a recursive definition. The next sections will introduce the basic ADTs and their mathematical foundation.
 
 #### Sum types
 
@@ -127,7 +127,7 @@ The `Void` type has no inhabitants, i.e. it has no value. We cannot express such
 const Void = () => record(
   "Void", throw new TypeError("uninhabited"));
 ```
-As far as I know `Void` has not many uses cases on its own. However, it is useful to explain the algebra of GADTs, hence I introduce it here.
+As far as I know `Void` has not many uses cases on its own. However, it is useful to explain the algebra of ADTs, hence I introduce it here.
 
 #### Unit type
 
@@ -138,9 +138,9 @@ const Unit = record("Unit", {});
 ```
 Javascript's native unit types are `null` and `undefined`.
 
-#### The algebra of GADTs
+#### The algebra of ADTs
 
-What exactly is the algebra of algebraic data types? Well, we can use algebraic notation for describing data structures constructed by GADTs:
+What exactly is the algebra of algebraic data types? Well, we can use algebraic notation for describing data structures constructed by ADTs:
 
 * `+` represents tagged unions
 * `*` represents records
@@ -160,7 +160,7 @@ Now it is obvious that sum and product types got their name by the operation tha
 
 #### Algebraic laws
 
-Do the algebraic laws for addition and multiplication hold for GADTs?
+Do the algebraic laws for addition and multiplication hold for ADTs?
 
 ```javascript
 // 0 + x = x
@@ -319,9 +319,9 @@ Do not be intimidated by the complexity of this algorithm. It requires quite a b
 
 In many imperative or object oriented languages the only means to express new data structures is to combine product types. This way we can only add fields to a data structure. Because of the restriction that we can only expand an idea by adding to it, we are constrained with a top-down design, starting with the most abstract representation of a type we can imagine. This is the basis for modeling data in terms of type hierarchies. Such data models are often too inflexible to reflect the chaotic, non-hiearchical world. 
 
-### GADTs with lazy property access
+### ADTs with lazy property access
 
-I use plain old Javascript objects to define GADTs. Javascript object properties are eagerly evaluated but we can benefit from lazy getters to create GADTs with lazy property access semantics:
+I use plain old Javascript objects to define ADTs. Javascript object properties are eagerly evaluated but we can benefit from lazy getters to create ADTs with lazy property access semantics:
 
 ```javascript
 const lazyProp = (k, v) => o =>
