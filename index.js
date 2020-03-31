@@ -950,6 +950,35 @@ const Cont = cont => record("Cont", {cont});
 
 
 /******************************************************************************
+***********************************[ LIST ]************************************
+******************************************************************************/
+
+
+const List = union("List");
+
+
+const Nil = List("Nil", {});
+
+
+const Cons = head => tail =>
+  List(Cons, {head, tail});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const listMap = f => {
+  const go = tx =>
+    match(tx, {
+      Nil: _ => Nil,
+      Cons: ({head, tail}) => Cons(f(head)) (go(tail))
+    });
+
+  return go;
+};
+
+
+/******************************************************************************
 **********************************[ OPTION ]***********************************
 ******************************************************************************/
 
@@ -1415,6 +1444,7 @@ module.exports = {
   comp2nd,
   compBin,
   compOn,
+  Cons,
   _const,
   const_,
   Cont,
@@ -1477,6 +1507,8 @@ module.exports = {
   isUnit,
   lazyProp,
   _let,
+  List,
+  listMap,
   log,
   map,
   mapk,
@@ -1486,6 +1518,7 @@ module.exports = {
   monadRec,
   Mutu,
   mutuRec,
+  Nil,
   None,
   NOT_FOUND,
   Option,
