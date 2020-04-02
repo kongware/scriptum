@@ -142,7 +142,10 @@ class ProxyHandler {
     if (this.memo === undefined)
       this.memo = g();
 
-    if (k === Symbol.toPrimitive)
+    if (k === Thunk)
+      return true;
+
+    else if (k === Symbol.toPrimitive)
       return () => this.memo;
 
     else if (k === "valueOf")
@@ -275,7 +278,11 @@ fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
 The mechanism I demonstrated in this chapter is based on creating explicit thunks and thus results in lazy evaluation on demand. The default evaluation strategy is still strict. Yet there might be some situations where we want both, lazy and eager evaluation on a case-by-case basis. The following combinator enables to programmatically convert a lazy function into a strict one:
 
 ```javascript
-const strict = thunk =>
-  thunk.valueOf();
+const strict = thunk => {
+  while (thunk[Thunk])
+    thunk = thunk.valueOf();
+
+  return thunk;
+};
 ```
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-4.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-6.md)
