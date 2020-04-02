@@ -809,6 +809,16 @@ const drop = n => append => {
 };
 
 
+const dropr = n => append => { 
+  let m = 0;
+
+  return x => acc =>
+    m < n
+      ? (m++, acc)
+      : append(x) (acc);
+};
+
+
 const dropk = n => append => { 
   let m = 0;
 
@@ -818,23 +828,13 @@ const dropk = n => append => {
       : append(acc) (x).cont(k)};
 
 
-const dropNth = nth => append => { 
-  let n = 0;
+const droprk = n => append => { 
+  let m = 0;
 
-  return acc => x =>
-    ++n % nth === 0
-      ? acc
-      : append(acc) (x);
-};
-
-
-const dropNthk = nth => append => { 
-  let n = 0;
-
-  return acc => x => k =>
-    ++n % nth === 0
-      ? k(acc)
-      : append(acc) (x).cont(k)};
+  return x => acc => k =>
+    m < n
+      ? (m++, k(acc))
+      : append(x) (acc).cont(k)};
 
 
 const dropWhile = p => append => {
@@ -844,6 +844,16 @@ const dropWhile = p => append => {
     drop && p(x)
       ? acc
       : (drop = false, append(acc) (x));
+};
+
+
+const dropWhiler = p => append => {
+  let drop = true;
+
+  return x => acc =>
+    drop && p(x)
+      ? acc
+      : (drop = false, append(x) (acc));
 };
 
 
@@ -857,9 +867,25 @@ const dropWhilek = p => append => {
         : (drop = false, append(acc) (x).cont(k)))};
 
 
+const dropWhilerk = p => append => {
+  let drop = true;
+
+  return x => acc =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, append(x) (acc).cont(k)))};
+
+
 const filter = p => append => acc => x =>
   p(x)
     ? append(acc) (x)
+    : acc;
+
+
+const filterr = p => append => x => acc =>
+  p(x)
+    ? append(x) (acc)
     : acc;
 
 
@@ -870,13 +896,29 @@ const filterk = p => append => acc => x =>
       : k(acc));
 
 
+const filterrk = p => append => x => acc =>
+  Cont(k =>
+    p(x)
+      ? append(x) (acc).cont(k)
+      : k(acc));
+
+
 const map = f => append => acc => x =>
   append(acc) (f(x));
+
+
+const mapr = f => append => x => acc =>
+  append(f(x)) (acc);
 
 
 const mapk = f => append => acc => x =>
   Cont(k =>
     append(acc) (f(x)).cont(k));
+
+
+const maprk = f => append => x => acc =>
+  Cont(k =>
+    append(f(x)) (acc).cont(k));
 
 
 const take = n => append => { 
@@ -885,6 +927,16 @@ const take = n => append => {
   return acc => x =>
     m < n
       ? (m++, append(acc) (x))
+      : acc;
+};
+
+
+const taker = n => append => { 
+  let m = 0;
+
+  return x => acc =>
+    m < n
+      ? (m++, append(x) (acc))
       : acc;
 };
 
@@ -899,23 +951,13 @@ const takek = n => append => {
         : acc)};
 
 
-const takeNth = nth => append => { 
-  let n = 0;
+const takerk = n => append => { 
+  let m = 0;
 
-  return acc => x =>
-    ++n % nth === 0
-      ? append(acc) (x)
-      : acc;
-};
-
-
-const takeNthk = nth => append => { 
-  let n = 0;
-
-  return acc => x =>
+  return x => acc =>
     Cont(k =>
-      ++n % nth === 0
-        ? append(acc) (x).cont(k)
+      m < n
+        ? (m++, append(x) (acc).cont(k))
         : acc)};
 
 
@@ -925,10 +967,23 @@ const takeWhile = p => append => acc => x =>
     : acc;
 
 
+const takeWhiler = p => append => x => acc =>
+  p(x)
+    ? append(x) (acc)
+    : acc;
+
+
 const takeWhilek = p => append => acc => x =>
   Cont(k =>
     p(x)
       ? append(acc) (x).cont(k)
+      : acc);
+
+
+const takeWhilerk = p => append => x => acc =>
+  Cont(k =>
+    p(x)
+      ? append(x) (acc).cont(k)
       : acc);
 
 
@@ -1496,14 +1551,18 @@ module.exports = {
   debug,
   delay,
   drop,
+  dropr,
   dropk,
-  dropNth,
-  dropNthk,
+  droprk,
   dropWhile,
+  dropWhiler,
   dropWhilek,
+  dropWhilerk,
   eff,
   filter,
+  filterr,
   filterk,
+  filterrk,
   fix,
   flip,
   funAp,
@@ -1554,7 +1613,9 @@ module.exports = {
   listMap,
   log,
   map,
+  mapr,
   mapk,
+  maprk,
   match,
   match2,
   match3,
@@ -1583,11 +1644,13 @@ module.exports = {
   taggedLog,
   tailRec,
   take,
+  taker,
   takek,
-  takeNth,
-  takeNthk,
+  takerk,
   takeWhile,
+  takeWhiler,
   takeWhilek,
+  takeWhilerk,
   _throw,
   thunk,
   trace,
