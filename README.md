@@ -25,7 +25,7 @@ I've chosen Javascript because it is the Lingua Franca of the web most programme
 
 However, Javascript is not a purely functional language hence we will encounter some drawbacks and corresponding techniques to bypass them. These techniques are particularly useful since they allow you to apply functional programming to arbitrary multi-paradigm languages.
 
-The first half of the course will take place in an untyped and yet type directed setting. In the second half we will learn how to express polymorphism with Typescript's structural typing.
+The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
 ## Contribution
 
@@ -46,7 +46,7 @@ The scriptum library is still experimental.
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. Planned: Data Structure Abstraction and Loop Fusion with Transducers (10% done)
+10. Planned: Data Source Abstraction and Loop Fusion with Transducers (40% done)
 
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Lifting Pure Functions with Functors
