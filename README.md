@@ -21,9 +21,9 @@ This course addresses both experienced imperative programmers and functional pro
 
 ## How
 
-I've chosen Javascript because it is the Lingua Franca of the web most programmers have some experience with. Since it includes first class functions, `Proxy`s and lazy `Object` getter/setter we have all ingredients to transform it into a fully-fledged functional language.
+I've chosen Javascript because it is the Lingua Franca of the internet most programmers are familiar with. Since it includes first class functions, `Proxy`s and lazy `Object` getter/setter we have all ingredients to transform it into a fully-fledged functional language.
 
-However, Javascript is not a purely functional language hence we will encounter some drawbacks and corresponding techniques to bypass them. These techniques are particularly useful since they allow you to apply functional programming to arbitrary multi-paradigm languages.
+In order to achieve that we have to make some effort though. We will explore techniques to alleviate some of the shortcomings that Javascript has with regard to FP. This effort is totally worth it, because you will be able to adapt these techniques to other multi-paradigm languages that suffer from similar issues and thus apply the functional idiom to a wider range of languages.
 
 The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
