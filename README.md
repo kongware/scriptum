@@ -48,7 +48,8 @@ The scriptum library is still experimental.
 07. [Linear Data Flow with Infix Applicators](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
-10. Planned: Data Source Abstraction and Loop Fusion with Transducers (40% done)
+10. Planned: Loop Fusion and Data Source Abstraction with Transducers (60% done)
+11. Planned: Immutability through Persistent Data Structures (0% done)
 
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Lifting Pure Functions with Functors
@@ -67,7 +68,6 @@ The scriptum library is still experimental.
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
-* Planned: Immutabilty through Persistent Data Structures
 * Planned: Mitigating the Need for Mutability
 * Planned: From Sharing to Memoization
 * Planned: Delimited Continuations
