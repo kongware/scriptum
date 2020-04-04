@@ -25,7 +25,7 @@ const TYPE = Symbol.toStringTag;
 
 /******************************************************************************
 *******************************************************************************
-**********************************[ ERRORS ]***********************************
+*****************************[ ERRORS (INTERNAL) ]*****************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -48,6 +48,9 @@ class ScriptumError extends ExtendableError {};
     
 
 /***[ Subclasses ]************************************************************/
+
+
+class HamtError extends ScriptumError {};
 
 
 /******************************************************************************
@@ -1282,7 +1285,7 @@ const hamtLeaf = (hash, k, v) => ({
 
 const hamtDel = (hamt, k) => {
   if (hamt.type !== HAMT_BRANCH)
-    throw new TypeError("invalid HAMT");
+    throw new HamtError("invalid HAMT");
 
   const hash = hamtHash(k),
     hamt_ = hamtDelNode(hamt, hash, k, 0);
@@ -1302,7 +1305,7 @@ const hamtEmpty = hamtBranch();
 
 const hamtGet = (hamt, k) => {
   if (hamt.type !== HAMT_BRANCH)
-    throw new TypeError("invalid HAMT"); // TODO: change to HAMT error
+    throw new HamtError("invalid HAMT"); // TODO: change to HAMT error
 
   const hash = hamtHash(k);
 
@@ -1350,7 +1353,7 @@ const hamtGet = (hamt, k) => {
 
 const hamtSet = (hamt, k, v) => {
   if (hamt.type !== HAMT_BRANCH)
-    throw new TypeError("invalid HAMT");
+    throw new HamtError("invalid HAMT");
 
   const hash = hamtHash(k);
   return hamtSetNode(hamt, hash, k, v);
