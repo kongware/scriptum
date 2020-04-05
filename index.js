@@ -20,6 +20,9 @@
 const NOT_FOUND = -1;
 
 
+const PREFIX = "github.com/kongware/scriptum/";
+
+
 const TYPE = Symbol.toStringTag;
 
 
@@ -85,7 +88,7 @@ class ProxyHandler {
     if (this.memo === undefined)
       this.memo = g();
 
-    if (k === Thunk)
+    if (k === THUNK)
       return true;
 
     else if (k === Symbol.toPrimitive)
@@ -114,15 +117,15 @@ class ProxyHandler {
 }
 
 
-const Thunk = Symbol("Thunk"); // internal
-
-
 const thunk = f =>
   new Proxy(f, new ProxyHandler(f));
 
 
+const THUNK = PREFIX + "thunk"; // internal
+
+
 const strict = thunk => {
-  while (thunk[Thunk])
+  while (thunk[THUNK])
     thunk = thunk.valueOf();
 
   return thunk;
@@ -393,12 +396,14 @@ const arrFoldr = f => acc => xs =>
       : Call(f(xs[i]), Step(i + 1))) (0);
 
 
-const arrFoldr_ = f => acc => xs =>
-  rec(i =>
+const arrFoldr_ = f => acc => xs => {
+  const go = i =>
     i === xs.length
-      ? Base(acc)
-      : Call(f(xs[i]), thunk(() => Step(i + 1))))
-          (0);
+      ? acc
+      : f(xs[i]) (thunk(() => go(i + 1)));
+
+  return go(0);
+};
 
 
 const arrFoldrk = f => acc => xs =>
@@ -1636,6 +1641,7 @@ module.exports = {
   pipeBin,
   pipeOn,
   postRec,
+  PREFIX,
   rec,
   recChain,
   recOf,
