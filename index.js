@@ -1140,6 +1140,18 @@ class Triple extends Array {
 
 
 /******************************************************************************
+**************************[ DEPENDENCIES (INTERNAL) ]**************************
+******************************************************************************/
+
+
+const get4RandomBytes = () =>
+  !crypto ? _throw("missing crypto api")
+    : "getRandomValues" in crypto ? crypto.getRandomValues(new Uint32Array(1)) [0]
+    : "randomBytes" ? crypto.randomBytes(4).readUInt32BE()
+    : _throw("unknown crypto api");
+
+
+/******************************************************************************
 ***************************[ CONSTANTS (INTERNAL) ]****************************
 ******************************************************************************/
 
@@ -1207,8 +1219,7 @@ const hamtHash = k => {
         return hamtObjKeys.get(k);
 
       else {
-        const k_ = crypto.getRandomValues(
-          new Uint32Array(1)) [0];
+        const k_ = get4RandomBytes();
 
         hamtObjKeys.set(k, k_);
         return k_;
