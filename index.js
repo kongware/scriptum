@@ -1174,7 +1174,7 @@ const HAMT_BRANCH = "Branch";
 const HAMT_COLLISION = "Collision";
 
 
-const HAMT_DELETE = "delete";
+const HAMT_EMPTY = "delete";
 
 
 const HAMT_NOOP = "noop";
@@ -1274,24 +1274,24 @@ const hamtPopCount = (x, n) => {
 
 
 const hamtBranch = (mask = 0, children = []) => ({
-  scriptum_type: HAMT_BRANCH,
-  scriptum_mask: mask,
-  scriptum_children: children
+  type: HAMT_BRANCH,
+  mask,
+  children
 });
 
 
 const hamtCollision = (hash, children) => ({
-  scriptum_type: HAMT_COLLISION,
-  scriptum_hash: hash,
-  scriptum_children: children
+  type: HAMT_COLLISION,
+  hash,
+  children
 });
 
 
 const hamtLeaf = (hash, k, v) => ({
-  scriptum_type: HAMT_LEAF,
-  scriptum_hash: hash,
-  scriptum_k: k,
-  scriptum_v: v
+  type: HAMT_LEAF,
+  hash,
+  k,
+  v
 });
 
 
@@ -1300,20 +1300,25 @@ const hamtLeaf = (hash, k, v) => ({
 ******************************************************************************/
 
 
-const hamtDel = (hamt, k) => {
-  if (hamt.scriptum_type !== HAMT_BRANCH)
+const hamtDel = (hamt, props, k) => {
+  if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
   const hash = hamtHash(k),
     hamt_ = hamtDelNode(hamt, hash, k, 0);
 
-  if (hamt_ === HAMT_NOOP)
-    return hamt;
+  switch (hamt_) {
+    case HAMT_NOOP:
+      return hamt;
 
-  else if (hamt_ === HAMT_DELETE)
-    return hamtEmpty;
+    case HAMT_EMPTY:
+      return Object.assign(
+        hamtBranch(), props);
 
-  else return hamt_;
+    default:
+      return Object.assign(
+        hamt_, props);
+  }
 };
 
 
@@ -1321,7 +1326,7 @@ const hamtEmpty = hamtBranch();
 
 
 const hamtGet = (hamt, k) => {
-  if (hamt.scriptum_type !== HAMT_BRANCH)
+  if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
   const hash = hamtHash(k);
@@ -1332,14 +1337,14 @@ const hamtGet = (hamt, k) => {
   while (true) {
     ++depth;
 
-    switch (node.scriptum_type) {
+    switch (node.type) {
       case HAMT_BRANCH: {
         const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
           mask = 1 << frag;
 
-        if (node.scriptum_mask & mask) {
-          const i = hamtPopCount(node.scriptum_mask, frag);
-          node = node.scriptum_children[i];
+        if (node.mask & mask) {
+          const i = hamtPopCount(node.mask, frag);
+          node = node.children[i];
           continue;
         }
 
@@ -1348,19 +1353,19 @@ const hamtGet = (hamt, k) => {
       }
 
       case HAMT_COLLISION: {
-        for (let i = 0, len = node.scriptum_children.length; i < len; ++i) {
-          const child = node.scriptum_children[i];
+        for (let i = 0, len = node.children.length; i < len; ++i) {
+          const child = node.children[i];
 
-          if (child.scriptum_k === k)
-            return child.scriptum_v;
+          if (child.k === k)
+            return child.v;
         }
 
         return undefined;
       }
 
       case HAMT_LEAF: {
-        return node.scriptum_k === k
-          ? node.scriptum_v
+        return node.k === k
+          ? node.v
           : undefined;
       }
     }
@@ -1368,12 +1373,12 @@ const hamtGet = (hamt, k) => {
 };
 
 
-const hamtSet = (hamt, k, v) => {
-  if (hamt.scriptum_type !== HAMT_BRANCH)
+const hamtSet = (hamt, props, k, v) => {
+  if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  const hash = hamtHash(k);
-  return hamtSetNode(hamt, hash, k, v);
+  return Object.assign(
+    hamtSetNode(hamt, hamtHash(k), k, v), props);
 };
 
 
@@ -1386,10 +1391,10 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
   const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
     mask = 1 << frag;
 
-  switch (node.scriptum_type) {
+  switch (node.type) {
     case HAMT_LEAF: {
-      if (node.scriptum_hash === hash) {
-        if (node.scriptum_k === k)
+      if (node.hash === hash) {
+        if (node.k === k)
           return hamtLeaf(hash, k, v)
 
         return hamtCollision(
@@ -1398,16 +1403,16 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
       }
 
       else {
-        const prevFrag = (node.scriptum_hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
+        const prevFrag = (node.hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
 
         if (prevFrag === frag)
           return hamtBranch(
             mask, [
               hamtSetNode(
                 hamtSetNode(hamtEmpty, hash, k, v, depth + 1),
-              node.scriptum_hash,
-              node.scriptum_k,
-              node.scriptum_v,
+              node.hash,
+              node.k,
+              node.v,
               depth + 1)
             ]
           );
@@ -1422,36 +1427,36 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
     }
 
     case HAMT_BRANCH: {
-      const i = hamtPopCount(node.scriptum_mask, frag),
-        children = node.scriptum_children;
+      const i = hamtPopCount(node.mask, frag),
+        children = node.children;
 
-      if (node.scriptum_mask & mask) {
+      if (node.mask & mask) {
         const child = children[i],
           children_ = Array.from(children);
 
         children_[i] = hamtSetNode(child, hash, k, v, depth + 1);
-        return hamtBranch(node.scriptum_mask, children_);
+        return hamtBranch(node.mask, children_);
       }
 
       else {
         const children_ = Array.from(children);
         children_.splice(i, 0, hamtLeaf(hash, k, v));
-        return hamtBranch(node.scriptum_mask | mask, children_);
+        return hamtBranch(node.mask | mask, children_);
       }
     }
 
     case HAMT_COLLISION: {
-      for (let i = 0, len = node.scriptum_children.length; i < len; ++i) {
-        if (node.scriptum_children[i].scriptum_k === k) {
-          const children = Array.from(node.scriptum_children);
+      for (let i = 0, len = node.children.length; i < len; ++i) {
+        if (node.children[i].k === k) {
+          const children = Array.from(node.children);
           children[i] = hamtLeaf(hash, k, v);
-          return hamtCollision(node.scriptum_hash, children);
+          return hamtCollision(node.hash, children);
         }
       }
 
       return hamtCollision(
-        node.scriptum_hash,
-        node.scriptum_children.concat(hamtLeaf(hash, k, v))
+        node.hash,
+        node.children.concat(hamtLeaf(hash, k, v))
       );
     }
   }
@@ -1462,24 +1467,24 @@ const hamtDelNode = (node, hash, k, depth) => {
   const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
     mask = 1 << frag;
 
-  switch (node.scriptum_type) {
+  switch (node.type) {
     case HAMT_LEAF: {
-      return node.scriptum_k === k ? HAMT_DELETE : HAMT_NOOP;
+      return node.k === k ? HAMT_EMPTY : HAMT_NOOP;
     }
 
     case HAMT_BRANCH: {
-      if (node.scriptum_mask & mask) {
-        const i = hamtPopCount(node.scriptum_mask, frag),
-          node_ = hamtDelNode(node.scriptum_children[i], hash, k, depth + 1);
+      if (node.mask & mask) {
+        const i = hamtPopCount(node.mask, frag),
+          node_ = hamtDelNode(node.children[i], hash, k, depth + 1);
 
-        if (node_ === HAMT_DELETE) {
-          const mask_ = node.scriptum_mask & ~mask;
+        if (node_ === HAMT_EMPTY) {
+          const mask_ = node.mask & ~mask;
 
           if (mask_ === 0)
-            return HAMT_DELETE;
+            return HAMT_EMPTY;
           
           else {
-            const children = Array.from(node.scriptum_children);
+            const children = Array.from(node.children);
             children.splice(i, 1);
             return hamtBranch(mask_, children);
           }
@@ -1489,9 +1494,9 @@ const hamtDelNode = (node, hash, k, depth) => {
           return HAMT_NOOP;
 
         else {
-          const children = Array.from(node.scriptum_children);
+          const children = Array.from(node.children);
           children[i] = node_;
-          return hamtBranch(node.scriptum_mask, children);
+          return hamtBranch(node.mask, children);
         }
       }
 
@@ -1500,14 +1505,14 @@ const hamtDelNode = (node, hash, k, depth) => {
     }
 
     case HAMT_COLLISION: {
-      if (node.scriptum_hash === hash) {
-        for (let i = 0, len = node.scriptum_children.length; i < len; ++i) {
-          const child = node.scriptum_children[i];
+      if (node.hash === hash) {
+        for (let i = 0, len = node.children.length; i < len; ++i) {
+          const child = node.children[i];
 
-          if (child.scriptum_k === k) {
-            const children = Array.from(node.scriptum_children);
+          if (child.k === k) {
+            const children = Array.from(node.children);
             children.splice(i, 1);
-            return hamtCollision(node.scriptum_hash, children);
+            return hamtCollision(node.hash, children);
           }
         }
       }
