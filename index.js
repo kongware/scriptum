@@ -113,7 +113,7 @@ class DeferredProxy {
 }
 
 
-class ThunkProxyHandler {
+class LazyProxy {
   constructor(f) {
     this.f = f;
     this.memo = undefined;
