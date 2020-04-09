@@ -132,7 +132,7 @@ Nullary functions are also referred to as thunks in Javascript. They are infecti
 ```javascript
 // simplified version
 
-class ProxyHandler {
+class LazyProxy {
   constructor(f) {
     this.f = f;
     this.memo = undefined;
@@ -142,7 +142,7 @@ class ProxyHandler {
     if (this.memo === undefined)
       this.memo = g();
 
-    if (k === Thunk)
+    if (k === THUNK)
       return true;
 
     else if (k === Symbol.toPrimitive)
@@ -156,7 +156,7 @@ class ProxyHandler {
 }
 
 const thunk = f =>
-  new Proxy(f, new ProxyHandler(f));
+  new Proxy(f, new LazyProxy(f));
   
 const log = x =>
   (console.log("log", x), x);
