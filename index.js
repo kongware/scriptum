@@ -63,6 +63,56 @@ class HamtError extends ScriptumError {};
 ******************************************************************************/
 
 
+/******************************************************************************
+************************************[ API ]************************************
+******************************************************************************/
+
+
+const strict = thunk => {
+  while (thunk[THUNK])
+    thunk = thunk.valueOf();
+
+  return thunk;
+};
+
+
+const thunk = f =>
+  new Proxy(f, new LazyProxy(f));
+
+
+const thunk_ = f =>
+  new Proxy(f, new DeferredProxy(f));
+
+
+/******************************************************************************
+*************************[ IMPLEMENTATION (INTERNAL) ]*************************
+******************************************************************************/
+
+
+class DeferredProxy {
+  apply(g, that, args) {
+    return g() (...args);
+  }
+
+  get(g, k) {
+    if (k === THUNK)
+      return true;
+
+    else if (k === Symbol.toPrimitive)
+      return g;
+
+    else if (k === "valueOf")
+      return g;
+
+    else return g() [k];
+  }
+
+  has(g, k) {
+    return k in g();
+  }
+}
+
+
 class ThunkProxyHandler {
   constructor(f) {
     this.f = f;
@@ -117,19 +167,7 @@ class ThunkProxyHandler {
 }
 
 
-const thunk = f =>
-  new Proxy(f, new ThunkProxyHandler(f));
-
-
-const THUNK = PREFIX + "thunk"; // internal
-
-
-const strict = thunk => {
-  while (thunk[THUNK])
-    thunk = thunk.valueOf();
-
-  return thunk;
-};
+const THUNK = PREFIX + "thunk";
 
 
 /******************************************************************************
@@ -1004,7 +1042,7 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
-const funEmpty = () => id;
+const funEmpty = thunk_(() => id);
 
 
 const funOf = _const;
@@ -1322,7 +1360,10 @@ const hamtDel = (hamt, props, k) => {
 };
 
 
-const hamtEmpty = hamtBranch();
+const Hamt = thunk_(() => hamtBranch());
+
+
+const Hamt_ = hamtBranch();
 
 
 const hamtGet = (hamt, k) => {
@@ -1409,7 +1450,7 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
           return hamtBranch(
             mask, [
               hamtSetNode(
-                hamtSetNode(hamtEmpty, hash, k, v, depth + 1),
+                hamtSetNode(Hamt_, hash, k, v, depth + 1),
               node.hash,
               node.k,
               node.v,
@@ -1598,8 +1639,9 @@ module.exports = {
   funOf,
   funPrepend,
   guard,
+  Hamt,
+  Hamt_,
   hamtDel,
-  hamtEmpty,
   hamtGet,
   hamtSet,
   id,
@@ -1677,6 +1719,7 @@ module.exports = {
   takeWhilerk,
   _throw,
   thunk,
+  thunk_,
   trace,
   transduce,
   Triple,
