@@ -49,7 +49,7 @@ The scriptum library is still experimental.
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
-11. Planned: Immutability through Persistent Data Structures (10% done)
+11. Planned: Immutability in Languages W/O Purely Functional Data Types (10% done)
 
 * Planned: Lifting Pure Functions with Functors
 * Planned: Combine Lifted Functions with Applicatives
