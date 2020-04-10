@@ -37,7 +37,7 @@ The scriptum library is still experimental.
 
 ## Functional programming course (TOC)
 
-### Part I
+### Part I (untyped)
 
 01. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
