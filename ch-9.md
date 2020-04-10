@@ -271,4 +271,4 @@ postRec(main(0)); // 100000
 
 We need to disconnect all nested layers from each other by reifying the continuation between them. Then we can use the `postRec` trampoline to call this continuation iteratively. Since we do not want to alter the original algerithm the continuation is applied to the identity function. I named the trampoline `postRec` because it takes place after the actual recursive algorithm.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-8.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-8.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-10.md)
