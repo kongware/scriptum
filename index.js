@@ -1414,6 +1414,54 @@ const hamtGet = (hamt, k) => {
 };
 
 
+const hamtHas = (hamt, k) => {
+  if (hamt.type !== HAMT_BRANCH)
+    throw new HamtError("invalid HAMT");
+
+  const hash = hamtHash(k);
+
+  let node = hamt,
+    depth = -1;
+
+  while (true) {
+    ++depth;
+
+    switch (node.type) {
+      case HAMT_BRANCH: {
+        const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
+          mask = 1 << frag;
+
+        if (node.mask & mask) {
+          const i = hamtPopCount(node.mask, frag);
+          node = node.children[i];
+          continue;
+        }
+
+        else
+          return false;
+      }
+
+      case HAMT_COLLISION: {
+        for (let i = 0, len = node.children.length; i < len; ++i) {
+          const child = node.children[i];
+
+          if (child.k === k)
+            return true;
+        }
+
+        return false;
+      }
+
+      case HAMT_LEAF: {
+        return node.k === k
+          ? true
+          : false;
+      }
+    }
+  }
+};
+
+
 const hamtSet = (hamt, props, k, v) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
@@ -1643,6 +1691,7 @@ module.exports = {
   Hamt_,
   hamtDel,
   hamtGet,
+  hamtHas,
   hamtSet,
   id,
   infix,
