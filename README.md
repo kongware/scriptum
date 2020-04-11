@@ -49,16 +49,16 @@ The scriptum library is still experimental.
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
-11. Planned: Immutability in Languages w/o Purely Functional Data Types (20% done)
+11. Planned: Immutability in Languages w/o Purely Functional Data Types (60% done)
 
 * Planned: Lifting Pure Functions with Functors
+* Planned: Respecting the Structure with Natural Transformations
 * Planned: Combine Lifted Functions with Applicatives
 * Planned: Combine Kleisli Arrows with Monads
-* Planned: Functorial Loop Fusion with Yoneda
-* Planned: Respecting the Structure with Natural Transformations
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
 * Planned: CPS Transformation for Stack-safe Recursion
+* Planned: Functorial Loop Fusion with Co-/Yoneda
 * Planned: Mastering Tree Data Structures
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
