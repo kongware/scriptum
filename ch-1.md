@@ -46,11 +46,11 @@ Additionally we can compose functions if the types match; that is we can create 
 ```javascript
 add(length("foo")) (length("bar"))
 ```
-When functions are just first class expressions with holes in them what differentiates them from, say, literals or other expressions? Nothing actually, apart from the fact that they are more general. This is exactly how we regard functions in functional programming: They are just ordinary values and we treat them accordingly.
+When functions are just first class expressions with holes in them, what differentiates them from, say, literals or other expressions? Nothing actually, apart from the fact that they are more general. This is exactly how we regard functions in functional programming: they are just ordinary values and we treat them accordingly.
 
 ### Pure functions
 
-Admittedly, I oversimplified a bit. In fact three restrictions are necessary in order that functions are able to act like ordinary values:
+Admittedly, I oversimplified a bit. In fact three restrictions are necessary in order for functions to be able to act like ordinary values:
 
 * they must return a result value no matter what arguments are provided
 * they must return the same result value for the same arguments
@@ -90,7 +90,7 @@ app(sub) (2) (3) // -1
 ```
 What we are doing here is a kind of dependency injection. Such functions are called higher order functions, because they expect at least one function argument. Consequently functions without a function argument are called first order functions.
 
-Please note that a function without function arguments that returns another function is not a higher order function but a curried one. We will deal with currying in a later chapter of this course..
+Please note that a function without function arguments that returns another function is not a higher order function but a curried one. We will deal with currying in a later chapter of this course.
 
 You can most likely imagine how powerful higher order functions are, since they are so generalized. As I have already mentioned the process of generalization means to make things more useful.
 
@@ -123,7 +123,7 @@ add(1) (2); // prefix position
 ```
 Infix notation comes along with two additional properties, namely precedence and associativity to determine in which order an expression has to be evaluated. As you can see functions and operators are not that different after all and it would be a nice feature if we could treat one as the other and vice versa. Unfortunately Javascript strictly distinguishes between the two.
 
-So we are stuck with a fixed set of native Javascript operators without the ability to define new ones. Since operators are not first class it makes a lot of sense to complement them with their functional counterparts. This may aggravate the nesting issue, however, in a subsequent chapter we will examine special applicators that enable a linear data flow with a succinct and flat syntax.
+So we are stuck with a fixed set of native Javascript operators without the ability to define new ones. Since operators are not first class it makes a lot of sense to complement them with their functional counterparts. This may aggravate the nesting issue; however, in a subsequent chapter we will examine special applicators that enable a linear data flow with a succinct and flat syntax.
 
 ### Undefined is not a proper value
 
