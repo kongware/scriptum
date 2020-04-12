@@ -41,7 +41,7 @@ foo("bar") // expression
 ```
 We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every computation. Functions are inherently lazy.
 
-Additionally we can compose functions if the types matches, that is we can create complex functions out of simpler ones and hence complex expressions out of simpler ones.
+Additionally we can compose functions if the types match, that is we can create complex functions out of simpler ones and hence complex expressions out of simpler ones.
 
 ```javascript
 add(length("foo")) (length("bar"))
