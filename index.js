@@ -1182,7 +1182,7 @@ class Triple extends Array {
 ******************************************************************************/
 
 
-const get4RandomBytes = () =>
+const getHamtRandomBytes = () =>
   !crypto ? _throw("missing crypto api")
     : "getRandomValues" in crypto ? crypto.getRandomValues(new Uint32Array(1)) [0]
     : "randomBytes" ? crypto.randomBytes(4).readUInt32BE()
@@ -1216,6 +1216,12 @@ const HAMT_EMPTY = "delete";
 
 
 const HAMT_NOOP = "noop";
+
+
+const HAMT_EXISTING = "existing";
+
+
+const HAMT_FRESH = "fresh";
 
 
 /******************************************************************************
@@ -1257,7 +1263,7 @@ const hamtHash = k => {
         return hamtObjKeys.get(k);
 
       else {
-        const k_ = get4RandomBytes();
+        const k_ = getHamtRandomBytes();
 
         hamtObjKeys.set(k, k_);
         return k_;
@@ -1342,8 +1348,7 @@ const hamtDel = (hamt, props, k) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  const hash = hamtHash(k),
-    hamt_ = hamtDelNode(hamt, hash, k, 0);
+  const hamt_ = hamtDelNode(hamt, hamtHash(k), k, 0);
 
   switch (hamt_) {
     case HAMT_NOOP:
@@ -1370,8 +1375,6 @@ const hamtGet = (hamt, k) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  const hash = hamtHash(k);
-
   let node = hamt,
     depth = -1;
 
@@ -1380,12 +1383,11 @@ const hamtGet = (hamt, k) => {
 
     switch (node.type) {
       case HAMT_BRANCH: {
-        const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
+        const frag = (hamtHash(k) >>> (HAMT_BITS * depth)) & HAMT_MASK,
           mask = 1 << frag;
 
         if (node.mask & mask) {
-          const i = hamtPopCount(node.mask, frag);
-          node = node.children[i];
+          node = node.children[hamtPopCount(node.mask, frag)];
           continue;
         }
 
@@ -1418,8 +1420,6 @@ const hamtHas = (hamt, k) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  const hash = hamtHash(k);
-
   let node = hamt,
     depth = -1;
 
@@ -1428,12 +1428,11 @@ const hamtHas = (hamt, k) => {
 
     switch (node.type) {
       case HAMT_BRANCH: {
-        const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
+        const frag = (hamtHash(k) >>> (HAMT_BITS * depth)) & HAMT_MASK,
           mask = 1 << frag;
 
         if (node.mask & mask) {
-          const i = hamtPopCount(node.mask, frag);
-          node = node.children[i];
+          node = node.children[hamtPopCount(node.mask, frag)];
           continue;
         }
 
@@ -1462,12 +1461,19 @@ const hamtHas = (hamt, k) => {
 };
 
 
-const hamtSet = (hamt, props, k, v) => {
+const hamtSet = (hamt, props1, props2, k, v) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  return Object.assign(
-    hamtSetNode(hamt, hamtHash(k), k, v), props);
+  const {type, v: hamt_} = hamtSetNode(hamt, hamtHash(k), k, v);
+
+  switch (type) {
+    case HAMT_EXISTING:
+      return Object.assign(hamt_, props1);
+
+    case HAMT_FRESH:
+      return Object.assign(hamt_, props2);
+  }
 };
 
 
@@ -1484,17 +1490,18 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
     case HAMT_LEAF: {
       if (node.hash === hash) {
         if (node.k === k)
-          return hamtLeaf(hash, k, v)
+          return hamtLeaf(hash, k, v);
 
-        return hamtCollision(
-          hash,
-          [node, hamtLeaf(hash, k, v)]);
+        else
+          return hamtCollision(
+            hash,
+            [node, hamtLeaf(hash, k, v)]);
       }
 
       else {
-        const prevFrag = (node.hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
+        const frag_ = (node.hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
 
-        if (prevFrag === frag)
+        if (frag_ === frag)
           return hamtBranch(
             mask, [
               hamtSetNode(
@@ -1502,16 +1509,16 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
               node.hash,
               node.k,
               node.v,
-              depth + 1)
-            ]
-          );
+              depth + 1)]);
 
-        const prevMask = 1 << prevFrag,
-          children = prevFrag < frag
-            ? [node, hamtLeaf(hash, k, v)]
-            : [hamtLeaf(hash, k, v), node];
+        else {
+          const mask_ = 1 << frag_,
+            children = frag_ < frag
+              ? [node, hamtLeaf(hash, k, v)]
+              : [hamtLeaf(hash, k, v), node];
 
-        return hamtBranch(mask | prevMask, children);
+          return hamtBranch(mask | mask_, children);
+        }
       }
     }
 
@@ -1524,13 +1531,19 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
           children_ = Array.from(children);
 
         children_[i] = hamtSetNode(child, hash, k, v, depth + 1);
-        return hamtBranch(node.mask, children_);
+
+        return {
+          type: HAMT_EXISTING,
+          v: hamtBranch(node.mask, children_)};
       }
 
       else {
         const children_ = Array.from(children);
         children_.splice(i, 0, hamtLeaf(hash, k, v));
-        return hamtBranch(node.mask | mask, children_);
+
+        return {
+          type: HAMT_FRESH,
+          v: hamtBranch(node.mask | mask, children_)};
       }
     }
 
@@ -1545,8 +1558,7 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
 
       return hamtCollision(
         node.hash,
-        node.children.concat(hamtLeaf(hash, k, v))
-      );
+        node.children.concat(hamtLeaf(hash, k, v)));
     }
   }
 };
@@ -1557,9 +1569,8 @@ const hamtDelNode = (node, hash, k, depth) => {
     mask = 1 << frag;
 
   switch (node.type) {
-    case HAMT_LEAF: {
+    case HAMT_LEAF:
       return node.k === k ? HAMT_EMPTY : HAMT_NOOP;
-    }
 
     case HAMT_BRANCH: {
       if (node.mask & mask) {
