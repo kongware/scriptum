@@ -1218,12 +1218,6 @@ const HAMT_EMPTY = "delete";
 const HAMT_NOOP = "noop";
 
 
-const HAMT_EXISTING = "existing";
-
-
-const HAMT_FRESH = "fresh";
-
-
 /******************************************************************************
 ***************************[ CONSTANTS (INTERNAL) ]****************************
 ******************************************************************************/
@@ -1465,15 +1459,11 @@ const hamtSet = (hamt, props1, props2, k, v) => {
   if (hamt.type !== HAMT_BRANCH)
     throw new HamtError("invalid HAMT");
 
-  const {type, v: hamt_} = hamtSetNode(hamt, hamtHash(k), k, v);
-
-  switch (type) {
-    case HAMT_EXISTING:
-      return Object.assign(hamt_, props1);
-
-    case HAMT_FRESH:
-      return Object.assign(hamt_, props2);
-  }
+  const [hamt_, existing] =
+    hamtSetNode(hamt, hamtHash(k), k, v, false, 0);
+  
+  return Object.assign(
+    hamt_, existing ? props1 : props2);
 };
 
 
@@ -1482,7 +1472,7 @@ const hamtSet = (hamt, props1, props2, k, v) => {
 ******************************************************************************/
 
 
-const hamtSetNode = (node, hash, k, v, depth = 0) => {
+const hamtSetNode = (node, hash, k, v, existing, depth) => {
   const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
     mask = 1 << frag;
 
@@ -1490,26 +1480,29 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
     case HAMT_LEAF: {
       if (node.hash === hash) {
         if (node.k === k)
-          return hamtLeaf(hash, k, v);
+          return [hamtLeaf(hash, k, v), true];
 
         else
-          return hamtCollision(
-            hash,
-            [node, hamtLeaf(hash, k, v)]);
+          return [
+            hamtCollision(
+              hash,
+              [node, hamtLeaf(hash, k, v)]), existing];
       }
 
       else {
         const frag_ = (node.hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
 
         if (frag_ === frag)
-          return hamtBranch(
-            mask, [
-              hamtSetNode(
-                hamtSetNode(Hamt_, hash, k, v, depth + 1),
-              node.hash,
-              node.k,
-              node.v,
-              depth + 1)]);
+          return [
+            hamtBranch(
+              mask, [
+                hamtSetNode(
+                  hamtSetNode(Hamt_, hash, k, v, existing, depth + 1) [0],
+                node.hash,
+                node.k,
+                node.v,
+                existing,
+                depth + 1) [0]]), existing];
 
         else {
           const mask_ = 1 << frag_,
@@ -1517,7 +1510,7 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
               ? [node, hamtLeaf(hash, k, v)]
               : [hamtLeaf(hash, k, v), node];
 
-          return hamtBranch(mask | mask_, children);
+          return [hamtBranch(mask | mask_, children), existing];
         }
       }
     }
@@ -1530,20 +1523,22 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
         const child = children[i],
           children_ = Array.from(children);
 
-        children_[i] = hamtSetNode(child, hash, k, v, depth + 1);
-
-        return {
-          type: HAMT_EXISTING,
-          v: hamtBranch(node.mask, children_)};
+        const r = hamtSetNode(
+          child, hash, k, v, existing, depth + 1);
+        
+        children_[i] = r[0];
+        existing = r[1];
+        
+        return [
+          hamtBranch(node.mask, children_), existing];
       }
 
       else {
         const children_ = Array.from(children);
         children_.splice(i, 0, hamtLeaf(hash, k, v));
-
-        return {
-          type: HAMT_FRESH,
-          v: hamtBranch(node.mask | mask, children_)};
+        
+        return [
+          hamtBranch(node.mask | mask, children_), existing];
       }
     }
 
@@ -1552,13 +1547,16 @@ const hamtSetNode = (node, hash, k, v, depth = 0) => {
         if (node.children[i].k === k) {
           const children = Array.from(node.children);
           children[i] = hamtLeaf(hash, k, v);
-          return hamtCollision(node.hash, children);
+          
+          return [
+            hamtCollision(node.hash, children), existing];
         }
       }
 
-      return hamtCollision(
-        node.hash,
-        node.children.concat(hamtLeaf(hash, k, v)));
+      return [
+        hamtCollision(
+          node.hash,
+          node.children.concat(hamtLeaf(hash, k, v))), existing];
     }
   }
 };
