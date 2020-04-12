@@ -26,7 +26,7 @@ Values are the most fundamental entity of programming but not particularly usefu
 123 – 1
 true && false
 [1, 2, 3] [0]
-({foo: "bar").foo
+({foo: "bar"}).foo
 (a => a) ("foo")
 ```
 Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can only use them ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
