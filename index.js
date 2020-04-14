@@ -77,11 +77,7 @@ const strict = thunk => {
 
 
 const thunk = f =>
-  new Proxy(f, new LazyProxy(f));
-
-
-const thunk_ = f =>
-  new Proxy(f, new DeferredProxy(f));
+  new Proxy(f, new ThunkProxy(f));
 
 
 /******************************************************************************
@@ -89,33 +85,8 @@ const thunk_ = f =>
 ******************************************************************************/
 
 
-class DeferredProxy {
-  apply(g, that, args) {
-    return g() (...args);
-  }
-
-  get(g, k) {
-    if (k === THUNK)
-      return true;
-
-    else if (k === Symbol.toPrimitive)
-      return g;
-
-    else if (k === "valueOf")
-      return g;
-
-    else return g() [k];
-  }
-
-  has(g, k) {
-    return k in g();
-  }
-}
-
-
-class LazyProxy {
+class ThunkProxy {
   constructor(f) {
-    this.f = f;
     this.memo = undefined;
   }
 
@@ -1042,7 +1013,7 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
-const funEmpty = thunk_(() => id);
+const funEmpty = {fresh: id};
 
 
 const funOf = _const;
@@ -1359,7 +1330,7 @@ const hamtDel = (hamt, props, k) => {
 };
 
 
-const Hamt = thunk_(() => hamtBranch());
+const Hamt = {fresh: hamtBranch()};
 
 
 const Hamt_ = hamtBranch();
@@ -1777,7 +1748,6 @@ module.exports = {
   takeWhilerk,
   _throw,
   thunk,
-  thunk_,
   trace,
   transduce,
   Triple,
