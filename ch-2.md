@@ -173,7 +173,7 @@ The functional way of managing state may be hard to digest for imperative progra
 
 ```javascript
 const compState = f => g => h => x => s => {
-  const [x_, s_] = h(x) (s);
+  const [x_, s_] = h(x) (s),
     [x__, s__] = g(x_) (s_);
 
   return f(x__) (s__);
