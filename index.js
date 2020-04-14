@@ -1183,7 +1183,7 @@ const HAMT_BRANCH = "Branch";
 const HAMT_COLLISION = "Collision";
 
 
-const HAMT_EMPTY = "delete";
+const HAMT_EMPTY = "empty";
 
 
 const HAMT_NOOP = "noop";
@@ -1330,7 +1330,8 @@ const hamtDel = (hamt, props, k) => {
 };
 
 
-const Hamt = {fresh: hamtBranch()};
+const Hamt = props =>
+  Object.assign(hamtBranch(), props);
 
 
 const Hamt_ = hamtBranch();
@@ -1435,6 +1436,16 @@ const hamtSet = (hamt, props1, props2, k, v) => {
   
   return Object.assign(
     hamt_, existing ? props1 : props2);
+};
+
+
+const hamtUpd = (hamt, props, k, f) => {
+  if (hamt.type !== HAMT_BRANCH)
+    throw new HamtError("invalid HAMT");
+
+  return Object.assign(
+    hamtSetNode(
+      hamt, hamtHash(k), k, f(hamtGet(hamt, k)), false, 0) [0], props);
 };
 
 
@@ -1673,6 +1684,7 @@ module.exports = {
   hamtGet,
   hamtHas,
   hamtSet,
+  hamtUpd,
   id,
   infix,
   infix2,
