@@ -65,10 +65,10 @@ Since every curried function expects a single argument without exception there i
 const comp = f => g => x => f(g(x));
 const add = x => y => x + y;
 const inc = x => x + 1;
-const main = comp(add) (inc); (A)
-const main2 = comp(add) (add); (B)
+const main = comp(add) (inc); // (A)
+const main2 = comp(add) (add); // (B)
 
-comp(add) (inc) (1) (2); // 4 
+comp(add) (inc) (1) (2); // 4
 comp(add) (add) (1) (2); // "y => x + y2"
 ```
 [run code](https://repl.it/repls/NotableButterySection)
@@ -175,7 +175,7 @@ sub2(3); // 1 (as expected)
 An alternative to `flip` is `appr`, which mimics operators in infix position:
 
 ```javascript
-const appl = (x, f) => y => // left section (unnecessary) 
+const appl = (x, f) => y => // left section (unnecessary)
   f(x) (y);
 
 const infix = (x, f, y) => x => // infix position
