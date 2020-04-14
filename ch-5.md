@@ -65,7 +65,7 @@ const foo = x => [
   x + x,
   x - x,
   x * x];
-  
+
 foo(2 + 3);
 ```
 The invocation of `foo` triggers the evaluation of `2 + 3` only once, even though it is used six times.
@@ -95,7 +95,7 @@ Can we defer the function composition even further?
 const compk = f => g => x => k =>
   k(f(g(x)));
 //  ^^^^^^^ deferring effect
-  
+
 const inc = x => x + 1;
 
 const sqr = x => x * x;
@@ -132,6 +132,8 @@ Nullary functions are also referred to as thunks in Javascript. They are infecti
 ```javascript
 // simplified version
 
+const THUNK = "thunk";
+
 class LazyProxy {
   constructor(f) {
     this.f = f;
@@ -157,7 +159,7 @@ class LazyProxy {
 
 const thunk = f =>
   new Proxy(f, new LazyProxy(f));
-  
+
 const log = x =>
   (console.log("log", x), x);
 
@@ -192,7 +194,7 @@ const foo = x => [
   x + x, // x is needed to process the operation
   x - x,
   mul(x) (x)]; // the result of the multiplication is not needed yet
-  
+
 const main = foo(add(2) (3)); // logs "evaluating x to 5" only once and yields [10, 0, thunk]
 
 main.map(x => -x); // forces evaluation of the thunk and yields [-10, -0, -25]
@@ -252,7 +254,7 @@ const fact = fix(go => n =>
   n === 0
     ? 1
     : n * go(n - 1));
-    
+
 fact(5); // 120
 ```
 [run code](https://repl.it/repls/MurkyDetailedAutosketch)
