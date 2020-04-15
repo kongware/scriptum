@@ -18,12 +18,12 @@ o.foo = false; // state
 ```
 ### Variables and reassignments
 
-Although the term variable is used in functional programming and math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name. 
+Although the term variable is used in functional programming and math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name.
 
 Reassignments are banned in functional programming since they would violate referential transparency:
 
 ```javascript
-let = y = 2;
+let y = 2;
 const sub2 = x => x – y
 
 sub2(2); // 0
@@ -173,9 +173,9 @@ The functional way of managing state may be hard to digest for imperative progra
 
 ```javascript
 const compState = f => g => h => x => s => {
-  const [x_, s_] = h(x) (s);
+  const [x_, s_] = h(x) (s),
     [x__, s__] = g(x_) (s_);
-  
+
   return f(x__) (s__);
 };
 
