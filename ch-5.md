@@ -132,8 +132,6 @@ Nullary functions are also referred to as thunks in Javascript. They are infecti
 ```javascript
 // simplified version
 
-const THUNK = "thunk";
-
 class LazyProxy {
   constructor(f) {
     this.f = f;
