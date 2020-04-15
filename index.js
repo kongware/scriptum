@@ -77,11 +77,7 @@ const strict = thunk => {
 
 
 const thunk = f =>
-  new Proxy(f, new LazyProxy(f));
-
-
-const thunk_ = f =>
-  new Proxy(f, new DeferredProxy(f));
+  new Proxy(f, new ThunkProxy(f));
 
 
 /******************************************************************************
@@ -89,33 +85,8 @@ const thunk_ = f =>
 ******************************************************************************/
 
 
-class DeferredProxy {
-  apply(g, that, args) {
-    return g() (...args);
-  }
-
-  get(g, k) {
-    if (k === THUNK)
-      return true;
-
-    else if (k === Symbol.toPrimitive)
-      return g;
-
-    else if (k === "valueOf")
-      return g;
-
-    else return g() [k];
-  }
-
-  has(g, k) {
-    return k in g();
-  }
-}
-
-
-class LazyProxy {
+class ThunkProxy {
   constructor(f) {
-    this.f = f;
     this.memo = undefined;
   }
 
@@ -1042,7 +1013,7 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
-const funEmpty = thunk_(() => id);
+const funEmpty = {fresh: id};
 
 
 const funOf = _const;
@@ -1212,7 +1183,7 @@ const HAMT_BRANCH = "Branch";
 const HAMT_COLLISION = "Collision";
 
 
-const HAMT_EMPTY = "delete";
+const HAMT_EMPTY = "empty";
 
 
 const HAMT_NOOP = "noop";
@@ -1359,7 +1330,8 @@ const hamtDel = (hamt, props, k) => {
 };
 
 
-const Hamt = thunk_(() => hamtBranch());
+const Hamt = props =>
+  Object.assign(hamtBranch(), props);
 
 
 const Hamt_ = hamtBranch();
@@ -1464,6 +1436,16 @@ const hamtSet = (hamt, props1, props2, k, v) => {
   
   return Object.assign(
     hamt_, existing ? props1 : props2);
+};
+
+
+const hamtUpd = (hamt, props, k, f) => {
+  if (hamt.type !== HAMT_BRANCH)
+    throw new HamtError("invalid HAMT");
+
+  return Object.assign(
+    hamtSetNode(
+      hamt, hamtHash(k), k, f(hamtGet(hamt, k)), false, 0) [0], props);
 };
 
 
@@ -1702,6 +1684,7 @@ module.exports = {
   hamtGet,
   hamtHas,
   hamtSet,
+  hamtUpd,
   id,
   infix,
   infix2,
@@ -1777,7 +1760,6 @@ module.exports = {
   takeWhilerk,
   _throw,
   thunk,
-  thunk_,
   trace,
   transduce,
   Triple,
