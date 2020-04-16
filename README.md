@@ -50,7 +50,8 @@ The scriptum library is still experimental.
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
-12. Planned: Lifting Pure Functions with Functors (0% done)
+12. Planned: A Little Type Theory (30% done)
+13. Planned: Lifting Pure Functions with Functors (10% done)
 
 * Planned: Respecting the Structure with Natural Transformations
 * Planned: Combine Lifted Functions with Applicatives
@@ -68,7 +69,6 @@ The scriptum library is still experimental.
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
-* Planned: Mitigating the Need for Mutability
 * Planned: From Sharing to Memoization
 * Planned: Delimited Continuations
 * Planned: Coroutines Backed by Delimited Continuations
