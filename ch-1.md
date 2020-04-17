@@ -29,24 +29,24 @@ true && false
 ({foo: "bar"}).foo
 (a => a) ("foo")
 ```
-Since an expression can be reduced to a single value during evaluation, it is also a first class entity. Expressions are a great improvement compared to mere values. But we can only use them ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
+Expressions are also first class. However, in Javascript there is no difference between them and values in this regard, since expressions are always evaluated before they are passed to or returned from a function. Other languages pursue different evaluation strategies. Functional languages sometimes have a call-by-need strategy, in which an expression is only evaluated when it is actually needed. Expressions are a great improvement compared to mere values. But we can only use them ad-hoc, that is in place and as is. Is there a way to make them less ad-hoc? Let us generalize further!
 
 ### First class functions
 
-Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible because their results vary by means of the provided values. I am obviously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
+Imagine named expressions with holes in them and a mechanism to fill these holes when needed. Such generalized expressions would be way more flexible, because their results vary by means of the provided values. I am obviously talking about functions. Since functions are just expressions with holes in them they are also first class entities.
 
 ```javascript
 const foo = hole => `expression with a ${hole} in it`;
 foo("bar") // expression
 ```
-We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is the call-by-need evaluation strategy that purely functional programming languages like Haskell pursue as a default for every computation. Functions are inherently lazy.
+We can call `foo` once, twice, several times or not at all. It is only evaluated when needed. This is similar to the call-by-need evaluation strategy I mentioned above. Functions are lazy evaluated by design.
 
-Additionally we can compose functions if the types match; that is we can create complex functions out of simpler ones and hence complex expressions out of simpler ones.
+The ability to reuse functions allows us to compose them, provided the involved types match. Using composition we can create more complex functions out of simpler ones, which further increase their reusability.
 
 ```javascript
 add(length("foo")) (length("bar"))
 ```
-When functions are just first class expressions with holes in them, what differentiates them from, say, literals or other expressions? Nothing actually, apart from the fact that they are more general. This is exactly how we regard functions in functional programming: they are just ordinary values and we treat them accordingly.
+When functions are just first class expressions with holes in them, what differentiates them from, say, literals or other expressions? Nothing really, except that they are more general. This is exactly how we regard functions in functional programming: they are just ordinary values and we treat them accordingly.
 
 ### Pure functions
 
@@ -103,7 +103,7 @@ const x = 1 + 2;
 const y = 2 + 3;
 const z = x * y;
 ```
-I use the term name binding instead of variable, because there is no such thing as a variable in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immtuable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
+I use the term name binding instead of variable, because there is no such thing as a variable in functional programming. All we can do is bind immutable values to names. Name bindings themselves are also immutable, i.e. you cannot reassign them. In Javascript, however, this is just a policy we need to adhere to.
 
 Later in this course you will see that statements obstruct the functional control flow, which consists of various forms of function composition.
 
