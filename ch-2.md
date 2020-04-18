@@ -1,5 +1,7 @@
 ## Managing State in Functional Programming
 
+[EDITOR NOTE: CHAPTER REQUIRES REVISION]
+
 How does FP manage state when their are neither mutations nor reassignments? Let us take a little detour first, so that we are all on the same page before beginning to answer this question.
 
 ### Defining state
