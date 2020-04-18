@@ -2,7 +2,7 @@
 
 ### Functions in curried form
 
-Currying is a simple approach that can be applied in a rather mechanical way. Instead of defining a single function with several parameters you define a series of nested functions that each expect a single parameter:
+Currying is a simple approach that can be applied in a rather mechanical way. Instead of defining a single function with several parameters you define a series of nested functions that each expects a single parameter:
 
 ```javascript
 const add = (x, y) => x + y;
@@ -38,11 +38,11 @@ main(3, 4, 5); // 15
 ```
 [run code](https://repl.it/repls/SupportiveSizzlingLists)
 
-`partial` is a sensible implementation of this imperative idiom. It allows to defer the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a dynamic process whereas currying is static.
+`partial` is a sensible implementation of this imperative idiom. It allows deferring the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a dynamic process whereas currying is static.
 
 ### Function composition and piping
 
-Currying is accompanied by lots of additional function calls. So why it is useful? It happens to work well with function composition:
+Currying is accompanied by lots of additional function calls. So why is it useful? It happens to work well with function composition:
 
 ```javascript
 const comp = f => g => x => f(g(x));
@@ -195,7 +195,7 @@ We will learn about prefix and infix notation in a later chapter of this course.
 
 ### Point-free style
 
-Curried functions applied to function composition or other higher order combinators often lead to point-free style code. Point-free means that the arguments of a function are only implicitly defined. Here is a simple example:
+Curried functions applied to function composition or other higher order combinators often lead to point-free style code. Point-free means the arguments of a function are only implicitly defined. Here is a simple example:
 
 ```javascript
 const inc = x => x + 1;
