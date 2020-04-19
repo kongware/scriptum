@@ -66,7 +66,7 @@ const main = init =>
 
 main(2); // [2, 4, 16, 256]
 ```
-[run code] (https://repl.it/repls/FullFruitfulMacro)
+[run code](https://repl.it/repls/FullFruitfulMacro)
 
 In the given example none of the nested functions has access to name bindings of their parent scopes due to name shadowing. If a nested functions needs access to a previous name binding, you can easily rename the involved arguments.
 
@@ -116,7 +116,7 @@ const main = init =>
 
 main(2); // [2, 4, 16, 256]
 ```
-[run code] (https://repl.it/repls/SereneShinyListener)
+[run code](https://repl.it/repls/SereneShinyListener)
 
 #### Custom call stacks
 
