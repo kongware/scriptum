@@ -1,10 +1,10 @@
 ## Managing State in Functional Programming
 
-[EDITOR NOTE: CHAPTER REQUIRES REVISION]
+[EDITOR'S NOTE: THIS CHAPTER IS CURRENTLY UNDER REVISION]
 
-How does FP manage state when their are neither mutations nor reassignments? Let us take a little detour first, so that we are all on the same page before beginning to answer this question.
+It is rather difficult to talk about something as fundamental and general as state. This chapter is the attempt to give some orientation.
 
-### Defining state
+### Definition of state
 
 State is data that changes over the runtime of a program. In imperative programming you usually get state either by reassigning a variable
 
@@ -18,11 +18,13 @@ or by mutating a reference value:
 const o = {foo: true}; // data
 o.foo = false; // state
 ```
+Both actions constitute state and it is important to make such an distinction, since both variants are handled by different means in functional programming.
+
 ### Variables and reassignments
 
-Although the term variable is used in functional programming and math I prefer to avoid it because it regularly causes confusion: There are no variables in FP at least not those as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is you cannot reassign another value to an existing name.
+Although the term variable is used in functional programming and math I prefer to avoid it in the functional context, because it regularly causes confusion. There are no variables in FP, at least not in the manner as they are understood in imperative programming. All we have at our disposal are immutable name bindings, that is, you cannot reassign a new value to an existing name.
 
-Reassignments are banned in functional programming since they would violate referential transparency:
+There is a good reason why reassignments are banned in functional programming. They would violate referential transparency and thus introduce side effects, which render equational reasoning impossible:
 
 ```javascript
 let y = 2;
@@ -32,11 +34,11 @@ sub2(2); // 0
 y = 3;
 sub2(2); // -1
 ```
-The same expression within the same scope must yield the same value no matter when the runtime decides to actually evaluate it. Referential transparency is a property of purity and was already discussed in a previous chapter of this course.
+The same expression within the same scope must yield the same value no matter when the runtime decides to actually evaluate this expression.
 
 ### References and mutations
 
-The term referential transparency already dictates that the functional paradigm does not have a notion of references. References require the opposite namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Such values constitute an identity:
+The functional paradigm does not have a notion of references, because every expression must be referential transparent. References require the opposite, namely referential identity, which allows certain values to be distinguished by their reference and thus by their location in memory. Reference values have an identity:
 
 ```javascript
 const o = {foo: true},
@@ -44,94 +46,86 @@ const o = {foo: true},
 
 o !== p; // true
 ```
-The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. While comparing two references in Javascript is possible it is still an impure operation. Only use it with great care. I will introduce a purely functional way to work with reference types in a later chapter.
+The expression above compares two references. In a referential transparent environment `o` and `p` are indistinguishable, because their values are exactly the same. In Javascript, however, both reference values are different, because their references are. While comparing two references in Javascript is common, it is still an impure operation. Only use it with caution and make it as explicit as possible.
 
-Without references there is no identity and thus no reasonable way to mutate values anymore. The only alternative left is to simply create a new value whenever we need a modified one. So instead of a single value that changes over time we work with sequences of immutable values.
+### Handling reassignments in a functional way
 
-Creating new values is an expensive operation as soon as we have to deal with complex composite structures. Fortunately the functional world has developed persistent data structures that utilize structural sharing. With structural sharing only those parts of a composite value are actually copied that have been changed whereas the rest is simply reused. Purely functional data structures are covered in a later chapter of this course.
-
-### The function call stack
-
-If we want to work with sequences of distinct values we need a way to bind them to names and to distribute them throughout the code. However, as already mentioned we are not allowed to rebind new values to existing names in the same scope - or imperatively put: reassign a variable to a new value. How do we get out of this dilemma? Well, in FP it is all about functions. Let us just utilize their scopes.
-
-Whenever we need a reassignment we just call a function with the desired value as its argument. Now if you squint hard enough you can think of immutable name bindings as variables, because the same name can hold various values provided it is declared in different function scopes. From this perspective a variable is just a name binding which exists in consecutive function call stack elements.
-
-If the number of reassignments is static, i.e. it can be determined upfront, we can manually nest function calls:
+If we cannot reassign a variable with a new value, we need to create a new scope with the same name bound to this value. Functions span a new scope and their argument names are bound to the values the function was called with. Indeed, function application is all it takes. Every time you need a reassignment just call a function with the new value as its argument. If you know the number of reassignments upfront, you can manually create a function call tree. Here is a contrived example, which nevertheless illustrates the underlying principle:
 
 ```javascript
-const scanSqr3 = w => xs => // A
-  app(x => // B
-    app(y => // B
-      app(z => [x, y, z]) (sqr(y))) (sqr(x))) (sqr(w)); // B
+const app = f => x => f(x);
+const sqr = x => x * x;
 
-const app = f => x => f(x); // auxiliary function
+const main = init =>
+  app(([x, xs]) =>
+    app(([x, xs]) =>
+      app(([x, xs]) => xs)
+        ([sqr(x), [...xs, sqr(x)]]))
+          ([sqr(x), [...xs, sqr(x)]]))
+            ([sqr(init), [init, sqr(init)]]);
 
-scanSqr3(2) ([]); // [4, 16, 256]
+main(2); // [2, 4, 16, 256]
 ```
-[run code](https://repl.it/repls/BouncySpottedCallback)
+[run code] (https://repl.it/repls/FullFruitfulMacro)
 
-In dynamic scenarios we have to fall back to recursive solutions:
+In the given example none of the nested functions has access to name bindings of their parent scopes due to name shadowing. If a nested functions needs access to a previous name binding, you can easily rename the involved arguments.
+
+In a more dynamic setting the number of reassignments are not known upfront, hence we need to resort to recursion:
 
 ```javascript
-const scanSqr = n => x => xs => // A
+const arrUnfold = n => f => x =>
   n === 0
-    ? xs
-    : scanSqr(n - 1) (sqr(x)) (xs.concat(sqr(x))); // C
+    ? []
+    : [x].concat(arrUnfold(n - 1) (f) (f(x)));
 
-scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
+const sqr = x => x * x;
+
+const main = arrUnfold(5) (sqr);
+
+main(2); // [2, 4, 16, 256, 65536]
 ```
-[run code](https://repl.it/repls/HatefulUrbanOpengroup)
+[run code](https://repl.it/repls/FewEachOptimization)
 
-The decisive point is that this approach scales. In a later chapter we will discuss how to structure large applications in a functional manner.
+You can think of this approach as a way of shifting state caused by reassignments into the function call stack. Holding a decisive part of the application's state is actually the very purpose of the call stack in the functional paradigm. It is the logical consequence that everything is accomplished using functions.
 
-### Local bindings
+#### local bindings
 
-While the above examples illustrate the fundamental concept of how state is managed in functional programming, they both have drawbacks we would like to avoid:
-
-* we leak API by defining the empty array as a formal parameter (A)
-* we have to create nested anonymous functions for each name binding (B)
-* the same expression is evaluated twice for each recursive step (C)
-
-We can simplify the above code by creating local bindings. Local bindings are just a special syntax to create name bindings within a scope. Under the hood they are nothing more than implicitly called nested anonymous functions. Javascript does not supply such bindings, but we can employ default parameters in a creative way to accomplish a similar effect:
+Local bindings are basically an abstraction of immediately invoked function expressions and come in handy in various situations. Instead of creating an IIFE manually we use a combinator for convenience:
 
 ```javascript
 const _let = f => f();
 
-const scanSqr3 = w =>
-  _let((x = sqr(w), y = sqr(x), z = sqr(y)) =>
-    [x, y, z]);
-
-const scanSqr = n => x => xs => // (D)
-  n === 0
-    ? xs
-    : _let((y = sqr(x)) => scanSqr(n - 1) (y) (xs.concat(y)));
-
-scanSqr3(2); // [4, 16, 256]
-scanSqr(5) (2) ([]); // [4, 16, 256, 65536, 4294967296]
+_let((x = 2 * 2, y = x * 2, z = y * 2) =>
+  [x, y, z]); // [4, 8, 16]
 ```
-[run code](https://repl.it/repls/LovingRegalParameter)
-
-We have managed to improve the code considerably. However, we were not able to eliminate the last parameter (D) for the recursive function. It turns out that local bindings are just not enough for this kind of optimization. We would need fixed point combinators that allow anonymous recursion to achieve the desired behavior. Since we deal with Javascript we should not be dogmatic anyway, so let us declare an imperative function with brackets and explicit return statement, so that we can take advantage of an inner auxiliary function:
+Using local bindings we can make the example form the last section more efficient, by evaluating the expression `sqr(init)` only once (line `A`):
 
 ```javascript
-const scanSqr = n => x => {
-  const go = (xs, x_, n_) =>
-    n_ === 0
-      ? xs
-      : _let((y = sqr(x_)) => go(xs.concat(y), y, n_ - 1));
+const _let = f => f();
+const app = f => x => f(x);
+const sqr = x => x * x;
 
-  return go([], x, n);
-};
+const main = init =>
+  _let((init_ = sqr(init)) =>
+    app(([x, xs]) =>
+      app(([x, xs]) =>
+        app(([x, xs]) => xs)
+          ([sqr(x), [...xs, sqr(x)]]))
+            ([sqr(x), [...xs, sqr(x)]]))
+              ([init_, [init, init_]])); // A
+
+main(2); // [2, 4, 16, 256]
 ```
-Please note that `_let` has no type, i.e. you cannot express it in Typescript. However, we can easily type its invocations by explicitly specifiying the type of each default parameter (type assertion). Usually we want to avoid functions without a proper type but there seems to be no alternatives to obtain a syntax even remotely terse as with `_let`'s given implementation - at least none that I can think of. By the way, we will learn how to type all sorts of combinators in Typescript and delve into type theory in later chapters of this course.
+[run code] (https://repl.it/repls/SereneShinyListener)
 
-### When the call stack vanishes
+#### Custom call stacks
 
-In some scenarios we cannot rely on the normal, synchronous function call stack but must use alternative structures.
+We have learned that functional programming holds a decisive part of the application state in the functional call stack. However, there are two settings where we cannot rely on the call stack anymore:
 
-#### Tail recursive functions
+* tail recursive algorithms
+* asynchronous computations
 
-Tail recursion leads to eliminination of the function call stack. We will examine this omptimization technique in a later chapter. The implicit call stack is replaced with an explicit data structure that acccumulates the results of each recursive step. Hence it is called accumulator and holds the state of the recursive algorithm:
+Tail recursion leads to eliminination of the function call stack. It is the very goal of this optimization, which we will examine in a later chapter of this course. When the call stack vanishes we need to provide an alternative structure to store the state:
 
 ```javascript
 const sum = xs => {
@@ -147,9 +141,9 @@ sum([1, 2, 3, 4, 5]); // 15
 ```
 [run code](https://repl.it/repls/ButteryMeanModels)
 
-#### Asynchronous functions
+Tail recursion is often referred to as recursion accumulator-style, because the accumulator serves as a proxy for the call stack and temporarily holds the state of the recursive algorithm.
 
-Asynchronous functions cannot use the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. We need an approach that somehow creates its own call stack when the asynchronous computations is carried out:
+Asynchronous functions cannot make use of the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. Once again we need an alternative structure to hold the state of the asynchronous computation:
 
 ```javascript
 const compCont = f => g => x => k =>
@@ -159,17 +153,17 @@ const sqrCont = x => k => setTimeout(k, 0, `sqrCont(${x})`);
 const incCont = x => k => setTimeout(k, 0, `incCont(${x})`);
 const log = x => console.log(`log(${x})`);
 
-const main = compCont(sqrCont) (incCont) (2);
+const main = compCont(sqrCont) (incCont) (2); // A
 
-main(log); // log(sqrCont(incCont(2))) (A)
+// main isn't evaluated yet
+
+main(log);
 ```
-[run code](https://repl.it/repls/UtterDarkBytecode)
+[run code](https://repl.it/repls/SurefootedUnwrittenDecimals)
 
-This is advanced functional programming so do not be intimidated. The decisive part is that line (A) evaluates to a nested function call tree that implicitly forms its own function call stack as soon as it is evaluated. This is where the asynchronous state is hidden.
+The computation is encoded in continuation passing style, which usually needs some time to get familiar with. It is important to understand that line `A` evaluates to the nested function call `f => f(sqrCont(incCont(2)))`. Such a function call tree requires a call stack to be evaluated. This is where the state of our asynchronous computation is hidden.
 
-If we formalize this further and add a couple of combinators we are going to wind up with the continuation type (`Cont`) and its associated monad. I will deal with this advanced functional programming idioms in another chapter of this course.
-
-### Mimicking imperative state
+#### Threading state through compositions
 
 The functional way of managing state may be hard to digest for imperative programmers. Let us alleviate the pain by mimicking imperative state with functions:
 
@@ -196,5 +190,9 @@ main(3); // [15, 9] A
 This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with "stateful" functions both values the result and the current state are returned in a pair tuple like array.
 
 If we keep abstracting and add a couple of combinators we will end up with the `State` type and its associated monad. I will deal with them in another chapter of this course.
+
+### Handling mutations in a functional way
+
+### Handling time-varying values
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-3.md)
