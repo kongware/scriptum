@@ -88,7 +88,7 @@ main(2); // [2, 4, 16, 256, 65536]
 
 You can think of this approach as a way of shifting state caused by reassignments into the function call stack. Holding a decisive part of the application's state is actually the very purpose of the call stack in the functional paradigm. It is the logical consequence that everything is accomplished using functions.
 
-#### local bindings
+#### Local bindings
 
 Local bindings are basically an abstraction of immediately invoked function expressions and come in handy in various situations. Instead of creating an IIFE manually we use a combinator for convenience:
 
@@ -155,7 +155,7 @@ const log = x => console.log(`log(${x})`);
 
 const main = compCont(sqrCont) (incCont) (2); // A
 
-// main isn't evaluated yet
+// main isn't fully evaluated yet
 
 main(log);
 ```
@@ -165,31 +165,47 @@ The computation is encoded in continuation passing style, which usually needs so
 
 #### Threading state through compositions
 
-The functional way of managing state may be hard to digest for imperative programmers. Let us alleviate the pain by mimicking imperative state with functions:
+Stateful functions in FP usually have the shape `x => s => [x, s]`. It can get quite laborious to thread the state throughout your function compositions. Fortunately we can abstract from it by laveraging a few specialized combinators:
 
 ```javascript
-const compState = f => g => h => x => s => {
+const stateComp = f => g => x => s => {
+  const [x_, s_] = g(x) (s);
+  return f(x_) (s_);
+};
+
+const stateComp3 = f => g => h => x => s => {
   const [x_, s_] = h(x) (s),
     [x__, s__] = g(x_) (s_);
 
   return f(x__) (s__);
 };
 
+const stateLift = f => x => s => [f(x), s];
+const stateMod = f => x => s => [x, f(x) (s)];
+
+const id = x => x;
+const _let = f => f();
+
+const arrSnoc = x => xs =>
+  (xs.push(x), xs);
+
 const sqr = x => x * x;
 
-const addState = x => s => [x + s, s];
-const modState = f => x => s => [x, f(s)];
-const mulState = x => s => [x * s, s];
+const main = init =>
+  _let(
+    (stateSqr = stateComp(stateMod(arrSnoc)) (stateLift(sqr))) =>
+      stateComp3(
+        stateSqr)
+          (stateSqr)
+            (stateSqr)
+              (init)
+                ([init]));
 
-const main = compState(addState) (modState(sqr)) (mulState) (2);
-
-main(3); // [15, 9] A
+main(2); // [256, [2, 4, 16, 256]]
 ```
-[run code](https://repl.it/repls/BruisedAgonizingMatrix)
+[run code](https://repl.it/repls/DesertedAttractiveBlockchain)
 
-This is again an advanced functional idiom but the underlying idea is simple: Instead of functions that just return a value we work with functions that additionally return the state. In the given example we pass the value `3` as the initial state to our main computation (A). In the first step the given state is multiplied with `2`, which yields a new return value. Then the state itself is modified by multiplying it with itself. At last both products are added. This yields the following expression `3 * 2 + 3 * 3`, which evaluates to `15` as the result value and `9` as the current state. Since we work with "stateful" functions both values the result and the current state are returned in a pair tuple like array.
-
-If we keep abstracting and add a couple of combinators we will end up with the `State` type and its associated monad. I will deal with them in another chapter of this course.
+This is a big improvement. If we keep formalizing this pattern and add a couple of lawful combinators, we will wind up with the state monad, which will be covered in a later chapter of this course. You do not need the state monad to create stateful compositions in functional programming, but it facilitates designing such compositions.
 
 ### Handling mutations in a functional way
 
