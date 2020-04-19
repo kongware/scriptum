@@ -209,6 +209,10 @@ This is a big improvement. If we keep formalizing this pattern and add a couple 
 
 ### Handling mutations in a functional way
 
+We still have not talked about mutations. The function call stack cannot assist us with this issue. The obvious way in a multi-paradigm language without purely functional data types is to copy reference types before they are passed to functions. This approach is quite inefficient though, especially for large data structures. In a subsequent chapter of this course I will introduce persistent data structures, which essentially enable an extremely efficient copy mechanism.
+
 ### Handling time-varying values
+
+Besides reassignments and mutations there is another major need for handling program state: Values that vary over time, either discretely or continuously. This is a rather advanced and complex topic and will be discussed in the chapters on streams and functional reactive programming.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-3.md)
