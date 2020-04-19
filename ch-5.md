@@ -132,9 +132,8 @@ Nullary functions are also referred to as thunks in Javascript. They are infecti
 ```javascript
 // simplified version
 
-class LazyProxy {
+class ThunkProxy {
   constructor(f) {
-    this.f = f;
     this.memo = undefined;
   }
 
@@ -156,7 +155,7 @@ class LazyProxy {
 }
 
 const thunk = f =>
-  new Proxy(f, new LazyProxy(f));
+  new Proxy(f, new ThunkProxy(f));
 
 const log = x =>
   (console.log("log", x), x);
@@ -278,8 +277,12 @@ fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
 The mechanism I demonstrated in this chapter is based on creating explicit thunks and thus results in lazy evaluation on demand. The default evaluation strategy is still strict. Yet there might be some situations where we want both, lazy and eager evaluation on a case-by-case basis. The following combinator enables to programmatically convert a lazy function into a strict one:
 
 ```javascript
+const PREFIX = "scriptum_";
+
+const THUNK = PREFIX + "thunk";
+
 const strict = thunk => {
-  while (thunk[Thunk])
+  while (thunk[THUNK])
     thunk = thunk.valueOf();
 
   return thunk;
