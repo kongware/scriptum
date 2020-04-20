@@ -20,7 +20,7 @@ Normal order evaluation passes argument subexpressions to functions as they are 
 const add = x => y => x + y;
 
 const foo = add(2 + 3) (4 * 5); // A
-                ^^^^^   ^^^^^ subexpressions
+//              ^^^^^   ^^^^^ subexpressions
 const main = foo + 0; // B
 ```
 With normal evaluation order both subexpressions are not evaluated but passed to `add` as is (line `A`). However, in line `B` the evaluation is forced, because the result of the addition is needed. Let us further look into the evaluation process:
