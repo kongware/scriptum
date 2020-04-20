@@ -40,7 +40,7 @@ The scriptum library is still experimental.
 ### Part I (untyped)
 
 01. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
-02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
+02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md) (UPDATED VERSION)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
 04. [Reasonable and Harmful Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/ch-5.md)
