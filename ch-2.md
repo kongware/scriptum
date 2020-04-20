@@ -50,7 +50,7 @@ The expression above compares two references. In a referential transparent envir
 
 ### Handling reassignments in a functional way
 
-If we cannot reassign a variable with a new value, we need to create a new scope with the same name bound to this value. Functions span a new scope and their argument names are bound to the values the function was called with. Indeed, function application is all it takes. Every time you need a reassignment just call a function with the new value as its argument. If you know the number of reassignments upfront, you can manually create a function call tree. Here is a contrived example, which nevertheless illustrates the underlying principle:
+If we cannot reassign a variable with a new value, we need to create a new scope with the same name bound to this value. Functions span a new scope and their argument names are bound to the values the function was called with. Function application is all it takes indeed. Every time you need a reassignment just call a function with the new value as its argument. If you know the number of reassignments upfront, you can manually create nested function calls. Here is a contrived example, which nevertheless illustrates the underlying principle:
 
 ```javascript
 const app = f => x => f(x);
@@ -68,7 +68,7 @@ main(2); // [2, 4, 16, 256]
 ```
 [run code](https://repl.it/repls/FullFruitfulMacro)
 
-In the given example none of the nested functions has access to name bindings of their parent scopes due to name shadowing. If a nested functions needs access to a previous name binding, you can easily rename the involved arguments.
+In the given example none of the nested functions has access to name bindings of their parent scopes due to name shadowing. If a nested functions needs access to a previous name binding, you can easily rename the involved arguments. `app` is just an auxiliary function to avoid immediately invoked function expressions (IIFEs).
 
 In a more dynamic setting the number of reassignments are not known upfront, hence we need to resort to recursion:
 
@@ -80,13 +80,15 @@ const arrUnfold = n => f => x =>
 
 const sqr = x => x * x;
 
-const main = arrUnfold(5) (sqr);
+const main = arrUnfold(5) (sqr); // A
 
 main(2); // [2, 4, 16, 256, 65536]
 ```
 [run code](https://repl.it/repls/FewEachOptimization)
 
-You can think of this approach as a way of shifting state caused by reassignments into the function call stack. Holding a decisive part of the application's state is actually the very purpose of the call stack in the functional paradigm. It is the logical consequence that everything is accomplished using functions.
+Line `A` indicates that the number of iterations is dynamic.
+
+You can think of the functional approach as shifting state caused by reassignments to the function call stack. Holding a decisive part of the application's state is actually the very purpose of the call stack in the functional paradigm. This is the logical consequence of doing almost everything with functions.
 
 #### Local bindings
 
@@ -120,16 +122,16 @@ main(2); // [2, 4, 16, 256]
 
 #### Custom call stacks
 
-We have learned that functional programming holds a decisive part of the application state in the functional call stack. However, there are two settings where we cannot rely on the call stack anymore:
+We have learned that functional programming holds a decisive part of the application state in the function call stack. However, there are two scenarios where we cannot rely on the call stack anymore:
 
 * tail recursive algorithms
 * asynchronous computations
 
-Tail recursion leads to eliminination of the function call stack. It is the very goal of this optimization, which we will examine in a later chapter of this course. When the call stack vanishes we need to provide an alternative structure to store the state:
+Tail recursion leads to eliminination of the function call stack. Elimination is the very goal of this optimization, which we will examine in a later chapter of this course. When the call stack vanishes we need to provide an alternative structure to store the state:
 
 ```javascript
 const sum = xs => {
-  const go = (acc, i) => // accumulator
+  const go = (acc, i) => // A
     i === xs.length
       ? acc
       : go(acc + xs[i], i + 1);
@@ -141,19 +143,19 @@ sum([1, 2, 3, 4, 5]); // 15
 ```
 [run code](https://repl.it/repls/ButteryMeanModels)
 
-Tail recursion is often referred to as recursion accumulator-style, because the accumulator serves as a proxy for the call stack and temporarily holds the state of the recursive algorithm.
+Tail recursion is often referred to as recursion accumulator-style, because the accumulator in line `A` serves as a proxy for the call stack and temporarily holds the state of the recursive algorithm.
 
-Asynchronous functions cannot make use of the synchronous call stack, because at the time they are invoked all synchronous computations are already completed. Once again we need an alternative structure to hold the state of the asynchronous computation:
+Asynchronous functions cannot make use of the synchronous call stack, because at the time of their invokation all synchronous computations are already completed, that is, there is no call stack anymore. Once again we need an alternative structure to hold the state of the asynchronous computation:
 
 ```javascript
-const compCont = f => g => x => k =>
+const contComp = f => g => x => k =>
   g(x) (y => f(y) (k));
 
-const sqrCont = x => k => setTimeout(k, 0, `sqrCont(${x})`);
-const incCont = x => k => setTimeout(k, 0, `incCont(${x})`);
+const contSqr = x => k => setTimeout(k, 0, `contSqr(${x})`);
+const contInc = x => k => setTimeout(k, 0, `contInc(${x})`);
 const log = x => console.log(`log(${x})`);
 
-const main = compCont(sqrCont) (incCont) (2); // A
+const main = contComp(contSqr) (contInc) (2); // A
 
 // main isn't fully evaluated yet
 
@@ -161,11 +163,11 @@ main(log);
 ```
 [run code](https://repl.it/repls/SurefootedUnwrittenDecimals)
 
-The computation is encoded in continuation passing style, which usually needs some time to get familiar with. It is important to understand that line `A` evaluates to the nested function call `f => f(sqrCont(incCont(2)))`. Such a function call tree requires a call stack to be evaluated. This is where the state of our asynchronous computation is hidden.
+The computation is encoded in continuation passing style, which usually needs some time to get familiar with. It is important to understand that line `A` evaluates to the nested function call `k => k(contSqr(contInc(2)))`. Such a function call tree requires a call stack to be evaluated. This is where the state of our asynchronous computation is hidden.
 
 #### Threading state through compositions
 
-Stateful functions in FP usually have the shape `x => s => [x, s]`. It can get quite laborious to thread the state throughout your function compositions. Fortunately we can abstract from it by laveraging a few specialized combinators:
+Stateful functions in FP usually have the shape `x => s => [x, s]`. It can get quite laborious to thread state throughout your function compositions. Fortunately we can abstract from it by laveraging a few specialized combinators:
 
 ```javascript
 const stateComp = f => g => x => s => {
@@ -205,7 +207,7 @@ main(2); // [256, [2, 4, 16, 256]]
 ```
 [run code](https://repl.it/repls/DesertedAttractiveBlockchain)
 
-This is a big improvement. If we keep formalizing this pattern and add a couple of lawful combinators, we will wind up with the state monad, which will be covered in a later chapter of this course. You do not need the state monad to create stateful compositions in functional programming, but it facilitates designing such compositions.
+This is a big improvement. If we keep formalizing this pattern and add a couple of lawful combinators, we will wind up with the state monad, which will be covered in a later chapter of this course. You do not need the state monad to create stateful compositions in functional programming, but it facilitates constructing them.
 
 ### Handling mutations in a functional way
 
