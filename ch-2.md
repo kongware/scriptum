@@ -68,7 +68,7 @@ main(2); // [2, 4, 16, 256]
 
 In the given example none of the nested functions has access to name bindings of their parent scopes due to name shadowing. If a nested functions needs access to a previous name binding, you can easily rename the involved arguments. `app` is just an auxiliary function to avoid immediately invoked function expressions (IIFEs).
 
-In a more dynamic setting the number of reassignments are not known upfront, hence we need to resort to recursion:
+In a more dynamic setting the number of reassignments is not known upfront, hence we need to resort to recursion:
 
 ```javascript
 const arrUnfold = n => f => x =>
@@ -125,7 +125,7 @@ We have learned that functional programming holds a decisive part of the applica
 * tail recursive algorithms
 * asynchronous computations
 
-Tail recursion leads to eliminination of the function call stack. Elimination is the very goal of this optimization, which we will examine in a later chapter of this course. When the call stack vanishes we need to provide an alternative structure to store the state:
+Tail recursion leads to elimination of the function call stack. Elimination is the very goal of this optimization, which we will examine in a later chapter of this course. When the call stack vanishes we need to provide an alternative structure to store the state:
 
 ```javascript
 const sum = xs => {
@@ -143,7 +143,7 @@ sum([1, 2, 3, 4, 5]); // 15
 
 Tail recursion is often referred to as recursion accumulator-style, because the accumulator in line `A` serves as a proxy for the call stack and temporarily holds the state of the recursive algorithm.
 
-Asynchronous functions cannot make use of the synchronous call stack, because at the time of their invokation all synchronous computations are already completed, that is, there is no call stack anymore. Once again we need an alternative structure to hold the state of the asynchronous computation:
+Asynchronous functions cannot make use of the synchronous call stack, because at the time of their invocation all synchronous computations are already completed, that is, there is no call stack anymore. Once again we need an alternative structure to hold the state of the asynchronous computation:
 
 ```javascript
 const contComp = f => g => x => k =>
@@ -165,7 +165,7 @@ The computation is encoded in continuation passing style, which usually needs so
 
 #### Threading state through compositions
 
-Stateful functions in FP usually have the shape `x => s => [x, s]`. It can get quite laborious to thread state throughout your function compositions. Fortunately we can abstract from it by laveraging a few specialized combinators:
+Stateful functions in FP usually have the shape `x => s => [x, s]`. It can get quite laborious to thread state throughout your function compositions. Fortunately we can abstract from it by leveraging a few specialized combinators:
 
 ```javascript
 const stateComp = f => g => x => s => {
