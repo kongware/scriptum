@@ -111,7 +111,7 @@ mapToArr_(foo); // ["foo", "bar", "baz"]
 ```
 [run code](https://repl.it/repls/MeanNoxiousChord)
 
-`mapToArr` gets a fesh array as accumulator each time it is called and hence keeps the side effect caused by `arrSnoc` local. Adding redundant lambda abstractions to a derived function is called eta abstraction and opposite operation eta reduction.
+`mapToArr` gets a fesh array as accumulator each time it is called and hence keeps the side effect caused by `arrSnoc` local. Adding redundant lambda abstractions to a derived function is called eta abstraction and the opposite operation eta reduction.
 
 #### Function composition
 
