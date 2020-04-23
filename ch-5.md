@@ -78,6 +78,39 @@ As we have seen lazyness defers the evaluation of subexpressions. When we squint
 const add = x => y => x + y,
   add2 = add(2);
 ```
+#### Eta abstractions
+
+`f` and `x => f(x)` are not the same when it comes to evaluation in a strictly evaluated language like Javascript. The latter renders a function slightly more lazy:
+
+```javascript
+const mapFold = f => acc => ix => {
+  for (let [i, x] of ix)
+    acc = f(acc) (x);
+
+  return acc;
+};
+
+const arrSnoc = xs => x =>
+  (xs.push(x), xs);
+
+const mapToArr =
+  mapFold(arrSnoc) ([]);
+
+const mapToArr_ = ix =>
+//                ^^
+  mapFold(arrSnoc) ([]) (ix);
+//                      ^^^^
+
+const foo = new Map([[0, "foo"], [1, "bar"], [2, "baz"]]);
+
+mapToArr(foo);
+mapToArr_(foo);
+
+console.log(mapToArr(foo)); // ["foo", "bar", "baz", "foo", "bar", "baz"]
+console.log(mapToArr_(foo)); // ["foo", "bar", "baz"]
+```
+[run code](https://repl.it/repls/MeanNoxiousChord)
+
 #### Function composition
 
 Pursuing this perspective function composition can be regarded as lazy argument evaluation:
