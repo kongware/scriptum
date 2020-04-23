@@ -106,8 +106,8 @@ const foo = new Map([[0, "foo"], [1, "bar"], [2, "baz"]]);
 mapToArr(foo);
 mapToArr_(foo);
 
-console.log(mapToArr(foo)); // ["foo", "bar", "baz", "foo", "bar", "baz"]
-console.log(mapToArr_(foo)); // ["foo", "bar", "baz"]
+mapToArr(foo); // ["foo", "bar", "baz", "foo", "bar", "baz"]
+mapToArr_(foo); // ["foo", "bar", "baz"]
 ```
 [run code](https://repl.it/repls/MeanNoxiousChord)
 
