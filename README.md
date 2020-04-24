@@ -51,7 +51,7 @@ The scriptum library is still experimental.
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
-13. Planned: Lifting Pure Functions with Functors (50% done)
+13. Planned: Lifting Pure Functions with Functors (70% done)
 
 * Planned: Respecting the Structure with Natural Transformations
 * Planned: Combine Lifted Functions with Applicatives
