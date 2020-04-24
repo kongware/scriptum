@@ -67,6 +67,7 @@ The scriptum library is still experimental.
 * Planned: Common Typeclasses
 * Planned: Multi-Parameter Type Classes and Functional Dependencies
 * Planned: Common Functional Types and Data Structures
+* Planned: List-Comprehension and its extension for other data types
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Type Wrappers for Improved Semantics
