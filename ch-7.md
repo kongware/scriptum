@@ -1,3 +1,7 @@
+**[EDITOR'S NOTE: Infix applicators are a wrong track and will be replaced shortly]**
+
+**[DEPRECATED]**
+
 ## Linear Data Flow with Infix Applicators
 
 In this chapter we will examine an alternative manner to maintain a linear data flow and flat syntax while composing and combining functions extensively.
