@@ -85,12 +85,10 @@ The scriptum library is still experimental.
 * Planned: Encode DSLs with Free and Freer Monads
 * Planned: Encode DSLs with Tagless Final Encoding
 * Planned: Encode DSLs with ZIO
-* Planned: Adapted Hindley-Milner Type Annotations (Type Theory)
-* Planned: Nominal and Structural Typing and Polymorphism (Type Theory)
-* Planned: Higher Kinded and Higher Rank Types (Type Theory)
 * Planned: Functional Programming with Typescript
 * Planned: Structuring Large-scale Functional Applications
 * Planned: When FP does not save us
+* Planned: Incremental computing
 * Planned: Functional Reactive Programming
 * Planned: Event Sourcing and Stores
 * Planned: Conflict-free Replicated Data Types
