@@ -2,7 +2,7 @@
 
 ## Linear Data Flow w/o Method Chaining
 
-There are two ways to obtain method chaining, either by relying on the prototype system
+There are two ways to obtain method chaining in Javascript, either by relying on the prototype system
 
 ```javascript
 class List {
@@ -35,4 +35,36 @@ tx.map(x => x + 1)
 ```
 [run code](https://repl.it/repls/RegalTriflingFactor)
 
-While the prototype system is rather specific to Javascript and has its very own limitations, object factories are quite inefficient, especially when you have to deal with types that include larger number of attached functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
+While the prototype system is rather specific to Javascript and has its very own limitations, object factories are quite inefficient, especially when you have to deal with types that contain larger number of attached functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
+
+### Prefix notation
+
+Functions are written in prefix notation in Javascript, i.e. the name comes first and then the arguments. Prefix notation leads to nested functions calls, which resemble Lisp's s-expressions:
+
+```Javascript
+const sub = x => y => x - y;
+
+sub(
+  sub(
+    sub(
+      sub(1) (2)) (3)) (4)) (5); // -13
+```
+We can avoid nesting by using natve operators instead, which are written in infix notation:
+
+```Javascript
+1 - 2 - 3 - 4 - 5; // -13
+```
+Operators affect the evaluation order through their predefined precedence and associativity. Subtraction for instance has a higher precedence than multiplication
+
+```Javascript
+1 + 2 * 3;   // 7 (predefined precedence)
+(1 + 2) * 3; // 9 (enforced precedence)
+```
+and is left-associative
+
+```Javascript
+1 - 2 - 3 - 4 - 5;         // -13 (predefined associativity)
+(1 - (2 - (3 - (4 - 5)))); // 3 (enforced right associativity)
+```
+Unfortunately, we cannot define custom infix operators in Javascript. All we can do is define functional counterparts of the built-in operators and use them in prefix position.
+
