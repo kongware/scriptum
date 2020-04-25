@@ -70,10 +70,84 @@ Unfortunately, we cannot define custom infix operators in Javascript. All we can
 
 ### Avoid nesting with functorial applicators
 
-There are two ways to call a sequence of binary functions:
+Since function application is not associative, there are two ways to call a sequence of binary functions:
 
 ```javascript
 f(g(x) (y)) (z); // left-associative ((x ? y) ? z)
 f(x) (g(y) (z)); // right-associative (x ? (y ? z))
 ```
+
+We can encode both patterns in a couple of arity aware combinators:
+
+```javascript
+const infix2 = (x, f) => (y, g) => z =>
+  g(f(x) (y)) (z);
+
+const infixr2 = (x, f) => (y, g) => z =>
+  f(x) (g(y) (z));
+
+const infix3 = (w, f) => (x, g) => (y, h) => z =>
+  h(g(f(w) (x)) (y)) (z);
+
+const infixr3 = (w, f) => (x, g) => (y, h) => z =>
+  f(w) (g(x) (h(y) (z)));
+
+// ...
+```
+An array based variadic combinator complements these applicators:
+
+```javascript
+const infixn = pairs => z => {
+  const go = (f, i) =>
+    i === pairs.length
+      ? f
+      : go(pairs[i] [1] (f(pairs[i] [0])), i + 1);
+
+  return pairs.length === 0
+    ? z
+    : go(pairs[0] [1] (pairs[0] [0]), 1) (z);
+};
+
+const infixnr = pairs => z => {
+  const go = (f, i) =>
+    i === pairs.length
+      ? f(z)
+      : f(go(pairs[i] [1] (pairs[i] [0]), i + 1));
+
+  return pairs.length === 0
+    ? z
+    : go(pairs[0] [1] (pairs[0] [0]), 1);
+};
+```
+Let us apply an applicator to illistrate their handling:
+
+```javascript
+const sub = x => y => x - y;
+
+infix4(1, sub) (2, sub) (3, sub) (4, sub) (5); // -13
+
+infixr4(1, sub) (2, sub) (3, sub) (4, sub) (5); // 3
+```
+[run code](https://repl.it/repls/CapitalSociableUser)
+
+The next a bit more complex example builds a large function composition:
+
+```javascript
+const infix4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+const comp = f => g => x => f(g(x));
+const pipe = g => f => x => f(g(x));
+
+const inc = x => x + 1;
+const sqr = x => x * x;
+
+infix4(inc, comp) (inc, comp) (inc, comp) (inc, comp) (sqr) (1); // 5
+
+infix4(inc, pipe) (inc, pipe) (inc, pipe) (inc, pipe) (sqr) (1); // 25
+```
+[run code](https://repl.it/repls/ElaboratePunctualScan)
+
 ### Avoid nesting with kleisli applicators
+
+### Avoid nesting with monadic applicators
