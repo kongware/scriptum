@@ -201,7 +201,7 @@ kleisli4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs nothing and yields []
 ```
 [run code](https://repl.it/repls/SuperWrathfulScales)
 
-In line `A` each invocation of `chain` is logged, but since the first element of the composition is an empty array (`noop_`) the computation is short circuited and `chain` is never called.
+In line `A` each invocation of `chain` is logged, but since the first element of the composition is an empty array (`noop_`) the computation is short circuited and `chain` is never called. As you can see the semantics of a kleisli composition depends on the `chain` combinator it is applied to.
 
 ### Avoid nesting with monadic applicators
 
