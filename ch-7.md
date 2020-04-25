@@ -176,7 +176,7 @@ kleislir4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [16]
 ```
 [run code](https://repl.it/repls/OilyMelodicSquare)
 
-As with functorial applicators there kleisli applicators are arity aware and there exist a variadic implementation based on arrays.
+As with functorial applicators kleisli applicators are arity aware and there exist a left- and a right-associative variadic implementation based on arrays.
 
 ### Avoid nesting with monadic applicators
 
