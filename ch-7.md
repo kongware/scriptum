@@ -167,7 +167,6 @@ const chain = mx => fm =>
     : fm(mx[0]);
 
 const inc_ = x => [x + 1];
-const unc_ = x => [];
 const sqr_ = x => [x * x];
 
 kleisli4(chain) (sqr_) (inc_) (inc_) (inc_) (1);  // [4]
@@ -177,6 +176,32 @@ kleislir4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [16]
 [run code](https://repl.it/repls/OilyMelodicSquare)
 
 As with functorial applicators kleisli applicators are arity aware and there exist a left- and a right-associative variadic implementation based on arrays.
+
+Kleisli composition has an interesting property. It can short circuit the entire composition:
+
+```javascript
+const kleisli4 = chain => fm => gm => hm => im => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+const kleislir4 = chain => im => hm => gm => fm => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+const chain = mx => fm =>
+  mx.length === 0
+    ? []
+    : fm(log(mx[0]));
+//       ^^^ A
+
+const log = x => (console.log(x), x);
+const inc_ = x => [x + 1];
+const noop_ = x => [];
+const sqr_ = x => [x * x];
+
+kleisli4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs nothing and yields []
+```
+[run code](https://repl.it/repls/SuperWrathfulScales)
+
+In line `A` each invocation of `chain` is logged, but since the first element of the composition is an empty array (`noop_`) the computation is short circuited and `chain` is never called.
 
 ### Avoid nesting with monadic applicators
 
