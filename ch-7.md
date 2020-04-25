@@ -148,6 +148,37 @@ infix4(inc, pipe) (inc, pipe) (inc, pipe) (inc, pipe) (sqr) (1); // 25
 ```
 [run code](https://repl.it/repls/ElaboratePunctualScan)
 
+As opposed to to the first order function example we need to provide the reverse function composition combinator `pipe` to retrieve a right-associative composition. Additionally we can witness how general and expressive these applicator approch is by applying higher order functions.
+
 ### Avoid nesting with kleisli applicators
 
+The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. They have the following type annotated with Typescript: `<T, A>(x: A) => T<A>`, wehre `T` denotes the structure.`Such functions are called kleisli arrows and we will investigate these arrows in a subsequent chapter of this course. In this chapter we are content with a simplified example, which serves our purpose:
+
+```javascript
+const kleisli4 = chain => fm => gm => hm => im => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+const kleislir4 = chain => im => hm => gm => fm => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+const chain = mx => fm =>
+  mx.length === 0
+    ? []
+    : fm(mx[0]);
+
+const inc_ = x => [x + 1];
+const unc_ = x => [];
+const sqr_ = x => [x * x];
+
+kleisli4(chain) (sqr_) (inc_) (inc_) (inc_) (1);  // [4]
+
+kleislir4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [16]
+```
+[run code](https://repl.it/repls/OilyMelodicSquare)
+
+As with functorial applicators there kleisli applicators are arity aware and there exist a variadic implementation based on arrays.
+
 ### Avoid nesting with monadic applicators
+
+You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing two arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
+
