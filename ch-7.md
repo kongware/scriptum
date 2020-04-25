@@ -68,3 +68,12 @@ and is left-associative
 ```
 Unfortunately, we cannot define custom infix operators in Javascript. All we can do is define functional counterparts of the built-in operators and use them in prefix position.
 
+### Avoid nesting with functorial applicators
+
+There are two ways to call a sequence of binary functions:
+
+```javascript
+f(g(x) (y)) (z); // left-associative ((x ? y) ? z)
+f(x) (g(y) (z)); // right-associative (x ? (y ? z))
+```
+### Avoid nesting with kleisli applicators
