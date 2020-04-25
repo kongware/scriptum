@@ -207,3 +207,7 @@ In line `A` each invocation of `chain` is logged, but since the first element of
 
 You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing two arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
 
+```javascript
+// TODO
+```
+[run code](https://repl.it/repls/MustyRoyalFrontend)
