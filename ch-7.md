@@ -236,6 +236,7 @@ const chain = mx => fm =>
   mx.length === 0
     ? [] // indicates the absence of any value
     : fm(log(mx[0]));
+//       ^^^ logs with every invocation
 
 log = x => (console.log(x), x);
 
