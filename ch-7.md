@@ -203,6 +203,45 @@ In line `A` each invocation of `chain` is logged. Since the `compk4` composition
 You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
 
 ```javascript
-// TODO
+const chainn = chain => ms => fm => {
+  const go = (gm, i) =>
+    i === ms.length
+      ? gm
+      : chain(ms[i]) (x => go(gm(x), i + 1));
+
+  return go(fm, 0);
+};
+
+const chain = mx => fm =>
+  mx.length === 0
+    ? [] // indicates the absence of any value
+    : fm(mx[0]);
+
+chainn(chain) ([[1], [2], [3], [4], [5]])
+  (v => w => x => y => z => [v - w - x - y - z]); // [-13]
 ```
 [run code](https://repl.it/repls/MustyRoyalFrontend)
+
+Just like kleisli composition it is possible to short circuit the chained computation:
+
+```javascript
+const chainn = chain => ms => fm => {
+  const go = (gm, i) =>
+    i === ms.length
+      ? gm
+      : chain(ms[i]) (x => go(gm(x), i + 1));
+
+  return go(fm, 0);
+};
+
+const chain = mx => fm =>
+  mx.length === 0
+    ? [] // indicates the absence of any value
+    : fm(log(mx[0]));
+
+log = x => (console.log(x), x);
+
+chainn(chain) ([[1], [], [3], [4], [5]])
+  (v => w => x => y => z => [v - w - x - y - z]); // logs 1 and yields []
+```
+[run code](https://repl.it/repls/CourageousHatefulExecutable)
