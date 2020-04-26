@@ -54,6 +54,7 @@ The scriptum library is still experimental.
 13. Planned: Lifting Pure Functions with Functors (70% done)
 
 * Planned: Respecting the Structure with Natural Transformations
+* Planned: Common Functional Type: `Compose<F, G, A>`
 * Planned: Combine Lifted Functions with Applicatives
 * Planned: Combine Kleisli Arrows with Monads
 * Planned: Composing Effects with Monad Transformers
