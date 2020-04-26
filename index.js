@@ -332,6 +332,234 @@ const recOf = Base;
 
 
 /******************************************************************************
+***********************************[ MONAD ]***********************************
+******************************************************************************/
+
+
+/***[ Applicators ]***********************************************************/
+
+
+const chain2 = chain => mx => my => fm =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      fm(x) (y)));
+
+
+const chain2_ = chain => fm => mx => my =>
+  chain(x =>
+    chain(y =>
+        fm(x) (y)) (my)) (mx);
+
+
+const chain3 = chain => mx => my => mz => fm =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      chain(mz) (z =>
+        fm(x) (y) (z))));
+
+
+const chain3_ = chain => fm => mx => my => mz =>
+  chain(x =>
+    chain(y =>
+      chain(z =>
+        fm(x) (y) (z)) (mz)) (my)) (mx);
+
+
+const chain4 = chain => mw => mx => my => mz => fm =>
+  chain(mw) (w =>
+    chain(mx) (x =>
+      chain(my) (y =>
+        chain(mz) (z =>
+          fm(w) (x) (y) (z)))));
+
+
+const chain4_ = chain => fm => mw => mx => my => mz =>
+  chain(w =>
+    chain(x =>
+      chain(y =>
+        chain(z =>
+          fm(w) (x) (y) (z)) (mz)) (my)) (mx)) (mw);
+
+
+const chain5 = chain => mv => mw => mx => my => mz => fm =>
+  chain(mv) (v =>
+    chain(mw) (w =>
+      chain(mx) (x =>
+        chain(my) (y =>
+          chain(mz) (z =>
+            fm(v) (w) (x) (y) (z))))));
+
+
+const chain5_ = chain => fm => mv => mw => mx => my => mz =>
+  chain(v =>
+    chain(w =>
+      chain(x =>
+        chain(y =>
+          chain(z =>
+            fm(v) (w) (x) (y) (z)) (mz)) (my)) (mx)) (mw)) (mv);
+
+
+const chain6 = chain => mu => mv => mw => mx => my => mz => fm =>
+  chain(mu) (u =>
+    chain(mv) (v =>
+      chain(mw) (w =>
+        chain(mx) (x =>
+          chain(my) (y =>
+            chain(mz) (z =>
+              fm(u) (v) (w) (x) (y) (z)))))));
+
+
+const chain6_ = chain => fm => mu => mv => mw => mx => my => mz =>
+  chain(u =>
+    chain(v =>
+      chain(w =>
+        chain(x =>
+          chain(y =>
+            chain(z =>
+              fm(u) (v) (w) (x) (y) (z)) (mz)) (my)) (mx)) (mw)) (mv)) (mu);
+
+
+const chainn = chain => ms => fm => {
+  const go = (gm, i) =>
+    i === ms.length
+      ? gm
+      : chain(ms[i]) (x => go(gm(x), i + 1));
+
+  return go(fm, 0);
+};
+
+
+const chainn_ = chain => ms => fm => {
+  const go = (gm, i) =>
+    i === ms.length
+      ? gm
+      : chain(x => go(gm(x), i + 1)) (ms[i]);
+
+  return go(fm, 0);
+};
+
+
+const compk = chain => fm => gm => x =>
+  chain(fm(x)) (gm);
+
+
+const compk_ = chain => fm => gm => x =>
+  chain(gm) (fm(x));
+
+
+const compk3 = chain => fm => gm => hm => x =>
+  chain(chain(fm(x)) (gm)) (hm);
+
+
+const compk3_ = chain => fm => gm => hm => x =>
+  chain(hm) (chain(gm) (fm(x)));
+
+
+const compk4 = chain => fm => gm => hm => im => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+
+const compk4_ = chain => fm => gm => hm => im => x =>
+  chain(im) (chain(hm) (chain(gm) (fm(x))));
+
+
+const compk5 = chain => fm => gm => hm => im => jm => x =>
+  chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm);
+
+
+const compk5_ = chain => fm => gm => hm => im => jm => x =>
+  chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x)))));
+
+
+const compk6 = chain => fm => gm => hm => im => jm => km => x =>
+  chain(chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm)) (km);
+
+
+const compk6_ = chain => fm => gm => hm => im => jm => km => x =>
+  chain(km) (chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x))))));
+
+
+const compkn = chain => fs => x => {
+  const go = (mx, i) =>
+    i === fs.length
+      ? mx
+      : chain(mx) (x => go(fs[i] (x), i + 1));
+
+  return go(fs[0] (x), 1);
+};
+
+
+const compkn_ = chain => fs => x => {
+  const go = (mx, i) =>
+    i === fs.length
+      ? mx
+      : chain(x => go(fs[i] (x), i + 1)) (mx);
+
+  return go(fs[0] (x), 1);
+};
+
+
+const pipek = chain => gm => fm => x =>
+  chain(fm(x)) (gm);
+
+
+const pipek_ = chain => gm => fm => x =>
+  chain(gm) (fm(x));
+
+
+const pipek3 = chain => hm => gm => fm => x =>
+  chain(chain(fm(x)) (gm)) (hm);
+
+
+const pipek3_ = chain => hm => gm => fm => x =>
+  chain(hm) (chain(gm) (fm(x)));
+
+
+const pipek4 = chain => im => hm => gm => fm => x =>
+  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
+
+
+const pipek4_ = chain => im => hm => gm => fm => x =>
+  chain(im) (chain(hm) (chain(gm) (fm(x))));
+
+
+const pipek5 = chain => jm => im => hm => gm => fm => x =>
+  chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm);
+
+
+const pipek5_ = chain => jm => im => hm => gm => fm => x =>
+  chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x)))));
+
+
+const pipek6 = chain => km => jm => im => hm => gm => fm => x =>
+  chain(chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm)) (km);
+
+
+const pipek6_ = chain => km => jm => im => hm => gm => fm => x =>
+  chain(km) (chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x))))));
+
+
+const pipekn = chain => fs => x => {
+  const go = (mx, i) =>
+    i < 0
+      ? mx
+      : chain(mx) (x => go(fs[i] (x), i - 1));
+
+  return go(fs[fs.length - 1] (x), fs.length - 2);
+};
+
+
+const pipekn_ = chain => fs => x => {
+  const go = (mx, i) =>
+    i < 0
+      ? mx
+      : chain(x => go(fs[i] (x), i - 1)) (mx);
+
+  return go(fs[fs.length - 1] (x), fs.length - 2);
+};
+
+
+/******************************************************************************
 *******************************************************************************
 ******************************[ BUILT-IN TYPES ]*******************************
 *******************************************************************************
@@ -629,130 +857,68 @@ const infix = (x, f, y) =>
   f(x) (y);
 
 
-const infix2 = (x, f, y, g, z) =>
+const infix2 = (x, f) => (y, g) => z =>
   g(f(x) (y)) (z);
 
 
-const infix3 = (w, f, x, g, y, h, z) =>
+const infix3 = (w, f) => (x, g) => (y, h) => z =>
   h(g(f(w) (x)) (y)) (z);
 
 
-const infix4 = (v, f, w, g, x, h, y, i, z) =>
+const infix4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
   i(h(g(f(v) (w)) (x)) (y)) (z);
 
 
-const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+const infix5 = (u, f) => (v, g) => (w, h) => (x, i) => (y, j) => z =>
   j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
 
 
-const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const infix6 = (t, f) => (u, g) => (v, h) => (w, i) => (x, j) => (y, k) => z =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infixM2 = (λ, f, x, g, y) =>
-  f(x_ =>
-    λ(x_, α => g(y_ =>
-      α(y_, id)) (y))) (x);
+const infixn = pairs => z => {
+  const go = (f, i) =>
+    i === pairs.length
+      ? f
+      : go(pairs[i] [1] (f(pairs[i] [0])), i + 1);
+
+  return pairs.length === 0
+    ? z
+    : go(pairs[0] [1] (pairs[0] [0]), 1) (z);
+};
 
 
-const infixM3 = (λ, f, x, g, y, h, z) =>
-  f(x_ =>
-    λ(x_, α => g(y_ =>
-      α(y_, β => h(z_ =>
-        β(z_, id)) (z))) (y))) (x);
-
-
-const infixM4 = (λ, f, w, g, x, h, y, i, z) =>
-  f(w_ =>
-    λ(w_, α => g(x_ =>
-      α(x_, β => h(y_ =>
-        β(y_, γ => i(z_ =>
-          γ(z_, id)) (z))) (y))) (x))) (w);
-
-
-
-const infixM5 = (λ, f, v, g, w, h, x, i, y, j, z) =>
-  f(v_ =>
-    λ(v_, α => g(w_ =>
-      α(w_, β => h(x_ =>
-        β(x_, γ => i(y_ =>
-          γ(y_, δ => j(z_ =>
-            δ(z_, id)) (z))) (y))) (x))) (w))) (v);
-
-
-
-const infixM6 = (λ, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  f(u_ =>
-    λ(u_, α => g(v_ =>
-      α(v_, β => h(w_ =>
-        β(w_, γ => i(x_ =>
-          γ(x_, δ => j(y_ =>
-            δ(y_, ε => k(z_ =>
-              ε(z_, id)) (z))) (y))) (x))) (w))) (v))) (u);
-
-
-const infixr = (y, f, x) =>
-  f(x) (y);
-
-
-const infixr2 = (x, f, y, g, z) =>
+const infixr2 = (x, f) => (y, g) => z =>
   f(x) (g(y) (z));
 
 
-const infixr3 = (w, f, x, g, y, h, z) =>
+const infixr3 = (w, f) => (x, g) => (y, h) => z =>
   f(w) (g(x) (h(y) (z)));
 
 
-const infixr4 = (v, f, w, g, x, h, y, i, z) =>
+const infixr4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
   f(v) (g(w) (h(x) (i(y) (z))));
 
 
-const infixr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+const infixr5 = (u, f) => (v, g) => (w, h) => (x, i) => (y, j) => z =>
   f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
 
 
-const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+const infixr6 = (t, f) => (u, g) => (v, h) => (w, i) => (x, j) => (y, k) => z =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
-const infixrM2 = (x, f, y, g, λ) =>
-  f(x) (x_ =>
-    λ(x_, α => g(y) (y_ =>
-      α(y_, id))));
+const infixrn = pairs => z => {
+  const go = (f, i) =>
+    i === pairs.length
+      ? f(z)
+      : f(go(pairs[i] [1] (pairs[i] [0]), i + 1));
 
-
-const infixrM3 = (x, f, y, g, z, h, λ) =>
-  f(x) (x_ =>
-    λ(x_, α => g(y) (y_ =>
-      α(y_, β => h(z) (z_ =>
-        β(z_, id))))));
-
-
-const infixrM4 = (w, f, x, g, y, h, z, i, λ) =>
-  f(w) (w_ =>
-    λ(w_, α => g(x) (x_ =>
-      α(x_, β => h(y) (y_ =>
-        β(y_, γ => i(z) (z_ =>
-          γ(z_, id))))))));
-
-
-const infixrM5 = (v, f, w, g, x, h, y, i, z, j, λ) =>
-  f(v) (v_ =>
-    λ(v_, α => g(w) (w_ =>
-      α(w_, β => h(x) (x_ =>
-        β(x_, γ => i(y) (y_ =>
-          γ(y_, δ => j(z) (z_ =>
-            δ(z_, id))))))))));
-
-
-const infixrM6 = (u, f, v, g, w, h, x, i, y, j, z, k, λ) =>
-  f(u) (u_ =>
-    λ(u_, α => g(v) (v_ =>
-      α(w_, β => h(w) (w_ =>
-        β(x_, γ => i(x) (x_ =>
-          γ(y_, δ => j(y) (y_ =>
-            δ(y_, ε => k(z) (z_ =>
-              ε(z_, id))))))))))));
+  return pairs.length === 0
+    ? z
+    : go(pairs[0] [1] (pairs[0] [0]), 1);
+};
 
 
 /***[ Local Binding ]*********************************************************/
@@ -1606,9 +1772,33 @@ module.exports = {
   Base,
   Call,
   Chain,
+  chain2,
+  chain2_,
+  chain3,
+  chain3_,
+  chain4,
+  chain4_,
+  chain5,
+  chain5_,
+  chain6,
+  chain6_,
+  chainn,
+  chainn_,
   comp,
   comp2nd,
   compBin,
+  compk,
+  compk3,
+  compk4,
+  compk5,
+  compk6,
+  compkn,
+  compk_,
+  compk3_,
+  compk4_,
+  compk5_,
+  compk6_,
+  compkn_,
   compOn,
   Cons,
   cons_,
@@ -1661,22 +1851,13 @@ module.exports = {
   infix4,
   infix5,
   infix6,
-  infixM2,
-  infixM3,
-  infixM4,
-  infixM5,
-  infixM6,
-  infixr,
+  infixn,
   infixr2,
   infixr3,
   infixr4,
   infixr5,
   infixr6,
-  infixrM2,
-  infixrM3,
-  infixrM4,
-  infixrM5,
-  infixrM6,
+  infixrn,
   introspect,
   isUnit,
   lazyProp,
@@ -1705,6 +1886,18 @@ module.exports = {
   pipe,
   pipe_,
   pipeBin,
+  pipek,
+  pipek3,
+  pipek4,
+  pipek5,
+  pipek6,
+  pipekn,
+  pipek_,
+  pipek3_,
+  pipek4_,
+  pipek5_,
+  pipek6_,
+  pipekn_,
   pipeOn,
   postRec,
   PREFIX,
