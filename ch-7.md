@@ -1,5 +1,3 @@
-**[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
-
 ## Linear Data Flow w/o Method Chaining
 
 There are two ways to obtain method chaining in Javascript, either by relying on the prototype system
@@ -49,7 +47,7 @@ sub(
     sub(
       sub(1) (2)) (3)) (4)) (5); // -13
 ```
-We can avoid nested syntax by using natve operators instead, which are written in infix notation:
+We can avoid nested syntax by using native operators instead, which are written in infix notation:
 
 ```Javascript
 1 - 2 - 3 - 4 - 5; // -13
@@ -119,7 +117,7 @@ const infixnr = pairs => z => {
     : go(pairs[0] [1] (pairs[0] [0]), 1);
 };
 ```
-Let us apply one of these applicators to illistrate their handling:
+Let us apply one of these applicators to illustrate their handling:
 
 ```javascript
 const sub = x => y => x - y;
@@ -152,7 +150,7 @@ As opposed to to the first order example we need to provide the reverse function
 
 ### Avoid nesting with kleisli applicators
 
-The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. These functions have the following type annotated using Typescript: `<T, A>(x: A) => T<A>`, wehre `T` denotes the aforementioned structure. Such functions are called kleisli arrows and we will investigate them in a subsequent chapter of this course. For the time being we are content with a simplified example that serves our purpose:
+The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. These functions have the following type annotated using Typescript: `<T, A>(x: A) => T<A>`, where `T` denotes the aforementioned structure. Such functions are called kleisli arrows and we will investigate them in a subsequent chapter of this course. For the time being we are content with a simplified example that serves our purpose:
 
 ```javascript
 const compk4 = chain => im => hm => gm => fm => x =>
@@ -200,7 +198,7 @@ In line `A` each invocation of `chain` is logged. Since the `compk4` composition
 
 ### Avoid nesting with monadic applicators
 
-You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
+You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing arrows they bind a pure value wrapped in some structure to a single kleisli arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
 
 ```javascript
 const chainn = chain => ms => fm => {
