@@ -152,60 +152,55 @@ As opposed to to the first order function example we need to provide the reverse
 
 ### Avoid nesting with kleisli applicators
 
-The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. They have the following type annotated with Typescript: `<T, A>(x: A) => T<A>`, wehre `T` denotes the structure.`Such functions are called kleisli arrows and we will investigate these arrows in a subsequent chapter of this course. In this chapter we are content with a simplified example, which serves our purpose:
+The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. They have the following type annotated with Typescript: `<T, A>(x: A) => T<A>`, wehre `T` denotes the structure. Such functions are called kleisli arrows and we will investigate these arrows in a subsequent chapter of this course. In this chapter we are content with a simplified example, which serves our purpose:
 
 ```javascript
-const kleisli4 = chain => fm => gm => hm => im => x =>
+const compk4 = chain => im => hm => gm => fm => x =>
   chain(chain(chain(fm(x)) (gm)) (hm)) (im);
 
-const kleislir4 = chain => im => hm => gm => fm => x =>
+const pipek4 = chain => fm => gm => hm => im => x =>
   chain(chain(chain(fm(x)) (gm)) (hm)) (im);
 
 const chain = mx => fm =>
   mx.length === 0
-    ? []
+    ? [] // indicates the absence of any value
     : fm(mx[0]);
 
 const inc_ = x => [x + 1];
 const sqr_ = x => [x * x];
 
-kleisli4(chain) (sqr_) (inc_) (inc_) (inc_) (1);  // [4]
+compk4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [16]
 
-kleislir4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [16]
+pipek4(chain) (sqr_) (inc_) (inc_) (inc_) (1); // [4]
 ```
 [run code](https://repl.it/repls/OilyMelodicSquare)
 
-As with functorial applicators kleisli applicators are arity aware and there exist a left- and a right-associative variadic implementation based on arrays.
+As with functorial applicators kleisli applicators are arity aware. Since it is a form of composition there are combinators for processing right to left and vice versa.
 
-Kleisli composition has an interesting property. It can short circuit the entire composition:
+Kleisli composition has an additional property compared to normal function composition. It has short circuit semantics:
 
 ```javascript
-const kleisli4 = chain => fm => gm => hm => im => x =>
-  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
-
-const kleislir4 = chain => im => hm => gm => fm => x =>
-  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
-
-const chain = mx => fm =>
-  mx.length === 0
-    ? []
-    : fm(log(mx[0]));
-//       ^^^ A
-
-const log = x => (console.log(x), x);
 const inc_ = x => [x + 1];
 const noop_ = x => [];
 const sqr_ = x => [x * x];
 
-kleisli4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs nothing and yields []
+const chain = mx => fm =>
+  mx.length === 0
+    ? [] // indicates the absence of any value
+    : fm(log(mx[0]));
+//       ^^^ A
+
+compk4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs 1, 2, 3 and yields []
+
+pipek4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs nothing and yields []
 ```
 [run code](https://repl.it/repls/SuperWrathfulScales)
 
-In line `A` each invocation of `chain` is logged, but since the first element of the composition is an empty array (`noop_`) the computation is short circuited and `chain` is never called. As you can see the semantics of a kleisli composition depends on the `chain` combinator it is applied to.
+In line `A` each invocation of `chain` is logged. Since the `compk4` composition is evaluated from right to left it processes all functions up to noop_ and hence logs `1, 2, 3` before it short circuits. `pipek4` on the other hand logs nothing, because the first function to be processed is `noop_` and triggers the short circuit. As you can see the semantics of a kleisli composition depends on the `chain` combinator it is applied to.
 
 ### Avoid nesting with monadic applicators
 
-You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing two arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
+You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing arrows they bind a pure value wrapped in some structure to a single kleisi arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
 
 ```javascript
 // TODO
