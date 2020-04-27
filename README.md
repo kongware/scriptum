@@ -52,9 +52,8 @@ The scriptum library is still experimental.
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions with Functors](https://github.com/kongware/scriptum/blob/master/ch-13.md)
+14. Planned: Respecting the Structure with Natural Transformations (0% done)
 
-* Planned: Respecting the Structure with Natural Transformations
-* Planned: Common Functional Type: `Compose<F, G, A>`
 * Planned: Combine Lifted Functions with Applicatives
 * Planned: Combine Kleisli Arrows with Monads
 * Planned: Composing Effects with Monad Transformers
@@ -65,9 +64,7 @@ The scriptum library is still experimental.
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
 * Planned: Safely Using Imperative Iterators
-* Planned: Common Typeclasses
 * Planned: Multi-Parameter Type Classes and Functional Dependencies
-* Planned: Common Functional Types and Data Structures
 * Planned: List-Comprehension and its extension for other data types
 * Planned: Random Access, Single Linked and Difference Lists
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
@@ -93,6 +90,36 @@ The scriptum library is still experimental.
 * Planned: Functional Reactive Programming
 * Planned: Event Sourcing and Stores
 * Planned: Conflict-free Replicated Data Types
+* Planned: Common Typeclasses
+* Planned: Common Functional Type: `All`
+* Planned: Common Functional Type: `Any`
+* Planned: Common Functional Type: `Comparator`
+* Planned: Common Functional Type: `Compare<A>`
+* Planned: Common Functional Type: `Compose<F, G, A>`
+* Planned: Common Functional Type: `Const<A, B>`
+* Planned: Common Functional Type: `Cont<K>`
+* Planned: Common Functional Type: `Either<A, B>`
+* Planned: Common Functional Type: `Endo<A>`
+* Planned: Common Functional Type: `Equiv<F>`
+* Planned: Common Functional Type: `First<A>`
+* Planned: Common Functional Type: `Id<A>`
+* Planned: Common Functional Type: `Last<A>`
+* Planned: Common Functional Type: `Lazy<F>`
+* Planned: Common Functional Type: `List<A>`
+* Planned: Common Functional Type: `Max<A>`
+* Planned: Common Functional Type: `Min<A>`
+* Planned: Common Functional Type: `Option<A>`
+* Planned: Common Functional Type: `Pair<A, B>`
+* Planned: Common Functional Type: `Parallel<F>`
+* Planned: Common Functional Type: `Pred<A>`
+* Planned: Common Functional Type: `Product<A>`
+* Planned: Common Functional Type: `Record<R>`
+* Planned: Common Functional Type: `Ref<A>`
+* Planned: Common Functional Type: `Stream<A>`
+* Planned: Common Functional Type: `Sum<A>`
+* Planned: Common Functional Type: `Task<F>`
+* Planned: Common Functional Type: `These<A, B>`
+* Planned: Common Functional Type: `Triple<A, B, C>`
 
 ## Important/controversial issues
 
