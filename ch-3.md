@@ -108,7 +108,12 @@ main(2); // f(g(h(i(2))))
 
 ### Variadic functions
 
-Variadic functions have a non-deterministic number of arguments:
+Variadic functions are non-deterministic in that their number may vary between none, one or several arguments. There are two classes of variadic functions to be distinguished:
+
+* Array-like
+* Tuple-like
+
+Array-like variadic functions collect arguments of the same type and form a homogeneous Array (`(...args: A[])`):
 
 ```javascript
 const sum = (...xs) => xs.reduce((acc, x) => acc + x, 0);
@@ -117,7 +122,20 @@ sum(1, 2, 3, 4, 5); // 15
 ```
 [run code](https://repl.it/repls/MerryAutomaticServerapplication)
 
-Such functions are not valid in functional programming and you can neither curry nor compose them. Only use them with care.
+Tuple-like variadic functions collect arguments of different type and form a Tuple (`(...args: [...any[]]`). 
+
+```javascript
+const partial = (f, ...args) => (...args_) => // partial has no type because f has none
+    f(...args, ...args_);
+    
+const Quintuple = (v, w, x, y, z) => [v, w, x, y, z];
+const main = partial(Quintuple, 123, "foo", true);
+
+main([1, 2, 3], {bar: "baz"}); // [123, 'foo', true, [1, 2, 3], {bar: 'baz'}]
+```
+[run code](https://repl.it/repls/OliveUnwieldyModules)
+
+While Array-like variadic functions are straightforward in terms of typing, Tuple-like ones regularly lead to complicated types and increase the need for type casts and explicit annotations. Only use Tuple-like variadic functions with great caution.
 
 ### The curry/uncurry isomorphism
 
