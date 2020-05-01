@@ -52,9 +52,9 @@ The scriptum library is still experimental.
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions with Functors](https://github.com/kongware/scriptum/blob/master/ch-13.md)
-14. Planned: Respecting the Structure with Natural Transformations (0% done)
+14. Planned: Respecting the Structure with Natural Transformations (▒▒▒▒▒▒▒▒░░ 80% done)
+15. Planned: Combine Lifted Functions with Applicatives (░░░░░░░░░░ 0% done)
 
-* Planned: Combine Lifted Functions with Applicatives
 * Planned: Combine Kleisli Arrows with Monads
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
