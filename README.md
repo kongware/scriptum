@@ -71,7 +71,7 @@ The scriptum library is still experimental.
 * Planned: Type Wrappers for Improved Semantics
 * Planned: From Sharing to Memoization
 * Planned: Delimited Continuations
-* Planned: Coroutines Backed by Delimited Continuations
+* Planned: State Machines
 * Planned: Functional Iso (Optics)
 * Planned: Functional Lenses (Optics)
 * Planned: Functional Prism (Optics)
