@@ -571,6 +571,13 @@ const pipekn_ = chain => fs => x => {
 ******************************************************************************/
 
 
+/***[Clonable]****************************************************************/
+
+
+const arrClone = xs =>
+  xs.slice(0);
+
+
 /***[ De-/Construction ]******************************************************/
 
 
@@ -648,6 +655,13 @@ const arrFoldrk = f => acc => xs =>
     i === xs.length
       ? Base(acc)
       : Call(acc => f(xs[i]) (acc).cont(id), Step(i + 1))) (0);
+
+
+/***[ Functor ]***************************************************************/
+
+
+const arrMap = f => xs =>
+  xs.map((x, i) => f(x, i));
 
 
 /***[ Semigroup ]*************************************************************/
@@ -1186,6 +1200,62 @@ const funOf = _const;
 
 
 /******************************************************************************
+**********************************[ OBJECT ]***********************************
+******************************************************************************/
+
+
+/***[ Auxiliary ]*************************************************************/
+
+
+const thisify = f => f({});
+
+
+/***[ Clonable ]**************************************************************/
+
+
+const objClone = o => {
+  const p = {};
+
+  for (k of objKeys(o))
+    Object.defineProperty( // getter/setter safe
+      p, k, Object.getOwnPropertyDescriptor(o, k));
+
+  return p;
+};
+
+
+/***[ Generator ]*************************************************************/
+
+
+function* objEntries(o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+}
+
+
+function* objKeys(o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
+
+
+function* objValues(o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+const objPathOr = def => (...ks) => o =>
+  ks.reduce((acc, k) => acc && acc[k] || def, o);
+
+
+/******************************************************************************
 *******************************************************************************
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
@@ -1197,6 +1267,13 @@ const funOf = _const;
 
 
 const Cont = cont => record("Cont", {cont});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const contMap = f => tx =>
+  Cont(k => tx.cont(x => k(f(x))));
 
 
 /******************************************************************************
@@ -1274,6 +1351,41 @@ const None = Option("None", {});
 
 
 const Some = some => Option(Some, {some});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const optMap = f => tx =>
+  match(tx, {
+    None: _ => None,
+    Some: ({some: x}) => Some(f(x))
+  });
+
+
+/******************************************************************************
+***********************************[ TASK ]************************************
+******************************************************************************/
+
+
+const Task = task => record(
+  Task,
+  thisify(o => {
+    o.task = (res, rej) =>
+      task(x => {
+        o.task = k_ => k_(x);
+        return res(x);
+      }, rej);
+    
+    return o;
+  }));
+
+
+/***[ Functor ]***************************************************************/
+
+
+const tMap = f => tx =>
+  Task((res, rej) => tx.task(x => res(f(x)), rej));
 
 
 /******************************************************************************
@@ -1757,7 +1869,7 @@ module.exports = {
   app_,
   appr,
   arrAppend,
-  arrPrepend,
+  arrClone,
   arrCons,
   arrCons_,
   arrFold,
@@ -1765,6 +1877,8 @@ module.exports = {
   arrFoldr,
   arrFoldr_,
   arrFoldrk,
+  arrMap,
+  arrPrepend,
   arrSnoc,
   arrSnoc_,
   arrUncons,
@@ -1805,6 +1919,7 @@ module.exports = {
   _const,
   const_,
   Cont,
+  contMap,
   curry,
   curry3,
   curry4,
@@ -1881,7 +1996,13 @@ module.exports = {
   Nil,
   None,
   NOT_FOUND,
+  objClone,
+  objEntries,
+  objKeys,
+  objPathOr,
+  objValues,
   Option,
+  optMap,
   partial,
   pipe,
   pipe_,
@@ -1919,8 +2040,11 @@ module.exports = {
   takeWhiler,
   takeWhilek,
   takeWhilerk,
+  Task,
+  thisify,
   _throw,
   thunk,
+  tMap,
   trace,
   transduce,
   tryCatch,
