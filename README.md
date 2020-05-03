@@ -53,7 +53,7 @@ The scriptum library is still experimental.
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions with Functors](https://github.com/kongware/scriptum/blob/master/ch-13.md)
 14. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-14.md)
-15. Planned: Function Application within Functors with Applicative (▓▓░░░░░░░░ 20% done)
+15. Planned: Combining two Contexts with a Function through Applicatives (▓▓░░░░░░░░ 20% done)
 
 * Planned: Combine Kleisli Arrows with Monads
 * Planned: Composing Effects with Monad Transformers
