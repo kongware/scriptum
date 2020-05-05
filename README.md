@@ -80,11 +80,9 @@ The scriptum library is still experimental.
 * Planned: Functional Getters (Optics)
 * Planned: Functional Setters (Optics)
 * Planned: Functional Folds (Optics)
-* Planned: Encode DSLs with Free and Freer Monads
-* Planned: Encode DSLs with Tagless Final Encoding
-* Planned: Encode DSLs with ZIO
-* Planned: Functional Programming with Typescript
-* Planned: Structuring Large-scale Functional Applications
+* Planned: Free Monads: Normal-Style, CPS, Codensity, Reflection
+* Planned: Freer Monads and Extensible Effects
+* Planned: Structuring Large-Scale Functional Applications
 * Planned: When FP does not save us
 * Planned: Incremental computing
 * Planned: Functional Reactive Programming
