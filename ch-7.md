@@ -1,5 +1,7 @@
 ## Linear Data Flow w/o Method Chaining
 
+**[EDITOR'S NOTE: THIS CHAPTER NEEDS REVISION]**
+
 There are two ways to obtain method chaining in Javascript, either by relying on the prototype system
 
 ```javascript
@@ -150,8 +152,6 @@ As opposed to to the first order example we need to provide the reverse function
 
 ### Avoid nesting with kleisli applicators
 
-[EDITOR'S NOTE: THIS SECTION NEEDS REVISION]
-
 The functional paradigm has another major kind of composition, where functions not just return a value, but a value wrapped in an some structure. These functions have the following type annotated using Typescript: `<T, A>(x: A) => T<A>`, where `T` denotes the aforementioned structure. Such functions are called kleisli arrows and we will investigate them in a subsequent chapter of this course. For the time being we are content with a simplified example that serves our purpose:
 
 ```javascript
@@ -199,8 +199,6 @@ pipek4(chain) (noop_) (inc_) (inc_) (sqr_) (1); // logs nothing and yields []
 In line `A` each invocation of `chain` is logged. Since the `compk4` composition is evaluated from right to left it processes all functions up to `noop_` and hence logs `1, 2, 3` before it short circuits. `pipek4` on the other hand logs nothing, because the first function to be processed is `noop_` and triggers the short circuit. As you can see the semantics of a kleisli composition depends on the `chain` combinator it is applied to.
 
 ### Avoid nesting with monadic applicators
-
-[EDITOR'S NOTE: THIS SECTION NEEDS REVISION]
 
 You most certainly have heard about monads, even though they have not yet been covered in this course. Monads rely on kleisli arrows but instead of composing arrows they bind a pure value wrapped in some structure to a single kleisli arrow, which creates a new value in the same structure. Let us save the theory for a later chapter and look into an example of a monadic applicator in action:
 
