@@ -23,7 +23,7 @@ We can avoid nested syntax by using native operators instead, which are written 
 ```Javascript
 1 - 2 - 3 - 4 - 5; // -13
 ```
-Operators affect the evaluation order through their precedence and associativity. Subtraction, for instance, has a higher precedence than multiplication
+The evaluation order of expressions with infix operators is determined by their precedence and associativity. Subtraction, for instance, has a higher precedence than multiplication
 
 ```Javascript
 1 + 2 * 3;   // 7 (predefined precedence)
@@ -35,9 +35,9 @@ and is left-associative
 1 - 2 - 3 - 4 - 5;         // -13 (predefined associativity)
 (1 - (2 - (3 - (4 - 5)))); // 3 (enforced right associativity)
 ```
-Unfortunately, we cannot define custom infix operators in Javascript. All we have left is to define functional counterparts of the built-in operators and use them in prefix position.
+Unfortunately, we cannot define custom infix operators in Javascript. All we have left is to mimic operators with custom functions and use them in prefix position. Are we stuck with nested S-expressions as soon as we rely on functions?
 
-### Avoid nesting with functorial applicators
+### Abstract from nesting with infix applicators
 
 Since function application is not associative, there are two ways to compose binary functions:
 
@@ -45,50 +45,16 @@ Since function application is not associative, there are two ways to compose bin
 f(g(x) (y)) (z); // left-associative ((x ? y) ? z)
 f(x) (g(y) (z)); // right-associative (x ? (y ? z))
 ```
-
 We can encode both patterns with a couple of arity aware combinators:
 
 ```javascript
-const infix2 = (x, f) => (y, g) => z =>
-  g(f(x) (y)) (z);
+const infix4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
 
-const infixr2 = (x, f) => (y, g) => z =>
-  f(x) (g(y) (z));
-
-const infix3 = (w, f) => (x, g) => (y, h) => z =>
-  h(g(f(w) (x)) (y)) (z);
-
-const infixr3 = (w, f) => (x, g) => (y, h) => z =>
-  f(w) (g(x) (h(y) (z)));
-
-// ...
+const infixr4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
+  f(v) (g(w) (h(x) (i(y) (z))));
 ```
-An array based variadic combinator complements them:
-
-```javascript
-const infixn = pairs => z => {
-  const go = (f, i) =>
-    i === pairs.length
-      ? f
-      : go(pairs[i] [1] (f(pairs[i] [0])), i + 1);
-
-  return pairs.length === 0
-    ? z
-    : go(pairs[0] [1] (pairs[0] [0]), 1) (z);
-};
-
-const infixnr = pairs => z => {
-  const go = (f, i) =>
-    i === pairs.length
-      ? f(z)
-      : f(go(pairs[i] [1] (pairs[i] [0]), i + 1));
-
-  return pairs.length === 0
-    ? z
-    : go(pairs[0] [1] (pairs[0] [0]), 1);
-};
-```
-Let us apply one of these applicators to illustrate their handling:
+And this is how we apply them:
 
 ```javascript
 const sub = x => y => x - y;
@@ -99,12 +65,11 @@ infixr4(1, sub) (2, sub) (3, sub) (4, sub) (5); // 3
 ```
 [run code](https://repl.it/repls/CapitalSociableUser)
 
-The next a bit more complex example builds a large function composition from higher order functions:
+By currying the last argument of the infix applicator we can compose it.
+
+The next somewhat more complex example builds a large function composition. The applicator approach is evidently expressive enough to be applied to higher-order functions, which extends the field of application tremendously:
 
 ```javascript
-const infix4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
 const comp = f => g => x => f(g(x));
 const pipe = g => f => x => f(g(x));
 
@@ -117,7 +82,7 @@ infix4(inc, pipe) (inc, pipe) (inc, pipe) (inc, pipe) (sqr) (1); // 25
 ```
 [run code](https://repl.it/repls/ElaboratePunctualScan)
 
-As opposed to to the first order example we need to provide the reverse function composition combinator `pipe` to retrieve a right-associative composition. The applicator approach is evidently expressive enough to be applied to higher order functions, which further generalize the concept.
+As opposed to to the first order example we can simply replace the composition combinator to switch between left- and right-associative composition.
 
 ### Avoid nesting with kleisli applicators
 
