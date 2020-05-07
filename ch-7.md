@@ -2,7 +2,7 @@
 
 There are two ways to obtain method chaining in Javascript, either by relying on the [prototype system](https://repl.it/repls/CheapTurquoiseUnit) or by utilizing plain old Javascript [object factories](https://repl.it/repls/RegalTriflingFactor).
 
-While the former is specific to Javascript and is rather limited, object factories are quite inefficient, especially when you have to deal with types that are assoicated with a larger number of functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
+While the former is specific to Javascript and is rather limited, object factories are quite inefficient, especially when you have to deal with types that are associated with a larger number of functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
 
 ### Prefix notation and S-expressions
 
