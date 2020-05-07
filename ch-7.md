@@ -55,10 +55,23 @@ const pipe4 = i => h => g => f => x =>
 const sub = x => y => x - y;
 const sub_ = y => x => x - y;
 
-comp4(sub(1)) (sub(2)) (sub(3)) (sub(4)) (5); // (1 - (2 - (3 - (4 - 5))))
-comp4(sub_(5)) (sub_(4)) (sub_(3)) (sub_(2)) (1); // 1 - 2 - 3 - 4 - 5
+comp4(sub(1))
+  (sub(2))
+    (sub(3))
+      (sub(4))
+        (5); // (1 - (2 - (3 - (4 - 5))))
+        
+comp4(sub_(5))
+  (sub_(4))
+    (sub_(3))
+      (sub_(2))
+        (1); // 1 - 2 - 3 - 4 - 5
 
-pipe4(sub_(2)) (sub_(3)) (sub_(4)) (sub_(5)) (1); // 1 - 2 - 3 - 4 - 5
+pipe4(sub_(2))
+  (sub_(3))
+    (sub_(4))
+      (sub_(5))
+        (1); // 1 - 2 - 3 - 4 - 5
 ```
 [run code](https://repl.it/repls/CapitalSociableUser)
 
