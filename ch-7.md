@@ -1,4 +1,4 @@
-## Linear Data Flow w/o Method Chaining
+## Linear Data Flow and Flat Composition Syntax
 
 **[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
 
