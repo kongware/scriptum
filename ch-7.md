@@ -106,7 +106,7 @@ sub3(2); // -1
 ```
 [run code](https://repl.it/repls/VirtualLuxuriousStacks)
 
-`infix` mimics the notation of the same name. `appr` is similar to the `flip` combinator but takes advantage of Javascript's multi-argument feature.
+`infix` mimics the notation of the same name, which is usually reserved to built-in operators in Javascript. `appr` is similar to the `flip` combinator but takes advantage of Javascript's multi-argument feature.
 
 ### Prospect of other forms of compositions
 
