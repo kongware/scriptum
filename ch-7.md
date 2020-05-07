@@ -6,9 +6,9 @@ There are two ways to obtain method chaining in Javascript, either by relying on
 
 While the former is specific to Javascript and is rather limited, object factories are quite inefficient, especially when you have to deal with types that are assoicated with a larger number of functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
 
-### Prefix notation
+### Prefix notation and S-expressions
 
-Functions are written in prefix notation in Javascript, i.e. the name comes first and is followed by the arguments. Prefix notation leads to nested functions calls, which resemble Lisp's s-expressions:
+Functions are written in prefix notation in Javascript, i.e. the name comes first and is followed by the argument list. Prefix notation leads to nested functions calls, which resemble Lisp's S-expressions:
 
 ```Javascript
 const sub = x => y => x - y;
@@ -18,7 +18,7 @@ sub(
     sub(
       sub(1) (2)) (3)) (4)) (5); // -13
 ```
-We can avoid nested syntax by using native operators instead, which are written in infix notation:
+We can avoid nested syntax by using native operators instead, which are written in infix position:
 
 ```Javascript
 1 - 2 - 3 - 4 - 5; // -13
