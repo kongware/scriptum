@@ -70,9 +70,28 @@ When we want to retrieve a left-associative computation we need to reverse the o
 
 Please note that I denote functions with flipped arguments with a trailing underscore in their name to spare the noise of the `flip` combinator.
 
-### Why relying on arity-aware combinators?
+### Why relying on arity-aware combinators in the first place?
 
-TODO
+We could easily build a variadic compostion function that fits all cases:
+
+```javascript
+const comp = f => g => x => f(g(x));
+const id = x => x;
+
+const sub = x => y => x - y;
+const sub_ = y => x => x - y;
+const repeat = s => n => s.repeat(n);
+
+const compn = fs =>
+  fs.reduce((f, g) => comp(f) (g), id);
+
+const fs = [repeat("x"), sub(1), sub(2), sub(3), sub(4)]; // "xxx"
+
+compn(fs) (5);
+```
+[run code](https://repl.it/repls/HurtfulSandybrownWorkspace)
+
+But what type would `fs` have? If we typed it as an array `A[]`, all functions would have to share the same type, `(_: number) => number` for instance. If we typed it as a tuple `[A, B]` we would have to define all possible tuple sizes. Knowing this simple arity aware composition functions seem to be the lesser of two evils.
 
 ### Prospect of applicative and monadic compositions
 
