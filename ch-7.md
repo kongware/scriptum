@@ -91,4 +91,25 @@ compn(fs) (5);
 
 But what type would `fs` have? If we typed it as an array `A[]`, all functions would have to share the same type, `(_: number) => number` for instance. If we typed it as a tuple `[A, B]` we would have to define all possible tuple sizes. Knowing this simple arity aware composition functions seem to be the lesser of two evils.
 
+### Infix combinators
+
+There are two more combinator that come in handy to improve readability:
+
+```javascript
+const infix = (x, f, y) => f(x) (y);
+const appr = (f, y) => x => f(x) (y);
+
+const sub3 = appr(sub, 3);
+
+infix(2, sub, 3); // -1
+sub3(2); // -1
+```
+[run code](https://repl.it/repls/VirtualLuxuriousStacks)
+
+`infix` mimics the notation of the same name. `appr` is similar to the `flip` combinator but takes advantage of Javascript's multi-argument feature.
+
+### Prospect of other forms of compositions
+
+Keeping the syntax of ordinary function composition flat is not even half of the deal. There are plenty of types of composition to discover and we will introduce suitable combinators which enable a linear data flow within the respective chapters.
+
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-6.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-8.md)
