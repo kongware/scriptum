@@ -1,7 +1,5 @@
 ## Linear Data Flow and Flat Composition Syntax
 
-**[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
-
 There are two ways to obtain method chaining in Javascript, either by relying on the [prototype system](https://repl.it/repls/CheapTurquoiseUnit) or by utilizing plain old Javascript [object factories](https://repl.it/repls/RegalTriflingFactor).
 
 While the former is specific to Javascript and is rather limited, object factories are quite inefficient, especially when you have to deal with types that are assoicated with a larger number of functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
@@ -92,9 +90,5 @@ compn(fs) (5);
 [run code](https://repl.it/repls/HurtfulSandybrownWorkspace)
 
 But what type would `fs` have? If we typed it as an array `A[]`, all functions would have to share the same type, `(_: number) => number` for instance. If we typed it as a tuple `[A, B]` we would have to define all possible tuple sizes. Knowing this simple arity aware composition functions seem to be the lesser of two evils.
-
-### Prospect of applicative and monadic compositions
-
-TODO
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-6.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-8.md)
