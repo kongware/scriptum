@@ -110,6 +110,6 @@ sub3(2); // -1
 
 ### Prospect of other forms of compositions
 
-Keeping the syntax of ordinary function composition flat is not even half of the deal. There are plenty of types of composition to discover and we will introduce suitable combinators which enable a linear data flow within the respective chapters.
+Keeping the syntax of ordinary function composition flat is not even half of the deal. There are plenty of types of compositions to discover and we will introduce suitable combinators which enable a linear data flow within the respective chapters.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-6.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-8.md)
