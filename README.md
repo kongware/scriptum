@@ -52,10 +52,11 @@ The scriptum library is still experimental.
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions with Functors](https://github.com/kongware/scriptum/blob/master/ch-13.md)
-14. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-14.md)
-15. Planned: Combining two Contexts with a Function through Applicatives (▓▓░░░░░░░░ 20% done)
+14. Planned: Combining Values: From Semigroup to Monoid
+15. Planned: Statically Combining two Contexts with a Function with Applicatives (▓▓░░░░░░░░ 20% done)
+16. Planned: Dynamically Combining two Contexts with a Kleisi Arrow with Monads
+17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-17.md)
 
-* Planned: Combine Kleisli Arrows with Monads
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
 * Planned: CPS Transformation for Stack-safe Recursion
