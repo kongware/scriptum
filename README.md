@@ -33,7 +33,7 @@ Please report an issue if you run across a mistake, ambiguous wording or inconsi
 
 ## Status
 
-The scriptum library is still experimental.
+The chapters of this online course are under continuous change as my knwogledge and experience grows. The scriptum library is still experimental and not meant for production code.
 
 ## Functional programming course (TOC)
 
