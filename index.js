@@ -332,234 +332,6 @@ const recOf = Base;
 
 
 /******************************************************************************
-***********************************[ MONAD ]***********************************
-******************************************************************************/
-
-
-/***[ Applicators ]***********************************************************/
-
-
-const chain2 = chain => mx => my => fm =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      fm(x) (y)));
-
-
-const chain2_ = chain => fm => mx => my =>
-  chain(x =>
-    chain(y =>
-        fm(x) (y)) (my)) (mx);
-
-
-const chain3 = chain => mx => my => mz => fm =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      chain(mz) (z =>
-        fm(x) (y) (z))));
-
-
-const chain3_ = chain => fm => mx => my => mz =>
-  chain(x =>
-    chain(y =>
-      chain(z =>
-        fm(x) (y) (z)) (mz)) (my)) (mx);
-
-
-const chain4 = chain => mw => mx => my => mz => fm =>
-  chain(mw) (w =>
-    chain(mx) (x =>
-      chain(my) (y =>
-        chain(mz) (z =>
-          fm(w) (x) (y) (z)))));
-
-
-const chain4_ = chain => fm => mw => mx => my => mz =>
-  chain(w =>
-    chain(x =>
-      chain(y =>
-        chain(z =>
-          fm(w) (x) (y) (z)) (mz)) (my)) (mx)) (mw);
-
-
-const chain5 = chain => mv => mw => mx => my => mz => fm =>
-  chain(mv) (v =>
-    chain(mw) (w =>
-      chain(mx) (x =>
-        chain(my) (y =>
-          chain(mz) (z =>
-            fm(v) (w) (x) (y) (z))))));
-
-
-const chain5_ = chain => fm => mv => mw => mx => my => mz =>
-  chain(v =>
-    chain(w =>
-      chain(x =>
-        chain(y =>
-          chain(z =>
-            fm(v) (w) (x) (y) (z)) (mz)) (my)) (mx)) (mw)) (mv);
-
-
-const chain6 = chain => mu => mv => mw => mx => my => mz => fm =>
-  chain(mu) (u =>
-    chain(mv) (v =>
-      chain(mw) (w =>
-        chain(mx) (x =>
-          chain(my) (y =>
-            chain(mz) (z =>
-              fm(u) (v) (w) (x) (y) (z)))))));
-
-
-const chain6_ = chain => fm => mu => mv => mw => mx => my => mz =>
-  chain(u =>
-    chain(v =>
-      chain(w =>
-        chain(x =>
-          chain(y =>
-            chain(z =>
-              fm(u) (v) (w) (x) (y) (z)) (mz)) (my)) (mx)) (mw)) (mv)) (mu);
-
-
-const chainn = chain => ms => fm => {
-  const go = (gm, i) =>
-    i === ms.length
-      ? gm
-      : chain(ms[i]) (x => go(gm(x), i + 1));
-
-  return go(fm, 0);
-};
-
-
-const chainn_ = chain => ms => fm => {
-  const go = (gm, i) =>
-    i === ms.length
-      ? gm
-      : chain(x => go(gm(x), i + 1)) (ms[i]);
-
-  return go(fm, 0);
-};
-
-
-const compk = chain => fm => gm => x =>
-  chain(fm(x)) (gm);
-
-
-const compk_ = chain => fm => gm => x =>
-  chain(gm) (fm(x));
-
-
-const compk3 = chain => fm => gm => hm => x =>
-  chain(chain(fm(x)) (gm)) (hm);
-
-
-const compk3_ = chain => fm => gm => hm => x =>
-  chain(hm) (chain(gm) (fm(x)));
-
-
-const compk4 = chain => fm => gm => hm => im => x =>
-  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
-
-
-const compk4_ = chain => fm => gm => hm => im => x =>
-  chain(im) (chain(hm) (chain(gm) (fm(x))));
-
-
-const compk5 = chain => fm => gm => hm => im => jm => x =>
-  chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm);
-
-
-const compk5_ = chain => fm => gm => hm => im => jm => x =>
-  chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x)))));
-
-
-const compk6 = chain => fm => gm => hm => im => jm => km => x =>
-  chain(chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm)) (km);
-
-
-const compk6_ = chain => fm => gm => hm => im => jm => km => x =>
-  chain(km) (chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x))))));
-
-
-const compkn = chain => fs => x => {
-  const go = (mx, i) =>
-    i === fs.length
-      ? mx
-      : chain(mx) (x => go(fs[i] (x), i + 1));
-
-  return go(fs[0] (x), 1);
-};
-
-
-const compkn_ = chain => fs => x => {
-  const go = (mx, i) =>
-    i === fs.length
-      ? mx
-      : chain(x => go(fs[i] (x), i + 1)) (mx);
-
-  return go(fs[0] (x), 1);
-};
-
-
-const pipek = chain => gm => fm => x =>
-  chain(fm(x)) (gm);
-
-
-const pipek_ = chain => gm => fm => x =>
-  chain(gm) (fm(x));
-
-
-const pipek3 = chain => hm => gm => fm => x =>
-  chain(chain(fm(x)) (gm)) (hm);
-
-
-const pipek3_ = chain => hm => gm => fm => x =>
-  chain(hm) (chain(gm) (fm(x)));
-
-
-const pipek4 = chain => im => hm => gm => fm => x =>
-  chain(chain(chain(fm(x)) (gm)) (hm)) (im);
-
-
-const pipek4_ = chain => im => hm => gm => fm => x =>
-  chain(im) (chain(hm) (chain(gm) (fm(x))));
-
-
-const pipek5 = chain => jm => im => hm => gm => fm => x =>
-  chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm);
-
-
-const pipek5_ = chain => jm => im => hm => gm => fm => x =>
-  chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x)))));
-
-
-const pipek6 = chain => km => jm => im => hm => gm => fm => x =>
-  chain(chain(chain(chain(chain(fm(x)) (gm)) (hm)) (im)) (jm)) (km);
-
-
-const pipek6_ = chain => km => jm => im => hm => gm => fm => x =>
-  chain(km) (chain(jm) (chain(im) (chain(hm) (chain(gm) (fm(x))))));
-
-
-const pipekn = chain => fs => x => {
-  const go = (mx, i) =>
-    i < 0
-      ? mx
-      : chain(mx) (x => go(fs[i] (x), i - 1));
-
-  return go(fs[fs.length - 1] (x), fs.length - 2);
-};
-
-
-const pipekn_ = chain => fs => x => {
-  const go = (mx, i) =>
-    i < 0
-      ? mx
-      : chain(x => go(fs[i] (x), i - 1)) (mx);
-
-  return go(fs[fs.length - 1] (x), fs.length - 2);
-};
-
-
-/******************************************************************************
 *******************************************************************************
 ******************************[ BUILT-IN TYPES ]*******************************
 *******************************************************************************
@@ -701,6 +473,22 @@ const comp = f => g => x =>
   f(g(x));
 
 
+const comp3 = f => g => h => x =>
+  f(g(h(x)));
+
+
+const comp4 = f => g => h => i => x =>
+  f(g(h(i(x))));
+
+
+const comp5 = f => g => h => i => j => x =>
+  f(g(h(i(j(x)))));
+
+
+const comp6 = f => g => h => i => j => k => x =>
+  f(g(h(i(j(k(x))))));
+
+
 const comp2nd = f => g => x => y =>
   f(x) (g(y));
 
@@ -717,7 +505,27 @@ const pipe = g => f => x =>
   f(g(x));
 
 
-const pipe_ = g => f => x => y =>
+const pipe3 = h => g => f => x =>
+  f(g(h(x)));
+
+
+const pipe4 = i => h => g => f => x =>
+  f(g(h(i(x))));
+
+
+const pipe5 = j => i => h => g => f => x =>
+  f(g(h(i(j(x)))));
+
+
+const pipe6 = k => j => i => h => g => f => x =>
+  f(g(h(i(j(k(x))))));
+
+
+const pipe4 = i => h => g => f => x =>
+  f(g(h(i(x))));
+
+
+const pipe2nd = g => f => x => y =>
   f(x) (g(y));
 
 
@@ -869,70 +677,6 @@ const appr = (f, y) => x =>
 
 const infix = (x, f, y) =>
   f(x) (y);
-
-
-const infix2 = (x, f) => (y, g) => z =>
-  g(f(x) (y)) (z);
-
-
-const infix3 = (w, f) => (x, g) => (y, h) => z =>
-  h(g(f(w) (x)) (y)) (z);
-
-
-const infix4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
-
-const infix5 = (u, f) => (v, g) => (w, h) => (x, i) => (y, j) => z =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
-
-
-const infix6 = (t, f) => (u, g) => (v, h) => (w, i) => (x, j) => (y, k) => z =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-const infixn = pairs => z => {
-  const go = (f, i) =>
-    i === pairs.length
-      ? f
-      : go(pairs[i] [1] (f(pairs[i] [0])), i + 1);
-
-  return pairs.length === 0
-    ? z
-    : go(pairs[0] [1] (pairs[0] [0]), 1) (z);
-};
-
-
-const infixr2 = (x, f) => (y, g) => z =>
-  f(x) (g(y) (z));
-
-
-const infixr3 = (w, f) => (x, g) => (y, h) => z =>
-  f(w) (g(x) (h(y) (z)));
-
-
-const infixr4 = (v, f) => (w, g) => (x, h) => (y, i) => z =>
-  f(v) (g(w) (h(x) (i(y) (z))));
-
-
-const infixr5 = (u, f) => (v, g) => (w, h) => (x, i) => (y, j) => z =>
-  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
-
-
-const infixr6 = (t, f) => (u, g) => (v, h) => (w, i) => (x, j) => (y, k) => z =>
-  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
-
-
-const infixrn = pairs => z => {
-  const go = (f, i) =>
-    i === pairs.length
-      ? f(z)
-      : f(go(pairs[i] [1] (pairs[i] [0]), i + 1));
-
-  return pairs.length === 0
-    ? z
-    : go(pairs[0] [1] (pairs[0] [0]), 1);
-};
 
 
 /***[ Local Binding ]*********************************************************/
@@ -1886,33 +1630,13 @@ module.exports = {
   Base,
   Call,
   Chain,
-  chain2,
-  chain2_,
-  chain3,
-  chain3_,
-  chain4,
-  chain4_,
-  chain5,
-  chain5_,
-  chain6,
-  chain6_,
-  chainn,
-  chainn_,
   comp,
+  comp3,
+  comp4,
+  comp5,
+  comp6,
   comp2nd,
   compBin,
-  compk,
-  compk3,
-  compk4,
-  compk5,
-  compk6,
-  compkn,
-  compk_,
-  compk3_,
-  compk4_,
-  compk5_,
-  compk6_,
-  compkn_,
   compOn,
   Cons,
   cons_,
@@ -1961,18 +1685,6 @@ module.exports = {
   hamtUpd,
   id,
   infix,
-  infix2,
-  infix3,
-  infix4,
-  infix5,
-  infix6,
-  infixn,
-  infixr2,
-  infixr3,
-  infixr4,
-  infixr5,
-  infixr6,
-  infixrn,
   introspect,
   isUnit,
   lazyProp,
@@ -2005,20 +1717,12 @@ module.exports = {
   optMap,
   partial,
   pipe,
-  pipe_,
+  pipe3,
+  pipe4,
+  pipe5,
+  pipe6,
+  pipe2nd,
   pipeBin,
-  pipek,
-  pipek3,
-  pipek4,
-  pipek5,
-  pipek6,
-  pipekn,
-  pipek_,
-  pipek3_,
-  pipek4_,
-  pipek5_,
-  pipek6_,
-  pipekn_,
   pipeOn,
   postRec,
   PREFIX,
