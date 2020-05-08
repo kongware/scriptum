@@ -121,7 +121,7 @@ sub3(2); // -1
 
 `infix` mimics the notation of the same name, which is usually reserved to built-in operators in Javascript. `appr` is similar to the `flip` combinator but takes advantage of Javascript's multi-argument feature.
 
-### Prospect of other forms of compositions
+### Prospect of other forms of flat compositions
 
 Keeping the syntax of ordinary function composition flat is not even half of the deal. There are plenty of types of compositions to discover and we will introduce suitable combinators which enable a linear data flow within the respective chapters.
 
