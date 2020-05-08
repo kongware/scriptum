@@ -521,10 +521,6 @@ const pipe6 = k => j => i => h => g => f => x =>
   f(g(h(i(j(k(x))))));
 
 
-const pipe4 = i => h => g => f => x =>
-  f(g(h(i(x))));
-
-
 const pipe2nd = g => f => x => y =>
   f(x) (g(y));
 
