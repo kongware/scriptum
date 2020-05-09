@@ -17,7 +17,7 @@ It is remarkable how many purely functional idioms we can express with these two
 
 ## Who
 
-This course addresses both experienced imperative programmers and functional programming novices.
+This course addresses both experienced imperative programmers and functional programming novices. I am not going to get particularly academic. There won't be mathematical proves or equations. Instead, I dare the gap, even this means to be a bit handwavy sometimes.
 
 ## How
 
