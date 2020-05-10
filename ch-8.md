@@ -275,11 +275,9 @@ While having an elegant API `fix` is not tail recursive and hence not stack safe
 
 ### Corecursion
 
-Corecursion is dual to recursion and an effecitive way to understand it is to highlight the differences between both concepts. While recursion means calling onself on smaller data at each iteration until the smallest possible data is reached, corecursion means calling oneself on data at each iteration that is greater than or equal to what one had before.
+Corecursion is dual to recursion. While recursion means to call oneself on smaller data chunks at each iteration until the smallest possible data chunk is reached, corecursion means to call oneself on data at each iteration that is greater than or equal to what one had before.
 
-Reducting data inevitably stops at some point when the smallest possible data is reached, hence a recursion can be considered as an algorithm that consumes data in a way that stops. Expanding data is an infinite process limited only by system resources and time, hence corecursion can be regarded as an algorithm that consumes data in a way that continues. 
-
-This difference in behavior has implications for the data both algorithms can work with. Recursion works with finite data whereas corecursion works with possibly infinite codata. The following corecursive example illustrates this:
+Reducing data must inevitably end at some point as soon as the smallest possible data is reached. You can think of recursion as an algorithm that consumes finite data in a way that stops. Expanding data on the other hand is an infinite process, hence you can think of corecursion as an algorithm that consumes infinite data in a way that continues:
 
 ```javascript
 const snoc = x => xs => (xs.push(x), xs);
