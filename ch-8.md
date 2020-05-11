@@ -307,7 +307,9 @@ take(10) (fibs); // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 ```
 [run code](https://repl.it/repls/SvelteHotpinkCarrier)
 
-`fibs` is codata, because it is an infinite stream of natural numbers. Corecursion is pull-based, that is the algorithm only produces a single value when needed. As opposed to that recursion is push-based, that is once started it continues until the base case is reached. 
+Maybe you have noticed that corecursion is a lot like tail recursion. Just as with tail recursion corecursion uses an accumulator but it isn't passed as an explicit argument but implicit by expanding the value constructor or array literal in the example above.
+
+Besides corecursion is based on lazy evaluation. It does not iterate in tail position but within a value constructor, so it requires lazyness to avoid infinite recursion. As a result a corecursive algorithm acts like a pull stream: No values are produced unless the evaluation is enforced by another function, which consumes the value stream up to a certain point.
 
 ### Recursion as a last resort
 
