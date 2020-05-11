@@ -275,8 +275,6 @@ While having an elegant API `fix` is not tail recursive and hence not stack safe
 
 ### Corecursion
 
-**[EDITOR'S NOTE: THIS SECTION IS UNCLEAR AND NEEDS REVISION]**
-
 Corecursion is dual to recursion. While recursion means to call oneself on smaller data chunks at each iteration until the smallest possible data chunk is reached, corecursion means to call oneself on data at each iteration that is greater than or equal to what one had before.
 
 Reducing data must inevitably end at some point as soon as the smallest possible data is reached. You can think of recursion as an algorithm that consumes finite data in a way that stops. Expanding data on the other hand is an infinite process, hence you can think of corecursion as an algorithm that consumes infinite data in a way that continues:
