@@ -436,6 +436,12 @@ const arrMap = f => xs =>
   xs.map((x, i) => f(x, i));
 
 
+/***[ Monoid ]****************************************************************/
+
+
+const arrEmpty = {get fresh() {return []}};
+
+
 /***[ Semigroup ]*************************************************************/
 
 
@@ -695,7 +701,7 @@ const funJoin = mmf => x =>
 /***[ Monoid ]****************************************************************/
 
 
-// funEmpty @Derived
+const funEmpty = empty => _ => empty;
 
 
 /***[ Primitive Combinators ]*************************************************/
@@ -727,10 +733,12 @@ const id = x => x;
 /***[ Semigroup ]*************************************************************/
 
 
-const funAppend = comp;
+const funAppend = append => f => g => x =>
+  append(f(x)) (g(x));
 
 
-const funPrepend = pipe;
+const funPrepend = prepend => f => g => x =>
+  prepend(f(x)) (g(x));
 
 
 /***[ Transducer ]************************************************************/
@@ -933,9 +941,6 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
-const funEmpty = {fresh: id};
-
-
 const funOf = _const;
 
 
@@ -1014,6 +1019,26 @@ const Cont = cont => record("Cont", {cont});
 
 const contMap = f => tx =>
   Cont(k => tx.cont(x => k(f(x))));
+
+
+/******************************************************************************
+***********************************[ ENDO ]************************************
+******************************************************************************/
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const endoEmpty = {get fresh() {return id}};
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const endoAppend = comp;
+
+
+const endoPrepend = pipe;
 
 
 /******************************************************************************
@@ -1655,6 +1680,9 @@ module.exports = {
   dropWhiler,
   dropWhilek,
   dropWhilerk,
+  endoAppend,
+  endoEmpty,
+  endoPrepend,
   eff,
   filter,
   filterr,
