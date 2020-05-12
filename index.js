@@ -1029,7 +1029,7 @@ const contMap = f => tx =>
 /***[ Monoid ]****************************************************************/
 
 
-const endoEmpty = {get fresh() {return id}};
+const endoEmpty = {fresh: id};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -1125,6 +1125,41 @@ const optMap = f => tx =>
   match(tx, {
     None: _ => None,
     Some: ({some: x}) => Some(f(x))
+  });
+
+
+/***[Monoid]******************************************************************/
+
+
+const optEmpty = {fresh: None};
+
+
+/***[Semigroup]***************************************************************/
+
+
+const optAppend = append => tx => ty =>
+  match(tx {
+    None: _ => ty,
+    Some: ({some: x}) => {
+      match(ty, {
+        None: _ => tx,
+        Some: ({some: y}) =>
+          Some(append(x) (y))
+      });
+    }
+  });
+
+
+const optPrepend = prepend => tx => ty =>
+  match(tx {
+    None: _ => ty,
+    Some: ({some: x}) => {
+      match(ty, {
+        None: _ => tx,
+        Some: ({some: y}) =>
+          Some(prepend(x) (y))
+      });
+    }
   });
 
 
@@ -1738,7 +1773,10 @@ module.exports = {
   objPathOr,
   objValues,
   Option,
+  optAppend,
+  optEmpty,
   optMap,
+  optPrepend,
   partial,
   pipe,
   pipe3,
