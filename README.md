@@ -17,13 +17,21 @@ It is remarkable how many purely functional idioms we can express with these two
 
 ## Who
 
-This course addresses both experienced imperative programmers and functional programming novices. I am not going to get particularly academic. There won't be mathematical proves or hard to follow equational reasoning. Instead, I dare the gap when necessary, even this means to be a bit handwavy sometimes.
+This course addresses both experienced imperative programmers and functional programming novices.
 
 ## How
 
-I've chosen Javascript because it is the Lingua Franca of the internet most programmers are familiar with. Since it includes first class functions, `Proxy`s and lazy `Object` getter/setter we have all ingredients to transform it into a fully-fledged functional language.
+I am not going to get particularly academic. There won't be equational reasoning, mathematical proofs or cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers out there, which do that already. Instead, I will attempt to let you develop an intuition by natural language, type annotations and code examples. Natural language need not necessarily mean to use fuzzy metaphors. Natural language can be suprisingly accurate.
 
-In order to achieve that we have to make some effort though. We will explore techniques to alleviate some of the shortcomings that Javascript has with regard to FP. This effort is totally worth it, because you will be able to adapt these techniques to other multi-paradigm languages that suffer from similar issues and thus apply the functional idiom to a wider range of languages.
+I chose Javascript because it is the Lingua Franca of the web most programmers are familiar with. It supplies first class functions and a terse lambda syntax. We can even gain proper lazy evaluation using the native `Proxy` type and lazy `Object` getter/setter. Bottom line Javascript is expressive enough for almost all functional idioms.
+
+The language entails some shortcomings, of course:
+
+* lack of persistent data structures
+* no call stack opimizations
+* lack of ADTs and pattern matching
+
+However, we will solve every single of the above issues and you will be prepared to adapt these techniques to the multi-paradigm language of your choice.
 
 The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
