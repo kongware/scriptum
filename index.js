@@ -701,7 +701,8 @@ const funJoin = mmf => x =>
 /***[ Monoid ]****************************************************************/
 
 
-const funEmpty = empty => _ => empty;
+const funEmpty = empty =>
+  ({fresh: _ => empty});
 
 
 /***[ Primitive Combinators ]*************************************************/
