@@ -77,7 +77,7 @@ const strict = thunk => {
 
 
 const thunk = f =>
-  new Proxy(f, new ThunkProxy(f));
+  new Proxy(f, new ThunkProxy());
 
 
 /******************************************************************************
@@ -86,7 +86,7 @@ const thunk = f =>
 
 
 class ThunkProxy {
-  constructor(f) {
+  constructor() {
     this.memo = undefined;
   }
 
@@ -439,7 +439,7 @@ const arrMap = f => xs =>
 /***[ Monoid ]****************************************************************/
 
 
-const arrEmpty = {get fresh() {return []}};
+const arrEmpty = () => [];
 
 
 /***[ Semigroup ]*************************************************************/
@@ -702,7 +702,7 @@ const funJoin = mmf => x =>
 
 
 const funEmpty = empty =>
-  ({fresh: _ => empty});
+  () => _ => empty;
 
 
 /***[ Primitive Combinators ]*************************************************/
@@ -1030,7 +1030,7 @@ const contMap = f => tx =>
 /***[ Monoid ]****************************************************************/
 
 
-const endoEmpty = {fresh: id};
+const endoEmpty = () => id;
 
 
 /***[ Semigroup ]*************************************************************/
@@ -1132,14 +1132,14 @@ const optMap = f => tx =>
 /***[Monoid]******************************************************************/
 
 
-const optEmpty = {fresh: None};
+const optEmpty = () => None;
 
 
 /***[Semigroup]***************************************************************/
 
 
 const optAppend = append => tx => ty =>
-  match(tx {
+  match(tx ,{
     None: _ => ty,
     Some: ({some: x}) => {
       match(ty, {
@@ -1152,7 +1152,7 @@ const optAppend = append => tx => ty =>
 
 
 const optPrepend = prepend => tx => ty =>
-  match(tx {
+  match(tx ,{
     None: _ => ty,
     Some: ({some: x}) => {
       match(ty, {
@@ -1187,6 +1187,30 @@ const Task = task => record(
 
 const tMap = f => tx =>
   Task((res, rej) => tx.task(x => res(f(x)), rej));
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const tEmpty = empty =>
+  () => Task((res, rej) => res(empty));
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const tAppend = append => tx => ty =>
+  Task((res, rej) =>
+    tx.task(x =>
+      ty.task(y =>
+        res(append(x) (y)), rej), rej));
+
+
+const tPrepend = prepend => ty => tx =>
+  Task((res, rej) =>
+    tx.task(x =>
+      ty.task(y =>
+        res(prepend(x) (y)), rej), rej));
 
 
 /******************************************************************************
@@ -1807,11 +1831,14 @@ module.exports = {
   takeWhiler,
   takeWhilek,
   takeWhilerk,
+  tAppend,
   Task,
+  tEmpty,
   thisify,
   _throw,
   thunk,
   tMap,
+  tPrepend,
   trace,
   transduce,
   tryCatch,
