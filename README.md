@@ -6,7 +6,7 @@ scriptum is a no-frills functional programming library and a learning course bas
 
 ## Why
 
-scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowldge to your preferred language.
+scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
 
 As it turned out all we need to get there is...
 
@@ -21,14 +21,14 @@ This course addresses both experienced imperative programmers and functional pro
 
 ## How
 
-I am not going to get particularly academic. There won't be equational reasoning, mathematical proofs or cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers out there, which do that already. Instead, I will attempt to let you develop an intuition by natural language, type annotations and code examples. Natural language need not necessarily mean to use fuzzy metaphors. Natural language can be suprisingly accurate.
+I am not going to get particularly academic. There won't be equational reasoning, mathematical proofs or cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers out there, which do that already. Instead, I will attempt to let you develop an intuition by natural language, type annotations and code examples. Natural language need not necessarily mean to use fuzzy metaphors. Natural language can be surprisingly accurate.
 
-I chose Javascript because it is the Lingua Franca of the web most programmers are familiar with. It supplies first class functions and a terse lambda syntax. We can even gain proper lazy evaluation using the native `Proxy` type and lazy `Object` getter/setter. Bottom line Javascript is expressive enough for almost all functional idioms.
+I chose Javascript because it is the Lingua Franca of the web most programmers are familiar with. It supplies first class functions and terse lambda syntax. We can even gain proper lazy evaluation using the native `Proxy` type and lazy `Object` getter/setter. Bottom line Javascript is expressive enough for almost all functional idioms.
 
-The language entails some shortcomings, of course:
+From an functional programming perspective the language entails some shortcomings, of course:
 
 * lack of persistent data structures
-* no call stack opimizations
+* no call stack optimizations
 * lack of ADTs and pattern matching
 
 However, we will solve every single of the above issues and you will be prepared to adapt these techniques to the multi-paradigm language of your choice.
@@ -41,7 +41,7 @@ Please report an issue if you run across a mistake, ambiguous wording or inconsi
 
 ## Status
 
-The chapters of this online course are under continuous change as my knwogledge and experience grows. The scriptum library is still experimental and not meant for production code.
+The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
 
 ## Functional programming course (TOC)
 
@@ -178,4 +178,4 @@ scriptum relies on curried functions. Currying isn't a prerequisite of functiona
 
 ### Mixed Im-/mutability
 
-Javascript's plain old `Object` type along with functional optics leans itself quite naturally to immutability and is hence treated as such. However, `Array`, `Map`, `Set` et al. are designed for a mutable setting. Treating them as immutable leads to rather inefficient code. If you work with scriptum it is your responsibility as a developer to copy such values before performing destructive updates.
+Javascript's plain old `Object` type along with functional optics leans itself quite naturally to immutability and is hence treated as such. However, `Array`, `Map`, `Set` et al. are designed for a mutable setting. Treat them as immutable leads to rather inefficient code. If you work with scriptum it is your responsibility as a developer to copy such values before performing destructive updates.
