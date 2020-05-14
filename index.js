@@ -1165,6 +1165,84 @@ const optPrepend = prepend => tx => ty =>
 
 
 /******************************************************************************
+*********************************[ PARALLEL ]**********************************
+******************************************************************************/
+
+
+const Parallel = para => record(
+  Parallel,
+  thisify(o => {
+    o.para = (res, rej) =>
+      para(x => {
+        o.para = k => k(x);
+        return res(x);
+      }, rej);
+    
+    return o;
+  }));
+
+
+/***[ Functor ]***************************************************************/
+
+
+const pMap = f => tx =>
+  Parallel((res, rej) => tx.para(x => res(f(x)), rej));
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const pEmpty = Parallel((res, rej) => null);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const pAppend = tx => ty => {
+  const guard = (res, rej) => [
+    x => (
+      isRes || isRej
+        ? false
+        : (isRes = true, res(x))),
+    e =>
+        isRes || isRej
+          ? false
+          : (isRej = true, rej(e))];
+
+  let isRes = false,
+    isRej = false;
+
+  return Parallel(
+    (res, rej) => {
+      tx.para(...guard(res, rej));
+      ty.para(...guard(res, rej))
+    })
+};
+
+
+const pPrepend = ty => tx => {
+  const guard = (res, rej) => [
+    x => (
+      isRes || isRej
+        ? false
+        : (isRes = true, res(x))),
+    e =>
+        isRes || isRej
+          ? false
+          : (isRej = true, rej(e))];
+
+  let isRes = false,
+    isRej = false;
+
+  return Parallel(
+    (res, rej) => {
+      tx.para(...guard(res, rej));
+      ty.para(...guard(res, rej))
+    })
+};
+
+
+/******************************************************************************
 ***********************************[ TASK ]************************************
 ******************************************************************************/
 
@@ -1802,6 +1880,8 @@ module.exports = {
   optEmpty,
   optMap,
   optPrepend,
+  Parallel,
+  pAppend,
   partial,
   pipe,
   pipe3,
@@ -1811,7 +1891,9 @@ module.exports = {
   pipe2nd,
   pipeBin,
   pipeOn,
+  pMap,
   postRec,
+  pPrepend,
   PREFIX,
   rec,
   recChain,
