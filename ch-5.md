@@ -168,7 +168,7 @@ Nullary functions are also referred to as thunks in Javascript. They are infecti
 // simplified version
 
 class ThunkProxy {
-  constructor(f) {
+  constructor() {
     this.memo = undefined;
   }
 
@@ -190,7 +190,7 @@ class ThunkProxy {
 }
 
 const thunk = f =>
-  new Proxy(f, new ThunkProxy(f));
+  new Proxy(f, new ThunkProxy());
 
 const log = x =>
   (console.log("log", x), x);
