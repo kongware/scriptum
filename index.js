@@ -390,7 +390,9 @@ const arrUnsnoc = xs => {
 /***[ Foldable ]**************************************************************/
 
 
-const arrFold = f => acc => xs => {
+const arrFold = f => init => xs => {
+  let acc = init;
+  
   for (let i = 0; i < xs.length; i++)
     acc = f(acc) (xs[i], i);
 
