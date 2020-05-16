@@ -60,7 +60,7 @@ The chapters of this online course are under continuous change as my knowledge a
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-13.md)
-14. Planned: Accumulating or Picking with Monoid (▓▓▓▓▓▓▓░░░ 70% done)
+14. Planned: Accumulating, Aggregating and Picking with Monoid (▓▓▓▓▓▓▓░░░ 70% done)
 15. Planned: Statically Combining two Contexts with a Function using Applicative (▓▓░░░░░░░░ 20% done)
 16. Planned: Dynamically Combining two Contexts with a Kleisi Arrow using Monad
 17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-17.md)
