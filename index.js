@@ -1294,7 +1294,7 @@ const tMap = f => tx =>
 
 
 const tEmpty = empty =>
-  () => Task((res, rej) => res(empty));
+  () => Task((res, rej) => res(empty()));
 
 
 /***[ Semigroup ]*************************************************************/
