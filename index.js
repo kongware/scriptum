@@ -1215,7 +1215,7 @@ const pMap = f => tx =>
 /***[ Monoid ]****************************************************************/
 
 
-const pEmpty = Parallel((res, rej) => null);
+const pEmpty = () => Parallel((res, rej) => null);
 
 
 /***[ Semigroup ]*************************************************************/
