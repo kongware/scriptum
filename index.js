@@ -1082,12 +1082,55 @@ const objPathOr = def => (...ks) => o =>
 *******************************************************************************
 ******************************************************************************/
 
+
+/******************************************************************************
+********************************[ COMPARATOR ]*********************************
+******************************************************************************/
+
+
+const Comparator = union("Comparator");
+
+
+const LT = Comparator("LT", {valueOf: () => -1});
+
+
+const EQ = Comparator("EQ", {valueOf: () => 0});
+
+
+const GT = Comparator("GT", {valueOf: () => 1});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const ctorEmpty = () => EQ;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const ctorAppend = tx => ty => 
+  match(tx, {
+    LT: _ => LT,
+    EQ: _ => ty,
+    GT: _ => GT
+  });
+
+
+const ctorPrepend = ty => tx => 
+  match(tx, {
+    LT: _ => LT,
+    EQ: _ => ty,
+    GT: _ => GT
+  });
+
+
 /******************************************************************************
 ***********************************[ CONT ]************************************
 ******************************************************************************/
 
 
-const Cont = cont => record("Cont", {cont});
+const Cont = cont => record(Cont, {cont});
 
 
 /***[ Functor ]***************************************************************/
@@ -1868,6 +1911,12 @@ const hamtDelNode = (node, hash, k, depth) => {
 
 
 module.exports = {
+  allAppend,
+  allEmpty,
+  allPrepend,
+  anyAppend,
+  anyEmpty,
+  anyPrepend,
   app,
   app_,
   appr,
@@ -1903,6 +1952,9 @@ module.exports = {
   const_,
   Cont,
   contMap,
+  ctorAppend,
+  ctorEmpty,
+  ctorPrepend,
   curry,
   curry3,
   curry4,
@@ -1919,10 +1971,11 @@ module.exports = {
   dropWhiler,
   dropWhilek,
   dropWhilerk,
+  eff,
   endoAppend,
   endoEmpty,
   endoPrepend,
-  eff,
+  EQ,
   filter,
   filterr,
   filterk,
@@ -1938,6 +1991,7 @@ module.exports = {
   funMap,
   funOf,
   funPrepend,
+  GT,
   guard,
   Hamt,
   Hamt_,
@@ -1958,6 +2012,7 @@ module.exports = {
   listFoldr_,
   listMap,
   log,
+  LT,
   map,
   mapr,
   mapk,
@@ -1997,7 +2052,14 @@ module.exports = {
   pMap,
   postRec,
   pPrepend,
+  Pred,
+  predAppend,
+  predEmpty,
+  predPrepend,
   PREFIX,
+  prodAppend,
+  prodEmpty,
+  prodPrepend,
   rec,
   recChain,
   recOf,
@@ -2006,6 +2068,9 @@ module.exports = {
   Some,
   Step,
   strict,
+  sumAppend,
+  sumEmpty,
+  sumPrepend,
   taggedLog,
   tailRec,
   take,
