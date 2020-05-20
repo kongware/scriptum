@@ -1,5 +1,7 @@
 ## Reasonable and Harmful Lambda Abstractions
 
+**[EDITOR'S NOTE: THIS CHAPTER REQUIRES REVISION]**
+
 This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I was struggling with myself while writing it as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them myself a couple of years ago.
 
 ### Reasons for lambda abstractions
