@@ -1,16 +1,27 @@
-## Reasonable and Harmful Lambda Abstractions
+## Principled and unprincipled approaches to Lamdba Abstractions
 
-**[EDITOR'S NOTE: THIS CHAPTER REQUIRES REVISION]**
+**[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
 
-This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I was struggling with myself while writing it as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them myself a couple of years ago.
+This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I have been struggling with myself to write on this opinion-based subject as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them during my endeavour to learn the paradigm.
+
+### Pros and cons
+
+There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. Dropping details may be a desirable for someone who is familiar with this details. Other, less experienced developers might need this boilerplate though, in order to comprehend a computation or an algorithm.
+
+The process of abstraction tends to continue. We can still add another level to our code. A developer who is comfortable with a certain level of abstraction might be overwhelmed with the next one. Ultimately abstraction is torn between the following mutually exclusive objectives:
+
+* avoiding boilerplate
+* keep code accessible
+
+There is no solution to this contradiction, nor is there a common level of abstraction that could be agreed upon.
 
 ### Reasons for lambda abstractions
 
-Abstraction is an end in itself in programming, because it allows us to reduce the necessary portion of boilerplate in our code. If we insist on defining some specific and reasonable motives to abstract code with lambdas then there are at least six reasonable ones, assumed we are not in a purely functional setting:
+There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. If we insist on defining some specific and reasonable motives to abstract code with lambdas then there are at least six reasonable ones, assumed we are not in a purely functional setting:
 
 * code reuse (self-explanatory)
-* pass state around (see chapter managing state)
-* share the result of expressions (see chapter managing state section let bindings)
+* pass state around (see chapter _managing state_)
+* share the result of expressions (see chapter _managing state_ section _let bindings_)
 * Replace statements with expressions
 * Avoid explicit lambdas
 * Utilize partial application
