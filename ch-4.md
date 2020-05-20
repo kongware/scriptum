@@ -1,4 +1,4 @@
-## Principled and unprincipled approaches to Lamdba Abstractions
+## Un-/Principled approaches to Lamdba Abstractions
 
 **[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
 
