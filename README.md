@@ -50,7 +50,7 @@ The chapters of this online course are under continuous change as my knowledge a
 01. [Values, Expressions and Functions](https://github.com/kongware/scriptum/blob/master/ch-1.md)
 02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/ch-2.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/ch-3.md)
-04. [Un-/Principled Approaches to Lamdba Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md) (UNDER CONSTRUCTION]
+04. [Un-/Principled Approaches to Lamdba Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 06. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/ch-6.md)
 07. [Linear Data Flow w/o Method Chaining](https://github.com/kongware/scriptum/blob/master/ch-7.md)
