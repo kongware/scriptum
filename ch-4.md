@@ -1,12 +1,10 @@
-## Un-/Principled Approaches to Lamdba Abstractions
-
-**[EDITOR'S NOTE: THIS CHAPTER IS UNDER CONSTRUCTION]**
+## Principled and Unprincipled Abstractions
 
 This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I have been struggling with myself to write on this opinion-based subject as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them during my endeavour to learn the paradigm.
 
-### Pros and cons
+### The two sides of abstraction
 
-There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. Dropping details may be a desirable for someone who is familiar with this details. Other, less experienced developers might need this boilerplate though, in order to comprehend a computation or an algorithm.
+There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. Dropping details may be desirable for developers, who are familiar with them. However, less experienced folks might need this very boilerplate in order to comprehend a computation or an algorithm.
 
 The process of abstraction tends to continue. We can still add another level to our code. A developer who is comfortable with a certain level of abstraction might be overwhelmed with the next one. Ultimately abstraction is torn between the following mutually exclusive objectives:
 
@@ -15,9 +13,20 @@ The process of abstraction tends to continue. We can still add another level to 
 
 There is no solution to this contradiction, nor is there a common level of abstraction that could be agreed upon.
 
-### Reasons for lambda abstractions
+### When is an abstraction unprincipled?
 
-There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. If we insist on defining some specific and reasonable motives to abstract code with lambdas then there are at least six reasonable ones, assumed we are not in a purely functional setting:
+This is a highly opinionated attempt to give very general rules of thumb. An abstraction is probably unprincipled when it meets one or more of the listed criteria:
+
+* it has no type
+* it resembles an algebraic structure but breaks its laws
+* it follows no laws at all
+* it is not widely used
+
+Please note that you can declare lambda abstractions in an untyped setting for which no type exists.
+
+### Motivations for lambda abstractions
+
+There are a great variety of motivations to apply abstractions to your application. Here is an attempt of an incomplete categorization:
 
 * code reuse (self-explanatory)
 * pass state around (see chapter _managing state_)
@@ -91,16 +100,11 @@ map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 
 The capability to defer computations is one of the strong suits of the functional paradigm. Functions provide a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
 
-### Harmful lambda abstractions
+### Abstractions are not an end in themselves
 
-Usually it is a great idea to use lambda abstractions in order to develop your code further. However, like any other tool you can over- or misuse it. Not everything that can be encoded with functions should be encoded with functions. Some functionalizations tend to  obfuscate your intentions. The following guidelines may be helpful to avoid common pitfalls:
+Like any other technique or tool you can over- or misuse abstractions. Not everything that can be encoded with functions should be encoded with them. Some functionalizations tend to obfuscate your intentions, without you or others benefiting from it. It is hard to tell at what point you are just over-engineering and mainly depends on the perspective and the level of experience of the reader. Again, there is no common basis on which we can decide.
 
-* do not encode something with functions that has a simpler representation
-* only create principled and lawfull abstractions that are both directed by math and types
-
-#### Over-abstraction example
-
-In the followng example using Javascript's native Boolean type would defenitely lower the cognitive load:
+The following listing illustrates a functional encoding of a boolean type most developers would consider over-engineered:
 
 ```javascript
 const False = x => y => x;
@@ -125,30 +129,6 @@ ifElse(eq(y) (z))
     ("unequal"); // "equal" 
 ```
 [run code](https://repl.it/repls/UnsungSnarlingLead)
-
-Please note that a boolean function encoding is not only hard to read but also rather inefficient.
-
-#### Lawless abstraction example
-
-Avoiding nested function calls is a reasonable endeavour. However, if you accomplish it with the wrong tool you will eventually run into other unforeseen problems:
-
-```javascript
-const compn = f =>
-  Object.assign(
-    g => compn(x => f(g(x))),
-    {runCompn: f});
-
-compn(inc)
-  (inc)
-    (inc)
-      (inc)
-        (inc).runCompn(0); // 5
-```
-[run code](https://repl.it/repls/BruisedLightcyanDevice)
-
-This is a nice piece of Javascript engineering. Are you able to see the long term implications of this approach though? Did you recognize, for instance, that `compn` has no type - at least not in Typescript? Does this approach work for all sorts of compositions or merely for composing pure functions?
-
-This combinator is not a lawfull and type directed one. Unless you are a very seasoned developer you most likely cannot anticipate all consequences of using it.
 
 ### Well-known functional combinators
 
