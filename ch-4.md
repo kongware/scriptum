@@ -1,12 +1,12 @@
 ## Principled and Unprincipled Abstractions
 
-This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I have been struggling with myself to write on this opinion-based subject as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them during my endeavour to learn the paradigm.
+This chapter is about abstracting code with functions, i.e. creating function encodings. It is rather opinion-based. I have been struggling with myself to write on this opinion-based subject as this course should not be about my opinion but about functional programming. Nevertheless I decided to adhere to this chapter since it hopefully helps people to avoid frequent rookie misconceptions as I experienced them during my endeavour to learn the functional paradigm.
 
 ### The two sides of abstraction
 
-There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. Dropping details may be desirable for developers, who are familiar with them. However, less experienced folks might need this very boilerplate in order to comprehend a computation or an algorithm.
+There is a great motivation for abstraction in programming, because it allows us to reduce the necessary portion of boilerplate in our code. Dropping details may be desirable for developers, who are familiar with them. However, less experienced folks might need this very boilerplate to be capable of comprehending a computation or algorithm.
 
-The process of abstraction tends to continue. We can still add another level to our code. A developer who is comfortable with a certain level of abstraction might be overwhelmed with the next one. Ultimately abstraction is torn between the following mutually exclusive objectives:
+The process of abstraction tends to continue. We can still add another level to our code. A developer who is comfortable with a certain level of abstraction might be overwhelmed with the next one. Ultimately abstractions are torn between the following mutually exclusive objectives:
 
 * avoiding boilerplate
 * keep code accessible
@@ -102,7 +102,7 @@ The capability to defer computations is one of the strong suits of the functiona
 
 ### Abstractions are not an end in themselves
 
-Like any other technique or tool you can over- or misuse abstractions. Not everything that can be encoded with functions should be encoded with them. Some functionalizations tend to obfuscate your intentions, without you or others benefiting from it. It is hard to tell at what point you are just over-engineering and mainly depends on the perspective and the level of experience of the reader. Again, there is no common basis on which we can decide.
+Like any other technique or tool you can over- or misuse abstractions. Not everything that can be encoded with functions should be encoded with them. Some functionalizations tend to obfuscate your intentions, without you or others benefiting from it. It is hard to tell at what point you are just over-engineering. This judgement mainly depends on the perspective and the level of experience of the reader. Again, there is no common basis which we can agree upon.
 
 The following listing illustrates a functional encoding of a boolean type most developers would consider over-engineered:
 
