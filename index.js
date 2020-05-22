@@ -1358,6 +1358,11 @@ const pMap = f => tx =>
 /***[ Monoid (type parameter) ]***********************************************/
 
 
+const pEmpty = empty =>
+  () => Parallel((res, rej) => res(empty()));
+
+
+
 /***[ Monoid (race) ]*********************************************************/
 
 
@@ -1365,6 +1370,33 @@ const raceEmpty = () => Parallel((res, rej) => null);
 
 
 /***[ Semigroup (type parameter) ]********************************************/
+
+
+const pAppend = append => tx => ty => {
+  const guard = (res, rej, i) => [
+    x => (
+      r[i] = x,
+      isRes || isRej || r[0] === undefined || r[1] === undefined
+        ? false
+        : (isRes = true, res(append(r[0]) (r[1])))),
+    e =>
+      isRes || isRej
+        ? false
+        : (isRej = true, rej(e))];
+
+  const r = []
+
+  let isRes = false,
+    isRej = false;
+
+  return Parallel(
+    (res, rej) => (
+      tx.para(...guard(res, rej, 0)),
+      ty.para(...guard(res, rej, 1))));
+};
+
+
+const pPrepend = pAppend; // just pass prepend as type dictionary argument
 
 
 /***[ Semigroup (race) ]******************************************************/
@@ -1481,12 +1513,7 @@ const tAppend = append => tx => ty =>
         res(append(x) (y)), rej), rej));
 
 
-const tPrepend = prepend => ty => tx =>
-  Task((res, rej) =>
-    tx.task(x =>
-      ty.task(y =>
-        res(prepend(x) (y)), rej), rej));
-
+const tPrepend = tAppend; // just pass prepend as type dictionary argument
 
 /******************************************************************************
 *******************************************************************************
@@ -2097,9 +2124,11 @@ module.exports = {
   optEmpty,
   optMap,
   optPrepend,
+  pAppend,
   Parallel,
   partial,
   partialProps,
+  pEmpty,
   pipe,
   pipe3,
   pipe4,
@@ -2110,6 +2139,7 @@ module.exports = {
   pipeOn,
   pMap,
   postRec,
+  pPrepend,
   Pred,
   predAppend,
   predEmpty,
