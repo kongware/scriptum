@@ -352,6 +352,9 @@ const monoidAppend = append => tx => ty =>
   });
 
 
+const monoidPrepend = monoidAppend; // just pass prepend as type dictionary argument
+
+
 const monoidEmpty = () => None;
 
 
@@ -431,7 +434,7 @@ const arrFoldk = f => acc => xs =>
       : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
 
 
-// arrFoldMap @Dependent
+// arrFoldMap @DEPENDENT
 
  
 const arrFoldr = f => acc => xs =>
@@ -480,12 +483,6 @@ const arrAppend = xs => ys =>
 
 const arrPrepend = ys => xs =>
   (xs.push.apply(xs, ys), xs);
-
-
-/***[ Dependent ]*************************************************************/
-
-
-const arrFoldMap = partialProps(foldMap, {fold: arrFold});
 
 
 /******************************************************************************
@@ -1094,6 +1091,14 @@ function* objValues(o) {
 
 const objPathOr = def => (...ks) => o =>
   ks.reduce((acc, k) => acc && acc[k] || def, o);
+
+
+/******************************************************************************
+*********************************[ DEPENDENT ]*********************************
+******************************************************************************/
+
+
+const arrFoldMap = partialProps(foldMap, {fold: arrFold});
 
 
 /******************************************************************************
@@ -2108,6 +2113,7 @@ module.exports = {
   monadRec,
   monoidAppend,
   monoidEmpty,
+  monoidPrepend,
   Mutu,
   mutuRec,
   Nil,
