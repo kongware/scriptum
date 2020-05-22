@@ -485,8 +485,7 @@ const arrPrepend = ys => xs =>
 /***[ Dependent ]*************************************************************/
 
 
-const arrFoldMap = partialProps(foldMap)
-  ({fold: arrFold});
+const arrFoldMap = partialProps(foldMap, {fold: arrFold});
 
 
 /******************************************************************************
@@ -642,7 +641,7 @@ const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
 
-const partialProps = f => o => p =>
+const partialProps = (f, o) => p =>
   f({...o, ...p});
 
 
