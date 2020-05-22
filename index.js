@@ -1355,16 +1355,22 @@ const pMap = f => tx =>
   Parallel((res, rej) => tx.para(x => res(f(x)), rej));
 
 
-/***[ Monoid ]****************************************************************/
+/***[ Monoid (type parameter) ]***********************************************/
 
 
-const pEmpty = () => Parallel((res, rej) => null);
+/***[ Monoid (race) ]*********************************************************/
 
 
-/***[ Semigroup ]*************************************************************/
+const raceEmpty = () => Parallel((res, rej) => null);
 
 
-const pAppend = tx => ty => {
+/***[ Semigroup (type parameter) ]********************************************/
+
+
+/***[ Semigroup (race) ]******************************************************/
+
+
+const raceAppend = tx => ty => {
   const guard = (res, rej) => [
     x => (
       isRes || isRej
@@ -1386,7 +1392,7 @@ const pAppend = tx => ty => {
 };
 
 
-const pPrepend = ty => tx => {
+const racePrepend = ty => tx => {
   const guard = (res, rej) => [
     x => (
       isRes || isRej
@@ -2092,7 +2098,6 @@ module.exports = {
   optMap,
   optPrepend,
   Parallel,
-  pAppend,
   partial,
   partialProps,
   pipe,
@@ -2105,7 +2110,6 @@ module.exports = {
   pipeOn,
   pMap,
   postRec,
-  pPrepend,
   Pred,
   predAppend,
   predEmpty,
@@ -2114,6 +2118,9 @@ module.exports = {
   prodAppend,
   prodEmpty,
   prodPrepend,
+  raceAppend,
+  raceEmpty,
+  racePrepend,
   rec,
   recChain,
   recOf,
