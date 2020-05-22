@@ -104,6 +104,24 @@ class ThunkProxy {
     Object.defineProperty(this.memo, k, descriptor);
     return true;
   }
+  
+  ownKeys(g) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    return Reflect.ownKeys(this.memo);
+  }
+
+  getOwnPropertyDescriptor(g, k) {
+    if (this.memo === undefined)
+      this.memo = g();
+
+    return {
+      value: this.memo[k],
+      enumerable: true,
+      configurable: true
+    };
+  }
 
   get(g, k) {
     if (this.memo === undefined)
