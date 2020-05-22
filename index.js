@@ -430,6 +430,9 @@ const arrFoldk = f => acc => xs =>
       ? Base(acc_)
       : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
 
+
+// arrFoldMap @Dependent
+
  
 const arrFoldr = f => acc => xs =>
   rec(i =>
@@ -477,6 +480,13 @@ const arrAppend = xs => ys =>
 
 const arrPrepend = ys => xs =>
   (xs.push.apply(xs, ys), xs);
+
+
+/***[ Dependent ]*************************************************************/
+
+
+const arrFoldMap = partialProps(foldMap)
+  ({fold: arrFold});
 
 
 /******************************************************************************
@@ -630,6 +640,10 @@ const curry6 = f => u => v => w => x => y => z =>
 
 const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
+
+
+const partialProps = f => o => p =>
+  f({...o, ...p});
 
 
 const uncurry = f => (x, y) =>
@@ -2080,6 +2094,7 @@ module.exports = {
   Parallel,
   pAppend,
   partial,
+  partialProps,
   pipe,
   pipe3,
   pipe4,
