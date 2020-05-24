@@ -156,7 +156,7 @@ Point<a, a>                  ~ a * a
 ```
 What these terms represent are the cardinality of each type, that is the number of possible values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `a`. `Point`'s number of possible values is the product of the inhabitants of `a` multiplied by itself.
 
-Now it is obvious that sum and product types got their name by the operation that determines their cardinality.
+Now it is obvious that sum and product types got their name by the operation that determines their cardinality. A sum type is the sum of its data constructors and each data constructor is the product of its arguments.
 
 #### Algebraic laws
 
@@ -227,9 +227,9 @@ Time(11) (59) (59); // {Time: true, h: 11, m: 59, s: 59}
 ```
 All combinations of hours, minutes and seconds are valid. The number of possible combinations is only limited by the product of the three data fields `Time<Nat, Nat, Nat> ~ Nat * Nat * Nat`.
 
-### Sums of products
+### Sum of products
 
-Simply put the composition of sum and product types usually results in a sums of products shape. The `List` type is a simple example of such a sum of product, which has additionally a recursive type definition: 
+Since the data constructors of an algebraic data type determine its sum and the arguments of each data constructor determines its products such a type usually forms a sum of products. The `List` type is a simple example of such a sum of product, which has additionally a recursive type definition: 
 
 ```javascript
 const List = union("List");
