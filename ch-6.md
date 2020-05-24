@@ -92,7 +92,7 @@ True; // {Bool: true, tag: "True"}
 ```
 The `Bool` type can either be `True` or `False`. Please note that the `Bool` property is needed, because we will use Typescript to type our code in more advanced chapters. Typesript is based on structural typing though, which is a rather weak form of typing. In order to render each type structural unique, they have to carry a corresponding type property around.
 
-Here is another tagged union, which comprises the variants `None` and `Some<a>`. It is a less error prone alternative to Javascript's `Null` type:
+Here is another tagged union, which comprises the variants `None` and `Some<A>`. It is a less error prone alternative to Javascript's `Null` type:
 
 ```javascript
 const Option = union("Option"); // type constructor
@@ -117,7 +117,7 @@ const Point = x => y => record(Point, {x, y});
 
 Point(1) (2); // {Point: true, x: 1, y, 2}
 ```
-`Point<a, a>` contains two fields with values of the same type.
+`Point<A, A>` contains two fields with values of the same type.
 
 #### Void type
 
@@ -151,10 +151,10 @@ Let us express the types defined so far using this notation:
 
 ```
 Bool        = True | False   ~ 1 + 1
-Option<a>   = None | Some<a> ~ 1 + a
-Point<a, a>                  ~ a * a
+Option<A>   = None | Some<A> ~ 1 + A
+Point<A, A>                  ~ A * A
 ```
-What these terms represent are the cardinality of each type, that is the number of possible values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `a`. `Point`'s number of possible values is the product of the inhabitants of `a` multiplied by itself.
+What these terms represent are the cardinality of each type, that is the number of possible values a type can take. `Bool` has two inhabitants. `Option` has one inhabitant plus the inhabitants of type `A`. `Point`'s number of possible values is the product of the inhabitants of `A` multiplied by itself.
 
 Now it is obvious that sum and product types got their name by the operation that determines their cardinality. A sum type is the sum of its data constructors and each data constructor is the product of its arguments.
 
@@ -173,7 +173,7 @@ const Bat = bat => Foo("Bat", {bat});
 Bar(); // type error
 Bat(123); // Foo {bat: 123}
 ```
-We can only construct `Foo` values of the `Bat` variant, hence `0 + a = a` applies.
+We can only construct `Foo` values of the `Bat` variant, hence `0 + A = A` applies.
 
 ```javascript
 // 0 * x = 0
@@ -255,7 +255,7 @@ listSum(tx); // 6
 ```
 [run code](https://repl.it/repls/TerribleRoughSorting)
 
-Even though we do not use the `record` auxiliary function `List` includes a product type, because the `Cons` data constructor expects more than a single argument. The cardinality of `List` is calculated by `List<a> ~ 1 + a * List<a>`. It has a recursive definition, because `Cons` second argument `tail` is of type `List`.
+`List` consists of the sum of its two data constrcutors `Nil` and `Cons`, where the latter is a product type, because it expects two arguments. The cardinality of `List` is calculated by `List<A> ~ 1 + A * List<A>`. Moreover the type has a recursive definition, because `Cons` second argument `tail` is of type `List<A>`.
 
 Here is another more complex example of a sum of product, which represents an either or both operation:
 
@@ -313,7 +313,7 @@ main(
 ```
 [run code](https://repl.it/repls/FocusedDeepCodeview)
 
-Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such an extendable composition. This course will hopefully help you to get there. The cardinality of `These<a, b>` is calculated by `These<a, b> ~ a + b + a * b`.
+Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such an extendable composition. This course will hopefully help you to get there. The cardinality of `These<A, B>` is calculated by `These<A, B> ~ A + B + A * B`.
 
 ### From product types to type hierarchies
 
