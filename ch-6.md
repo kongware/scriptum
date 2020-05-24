@@ -255,7 +255,7 @@ listSum(tx); // 6
 ```
 [run code](https://repl.it/repls/TerribleRoughSorting)
 
-`List` consists of the sum of its two data constrcutors `Nil` and `Cons`, where the latter is a product type, because it expects two arguments. The cardinality of `List` is calculated by `List<A> ~ 1 + A * List<A>`. Moreover the type has a recursive definition, because `Cons` second argument `tail` is of type `List<A>`.
+`List` consists of the sum of its two data constructors `Nil` and `Cons`, where the latter is a product type, because it expects two arguments. The cardinality of `List` is calculated by `List<A> ~ 1 + A * List<A>`. Moreover the type has a recursive definition, because `Cons` second argument `tail` is of type `List<A>`.
 
 Here is another more complex example of a sum of product, which represents an either or both operation:
 
