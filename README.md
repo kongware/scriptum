@@ -61,7 +61,7 @@ The chapters of this online course are under continuous change as my knowledge a
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-13.md)
 14. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-14.md)
-15. Planned: Mechanically Combining Contexts with a Pure Function using Applicative (▓▓▓░░░░░░░ 30% done)
+15. Planned: Mechanically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓░░░░░ 50% done)
 16. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
 17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-17.md)
 
