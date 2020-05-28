@@ -53,7 +53,7 @@ The chapters of this online course are under continuous change as my knowledge a
 04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/ch-4.md)
 05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/ch-5.md)
 06. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/ch-6.md)
-07. [Linear Data Flow w/o Method Chaining](https://github.com/kongware/scriptum/blob/master/ch-7.md)
+07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/ch-7.md)
 08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/ch-8.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/ch-9.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
