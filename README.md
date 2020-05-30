@@ -8,30 +8,22 @@ scriptum is a no-frills functional programming library and a learning course bas
 
 scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
 
-As it turned out all we need to get there is...
+As it turns out all we need to get there...
 
-* first class functions
-* a mechanism to allow expressions to be in weak head normal form
+* are first class functions
+* is a mechanism to allow expressions to be in weak head normal form
 
 It is remarkable how many purely functional idioms we can express with these two requirements.
 
 ## Who
 
-This course addresses both experienced imperative programmers and functional programming novices.
+This course addresses both functional programming novices and experienced imperative programmers.
 
 ## How
 
 I am not going to get particularly academic. There won't be equational reasoning, mathematical proofs or cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers out there, which do that already. Instead, I will attempt to let you develop an intuition by natural language, type annotations and code examples. Natural language need not necessarily mean to use fuzzy metaphors. Natural language can be surprisingly accurate.
 
-I chose Javascript because it is the Lingua Franca of the web most programmers are familiar with. It supplies first class functions and terse lambda syntax. We can even gain proper lazy evaluation using the native `Proxy` type and lazy `Object` getter/setter. Bottom line Javascript is expressive enough for almost all functional idioms.
-
-From an functional programming perspective the language entails some shortcomings, of course:
-
-* lack of persistent data structures
-* no call stack optimizations
-* lack of ADTs and pattern matching
-
-However, we will solve every single of the above issues and you will be prepared to adapt these techniques to the multi-paradigm language of your choice.
+Functional programming comes from math, renders certain properties of your code explicit and favors a high level of abstraction and generalization. These are the reasons why the paradigm seems to be more complex and strict at the beginning. However, you will soon realize that we are working with a couple of recurring patterns and idioms and their mechanics are always the same no matter what context you work in. At some point you can almost blindly put them together and things just work as expected.
 
 The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
@@ -61,7 +53,7 @@ The chapters of this online course are under continuous change as my knowledge a
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-13.md)
 14. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-14.md)
-15. Planned: Statically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓▓▓▓░░ 80% done)
+15. Planned: Statically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓▓▓▓▓░ 90% done)
 16. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
 17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-17.md)
 
