@@ -378,6 +378,6 @@ main(Some(5)); // 25
 
 ### Note on my own account
 
-If you enjoyed this chapter please 🌟 the repo here on Github or share it on your preferred social media platform. If you found a mistake or inaccuracy or want to propose an improvement please file an issue/feature. Thank you.
+If you enjoyed this chapter please 🌟 scriptum here on Github or share it on your preferred social media platform. If you found a mistake or inaccuracy or want to propose an improvement please file an issue/feature. Thank you.
 
 [&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-5.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-7.md)
