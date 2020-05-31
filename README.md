@@ -52,7 +52,7 @@ The chapters of this online course are under continuous change as my knowledge a
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
 13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/ch-13.md)
-14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-14.md) (under revision)
+14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-14.md)
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-15.md)
 16. Planned: Statically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓▓▓▓▓░ 90% done)
 17. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
