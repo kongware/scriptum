@@ -63,3 +63,30 @@ foldMap({fold: arrFold, append: add, empty: addEmpty})
     (xs); // 14
 ```
 [run code](https://repl.it/repls/HighlevelOblongDatamart)
+
+
+```javascript
+const arrMap = f => xs =>
+  xs.map((x, i) => f(x, i));
+
+const funMap = f => g =>
+  x => f(g(x));
+
+const mapEff = map => x =>
+//             ^^^ overloaded function constraint
+  map(_ => x);
+  
+const sqr = x => x * x;
+
+const foo = mapEff(arrMap) (5);
+//                 ^^^^^^ single function instead of type dictionary
+
+const bar = mapEff(funMap) (5);
+
+foo([1, 2, 3]); // [5, 5, 5]
+bar(sqr)); // _ => 5
+bar(sqr) (123); // applying the lambda to an arbitrary argument to unwrap the constant return value 5
+```
+[run code](https://repl.it/repls/ConsiderateSlipperyPiracy)
+
+With `mapEff` we are only interested in the structure or effect of a computation rather than its result value. It works for all types that have an instance of functor, namely an implementation of the `map` function. Since `mapEff` only expects a single overloaded name we pass the argument as a bare function instead of a function wrapped in a type dictionary.
