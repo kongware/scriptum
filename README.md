@@ -51,11 +51,11 @@ The chapters of this online course are under continuous change as my knowledge a
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/ch-10.md)
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/ch-11.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/ch-12.md)
-13. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-13.md) (under revision)
-14. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-14.md)
+13. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-14.md) (under revision)
+14. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-15.md)
 15. Planned: Statically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓▓▓▓▓░ 90% done)
 16. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
-17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-17.md)
+17. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-18.md) (needs revision)
 
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
