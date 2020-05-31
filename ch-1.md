@@ -129,4 +129,8 @@ So we are stuck with a fixed set of native Javascript operators without the abil
 
 scriptum and its underlying language Javascript are dynamically typed languages. That means there is a type system that should not be ignored. With `undefined` the type system is clearly telling you that there is a type error that needs to be fixed. As a rule of thumb your code should never intentionally create and only rarely be based on `undefined` as a last resort. You should not even consider it a proper value. `undefined` represents an error, a non-recoverable exception.
 
+### Note on my own account
+
+If you enjoyed this chapter please upvote the repo here on Github or share it on your preferred social media platform. If you found a mistake or inaccuracy or want to propose an improvement please file an issue/feature. Thank you.
+
 [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-2.md)
