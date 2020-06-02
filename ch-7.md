@@ -1,6 +1,6 @@
 ## Linear Data Flow and Flat Composition Syntax
 
-There are two ways to obtain method chaining in Javascript, either by relying on the [prototype system](https://repl.it/repls/CheapTurquoiseUnit) or by utilizing plain old Javascript [object factories](https://repl.it/repls/RegalTriflingFactor).
+There are two ways to obtain method chaining in Javascript, either by relying on the [prototype system](https://repl.it/@scriptum/CheapTurquoiseUnit) or by utilizing plain old Javascript [object factories](https://repl.it/@scriptum/RegalTriflingFactor).
 
 While the former is specific to Javascript and is rather limited, object factories are quite inefficient, especially when you have to deal with types that are associated with a larger number of functions. In this chapter we will therefore examine a purely functional approach to maintain a linear data flow and flat composition syntax.
 
@@ -73,7 +73,7 @@ pipe4(sub_(2))
       (sub_(5))
         (1); // 1 - 2 - 3 - 4 - 5
 ```
-[run code](https://repl.it/repls/CapitalSociableUser)
+[run code](https://repl.it/@scriptum/CapitalSociableUser)
 
 When we compose binary functions we need to partially apply them and pass the missing argument to the resulting composition. The missing argument is the rightmost one of the computation, consequently function composition is inherently right-associative. It computes the rightmost operands and applies the result to its predecessor.
 
@@ -100,7 +100,7 @@ const fs = [repeat("x"), sub(1), sub(2), sub(3), sub(4)]; // "xxx"
 
 compn(fs) (5);
 ```
-[run code](https://repl.it/repls/HurtfulSandybrownWorkspace)
+[run code](https://repl.it/@scriptum/HurtfulSandybrownWorkspace)
 
 But what type would `fs` have? If we typed it as an array `A[]`, all functions would have to share the same type, `(_: number) => number` for instance. If we typed it as a tuple `[A, B]` we would have to define all possible tuple sizes. Knowing this simple arity aware composition functions seem to be the lesser of two evils.
 
@@ -117,7 +117,7 @@ const sub3 = appr(sub, 3);
 infix(2, sub, 3); // -1
 sub3(2); // -1
 ```
-[run code](https://repl.it/repls/VirtualLuxuriousStacks)
+[run code](https://repl.it/@scriptum/VirtualLuxuriousStacks)
 
 `infix` mimics the notation of the same name, which is usually reserved to built-in operators in Javascript. `appr` is similar to the `flip` combinator but takes advantage of Javascript's multi-argument feature.
 
