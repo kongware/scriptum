@@ -36,7 +36,7 @@ const fibTail = n => {
 fibBody(10); // logs 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0
 fibTail(10); // logs 55
 ```
-[run code](https://repl.it/repls/LimpingAromaticModule)
+[run code](https://repl.it/@scriptum/LimpingAromaticModule)
 
 Here we are logging at the base case. Since the body recursive Fibonacci algorithm starts its work from this very base case on the way back to the initial case, the smallest, simplest instances (`0` and `1`) of the problem are logged. The tail recursive algorithm on the other hand starts its work from the initial case. Consequently it has already finished its work when the base case is reached and only the final result is logged. Let us prove this assertion by logging at the initial case:
 
@@ -52,7 +52,7 @@ const fibTail = n => {
 
 fibTail(10); // logs 1, 1, 2, 3, 5, 8, 13, 21, 34
 ```
-[run code](https://repl.it/repls/PiercingLimitedOmnipage)
+[run code](https://repl.it/@scriptum/PiercingLimitedOmnipage)
 
 Since body recursion depends on the function call stack the problem size that can be handled is limited to the available stack size. In constrast to this tail recursion can share a single stack frame<sup>1</sup> throughout the whole computation, because it relies on an accumulator passed around as an argument. You can think of tail recursion as the functional equivalent of bare imperative loops, whereas body recursion requires a loop with a custom stack data structure.
 
@@ -80,7 +80,7 @@ const xs = [1, [2, [3, []]]];
 foldr(sub) (0) (xs); // (1 - (2 - (3 - 0))) = 2
 foldl(sub) (0) (xs); // (((0 - 1) - 2) - 3) = -6
 ```
-[run code](https://repl.it/repls/DimJauntyApplet)
+[run code](https://repl.it/@scriptum/DimJauntyApplet)
 
 As it turns out body recursion along with lists naturally forms a right associative fold whereas tail recursion naturally forms a left associative one. That means both versions may vary depending on the given problem. A proper functional language should allow for that and supply both recursive approaches in a stack safe manner.
 
@@ -119,7 +119,7 @@ const fib = comp(fst)
 
 fib(10); // 55
 ```
-[run code](https://repl.it/repls/HelplessAptLivecd)
+[run code](https://repl.it/@scriptum/HelplessAptLivecd)
 
 `foldNat` is the elimination rule of the natural number type. It inverses the introduction procedure by reducing the current state by one until the base case `0` is reached.  Provided you pass a total successor function to `foldNat`, the recursion is guaranteed to terminate. By the way, it is not a coincidence that each value constructor of the natural number type reappears as a formal parameter of the fold. An elimination rule must always comprise all value constructors to be complete and valid.
 
@@ -148,7 +148,7 @@ const xs = Cons(1) (Cons(2) (Cons(3) (Nil)));
 
 foldList(0) (sub) (xs); // 2
 ```
-[run code](https://repl.it/repls/AssuredIdealisticOffice)
+[run code](https://repl.it/@scriptum/AssuredIdealisticOffice)
 
 Defining the elimination rule for the list type is based on the same rules as for natural numbers. It is a rather mechanical process. Almost every recursive problem or data structure can be expressed with a naturally recursive algorithm.
 
@@ -196,7 +196,7 @@ const factCont = n => {
 
 factCont(5); // 120
 ```
-[run code](https://repl.it/repls/FlatFloweryDifferences)
+[run code](https://repl.it/@scriptum/FlatFloweryDifferences)
 
 Do you see the pattern? Each function invocation ends with a continuation, i.e. a function argument, which is finally called within the function body. This pattern is called continuation passing style and will be covered in deatil in a later chapter.
 
@@ -230,7 +230,7 @@ factBody(5); // (((((1 * 1) * 2) * 3) * 4) * 5)
 factTail(5); // (1 * (2 * (3 * (4 * (5 * 1)))))
 factCont(5); // (((((1 * 1) * 2) * 3) * 4) * 5)
 ```
-[run code](https://repl.it/repls/EarnestUnripeRuntimeenvironment)
+[run code](https://repl.it/@scriptum/EarnestUnripeRuntimeenvironment)
 
 The CPS version pursues the same computation strategy as the body recursive approach. Since with CPS all continuation invocations are in tail position we can have both, efficient tail calls and a body recursive computation strategy. This is a big win!
 
@@ -251,7 +251,7 @@ const fib = n =>
 
 fib(10); // 55
 ```
-[run code](https://repl.it/repls/FlippantRedundantVisitor)
+[run code](https://repl.it/@scriptum/FlippantRedundantVisitor)
 
 Indirect recursion allows very elegant algorithms when working with tree data structures. We will look into such algorithms in the corresponding chapter of this course.
 
@@ -269,7 +269,7 @@ const fib = fix(go => n =>
 
 fib(10); // 55
 ```
-[run code](https://repl.it/repls/SlategrayWiryBoolean)
+[run code](https://repl.it/@scriptum/SlategrayWiryBoolean)
 
 While having an elegant API `fix` is not tail recursive and hence not stack safe. In the following sections we are going to see that trampolines are the better alternative for almost all cases.
 
@@ -303,7 +303,7 @@ const take = n => xs => {
 
 take(10) (fibs); // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 ```
-[run code](https://repl.it/repls/SvelteHotpinkCarrier)
+[run code](https://repl.it/@scriptum/SvelteHotpinkCarrier)
 
 Maybe you have noticed that corecursion is a lot like tail recursion. Just as with tail recursion corecursion uses an accumulator but it isn't passed as an explicit argument but implicit by expanding the value constructor or array literal in the example above.
 
