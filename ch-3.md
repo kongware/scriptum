@@ -36,7 +36,7 @@ const main = partial(sum5, 1, 2)
 
 main(3, 4, 5); // 15
 ```
-[run code](https://repl.it/repls/SupportiveSizzlingLists)
+[run code](https://repl.it/@scriptum/SupportiveSizzlingLists)
 
 `partial` is a sensible implementation of this imperative idiom. It allows deferring the evaluation of a multi argument function by calling it only with a subset of its arguments. The missing arguments are provided with the subsequent call. Partial application is a dynamic process whereas currying is static.
 
@@ -53,7 +53,7 @@ const main2 = pipe(inc) (sub(2));
 main(3); // 0
 main2(3); // -2
 ```
-[run code](https://repl.it/repls/WorldlyElegantAbilities)
+[run code](https://repl.it/@scriptum/WorldlyElegantAbilities)
 
 With function composition you can build small, specialized functions that each focus on a single task and combine them to more complex ones. Please note that function composition evaluates from right to left. `pipe` just reverses this order.
 
@@ -71,7 +71,7 @@ const main2 = comp(add) (add); // (B)
 comp(add) (inc) (1) (2); // 4
 comp(add) (add) (1) (2); // "y => x + y2"
 ```
-[run code](https://repl.it/repls/NotableButterySection)
+[run code](https://repl.it/@scriptum/NotableButterySection)
 
 Even though `comp` expects an unary function it can deal with the binary `add` operator. This works as long as the binary function is passed as the first function argument (A). Let us keep composing and see if we can overcome the implicit type error (B):
 
@@ -85,7 +85,7 @@ const main2 = comp2(add) (add);
 main(1) (2) (3); // 6
 main2(1) (2) (3); // 6
 ```
-[run code](https://repl.it/repls/JudiciousSadAgent)
+[run code](https://repl.it/@scriptum/JudiciousSadAgent)
 
 Abstraction over arity allows us to combine curried functions in various ways and only the underlying types act limiting. This is a huge win in terms of reusability. Reusing functions is not just a nice theoretical thought anymore, but becomes the daily routine!
 
@@ -104,7 +104,7 @@ const main = comp(comp(f, g), comp(h, i));
 
 main(2); // f(g(h(i(2))))
 ```
-[run code](https://repl.it/repls/ImperfectGlitteringLivedistro)
+[run code](https://repl.it/@scriptum/ImperfectGlitteringLivedistro)
 
 ### Variadic functions
 
@@ -120,7 +120,7 @@ const sum = (...xs) => xs.reduce((acc, x) => acc + x, 0);
 sum(1, 2, 3); // 6
 sum(1, 2, 3, 4, 5); // 15
 ```
-[run code](https://repl.it/repls/MerryAutomaticServerapplication)
+[run code](https://repl.it/@scriptum/MerryAutomaticServerapplication)
 
 Tuple-like variadic functions collect arguments of different type and form a Tuple (`(...args: [...any[]]`). 
 
@@ -133,7 +133,7 @@ const main = partial(Quintuple, 123, "foo", true);
 
 main([1, 2, 3], {bar: "baz"}); // [123, 'foo', true, [1, 2, 3], {bar: 'baz'}]
 ```
-[run code](https://repl.it/repls/OliveUnwieldyModules)
+[run code](https://repl.it/@scriptum/OliveUnwieldyModules)
 
 While Array-like variadic functions are straightforward in terms of typing, Tuple-like ones regularly lead to complicated types and increase the need for type casts and explicit annotations. Only use Tuple-like variadic functions with great caution.
 
@@ -148,7 +148,7 @@ const uncurry = f => (x, y) => f(x) (y);
 curry((x, y) => x + x) (2) (3); // 5
 uncurry(x => y => x + x) (2, 3); // 5
 ```
-[run code](https://repl.it/repls/AntiqueHonoredServicepack)
+[run code](https://repl.it/@scriptum/AntiqueHonoredServicepack)
 
 These combinators witness an isomorphism between functions in curried and uncurried form. As a result you can switch back and forth between both forms. Please note that scriptum prefers curried functions as a default.
 
@@ -167,7 +167,7 @@ const main = comp(sqr) (sum); // function composition
 sum([1, 2, 3, 4, 5]); // 15
 main([1, 2, 3]); // 36
 ```
-[run code](https://repl.it/repls/CadetblueImprobableDatasets)
+[run code](https://repl.it/@scriptum/CadetblueImprobableDatasets)
 
 There is another issue with parameter order along with non-associative operators:
 
@@ -178,7 +178,7 @@ const sub2 = sub(2);
 sub(3) (2); // 1 (as expected)
 sub2(3); // -1 (1 expected)
 ```
-[run code](https://repl.it/repls/GiddyWheatCoins)
+[run code](https://repl.it/@scriptum/GiddyWheatCoins)
 
 `sub2(3)` reads like "sub 2 from 3", hence you would expect it to yield `1` instead of `-1`. Either way one use case will yield unnatural results. Fortunately we can fix this issue by applying the well-known `flip` combinator:
 
@@ -188,7 +188,7 @@ const sub2 = flip(sub) (2);
 
 sub2(3); // 1 (as expected)
 ```
-[run code](https://repl.it/repls/RemarkableAmpleTag)
+[run code](https://repl.it/@scriptum/RemarkableAmpleTag)
 
 An alternative to `flip` is `appr`, which mimics operators in infix position:
 
@@ -207,7 +207,7 @@ const sub2 = appr(sub, 2);
 infix(3, sub, 2); // 1
 sub2(3); // 1
 ```
-[run code](https://repl.it/repls/FondNoxiousQuery)
+[run code](https://repl.it/@scriptum/FondNoxiousQuery)
 
 We will learn about prefix and infix notation in a later chapter of this course.
 
@@ -221,7 +221,6 @@ const inc = x => x + 1;
 const add2 = x => inc(inc(x)), // explicit argument
   add2_ = comp(inc) (inc); // implicit argument (point-free)
 ```
-
 Point-free style is rather a side effect than something we deliberately aspire to. The term already implies that we drop or abstract something, namely the arguments.
 
 While abstractions often assist us in avoiding boilerplate they sometimes tend to obfuscate code, because you can only read it if you are familiar with the applied combinators. That means you should only consider common abstractions and not those that arbitrary persons just made up. In functional programming common abstractions are lawful or principled, i.e. abstractions that adhere to mathematical laws or widespread functional idioms.
