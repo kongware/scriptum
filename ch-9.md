@@ -49,7 +49,7 @@ const main = compn(fs), // stack safe
 main(0); // stack overflow
 main_(0); // 100000
 ```
-[run code](https://repl.it/repls/NoxiousVisibleLanserver)
+[run code](https://repl.it/@scriptum/NoxiousVisibleLanserver)
 
 `compn` creates a deferred nested function call tree, which may exhaust the function call stack once the missing argument is provided. In order to make it stack safe we have to deal with both the recursive algorithm and the recursive data structure it creates.
 
@@ -86,7 +86,7 @@ const xs = Array(1e5).fill(1);
 
 fold(sub) (0) (xs); // -100000
 ```
-[run code](https://repl.it/repls/PersonalBumpyPorts)
+[run code](https://repl.it/@scriptum/PersonalBumpyPorts)
 
 Another example: A stack safe Fibonacci function using `tailRec`:
 
@@ -100,7 +100,7 @@ const fib = n =>
           
 fib(10); // 55
 ```
-[run code](https://repl.it/repls/ImmediatePuzzledRegisters)
+[run code](https://repl.it/@scriptum/ImmediatePuzzledRegisters)
 
 ### A trampoline that mimics tail recursive modulo cons
 
@@ -152,7 +152,7 @@ const xs = Array(1e5).fill(1);
 
 foldr(sub) (0) (xs); // 0 (instead of -100000 for the left associative fold)
 ```
-[run code](https://repl.it/repls/NavyblueLoneConditions)
+[run code](https://repl.it/@scriptum/NavyblueLoneConditions)
 
 Can we also express the Fibonacci function in its most naturally recursive form using `rec`? No, because the recursive step is in both arguments of the function:
 
@@ -198,7 +198,7 @@ const odd = Mutu(n =>
 mutuRec(even(1e5)); // true
 mutuRec(odd(1e5)); // false
 ```
-[run code](https://repl.it/repls/WeeklyScornfulBruteforceprogramming)
+[run code](https://repl.it/@scriptum/WeeklyScornfulBruteforceprogramming)
 
 As you can see the trampoline API for `mutuRec` leaked into the calling site of the code. Unfortunatelly there is no way to avoid this. However, `even(1e5)` and `odd(1e5)` are lazy evaluated, i.e. we can fully define them and enforce their evaluation later when needed.
 
@@ -220,7 +220,7 @@ const fibParent = Mutu((n, k) =>
 
 mutuRec(fib(10)); // 55
 ```
-[run code](https://repl.it/repls/RoughPoorButtons)
+[run code](https://repl.it/@scriptum/RoughPoorButtons)
 
 ### Making deferred nested function call trees stack safe
 
@@ -243,7 +243,7 @@ const fs = Array(1e5).fill(inc),
 
 main(0); // stack overflow
 ```
-[run code](https://repl.it/repls/WillingVivaciousPolyhedron)
+[run code](https://repl.it/@scriptum/WillingVivaciousPolyhedron)
 
 Can we prevent the deferred function call tree from exhausting the stack? Unfortunately, we cannot without altering the original tree structure:
 
@@ -267,7 +267,7 @@ const fs = Array(1e5).fill(inc),
 
 postRec(main(0)); // 100000
 ```
-[run code](https://repl.it/repls/StripedFlashyProcessors)
+[run code](https://repl.it/@scriptum/StripedFlashyProcessors)
 
 We need to disconnect all nested layers from each other by reifying the continuation between them. Then we can use the `postRec` trampoline to call this continuation iteratively. Since we do not want to alter the original algerithm the continuation is applied to the identity function. I named the trampoline `postRec` because it takes place after the actual recursive algorithm.
 
