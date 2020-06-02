@@ -37,7 +37,7 @@ const main = comp( // B
 
 main(xs); // ["FOO!", "BAR!", "BAT!", "BAT!"]
 ```
-[run code](https://repl.it/repls/JointFullValue)
+[run code](https://repl.it/@scriptum/JointFullValue)
 
 `arrDedupe` has static function dependencies on `arrFilter` and the `Set` constructor (lines `A`). The function composition in line `B` however creates a data dependency of the form `arrMap >> toUC >> shout >> arrDedupe`, where each function depends on the result of its predecessor. The functional programming style tends to make such data dependencies more explicit.
 
@@ -64,7 +64,7 @@ const main = comp(
 
 main(xs); // ["FOO!", "BAR!", "BAT!"]
 ```
-[run code](https://repl.it/repls/DeliriousLuckySoftwareengineer)
+[run code](https://repl.it/@scriptum/DeliriousLuckySoftwareengineer)
 
 Since all functions are pure in functional programming the order of evaluation do not have to adhere to the lexical order of expressions but can be optimized, as long as such optimizations do not interfere with the given data dependencies. Please note that Javascript is not a purely functional language. Every expression may include side effects and thus the order of evaluation is rather strict.
 
@@ -253,18 +253,21 @@ const tx = Cons(1) (Cons(2) (Cons(3) (Nil)));
 
 listSum(tx); // 6
 ```
-[run code](https://repl.it/repls/TerribleRoughSorting)
+[run code](https://repl.it/@scriptum/TerribleRoughSorting)
 
 `List` consists of the sum of its two data constructors `Nil` and `Cons`, where the latter is a product type, because it expects two arguments. The cardinality of `List` is calculated by `List<A> ~ 1 + A * List<A>`. Moreover the type has a recursive definition, because `Cons` second argument `tail` is of type `List<A>`.
 
 Here is another more complex example of a sum of product, which represents an either or both operation:
 
 ```javascript
-const These_ = union("These");
+const Triple = x => y => z => [x, y, z];
 
+const These_ = union("These");
 const This = _this => These_(This, {this: _this});
 const That = that => These_(That, {that});
 const These = _this => that => These_(These, {this: _this, that});
+
+// ARRAY
 
 const arrAlign = f => xs => ys => {
   const go = (acc, i) => {
@@ -283,6 +286,13 @@ const arrAlign = f => xs => ys => {
 
   return go([], 0);
 };
+
+const arrSnoc = xs => x =>
+  (xs.push(x), xs);
+
+const Pair = x => y => [x, y];
+
+// polymorphic align/zip functions
 
 const liftAlign = align => f => x => y =>
   align(tx =>
@@ -304,6 +314,8 @@ const liftAlign3 = align => f => x => y => z => xs => ys =>
 
 const zipPad3 = align => liftAlign3(align) (Triple);
 
+// MAIN
+
 const main = zipPad3(arrAlign) ("") (0) (false);
 
 main(
@@ -311,7 +323,7 @@ main(
     ([2, 4, 6, 8])
       ([true, true]); // [["foo", 2, true], ["bar", 4, true], ["", 6, false], ["", 8, false]]
 ```
-[run code](https://repl.it/repls/FocusedDeepCodeview)
+[run code](https://repl.it/@scriptum/FocusedDeepCodeview)
 
 Do not be intimidated by the complexity of this algorithm. It requires quite a bit of experience to understand or even write such an extendable composition. This course will hopefully help you to get there. The cardinality of `These<A, B>` is calculated by `These<A, B> ~ A + B + A * B`.
 
@@ -342,7 +354,7 @@ const main = Lazy(() => log(2 * 3));
 main.lazy + main.lazy; // logs 6 once and yields 12
 //          ^^^^^^^^^ subsequent access
 ```
-[run code](https://repl.it/repls/GlisteningPalegreenAnalyst)
+[run code](https://repl.it/@scriptum/GlisteningPalegreenAnalyst)
 
 `main.lazy` is only evaluated when needed and only once. All subsequent accesses resort to the initially computed result.
 
@@ -372,7 +384,7 @@ const main = option(0) (x => x * x);
 main(None); // 0
 main(Some(5)); // 25
 ```
-[run code](https://repl.it/repls/BogusFullButtons)
+[run code](https://repl.it/@scriptum/BogusFullButtons)
 
 `match` only works with tagged unions and it does not prevent us from supplying non-exhaustive patterns. This will change as soon as we start working with Typescript.
 
