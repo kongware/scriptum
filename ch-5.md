@@ -109,7 +109,7 @@ mapToArr_(foo);
 mapToArr(foo); // ["foo", "bar", "baz", "foo", "bar", "baz"]
 mapToArr_(foo); // ["foo", "bar", "baz"]
 ```
-[run code](https://repl.it/repls/MeanNoxiousChord)
+[run code](https://repl.it/@scriptum/MeanNoxiousChord)
 
 `mapToArr` gets a fesh array as accumulator each time it is called and hence keeps the side effect caused by `arrSnoc` local. Adding redundant lambda abstractions to a derived function is called eta abstraction and the opposite operation eta reduction.
 
@@ -144,7 +144,7 @@ const main = compk(
 
 main(id); // 25
 ```
-[run code](https://repl.it/repls/AppropriateBestObjectmodel)
+[run code](https://repl.it/@scriptum/AppropriateBestObjectmodel)
 
 With CPS we are able to compose arbitrarily complex compositions of deferred function call trees.
 
@@ -208,7 +208,7 @@ const main = add(add(2) (3)) (mul(4) (5)); // WHNF
 
 main + 0; // logs 5, 20, 25 and yields 25
 ```
-[run code](https://repl.it/repls/FarawayImmediateSyntax)
+[run code](https://repl.it/@scriptum/FarawayImmediateSyntax)
 
 Please note that this is the example from the beginning of this chapter. It seems to behave the same way as in a lazy evaluated language like Haskell. This is huge! However, before we get too excited let us verify whether we meet all three requirements of lazy evaluation, namely normal order, WHNF and sharing:
 
@@ -231,7 +231,7 @@ const main = foo(add(2) (3)); // logs "evaluating x to 5" only once and yields [
 
 main.map(x => -x); // forces evaluation of the thunk and yields [-10, -0, -25]
 ```
-[run code](https://repl.it/repls/EasygoingUnhealthyAttribute)
+[run code](https://repl.it/@scriptum/EasygoingUnhealthyAttribute)
 
 `foo` evaluates its argument only when needed after the actual function invocation, i.e. it pursues normal evaluation order. `main` is in WHNF, because it contains an unevaluated thunk. `foo` evaluates its argument `x` only once and shares the result throughout its scope. We are dealing indeed with proper lazy evaluation.
 
@@ -271,7 +271,7 @@ const main2 = foldr(add) ([]) (xs); // exhausts the stack
 
 take(3) (main); // [1, 2, 3]
 ```
-[run code](https://repl.it/repls/ShadowyFlimsySmalltalk)
+[run code](https://repl.it/@scriptum/ShadowyFlimsySmalltalk)
 
 `main2` is not stack safe because `add` is eager in both of its arguments.
 
@@ -289,7 +289,7 @@ const fact = fix(go => n =>
 
 fact(5); // 120
 ```
-[run code](https://repl.it/repls/MurkyDetailedAutosketch)
+[run code](https://repl.it/@scriptum/MurkyDetailedAutosketch)
 
 #### Value recursion
 
@@ -305,7 +305,7 @@ const fibs = [0, [1, thunk(() => {
 
 fibs[1] [1] [1] [1] [1] [1] [1] [1] [1] [1] [0]; // 55
 ```
-[run code](https://repl.it/repls/WiltedDarkseagreenCoolingfan)
+[run code](https://repl.it/@scriptum/WiltedDarkseagreenCoolingfan)
 
 #### Forcing evaluation
 
