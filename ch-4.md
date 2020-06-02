@@ -80,7 +80,7 @@ const inc = x => x + 1;
 
 compAll_([inc, inc, inc, inc, inc]) (0); // 5
 ```
-[run code](https://repl.it/repls/DisfiguredGiddyLead)
+[run code](https://repl.it/@scriptum/DisfiguredGiddyLead)
 
 However, sometimes it is the other way around and the lack of explicit lambdas impair readability. There is no rule of thumb but you have to decide ad-hoc.
 
@@ -96,7 +96,7 @@ const mul = x => y => x * y;
 
 map(mul(10)) ([0.1, 0.2, 0.3]); // [1, 2, 3]
 ```
-[run code](https://repl.it/repls/ThisTrivialScans)
+[run code](https://repl.it/@scriptum/ThisTrivialScans)
 
 The capability to defer computations is one of the strong suits of the functional paradigm. Functions provide a form of explicit lazyness. We will learn more about lazy evaluation in a subsequent chapter.
 
@@ -128,7 +128,7 @@ ifElse(eq(y) (z))
   ("equal")
     ("unequal"); // "equal" 
 ```
-[run code](https://repl.it/repls/UnsungSnarlingLead)
+[run code](https://repl.it/@scriptum/UnsungSnarlingLead)
 
 ### Well-known functional combinators
 
@@ -175,7 +175,7 @@ You can also utilize it to functionalize `if`/`switch` statements:
         return s;
     }); // "fool"
 ```
-[run code](https://repl.it/repls/BruisedHarmlessWrapper)
+[run code](https://repl.it/@scriptum/BruisedHarmlessWrapper)
 
 `join = f => x => f(x) (x)`
 
@@ -190,7 +190,7 @@ const inc = x => x + 1;
 
 join(comp(const_) (inc)) (2); // 3
 ```
-[run code](https://repl.it/repls/OldfashionedPastelSdk)
+[run code](https://repl.it/@scriptum/OldfashionedPastelSdk)
 
 `eff = f => x => (f(x), x)`
 
@@ -216,7 +216,7 @@ const safeDiv = comp2nd(div)
 safeDiv(4) (2);
 safeDiv(2) (0);
 ```
-[run code](https://repl.it/repls/ElegantTrivialCertification)
+[run code](https://repl.it/@scriptum/ElegantTrivialCertification)
 
 `fix = f => x => f(fix(f)) (x)`
 
@@ -230,7 +230,7 @@ fix(rec => n =>
     ? 1
     : n * rec(n - 1)) (5); // 120
 ```
-[run code](https://repl.it/repls/KosherWarmheartedControlpanel)
+[run code](https://repl.it/@scriptum/KosherWarmheartedControlpanel)
 
 Although `fix` is not stack safe and might exhaust the call stack it is important to understand the underlying mechanism.
 
@@ -242,9 +242,9 @@ Javascript lacks `let` expressions to create local name bindings. The `_let` com
 const _let = f => f();
 
 _let((x = 2, y = x * x, z = y * y, total = x + y + z, foo = "foo") =>
-  [x, y, z, total]); // [2, 4, 16, 22, foo]
+  [x, y, z, total, foo]); // [2, 4, 16, 22, foo]
 ```
-[run code](https://repl.it/repls/MistyGrimyDesigners)
+[run code](https://repl.it/@scriptum/MistyGrimyDesigners)
 
 But wait, `_let` has no type. Is not that a lawless abstraction? Yes, it is. However, it is the only way I am aware of to allow local bindings that may depend on previously defined ones. Moreover, it has turned out that there is a way to type both the combinator and its applications in Typescript. More on this in one of the subsequent chapters.
 
@@ -262,7 +262,7 @@ const sub = x => y => x - y,
 sub2(5); // -3
 sub2_(5); // 3
 ```
-[run code](https://repl.it/repls/SillySlateblueGreyware)
+[run code](https://repl.it/@scriptum/SillySlateblueGreyware)
 
 Clearly the second application yields a more intuitive result.
 
@@ -295,7 +295,7 @@ const main = ap(
 
 main(3); // [3, 4, 4, 9]
 ```
-[run code](https://repl.it/repls/IndigoOrnateDoom)
+[run code](https://repl.it/@scriptum/IndigoOrnateDoom)
 
 `chain = f => g => x => f(g(x)) (x)`
 
@@ -314,7 +314,7 @@ const main = chain(x =>
 main(3); // [3, 4, 4, 9]
 main(0); // []
 ```
-[run code](https://repl.it/repls/NeighboringFrayedAnalysis)
+[run code](https://repl.it/@scriptum/NeighboringFrayedAnalysis)
 
 As you can see in line `A` we can short circuit the compostion depending on `x`. This is not possible with the `ap` backed composition.
 
@@ -346,7 +346,7 @@ foldComp = foldMap({fold, append: comp, empty: id});
 
 foldComp(add) ([1, 2, 3]) (100); // 106
 ```
-[run code](https://repl.it/repls/CapitalRosyEntropy)
+[run code](https://repl.it/@scriptum/CapitalRosyEntropy)
 
 The reason why we need to compose in the second argument of `append` is that `foldMap` does not depend on a right associative fold but on a left associative one. As you may know both folds differ in the order the accumulator `acc` and the current element `x` is provided to the algebra `f`.
 
@@ -360,7 +360,7 @@ const compBin = f => g => x => y => f(g(x) (y));
 compBin(sqr) (add) (2) (3); // 25
 compBin(add) (add) (2) (3) (4); // 9
 ```
-[run code](https://repl.it/repls/DraftySlategrayProgramminglanguage)
+[run code](https://repl.it/@scriptum/DraftySlategrayProgramminglanguage)
 
 `compOn = f => g => x => y => f(g(x)) (g(y))`
 
@@ -382,7 +382,7 @@ const fst = ([x, y]) => x;
 sortBy(compOn(compare) (fst))
   ([[2, "world"], [4, "!"], [1, "hello"]]); // [[1, "hello"], [2, "world"], [4, "!"]]
 ```
-[run code](https://repl.it/repls/ThankfulMoralFiles)
+[run code](https://repl.it/@scriptum/ThankfulMoralFiles)
 
 #### Quaternary combinators with three function arguments
 
@@ -398,9 +398,12 @@ const get = k => o => o[k];
 const getLen = get("length");
 const countVowels = s => s.match(/[aeuio]/gi).length
 
-lift2(div) (countVowels) (getLen) ("hello world!"); // 0.25
+lift2(div)
+  (countVowels)
+    (getLen)
+      ("hello world!"); // 0.25
 ```
-[run code](https://repl.it/repls/TurbulentTediousImplementation)
+[run code](https://repl.it/@scriptum/TurbulentTediousImplementation)
 
 `lift` abstracts nested `ap` calls and is hence just a convenience function. In a subsequent chapter we will introduce an alternative approach to avoid nesting.
 
