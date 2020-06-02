@@ -82,7 +82,7 @@ const main = arrUnfold(5) (sqr); // A
 
 main(2); // [2, 4, 16, 256, 65536]
 ```
-[run code](https://repl.it/repls/FewEachOptimization)
+[run code](https://repl.it/@scriptum/FewEachOptimization)
 
 Line `A` indicates that the number of iterations is dynamic.
 
@@ -116,7 +116,7 @@ const main = init =>
 
 main(2); // [2, 4, 16, 256]
 ```
-[run code](https://repl.it/repls/SereneShinyListener)
+[run code](https://repl.it/@scriptum/SereneShinyListener)
 
 #### Custom call stacks
 
@@ -139,7 +139,7 @@ const sum = xs => {
 
 sum([1, 2, 3, 4, 5]); // 15
 ```
-[run code](https://repl.it/repls/ButteryMeanModels)
+[run code](https://repl.it/@scriptum/ButteryMeanModels)
 
 Tail recursion is often referred to as recursion accumulator-style, because the accumulator in line `A` serves as a proxy for the call stack and temporarily holds the state of the recursive algorithm.
 
@@ -159,7 +159,7 @@ const main = contComp(contSqr) (contInc) (2); // A
 
 main(log);
 ```
-[run code](https://repl.it/repls/SurefootedUnwrittenDecimals)
+[run code](https://repl.it/@scriptum/SurefootedUnwrittenDecimals)
 
 The computation is encoded in continuation passing style, which usually needs some time to get familiar with. It is important to understand that line `A` evaluates to the nested function call `k => k(contSqr(contInc(2)))`. Such a function call tree requires a call stack to be evaluated. This is where the state of our asynchronous computation is hidden.
 
@@ -203,7 +203,7 @@ const main = init =>
 
 main(2); // [256, [2, 4, 16, 256]]
 ```
-[run code](https://repl.it/repls/DesertedAttractiveBlockchain)
+[run code](https://repl.it/@scriptum/DesertedAttractiveBlockchain)
 
 This is a big improvement. If we keep formalizing this pattern and add a couple of lawful combinators, we will wind up with the state monad, which will be covered in a later chapter of this course. You do not need the state monad to create stateful compositions in functional programming, but it facilitates constructing them.
 
