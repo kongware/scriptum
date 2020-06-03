@@ -55,24 +55,24 @@ The chapters of this online course are under continuous change as my knowledge a
 14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-14.md)
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-15.md)
 16. [Statically Combining Contexts with a Pure Function using Applicative](https://github.com/kongware/scriptum/blob/master/ch-16.md)
-17. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
+17. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad (▓░░░░░░░░░ 10% done)
 18. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-18.md) (needs revision)
 
+* Planned: Functorial Loop Fusion with Co-/Yoneda
 * Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Edge of the Application
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Delimited Continuations and Coroutines
-* Planned: Functorial Loop Fusion with Co-/Yoneda
+* Planned: From Sharing to Memoization
+* Planned: State Machines
 * Planned: Mastering Tree Data Structures
+* Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
 * Planned: Safely Using Imperative Iterators
 * Planned: Multi-Parameter Type Classes and Functional Dependencies
 * Planned: List-Comprehension and its extension for other data types
 * Planned: Random Access, Single Linked and Difference Lists
-* Planned: Generalizing Folds and Unfolds with Recursion Schemes
-* Planned: From Sharing to Memoization
-* Planned: State Machines
 * Planned: Functional Iso (Optics)
 * Planned: Functional Lenses (Optics)
 * Planned: Functional Prism (Optics)
