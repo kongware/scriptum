@@ -346,6 +346,31 @@ const recOf = Base;
 
 
 /******************************************************************************
+********************************[ APPLICATIVE ]********************************
+******************************************************************************/
+
+
+const liftA2 = ({map, ap}) => f => tx => ty =>
+  ap(map(f) (tx)) (ty);
+
+
+const liftA3 = ({map, ap}) => f => tx => ty => tz =>
+  ap(ap(map(f) (tx)) (ty)) (tz);
+
+
+const liftA4 = ({map, ap}) => f => tw => tx => ty => tz =>
+  ap(ap(ap(map(f) (tw)) (tx)) (ty)) (tz);
+
+
+const liftA5 = ({map, ap}) => f => tv => tw => tx => ty => tz =>
+  ap(ap(ap(ap(map(f) (tv)) (tw)) (tx)) (ty)) (tz);
+
+
+const liftA6 = ({map, ap}) => f => tu => tv => tw => tx => ty => tz =>
+  ap(ap(ap(ap(ap(map(f) (tu)) (tv)) (tw)) (tx)) (ty)) (tz);
+
+
+/******************************************************************************
 *********************************[ FOLDABLE ]**********************************
 ******************************************************************************/
 
@@ -355,11 +380,11 @@ const foldMap = ({fold, append, empty}) => f =>
 
 
 /******************************************************************************
-*********************************[ SEMIGROUP ]*********************************
+**********************************[ MONOID ]***********************************
 ******************************************************************************/
 
 
-/***[ Lifted Option Semigroup ]***********************************************/
+/***[ Lifted Option Monoid ]**************************************************/
 
 
 const optmAppend = append => tx => ty =>
@@ -376,14 +401,6 @@ const optmAppend = append => tx => ty =>
 const optmPrepend = monoidAppend; // just pass prepend as type dictionary argument
 
 
-/******************************************************************************
-**********************************[ MONOID ]***********************************
-******************************************************************************/
-
-
-/***[ Lifted Option Monoid ]**************************************************/
-
-
 const optmEmpty = () => None;
 
 
@@ -397,6 +414,35 @@ const optmEmpty = () => None;
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
+
+
+/***[Applicative]*************************************************************/
+
+
+const arrAp = tf => xs =>
+  arrFold(acc => f =>
+    arrAppend(acc)
+      (arrMap(x => f(x)) (xs)))
+        ([])
+          (tf);
+
+
+const arrLiftA2 = liftA2({map: arrMap, ap: arrAp});
+
+
+const arrLiftA3 = liftA3({map: arrMap, ap: arrAp});
+
+
+const arrLiftA4 = liftA4({map: arrMap, ap: arrAp});
+
+
+const arrLiftA5 = liftA5({map: arrMap, ap: arrAp});
+
+
+const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
+
+
+const arrOf = x => [x];
 
 
 /***[Clonable]****************************************************************/
@@ -500,12 +546,6 @@ const arrMap = f => xs =>
 /***[ Monoid ]****************************************************************/
 
 
-const arrEmpty = () => [];
-
-
-/***[ Semigroup ]*************************************************************/
-
-
 const arrAppend = xs => ys =>
   (xs.push.apply(xs, ys), xs);
 
@@ -514,27 +554,36 @@ const arrPrepend = ys => xs =>
   (xs.push.apply(xs, ys), xs);
 
 
+const arrEmpty = () => [];
+
+
 /******************************************************************************
 **********************************[ BOOLEAN ]**********************************
 ******************************************************************************/
 
 
-/***[ Monoid ]****************************************************************/
-
-
-const allEmpty = () => true;
-
-
-const anyEmpty = () => false;
-
-
-/***[ Semigroup ]*************************************************************/
+/***[ All Monoid ]************************************************************/
 
 
 const allAppend = x => y => x && y;
 
 
+const allPrepend = y => x => x && y;
+
+
+const allEmpty = () => true;
+
+
+/***[ Any Monoid ]************************************************************/
+
+
 const anyAppend = x => y => x || y;
+
+
+const anyPrepend = y => x => x || y;
+
+
+const anyEmpty = () => false;
 
 
 /******************************************************************************
@@ -549,8 +598,19 @@ const funAp = tf => tg => x =>
   tf(x) (tg(x));
 
 
-const funLiftA2 = f => tg => th => x =>
-  f(tg(x)) (th(x));
+const funLiftA2 = liftA2({map: funMap, ap: funAp});
+
+
+const funLiftA3 = liftA3({map: funMap, ap: funAp});
+
+
+const funLiftA4 = liftA4({map: funMap, ap: funAp});
+
+
+const funLiftA5 = liftA5({map: funMap, ap: funAp});
+
+
+const funLiftA6 = liftA6({map: funMap, ap: funAp});
 
 
 // funOf @Dependent
@@ -793,6 +853,14 @@ const funJoin = mmf => x =>
 /***[ Monoid ]****************************************************************/
 
 
+const funAppend = append => f => g => x =>
+  append(f(x)) (g(x));
+
+
+const funPrepend = prepend => f => g => x =>
+  prepend(f(x)) (g(x));
+
+
 const funEmpty = empty =>
   () => _ => empty;
 
@@ -821,17 +889,6 @@ const flip = f => y => x =>
 
 
 const id = x => x;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-const funAppend = append => f => g => x =>
-  append(f(x)) (g(x));
-
-
-const funPrepend = prepend => f => g => x =>
-  prepend(f(x)) (g(x));
 
 
 /***[ Transducer ]************************************************************/
@@ -1042,16 +1099,19 @@ const funOf = _const;
 ******************************************************************************/
 
 
-/***[ Monoid ]****************************************************************/
+/***[ Monoid under addition ]*************************************************/
 
 
-const prodEmpty = () => 1;
+const sumAppend = x => y => x + y;
+
+
+const sumPrepend = sumAppend; // commutative
 
 
 const sumEmpty = () => 0;
 
 
-/***[ Semigroup ]*************************************************************/
+/***[ Monoid under multiplication ]*******************************************/
 
 
 const prodAppend = x => y => x * y;
@@ -1060,10 +1120,7 @@ const prodAppend = x => y => x * y;
 const prodPrepend = prodAppend; // commutative
 
 
-const sumAppend = x => y => x + y;
-
-
-const sumPrepend = sumAppend; // commutative
+const prodEmpty = () => 1;
 
 
 /******************************************************************************
@@ -2034,6 +2091,7 @@ module.exports = {
   app,
   app_,
   appr,
+  arrAp,
   arrAppend,
   arrClone,
   arrCons,
@@ -2043,7 +2101,13 @@ module.exports = {
   arrFoldr,
   arrFoldr_,
   arrFoldrk,
+  arrLiftA2,
+  arrLiftA3,
+  arrLiftA4,
+  arrLiftA5,
+  arrLiftA6,
   arrMap,
+  arrOf,
   arrPrepend,
   arrSnoc,
   arrSnoc_,
@@ -2107,6 +2171,10 @@ module.exports = {
   funEmpty,
   funJoin,
   funLiftA2,
+  funLiftA3,
+  funLiftA4,
+  funLiftA5,
+  funLiftA6,
   funMap,
   funOf,
   funPrepend,
@@ -2125,6 +2193,11 @@ module.exports = {
   isUnit,
   lazyProp,
   _let,
+  liftA2,
+  liftA3,
+  liftA4,
+  liftA5,
+  liftA6,
   List,
   listFold,
   listFoldr,
