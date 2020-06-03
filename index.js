@@ -345,17 +345,24 @@ const recOf = Base;
 ******************************************************************************/
 
 
-/***[Foldable]****************************************************************/
+/******************************************************************************
+*********************************[ FOLDABLE ]**********************************
+******************************************************************************/
 
 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty());
 
 
-/***[Monoid]******************************************************************/
+/******************************************************************************
+*********************************[ SEMIGROUP ]*********************************
+******************************************************************************/
 
 
-const monoidAppend = append => tx => ty =>
+/***[ Lifted Option Semigroup ]***********************************************/
+
+
+const optmAppend = append => tx => ty =>
   match(tx, {
     None: _ => ty,
 
@@ -366,10 +373,18 @@ const monoidAppend = append => tx => ty =>
   });
 
 
-const monoidPrepend = monoidAppend; // just pass prepend as type dictionary argument
+const optmPrepend = monoidAppend; // just pass prepend as type dictionary argument
 
 
-const monoidEmpty = () => None;
+/******************************************************************************
+**********************************[ MONOID ]***********************************
+******************************************************************************/
+
+
+/***[ Lifted Option Monoid ]**************************************************/
+
+
+const optmEmpty = () => None;
 
 
 /******************************************************************************
@@ -2125,9 +2140,6 @@ module.exports = {
   match2,
   match3,
   monadRec,
-  monoidAppend,
-  monoidEmpty,
-  monoidPrepend,
   Mutu,
   mutuRec,
   Nil,
@@ -2142,6 +2154,9 @@ module.exports = {
   optAppend,
   optEmpty,
   optMap,
+  optmAppend,
+  optmEmpty,
+  optmPrepend,
   optPrepend,
   pAppend,
   Parallel,
