@@ -54,7 +54,7 @@ The chapters of this online course are under continuous change as my knowledge a
 13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/ch-13.md)
 14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/ch-14.md)
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/ch-15.md)
-16. Planned: Statically Combining Contexts with a Pure Function using Applicative (▓▓▓▓▓▓▓▓▓░ 90% done)
+16. [Statically Combining Contexts with a Pure Function using Applicative](https://github.com/kongware/scriptum/blob/master/ch-16.md)
 17. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad
 18. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/ch-18.md) (needs revision)
 
