@@ -1268,7 +1268,26 @@ const Cont = cont => record(Cont, {cont});
 /***[ Applicative ]***********************************************************/
 
 
+const contAp = tf => tx =>
+  Cont(k => tf.cont(f => tx.cont(x => k(f(x)))));
 
+
+const contLiftA2 = liftA2({map: contMap, ap: contAp});
+
+
+const contLiftA3 = liftA3({map: contMap, ap: contAp});
+
+
+const contLiftA4 = liftA4({map: contMap, ap: contAp});
+
+
+const contLiftA5 = liftA5({map: contMap, ap: contAp});
+
+
+const contLiftA6 = liftA6({map: contMap, ap: contAp});
+
+
+const contOf = x => Cont(k => k(x));
 
 
 /***[ Functor ]***************************************************************/
@@ -2147,9 +2166,16 @@ module.exports = {
   _const,
   const_,
   Cont,
+  contAp,
   contAppend,
   contEmpty,
+  contLiftA2,
+  contLiftA3,
+  contLiftA4,
+  contLiftA5,
+  contLiftA6,
   contMap,
+  contOf,
   contPrepend,
   ctorAppend,
   ctorEmpty,
