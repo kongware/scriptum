@@ -1214,12 +1214,6 @@ const GT = Comparator("GT", {valueOf: () => 1});
 /***[ Monoid ]****************************************************************/
 
 
-const ctorEmpty = () => EQ;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
 const ctorAppend = tx => ty => 
   match(tx, {
     LT: _ => LT,
@@ -1236,6 +1230,9 @@ const ctorPrepend = ty => tx =>
   });
 
 
+const ctorEmpty = () => EQ;
+
+
 /******************************************************************************
 **********************************[ COMPARE ]**********************************
 ******************************************************************************/
@@ -1249,18 +1246,15 @@ const Compare = cmp => record(
 /***[ Monoid ]****************************************************************/
 
 
-const cmpEmpty = () => _ => _ => ctorEmpty();
-
-
-/***[ Semigroup ]*************************************************************/
-
-
 const cmpAppend = tx => ty =>
   Compare(x => y => ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
 
 
 const cmpPrepend = ty => tx =>
   Compare(x => y => ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
+
+
+const cmpEmpty = () => _ => _ => ctorEmpty();
 
 
 /******************************************************************************
@@ -1271,11 +1265,31 @@ const cmpPrepend = ty => tx =>
 const Cont = cont => record(Cont, {cont});
 
 
+/***[ Applicative ]***********************************************************/
+
+
+
+
+
 /***[ Functor ]***************************************************************/
 
 
 const contMap = f => tx =>
   Cont(k => tx.cont(x => k(f(x))));
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const contAppend = append => tx => ty =>
+  Cont(k => tx.cont(x => ty.cont(y => append(x) (y))));
+
+
+const contPrepend = contAppend; // just pass prepend as type dictionary argument
+
+
+const contEmpty = empty =>
+  () => Cont(k => k(empty()));
 
 
 /******************************************************************************
@@ -2133,7 +2147,10 @@ module.exports = {
   _const,
   const_,
   Cont,
+  contAppend,
+  contEmpty,
   contMap,
+  contPrepend,
   ctorAppend,
   ctorEmpty,
   ctorPrepend,
