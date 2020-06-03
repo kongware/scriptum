@@ -64,7 +64,7 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Delimited Continuations and Coroutines
 * Planned: From Sharing to Memoization
-* Planned: State Machines
+* Planned: Functional encoded state machines
 * Planned: Mastering Tree Data Structures
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
