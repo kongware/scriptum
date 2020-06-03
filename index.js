@@ -1319,16 +1319,13 @@ const contEmpty = empty =>
 /***[ Monoid ]****************************************************************/
 
 
-const endoEmpty = () => id;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
 const endoAppend = comp;
 
 
 const endoPrepend = pipe;
+
+
+const endoEmpty = () => id;
 
 
 /******************************************************************************
@@ -1346,7 +1343,16 @@ const Cons = head => tail =>
   List(Cons, {head, tail});
 
 
+/***[ Applicative ]***********************************************************/
+
+
+
+
+
 /***[ De-/Construction ]******************************************************/
+
+
+const cons = Cons;
 
 
 const cons_ = tail => head =>
@@ -1392,6 +1398,20 @@ const listMap = f =>
       Nil: _ => Base(Nil),
       Cons: ({head, tail}) => Call(Cons(f(head)), Step(tail))
     }));
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const listAppend = xs => ys =>
+  listFoldr(Cons) (ys) (xs);
+
+
+const listPrepend = ys => xs =>
+  listFoldr(Cons) (ys) (xs);
+
+
+const listEmpty = () => Nil;
 
 
 /******************************************************************************
@@ -2162,6 +2182,7 @@ module.exports = {
   compBin,
   compOn,
   Cons,
+  cons,
   cons_,
   _const,
   const_,
@@ -2242,10 +2263,13 @@ module.exports = {
   liftA5,
   liftA6,
   List,
+  listAppend,
+  listEmpty,
   listFold,
   listFoldr,
   listFoldr_,
   listMap,
+  listPrepend,
   log,
   LT,
   map,
