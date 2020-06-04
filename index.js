@@ -1546,18 +1546,50 @@ const Parallel = par => record(
   }));
 
 
+/***[ Applicative ]***********************************************************/
+
+
+const parAp = tf => tx =>
+  Parallel((res, rej) =>
+    parAnd(tf) (tx)
+      .par(([f, x]) =>
+         res(f(x)), rej));
+
+
+const parLiftA2 = liftA2({map: parMap, ap: parAp});
+
+
+const parLiftA3 = liftA3({map: parMap, ap: parAp});
+
+
+const parLiftA4 = liftA4({map: parMap, ap: parAp});
+
+
+const parLiftA5 = liftA5({map: parMap, ap: parAp});
+
+
+const parLiftA6 = liftA6({map: parMap, ap: parAp});
+
+
+const parOf = x => Parallel((res, rej) => res(x));
+
+
 /***[ Functor ]***************************************************************/
 
 
 const parMap = f => tx =>
-  Parallel((res, rej) => tx.par(x => res(f(x)), rej));
+  Parallel((res, rej) =>
+    tx.par(x => res(f(x)), rej));
 
 
 /***[ Monoid (type parameter) ]***********************************************/
 
 
 const parAppend = append => tx => ty =>
-  parMap(([x, y]) => append(x) (y)) (parAnd(tx) (ty));
+  Parallel((res, rej) =>
+    parAnd(tx) (ty)
+      .par(([x, y]) =>
+        res(append(x) (y)), rej));
 
 
 const parPrepend = parAppend; // pass prepend as type dictionary
@@ -1571,9 +1603,9 @@ const parEmpty = empty =>
 
 
 const raceAppend = tx => ty =>
-  Parallel(
-    (res, rej) => parOr(tx) (ty)
-      .par(x => res(x)));
+  Parallel((res, rej) =>
+    parOr(tx) (ty)
+      .par(x => res(x), rej));
 
 
 const racePrepend = raceAppend; // order doesn't matter
@@ -2350,9 +2382,16 @@ module.exports = {
   optPrepend,
   Parallel,
   parAnd,
+  parAp,
   parAppend,
   parEmpty,
+  parLiftA2,
+  parLiftA3,
+  parLiftA4,
+  parLiftA5,
+  parLiftA6,
   parMap,
+  parOf,
   parOr,
   parPrepend,
   partial,
