@@ -771,7 +771,7 @@ const delayTask = f => ms => x =>
   Task((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
-const delayPara = f => ms => x =>
+const delayParallel = f => ms => x =>
   Parallel((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
@@ -2250,7 +2250,7 @@ module.exports = {
   curry5,
   curry6,
   debug,
-  delayPara,
+  delayParallel,
   delayTask,
   drop,
   dropr,
