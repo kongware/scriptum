@@ -882,7 +882,7 @@ const appSpread = f => tuple =>
   f(...tuple);
 
 
-/***[ Primitive Combinators ]*************************************************/
+/***[ Primitives ]************************************************************/
 
 
 const app = f => x => f(x);
@@ -1533,12 +1533,12 @@ const optEmpty = () => None;
 ******************************************************************************/
 
 
-const Parallel = para => record(
+const Parallel = par => record(
   Parallel,
   thisify(o => {
-    o.para = (res, rej) =>
-      para(x => {
-        o.para = k => k(x);
+    o.par = (res, rej) =>
+      par(x => {
+        o.par = k => k(x);
         return res(x);
       }, rej);
     
@@ -1549,14 +1549,20 @@ const Parallel = para => record(
 /***[ Functor ]***************************************************************/
 
 
-const pMap = f => tx =>
-  Parallel((res, rej) => tx.para(x => res(f(x)), rej));
+const parMap = f => tx =>
+  Parallel((res, rej) => tx.par(x => res(f(x)), rej));
 
 
 /***[ Monoid (type parameter) ]***********************************************/
 
 
-const pEmpty = empty =>
+const parAppend = append => tx => ty =>
+
+
+const parPrepend = parAppend; // just pass prepend as type dictionary argument
+
+  
+const parEmpty = empty =>
   () => Parallel((res, rej) => res(empty()));
 
 
@@ -1564,43 +1570,43 @@ const pEmpty = empty =>
 /***[ Monoid (race) ]*********************************************************/
 
 
+const raceAppend = tx => ty =>
+
+  
+const racePrepend = ty => tx =>
+
+
 const raceEmpty = () => Parallel((res, rej) => null);
 
 
-/***[ Semigroup (type parameter) ]********************************************/
+/***[ Primitives ]************************************************************/
 
 
-const pAppend = append => tx => ty => {
+const parAnd = tx => ty => {
   const guard = (res, rej, i) => [
     x => (
       r[i] = x,
       isRes || isRej || r[0] === undefined || r[1] === undefined
         ? false
-        : (isRes = true, res(append(r[0]) (r[1])))),
+        : (isRes = true, res(r))),
     e =>
       isRes || isRej
         ? false
         : (isRej = true, rej(e))];
 
-  const r = []
+  const r = [];
 
   let isRes = false,
     isRej = false;
 
   return Parallel(
     (res, rej) => (
-      tx.para(...guard(res, rej, 0)),
-      ty.para(...guard(res, rej, 1))));
+      tx.par(...guard(res, rej, 0)),
+      ty.par(...guard(res, rej, 1))));
 };
 
 
-const pPrepend = pAppend; // just pass prepend as type dictionary argument
-
-
-/***[ Semigroup (race) ]******************************************************/
-
-
-const raceAppend = tx => ty => {
+const parOr = tx => ty => {
   const guard = (res, rej) => [
     x => (
       isRes || isRej
@@ -1615,32 +1621,9 @@ const raceAppend = tx => ty => {
     isRej = false;
 
   return Parallel(
-    (res, rej) => {
-      tx.para(...guard(res, rej));
-      ty.para(...guard(res, rej))
-    })
-};
-
-
-const racePrepend = ty => tx => {
-  const guard = (res, rej) => [
-    x => (
-      isRes || isRej
-        ? false
-        : (isRes = true, res(x))),
-    e =>
-        isRes || isRej
-          ? false
-          : (isRej = true, rej(e))];
-
-  let isRes = false,
-    isRej = false;
-
-  return Parallel(
-    (res, rej) => {
-      tx.para(...guard(res, rej));
-      ty.para(...guard(res, rej))
-    })
+    (res, rej) => (
+      tx.par(...guard(res, rej)),
+      ty.par(...guard(res, rej))));
 };
 
 
@@ -2362,11 +2345,15 @@ module.exports = {
   optmEmpty,
   optmPrepend,
   optPrepend,
-  pAppend,
   Parallel,
+  parAnd,
+  parAppend,
+  parEmpty,
+  parMap,
+  parOr,
+  parPrepend,
   partial,
   partialProps,
-  pEmpty,
   pipe,
   pipe3,
   pipe4,
@@ -2375,9 +2362,7 @@ module.exports = {
   pipe2nd,
   pipeBin,
   pipeOn,
-  pMap,
   postRec,
-  pPrepend,
   Pred,
   predAppend,
   predEmpty,
