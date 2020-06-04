@@ -864,6 +864,16 @@ const funPrepend = prepend => f => g => x =>
 const funEmpty = empty =>
   () => _ => empty;
 
+/***[ Multi-Argument ]********************************************************/
+
+
+const appRest = f => (...args) =>
+  f(args);
+
+
+const appSpread = f => tuple =>
+  f(...tuple);
+
 
 /***[ Primitive Combinators ]*************************************************/
 
@@ -2182,6 +2192,8 @@ module.exports = {
   app,
   app_,
   appr,
+  appRest,
+  appSpread,
   arrAp,
   arrAppend,
   arrClone,
