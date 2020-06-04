@@ -154,6 +154,7 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Common Functional Type: `Task<F>`
 * Planned: Common Functional Type: `These<A, B>`
 * Planned: Common Functional Type: `Triple<A, B, C>`
+* Planned: Common Functional Type: `Validate<E, A>`
 
 ## Important/controversial issues
 
