@@ -1,2 +1,2 @@
-## Scriptum Library Specific Functions
+## Appendix: Scriptum Library Specific Functions
 
