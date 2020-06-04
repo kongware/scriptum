@@ -56,7 +56,8 @@ The chapters of this online course are under continuous change as my knowledge a
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
 16. [Statically Combining Contexts with a Pure Function using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
 17. Planned: Dynamically Combining Contexts with a Kleisi Arrow using Monad (▓░░░░░░░░░ 10% done)
-18. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) (needs revision)
+18. Planned: Composing Effects with Monad Transformers (░░░░░░░░░░ 0% done)
+19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) (needs revision)
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
 * Planned: Composing Effects with Monad Transformers
