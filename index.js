@@ -398,7 +398,7 @@ const optmAppend = append => tx => ty =>
   });
 
 
-const optmPrepend = monoidAppend; // just pass prepend as type dictionary argument
+const optmPrepend = monoidAppend; // pass prepend as type dictionary
 
 
 const optmEmpty = () => None;
@@ -1321,7 +1321,7 @@ const contAppend = append => tx => ty =>
   Cont(k => tx.cont(x => ty.cont(y => append(x) (y))));
 
 
-const contPrepend = contAppend; // just pass prepend as type dictionary argument
+const contPrepend = contAppend; // pass prepend as type dictionary
 
 
 const contEmpty = empty =>
@@ -1556,24 +1556,27 @@ const parMap = f => tx =>
 /***[ Monoid (type parameter) ]***********************************************/
 
 
-const parAppend = append => tx => ty =>
+const parAppend = append => tx => ty => {
+  const [x, y] = parAnd(tx) (ty);
+  return Parallel((res, rej) => res(append(x) (y)));
+};
 
 
-const parPrepend = parAppend; // just pass prepend as type dictionary argument
+const parPrepend = parAppend; // pass prepend as type dictionary
 
   
 const parEmpty = empty =>
   () => Parallel((res, rej) => res(empty()));
 
 
-
 /***[ Monoid (race) ]*********************************************************/
 
 
 const raceAppend = tx => ty =>
+  Parallel((res, rej) => res(parOr(tx) (ty)));
 
   
-const racePrepend = ty => tx =>
+const racePrepend = raceAppend; // order doesn't matter
 
 
 const raceEmpty = () => Parallel((res, rej) => null);
@@ -1694,7 +1697,7 @@ const tAppend = append => tx => ty =>
         res(append(x) (y)), rej), rej));
 
 
-const tPrepend = tAppend; // just pass prepend as type dictionary argument
+const tPrepend = tAppend; // pass prepend as type dictionary
 
 /******************************************************************************
 *******************************************************************************
