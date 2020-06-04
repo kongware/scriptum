@@ -1748,7 +1748,7 @@ const taskAppend = append => tx => ty =>
         res(append(x) (y)), rej), rej));
 
 
-const taskPrepend = tAppend; // pass prepend as type dictionary
+const taskPrepend = taskAppend; // pass prepend as type dictionary
 
 
 const taskEmpty = empty =>
