@@ -1556,10 +1556,8 @@ const parMap = f => tx =>
 /***[ Monoid (type parameter) ]***********************************************/
 
 
-const parAppend = append => tx => ty => {
-  const [x, y] = parAnd(tx) (ty);
-  return Parallel((res, rej) => res(append(x) (y)));
-};
+const parAppend = append => tx => ty =>
+  parMap(([x, y]) => append(x) (y)) (parAnd(tx) (ty));
 
 
 const parPrepend = parAppend; // pass prepend as type dictionary
@@ -1573,9 +1571,11 @@ const parEmpty = empty =>
 
 
 const raceAppend = tx => ty =>
-  Parallel((res, rej) => res(parOr(tx) (ty)));
+  Parallel(
+    (res, rej) => parOr(tx) (ty)
+      .par(x => res(x)));
 
-  
+
 const racePrepend = raceAppend; // order doesn't matter
 
 
