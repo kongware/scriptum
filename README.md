@@ -61,11 +61,11 @@ The chapters of this online course are under continuous change as my knowledge a
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
 * Planned: Composing Effects with Monad Transformers
-* Planned: The Runtime - Edge of the Application
+* Planned: The Runtime - Outer Rim of your Application
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Delimited Continuations and Coroutines
 * Planned: From Sharing to Memoization
-* Planned: Functional encoded state machines
+* Planned: Functional Encoded State Machines
 * Planned: Mastering Tree Data Structures
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
@@ -82,9 +82,10 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Functional Getters (Optics)
 * Planned: Functional Setters (Optics)
 * Planned: Functional Folds (Optics)
-* Planned: Free Monads: Normal-Style, CPS, Codensity, Reflection
+* Planned: Free Monads - Normal Style, CPS, Codensity, Reflection
 * Planned: Freer Monads and Extensible Effects
-* Planned: Structuring Large-Scale Functional Applications
+* Planned: Tagless Final Encoding
+* Planned: Functional Architecture
 * Planned: When FP does not save us
 * Planned: Incremental computing
 * Planned: Functional Reactive Programming
