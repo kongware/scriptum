@@ -1673,18 +1673,15 @@ const Pred = pred => record(Pred, {pred});
 /***[ Monoid ]****************************************************************/
 
 
-const predEmpty = () => Pred(_ => true);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
 const predAppend = tp => tq =>
   Pred(x => tp.pred(x) && tq.pred(x));
 
 
 const predPrepend = tq => tp =>
   Pred(x => tp.pred(x) && tq.pred(x));
+
+
+const predEmpty = () => Pred(_ => true);
 
 
 /******************************************************************************
@@ -1705,31 +1702,58 @@ const Task = task => record(
   }));
 
 
+/***[ Applicative ]***********************************************************/
+
+
+const taskAp = tf => tx =>
+  Task((res, rej) =>
+     tf.task(f =>
+       tx.task(x =>
+         res(f(x)), rej), rej));
+
+
+const taskLiftA2 = liftA2({map: taskMap, ap: taskAp});
+
+
+const taskLiftA3 = liftA3({map: taskMap, ap: taskAp});
+
+
+const taskLiftA4 = liftA4({map: taskMap, ap: taskAp});
+
+
+const taskLiftA5 = liftA5({map: taskMap, ap: taskAp});
+
+
+const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
+
+
+const taskOf = x => Task((res, rej) => res(x));
+
+
 /***[ Functor ]***************************************************************/
 
 
-const tMap = f => tx =>
-  Task((res, rej) => tx.task(x => res(f(x)), rej));
+const taskMap = f => tx =>
+  Task((res, rej) =>
+    tx.task(x => res(f(x)), rej));
 
 
 /***[ Monoid ]****************************************************************/
 
 
-const tEmpty = empty =>
-  () => Task((res, rej) => res(empty()));
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-const tAppend = append => tx => ty =>
+const taskAppend = append => tx => ty =>
   Task((res, rej) =>
     tx.task(x =>
       ty.task(y =>
         res(append(x) (y)), rej), rej));
 
 
-const tPrepend = tAppend; // pass prepend as type dictionary
+const taskPrepend = tAppend; // pass prepend as type dictionary
+
+
+const taskEmpty = empty =>
+  () => Task((res, rej) => res(empty()));
+
 
 /******************************************************************************
 *******************************************************************************
@@ -2437,14 +2461,21 @@ module.exports = {
   takeWhiler,
   takeWhilek,
   takeWhilerk,
-  tAppend,
   Task,
-  tEmpty,
+  taskAp,
+  taskAppend,
+  taskEmpty,
+  taskLiftA2,
+  taskLiftA3,
+  taskLiftA4,
+  taskLiftA5,
+  taskLiftA6,
+  taskMap,
+  taskOf,
+  taskPrepend,
   thisify,
   _throw,
   thunk,
-  tMap,
-  tPrepend,
   trace,
   transduce,
   tryCatch,
