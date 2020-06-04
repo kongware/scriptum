@@ -215,8 +215,8 @@ We still have not talked about mutations. The function call stack cannot assist 
 
 Besides reassignments and mutations there is another major need for handling application state: Values that vary over time, either discretely or continuously. This is a rather advanced and complex topic and will be discussed in the chapters on streams and functional reactive programming.
 
-### Note on my own account
+### Editor's note
 
 If you enjoyed this chapter please 🌟 scriptum here on Github or share it on your preferred social media platform. If you found a mistake or inaccuracy or want to propose an improvement please file an issue/feature. Thank you.
 
-[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/ch-1.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/ch-3.md)
+[&lt; prev chapter](https://github.com/kongware/scriptum/blob/master/course/ch-001.md) | [TOC](https://github.com/kongware/scriptum#functional-programming-course-toc) | [next chapter &gt;](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
