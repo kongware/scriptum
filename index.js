@@ -398,7 +398,7 @@ const optmAppend = append => tx => ty =>
   });
 
 
-const optmPrepend = monoidAppend; // pass prepend as type dictionary
+const optmPrepend = optmAppend; // pass prepend as type dictionary
 
 
 const optmEmpty = () => None;
