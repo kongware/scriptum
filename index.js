@@ -1451,6 +1451,24 @@ const None = Option("None", {});
 const Some = some => Option(Some, {some});
 
 
+/***[ Applicative ]***********************************************************/
+
+
+const optAp = tf => tx =>
+  match(tf, {
+    None: _ => None,
+    Some: ({some: f}) => {
+      return match(tx, {
+        None: _ => None,
+        Some: ({some: x}) => Some(f(x))
+      });
+    }
+  });
+
+
+const optOf = x => Some(x);
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -1462,12 +1480,6 @@ const optMap = f => tx =>
 
 
 /***[Monoid]******************************************************************/
-
-
-const optEmpty = () => None;
-
-
-/***[Semigroup]***************************************************************/
 
 
 const optAppend = append => tx => ty =>
@@ -1494,6 +1506,9 @@ const optPrepend = prepend => tx => ty =>
       });
     }
   });
+
+
+const optEmpty = () => None;
 
 
 /******************************************************************************
