@@ -4,3 +4,4 @@
 * _let
 * appRest
 * appSpread
+* partialProps
