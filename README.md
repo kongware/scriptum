@@ -60,7 +60,6 @@ The chapters of this online course are under continuous change as my knowledge a
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) (needs revision)
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
-* Planned: Composing Effects with Monad Transformers
 * Planned: The Runtime - Outer Rim of your Application
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Delimited Continuations and Coroutines
