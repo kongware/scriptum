@@ -1346,7 +1346,30 @@ const Cons = head => tail =>
 /***[ Applicative ]***********************************************************/
 
 
+const listAp = fs => xs =>
+  listFoldr(f => acc =>
+    listAppend(listMap(f) (xs))
+      (acc))
+        (Nil)
+          (fs);
 
+
+const listLiftA2 = liftA2({map: listMap, ap: listAp});
+
+
+const listLiftA3 = liftA3({map: listMap, ap: listAp});
+
+
+const listLiftA4 = liftA4({map: listMap, ap: listAp});
+
+
+const listLiftA5 = liftA5({map: listMap, ap: listAp});
+
+
+const listLiftA6 = liftA6({map: listMap, ap: listAp});
+
+
+const listOf = x => Cons(x) (Nil);
 
 
 /***[ De-/Construction ]******************************************************/
@@ -2263,12 +2286,19 @@ module.exports = {
   liftA5,
   liftA6,
   List,
+  listAp,
   listAppend,
   listEmpty,
   listFold,
   listFoldr,
   listFoldr_,
+  listLiftA2,
+  listLiftA3,
+  listLiftA4,
+  listLiftA5,
+  listLiftA6,
   listMap,
+  listOf,
   listPrepend,
   log,
   LT,
