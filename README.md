@@ -149,6 +149,7 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Common Functional Type: `Product<A>`
 * Planned: Common Functional Type: `Record<R>`
 * Planned: Common Functional Type: `Ref<A>`
+* Planned: Common Functional Type: `ST<S, A>`
 * Planned: Common Functional Type: `Stream<A>`
 * Planned: Common Functional Type: `Sum<A>`
 * Planned: Common Functional Type: `Task<F>`
