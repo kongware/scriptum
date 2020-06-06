@@ -132,11 +132,13 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Common Functional Type: `Compose<F, G, A>`
 * Planned: Common Functional Type: `Const<A, B>`
 * Planned: Common Functional Type: `Cont<K>`
+* Planned: Common Functional Type: `Contrvaraint<F>`
 * Planned: Common Functional Type: `Either<A, B>`
 * Planned: Common Functional Type: `Endo<A>`
 * Planned: Common Functional Type: `Equiv<F>`
 * Planned: Common Functional Type: `First<A>`
 * Planned: Common Functional Type: `Id<A>`
+* Planned: Common Functional Type: `Invariant<F>`
 * Planned: Common Functional Type: `Last<A>`
 * Planned: Common Functional Type: `Lazy<F>`
 * Planned: Common Functional Type: `List<A>`
