@@ -6,17 +6,19 @@ scriptum is a no-frills functional programming library and a learning course bas
 
 ## Why
 
-Functional programming comes from math and has therefore the most solid theoratically foundation of all paradigms. functional programming...
+Functional programming comes from math and has therefore the most solid theoretically foundation of all paradigms. Functional programming...
 
 * is based on a couple of recurring general patterns from math
 * renders certain aspects of your code explicit
-* stives for a high level of abstraction 
+* strives for a high level of abstraction 
 
-These three traits have a huge imtpact on how you write and reason about programs. The first point leads to highly predictable code, because the underlying patterns are always the same. Since these patterns are so general they have a wide field of applications. You can plug code together and there is a good that it just works as expected.
+These three traits have a huge impact on how you write and reason about programs. The first point leads to highly predictable code, because the underlying patterns are always the same. These patterns are so general that they have a wide range of applications. You can plug code together and there is a good chance that it just works as expected.
 
-No one made these patterns up but they come from math. Mathematical concepts and structures tend to be very formal and often rather non-intuitive. This is the hardest part of functional programming. You need to let go your intuition in order to be open minded torwards the mathematical ideas.
+No one made these patterns up but they come from math. Mathematical concepts and structures tend to be very formal and often rather non-intuitive. This is the hardest part of functional programming. You need to let go your intuition in order to be open minded towards the mathematical ideas.
 
-The second point makes functional programming tedious sometimes, because it forces you to make certain effects in your program explicit thoughout your codebase. This makes the process of creating an application hard at the beginning but it results in reliable and resilient code down the road.
+The second point makes functional programming tedious sometimes, because it forces you to make certain effects in your program explicit throughout your codebase. This makes the process of creating an application hard at the beginning but it results in reliable and resilient code down the road.
+
+The third point enables code reuse, not only as a nice theoretical idea but in practice to an extent that you have never experienced before.
 
 ## Who
 
@@ -33,7 +35,7 @@ As it turns out all we need to get there...
 
 It is remarkable how many purely functional idioms we can express with these two features.
 
-I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job confeying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
+I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job conveying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
 
 The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
