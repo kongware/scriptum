@@ -6,6 +6,24 @@ scriptum is a no-frills functional programming library and a learning course bas
 
 ## Why
 
+Functional programming comes from math and has therefore the most solid theoratically foundation of all paradigms. functional programming...
+
+* is based on a couple of recurring general patterns from math
+* renders certain aspects of your code explicit
+* stives for a high level of abstraction 
+
+These three traits have a huge imtpact on how you write and reason about programs. The first point leads to highly predictable code, because the underlying patterns are always the same. Since these patterns are so general they have a wide field of applications. You can plug code together and there is a good that it just works as expected.
+
+No one made these patterns up but they come from math. Mathematical concepts and structures tend to be very formal and often rather non-intuitive. This is the hardest part of functional programming. You need to let go your intuition in order to be open minded torwards the mathematical ideas.
+
+The second point makes functional programming tedious sometimes, because it forces you to make certain effects in your program explicit thoughout your codebase. This makes the process of creating an application hard at the beginning but it results in reliable and resilient code down the road.
+
+## Who
+
+This course addresses both functional programming novices and experienced imperative programmers. In both cases you need to develop a completely new intuition about programming. This can be frustrating and confusing at first. Hang in there!
+
+## How
+
 scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
 
 As it turns out all we need to get there...
@@ -13,17 +31,9 @@ As it turns out all we need to get there...
 * are first class functions
 * is a mechanism to allow expressions to be in weak head normal form
 
-It is remarkable how many purely functional idioms we can express with these two requirements.
+It is remarkable how many purely functional idioms we can express with these two features.
 
-## Who
-
-This course addresses both functional programming novices and experienced imperative programmers.
-
-## How
-
-I am not going to get particularly academic. There won't be equational reasoning, mathematical proofs or cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers out there, which do that already. Instead, I will attempt to let you develop an intuition by natural language, type annotations and code examples. Natural language need not necessarily mean to use fuzzy metaphors. Natural language can be surprisingly accurate.
-
-Functional programming comes from math, renders certain aspects of your code explicit and favors a high level of abstraction and generalization. These are the reasons why the paradigm seems to be more complex and strict at the beginning. However, you will soon realize that we constantly use a set of recurring patterns and idioms and their mechanics are always the same no matter what context you work in. At a certain point you can put them together almost blindly and it just works as expected.
+I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job confeying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
 
 The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
 
