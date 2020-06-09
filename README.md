@@ -145,6 +145,7 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Common Functional Type: `Const<A, B>`
 * Planned: Common Functional Type: `Cont<K>`
 * Planned: Common Functional Type: `Contrvaraint<F>`
+* Planned: Common Functional Type: `Effect<A>`
 * Planned: Common Functional Type: `Either<A, B>`
 * Planned: Common Functional Type: `Endo<A>`
 * Planned: Common Functional Type: `Equiv<F>`
