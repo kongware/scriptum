@@ -96,7 +96,8 @@ The chapters of this online course are under continuous change as my knowledge a
 * Planned: Free Monads - Normal Style, CPS, Codensity, Reflection
 * Planned: Freer Monads and Extensible Effects
 * Planned: Tagless Final Encoding
-* Planned: Functional Architecture
+* Planned: Functional Architectures
+* Planned: Type-Directed Programming
 * Planned: When FP does not save us
 * Planned: Incremental computing
 * Planned: Functional Reactive Programming
