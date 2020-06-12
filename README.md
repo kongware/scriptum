@@ -71,6 +71,24 @@ The 1st part of the course will be kept in an untyped and yet type directed sett
 
 Please report an issue if you run across a mistake, ambiguous wording or inconsistent statement in the course. Please let me also know if there is an important subject missing in the chapter pipeline. Your help is much appreciated!
 
+## Controversial decisions
+
+### No external dependencies or preprocessors
+
+This course is meant to lower the threshold for imperative programmers and functional novices to become familiar with the paradigm. Consequently the underlying library solely depends on vanilla Javascript without any external dependencies or additional compiling steps.
+
+### No language specific idioms
+
+I want scriptum to be as simple and as general as possible without any Javascript specific idioms. Hence I don't rely on the prototype system and rarely use method chaining.
+
+### Curried functions only
+
+scriptum relies on curried functions. Currying isn't a prerequisite of functional programming but helps simplifying the function interface. However, for performance reasons I will sporadically use local multi-parameter functions in a recursive context, where large amounts of data are processed.
+
+### Mixed Im-/mutability
+
+Javascript's plain old `Object` type along with functional optics leans itself quite naturally to immutability and is hence treated as such. However, `Array`, `Map`, `Set` et al. are designed for a mutable setting. Treat them as immutable leads to rather inefficient code. If you work with scriptum it is your responsibility as a developer to copy such values before performing destructive updates.
+
 ## TODO
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
@@ -175,21 +193,3 @@ Please report an issue if you run across a mistake, ambiguous wording or inconsi
 * Planned: Common Functional Type: `Triple<A, B, C>`
 * Planned: Common Functional Type: `Validate<E, A>`
 * Planned: Common Functional Type: `ValueObj<K, V>`
-
-## Important/controversial issues
-
-### No external dependencies or preprocessors
-
-This course is meant to lower the threshold for imperative programmers and functional novices to become familiar with the paradigm. Consequently the underlying library solely depends on vanilla Javascript without any external dependencies or additional compiling steps.
-
-### No language specific idioms
-
-I want scriptum to be as simple and as general as possible without any Javascript specific idioms. Hence I don't rely on the prototype system and rarely use method chaining.
-
-### Curried functions only
-
-scriptum relies on curried functions. Currying isn't a prerequisite of functional programming but helps simplifying the function interface. However, for performance reasons I will sporadically use local multi-parameter functions in a recursive context, where large amounts of data are processed.
-
-### Mixed Im-/mutability
-
-Javascript's plain old `Object` type along with functional optics leans itself quite naturally to immutability and is hence treated as such. However, `Array`, `Map`, `Set` et al. are designed for a mutable setting. Treat them as immutable leads to rather inefficient code. If you work with scriptum it is your responsibility as a developer to copy such values before performing destructive updates.
