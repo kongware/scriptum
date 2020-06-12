@@ -51,7 +51,7 @@ The chapters of this online course are under continuous change as my knowledge a
 
 ### Part I (untyped)
 
-01. [Functional Fundamentals and Way of Reasoning](https://github.com/kongware/scriptum/blob/master/course/ch-001.md)
+01. [Functional Jargon and Developer Experience](https://github.com/kongware/scriptum/blob/master/course/ch-001.md)
 02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/course/ch-002.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
 04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
