@@ -4,6 +4,34 @@
 
 scriptum is a no-frills functional programming library and a learning course based on it.
 
+## Status
+
+The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
+
+## Functional programming course (TOC)
+
+### Part I (untyped)
+
+01. [Functional Jargon and Developer Experience](https://github.com/kongware/scriptum/blob/master/course/ch-001.md)
+02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/course/ch-002.md)
+03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
+04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
+05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-005.md)
+06. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-006.md)
+07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
+08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/course/ch-008.md)
+09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md)
+10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/course/ch-010.md)
+11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/course/ch-011.md)
+12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md)
+13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/course/ch-013.md)
+14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/course/ch-014.md)
+15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
+16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
+17. Planned: Combining Effects with Actions using Monad (▓▓▓░░░░░░░ 30% done)
+18. Planned: Composing Different Effects with Monad Transformers (░░░░░░░░░░ 0% done)
+19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) (needs revision)
+
 ## Why
 
 Functional programming comes from math and has therefore the most solid theoretically foundation of all paradigms. Functional programming...
@@ -43,33 +71,7 @@ The 1st part of the course will be kept in an untyped and yet type directed sett
 
 Please report an issue if you run across a mistake, ambiguous wording or inconsistent statement in the course. Please let me also know if there is an important subject missing in the chapter pipeline. Your help is much appreciated!
 
-## Status
-
-The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
-
-## Functional programming course (TOC)
-
-### Part I (untyped)
-
-01. [Functional Jargon and Developer Experience](https://github.com/kongware/scriptum/blob/master/course/ch-001.md)
-02. [Managing State in Functional Programming](https://github.com/kongware/scriptum/blob/master/course/ch-002.md)
-03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
-04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
-05. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-005.md)
-06. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-006.md)
-07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
-08. [From Natural Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/course/ch-008.md)
-09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md)
-10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/course/ch-010.md)
-11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/course/ch-011.md)
-12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md)
-13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/course/ch-013.md)
-14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/course/ch-014.md)
-15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
-16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
-17. Planned: Combining Effects with Actions using Monad (▓▓▓░░░░░░░ 30% done)
-18. Planned: Composing Different Effects with Monad Transformers (░░░░░░░░░░ 0% done)
-19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) (needs revision)
+## TODO
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
 * Planned: The Runtime - Outer Rim of your Application
