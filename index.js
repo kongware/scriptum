@@ -1382,7 +1382,7 @@ const Nil = List("Nil", {});
 
 
 const Cons = head => tail =>
-  List(Cons, {head, tail});
+  List(Cons, {head, get tail() {return tail}});
 
 
 /***[ Applicative ]***********************************************************/
