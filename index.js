@@ -68,6 +68,10 @@ class HamtError extends ScriptumError {};
 ******************************************************************************/
 
 
+const lazy = f => x =>
+  thunk(() => f(x));
+
+
 const strict = thunk => {
   while (thunk[THUNK])
     thunk = thunk.valueOf();
@@ -1465,6 +1469,17 @@ const listMap = f =>
     }));
 
 
+const listMap_ = f => {
+  const go = xs =>
+    match(xs, {
+      Nil: _ => Nil,
+      Cons: ({head, tail}) => Cons(f(head)) (thunk(() => go(tail)))
+    });
+
+  return go;
+};
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -2379,6 +2394,7 @@ module.exports = {
   infix,
   introspect,
   isUnit,
+  lazy,
   lazyProp,
   _let,
   liftA2,
@@ -2399,6 +2415,7 @@ module.exports = {
   listLiftA5,
   listLiftA6,
   listMap,
+  listMap_,
   listOf,
   listPrepend,
   log,
