@@ -95,37 +95,57 @@ class ThunkProxy {
   }
 
   apply(g, that, args) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     return this.memo(...args);
   }
 
-  defineProperty(g, k, descriptor) { debugger;
-    if (this.memo === undefined)
+  defineProperty(g, k, descriptor) {
+    if (this.memo === undefined) {
       this.memo = g();
+
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     Object.defineProperty(this.memo, k, descriptor);
     return true;
   }
   
   ownKeys(g) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     return Reflect.ownKeys(this.memo);
   }
 
   getOwnPropertyDescriptor(g, k) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+      
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
   get(g, k) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+      
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     if (k === THUNK)
       return true;
@@ -140,15 +160,23 @@ class ThunkProxy {
   }
 
   has(g, k) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     return k in this.memo;
   }
 
   set(g, k, v) {
-    if (this.memo === undefined)
+    if (this.memo === undefined) {
       this.memo = g();
+
+      while (this.memo && this.memo[THUNK])
+        this.memo = this.memo.valueOf();
+    }
 
     this.memo[k] = v;
     return true;
@@ -423,27 +451,22 @@ const optmEmpty = () => None;
 /***[Applicative]*************************************************************/
 
 
-const arrAp = tf => xs =>
-  arrFold(acc => f =>
-    arrAppend(acc)
-      (arrMap(x => f(x)) (xs)))
-        ([])
-          (tf);
+// arrAp @Dependent
 
 
-const arrLiftA2 = liftA2({map: arrMap, ap: arrAp});
+// arrLiftA2 @ Dependent
 
 
-const arrLiftA3 = liftA3({map: arrMap, ap: arrAp});
+// arrLiftA3 @ Dependent
 
 
-const arrLiftA4 = liftA4({map: arrMap, ap: arrAp});
+// arrLiftA4 @ Dependent
 
 
-const arrLiftA5 = liftA5({map: arrMap, ap: arrAp});
+// arrLiftA5 @ Dependent
 
 
-const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
+// arrLiftA6 @ Dependent
 
 
 const arrOf = x => [x];
@@ -568,6 +591,32 @@ const tupApp = f => tuple =>
   arrFold(g => x => g(x)) (f) (tuple);
 
 
+/***[ Dependent ]*************************************************************/
+
+
+const arrAp = tf => xs =>
+  arrFold(acc => f =>
+    arrAppend(acc)
+      (arrMap(x => f(x)) (xs)))
+        ([])
+          (tf);
+
+
+const arrLiftA2 = liftA2({map: arrMap, ap: arrAp});
+
+
+const arrLiftA3 = liftA3({map: arrMap, ap: arrAp});
+
+
+const arrLiftA4 = liftA4({map: arrMap, ap: arrAp});
+
+
+const arrLiftA5 = liftA5({map: arrMap, ap: arrAp});
+
+
+const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
+
+
 /******************************************************************************
 **********************************[ BOOLEAN ]**********************************
 ******************************************************************************/
@@ -609,19 +658,19 @@ const funAp = tf => tg => x =>
   tf(x) (tg(x));
 
 
-const funLiftA2 = liftA2({map: funMap, ap: funAp});
+// funLiftA2 @ Dependent
 
 
-const funLiftA3 = liftA3({map: funMap, ap: funAp});
+// funLiftA3 @ Dependent
 
 
-const funLiftA4 = liftA4({map: funMap, ap: funAp});
+// funLiftA4 @ Dependent
 
 
-const funLiftA5 = liftA5({map: funMap, ap: funAp});
+// funLiftA5 @ Dependent
 
 
-const funLiftA6 = liftA6({map: funMap, ap: funAp});
+// funLiftA6 @ Dependent
 
 
 // funOf @Dependent
@@ -1112,6 +1161,21 @@ const transduce = ({append, fold}) => f =>
 /***[ Dependent ]*************************************************************/
 
 
+const funLiftA2 = liftA2({map: funMap, ap: funAp});
+
+
+const funLiftA3 = liftA3({map: funMap, ap: funAp});
+
+
+const funLiftA4 = liftA4({map: funMap, ap: funAp});
+
+
+const funLiftA5 = liftA5({map: funMap, ap: funAp});
+
+
+const funLiftA6 = liftA6({map: funMap, ap: funAp});
+
+
 const funOf = _const;
 
 
@@ -1318,19 +1382,19 @@ const contAp = tf => tx =>
   Cont(k => tf.cont(f => tx.cont(x => k(f(x)))));
 
 
-const contLiftA2 = liftA2({map: contMap, ap: contAp});
+// contLiftA2 @ Dependent
 
 
-const contLiftA3 = liftA3({map: contMap, ap: contAp});
+// contLiftA3 @ Dependent
 
 
-const contLiftA4 = liftA4({map: contMap, ap: contAp});
+// contLiftA4 @ Dependent
 
 
-const contLiftA5 = liftA5({map: contMap, ap: contAp});
+// contLiftA5 @ Dependent
 
 
-const contLiftA6 = liftA6({map: contMap, ap: contAp});
+// contLiftA6 @ Dependent
 
 
 const contOf = x => Cont(k => k(x));
@@ -1355,6 +1419,24 @@ const contPrepend = contAppend; // pass prepend as type dictionary
 
 const contEmpty = empty =>
   () => Cont(k => k(empty()));
+
+
+/***[ Dependent ]*************************************************************/
+
+
+const contLiftA2 = liftA2({map: contMap, ap: contAp});
+
+
+const contLiftA3 = liftA3({map: contMap, ap: contAp});
+
+
+const contLiftA4 = liftA4({map: contMap, ap: contAp});
+
+
+const contLiftA5 = liftA5({map: contMap, ap: contAp});
+
+
+const contLiftA6 = liftA6({map: contMap, ap: contAp});
 
 
 /******************************************************************************
@@ -1392,27 +1474,22 @@ const Cons = head => tail =>
 /***[ Applicative ]***********************************************************/
 
 
-const listAp = fs => xs =>
-  listFoldr(f => acc =>
-    listAppend(listMap(f) (xs))
-      (acc))
-        (Nil)
-          (fs);
+// listAp @Dependent
 
 
-const listLiftA2 = liftA2({map: listMap, ap: listAp});
+// listLiftA2 @Dependent
 
 
-const listLiftA3 = liftA3({map: listMap, ap: listAp});
+// listLiftA3 @Dependent
 
 
-const listLiftA4 = liftA4({map: listMap, ap: listAp});
+// listLiftA4 @Dependent
 
 
-const listLiftA5 = liftA5({map: listMap, ap: listAp});
+// listLiftA5 @Dependent
 
 
-const listLiftA6 = liftA6({map: listMap, ap: listAp});
+// listLiftA6 @Dependent
 
 
 const listOf = x => Cons(x) (Nil);
@@ -1492,6 +1569,32 @@ const listPrepend = ys => xs =>
 
 
 const listEmpty = () => Nil;
+
+
+/***[ Dependent ]*************************************************************/
+
+
+const listAp = fs => xs =>
+  listFoldr(f => acc =>
+    listAppend(listMap(f) (xs))
+      (acc))
+        (Nil)
+          (fs);
+
+
+const listLiftA2 = liftA2({map: listMap, ap: listAp});
+
+
+const listLiftA3 = liftA3({map: listMap, ap: listAp});
+
+
+const listLiftA4 = liftA4({map: listMap, ap: listAp});
+
+
+const listLiftA5 = liftA5({map: listMap, ap: listAp});
+
+
+const listLiftA6 = liftA6({map: listMap, ap: listAp});
 
 
 /******************************************************************************
@@ -1596,19 +1699,19 @@ const parAp = tf => tx =>
          res(f(x)), rej));
 
 
-const parLiftA2 = liftA2({map: parMap, ap: parAp});
+// parLiftA2 @Dependent
 
 
-const parLiftA3 = liftA3({map: parMap, ap: parAp});
+// parLiftA3 @Dependent
 
 
-const parLiftA4 = liftA4({map: parMap, ap: parAp});
+// parLiftA4 @Dependent
 
 
-const parLiftA5 = liftA5({map: parMap, ap: parAp});
+// parLiftA5 @Dependent
 
 
-const parLiftA6 = liftA6({map: parMap, ap: parAp});
+// parLiftA6 @Dependent
 
 
 const parOf = x => Parallel((res, rej) => res(x));
@@ -1702,6 +1805,24 @@ const parOr = tx => ty => {
 };
 
 
+/***[ Dependent ]*************************************************************/
+
+
+const parLiftA2 = liftA2({map: parMap, ap: parAp});
+
+
+const parLiftA3 = liftA3({map: parMap, ap: parAp});
+
+
+const parLiftA4 = liftA4({map: parMap, ap: parAp});
+
+
+const parLiftA5 = liftA5({map: parMap, ap: parAp});
+
+
+const parLiftA6 = liftA6({map: parMap, ap: parAp});
+
+
 /******************************************************************************
 ***********************************[ PRED ]************************************
 ******************************************************************************/
@@ -1752,19 +1873,19 @@ const taskAp = tf => tx =>
          res(f(x)), rej), rej));
 
 
-const taskLiftA2 = liftA2({map: taskMap, ap: taskAp});
+// taskLiftA2 @Dependent
 
 
-const taskLiftA3 = liftA3({map: taskMap, ap: taskAp});
+// taskLiftA3 @Dependent
 
 
-const taskLiftA4 = liftA4({map: taskMap, ap: taskAp});
+// taskLiftA4 @Dependent
 
 
-const taskLiftA5 = liftA5({map: taskMap, ap: taskAp});
+// taskLiftA5 @Dependent
 
 
-const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
+// taskLiftA6 @Dependent
 
 
 const taskOf = x => Task((res, rej) => res(x));
@@ -1793,6 +1914,24 @@ const taskPrepend = taskAppend; // pass prepend as type dictionary
 
 const taskEmpty = empty =>
   () => Task((res, rej) => res(empty()));
+
+
+/***[ Dependent ]*************************************************************/
+
+
+const taskLiftA2 = liftA2({map: taskMap, ap: taskAp});
+
+
+const taskLiftA3 = liftA3({map: taskMap, ap: taskAp});
+
+
+const taskLiftA4 = liftA4({map: taskMap, ap: taskAp});
+
+
+const taskLiftA5 = liftA5({map: taskMap, ap: taskAp});
+
+
+const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 
 
 /******************************************************************************
