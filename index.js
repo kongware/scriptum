@@ -151,7 +151,7 @@ class ThunkProxy {
       return true;
 
     else if (k === Symbol.toPrimitive)
-      return () => this.memo;
+      return this.memo[Symbol.toPrimitive];
 
     else if (k === "valueOf")
       return () => this.memo;
