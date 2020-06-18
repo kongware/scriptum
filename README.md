@@ -92,6 +92,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 ## TODO
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
+* Planned: Extracing values with Comonad
 * Planned: The Runtime - Outer Rim of your Application
 * Planned: CPS Transformation for Stack-safe Recursion
 * Planned: Delimited Continuations and Coroutines
