@@ -17,10 +17,10 @@ The chapters of this online course are under continuous change as my knowledge a
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
 04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
 05. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-005.md)
-06. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-006.md) [being edited]
+06. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-006.md) [under review]
 07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
-08. [From Recursion/Data to Corecursion/Codata](https://github.com/kongware/scriptum/blob/master/course/ch-008.md) [being edited]
-09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md) [being edited]
+08. [From Recursion/Data to Corecursion/Codata](https://github.com/kongware/scriptum/blob/master/course/ch-008.md) [under review]
+09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md) [under review]
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/course/ch-010.md)
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/course/ch-011.md)
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md)
