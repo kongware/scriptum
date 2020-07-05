@@ -128,6 +128,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Common Type Class: `Alternative<T>`
 * Planned: Common Type Class: `Applicative<F>`
 * Planned: Common Type Class: `Apply<F>`
+* Planned: Common Type Class: `Behavior<A, E>`
 * Planned: Common Type Class: `Bifunctor<T>`
 * Planned: Common Type Class: `Bounded<T>`
 * Planned: Common Type Class: `Category<T>`
@@ -147,6 +148,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Common Type Class: `IxMonad<M>`
 * Planned: Common Type Class: `Monad<M>`
 * Planned: Common Type Class: `Monoid<M>`
+* Planned: Common Type Class: `Observable<A, E>`
 * Planned: Common Type Class: `Ord<T>`
 * Planned: Common Type Class: `Partial<T>`
 * Planned: Common Type Class: `Plus<T>`
