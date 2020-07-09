@@ -102,7 +102,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
-* Planned: Safely Using Imperative Iterators
+* Planned: From Unit- to Property-based Testing
 * Planned: Multi-Parameter Type Classes and Functional Dependencies
 * Planned: List-Comprehension and its extension for other data types
 * Planned: Random Access, Single Linked and Difference Lists
