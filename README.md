@@ -1,4 +1,4 @@
-<img src="./scriptum.png" width="366" height="114" alt="scriptum"><br><br><br>
+<img src="./scriptum.png" alt="scriptum"><br><br><br>
 
 ## What
 
