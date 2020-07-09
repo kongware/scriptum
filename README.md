@@ -1,4 +1,5 @@
-<img src="./scriptum.png" width="50%" alt="scriptum"><br><br><br>
+<img src="./scriptum.png" width="50%" alt="scriptum"><br><br>
+
 ## What
 
 A no-frills functional programming course based on the scriptum library.
