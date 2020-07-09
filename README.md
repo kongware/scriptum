@@ -2,7 +2,7 @@
 
 ## What
 
-A no-frills functional programming course based on the scriptum library.
+A no-frills functional programming course based on the Javascript scriptum library.
 
 ## Status
 
