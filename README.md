@@ -38,19 +38,7 @@ to be continued...
 
 ## Why
 
-Functional programming comes from math and has therefore the most solid theoretically foundation of all paradigms. Functional programming...
-
-* is based on a couple of recurring general patterns from math
-* renders certain aspects of your code explicit
-* strives for a high level of abstraction 
-
-These three traits have a huge impact on how you write and reason about programs. The first point leads to highly predictable code, because the underlying patterns are always the same. These patterns are so general that they have a wide range of applications. You can plug code together and there is a good chance that it just works as expected.
-
-No one made these patterns up but they come from math. Mathematical concepts and structures tend to be very formal and often rather non-intuitive. This is the hardest part of functional programming. You need to let go your intuition in order to be open minded towards the mathematical ideas.
-
-The second point makes functional programming tedious sometimes, because it forces you to make certain effects in your program explicit throughout your codebase. This makes the process of creating an application hard at the beginning but it results in reliable and resilient code down the road.
-
-The third point enables code reuse, not only as a nice theoretical idea but in practice to an extent that you have never experienced before.
+Functional programming comes from math and thus has the most sound theoretically foundation of all paradigms. While mathematical reasoning is hard and non-intuitive at first it leads to sounder programs in the long term. The usual learning experience is to never look back.
 
 ## Who
 
@@ -58,14 +46,14 @@ This course addresses both functional programming novices and experienced impera
 
 ## How
 
-scriptum is the attempt to get as close as possible to the functional paradigm by using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
+scriptum is the attempt to get as close as possible to the functional paradigm using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
 
 As it turns out all we need to get there...
 
 * are first class functions
 * is a mechanism to allow expressions to be in weak head normal form
 
-It is remarkable how many purely functional idioms we can express with these two features.
+It is remarkable how many purely functional idioms we can express with only these two requirements at hand.
 
 I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job conveying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
 
