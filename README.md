@@ -114,7 +114,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Functional Getters (Optics)
 * Planned: Functional Setters (Optics)
 * Planned: Functional Folds (Optics)
-* Planned: Free Monads - Normal Style, CPS, Codensity, Reflection
+* Planned: Free Monads - Normal Style, Codensity, CPS (Church encoded), Reflection
 * Planned: Freer Monads and Extensible Effects
 * Planned: Tagless Final Encoding
 * Planned: Functional Architectures
