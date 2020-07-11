@@ -32,6 +32,10 @@ The chapters of this online course are under continuous change as my knowledge a
 18. Planned: Composing Different Effects with Monad Transformers (░░░░░░░░░░ 0% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs edit]
 
+Part II (typed)
+
+to be continued...
+
 ## Why
 
 Functional programming comes from math and has therefore the most solid theoretically foundation of all paradigms. Functional programming...
