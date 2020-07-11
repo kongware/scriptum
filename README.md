@@ -28,7 +28,7 @@ The chapters of this online course are under continuous change as my knowledge a
 14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/course/ch-014.md)
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
 16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
-17. Planned: Combining Effects with Actions using Monad (▓▓▓▓▓▓▓▓▓░ 90% done)
+17. [Combining Effects with Actions using Monad](https://github.com/kongware/scriptum/blob/master/course/ch-017.md)
 18. Planned: Composing Different Effects with Monad Transformers (░░░░░░░░░░ 0% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs edit]
 
@@ -92,14 +92,14 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 ## TODO
 
 * Planned: Functorial Loop Fusion with Co-/Yoneda
+* Planned: Generalizing Folds and Unfolds with Recursion Schemes
+* Planned: Managing Time-Varying Values in a Functional Fashion
 * Planned: Extracing values with Comonad
 * Planned: The Runtime - Outer Rim of your Application
-* Planned: CPS Transformation for Stack-safe Recursion
-* Planned: Delimited Continuations and Coroutines
+* Planned: All About Continuations (Transformation, Delimited, etc.)
 * Planned: From Sharing to Memoization
 * Planned: Functional Encoded State Machines
 * Planned: Mastering Tree Data Structures
-* Planned: Generalizing Folds and Unfolds with Recursion Schemes
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
 * Planned: From Unit- to Property-based Testing
