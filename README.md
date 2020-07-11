@@ -8,7 +8,7 @@ A no-frills functional programming course based on the Javascript scriptum libra
 
 The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
 
-## Functional programming course (TOC)
+## Table of Contents
 
 ### Part I (untyped)
 
