@@ -57,7 +57,9 @@ It is remarkable how many purely functional idioms we can express with only thes
 
 I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job conveying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
 
-The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery. In the 2nd part we will learn about parametric and ad-hoc polymorphism, higher kinded and higher ranked types and how we can express them with Typescript's structural type system.
+The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery.
+
+In the 2nd part we will learn about parametric, ad-hoc and row polymorphism, higher kinded and higher ranked types and how we can express them both with our own extended Hindley-Milner and Typescript's type system.
 
 ## Contribution
 
