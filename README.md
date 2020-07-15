@@ -29,7 +29,7 @@ The chapters of this online course are under continuous change as my knowledge a
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
 16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
 17. [Combining Effects with Actions using Monad](https://github.com/kongware/scriptum/blob/master/course/ch-017.md)
-18. Planned: Composing Different Effects with Monad Transformers (▓▓░░░░░░░░ 20% done)
+18. Planned: Composing Different Effects with Monad Transformers (▓▓▓░░░░░░░ 30% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs edit]
 
 ### Part II (typed)
