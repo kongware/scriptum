@@ -4,6 +4,8 @@
 
 A no-frills functional programming course based on the Javascript scriptum library.
 
+The first part of the course is untyped to avoid the additional complexity of a type system and to reveal the underlying algorithms. Type systems are important though. For this reason the second part takes place in a typed setting. I will use both Typescript and a type validator based on an extended version of the Hindley Milner type ssystem including higher-kinded types, higher-rank types and row polymorphism.
+
 ## Status
 
 The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
@@ -26,7 +28,7 @@ The chapters of this online course are under continuous change as my knowledge a
 12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md)
 13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/course/ch-013.md)
 14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/course/ch-014.md)
-15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md) [needs editing]
+15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
 16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
 17. [Combining Effects with Actions using Monad](https://github.com/kongware/scriptum/blob/master/course/ch-017.md)
 18. Planned: Composing Different Effects with Monad Transformers (▓▓▓░░░░░░░ 30% done)
@@ -42,7 +44,7 @@ Functional programming comes from math and thus has the most sound theoretically
 
 ## Who
 
-This course addresses both functional programming novices and experienced imperative programmers. In both cases you need to develop a completely new intuition about programming. This can be frustrating and confusing at first. Hang in there!
+You do not need a mathematical or PLT background to follow this course.
 
 ## How
 
@@ -54,12 +56,6 @@ As it turns out all we need to get there...
 * is a mechanism to allow expressions to be in weak head normal form
 
 It is remarkable how many purely functional idioms we can express with only these two requirements at hand.
-
-I will not get particularly academic, that is to say I will forgo equational reasoning or mathematical proofs with cryptic symbols from intuitionistic logic. There are plenty of outstanding academic papers and other sources out there, which do a great job conveying knowledge in a rather formal way. Instead I will attempt to let you develop an intuition by mainly using natural language, code examples and type annotations. Natural language can be surprisingly accurate, as soon as we share a common terminology and avoid fuzzy metaphors as often as possible.
-
-The 1st part of the course will be kept in an untyped and yet type directed setting. This way we can focus on the functional idioms without being distracted from a type machinery.
-
-In the 2nd part we will learn about parametric, ad-hoc and row polymorphism, higher kinded and higher ranked types and how we can express them both with our own extended Hindley-Milner and Typescript's type system.
 
 ## Contribution
 
