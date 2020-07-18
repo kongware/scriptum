@@ -4,7 +4,7 @@
 
 A no-frills functional programming course based on the Javascript scriptum library.
 
-The first part of the course is untyped to avoid the additional complexity of a type system and to reveal the underlying algorithms. Type systems are important though. For this reason the second part takes place in a typed setting. I will use both Typescript and a type validator based on an extended version of the Hindley Milner type ssystem including higher-kinded types, higher-rank types and row polymorphism.
+The first part of the course is untyped to avoid the additional complexity of a type system and to reveal the underlying algorithms. Type systems are important though. For this reason the second part takes place in a typed setting. I will use both Typescript and a type validator based on an extended version of the Hindley Milner type system including higher-kinded types, higher-rank types and row polymorphism.
 
 ## Status
 
