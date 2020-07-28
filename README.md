@@ -25,7 +25,7 @@ The chapters of this online course are under continuous change as my knowledge a
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/course/ch-010.md)
 11. [Immutability in Languages w/o Purely Functional Data Types](https://github.com/kongware/scriptum/blob/master/course/ch-011.md)
-12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md) [under edit]
+12. [A Little Type Theory](https://github.com/kongware/scriptum/blob/master/course/ch-012.md) [new edition]
 13. [Type class polymorphism through dictionary passing style](https://github.com/kongware/scriptum/blob/master/course/ch-013.md)
 14. [Lifting Pure Functions using Functor](https://github.com/kongware/scriptum/blob/master/course/ch-014.md)
 15. [Accumulating, Aggregating and Picking with Monoid](https://github.com/kongware/scriptum/blob/master/course/ch-015.md)
