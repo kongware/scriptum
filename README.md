@@ -18,7 +18,7 @@ The chapters of this online course are under continuous change as my knowledge a
 02. [Handling State in Functional Programming](https://github.com/kongware/scriptum/blob/master/course/ch-002.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
 04. [Principled and Unprincipled Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
-05. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-005.md) [under edit]
+05. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-005.md) [new edition]
 06. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-006.md)
 07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
 08. [From Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/course/ch-008.md)
