@@ -94,7 +94,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Mastering Tree Data Structures
 * Planned: Streams: Push/Pull, In-/Finite, Uni-/Multicast, Sync/Async
 * Planned: Functional Error Handling and Debugging
-* Planned: From Unit- to Property-based Testing
+* Planned: From Unit to Property-based Testing
 * Planned: Multi-Parameter Type Classes and Functional Dependencies
 * Planned: List-Comprehension and its extension for other data types
 * Planned: Random Access, Single Linked and Difference Lists
@@ -109,6 +109,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Free Monads - Normal Style, Codensity, CPS (Church encoded), Reflection
 * Planned: Freer Monads and Extensible Effects
 * Planned: Tagless Final Encoding
+* Planned: Algebraic Effects and Handlers
 * Planned: Functional Architectures
 * Planned: Type-Directed Programming
 * Planned: When FP does not save us
