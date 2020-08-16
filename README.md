@@ -89,6 +89,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Extracing values with Comonad
 * Planned: The Runtime - Outer Rim of your Application
 * Planned: All About Continuations (Transformation, Delimited, etc.)
+* Planned: Defunctionalizing the continuation
 * Planned: From Sharing to Memoization
 * Planned: Functional Encoded State Machines
 * Planned: Mastering Tree Data Structures
@@ -110,6 +111,7 @@ Javascript's plain old `Object` type along with functional optics leans itself q
 * Planned: Freer Monads and Extensible Effects
 * Planned: Tagless Final Encoding
 * Planned: Algebraic Effects and Handlers
+* Planned: Effect Handling/Composition with the Continuation Monad
 * Planned: Functional Architectures
 * Planned: Type-Directed Programming
 * Planned: When FP does not save us
