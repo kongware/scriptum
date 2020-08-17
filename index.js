@@ -491,11 +491,11 @@ const arrCons_ = xs => x =>
 
 
 const arrSnoc = x => xs =>
-  [xs].concat([x]);
+  xs.concat([x]);
 
 
 const arrSnoc_ = xs => x =>
-  [xs].concat([x]);
+  xs.concat([x]);
 
 
 const arrUncons = xs => {
