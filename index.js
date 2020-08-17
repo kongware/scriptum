@@ -483,19 +483,19 @@ const arrClone = xs =>
 
 
 const arrCons = x => xs =>
-  (xs.unshift(x), xs);
+  [x].concat(xs);
 
 
 const arrCons_ = xs => x =>
-  (xs.unshift(x), xs);
+  [x].concat(xs);
 
 
 const arrSnoc = x => xs =>
-  (xs.push(x), xs);
+  [xs].concat([x]);
 
 
 const arrSnoc_ = xs => x =>
-  (xs.push(x), xs);
+  [xs].concat([x]);
 
 
 const arrUncons = xs => {
@@ -503,7 +503,7 @@ const arrUncons = xs => {
     return None;
 
   else
-    return Some([xs.shift(), xs]);
+    return Some([xs[0], xs.slice(1)]);
 };
 
 
@@ -512,7 +512,7 @@ const arrUnsnoc = xs => {
     return None;
 
   else
-    return Some([xs.pop(), xs]);
+    return Some([xs[xs.length - 1], xs.slice(0, -1)]);
 };
 
 
@@ -581,11 +581,11 @@ const iterate = f => x =>
 
 
 const arrAppend = xs => ys =>
-  (xs.push.apply(xs, ys), xs);
+  xs.concat(ys);
 
 
 const arrPrepend = ys => xs =>
-  (xs.push.apply(xs, ys), xs);
+  xs.concat(ys);
 
 
 const arrEmpty = () => [];
