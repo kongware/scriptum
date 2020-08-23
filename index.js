@@ -408,7 +408,7 @@ const liftA6 = ({map, ap}) => f => tu => tv => tw => tx => ty => tz =>
 
 
 const foldMap = ({fold, append, empty}) => f =>
-  fold(comp2nd(append) (f)) (empty());
+  fold(comp2nd(append) (f)) (empty);
 
 
 /******************************************************************************
@@ -433,7 +433,7 @@ const optmAppend = append => tx => ty =>
 const optmPrepend = optmAppend; // pass prepend as type dictionary
 
 
-const optmEmpty = () => None;
+const optmEmpty = None;
 
 
 /******************************************************************************
@@ -588,7 +588,7 @@ const arrPrepend = ys => xs =>
   xs.concat(ys);
 
 
-const arrEmpty = () => [];
+const arrEmpty = [];
 
 
 /***[ Tuple ]*****************************************************************/
@@ -638,7 +638,7 @@ const allAppend = x => y => x && y;
 const allPrepend = y => x => x && y;
 
 
-const allEmpty = () => true;
+const allEmpty = true;
 
 
 /***[ Any Monoid ]************************************************************/
@@ -650,7 +650,7 @@ const anyAppend = x => y => x || y;
 const anyPrepend = y => x => x || y;
 
 
-const anyEmpty = () => false;
+const anyEmpty = false;
 
 
 /******************************************************************************
@@ -929,7 +929,7 @@ const funPrepend = prepend => f => g => x =>
 
 
 const funEmpty = empty =>
-  () => _ => empty;
+  _ => empty;
 
 /***[ Multi-Argument ]********************************************************/
 
@@ -1205,7 +1205,7 @@ const sumAppend = x => y => x + y;
 const sumPrepend = sumAppend; // commutative
 
 
-const sumEmpty = () => 0;
+const sumEmpty = 0;
 
 
 /***[ Monoid under multiplication ]*******************************************/
@@ -1217,7 +1217,7 @@ const prodAppend = x => y => x * y;
 const prodPrepend = prodAppend; // commutative
 
 
-const prodEmpty = () => 1;
+const prodEmpty = 1;
 
 
 /******************************************************************************
@@ -1347,7 +1347,7 @@ const ctorPrepend = ty => tx =>
   });
 
 
-const ctorEmpty = () => EQ;
+const ctorEmpty = EQ;
 
 
 /******************************************************************************
@@ -1371,7 +1371,7 @@ const cmpPrepend = ty => tx =>
   Compare(x => y => ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
 
 
-const cmpEmpty = () => _ => _ => ctorEmpty();
+const cmpEmpty = _ => _ => ctorEmpty;
 
 
 /******************************************************************************
@@ -1425,7 +1425,7 @@ const contPrepend = contAppend; // pass prepend as type dictionary
 
 
 const contEmpty = empty =>
-  () => Cont(k => k(empty()));
+  Cont(k => k(empty));
 
 
 /***[ Dependent ]*************************************************************/
@@ -1460,7 +1460,7 @@ const endoAppend = comp;
 const endoPrepend = pipe;
 
 
-const endoEmpty = () => id;
+const endoEmpty = id;
 
 
 /******************************************************************************
@@ -1575,7 +1575,7 @@ const listPrepend = ys => xs =>
   listFoldr(Cons) (ys) (xs);
 
 
-const listEmpty = () => Nil;
+const listEmpty = Nil;
 
 
 /***[ Dependent ]*************************************************************/
@@ -1675,7 +1675,7 @@ const optPrepend = prepend => tx => ty =>
   });
 
 
-const optEmpty = () => None;
+const optEmpty = None;
 
 
 /******************************************************************************
@@ -1746,7 +1746,7 @@ const parPrepend = parAppend; // pass prepend as type dictionary
 
   
 const parEmpty = empty =>
-  () => Parallel((res, rej) => res(empty()));
+  Parallel((res, rej) => res(empty));
 
 
 /***[ Monoid (race) ]*********************************************************/
@@ -1761,7 +1761,7 @@ const raceAppend = tx => ty =>
 const racePrepend = raceAppend; // order doesn't matter
 
 
-const raceEmpty = () => Parallel((res, rej) => null);
+const raceEmpty = Parallel((res, rej) => null);
 
 
 /***[ Primitives ]************************************************************/
@@ -1849,7 +1849,7 @@ const predPrepend = tq => tp =>
   Pred(x => tp.pred(x) && tq.pred(x));
 
 
-const predEmpty = () => Pred(_ => true);
+const predEmpty = Pred(_ => true);
 
 
 /******************************************************************************
@@ -1920,7 +1920,7 @@ const taskPrepend = taskAppend; // pass prepend as type dictionary
 
 
 const taskEmpty = empty =>
-  () => Task((res, rej) => res(empty()));
+  Task((res, rej) => res(empty));
 
 
 /***[ Dependent ]*************************************************************/
