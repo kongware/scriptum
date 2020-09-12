@@ -4,11 +4,14 @@
 
 A no-frills functional programming course based on the Javascript scriptum library.
 
-The first part of the course is untyped to avoid the additional complexity of a type system and to reveal the underlying algorithms. Type systems are important though. For this reason the second part takes place in a typed setting. I will use both Typescript and a type validator based on an extended version of the Hindley Milner type system including higher-kinded types, higher-rank types and row polymorphism.
+* 1st part is untyped
+* 2nd part is typed with ? (yet to be determined)
+
+You do not need a mathematical or PLT background to follow this course.
 
 ## Status
 
-The chapters of this online course are under continuous change as my knowledge and experience grows. The scriptum library is still experimental and not meant for production code.
+Individual chapters of this course evolve evolutionary as my experience grows. The scriptum library is still experimental.
 
 ## Table of Contents
 
@@ -17,7 +20,7 @@ The chapters of this online course are under continuous change as my knowledge a
 01. [Functional Jargon and Programming Experience](https://github.com/kongware/scriptum/blob/master/course/ch-001.md)
 02. [Handling State in Functional Programming](https://github.com/kongware/scriptum/blob/master/course/ch-002.md)
 03. [Currying, Composition and Point-free Style](https://github.com/kongware/scriptum/blob/master/course/ch-003.md)
-04. [Algebraic Structures, Properties and Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md) [under editing]
+04. [Algebraic Structures, Properties and Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md) [COMPLETELY REVISED]
 05. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-005.md)
 06. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-006.md)
 07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
@@ -39,14 +42,6 @@ The chapters of this online course are under continuous change as my knowledge a
 ### Part II (typed)
 
 to be continued...
-
-## Why
-
-Functional programming comes from math and thus has the most sound theoretically foundation of all paradigms. While mathematical reasoning is hard and non-intuitive at first it leads to sounder programs in the long term. The usual learning experience is to never look back.
-
-## Who
-
-You do not need a mathematical or PLT background to follow this course.
 
 ## How
 
