@@ -957,8 +957,8 @@ const _const = x => _ => x;
 const const_ = _ => y => y;
 
 
-const fix = f => // partial function (not stack safe)
-  thunk(() => f(fix(f)));
+const fix = f =>
+  x => f(fix(f)) (x);
 
 
 const flip = f => y => x =>
