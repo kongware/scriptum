@@ -2421,8 +2421,6 @@ module.exports = {
   arrFold,
   arrFoldk,
   arrFoldr,
-  arrFoldr_,
-  arrFoldrk,
   arrLiftA2,
   arrLiftA3,
   arrLiftA4,
