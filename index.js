@@ -1504,15 +1504,7 @@ const listFold = f => acc => xs =>
     })) (acc, xs);
 
 
-const listFoldr = f => acc =>
-  rec(xs =>
-    match(xs, {
-      Nil: _ => Base(acc),
-      Cons: ({head, tail}) => Call(f(head), Step(tail))
-    }));
-
-
-const listFoldr_ = f => acc => {
+const listFoldr = f => acc => {
   const go = xs =>
     match(xs, {
       Nil: _ => acc,
@@ -2535,7 +2527,6 @@ module.exports = {
   listEmpty,
   listFold,
   listFoldr,
-  listFoldr_,
   listLiftA2,
   listLiftA3,
   listLiftA4,
