@@ -80,6 +80,12 @@ const strict = thunk => {
 };
 
 
+const strict1 = thunk =>
+  thunk && thunk[THUNK]
+    ? thunk.valueOf()
+    : thunk;
+
+
 const thunk = f =>
   new Proxy(f, new ThunkProxy());
 
@@ -2637,6 +2643,7 @@ module.exports = {
   Some,
   Step,
   strict,
+  strict1,
   sumAppend,
   sumEmpty,
   sumPrepend,
