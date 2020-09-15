@@ -1267,6 +1267,42 @@ const objPathOr = def => (...ks) => o =>
 ******************************************************************************/
 
 
+/***[ Foldable ]**************************************************************/
+
+
+const strFoldChunk = rx => f => acc => s => {
+  const ry = new RegExp( // clone
+    rx.source,
+    rx.flags[0] !== "g"
+      ? "g" + rx.flags
+      : rx.flags);
+
+  let r, acc_ = acc;
+
+  while (r = ry.exec(s)) {
+    acc_ = f(acc_) (r[0]);
+  }
+
+  return acc_;
+};
+
+
+const strFoldChunkr = rx => f => acc => s => {
+  const ry = new RegExp( // clone
+    rx.source,
+    rx.flags[0] !== "g"
+      ? "g" + rx.flags
+      : rx.flags);
+
+  const go = r =>
+    r === null
+      ? Cons(acc) (NIL)
+      : f(r[0]) (thunk(() => go(ry.exec(s))));
+
+  return go(ry.exec(s));
+};
+
+
 /******************************************************************************
 **********************************[ WEAKMAP ]**********************************
 ******************************************************************************/
@@ -2620,6 +2656,8 @@ module.exports = {
   Step,
   strict,
   strict1,
+  strFoldChunk,
+  strFoldChunkr,
   sumAppend,
   sumEmpty,
   sumPrepend,
