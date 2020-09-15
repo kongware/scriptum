@@ -225,20 +225,12 @@ const match = (tx, o) =>
   o[tx.tag] (tx);
 
 
-const match2 = (tx, ty, o) =>
-  o[tx.tag] [ty.tag] (tx) (ty);
-
-
-const match3 = (tx, ty, tz, o) =>
-  o[tx.tag] [ty.tag] [tz.tag] (tx) (ty) (tz);
-
-
 /******************************************************************************
 ****************************[ AUXILIARY FUNCTION ]*****************************
 ******************************************************************************/
 
 
-const lazyProp = (k, v) => o =>
+const lazyProp = k => v => o =>
   Object.defineProperty(o, k, {
     get: function() {delete o[k]; return o[k] = v()},
     configurable: true,
@@ -460,19 +452,19 @@ const optmEmpty = None;
 // arrAp @Dependent
 
 
-// arrLiftA2 @ Dependent
+// arrLiftA2 @Dependent
 
 
-// arrLiftA3 @ Dependent
+// arrLiftA3 @Dependent
 
 
-// arrLiftA4 @ Dependent
+// arrLiftA4 @Dependent
 
 
-// arrLiftA5 @ Dependent
+// arrLiftA5 @Dependent
 
 
-// arrLiftA6 @ Dependent
+// arrLiftA6 @Dependent
 
 
 const arrOf = x => [x];
@@ -2578,8 +2570,6 @@ module.exports = {
   mapk,
   maprk,
   match,
-  match2,
-  match3,
   monadRec,
   Mutu,
   mutuRec,
