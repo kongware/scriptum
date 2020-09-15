@@ -1496,22 +1496,35 @@ const cons_ = tail => head =>
 /***[ Foldable ]**************************************************************/
 
 
-const listFold = f => acc => xs =>
-  tailRec((acc_, xs) =>
-    match(xs, {
-      Nil: _ => Base(acc_),
-      Cons: ({head, tail}) => Step(f(acc_) (head), tail)
-    })) (acc, xs);
+const listFold = f => acc => xs => {
+  let xs_ = xs,
+    acc_ = acc
+    i = 0;
+
+  do {
+    if (xs_.tag === "Nil")
+      break;
+
+    else if (xs_.tag === "Cons") {
+      const {head, tail} = xs_;
+      acc_ = f(acc_) (head, i);
+      xs_ = tail;
+      i++;
+    }
+  } while (true);
+
+  return acc_;
+};
 
 
-const listFoldr = f => acc => {
-  const go = xs =>
+const listFoldr = f => acc => xs => {
+  const go = (xs, i) =>
     match(xs, {
       Nil: _ => acc,
-      Cons: ({head, tail}) => f(head) (thunk(() => go(tail)))
+      Cons: ({head, tail}) => f(head, i) (thunk(() => go(tail, i + 1)))
     });
 
-  return go;
+  return go(xs, 0);
 };
 
 
