@@ -575,13 +575,6 @@ const arrPrepend = ys => xs =>
 const arrEmpty = [];
 
 
-/***[ Tuple ]*****************************************************************/
-
-
-const tupApp = f => tuple =>
-  arrFold(g => x => g(x)) (f) (tuple);
-
-
 /***[ Derived ]***************************************************************/
 
 
@@ -772,6 +765,10 @@ const curry5 = f => v => w => x => y => z =>
 
 const curry6 = f => u => v => w => x => y => z =>
   f(u, v, w, x, y, z);
+
+
+const curryTuple = f => tuple =>
+  arrFold(g => x => g(x)) (f) (tuple);
 
 
 const partial = (f, ...args) => (...args_) =>
@@ -2473,6 +2470,7 @@ module.exports = {
   curry4,
   curry5,
   curry6,
+  curryTuple,
   debug,
   delayParallel,
   delayTask,
@@ -2649,7 +2647,6 @@ module.exports = {
   trace,
   transduce,
   tryCatch,
-  tupApp,
   TYPE,
   uncurry,
   uncurry3,
