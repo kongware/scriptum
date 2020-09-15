@@ -310,7 +310,7 @@ const recChain = mx => fm =>
     : fm(mx.x);
 
 
-// recOf @DEPENDENT
+// recOf @DERIVED
 
 
 /******************************************************************************
@@ -361,7 +361,7 @@ const Step = (...args) =>
 
 
 /******************************************************************************
-*********************************[ DEPENDENT ]*********************************
+**********************************[ DERIVED ]**********************************
 ******************************************************************************/
 
 
@@ -449,22 +449,22 @@ const optmEmpty = None;
 /***[Applicative]*************************************************************/
 
 
-// arrAp @Dependent
+// arrAp @Derived
 
 
-// arrLiftA2 @Dependent
+// arrLiftA2 @Derived
 
 
-// arrLiftA3 @Dependent
+// arrLiftA3 @Derived
 
 
-// arrLiftA4 @Dependent
+// arrLiftA4 @Derived
 
 
-// arrLiftA5 @Dependent
+// arrLiftA5 @Derived
 
 
-// arrLiftA6 @Dependent
+// arrLiftA6 @Derived
 
 
 const arrOf = x => [x];
@@ -537,14 +537,7 @@ const arrFoldk = f => acc => xs =>
 // arrFoldMap @DEPENDENT
 
  
-const arrFoldr = f => acc => xs =>
-  rec(i =>
-    i === xs.length
-      ? Base(acc)
-      : Call(f(xs[i]), Step(i + 1))) (0);
-
-
-const arrFoldr_ = f => acc => xs => {
+const arrFoldr = f => acc => xs => {
   const go = i =>
     i === xs.length
       ? acc
@@ -552,13 +545,6 @@ const arrFoldr_ = f => acc => xs => {
 
   return go(0);
 };
-
-
-const arrFoldrk = f => acc => xs =>
-  rec(i =>
-    i === xs.length
-      ? Base(acc)
-      : Call(acc => f(xs[i]) (acc).cont(id), Step(i + 1))) (0);
 
 
 /***[ Functor ]***************************************************************/
@@ -596,7 +582,7 @@ const tupApp = f => tuple =>
   arrFold(g => x => g(x)) (f) (tuple);
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const arrAp = tf => xs =>
@@ -663,22 +649,22 @@ const funAp = tf => tg => x =>
   tf(x) (tg(x));
 
 
-// funLiftA2 @ Dependent
+// funLiftA2 @Derived
 
 
-// funLiftA3 @ Dependent
+// funLiftA3 @Derived
 
 
-// funLiftA4 @ Dependent
+// funLiftA4 @Derived
 
 
-// funLiftA5 @ Dependent
+// funLiftA5 @Derived
 
 
-// funLiftA6 @ Dependent
+// funLiftA6 @Derived
 
 
-// funOf @Dependent
+// funOf @Derived
 
 
 /***[ Composition ]***********************************************************/
@@ -1163,7 +1149,7 @@ const transduce = ({append, fold}) => f =>
   fold(f(append));
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const funLiftA2 = liftA2({map: funMap, ap: funAp});
@@ -1387,19 +1373,19 @@ const contAp = tf => tx =>
   Cont(k => tf.cont(f => tx.cont(x => k(f(x)))));
 
 
-// contLiftA2 @ Dependent
+// contLiftA2 @Derived
 
 
-// contLiftA3 @ Dependent
+// contLiftA3 @Derived
 
 
-// contLiftA4 @ Dependent
+// contLiftA4 @Derived
 
 
-// contLiftA5 @ Dependent
+// contLiftA5 @Derived
 
 
-// contLiftA6 @ Dependent
+// contLiftA6 @Derived
 
 
 const contOf = x => Cont(k => k(x));
@@ -1426,7 +1412,7 @@ const contEmpty = empty =>
   Cont(k => k(empty));
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const contLiftA2 = liftA2({map: contMap, ap: contAp});
@@ -1479,22 +1465,22 @@ const Cons = head => tail =>
 /***[ Applicative ]***********************************************************/
 
 
-// listAp @Dependent
+// listAp @Derived
 
 
-// listLiftA2 @Dependent
+// listLiftA2 @Derived
 
 
-// listLiftA3 @Dependent
+// listLiftA3 @Derived
 
 
-// listLiftA4 @Dependent
+// listLiftA4 @Derived
 
 
-// listLiftA5 @Dependent
+// listLiftA5 @Derived
 
 
-// listLiftA6 @Dependent
+// listLiftA6 @Derived
 
 
 const listOf = x => Cons(x) (Nil);
@@ -1576,7 +1562,7 @@ const listPrepend = ys => xs =>
 const listEmpty = Nil;
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const listAp = fs => xs =>
@@ -1704,19 +1690,19 @@ const parAp = tf => tx =>
          res(f(x)), rej));
 
 
-// parLiftA2 @Dependent
+// parLiftA2 @Derived
 
 
-// parLiftA3 @Dependent
+// parLiftA3 @Derived
 
 
-// parLiftA4 @Dependent
+// parLiftA4 @Derived
 
 
-// parLiftA5 @Dependent
+// parLiftA5 @Derived
 
 
-// parLiftA6 @Dependent
+// parLiftA6 @Derived
 
 
 const parOf = x => Parallel((res, rej) => res(x));
@@ -1810,7 +1796,7 @@ const parOr = tx => ty => {
 };
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const parLiftA2 = liftA2({map: parMap, ap: parAp});
@@ -1878,19 +1864,19 @@ const taskAp = tf => tx =>
          res(f(x)), rej), rej));
 
 
-// taskLiftA2 @Dependent
+// taskLiftA2 @Derived
 
 
-// taskLiftA3 @Dependent
+// taskLiftA3 @Derived
 
 
-// taskLiftA4 @Dependent
+// taskLiftA4 @Derived
 
 
-// taskLiftA5 @Dependent
+// taskLiftA5 @Derived
 
 
-// taskLiftA6 @Dependent
+// taskLiftA6 @Derived
 
 
 const taskOf = x => Task((res, rej) => res(x));
@@ -1921,7 +1907,7 @@ const taskEmpty = empty =>
   Task((res, rej) => res(empty));
 
 
-/***[ Dependent ]*************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const taskLiftA2 = liftA2({map: taskMap, ap: taskAp});
