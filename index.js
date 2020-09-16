@@ -1315,6 +1315,20 @@ const strFoldChunkr = rx => f => acc => s => {
 /***[ RegExp ]****************************************************************/
 
 
+const strConsume = rx => s =>
+  _let((r = s.match(rx)) =>
+    r === null ? ""
+      : rx.flags[0] === "g" ? [r.join(""), ""]
+      : [r[0], s.slice(r.index + r[0].length)]);
+
+
+const strConsumeBy = rx => f => s =>
+  _let((r = f(s.match(rx))) =>
+    r === null ? ""
+      : rx.flags[0] === "g" ? [r.join(""), ""]
+      : [r[0], s.slice(r.index + r[0].length)]);
+
+
 const strMatch = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ""
@@ -1353,7 +1367,7 @@ const strReplace = rx => x => s =>
 
 
 const strReplaceBy = rx => f => s =>
-  s.replace(rx, f);
+  s.replace(rx, (...args) => f(args));
 
 
 
@@ -2711,6 +2725,8 @@ module.exports = {
   select,
   Some,
   Step,
+  strConsume,
+  strConsumeBy,
   strict,
   strict1,
   strFold,
