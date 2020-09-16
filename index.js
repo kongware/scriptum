@@ -1319,14 +1319,14 @@ const strConsume = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ""
       : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [r[0], s.slice(r.index + r[0].length)]);
+      : [s.slice(r.index + r[0].length), r[0]]);
 
 
 const strConsumeBy = rx => f => s =>
   _let((r = f(s.match(rx))) =>
     r === null ? ""
       : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [r[0], s.slice(r.index + r[0].length)]);
+      : [s.slice(r.index + r[0].length), r[0]]);
 
 
 const strMatch = rx => s =>
@@ -1940,6 +1940,76 @@ const predPrepend = tq => tp =>
 
 
 const predEmpty = Pred(_ => true);
+
+
+/******************************************************************************
+***********************************[ STATE ]***********************************
+******************************************************************************/
+
+
+const State = state => record("State", {state});
+
+
+/***[Applicative]*************************************************************/
+
+
+const stateAp = tf => tx =>
+  State(s => {
+    const [f, s_] = tf.state(s),
+      [x, s__] = tx.state(s_);
+
+    return [f(x), s__];
+  });
+
+
+const stateOf = x => State(s => [x, s]);
+
+
+/***[Functor]*****************************************************************/
+
+
+const stateMap = f => tx =>
+  State(s => {
+    const [x, s_] = tx.state(s);
+    return [f(x), s_];
+  });
+
+
+/***[Monad]*******************************************************************/
+
+
+const stateChain = mx => fm =>
+  State(s => {
+    const [x, s_] = mx.state(s);
+    return fm(x).state(s_);
+  });
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const stateEval = tf =>
+  s => tf.state(s) [0];
+
+
+const stateExec = tf =>
+  s => tf.state(s) [1];
+
+
+const stateGet = State(s => [s, s]);
+
+
+const stateGets = f =>
+  stateChain(stateGet)
+    (x => stateOf(f(x)));
+
+
+const stateModify = f =>
+  stateChain(stateGet)
+    (x => statePut(f(x)));
+
+
+const statePut = s => State(_ => [null, s]);
 
 
 /******************************************************************************
@@ -2725,6 +2795,17 @@ module.exports = {
   select,
   Some,
   Step,
+  State,
+  stateAp,
+  stateChain,
+  stateEval,
+  stateExec,
+  stateGet,
+  stateGets,
+  stateMap,
+  stateModify,
+  stateOf,
+  statePut,
   strConsume,
   strConsumeBy,
   strict,
