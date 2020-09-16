@@ -1303,6 +1303,48 @@ const strFoldChunkr = rx => f => acc => s => {
 };
 
 
+/***[ RegExp ]****************************************************************/
+
+
+const strMatch = rx => s =>
+  rx.flags[0] === "g"
+    ? s.match(rx).join("")
+    : s.match(rx) [0];
+
+
+const strMatchBy = rx => f => s =>
+  rx.flags[0] === "g"
+    ? f(s.match(rx))
+    : f(...s.match(rx));
+
+
+const strMatchLast = rx => s =>
+  strFoldChunk(rx)
+    (_ => x => x)
+      ("")
+        (s);
+
+
+const strMatchNth = rx => n => s =>
+  listFoldr((head, i) => tail =>
+    i === n
+      ? head
+      : strict1(tail))
+        ("")
+          (strFoldChunkr(rx)
+            (Cons)
+              ([])
+                (s));
+
+const strReplace = rx => x => s =>
+  s.replace(rx, x)
+
+
+const strReplaceBy = rx => f => s =>
+  s.replace(rx, f)
+
+
+
 /******************************************************************************
 **********************************[ WEAKMAP ]**********************************
 ******************************************************************************/
@@ -2658,6 +2700,12 @@ module.exports = {
   strict1,
   strFoldChunk,
   strFoldChunkr,
+  strMatch,
+  strMatchBy,
+  strMatchLast,
+  strMatchNth,
+  strReplace,
+  strReplaceBy,
   sumAppend,
   sumEmpty,
   sumPrepend,
