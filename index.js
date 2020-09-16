@@ -1316,15 +1316,17 @@ const strFoldChunkr = rx => f => acc => s => {
 
 
 const strMatch = rx => s =>
-  rx.flags[0] === "g"
-    ? s.match(rx).join("")
-    : s.match(rx) [0];
+  _let((r = s.match(rx)) =>
+    r === null ? ""
+      : rx.flags[0] === "g" ? r.join("")
+      : r[0]);
 
 
 const strMatchBy = rx => f => s =>
-  rx.flags[0] === "g"
-    ? f(s.match(rx))
-    : f(...s.match(rx));
+  _let((r = f(s.match(rx))) =>
+    r === null ? ""
+      : rx.flags[0] === "g" ? r.join("")
+      : r[0]);
 
 
 const strMatchLast = rx => s =>
@@ -1345,12 +1347,13 @@ const strMatchNth = rx => n => s =>
               ([])
                 (s));
 
+
 const strReplace = rx => x => s =>
-  s.replace(rx, x)
+  s.replace(rx, x);
 
 
 const strReplaceBy = rx => f => s =>
-  s.replace(rx, f)
+  s.replace(rx, f);
 
 
 
