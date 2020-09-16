@@ -1270,6 +1270,15 @@ const objPathOr = def => (...ks) => o =>
 /***[ Foldable ]**************************************************************/
 
 
+const strFold = arrFold;
+
+
+const strFoldk = arrFoldk;
+
+
+const strFoldr = arrFoldr;
+
+
 const strFoldChunk = rx => f => acc => s => {
   const ry = new RegExp( // clone
     rx.source,
@@ -2698,8 +2707,11 @@ module.exports = {
   Step,
   strict,
   strict1,
+  strFold,
   strFoldChunk,
   strFoldChunkr,
+  strFoldk,
+  strFoldr,
   strMatch,
   strMatchBy,
   strMatchLast,
