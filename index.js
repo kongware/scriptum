@@ -767,10 +767,6 @@ const curry6 = f => u => v => w => x => y => z =>
   f(u, v, w, x, y, z);
 
 
-const curryTuple = f => tuple =>
-  arrFold(g => x => g(x)) (f) (tuple);
-
-
 const partial = (f, ...args) => (...args_) =>
   f(...args, ...args_);
 
@@ -2105,25 +2101,25 @@ const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 ******************************************************************************/
 
 
-const Writer = (x, w) => record(Writer, {writer: [x, w]});
+const Writer = pair => record(Writer, {writer: pair});
 
 
 /***[Applicative]*************************************************************/
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
-  Writer(f(x), append(w) (w_));  
+  Writer([f(x), append(w) (w_)]);
 
 
 const writerOf = empty => x =>
-  Writer(x, empty);
+  Writer([x, empty]);
 
 
 /***[Functor]*****************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
-  Writer(f(x), w);
+  Writer([f(x), w]);
 
 
 /***[Monad]*******************************************************************/
@@ -2131,7 +2127,7 @@ const writerMap = f => ({writer: [x, w]}) =>
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
   const [x_, w_] = fm(x).writer;
-  return Writer(x_, append(w) (w_));
+  return Writer([x_, append(w) (w_)]);
 };
 
 
@@ -2148,22 +2144,22 @@ const writerExec = ({writer: [_, w]}) => w;
 
 
 const writerListen = ({writer: [x, w]}) =>
-  Writer([x, w], w);
+  Writer([[x, w], w]);
 
 
 const writerListens = f => ({writer: [x, w]}) =>
-  Writer([x, f(w)], w);
+  Writer([[x, f(w)], w]);
 
 
 const writerMapBoth = f => tx =>
-  Writer(...f(tx.writer));
+  Writer(f(tx.writer));
 
 
 const writerPass = ({writer: [[x, f], w]}) =>
-  Writer(x, f(w));
+  Writer([x, f(w)]);
 
 
-const writerTell = w => Writer(null, w);
+const writerTell = w => Writer([null, w]);
 
 
 /******************************************************************************
@@ -2717,7 +2713,6 @@ module.exports = {
   curry4,
   curry5,
   curry6,
-  curryTuple,
   debug,
   delayParallel,
   delayTask,
