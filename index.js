@@ -1947,7 +1947,7 @@ const predEmpty = Pred(_ => true);
 ******************************************************************************/
 
 
-const State = state => record("State", {state});
+const State = f => record("State", {state: f});
 
 
 /***[Applicative]*************************************************************/
@@ -2000,16 +2000,15 @@ const stateGet = State(s => [s, s]);
 
 
 const stateGets = f =>
-  stateChain(stateGet)
-    (x => stateOf(f(x)));
+  State(s => [f(s), s]);
 
 
 const stateModify = f =>
-  stateChain(stateGet)
-    (x => statePut(f(x)));
+  State(s => [null, f(s)]);
 
 
-const statePut = s => State(_ => [null, s]);
+const statePut = s =>
+  State(_ => [null, s]);
 
 
 /******************************************************************************
@@ -2099,6 +2098,72 @@ const taskLiftA5 = liftA5({map: taskMap, ap: taskAp});
 
 
 const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
+
+
+/******************************************************************************
+**********************************[ WRITER ]***********************************
+******************************************************************************/
+
+
+const Writer = (x, w) => record(Writer, {writer: [x, w]});
+
+
+/***[Applicative]*************************************************************/
+
+
+const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
+  Writer(f(x), append(w) (w_));  
+
+
+const writerOf = empty => x =>
+  Writer(x, empty);
+
+
+/***[Functor]*****************************************************************/
+
+
+const writerMap = f => ({writer: [x, w]}) =>
+  Writer(f(x), w);
+
+
+/***[Monad]*******************************************************************/
+
+
+const writerChain = append => ({writer: [x, w]}) => fm => {
+  const [x_, w_] = fm(x).writer;
+  return Writer(x_, append(w) (w_));
+};
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const writerCensor = ({append, empty}) => f => tx =>
+  writerPass(
+    writerChain(append) (tx) (x =>
+      writerOf(empty) ([a, f])))
+
+
+const writerExec = ({writer: [_, w]}) => w;
+
+
+const writerListen = ({writer: [x, w]}) =>
+  Writer([x, w], w);
+
+
+const writerListens = f => ({writer: [x, w]}) =>
+  Writer([x, f(w)], w);
+
+
+const writerMapBoth = f => tx =>
+  Writer(...f(tx.writer));
+
+
+const writerPass = ({writer: [[x, f], w]}) =>
+  Writer(x, f(w));
+
+
+const writerTell = w => Writer(null, w);
 
 
 /******************************************************************************
@@ -2858,5 +2923,17 @@ module.exports = {
   uncurry4,
   uncurry5,
   uncurry6,
-  union
+  union,
+  Writer,
+  writerAp,
+  writerCensor,
+  writerChain,
+  writerExec,
+  writerListen,
+  writerListens,
+  writerMap,
+  writerMapBoth,
+  writerOf,
+  writerPass,
+  writerTell
 };
