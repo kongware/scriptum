@@ -691,6 +691,17 @@ const compBin = f => g => x => y =>
   f(g(x) (y));
 
 
+const compn = fs => {
+  switch (fs.length) {
+    case 2: return comp(fs[0]) (fs[1]);
+    case 3: return comp3(fs[0]) (fs[1]) (fs[2]);
+    case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+  }
+};
+
+
 const compOn = f => g => x => y =>
   f(g(x)) (g(y));
 
@@ -2706,6 +2717,7 @@ module.exports = {
   comp2nd,
   Compare,
   compBin,
+  compn,
   compOn,
   Cons,
   cons,
