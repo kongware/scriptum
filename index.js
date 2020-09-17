@@ -414,6 +414,75 @@ const foldMap = ({fold, append, empty}) => f =>
 ******************************************************************************/
 
 
+const compk = chain => fm => gm =>
+  x => chain(gm(x)) (fm);
+
+
+const compk3 = chain => fm => gm => hm =>
+  x => chain(chain(hm(x)) (gm)) (fm);
+
+
+const compk4 = chain => fm => gm => hm => im =>
+  x => chain(chain(chain(im(x)) (hm)) (gm)) (fm);
+
+
+const compk5 = chain => fm => gm => hm => im => jm =>
+  x => chain(chain(chain(chain(jm(x)) (im)) (hm)) (gm)) (fm);
+
+
+const compk6 = chain => fm => gm => hm => im => jm => km =>
+  x => chain(chain(chain(chain(chain(km(x)) (jm)) (im)) (hm)) (gm)) (fm);
+
+
+const compkn = chain => (...fs) => {
+  switch (fs.length) {
+    case 2: return compk(chain) (fs[0]) (fs[1]);
+    case 3: return compk3(chain) (fs[0]) (fs[1]) (fs[2]);
+    case 4: return compk4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return compk5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return compk6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
+const pipek = chain => fm => gm =>
+  x => chain(gm(x)) (fm);
+
+
+const pipek3 = chain => hm => gm => fm =>
+  x => chain(chain(hm(x)) (gm)) (fm);
+
+
+const pipek4 = chain => im => hm => gm => fm =>
+  x => chain(chain(chain(im(x)) (hm)) (gm)) (fm);
+
+
+const pipek5 = chain => jm => im => hm => gm => fm =>
+  x => chain(chain(chain(chain(jm(x)) (im)) (hm)) (gm)) (fm);
+
+
+const pipek6 = chain => km => jm => im => hm => gm => fm =>
+  x => chain(chain(chain(chain(chain(km(x)) (jm)) (im)) (hm)) (gm)) (fm);
+
+
+const pipekn = chain => (...fs) => {
+  switch (fs.length) {
+    case 2: return pipek(chain) (fs[0]) (fs[1]);
+    case 3: return pipek3(chain) (fs[0]) (fs[1]) (fs[2]);
+    case 4: return pipek4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return pipek5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return pipek6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
+/******************************************************************************
+**********************************[ MONOID ]***********************************
+******************************************************************************/
+
+
 /***[ Lifted Option Monoid ]**************************************************/
 
 
@@ -691,13 +760,14 @@ const compBin = f => g => x => y =>
   f(g(x) (y));
 
 
-const compn = fs => {
+const compn = (...fs) => {
   switch (fs.length) {
     case 2: return comp(fs[0]) (fs[1]);
     case 3: return comp3(fs[0]) (fs[1]) (fs[2]);
     case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
     case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
     case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
   }
 };
 
@@ -724,6 +794,18 @@ const pipe5 = j => i => h => g => f => x =>
 
 const pipe6 = k => j => i => h => g => f => x =>
   f(g(h(i(j(k(x))))));
+
+
+const pipen = (...fs) => {
+  switch (fs.length) {
+    case 2: return pipe(fs[0]) (fs[1]);
+    case 3: return pipe3(fs[0]) (fs[1]) (fs[2]);
+    case 4: return pipe4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return pipe5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return pipe6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
 
 
 const pipe2nd = g => f => x => y =>
@@ -2717,6 +2799,12 @@ module.exports = {
   comp2nd,
   Compare,
   compBin,
+  compk,
+  compk3,
+  compk4,
+  compk5,
+  compk6,
+  compkn,
   compn,
   compOn,
   Cons,
@@ -2868,6 +2956,13 @@ module.exports = {
   pipe6,
   pipe2nd,
   pipeBin,
+  pipek,
+  pipek3,
+  pipek4,
+  pipek5,
+  pipek6,
+  pipekn,
+  pipen,
   pipeOn,
   postRec,
   Pred,
