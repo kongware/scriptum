@@ -948,14 +948,11 @@ const _throw = e => {
 };
 
 
-const tryCatch = f => g => x => {
-  try {
-    return f(x);
-  }
-
-  catch(e) {
-    return g(x) (e);
-  }
+const throwOn = p => e => msg => x => {
+  if (p(x))
+    throw new e(msg);
+  
+  else return x;
 };
 
 
@@ -1451,6 +1448,12 @@ const strParseBy = rx => f => s =>
       : [s.slice(r.index + r[0].length), r[0]]);
 
 
+const strRange = rx => ry => s =>
+  optLiftA2(debug(o => p => s.slice(o.index, p.index + p[0].length)))
+    (fromNullable(s.match(rx)))
+      (fromNullable(s.match(ry)));
+
+
 const strReplace = rx => x => s =>
   s.replace(rx, x);
 
@@ -1831,6 +1834,21 @@ const optAp = tf => tx =>
   });
 
 
+// optLiftA2 @Derived
+
+
+// optLiftA3 @Derived
+
+
+// optLiftA4 @Derived
+
+
+// optLiftA5 @Derived
+
+
+// optLiftA6 @Derived
+
+
 const optOf = x => Some(x);
 
 
@@ -1874,6 +1892,31 @@ const optPrepend = prepend => tx => ty =>
 
 
 const optEmpty = None;
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const fromNullable = x =>
+  x === null ? None : Some(x);
+
+
+/***[ Derived ]***************************************************************/
+
+
+const optLiftA2 = liftA2({map: optMap, ap: optAp});
+
+
+const optLiftA3 = liftA3({map: optMap, ap: optAp});
+
+
+const optLiftA4 = liftA4({map: optMap, ap: optAp});
+
+
+const optLiftA5 = liftA5({map: optMap, ap: optAp});
+
+
+const optLiftA6 = liftA6({map: optMap, ap: optAp});
 
 
 /******************************************************************************
@@ -2855,6 +2898,7 @@ module.exports = {
   fix,
   flip,
   foldMap,
+  fromNullable,
   funAp,
   funAppend,
   funChain,
@@ -2926,6 +2970,11 @@ module.exports = {
   Option,
   optAppend,
   optEmpty,
+  optLiftA2,
+  optLiftA3,
+  optLiftA4,
+  optLiftA5,
+  optLiftA6,
   optMap,
   optmAppend,
   optmEmpty,
@@ -2980,6 +3029,7 @@ module.exports = {
   recChain,
   recOf,
   record,
+  ScriptumError,
   select,
   Some,
   Step,
@@ -3007,6 +3057,7 @@ module.exports = {
   strMatchNth,
   strParse,
   strParseBy,
+  strRange,
   strReplace,
   strReplaceBy,
   sumAppend,
@@ -3036,10 +3087,10 @@ module.exports = {
   taskPrepend,
   thisify,
   _throw,
+  throwOn,
   thunk,
   trace,
   transduce,
-  tryCatch,
   TYPE,
   uncurry,
   uncurry3,
