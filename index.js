@@ -1404,20 +1404,6 @@ const strFoldChunkr = rx => f => acc => s => {
 /***[ RegExp ]****************************************************************/
 
 
-const strConsume = rx => s =>
-  _let((r = s.match(rx)) =>
-    r === null ? ""
-      : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [s.slice(r.index + r[0].length), r[0]]);
-
-
-const strConsumeBy = rx => f => s =>
-  _let((r = f(s.match(rx))) =>
-    r === null ? ""
-      : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [s.slice(r.index + r[0].length), r[0]]);
-
-
 const strMatch = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ""
@@ -1449,6 +1435,20 @@ const strMatchNth = rx => n => s =>
             (Cons)
               ([])
                 (s));
+
+
+const strParse = rx => s =>
+  _let((r = s.match(rx)) =>
+    r === null ? ["", ""]
+      : rx.flags[0] === "g" ? [r.join(""), ""]
+      : [s.slice(r.index + r[0].length), r[0]]);
+
+
+const strParseBy = rx => f => s =>
+  _let((r = f(s.match(rx))) =>
+    r === null ? ["", ""]
+      : rx.flags[0] === "g" ? [r.join(""), ""]
+      : [s.slice(r.index + r[0].length), r[0]]);
 
 
 const strReplace = rx => x => s =>
@@ -2994,8 +2994,6 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
-  strConsume,
-  strConsumeBy,
   strict,
   strict1,
   strFold,
@@ -3007,6 +3005,8 @@ module.exports = {
   strMatchBy,
   strMatchLast,
   strMatchNth,
+  strParse,
+  strParseBy,
   strReplace,
   strReplaceBy,
   sumAppend,
