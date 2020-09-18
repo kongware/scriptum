@@ -1434,6 +1434,16 @@ const strMatchNth = rx => n => s =>
                 (s));
 
 
+const strMatchRange = rx => ry => s =>
+  match(optLiftA2(
+    o => p => s.slice(o.index, p.index + p[0].length))
+      (fromNullable(s.match(rx)))
+        (fromNullable(s.match(ry))), {
+      None: _ => "",
+      Some: ({some}) => some
+    });
+
+
 const strParse = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ["", ""]
@@ -1446,12 +1456,6 @@ const strParseBy = rx => f => s =>
     r === null ? ["", ""]
       : rx.flags[0] === "g" ? [r.join(""), ""]
       : [s.slice(r.index + r[0].length), r[0]]);
-
-
-const strRange = rx => ry => s =>
-  optLiftA2(debug(o => p => s.slice(o.index, p.index + p[0].length)))
-    (fromNullable(s.match(rx)))
-      (fromNullable(s.match(ry)));
 
 
 const strReplace = rx => x => s =>
@@ -3055,9 +3059,9 @@ module.exports = {
   strMatchBy,
   strMatchLast,
   strMatchNth,
+  strMatchRange,
   strParse,
   strParseBy,
-  strRange,
   strReplace,
   strReplaceBy,
   sumAppend,
