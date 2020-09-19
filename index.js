@@ -967,6 +967,65 @@ const infix = (x, f, y) =>
   f(x) (y);
 
 
+const infix3 = (w, f, x, g, y, h, z) =>
+  h(g(f(w) (x)) (y)) (z);
+
+
+const infix4 = (v, f, w, g, x, h, y, i, z) =>
+  i(h(g(f(v) (w)) (x)) (y)) (z);
+
+
+const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
+
+
+const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
+
+
+const infixn = (...fs) => {
+  switch (fs.length) {
+    case 2: return infix(fs[0]) (fs[1]);
+    case 3: return infix3(fs[0]) (fs[1]) (fs[2]);
+    case 4: return infix4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return infix5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return infix6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
+const infixr3 = (w, f, x, g, y, h, z) =>
+  f(w) (g(x) (h(y) (z)));
+
+
+const infixr3 = (w, f, x, g, y, h, z) =>
+  f(w) (g(x) (h(y) (z)));
+
+
+const infixr4 = (v, f, w, g, x, h, y, i, z) =>
+  f(v) (g(w) (h(x) (i(y) (z))));
+
+
+const infixr5 = (u, f, v, g, w, h, x, i, y, j, z) =>
+  f(u) (g(v) (h(w) (i(x) (j(y) (z)))));
+
+
+const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
+  f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
+
+
+const infixrn = (...fs) => {
+  switch (fs.length) {
+    case 3: return infixr3(fs[0]) (fs[1]) (fs[2]);
+    case 4: return infixr4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return infixr5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return infixr6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
 /***[ Local Binding ]*********************************************************/
 
 
@@ -2927,6 +2986,16 @@ module.exports = {
   hamtUpd,
   id,
   infix,
+  infix3,
+  infix4,
+  infix5,
+  infix6,
+  infixn,
+  infixr3,
+  infixr4,
+  infixr5,
+  infixr6,
+  infixrn,
   introspect,
   isUnit,
   iterate,
