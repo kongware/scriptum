@@ -23,7 +23,7 @@ Individual chapters of this course evolve evolutionary as my experience grows. T
 04. [Algebraic Structures, Properties and Lambda Abstractions](https://github.com/kongware/scriptum/blob/master/course/ch-004.md)
 05. [Data Modeling with Algebraic Data Types (ADTs)](https://github.com/kongware/scriptum/blob/master/course/ch-005.md)
 06. [Lazy Evaluation on Demand](https://github.com/kongware/scriptum/blob/master/course/ch-006.md)
-07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md) [UNDER EDIT]
+07. [Linear Data Flow and Flat Composition Syntax](https://github.com/kongware/scriptum/blob/master/course/ch-007.md)
 08. [From Recursion to Corecursion](https://github.com/kongware/scriptum/blob/master/course/ch-008.md)
 09. [Trading Stack for Heap with Trampolines](https://github.com/kongware/scriptum/blob/master/course/ch-009.md)
 10. [Loop Fusion and Data Source Abstraction with Transducers](https://github.com/kongware/scriptum/blob/master/course/ch-010.md)
