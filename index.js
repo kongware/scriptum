@@ -999,10 +999,6 @@ const infixr3 = (w, f, x, g, y, h, z) =>
   f(w) (g(x) (h(y) (z)));
 
 
-const infixr3 = (w, f, x, g, y, h, z) =>
-  f(w) (g(x) (h(y) (z)));
-
-
 const infixr4 = (v, f, w, g, x, h, y, i, z) =>
   f(v) (g(w) (h(x) (i(y) (z))));
 
