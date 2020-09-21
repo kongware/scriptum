@@ -644,6 +644,24 @@ const arrPrepend = ys => xs =>
 const arrEmpty = [];
 
 
+/***[ Unfoldable ]************************************************************/
+
+
+const arrUnfold = f => x =>
+  tailRec((acc, tx) =>
+    match(tx, {
+      None: _ => Base(acc),
+      Some: ({x: [x_, y]}) => Step(arrSnoc(x_) (acc), f(y))
+    })) ([], f(x));
+
+
+const arrUnfoldr = f => x =>
+  match(f(x), {
+    None: _ => [],
+    Some: ({x: [x_, y]}) => cons(x_) (thunk(() => arrUnfoldr(f) (y)))
+  });
+
+
 /***[ Derived ]***************************************************************/
 
 
@@ -1342,6 +1360,29 @@ const prodPrepend = prodAppend; // commutative
 const prodEmpty = 1;
 
 
+/***[Misc. Combinators]*******************************************************/
+
+
+const ceil = digits => n =>
+  decimalAdjust("ceil", n, -digits);
+
+
+const decimalAdjust = (k, float, exp) => { // internal
+  float = float.toString().split("e");
+  float = Math[k] (+(float[0] + "e" + (float[1] ? (+float[1] - exp) : -exp)));
+  float = float.toString().split("e");
+  return +(float[0] + "e" + (float[1] ? (+float[1] + exp) : exp));
+};
+
+
+const floor = digits => n =>
+  decimalAdjust("floor", n, -digits);
+
+
+const round = digits => n =>
+  decimalAdjust("round", n, -digits);
+
+
 /******************************************************************************
 **********************************[ OBJECT ]***********************************
 ******************************************************************************/
@@ -1463,11 +1504,11 @@ const strMatch = rx => s =>
       : r[0]);
 
 
-const strMatchBy = rx => f => s =>
-  _let((r = f(s.match(rx))) =>
-    r === null ? ""
-      : rx.flags[0] === "g" ? r.join("")
-      : r[0]);
+const strMatchAll = rx => s =>
+  _let((r = s.match(rx)) =>
+    r === null ? []
+      : rx.flags[0] !== "g" ? []
+      : r);
 
 
 const strMatchLast = rx => s =>
@@ -1501,13 +1542,6 @@ const strMatchRange = rx => ry => s =>
 
 const strParse = rx => s =>
   _let((r = s.match(rx)) =>
-    r === null ? ["", ""]
-      : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [s.slice(r.index + r[0].length), r[0]]);
-
-
-const strParseBy = rx => f => s =>
-  _let((r = f(s.match(rx))) =>
     r === null ? ["", ""]
       : rx.flags[0] === "g" ? [r.join(""), ""]
       : [s.slice(r.index + r[0].length), r[0]]);
@@ -1699,6 +1733,22 @@ const contLiftA5 = liftA5({map: contMap, ap: contAp});
 
 
 const contLiftA6 = liftA6({map: contMap, ap: contAp});
+
+
+/******************************************************************************
+**********************************[ EITHER ]***********************************
+******************************************************************************/
+
+
+const Either = union("Either");
+
+
+const Left = left =>
+  Either(Left, {left});
+
+
+const Right = right =>
+  Either(Right, {right});
 
 
 /******************************************************************************
@@ -2886,10 +2936,13 @@ module.exports = {
   arrSnoc,
   arrSnoc_,
   arrUncons,
+  arrUnfold,
+  arrUnfoldr,
   arrUnsnoc,
   Base,
   Call,
   Chain,
+  ceil,
   cmpAppend,
   cmpEmpty,
   cmpPrepend,
@@ -2946,6 +2999,7 @@ module.exports = {
   dropWhilek,
   dropWhilerk,
   eff,
+  Either,
   endoAppend,
   endoEmpty,
   endoPrepend,
@@ -2956,6 +3010,7 @@ module.exports = {
   filterrk,
   fix,
   flip,
+  floor,
   foldMap,
   fromNullable,
   funAp,
@@ -2997,6 +3052,7 @@ module.exports = {
   iterate,
   lazy,
   lazyProp,
+  Left,
   _let,
   liftA2,
   liftA3,
@@ -3098,6 +3154,8 @@ module.exports = {
   recChain,
   recOf,
   record,
+  Right,
+  round,
   ScriptumError,
   select,
   Some,
@@ -3121,12 +3179,11 @@ module.exports = {
   strFoldk,
   strFoldr,
   strMatch,
-  strMatchBy,
+  strMatchAll,
   strMatchLast,
   strMatchNth,
   strMatchRange,
   strParse,
-  strParseBy,
   strReplace,
   strReplaceBy,
   sumAppend,
