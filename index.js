@@ -414,6 +414,15 @@ const foldMap = ({fold, append, empty}) => f =>
 ******************************************************************************/
 
 
+const join = chain => ttx =>
+  chain(ttx) (id);
+
+
+/******************************************************************************
+**********************************[ MONOID ]***********************************
+******************************************************************************/
+
+
 const compk = chain => fm => gm =>
   x => chain(gm(x)) (fm);
 
@@ -630,6 +639,17 @@ const iterate = f => x =>
   [x, thunk(() => iterate(f) (f(x)))];
 
 
+/***[ Monad ]*****************************************************************/
+
+
+const arrChain = mx => fm =>
+  arrFold(acc => x =>
+    arrAppend(acc) (fm(x))) ([]) (mx);
+
+
+const arrJoin = join(arrChain);
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -651,14 +671,14 @@ const arrUnfold = f => x =>
   tailRec((acc, tx) =>
     match(tx, {
       None: _ => Base(acc),
-      Some: ({x: [x_, y]}) => Step(arrSnoc(x_) (acc), f(y))
+      Some: ({some: [x, y]}) => Step(arrSnoc(x) (acc), f(y))
     })) ([], f(x));
 
 
 const arrUnfoldr = f => x =>
   match(f(x), {
     None: _ => [],
-    Some: ({x: [x_, y]}) => cons(x_) (thunk(() => arrUnfoldr(f) (y)))
+    Some: ({some: [x, y]}) => cons(x) (thunk(() => arrUnfoldr(f) (y)))
   });
 
 
@@ -2919,12 +2939,14 @@ module.exports = {
   appSpread,
   arrAp,
   arrAppend,
+  arrChain,
   arrClone,
   arrCons,
   arrCons_,
   arrFold,
   arrFoldk,
   arrFoldr,
+  arrJoin,
   arrLiftA2,
   arrLiftA3,
   arrLiftA4,
@@ -3050,6 +3072,7 @@ module.exports = {
   introspect,
   isUnit,
   iterate,
+  join,
   lazy,
   lazyProp,
   Left,
