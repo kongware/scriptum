@@ -410,7 +410,7 @@ const foldMap = ({fold, append, empty}) => f =>
 
 
 /******************************************************************************
-**********************************[ MONOID ]***********************************
+***********************************[ MONAD ]***********************************
 ******************************************************************************/
 
 
@@ -1455,8 +1455,48 @@ function* objValues(o) {
 /***[ Getters/Setters ]*******************************************************/
 
 
-const objPathOr = def => (...ks) => o =>
-  ks.reduce((acc, k) => acc && acc[k] || def, o);
+const getTree = (...ks) => o =>
+  arrFold(p => k =>
+    p[k]) (o) (ks);
+
+
+const getTreeOr = def => (...ks) => o =>
+  arrFold(p => k =>
+    acc && acc[k] || def) (o) (ks);
+
+
+const modTree = (...ks) => f => o =>
+  arrFold(([p, ref, root]) => (k, i) => {
+    if (i === ks.length - 1) {
+      p[k] = f(ref[k]);
+      return root;
+    }
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
+
+    else
+      p[k] = Object.assign({}, ref[k]);
+
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+
+
+const setTree = (...ks) => v => o =>
+  arrFold(([p, ref, root]) => (k, i) => {
+    if (i === ks.length - 1) {
+      p[k] = v;
+      return root;
+    }
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
+
+    else
+      p[k] = Object.assign({}, ref[k]);
+
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
 /******************************************************************************
@@ -3048,6 +3088,8 @@ module.exports = {
   funMap,
   funOf,
   funPrepend,
+  getTree,
+  getTreeOr,
   GT,
   guard,
   Hamt,
@@ -3104,6 +3146,7 @@ module.exports = {
   mapk,
   maprk,
   match,
+  modTree,
   monadRec,
   Mutu,
   mutuRec,
@@ -3113,7 +3156,6 @@ module.exports = {
   objClone,
   objEntries,
   objKeys,
-  objPathOr,
   objValues,
   Option,
   optAppend,
@@ -3181,6 +3223,7 @@ module.exports = {
   round,
   ScriptumError,
   select,
+  setTree,
   Some,
   Step,
   State,
