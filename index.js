@@ -667,7 +667,7 @@ const arrEmpty = [];
 /***[ Unfoldable ]************************************************************/
 
 
-const arrUnfold = f => x =>
+const arrUnfold = f => x => // TODO: maybe switch to for loop
   tailRec((acc, tx) =>
     match(tx, {
       None: _ => Base(acc),
@@ -735,6 +735,11 @@ const anyPrepend = y => x => x || y;
 
 
 const anyEmpty = false;
+
+
+/******************************************************************************
+***********************************[ DATE ]************************************
+******************************************************************************/
 
 
 /******************************************************************************
@@ -961,7 +966,7 @@ const trace = x =>
 const funMap = comp;
 
 
-/***[ Impure ]****************************************************************/
+/***[ Impure/Meta Programming ]***********************************************/
 
 
 const eff = f => x =>
@@ -992,6 +997,15 @@ const throwOn = p => e => msg => x => {
   
   else return x;
 };
+
+
+const throwOnEmpty = throwOn(xs => xs.length === 0);
+
+
+const throwOnFalse = throwOn(x => x === false);
+
+
+const throwOnUnit = throwOn(isUnit);
 
 
 /***[ Infix Combinators ]*****************************************************/
@@ -1461,8 +1475,10 @@ const getTree = (...ks) => o =>
 
 
 const getTreeOr = def => (...ks) => o =>
-  arrFold(p => k =>
-    acc && acc[k] || def) (o) (ks);
+  tailRec((p, i) =>
+    i === ks.length ? Base(p)
+      : ks[i] in p ? Step(p[ks[i]], i + 1)
+      : Base(def)) (o, 0);
 
 
 const modTree = (...ks) => f => o =>
@@ -1497,6 +1513,13 @@ const setTree = (...ks) => v => o =>
 
     return [p[k], ref[k], root];
   }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+
+
+const objGet = k => o => o[k];
+
+
+const objGetOr = def => k => o =>
+  k in o ? o[k] : def;
 
 
 /******************************************************************************
@@ -3155,6 +3178,8 @@ module.exports = {
   NOT_FOUND,
   objClone,
   objEntries,
+  objGet,
+  objGetOr,
   objKeys,
   objValues,
   Option,
@@ -3280,6 +3305,9 @@ module.exports = {
   thisify,
   _throw,
   throwOn,
+  throwOnEmpty,
+  throwOnFalse,
+  throwOnUnit,
   thunk,
   trace,
   transduce,
