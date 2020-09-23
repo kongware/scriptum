@@ -5,13 +5,13 @@
 A no-frills functional programming course based on the Javascript scriptum library.
 
 * 1st part is untyped
-* 2nd part is typed with ? (yet to be determined)
+* 2nd part is typed with [yet to be determined]
 
-You do not need a mathematical or PLT background to follow this course.
+You do not need a math or PLT background to follow this course.
 
 ## Status
 
-Individual chapters of this course evolve evolutionary as my experience grows. The scriptum library is still experimental.
+Individual chapters of this course evolve evolutionary as my experience grows and will be revised regularly. The scriptum library is still experimental.
 
 ## Table of Contents
 
@@ -35,7 +35,7 @@ Individual chapters of this course evolve evolutionary as my experience grows. T
 16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
 17. [Combining Effects with Actions using Monad](https://github.com/kongware/scriptum/blob/master/course/ch-017.md)
 18. Pending: Composing Different Effects with Monad Transformers (▓▓▓▓▓░░░░░ 50% done)
-19. Planned: The Main Function - Impure Edge of your Porgram (░░░░░░░░░░ 0% done)
+19. Planned: The Main Function - Impure Edge of Your Porgram (░░░░░░░░░░ 0% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs editing]
 
 
