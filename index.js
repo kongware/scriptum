@@ -12,6 +12,16 @@
 
 /******************************************************************************
 *******************************************************************************
+*******************************[ DEPENDENCIES ]********************************
+*******************************************************************************
+******************************************************************************/
+
+
+const fs = require("fs");
+
+
+/******************************************************************************
+*******************************************************************************
 *********************************[ CONSTANTS ]*********************************
 *******************************************************************************
 ******************************************************************************/
@@ -742,6 +752,49 @@ const anyEmpty = false;
 ******************************************************************************/
 
 
+const formatDate = sep => (...fs) => d =>
+  fs.map(f => f(d))
+    .join(sep);
+
+
+const formatDay = digits => d => {
+  switch (digits) {
+    case 1: return String(d.getUTCDate());
+    case 2: return String(d.getUTCDate()).padStart(2, "0");
+    default: throw new RangeError("invalid digits argument");
+  }
+};
+
+
+const formatMonth = nameMap => digits => d => {
+  switch (digits) {
+    case 1: return String(d.getUTCMonth());
+    case 2: return String(d.getUTCMonth()).padStart(2, "0");
+    case 3: return nameMap[String(d.getUTCMonth())];
+    default: throw new RangeError("invalid digits argument");
+  }
+};
+
+
+const formatWeekday = nameMap => digits => d => {
+  switch (digits) {
+    case 1: return String(d.getUTCDay());
+    case 2: return String(d.getUTCDay()).padStart(2, "0");
+    case 3: return nameMap[String(d.getUTCDay())];
+    default: throw new RangeError("invalid digits argument");
+  }
+};
+
+
+const formatYear = digits => d => {
+  switch (digits) {
+    case 2: return String(d.getUTCFullYear()).slice(2);
+    case 4: return String(d.getUTCFullYear());
+    default: throw new RangeError("invalid digits argument");
+  }
+};
+
+
 /******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
@@ -1370,6 +1423,25 @@ const funOf = _const;
 ******************************************************************************/
 
 
+const formatNum = sep => (...fs) => n => {
+  const s = String(n)
+    .split(/[^\d]|$/)
+    .concat("");
+
+  return fs.map(f => f(s))
+    .join(sep);
+};
+
+
+const formatFrac = digits => ([_, s]) =>
+    s.padEnd(digits, "0");
+
+
+const formatInt = sep => ([s]) =>
+  strReplace(
+    Rexg("(\\d)(?=(?:\\d{3})+$)")) (`$1${sep}`) (s);
+
+
 /***[ Monoid under addition ]*************************************************/
 
 
@@ -1523,6 +1595,25 @@ const objGetOr = def => k => o =>
 
 
 /******************************************************************************
+****************************[ REGULAR EXPRESSION ]*****************************
+******************************************************************************/
+
+
+const Rex = (...xs) =>
+  new RegExp(xs.join(""));
+
+
+const Rexf = flags => (...xs) =>
+  new RegExp(xs.join(""), flags);
+
+
+const Rexg = Rexf("g");
+
+
+const Rexu = Rexf("u");
+
+
+/******************************************************************************
 ************************************[ SET ]************************************
 ******************************************************************************/
 
@@ -1613,7 +1704,7 @@ const strMatchNth = rx => n => s =>
                 (s));
 
 
-const strMatchRange = rx => ry => s =>
+const strMatchSection = rx => ry => s =>
   match(optLiftA2(
     o => p => s.slice(o.index, p.index + p[0].length))
       (fromNullable(s.match(rx)))
@@ -1636,7 +1727,6 @@ const strReplace = rx => x => s =>
 
 const strReplaceBy = rx => f => s =>
   s.replace(rx, (...args) => f(args));
-
 
 
 /******************************************************************************
@@ -2408,6 +2498,15 @@ const taskMap = f => tx =>
     tx.task(x => res(f(x)), rej));
 
 
+/***[ Monad ]*****************************************************************/
+
+
+const taskChain = mx => fm =>
+  Task((res, rej) =>
+    mx.task(x =>
+      fm(x).task(res, rej), rej));
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -2507,6 +2606,30 @@ const writerPass = ({writer: [[x, f], w]}) =>
 
 
 const writerTell = w => Writer([null, w]);
+
+
+/******************************************************************************
+*******************************************************************************
+************************************[ IO ]*************************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+********************************[ FILE SYSTEM ]********************************
+******************************************************************************/
+
+
+const fileRead = enc => path =>
+  Task((res, rej) =>
+    fs.readFile(path, enc, (e, x) =>
+      e ? rej(e) : res(x)));
+
+
+const scanDir = path =>
+  Task((res, rej) =>
+    fs.readdir(path, (e, xs) =>
+      e ? rej(e) : res(xs)));
 
 
 /******************************************************************************
@@ -3089,6 +3212,7 @@ module.exports = {
   endoEmpty,
   endoPrepend,
   EQ,
+  fileRead,
   filter,
   filterr,
   filterk,
@@ -3097,6 +3221,14 @@ module.exports = {
   flip,
   floor,
   foldMap,
+  formatDate,
+  formatDay,
+  formatFrac,
+  formatInt,
+  formatMonth,
+  formatNum,
+  formatWeekday,
+  formatYear,
   fromNullable,
   funAp,
   funAppend,
@@ -3244,8 +3376,13 @@ module.exports = {
   recChain,
   recOf,
   record,
+  Rex,
+  Rexf,
+  Rexg,
+  Rexu,
   Right,
   round,
+  scanDir,
   ScriptumError,
   select,
   setTree,
@@ -3273,7 +3410,7 @@ module.exports = {
   strMatchAll,
   strMatchLast,
   strMatchNth,
-  strMatchRange,
+  strMatchSection,
   strParse,
   strReplace,
   strReplaceBy,
@@ -3293,6 +3430,7 @@ module.exports = {
   Task,
   taskAp,
   taskAppend,
+  taskChain,
   taskEmpty,
   taskLiftA2,
   taskLiftA3,
