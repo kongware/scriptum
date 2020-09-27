@@ -1734,6 +1734,12 @@ const strReplaceBy = rx => f => s =>
 ******************************************************************************/
 
 
+const Pair = x => y => [x, y];
+
+
+const Triple = x => y => z => [x, y, z];
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -2488,6 +2494,17 @@ const taskAp = tf => tx =>
 
 
 const taskOf = x => Task((res, rej) => res(x));
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const taskAll = append =>
+  arrFold(acc => tx =>
+    taskMap(([xs, x]) =>
+      xs.concat([x]))
+        (taskAppend(append) (acc) (tx)))
+          (taskOf([]));
 
 
 /***[ Functor ]***************************************************************/
@@ -3327,6 +3344,7 @@ module.exports = {
   optmEmpty,
   optmPrepend,
   optPrepend,
+  Pair,
   pairMap,
   pairMapFirst,
   Parallel,
@@ -3428,6 +3446,7 @@ module.exports = {
   takeWhilek,
   takeWhilerk,
   Task,
+  taskAll,
   taskAp,
   taskAppend,
   taskChain,
@@ -3449,6 +3468,7 @@ module.exports = {
   thunk,
   trace,
   transduce,
+  Triple,
   TYPE,
   uncurry,
   uncurry3,
