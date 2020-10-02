@@ -1039,6 +1039,10 @@ const isUnit = x =>
     || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
 
 
+const _new = Cons => x =>
+  new Cons(x);
+
+
 const _throw = e => {
   throw e;
 };
@@ -1131,6 +1135,36 @@ const infixrn = (...fs) => {
 
 
 const _let = f => f();
+
+
+/***[ Logical Combinators ]***************************************************/
+
+
+const and = x => y => x && y;
+
+
+const andf = f => g => x =>
+  f(x) && g(x);
+
+
+const implies = x => y => !x || y;
+
+
+const impliesf = f => x => y =>
+  !f(x) || f(y);
+
+
+const not = x => !x;
+
+
+const notf = f => x => !f(x);
+
+
+const or = x => y => x || y;
+
+
+const orf = f => g => x =>
+  f(x) || g(x);
 
 
 /***[ Monad ]*****************************************************************/
@@ -1418,6 +1452,30 @@ const funOf = _const;
 ******************************************************************************/
 
 
+const delMap = k => m =>
+  m.has(k)
+    ? new Map(m).delete(k)
+    : m;
+
+
+const getMap = k => m =>
+  m.get(k);
+
+
+const hastMap = k => m =>
+  m.has(k);
+
+
+const modMap = k => f => m =>
+  m.has(k)
+    ? new Map(m).set(k, f(m.get(k)))
+    : m;
+
+
+const setMap = k => v => m =>
+  new Map(m).set(k, v);
+
+
 /******************************************************************************
 **********************************[ NUMBER ]***********************************
 ******************************************************************************/
@@ -1616,6 +1674,20 @@ const Rexu = Rexf("u");
 /******************************************************************************
 ************************************[ SET ]************************************
 ******************************************************************************/
+
+
+const delSet = k => s =>
+  s.has(k)
+    ? new Set(s).delete(k)
+    : s;
+
+
+const hasSet = k => s =>
+  s.has(k);
+
+
+const setSet = k => v => s =>
+  new Set(s).add(k, v);
 
 
 /******************************************************************************
@@ -2637,10 +2709,16 @@ const writerTell = w => Writer([null, w]);
 ******************************************************************************/
 
 
-const fileRead = enc => path =>
+const fileRead = opt => path =>
   Task((res, rej) =>
-    fs.readFile(path, enc, (e, x) =>
+    fs.readFile(path, opt, (e, x) =>
       e ? rej(e) : res(x)));
+
+
+const fileWrite = opt => path => s =>
+  Task((res, rej) =>
+    fs.writeFile(path, s, opt, e =>
+      e ? rej(e) : res()));
 
 
 const scanDir = path =>
@@ -3129,6 +3207,8 @@ const optmEmpty = None;
 
 
 module.exports = {
+  and,
+  andf,
   allAppend,
   allEmpty,
   allPrepend,
@@ -3230,6 +3310,7 @@ module.exports = {
   endoPrepend,
   EQ,
   fileRead,
+  fileWrite,
   filter,
   filterr,
   filterk,
@@ -3272,6 +3353,8 @@ module.exports = {
   hamtSet,
   hamtUpd,
   id,
+  implies,
+  impliesf,
   infix,
   infix3,
   infix4,
@@ -3313,6 +3396,11 @@ module.exports = {
   listPrepend,
   log,
   LT,
+  mapDel,
+  mapHas,
+  mapGet,
+  mapMod,
+  mapSet,
   map,
   mapr,
   mapk,
@@ -3322,8 +3410,11 @@ module.exports = {
   monadRec,
   Mutu,
   mutuRec,
+  _new,
   Nil,
   None,
+  not,
+  notf,
   NOT_FOUND,
   objClone,
   objEntries,
@@ -3344,6 +3435,8 @@ module.exports = {
   optmEmpty,
   optmPrepend,
   optPrepend,
+  or,
+  orf,
   Pair,
   pairMap,
   pairMapFirst,
@@ -3403,6 +3496,9 @@ module.exports = {
   scanDir,
   ScriptumError,
   select,
+  setDel,
+  setHas,
+  setSet,
   setTree,
   Some,
   Step,
