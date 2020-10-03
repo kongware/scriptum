@@ -390,6 +390,14 @@ const recOf = Base;
 ******************************************************************************/
 
 
+const apEff = ({map, ap}) => tx => ty =>
+  ap(map(_const) (tx)) (ty);
+
+
+const apEff2 = ({map, ap}) => tx => ty =>
+  ap(mapEff(map) (id) (tx)) (ty);
+
+
 const liftA2 = ({map, ap}) => f => tx => ty =>
   ap(map(f) (tx)) (ty);
 
@@ -420,16 +428,16 @@ const foldMap = ({fold, append, empty}) => f =>
 
 
 /******************************************************************************
-***********************************[ MONAD ]***********************************
+**********************************[ FUNCTOR ]**********************************
 ******************************************************************************/
 
 
-const join = chain => ttx =>
-  chain(ttx) (id);
+const mapEff = map => x =>
+  map(_ => x);
 
 
 /******************************************************************************
-**********************************[ MONOID ]***********************************
+***********************************[ MONAD ]***********************************
 ******************************************************************************/
 
 
@@ -463,6 +471,10 @@ const compkn = chain => (...fs) => {
     default: throw new TypeError("invalid argument number");
   }
 };
+
+
+const join = chain => ttx =>
+  chain(ttx) (id);
 
 
 const pipek = chain => fm => gm =>
@@ -500,6 +512,10 @@ const pipekn = chain => (...fs) => {
 /******************************************************************************
 **********************************[ MONOID ]***********************************
 ******************************************************************************/
+
+
+const concat = fold =>
+  fold(arrAppend) (arrEmpty);
 
 
 /***[ Lifted Option Monoid ]**************************************************/
@@ -563,6 +579,13 @@ const arrOf = x => [x];
 
 const arrClone = xs =>
   xs.slice(0);
+
+
+/***[Conversion]**************************************************************/
+
+
+const arrToList = arrFoldr(
+  x => xs => Cons(x) (xs)) (Nil);
 
 
 /***[ De-/Construction ]******************************************************/
@@ -2062,6 +2085,16 @@ const Cons = head => tail =>
 const listOf = x => Cons(x) (Nil);
 
 
+/***[Conversion]**************************************************************/
+
+
+const listToArr = n => xs =>
+  tailRec((acc, {head, tail}) =>
+    head === undefined || acc.length === n
+      ? Base(acc)
+      : Step(arrSnoc(head) (acc), tail)) ([], xs);
+
+
 /***[ De-/Construction ]******************************************************/
 
 
@@ -2110,15 +2143,7 @@ const listFoldr = f => acc => xs => {
 /***[ Functor ]***************************************************************/
 
 
-const listMap = f =>
-  rec(xs =>
-    match(xs, {
-      Nil: _ => Base(Nil),
-      Cons: ({head, tail}) => Call(Cons(f(head)), Step(tail))
-    }));
-
-
-const listMap_ = f => {
+const listMap = f => {
   const go = xs =>
     match(xs, {
       Nil: _ => Nil,
@@ -3230,6 +3255,8 @@ module.exports = {
   anyAppend,
   anyEmpty,
   anyPrepend,
+  apEff,
+  apEff2,
   app,
   app_,
   appr,
@@ -3255,6 +3282,7 @@ module.exports = {
   arrPrepend,
   arrSnoc,
   arrSnoc_,
+  arrToList,
   arrUncons,
   arrUnfold,
   arrUnfoldr,
@@ -3282,6 +3310,7 @@ module.exports = {
   compkn,
   compn,
   compOn,
+  concat,
   Cons,
   cons,
   cons_,
@@ -3407,12 +3436,13 @@ module.exports = {
   listLiftA5,
   listLiftA6,
   listMap,
-  listMap_,
   listOf,
   listPrepend,
+  listToArr,
   log,
   LT,
   mapDel,
+  mapEff,
   mapHas,
   mapGet,
   mapMod,
