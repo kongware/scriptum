@@ -923,6 +923,10 @@ const guard = p => f => x =>
   p(x) ? f(x) : x;
 
 
+const ifElse = p => f => g => x =>
+  p(x) ? f : g;
+
+
 const select = p => f => g => x =>
   p(x) ? f(x) : g(x);
 
@@ -1143,8 +1147,8 @@ const _let = f => f();
 const and = x => y => x && y;
 
 
-const andf = f => g => x =>
-  f(x) && g(x);
+const andf = f => x => y =>
+  f(x) && f(y);
 
 
 const implies = x => y => !x || y;
@@ -1163,8 +1167,8 @@ const notf = f => x => !f(x);
 const or = x => y => x || y;
 
 
-const orf = f => g => x =>
-  f(x) || g(x);
+const orf = f => x => y =>
+  f(x) || f(y);
 
 
 /***[ Monad ]*****************************************************************/
@@ -1452,27 +1456,27 @@ const funOf = _const;
 ******************************************************************************/
 
 
-const delMap = k => m =>
+const mapDel = k => m =>
   m.has(k)
     ? new Map(m).delete(k)
     : m;
 
 
-const getMap = k => m =>
+const mapGet = k => m =>
   m.get(k);
 
 
-const hastMap = k => m =>
+const mapHas = k => m =>
   m.has(k);
 
 
-const modMap = k => f => m =>
+const mapMod = k => f => m =>
   m.has(k)
     ? new Map(m).set(k, f(m.get(k)))
     : m;
 
 
-const setMap = k => v => m =>
+const mapSet = k => v => m =>
   new Map(m).set(k, v);
 
 
@@ -1676,13 +1680,13 @@ const Rexu = Rexf("u");
 ******************************************************************************/
 
 
-const delSet = k => s =>
+const setDel = k => s =>
   s.has(k)
     ? new Set(s).delete(k)
     : s;
 
 
-const hasSet = k => s =>
+const setHas = k => s =>
   s.has(k);
 
 
@@ -2323,6 +2327,17 @@ const parAp = tf => tx =>
 
 
 const parOf = x => Parallel((res, rej) => res(x));
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const parAll =
+  arrFold(acc => tf =>
+    parMap(([xs, x]) =>
+      xs.concat([x]))
+        (parAnd(acc) (tf)))
+          (parOf([]));
 
 
 /***[ Functor ]***************************************************************/
@@ -3353,6 +3368,7 @@ module.exports = {
   hamtSet,
   hamtUpd,
   id,
+  ifElse,
   implies,
   impliesf,
   infix,
@@ -3441,6 +3457,7 @@ module.exports = {
   pairMap,
   pairMapFirst,
   Parallel,
+  parAll,
   parAnd,
   parAp,
   parAppend,
