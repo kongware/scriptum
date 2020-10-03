@@ -1176,13 +1176,6 @@ const andf = f => x => y =>
   f(x) && f(y);
 
 
-const implies = x => y => !x || y;
-
-
-const impliesf = f => x => y =>
-  !f(x) || f(y);
-
-
 const not = x => !x;
 
 
@@ -3416,8 +3409,6 @@ module.exports = {
   hamtUpd,
   id,
   ifElse,
-  implies,
-  impliesf,
   infix,
   infix3,
   infix4,
