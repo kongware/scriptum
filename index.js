@@ -289,12 +289,12 @@ const rec = f => (...args) => {
 
 
 const tailRec = f => (...args) => {
-    let step = f(...args);
+  let step = f(...args);
 
-    while (step.tag !== "Base")
-      step = f(...step.args);
+  while (step.tag !== "Base")
+    step = f(...step.args);
 
-    return step.x;
+  return step.x;
 };
 
 
@@ -304,10 +304,10 @@ const tailRec = f => (...args) => {
 
 
 const monadRec = step => {
-    while (step.tag !== "Base")
-      step = step.f(...step.args);
+  while (step.tag !== "Base")
+    step = step.f(...step.args);
 
-    return step.x;
+  return step.x;
 };
 
 
@@ -354,15 +354,19 @@ const Base = x =>
   ({tag: "Base", x});
 
 
-const Call = (f, step) =>
-  ({tag: "Call", f, step});
-
-
 const Chain = f => (...args) =>
   ({tag: "Chain", f, args});
 
 
+const Call = f => x =>
+  ({tag: "Call", f, x});
+
+
 const Mutu = Chain;
+
+
+const Partial = (f, step) =>
+  ({tag: "Partial", f, step});
 
 
 const Step = (...args) =>
@@ -584,9 +588,7 @@ const arrClone = xs =>
 /***[Conversion]**************************************************************/
 
 
-const arrToList = arrFoldr(
-  x => xs => Cons(x) (xs)) (Nil);
-
+// arrToList @DERIVED
 
 /***[ De-/Construction ]******************************************************/
 
@@ -1974,6 +1976,18 @@ const contAp = tf => tx =>
 const contOf = x => Cont(k => k(x));
 
 
+/***[ Delimited Cont w/o Regions ]********************************************/
+
+
+const reset = tx =>
+  Cont(k => k(tx.cont(id)));
+
+
+const shift = tx =>
+  Cont(k => tx.cont(x =>
+    Cont(k_ => k_(k(x))))).cont(id);
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -3236,6 +3250,10 @@ const hamtDelNode = (node, hash, k, depth) => {
 ******************************************************************************/
 
 
+const arrToList = arrFoldr(
+  x => xs => Cons(x) (xs)) (Nil);
+
+
 const optmEmpty = None;
 
 
@@ -3501,6 +3519,7 @@ module.exports = {
   parOf,
   parOr,
   parPrepend,
+  Partial,
   partial,
   partialProps,
   pipe,
@@ -3534,6 +3553,7 @@ module.exports = {
   recChain,
   recOf,
   record,
+  reset,
   Rex,
   Rexf,
   Rexg,
@@ -3547,6 +3567,7 @@ module.exports = {
   setHas,
   setSet,
   setTree,
+  shift,
   Some,
   Step,
   State,
