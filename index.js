@@ -336,12 +336,32 @@ const mutuRec = monadRec;
 ******************************************************************************/
 
 
-const postRec = tx => {
-  do {
-    tx = tx.cont(id);
-  } while (tx && tx.tag === "Cont")
+const postRec = f => (...args) => {
+  let step = f(...args);
 
-  return cont;
+  while (step.tag !== "Base")
+    step = f(...step.args);
+
+  return init => {
+    let {f, x} = step.x(init);
+
+    while (step = f(x)) {
+      if (step && step.tag === "Call") {
+        step = step.f(step.x);
+
+        if (step && step.tag === "Call") {
+          ({f, x} = step);
+          continue;
+        }
+        
+        else break;
+      }
+
+      else break;
+    }
+
+    return step;
+  }
 };
 
 
@@ -365,8 +385,8 @@ const Call = f => x =>
 const Mutu = Chain;
 
 
-const Partial = (f, step) =>
-  ({tag: "Partial", f, step});
+const Apply = (f, step) =>
+  ({tag: "Apply", f, step});
 
 
 const Step = (...args) =>
@@ -888,9 +908,17 @@ const compn = (...fs) => {
     case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
     case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
     case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
+    default: return compn_(fs);
   }
 };
+
+
+const compn_ = xs =>
+  postRec((i, acc) =>
+    i === xs.length
+      ? Base(acc)
+      : Step(i + 1, Call(comp(acc) (xs[i]))))
+        (0, Call(id));
 
 
 const compOn = f => g => x => y =>
@@ -3320,6 +3348,7 @@ module.exports = {
   compk6,
   compkn,
   compn,
+  compn_,
   compOn,
   concat,
   Cons,
@@ -3510,7 +3539,7 @@ module.exports = {
   parOf,
   parOr,
   parPrepend,
-  Partial,
+  Apply,
   partial,
   partialProps,
   pipe,
