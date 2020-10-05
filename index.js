@@ -2392,11 +2392,11 @@ const parOf = x => Parallel((res, rej) => res(x));
 /***[ Foldable ]**************************************************************/
 
 
-const parAll =
-  arrFold(acc => tf =>
-    parMap(([xs, x]) =>
-      xs.concat([x]))
-        (parAnd(acc) (tf)))
+const parAll = ({fold, append}) =>
+  fold(tx => ty =>
+    parMap(([x, y]) =>
+      append(x) (y))
+        (parAnd(tx) (ty)))
           (parOf([]));
 
 
@@ -2440,7 +2440,7 @@ const racePrepend = raceAppend; // order doesn't matter
 const raceEmpty = Parallel((res, rej) => null);
 
 
-/***[ Primitives ]************************************************************/
+/***[Misc. Combinators]*******************************************************/
 
 
 const parAnd = tx => ty => {
@@ -2646,11 +2646,11 @@ const taskOf = x => Task((res, rej) => res(x));
 /***[ Foldable ]**************************************************************/
 
 
-const taskAll = append =>
-  arrFold(acc => tx =>
-    taskMap(([xs, x]) =>
-      xs.concat([x]))
-        (taskAppend(append) (acc) (tx)))
+const taskAll = ({fold, append}) =>
+  fold(tx => ty =>
+    taskMap(([x, y]) =>
+      append(x) (y))
+        (taskAnd(tx) (ty)))
           (taskOf([]));
 
 
@@ -2676,9 +2676,9 @@ const taskChain = mx => fm =>
 
 const taskAppend = append => tx => ty =>
   Task((res, rej) =>
-    tx.task(x =>
-      ty.task(y =>
-        res(append(x) (y)), rej), rej));
+    taskAnd(tx) (ty)
+      .task(([x, y]) =>
+        res(append(x) (y)), rej));
 
 
 const taskPrepend = taskAppend; // pass prepend as type dictionary
@@ -2686,6 +2686,16 @@ const taskPrepend = taskAppend; // pass prepend as type dictionary
 
 const taskEmpty = empty =>
   Task((res, rej) => res(empty));
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const taskAnd = tx => ty =>
+  Task((res, rej) =>
+    tx.task(x =>
+      ty.task(y =>
+        res([x, y]), rej), rej));
 
 
 /***[ Derived ]***************************************************************/
@@ -3631,6 +3641,7 @@ module.exports = {
   takeWhilerk,
   Task,
   taskAll,
+  taskAnd,
   taskAp,
   taskAppend,
   taskChain,
