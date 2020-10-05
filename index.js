@@ -2620,9 +2620,9 @@ const Task = task => record(
 
 const taskAp = tf => tx =>
   Task((res, rej) =>
-     tf.task(f =>
-       tx.task(x =>
-         res(f(x)), rej), rej));
+    taskAnd(tf) (tx)
+      .task(([f, x]) =>
+         res(f(x)), rej));
 
 
 // taskLiftA2 @Derived
