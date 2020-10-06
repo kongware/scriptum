@@ -2392,12 +2392,12 @@ const parOf = x => Parallel((res, rej) => res(x));
 /***[ Foldable ]**************************************************************/
 
 
-const parAll = ({fold, append}) =>
+const parAll = ({fold, append, empty}) =>
   fold(tx => ty =>
     parMap(([x, y]) =>
       append(x) (y))
         (parAnd(tx) (ty)))
-          (parOf([]));
+          (parOf(empty));
 
 
 /***[ Functor ]***************************************************************/
@@ -2646,12 +2646,12 @@ const taskOf = x => Task((res, rej) => res(x));
 /***[ Foldable ]**************************************************************/
 
 
-const taskAll = ({fold, append}) =>
+const taskAll = ({fold, append, empty}) =>
   fold(tx => ty =>
     taskMap(([x, y]) =>
       append(x) (y))
         (taskAnd(tx) (ty)))
-          (taskOf([]));
+          (taskOf(empty));
 
 
 /***[ Functor ]***************************************************************/
@@ -3317,6 +3317,7 @@ module.exports = {
   arrClone,
   arrCons,
   arrCons_,
+  arrEmpty,
   arrFold,
   arrFoldk,
   arrFoldr,
