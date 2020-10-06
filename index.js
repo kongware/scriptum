@@ -709,11 +709,15 @@ const arrJoin = join(arrChain);
 
 
 const arrAppend = xs => ys =>
-  xs.concat(ys);
+  Array.isArray(ys)
+    ? xs.concat(ys)
+    : _throw(new TypeError("illegal monoid operation"));
 
 
 const arrPrepend = ys => xs =>
-  xs.concat(ys);
+  Array.isArray(ys)
+    ? xs.concat(ys)
+    : _throw(new TypeError("illegal monoid operation"));
 
 
 const arrEmpty = [];
@@ -2389,17 +2393,6 @@ const parAp = tf => tx =>
 const parOf = x => Parallel((res, rej) => res(x));
 
 
-/***[ Foldable ]**************************************************************/
-
-
-const parAll = ({fold, append, empty}) =>
-  fold(tx => ty =>
-    parMap(([x, y]) =>
-      append(x) (y))
-        (parAnd(tx) (ty)))
-          (parOf(empty));
-
-
 /***[ Functor ]***************************************************************/
 
 
@@ -2465,6 +2458,14 @@ const parAnd = tx => ty => {
       tx.par(...guard(res, rej, 0)),
       ty.par(...guard(res, rej, 1))));
 };
+
+
+const parAndAll = ({fold, cons, empty}) =>
+  fold(tx => ty =>
+    parMap(([x, y]) =>
+      cons(x) (y))
+        (parAnd(tx) (ty)))
+          (parOf(empty));
 
 
 const parOr = tx => ty => {
@@ -2643,17 +2644,6 @@ const taskAp = tf => tx =>
 const taskOf = x => Task((res, rej) => res(x));
 
 
-/***[ Foldable ]**************************************************************/
-
-
-const taskAll = ({fold, append, empty}) =>
-  fold(tx => ty =>
-    taskMap(([x, y]) =>
-      append(x) (y))
-        (taskAnd(tx) (ty)))
-          (taskOf(empty));
-
-
 /***[ Functor ]***************************************************************/
 
 
@@ -2696,6 +2686,14 @@ const taskAnd = tx => ty =>
     tx.task(x =>
       ty.task(y =>
         res([x, y]), rej), rej));
+
+
+const taskAndAll = ({fold, cons, empty}) =>
+  fold(tx => ty =>
+    taskMap(([x, y]) =>
+      cons(x) (y))
+        (taskAnd(tx) (ty)))
+          (taskOf(empty));
 
 
 /***[ Derived ]***************************************************************/
@@ -3536,8 +3534,8 @@ module.exports = {
   pairMap,
   pairMapFirst,
   Parallel,
-  parAll,
   parAnd,
+  parAndAll,
   parAp,
   parAppend,
   parEmpty,
@@ -3641,8 +3639,8 @@ module.exports = {
   takeWhilek,
   takeWhilerk,
   Task,
-  taskAll,
   taskAnd,
+  taskAndAll,
   taskAp,
   taskAppend,
   taskChain,
