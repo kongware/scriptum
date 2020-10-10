@@ -255,19 +255,6 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
-****************************[ DEFERRED RECURSION ]*****************************
-******************************************************************************/
-
-
-const deferredRec = step => {
-  while (step && step.tag === "Call")
-    step = step.f(...step.args);
-
-  return step;
-};
-
-
-/******************************************************************************
 ******************************[ MONAD RECURSION ]******************************
 ******************************************************************************/
 
@@ -298,6 +285,19 @@ const recChain = mx => fm =>
 
 
 const mutuRec = monadRec;
+
+
+/******************************************************************************
+******************************[ POST RECURSION ]*******************************
+******************************************************************************/
+
+
+const postRec = step => {
+  while (step && step.tag === "Call")
+    step = step.f(...step.args);
+
+  return step;
+};
 
 
 /******************************************************************************
@@ -856,6 +856,7 @@ const comp = f => g => x =>
 const comp_ = f => g => x =>
   Call(f) (g(x));
 
+
 const comp3 = f => g => h => x =>
   f(g(h(x)));
 
@@ -887,7 +888,7 @@ const compn = (...fs) => {
     case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
     case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
     case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: return x => deferredRec(compn_(fs) (x));
+    default: return x => postRec(compn_(fs) (x));
   }
 };
 
@@ -3377,7 +3378,6 @@ module.exports = {
   curry6,
   debug,
   debugIf,
-  deferredRec,
   delayParallel,
   delayTask,
   drop,
@@ -3558,6 +3558,7 @@ module.exports = {
   pipekn,
   pipen,
   pipeOn,
+  postRec,
   Pred,
   predAppend,
   predEmpty,
