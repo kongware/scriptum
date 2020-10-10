@@ -853,6 +853,9 @@ const comp = f => g => x =>
   f(g(x));
 
 
+const comp_ = f => g => x =>
+  Call(f) (g(x));
+
 const comp3 = f => g => h => x =>
   f(g(h(x)));
 
@@ -884,9 +887,12 @@ const compn = (...fs) => {
     case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
     case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
     case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: return compn_(fs);
+    default: return x => deferredRec(compn_(fs) (x));
   }
 };
+
+
+// compn_ @Derived
 
 
 const compOn = f => g => x => y =>
@@ -1453,6 +1459,10 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
+const compn_ =
+  arrFold(comp_) (id);
+
+
 const funLiftA2 = liftA2({map: funMap, ap: funAp});
 
 
@@ -1947,7 +1957,10 @@ const Cont = cont => record(Cont, {cont});
 
 
 const contAp = tf => tx =>
-  Cont(k => tf.cont(f => tx.cont(x => k(f(x)))));
+  Cont(k =>
+    tf.cont(f =>
+      tx.cont(x =>
+        k(f(x)))));
 
 
 // contLiftA2 @Derived
@@ -3314,6 +3327,7 @@ module.exports = {
   cmpEmpty,
   cmpPrepend,
   comp,
+  comp_,
   comp3,
   comp4,
   comp5,
@@ -3328,6 +3342,7 @@ module.exports = {
   compk6,
   compkn,
   compn,
+  compn_,
   compOn,
   concat,
   Cons,
