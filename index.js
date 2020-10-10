@@ -2636,6 +2636,11 @@ const taskMap = f => tx =>
     tx.task(x => res(f(x)), rej));
 
 
+const taskMap_ = f => tx =>
+  Task((res, rej) =>
+    Call(f => tx.task(f)) (x => Call(res) (f(x)), rej));
+
+
 /***[ Monad ]*****************************************************************/
 
 
@@ -3636,6 +3641,7 @@ module.exports = {
   taskLiftA5,
   taskLiftA6,
   taskMap,
+  taskMap_,
   taskOf,
   taskPrepend,
   thisify,
