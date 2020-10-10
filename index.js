@@ -82,18 +82,18 @@ const lazy = f => x =>
   thunk(() => f(x));
 
 
-const strict = thunk => {
+const strict = thunk =>
+  thunk && thunk[THUNK]
+    ? thunk.valueOf()
+    : thunk;
+
+
+const strictRec = thunk => {
   while (thunk && thunk[THUNK])
     thunk = thunk.valueOf();
 
   return thunk;
 };
-
-
-const strict1 = thunk =>
-  thunk && thunk[THUNK]
-    ? thunk.valueOf()
-    : thunk;
 
 
 const thunk = f =>
@@ -255,46 +255,15 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
-******************************[ TAIL RECURSION ]*******************************
+****************************[ DEFERRED RECURSION ]*****************************
 ******************************************************************************/
 
 
-const tailRec = f => (...args) => {
-  let step = f(...args);
+const deferredRec = step => {
+  while (step && step.tag === "Call")
+    step = step.f(...step.args);
 
-  while (step.tag !== "Base")
-    step = f(...step.args);
-
-  return step.x;
-};
-
-
-/******************************************************************************
-************************[ TAIL RECURSION MODULO CONS ]*************************
-******************************************************************************/
-
-
-const rec = f => (...args) => {
-  let step = f(...args);
-  const stack = [];
-
-  while (step.tag !== "Base") {
-    stack.push(step.f);
-    step = f(...step.step.args);
-  }
-
-  let r = step.x;
-
-  for (let i = stack.length - 1; i >= 0; i--) {
-    r = stack[i] (r);
-    
-    if (r && r.tag === "Base") {
-      r = r.x;
-      break;
-    }
-  }
-
-  return r;
+  return step;
 };
 
 
@@ -332,36 +301,46 @@ const mutuRec = monadRec;
 
 
 /******************************************************************************
-******************************[ POST RECURSION ]*******************************
+******************************[ TAIL RECURSION ]*******************************
 ******************************************************************************/
 
 
-const postRec = f => (...args) => {
+const tailRec = f => (...args) => {
   let step = f(...args);
 
   while (step.tag !== "Base")
     step = f(...step.args);
 
-  return init => {
-    let {f, x} = step.x(init);
+  return step.x;
+};
 
-    while (step = f(x)) {
-      if (step && step.tag === "Call") {
-        step = step.f(step.x);
 
-        if (step && step.tag === "Call") {
-          ({f, x} = step);
-          continue;
-        }
-        
-        else break;
-      }
+/******************************************************************************
+************************[ TAIL RECURSION MODULO CONS ]*************************
+******************************************************************************/
 
-      else break;
-    }
 
-    return step;
+const moduloRec = f => (...args) => {
+  let step = f(...args);
+  const stack = [];
+
+  while (step.tag !== "Base") {
+    stack.push(step.f);
+    step = f(...step.step.args);
   }
+
+  let r = step.x;
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    r = stack[i] (r);
+    
+    if (r && r.tag === "Base") {
+      r = r.x;
+      break;
+    }
+  }
+
+  return r;
 };
 
 
@@ -370,20 +349,16 @@ const postRec = f => (...args) => {
 ******************************************************************************/
 
 
-const Apply = (f, step) =>
-  ({tag: "Apply", f, step});
-
-
 const Base = x =>
   ({tag: "Base", x});
 
 
+const Call = f => (...args) =>
+  ({tag: "Call", f, args});
+
+
 const Chain = f => (...args) =>
   ({tag: "Chain", f, args});
-
-
-const Call = f => x =>
-  ({tag: "Call", f, x});
 
 
 const Mutu = Chain;
@@ -667,9 +642,6 @@ const arrFoldk = f => acc => xs =>
       : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
 
 
-// arrFoldMap @DERIVED
-
- 
 const arrFoldr = f => acc => xs => {
   const go = i =>
     i === xs.length
@@ -917,14 +889,6 @@ const compn = (...fs) => {
 };
 
 
-const compn_ = xs =>
-  postRec((i, acc) =>
-    i === xs.length
-      ? Base(acc)
-      : Step(i + 1, Call(comp(acc) (xs[i]))))
-        (0, Call(id));
-
-
 const compOn = f => g => x => y =>
   f(g(x)) (g(y));
 
@@ -1050,6 +1014,12 @@ const uncurry6 = f => (u, v, w, x, y, z) =>
 
 const debug = f => (...args) => {
   debugger;
+  return f(...args);
+};
+
+
+const debugIf = p => f => (...args) => {
+  if (p(...args)) debugger;
   return f(...args);
 };
 
@@ -1822,7 +1792,7 @@ const strMatchNth = rx => n => s =>
   listFoldr((head, i) => tail =>
     i === n
       ? head
-      : strict1(tail))
+      : strict(tail))
         ("")
           (strFoldChunkr(rx)
             (Cons)
@@ -1893,9 +1863,6 @@ const pairMapFirst = f => ([x, y]) =>
 /******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
-
-
-const arrFoldMap = partialProps(foldMap, {fold: arrFold});
 
 
 /******************************************************************************
@@ -2024,7 +1991,10 @@ const contMap = f => tx =>
 
 
 const contAppend = append => tx => ty =>
-  Cont(k => tx.cont(x => ty.cont(y => append(x) (y))));
+  Cont(k =>
+    tx.cont(x =>
+      ty.cont(y =>
+        k(append(x) (y)))));
 
 
 const contPrepend = contAppend; // pass prepend as type dictionary
@@ -2460,7 +2430,7 @@ const parAnd = tx => ty => {
 };
 
 
-const parAndAll = ({fold, cons, empty}) =>
+const parAll = ({fold, cons, empty}) =>
   fold(tx => ty =>
     parMap(([x, y]) =>
       cons(x) (y))
@@ -2641,7 +2611,8 @@ const taskAp = tf => tx =>
 // taskLiftA6 @Derived
 
 
-const taskOf = x => Task((res, rej) => res(x));
+const taskOf = x =>
+  Task((res, rej) => res(x));
 
 
 /***[ Functor ]***************************************************************/
@@ -2688,7 +2659,7 @@ const taskAnd = tx => ty =>
         res([x, y]), rej), rej));
 
 
-const taskAndAll = ({fold, cons, empty}) =>
+const taskAll = ({fold, cons, empty}) =>
   fold(tx => ty =>
     taskMap(([x, y]) =>
       cons(x) (y))
@@ -3357,7 +3328,6 @@ module.exports = {
   compk6,
   compkn,
   compn,
-  compn_,
   compOn,
   concat,
   Cons,
@@ -3386,6 +3356,8 @@ module.exports = {
   curry5,
   curry6,
   debug,
+  debugIf,
+  deferredRec,
   delayParallel,
   delayTask,
   drop,
@@ -3500,6 +3472,7 @@ module.exports = {
   maprk,
   match,
   modTree,
+  moduloRec,
   monadRec,
   Mutu,
   mutuRec,
@@ -3534,8 +3507,8 @@ module.exports = {
   pairMap,
   pairMapFirst,
   Parallel,
+  parAll,
   parAnd,
-  parAndAll,
   parAp,
   parAppend,
   parEmpty,
@@ -3548,7 +3521,6 @@ module.exports = {
   parOf,
   parOr,
   parPrepend,
-  Apply,
   partial,
   partialProps,
   pipe,
@@ -3566,7 +3538,6 @@ module.exports = {
   pipekn,
   pipen,
   pipeOn,
-  postRec,
   Pred,
   predAppend,
   predEmpty,
@@ -3578,7 +3549,6 @@ module.exports = {
   raceAppend,
   raceEmpty,
   racePrepend,
-  rec,
   recChain,
   recOf,
   record,
@@ -3611,7 +3581,7 @@ module.exports = {
   stateOf,
   statePut,
   strict,
-  strict1,
+  strictRec,
   strFold,
   strFoldChunk,
   strFoldChunkr,
@@ -3639,8 +3609,8 @@ module.exports = {
   takeWhilek,
   takeWhilerk,
   Task,
+  taskAll,
   taskAnd,
-  taskAndAll,
   taskAp,
   taskAppend,
   taskChain,
