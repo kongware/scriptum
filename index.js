@@ -27,9 +27,6 @@ const fs = require("fs");
 ******************************************************************************/
 
 
-const NOT_FOUND = -1;
-
-
 const PREFIX = "scriptum_";
 
 
@@ -933,11 +930,6 @@ const compOn = f => g => x => y =>
   f(g(x)) (g(y));
 
 
-
-const pipe = g => f => x =>
-  f(g(x));
-
-
 /***[ Conditional Combinators ]***********************************************/
 
 
@@ -956,7 +948,8 @@ const select = p => f => g => x =>
 /***[ Contravariant Functor ]*************************************************/
 
 
-const funContra = pipe;
+const funContra = g => f => x =>
+  f(g(x));
 
 
 /***[ Currying/Partial Application ]******************************************/
@@ -1772,6 +1765,10 @@ const strFoldChunkr = rx => f => acc => s => {
 /***[ RegExp ]****************************************************************/
 
 
+const strIncludes = rx => s =>
+  s.search(rx) !== -1;
+
+
 const strMatch = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ""
@@ -1815,7 +1812,7 @@ const strMatchSection = rx => ry => s =>
     });
 
 
-const strParse = rx => s =>
+const strParse = rx => s => // TODO: return a value of type Parser
   _let((r = s.match(rx)) =>
     r === null ? ["", ""]
       : rx.flags[0] === "g" ? [r.join(""), ""]
@@ -1988,6 +1985,9 @@ const shift = tx =>
     Cont(k_ => k_(k(x))))).cont(id);
 
 
+// TODO: implement delimited continuations with regions
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -2057,7 +2057,7 @@ const Right = right =>
 const endoAppend = comp;
 
 
-const endoPrepend = pipe;
+const endoPrepend = funContra;
 
 
 const endoEmpty = id;
@@ -3517,7 +3517,6 @@ module.exports = {
   None,
   not,
   notf,
-  NOT_FOUND,
   objClone,
   objEntries,
   objGet,
@@ -3561,7 +3560,6 @@ module.exports = {
   paraRecover,
   partial,
   partialProps,
-  pipe,
   postRec,
   Pred,
   predAppend,
@@ -3612,6 +3610,7 @@ module.exports = {
   strFoldChunkr,
   strFoldk,
   strFoldr,
+  strIncludes,
   strMatch,
   strMatchAll,
   strMatchLast,
