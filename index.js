@@ -417,6 +417,18 @@ const liftA6 = ({map, ap}) => f => tu => tv => tw => tx => ty => tz =>
   ap(ap(ap(ap(ap(map(f) (tu)) (tv)) (tw)) (tx)) (ty)) (tz);
 
 
+const liftAn = ({map, ap}) => f => (...ts) => {
+  switch (ts.length) {
+    case 2: return liftA2({map, ap}) (f) (ts[0]) (ts[1]);
+    case 3: return liftA3({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]);
+    case 4: return liftA4({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]);
+    case 5: return liftA5({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]) (ts[4]);
+    case 6: return liftA6({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]) (ts[4]) (ts[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
 /******************************************************************************
 *********************************[ FOLDABLE ]**********************************
 ******************************************************************************/
@@ -438,6 +450,56 @@ const mapEff = map => x =>
 /******************************************************************************
 ***********************************[ MONAD ]***********************************
 ******************************************************************************/
+
+
+const chain2 = chain => mx => my => fm =>
+  chain(chain(mx) (x => fm(x)))
+    (gm => chain(my) (y => gm(y)));
+
+
+const chain3 = chain => mx => my => mz => fm =>
+  chain(chain(chain(mx) (x => fm(x)))
+    (gm => chain(my) (y => gm(y))))
+      (hm => chain(mz) (z => hm(z)));
+
+
+const chain4 = chain => mw => mx => my => mz => fm =>
+  chain(chain(chain(chain(mw) (w => fm(w)))
+    (gm => chain(mx) (x => gm(x))))
+      (hm => chain(my) (y => hm(y))))
+        (im => chain(mz) (z => im(z)));
+
+
+const chain5 = chain => mv => mw => mx => my => mz => fm =>
+  chain(chain(chain(chain(chain(mv) (v => fm(v)))
+    (gm => chain(mw) (w => gm(w))))
+      (hm => chain(mx) (x => hm(x))))
+        (im => chain(my) (y => im(y))))
+          (jm => chain(mz) (z => jm(z)));
+
+
+const chain6 = chain => mu => mv => mw => mx => my => mz => fm =>
+  chain(chain(chain(chain(chain(chain(mu) (u => fm(u)))
+    (gm => chain(mv) (v => gm(v))))
+      (hm => chain(mw) (w => hm(w))))
+        (im => chain(mx) (x => im(x))))
+          (jm => chain(my) (y => jm(y))))
+            (km => chain(mz) (z => km(z)));
+
+
+const chainn = chain => (...ms) => {
+  switch (ms.length) {
+    case 2: return chain2(chain) (ms[0]) (ms[1]);
+    case 3: return chain3(chain) (ms[0]) (ms[1]) (ms[2]);
+    case 4: return chain4(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]);
+    case 5: return chain5(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]) (ms[4]);
+    case 6: return chain6(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]) (ms[4]) (ms[5]);
+    default: throw new TypeError("invalid argument number");
+  }
+};
+
+
+// TODO: implement variadic chainn_
 
 
 const compk = chain => fm => gm =>
@@ -472,40 +534,11 @@ const compkn = chain => (...fs) => {
 };
 
 
+// TODO: implement variadic compkn_
+
+
 const join = chain => ttx =>
   chain(ttx) (id);
-
-
-const pipek = chain => fm => gm =>
-  x => chain(gm(x)) (fm);
-
-
-const pipek3 = chain => hm => gm => fm =>
-  x => chain(chain(hm(x)) (gm)) (fm);
-
-
-const pipek4 = chain => im => hm => gm => fm =>
-  x => chain(chain(chain(im(x)) (hm)) (gm)) (fm);
-
-
-const pipek5 = chain => jm => im => hm => gm => fm =>
-  x => chain(chain(chain(chain(jm(x)) (im)) (hm)) (gm)) (fm);
-
-
-const pipek6 = chain => km => jm => im => hm => gm => fm =>
-  x => chain(chain(chain(chain(chain(km(x)) (jm)) (im)) (hm)) (gm)) (fm);
-
-
-const pipekn = chain => (...fs) => {
-  switch (fs.length) {
-    case 2: return pipek(chain) (fs[0]) (fs[1]);
-    case 3: return pipek3(chain) (fs[0]) (fs[1]) (fs[2]);
-    case 4: return pipek4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return pipek5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return pipek6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
 
 
 /******************************************************************************
@@ -900,48 +933,9 @@ const compOn = f => g => x => y =>
   f(g(x)) (g(y));
 
 
+
 const pipe = g => f => x =>
   f(g(x));
-
-
-const pipe3 = h => g => f => x =>
-  f(g(h(x)));
-
-
-const pipe4 = i => h => g => f => x =>
-  f(g(h(i(x))));
-
-
-const pipe5 = j => i => h => g => f => x =>
-  f(g(h(i(j(x)))));
-
-
-const pipe6 = k => j => i => h => g => f => x =>
-  f(g(h(i(j(k(x))))));
-
-
-const pipen = (...fs) => {
-  switch (fs.length) {
-    case 2: return pipe(fs[0]) (fs[1]);
-    case 3: return pipe3(fs[0]) (fs[1]) (fs[2]);
-    case 4: return pipe4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return pipe5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return pipe6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
-
-
-const pipe2nd = g => f => x => y =>
-  f(x) (g(y));
-
-
-const pipeBin = g => f => x => y =>
-  f(g(x) (y));
-
-
-const pipeOn = g => f => x => y =>
-  f(g(x)) (g(y));
 
 
 /***[ Conditional Combinators ]***********************************************/
@@ -2336,12 +2330,12 @@ const optLiftA6 = liftA6({map: optMap, ap: optAp});
 ******************************************************************************/
 
 
-const Parallel = par => record(
+const Parallel = para => record(
   Parallel,
   thisify(o => {
-    o.par = (res, rej) =>
-      par(x => {
-        o.par = k => k(x);
+    o.para = (res, rej) =>
+      para(x => {
+        o.para = k => k(x);
         return res(x);
       }, rej);
     
@@ -2352,53 +2346,58 @@ const Parallel = par => record(
 /***[ Applicative ]***********************************************************/
 
 
-const parAp = tf => tx =>
+const paraAp = tf => tx =>
   Parallel((res, rej) =>
-    parAnd(tf) (tx)
-      .par(([f, x]) =>
+    paraAnd(tf) (tx)
+      .para(([f, x]) =>
          res(f(x)), rej));
 
 
-// parLiftA2 @Derived
+// paraLiftA2 @Derived
 
 
-// parLiftA3 @Derived
+// paraLiftA3 @Derived
 
 
-// parLiftA4 @Derived
+// paraLiftA4 @Derived
 
 
-// parLiftA5 @Derived
+// paraLiftA5 @Derived
 
 
-// parLiftA6 @Derived
+// paraLiftA6 @Derived
 
 
-const parOf = x => Parallel((res, rej) => res(x));
+const paraOf = x => Parallel((res, rej) => res(x));
 
 
 /***[ Functor ]***************************************************************/
 
 
-const parMap = f => tx =>
+const paraMap = f => tx =>
   Parallel((res, rej) =>
-    tx.par(x => res(f(x)), rej));
+    tx.para(x => res(f(x)), rej));
+
+
+const paraMap_ = f => tx =>
+  Parallel((res, rej) =>
+    Call(f => tx.para(f)) (x => Call(res) (f(x)), rej));
 
 
 /***[ Monoid (type parameter) ]***********************************************/
 
 
-const parAppend = append => tx => ty =>
+const paraAppend = append => tx => ty =>
   Parallel((res, rej) =>
-    parAnd(tx) (ty)
-      .par(([x, y]) =>
+    paraAnd(tx) (ty)
+      .para(([x, y]) =>
         res(append(x) (y)), rej));
 
 
-const parPrepend = parAppend; // pass prepend as type dictionary
+const paraPrepend = paraAppend; // pass prepend as type dictionary
 
   
-const parEmpty = empty =>
+const paraEmpty = empty =>
   Parallel((res, rej) => res(empty));
 
 
@@ -2407,8 +2406,8 @@ const parEmpty = empty =>
 
 const raceAppend = tx => ty =>
   Parallel((res, rej) =>
-    parOr(tx) (ty)
-      .par(x => res(x), rej));
+    paraOr(tx) (ty)
+      .para(x => res(x), rej));
 
 
 const racePrepend = raceAppend; // order doesn't matter
@@ -2420,7 +2419,7 @@ const raceEmpty = Parallel((res, rej) => null);
 /***[Misc. Combinators]*******************************************************/
 
 
-const parAnd = tx => ty => {
+const paraAnd = tx => ty => {
   const guard = (res, rej, i) => [
     x => (
       r[i] = x,
@@ -2439,20 +2438,20 @@ const parAnd = tx => ty => {
 
   return Parallel(
     (res, rej) => (
-      tx.par(...guard(res, rej, 0)),
-      ty.par(...guard(res, rej, 1))));
+      tx.para(...guard(res, rej, 0)),
+      ty.para(...guard(res, rej, 1))));
 };
 
 
-const parAll = ({fold, cons, empty}) =>
+const paraAll = ({fold, cons, empty, paraMap}) =>
   fold(tx => ty =>
-    parMap(([x, y]) =>
+    paraMap(([x, y]) =>
       cons(x) (y))
-        (parAnd(tx) (ty)))
-          (parOf(empty));
+        (paraAnd(tx) (ty)))
+          (paraOf(empty));
 
 
-const parOr = tx => ty => {
+const paraOr = tx => ty => {
   const guard = (res, rej) => [
     x => (
       isRes || isRej
@@ -2468,27 +2467,32 @@ const parOr = tx => ty => {
 
   return Parallel(
     (res, rej) => (
-      tx.par(...guard(res, rej)),
-      ty.par(...guard(res, rej))));
+      tx.para(...guard(res, rej)),
+      ty.para(...guard(res, rej))));
 };
+
+
+const paraRecover = f => tx =>
+  Parallel((res, rej) =>
+    tx.para(id, f));
 
 
 /***[ Derived ]***************************************************************/
 
 
-const parLiftA2 = liftA2({map: parMap, ap: parAp});
+const paraLiftA2 = liftA2({map: paraMap, ap: paraAp});
 
 
-const parLiftA3 = liftA3({map: parMap, ap: parAp});
+const paraLiftA3 = liftA3({map: paraMap, ap: paraAp});
 
 
-const parLiftA4 = liftA4({map: parMap, ap: parAp});
+const paraLiftA4 = liftA4({map: paraMap, ap: paraAp});
 
 
-const parLiftA5 = liftA5({map: parMap, ap: parAp});
+const paraLiftA5 = liftA5({map: paraMap, ap: paraAp});
 
 
-const parLiftA6 = liftA6({map: parMap, ap: parAp});
+const paraLiftA6 = liftA6({map: paraMap, ap: paraAp});
 
 
 /******************************************************************************
@@ -2678,12 +2682,17 @@ const taskAnd = tx => ty =>
         res([x, y]), rej), rej));
 
 
-const taskAll = ({fold, cons, empty}) =>
+const taskAll = ({fold, cons, empty, taskMap}) =>
   fold(tx => ty =>
     taskMap(([x, y]) =>
       cons(x) (y))
         (taskAnd(tx) (ty)))
           (taskOf(empty));
+
+
+const taskRecover = f => tx =>
+  Task((res, rej) =>
+    tx.task(id, f));
 
 
 /***[ Derived ]***************************************************************/
@@ -3327,8 +3336,14 @@ module.exports = {
   arrUnsnoc,
   Base,
   Call,
-  Chain,
   ceil,
+  Chain,
+  chain2,
+  chain3,
+  chain4,
+  chain5,
+  chain6,
+  chainn,
   cmpAppend,
   cmpEmpty,
   cmpPrepend,
@@ -3463,6 +3478,7 @@ module.exports = {
   liftA4,
   liftA5,
   liftA6,
+  liftAn,
   List,
   listAp,
   listAppend,
@@ -3527,37 +3543,25 @@ module.exports = {
   pairMap,
   pairMapFirst,
   Parallel,
-  parAll,
-  parAnd,
-  parAp,
-  parAppend,
-  parEmpty,
-  parLiftA2,
-  parLiftA3,
-  parLiftA4,
-  parLiftA5,
-  parLiftA6,
-  parMap,
-  parOf,
-  parOr,
-  parPrepend,
+  paraAll,
+  paraAnd,
+  paraAp,
+  paraAppend,
+  paraEmpty,
+  paraLiftA2,
+  paraLiftA3,
+  paraLiftA4,
+  paraLiftA5,
+  paraLiftA6,
+  paraMap,
+  paraMap_,
+  paraOf,
+  paraOr,
+  paraPrepend,
+  paraRecover,
   partial,
   partialProps,
   pipe,
-  pipe3,
-  pipe4,
-  pipe5,
-  pipe6,
-  pipe2nd,
-  pipeBin,
-  pipek,
-  pipek3,
-  pipek4,
-  pipek5,
-  pipek6,
-  pipekn,
-  pipen,
-  pipeOn,
   postRec,
   Pred,
   predAppend,
@@ -3645,6 +3649,7 @@ module.exports = {
   taskMap_,
   taskOf,
   taskPrepend,
+  taskRecover,
   thisify,
   _throw,
   throwOn,
