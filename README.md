@@ -35,7 +35,7 @@ Individual chapters of this course evolve evolutionary as my experience grows an
 16. [Combining Effects with Pure Functions using Applicative](https://github.com/kongware/scriptum/blob/master/course/ch-016.md)
 17. [Combining Effects with Actions using Monad](https://github.com/kongware/scriptum/blob/master/course/ch-017.md)
 18. Pending: Composing Different Effects with Monad Transformers (▓▓▓▓▓░░░░░ 50% done)
-19. Planned: The Main Function - Impure Edge of Your Porgram (░░░░░░░░░░ 0% done)
+19. Planned: Creating Descriptions of Computations and the Impure Edge of Your Program (░░░░░░░░░░ 0% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs editing]
 
 
