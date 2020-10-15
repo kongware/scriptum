@@ -737,10 +737,10 @@ const arrUnfold = f => x => // TODO: maybe switch to for loop
     })) ([], f(x));
 
 
-const arrUnfoldr = f => x =>
+const arrUnfoldr = f => x => // TODO: use Pair instead of listCons?
   match(f(x), {
     None: _ => [],
-    Some: ({some: [x, y]}) => cons(x) (thunk(() => arrUnfoldr(f) (y)))
+    Some: ({some: [x, y]}) => listCons(x) (thunk(() => arrUnfoldr(f) (y)))
   });
 
 
@@ -2106,9 +2106,9 @@ const listOf = x => Cons(x) (Nil);
 /***[Conversion]**************************************************************/
 
 
-const listToArr = n => xs => // TODO: remove n
+const listToArr = xs =>
   tailRec((acc, {head, tail}) =>
-    head === undefined || acc.length === n
+    head === undefined
       ? Base(acc)
       : Step(arrSnoc(head) (acc), tail)) ([], xs);
 
@@ -2116,14 +2116,11 @@ const listToArr = n => xs => // TODO: remove n
 /***[ De-/Construction ]******************************************************/
 
 
-// TODO: remove entire section
+const listCons = Cons;
 
 
-const cons = Cons;
-
-
-const cons_ = tail => head =>
-  List(Cons, {head, tail});
+const listCons_ = tail => head =>
+  Cons(head) (tail);
 
 
 /***[ Foldable ]**************************************************************/
@@ -3371,8 +3368,6 @@ module.exports = {
   compOn,
   concat,
   Cons,
-  cons,
-  cons_,
   _const,
   const_,
   Cont,
@@ -3486,6 +3481,8 @@ module.exports = {
   List,
   listAp,
   listAppend,
+  listCons,
+  listCons_,
   listEmpty,
   listFold,
   listFoldr,
