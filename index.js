@@ -607,13 +607,14 @@ const arrOf = x => [x];
 
 
 const arrClone = xs =>
-  xs.slice(0);
+  xs.concat();
 
 
 /***[Conversion]**************************************************************/
 
 
 // arrToList @DERIVED
+
 
 /***[ De-/Construction ]******************************************************/
 
@@ -2105,7 +2106,7 @@ const listOf = x => Cons(x) (Nil);
 /***[Conversion]**************************************************************/
 
 
-const listToArr = n => xs =>
+const listToArr = n => xs => // TODO: remove n
   tailRec((acc, {head, tail}) =>
     head === undefined || acc.length === n
       ? Base(acc)
@@ -2113,6 +2114,9 @@ const listToArr = n => xs =>
 
 
 /***[ De-/Construction ]******************************************************/
+
+
+// TODO: remove entire section
 
 
 const cons = Cons;
@@ -2160,7 +2164,7 @@ const listFoldr = f => acc => xs => {
 /***[ Functor ]***************************************************************/
 
 
-const listMap = f => {
+const listMap = f => { // TODO: add i
   const go = xs =>
     match(xs, {
       Nil: _ => Nil,
