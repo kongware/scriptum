@@ -666,13 +666,6 @@ const arrFold = f => init => xs => {
 };
 
 
-const arrFoldk = f => acc => xs =>
-  tailRec((acc_, i) =>
-    i === xs.length
-      ? Base(acc_)
-      : f(acc_) (xs[i], i).cont(acc__ => Step(acc__, i + 1))) (acc, 0);
-
-
 const arrFoldr = f => acc => xs => {
   const go = i =>
     i === xs.length
@@ -729,19 +722,21 @@ const arrEmpty = [];
 /***[ Unfoldable ]************************************************************/
 
 
-const arrUnfold = f => x => // TODO: maybe switch to for loop
-  tailRec((acc, tx) =>
-    match(tx, {
-      None: _ => Base(acc),
-      Some: ({some: [x, y]}) => Step(arrSnoc(x) (acc), f(y))
-    })) ([], f(x));
+const arrUnfold = f => x => {
+  let acc = [],
+    tx = f(x);
+
+  while (tx.tag === "Some") {
+    const [x, y] = tx.some;
+    acc = arrSnoc(x) (acc);
+    tx = f(y);
+  }
+
+  return acc;
+};
 
 
-const arrUnfoldr = f => x => // TODO: use Pair instead of listCons?
-  match(f(x), {
-    None: _ => [],
-    Some: ({some: [x, y]}) => listCons(x) (thunk(() => arrUnfoldr(f) (y)))
-  });
+// TODO: implement arrUnfoldr
 
 
 /***[ Derived ]***************************************************************/
@@ -1271,26 +1266,6 @@ const dropr = n => append => {
 };
 
 
-const dropk = n => append => { 
-  let m = 0;
-
-  return acc => x =>
-    Cont(k =>
-      m < n
-        ? (m++, k(acc))
-        : append(acc) (x).cont(k))};
-
-
-const droprk = n => append => { 
-  let m = 0;
-
-  return x => acc =>
-    Cont(k =>
-      m < n
-        ? (m++, k(acc))
-        : append(x) (acc).cont(k))};
-
-
 const dropWhile = p => append => {
   let drop = true;
 
@@ -1311,26 +1286,6 @@ const dropWhiler = p => append => {
 };
 
 
-const dropWhilek = p => append => {
-  let drop = true;
-
-  return acc => x =>
-    Cont(k =>
-      drop && p(x)
-        ? k(acc)
-        : (drop = false, append(acc) (x).cont(k)))};
-
-
-const dropWhilerk = p => append => {
-  let drop = true;
-
-  return x => acc =>
-    Cont(k =>
-      drop && p(x)
-        ? k(acc)
-        : (drop = false, append(x) (acc).cont(k)))};
-
-
 const filter = p => append => acc => x =>
   p(x)
     ? append(acc) (x)
@@ -1343,36 +1298,12 @@ const filterr = p => append => x => acc =>
     : acc;
 
 
-const filterk = p => append => acc => x =>
-  Cont(k =>
-    p(x)
-      ? append(acc) (x).cont(k)
-      : k(acc));
-
-
-const filterrk = p => append => x => acc =>
-  Cont(k =>
-    p(x)
-      ? append(x) (acc).cont(k)
-      : k(acc));
-
-
 const map = f => append => acc => x =>
   append(acc) (f(x));
 
 
 const mapr = f => append => x => acc =>
   append(f(x)) (acc);
-
-
-const mapk = f => append => acc => x =>
-  Cont(k =>
-    append(acc) (f(x)).cont(k));
-
-
-const maprk = f => append => x => acc =>
-  Cont(k =>
-    append(f(x)) (acc).cont(k));
 
 
 const take = n => append => { 
@@ -1395,26 +1326,6 @@ const taker = n => append => {
 };
 
 
-const takek = n => append => { 
-  let m = 0;
-
-  return acc => x =>
-    Cont(k =>
-      m < n
-        ? (m++, append(acc) (x).cont(k))
-        : Base(acc))};
-
-
-const takerk = n => append => { 
-  let m = 0;
-
-  return x => acc =>
-    Cont(k =>
-      m < n
-        ? (m++, append(x) (acc).cont(k))
-        : Base(acc))};
-
-
 const takeWhile = p => append => acc => x =>
   p(x)
     ? append(acc) (x)
@@ -1425,20 +1336,6 @@ const takeWhiler = p => append => x => acc =>
   p(x)
     ? append(x) (acc)
     : acc;
-
-
-const takeWhilek = p => append => acc => x =>
-  Cont(k =>
-    p(x)
-      ? append(acc) (x).cont(k)
-      : Base(acc));
-
-
-const takeWhilerk = p => append => x => acc =>
-  Cont(k =>
-    p(x)
-      ? append(x) (acc).cont(k)
-      : Base(acc));
 
 
 const transduce = ({append, fold}) => f =>
@@ -1722,9 +1619,6 @@ const setSet = k => v => s =>
 
 
 const strFold = arrFold;
-
-
-const strFoldk = arrFoldk;
 
 
 const strFoldr = arrFoldr;
@@ -2123,6 +2017,18 @@ const listCons_ = tail => head =>
   Cons(head) (tail);
 
 
+// TODO: implement listSnoc
+
+
+// TODO: implement listSnoc_
+
+
+// TODO: implement listUncons
+
+
+// TODO: implement listUnsnoc
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -2161,14 +2067,14 @@ const listFoldr = f => acc => xs => {
 /***[ Functor ]***************************************************************/
 
 
-const listMap = f => { // TODO: add i
-  const go = xs =>
+const listMap = f => xs => {
+  const go = (xs, i) =>
     match(xs, {
       Nil: _ => Nil,
-      Cons: ({head, tail}) => Cons(f(head)) (thunk(() => go(tail)))
+      Cons: ({head, tail}) => Cons(f(head, i)) (thunk(() => go(tail, i + 1)))
     });
 
-  return go;
+  return go(xs, 0);
 };
 
 
@@ -2184,6 +2090,19 @@ const listPrepend = ys => xs =>
 
 
 const listEmpty = Nil;
+
+
+/***[ Unfoldable ]************************************************************/
+
+
+// TODO: implement listUnfold
+
+
+const listUnfoldr = f => x =>
+  match(f(x), {
+    None: _ => [],
+    Some: ({some: [x, y]}) => Cons(x) (thunk(() => listUnfoldr(f) (y)))
+  });
 
 
 /***[ Derived ]***************************************************************/
@@ -2792,20 +2711,20 @@ const writerTell = w => Writer([null, w]);
 ******************************************************************************/
 
 
-const fileRead = opt => path =>
-  Task((res, rej) =>
+const fileRead_ = Async => opt => path =>
+  Async((res, rej) =>
     fs.readFile(path, opt, (e, x) =>
       e ? rej(e) : res(x)));
 
 
-const fileWrite = opt => path => s =>
-  Task((res, rej) =>
+const fileWrite_ = Async => opt => path => s =>
+  Async((res, rej) =>
     fs.writeFile(path, s, opt, e =>
       e ? rej(e) : res()));
 
 
-const scanDir = path =>
-  Task((res, rej) =>
+const scanDir_ = Async => path =>
+  Async((res, rej) =>
     fs.readdir(path, (e, xs) =>
       e ? rej(e) : res(xs)));
 
@@ -3317,7 +3236,6 @@ module.exports = {
   arrCons_,
   arrEmpty,
   arrFold,
-  arrFoldk,
   arrFoldr,
   arrJoin,
   arrLiftA2,
@@ -3333,7 +3251,6 @@ module.exports = {
   arrToList,
   arrUncons,
   arrUnfold,
-  arrUnfoldr,
   arrUnsnoc,
   Base,
   Call,
@@ -3396,24 +3313,18 @@ module.exports = {
   delayTask,
   drop,
   dropr,
-  dropk,
-  droprk,
   dropWhile,
   dropWhiler,
-  dropWhilek,
-  dropWhilerk,
   eff,
   Either,
   endoAppend,
   endoEmpty,
   endoPrepend,
   EQ,
-  fileRead,
-  fileWrite,
+  fileRead_,
+  fileWrite_,
   filter,
   filterr,
-  filterk,
-  filterrk,
   fix,
   flip,
   floor,
@@ -3495,6 +3406,7 @@ module.exports = {
   listOf,
   listPrepend,
   listToArr,
+  listUnfoldr,
   log,
   LT,
   mapDel,
@@ -3505,8 +3417,6 @@ module.exports = {
   mapSet,
   map,
   mapr,
-  mapk,
-  maprk,
   match,
   modTree,
   moduloRec,
@@ -3583,7 +3493,7 @@ module.exports = {
   Rexu,
   Right,
   round,
-  scanDir,
+  scanDir_,
   ScriptumError,
   select,
   setDel,
@@ -3609,7 +3519,6 @@ module.exports = {
   strFold,
   strFoldChunk,
   strFoldChunkr,
-  strFoldk,
   strFoldr,
   strIncludes,
   strMatch,
@@ -3627,12 +3536,8 @@ module.exports = {
   tailRec,
   take,
   taker,
-  takek,
-  takerk,
   takeWhile,
   takeWhiler,
-  takeWhilek,
-  takeWhilerk,
   Task,
   taskAll,
   taskAnd,
