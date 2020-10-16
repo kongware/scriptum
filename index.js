@@ -707,13 +707,13 @@ const arrJoin = join(arrChain);
 const arrAppend = xs => ys =>
   Array.isArray(ys)
     ? xs.concat(ys)
-    : _throw(new TypeError("illegal monoid operation"));
+    : _throw(new TypeError("illegal argument type"));
 
 
 const arrPrepend = ys => xs =>
   Array.isArray(ys)
     ? xs.concat(ys)
-    : _throw(new TypeError("illegal monoid operation"));
+    : _throw(new TypeError("illegal argument type"));
 
 
 const arrEmpty = [];
@@ -773,10 +773,10 @@ const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
 /***[ All Monoid ]************************************************************/
 
 
-const allAppend = x => y => x && y;
+const allAppend = x => y => x && y; // truthy/falsy values are allowed
 
 
-const allPrepend = y => x => x && y;
+const allPrepend = y => x => x && y; // truthy/falsy values are allowed
 
 
 const allEmpty = true;
@@ -785,10 +785,10 @@ const allEmpty = true;
 /***[ Any Monoid ]************************************************************/
 
 
-const anyAppend = x => y => x || y;
+const anyAppend = x => y => x || y; // truthy/falsy values are allowed
 
 
-const anyPrepend = y => x => x || y;
+const anyPrepend = y => x => x || y; // truthy/falsy values are allowed
 
 
 const anyEmpty = false;
@@ -1423,6 +1423,9 @@ const formatInt = sep => ([s]) =>
 /***[ Monoid under addition ]*************************************************/
 
 
+// TODO: move entire section to Sum ADT
+
+
 const sumAppend = x => y => x + y;
 
 
@@ -1433,6 +1436,9 @@ const sumEmpty = 0;
 
 
 /***[ Monoid under multiplication ]*******************************************/
+
+
+// TODO: move entire section to Prod ADT
 
 
 const prodAppend = x => y => x * y;
