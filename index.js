@@ -216,6 +216,12 @@ const record = (type, o) =>
   (o[type.name || type] = type.name || type, o);
 
 
+const run = (tx, k) =>
+  k in tx
+    ? tx[k]
+    : _throw(new TypeError(`unknown property ${k} in record`));
+
+
 /******************************************************************************
 ********************************[ UNION TYPE ]*********************************
 ******************************************************************************/
@@ -229,7 +235,9 @@ const union = type => (tag, o) =>
 
 
 const match = (tx, o) =>
-  o[tx.tag] (tx);
+  tx.tag in o
+    ? o[tx.tag] (tx)
+    : _throw(new TypeError(`unknown property "${tx.tag}" in union`));
 
 
 /******************************************************************************
@@ -1947,6 +1955,16 @@ const Right = right =>
   Either(Right, {right});
 
 
+/***[ Monad ]*****************************************************************/
+
+
+const eithChain = mx => fm =>
+  match(tx, {
+    Left: ({left: x}) => Left(x),
+    Right: ({right: y}) => fm(y)
+  });
+
+
 /******************************************************************************
 ***********************************[ ENDO ]************************************
 ******************************************************************************/
@@ -2006,11 +2024,7 @@ const listOf = x => Cons(x) (Nil);
 /***[Conversion]**************************************************************/
 
 
-const listToArr = xs =>
-  tailRec((acc, {head, tail}) =>
-    head === undefined
-      ? Base(acc)
-      : Step(arrSnoc(head) (acc), tail)) ([], xs);
+// listToArr @Derived
 
 
 /***[ De-/Construction ]******************************************************/
@@ -2135,6 +2149,10 @@ const listLiftA5 = liftA5({map: listMap, ap: listAp});
 
 
 const listLiftA6 = liftA6({map: listMap, ap: listAp});
+
+
+const listToArr =
+  listFold(arrSnoc_) ([]);
 
 
 /******************************************************************************
@@ -3323,6 +3341,7 @@ module.exports = {
   dropWhiler,
   eff,
   Either,
+  eithChain,
   endoAppend,
   endoEmpty,
   endoPrepend,
@@ -3499,6 +3518,7 @@ module.exports = {
   Rexu,
   Right,
   round,
+  run,
   scanDir_,
   ScriptumError,
   select,
