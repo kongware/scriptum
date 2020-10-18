@@ -1955,6 +1955,12 @@ const Right = right =>
   Either(Right, {right});
 
 
+/***[ Applicative ]***********************************************************/
+
+
+const eithOf = x => Right(x);
+
+
 /***[ Monad ]*****************************************************************/
 
 
@@ -1963,6 +1969,20 @@ const eithChain = mx => fm =>
     Left: ({left: x}) => Left(x),
     Right: ({right: y}) => fm(y)
   });
+
+
+/***[ Transformer ]***********************************************************/
+
+
+const eithChainT = ({chain, of}) => mmx => fmm =>
+  chain(mmx) (mx =>
+    match(mx, {
+      Left: ({left: x}) => of(Left(x)),
+      Right: ({right: y}) => fmm(y)
+    }));
+
+
+const eithOfT = of => x => of(Right(x));
 
 
 /******************************************************************************
@@ -3342,6 +3362,9 @@ module.exports = {
   eff,
   Either,
   eithChain,
+  eithChainT,
+  eithOf,
+  eithOfT,
   endoAppend,
   endoEmpty,
   endoPrepend,
