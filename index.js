@@ -163,11 +163,14 @@ class ThunkProxy {
     if (k === THUNK)
       return true;
 
+    else if (k === "valueOf")
+      return () => this.memo;
+
     else if (k === Symbol.toPrimitive)
       return this.memo[Symbol.toPrimitive];
 
-    else if (k === "valueOf")
-      return () => this.memo;
+    else if (k === Symbol.toStringTag && this.memo && !(k in this.memo))
+      return Object.prototype.toString.call(this.memo).slice(8, -1);
 
     else return this.memo[k];
   }
@@ -398,7 +401,7 @@ const apEff = ({map, ap}) => tx => ty =>
   ap(map(_const) (tx)) (ty);
 
 
-const apEff2 = ({map, ap}) => tx => ty =>
+const apEff_ = ({map, ap}) => tx => ty =>
   ap(mapEff(map) (id) (tx)) (ty);
 
 
@@ -441,6 +444,13 @@ const liftAn = ({map, ap}) => f => (...ts) => {
 
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
+
+
+// TODO: add foldMapk
+
+
+const foldMapr = ({foldr, append, empty}) => f =>
+  foldr(comp(append) (f)) (empty);
 
 
 /******************************************************************************
@@ -507,43 +517,43 @@ const chainn = chain => (...ms) => {
 // TODO: implement variadic chainn_
 
 
-const compk = chain => fm => gm =>
+const join = chain => ttx =>
+  chain(ttx) (id);
+
+
+const komp = chain => fm => gm =>
   x => chain(gm(x)) (fm);
 
 
-const compk3 = chain => fm => gm => hm =>
+const komp3 = chain => fm => gm => hm =>
   x => chain(chain(hm(x)) (gm)) (fm);
 
 
-const compk4 = chain => fm => gm => hm => im =>
+const komp4 = chain => fm => gm => hm => im =>
   x => chain(chain(chain(im(x)) (hm)) (gm)) (fm);
 
 
-const compk5 = chain => fm => gm => hm => im => jm =>
+const komp5 = chain => fm => gm => hm => im => jm =>
   x => chain(chain(chain(chain(jm(x)) (im)) (hm)) (gm)) (fm);
 
 
-const compk6 = chain => fm => gm => hm => im => jm => km =>
+const komp6 = chain => fm => gm => hm => im => jm => km =>
   x => chain(chain(chain(chain(chain(km(x)) (jm)) (im)) (hm)) (gm)) (fm);
 
 
-const compkn = chain => (...fs) => {
+const kompn = chain => (...fs) => {
   switch (fs.length) {
-    case 2: return compk(chain) (fs[0]) (fs[1]);
-    case 3: return compk3(chain) (fs[0]) (fs[1]) (fs[2]);
-    case 4: return compk4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return compk5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return compk6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
+    case 2: return komp(chain) (fs[0]) (fs[1]);
+    case 3: return komp3(chain) (fs[0]) (fs[1]) (fs[2]);
+    case 4: return komp4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
+    case 5: return komp5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
+    case 6: return komp6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
     default: throw new TypeError("invalid argument number");
   }
 };
 
 
-// TODO: implement variadic compkn_
-
-
-const join = chain => ttx =>
-  chain(ttx) (id);
+// TODO: implement variadic kompn_
 
 
 /******************************************************************************
@@ -621,7 +631,7 @@ const arrClone = xs =>
 /***[Conversion]**************************************************************/
 
 
-// arrToList @DERIVED
+// arrFromList @DERIVED
 
 
 /***[ De-/Construction ]******************************************************/
@@ -674,6 +684,16 @@ const arrFold = f => init => xs => {
 };
 
 
+const arrFoldk = f => init => xs => {
+  let acc = init;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc) (xs[i], i).cont(id);
+
+  return acc;
+};
+
+
 const arrFoldr = f => acc => xs => {
   const go = i =>
     i === xs.length
@@ -694,7 +714,7 @@ const arrMap = f => xs =>
 /***[ Infinite Lists ]********************************************************/
 
 
-const iterate = f => x =>
+const iterate = f => x => // TODO: use List
   [x, thunk(() => iterate(f) (f(x)))];
 
 
@@ -702,8 +722,25 @@ const iterate = f => x =>
 
 
 const arrChain = mx => fm =>
-  arrFold(acc => x =>
-    arrAppend(acc) (fm(x))) ([]) (mx);
+  mx.flatMap(fm);
+
+
+const arrChain2 = chain2(arrChain);
+
+
+const arrChain3 = chain3(arrChain);
+
+
+const arrChain4 = chain4(arrChain);
+
+
+const arrChain5 = chain5(arrChain);
+
+
+const arrChain6 = chain6(arrChain);
+
+
+const arrChainn = chainn(arrChain);
 
 
 const arrJoin = join(arrChain);
@@ -713,18 +750,47 @@ const arrJoin = join(arrChain);
 
 
 const arrAppend = xs => ys =>
-  Array.isArray(ys)
+  introspect(ys) === "Array"
     ? xs.concat(ys)
     : _throw(new TypeError("illegal argument type"));
 
 
 const arrPrepend = ys => xs =>
-  Array.isArray(ys)
+  introspect(ys) === "Array"
     ? xs.concat(ys)
     : _throw(new TypeError("illegal argument type"));
 
 
 const arrEmpty = [];
+
+
+/***[ Traversable ]***********************************************************/
+
+
+const arrMapA = ({fold, map, ap, of}) => f => xs => {
+  const liftA2_ = liftA2({map, ap});
+
+  return fold(ys => y =>
+    liftA2_(arrSnoc) (f(y)) (ys))
+      (of([])) (xs);
+};
+
+
+const arrMaprA = ({foldr, map, ap, of}) => f => xs => {
+  const liftA2_ = liftA2({map, ap});
+
+  return foldr(y => ys =>
+    liftA2_(arrCons) (f(y)) (ys))
+      (of([])) (xs);
+};
+
+
+const arrSeqA = ({fold, map, ap, of}) =>
+  fold(liftA2({map, ap}) (arrSnoc_)) (of([]));
+
+
+const arrSeqrA = ({foldr, map, ap, of}) =>
+  foldr(liftA2({map, ap}) (arrCons)) (of([]));
 
 
 /***[ Unfoldable ]************************************************************/
@@ -771,6 +837,9 @@ const arrLiftA5 = liftA5({map: arrMap, ap: arrAp});
 
 
 const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
+
+
+const arrLiftAn = liftAn({map: arrMap, ap: arrAp});
 
 
 /******************************************************************************
@@ -1056,9 +1125,7 @@ const eff = f => x =>
 
 
 const introspect = x =>
-  x && x[TYPE] !== undefined
-    ? x[TYPE]
-    : Object.prototype.toString.call(x).slice(8, -1);
+  Object.prototype.toString.call(x).slice(8, -1);
 
 
 const isUnit = x =>
@@ -1264,6 +1331,16 @@ const drop = n => append => {
 };
 
 
+const dropk = n => append => { 
+  let m = 0;
+
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, k(acc))
+        : append(acc) (x).cont(k))};
+
+
 const dropr = n => append => { 
   let m = 0;
 
@@ -1284,6 +1361,16 @@ const dropWhile = p => append => {
 };
 
 
+const dropWhilek = p => append => {
+  let drop = true;
+
+  return acc => x =>
+    Cont(k =>
+      drop && p(x)
+        ? k(acc)
+        : (drop = false, append(acc) (x).cont(k)))};
+
+
 const dropWhiler = p => append => {
   let drop = true;
 
@@ -1300,6 +1387,13 @@ const filter = p => append => acc => x =>
     : acc;
 
 
+const filterk = p => append => acc => x =>
+  Cont(k =>
+    p(x)
+      ? append(acc) (x).cont(k)
+      : k(acc));
+
+
 const filterr = p => append => x => acc =>
   p(x)
     ? append(x) (acc)
@@ -1308,6 +1402,11 @@ const filterr = p => append => x => acc =>
 
 const map = f => append => acc => x =>
   append(acc) (f(x));
+
+
+const mapk = f => append => acc => x =>
+  Cont(k =>
+    append(acc) (f(x)).cont(k));
 
 
 const mapr = f => append => x => acc =>
@@ -1324,6 +1423,16 @@ const take = n => append => {
 };
 
 
+const takek = n => append => { 
+  let m = 0;
+
+  return acc => x =>
+    Cont(k =>
+      m < n
+        ? (m++, append(acc) (x).cont(k))
+        : Base(acc))};
+
+
 const taker = n => append => { 
   let m = 0;
 
@@ -1338,6 +1447,13 @@ const takeWhile = p => append => acc => x =>
   p(x)
     ? append(acc) (x)
     : acc;
+
+
+const takeWhilek = p => append => acc => x =>
+  Cont(k =>
+    p(x)
+      ? append(acc) (x).cont(k)
+      : Base(acc));
 
 
 const takeWhiler = p => append => x => acc =>
@@ -2077,7 +2193,8 @@ const listOf = x => Cons(x) (Nil);
 /***[Conversion]**************************************************************/
 
 
-// listToArr @Derived
+const listFromArr = arrFoldr(
+  x => xs => Cons(x) (xs)) (Nil);
 
 
 /***[ De-/Construction ]******************************************************/
@@ -2086,8 +2203,7 @@ const listOf = x => Cons(x) (Nil);
 const listCons = Cons;
 
 
-const listCons_ = tail => head =>
-  Cons(head) (tail);
+const listCons_ = flip(Cons);
 
 
 // TODO: implement listSnoc
@@ -2202,10 +2318,6 @@ const listLiftA5 = liftA5({map: listMap, ap: listAp});
 
 
 const listLiftA6 = liftA6({map: listMap, ap: listAp});
-
-
-const listToArr =
-  listFold(arrSnoc_) ([]);
 
 
 /******************************************************************************
@@ -2440,7 +2552,7 @@ const paraAnd = tx => ty => {
 };
 
 
-const paraAll = ({fold, cons, empty, paraMap}) =>
+const paraAll = ({fold, cons, empty, paraMap}) => // TODO: review dictionary
   fold(tx => ty =>
     paraMap(([x, y]) =>
       cons(x) (y))
@@ -2679,7 +2791,7 @@ const taskAnd = tx => ty =>
         res([x, y]), rej), rej));
 
 
-const taskAll = ({fold, cons, empty, taskMap}) =>
+const taskAll = ({fold, cons, empty, taskMap}) => // TODO: review dictionary
   fold(tx => ty =>
     taskMap(([x, y]) =>
       cons(x) (y))
@@ -3275,8 +3387,8 @@ const hamtDelNode = (node, hash, k, depth) => {
 ******************************************************************************/
 
 
-const arrToList = arrFoldr(
-  x => xs => Cons(x) (xs)) (Nil);
+const arrFromList =
+  listFold(arrSnoc_) ([]);
 
 
 const optmEmpty = None;
@@ -3299,7 +3411,7 @@ module.exports = {
   anyEmpty,
   anyPrepend,
   apEff,
-  apEff2,
+  apEff_,
   app,
   app_,
   appr,
@@ -3308,24 +3420,36 @@ module.exports = {
   arrAp,
   arrAppend,
   arrChain,
+  arrChain2,
+  arrChain3,
+  arrChain4,
+  arrChain5,
+  arrChain6,
+  arrChainn,
   arrClone,
   arrCons,
   arrCons_,
   arrEmpty,
   arrFold,
+  arrFoldk,
   arrFoldr,
+  arrFromList,
   arrJoin,
   arrLiftA2,
   arrLiftA3,
   arrLiftA4,
   arrLiftA5,
   arrLiftA6,
+  arrLiftAn,
   arrMap,
+  arrMapA,
+  arrMaprA,
   arrOf,
   arrPrepend,
+  arrSeqA,
+  arrSeqrA,
   arrSnoc,
   arrSnoc_,
-  arrToList,
   arrUncons,
   arrUnfold,
   arrUnsnoc,
@@ -3351,12 +3475,6 @@ module.exports = {
   comp2nd,
   Compare,
   compBin,
-  compk,
-  compk3,
-  compk4,
-  compk5,
-  compk6,
-  compkn,
   compn,
   compn_,
   compOn,
@@ -3389,8 +3507,10 @@ module.exports = {
   delayParallel,
   delayTask,
   drop,
+  dropk,
   dropr,
   dropWhile,
+  dropWhilek,
   dropWhiler,
   eff,
   effChain,
@@ -3410,11 +3530,13 @@ module.exports = {
   fileRead_,
   fileWrite_,
   filter,
+  filterk,
   filterr,
   fix,
   flip,
   floor,
   foldMap,
+  foldMapr,
   formatDate,
   formatDay,
   formatFrac,
@@ -3465,6 +3587,12 @@ module.exports = {
   isUnit,
   iterate,
   join,
+  komp,
+  komp3,
+  komp4,
+  komp5,
+  komp6,
+  kompn,
   lazy,
   lazyProp,
   Left,
@@ -3483,6 +3611,7 @@ module.exports = {
   listEmpty,
   listFold,
   listFoldr,
+  listFromArr,
   listLiftA2,
   listLiftA3,
   listLiftA4,
@@ -3491,7 +3620,6 @@ module.exports = {
   listMap,
   listOf,
   listPrepend,
-  listToArr,
   listUnfoldr,
   log,
   LT,
@@ -3502,6 +3630,7 @@ module.exports = {
   mapMod,
   mapSet,
   map,
+  mapk,
   mapr,
   match,
   modTree,
@@ -3521,6 +3650,7 @@ module.exports = {
   objKeys,
   objValues,
   Option,
+  optAp,
   optAppend,
   optEmpty,
   optLiftA2,
@@ -3532,6 +3662,7 @@ module.exports = {
   optmAppend,
   optmEmpty,
   optmPrepend,
+  optOf,
   optPrepend,
   or,
   orf,
@@ -3622,8 +3753,10 @@ module.exports = {
   taggedLog,
   tailRec,
   take,
+  takek,
   taker,
   takeWhile,
+  takeWhilek,
   takeWhiler,
   Task,
   taskAll,
