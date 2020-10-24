@@ -746,6 +746,24 @@ const arrChainn = chainn(arrChain);
 const arrJoin = join(arrChain);
 
 
+const arrKomp = komp(arrChain);
+
+
+const arrKomp3 = komp3(arrChain);
+
+
+const arrKomp4 = komp4(arrChain);
+
+
+const arrKomp5 = komp5(arrChain);
+
+
+const arrKomp6 = komp6(arrChain);
+
+
+const arrKompn = kompn(arrChain);
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -3435,6 +3453,12 @@ module.exports = {
   arrFoldr,
   arrFromList,
   arrJoin,
+  arrKomp,
+  arrKomp3,
+  arrKomp4,
+  arrKomp5,
+  arrKomp6,
+  arrKompn,
   arrLiftA2,
   arrLiftA3,
   arrLiftA4,
