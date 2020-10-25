@@ -30,9 +30,6 @@ const fs = require("fs");
 const PREFIX = "scriptum_";
 
 
-const TYPE = Symbol.toStringTag;
-
-
 /******************************************************************************
 *******************************************************************************
 *****************************[ ERRORS (INTERNAL) ]*****************************
@@ -71,6 +68,17 @@ class HamtError extends ScriptumError {};
 
 
 /******************************************************************************
+*********************************[ CONSTANTS ]*********************************
+******************************************************************************/
+
+
+const THUNK = PREFIX + "thunk";
+
+
+const UNDEFINED = PREFIX + "undefined";
+
+
+/******************************************************************************
 ************************************[ API ]************************************
 ******************************************************************************/
 
@@ -80,13 +88,13 @@ const lazy = f => x =>
 
 
 const strict = thunk =>
-  thunk && thunk[THUNK]
+  typeof thunk === "function" && THUNK in thunk
     ? thunk.valueOf()
     : thunk;
 
 
 const strictRec = thunk => {
-  while (thunk && thunk[THUNK])
+  while (typeof thunk === "function" && THUNK in thunk)
     thunk = thunk.valueOf();
 
   return thunk;
@@ -104,26 +112,28 @@ const thunk = f =>
 
 class ThunkProxy {
   constructor() {
-    this.memo = undefined;
+    this.memo = UNDEFINED;
   }
 
   apply(g, that, args) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
 
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     return this.memo(...args);
   }
 
   defineProperty(g, k, descriptor) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
 
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     Object.defineProperty(this.memo, k, descriptor);
@@ -131,76 +141,94 @@ class ThunkProxy {
   }
   
   ownKeys(g) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
 
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     return Reflect.ownKeys(this.memo);
   }
 
   getOwnPropertyDescriptor(g, k) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
       
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
   get(g, k) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
       
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     if (k === THUNK)
       return true;
 
     else if (k === "valueOf")
-      return () => this.memo;
+      return () => this.memo.valueOf();
 
-    else if (k === Symbol.toPrimitive)
-      return this.memo[Symbol.toPrimitive];
+    else if (k === "toString")
+      return () => this.memo.toString();
 
-    else if (k === Symbol.toStringTag && this.memo && !(k in this.memo))
+    else if (k === Symbol.toStringTag)
       return Object.prototype.toString.call(this.memo).slice(8, -1);
 
-    else return this.memo[k];
+    else {
+      /*if (typeof this.memo[k] === "function" && THUNK in this.memo[k]) {
+        const r = this.memo[k].valueOf();
+
+        this.memo[k] = typeof r === "object"
+          && "constructor" in r
+          && r.constructor.name === "Thunk"
+          && "memo" in r
+            ? r.memo : r;
+      }*/
+
+      return this.memo[k];
+    }
   }
 
   has(g, k) {
-    if (this.memo === undefined) {
+    if (k === THUNK)
+      return true;
+
+    else if (this.memo === UNDEFINED) {
+      console.log("A");
       this.memo = g();
 
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     return k in this.memo;
   }
 
   set(g, k, v) {
-    if (this.memo === undefined) {
+    if (this.memo === UNDEFINED) {
       this.memo = g();
 
-      while (this.memo && this.memo[THUNK])
-        this.memo = this.memo.valueOf();
+      while (typeof this.memo === "function"
+        && THUNK in this.memo)
+          this.memo = this.memo.valueOf();
     }
 
     this.memo[k] = v;
     return true;
   }  
 }
-
-
-const THUNK = PREFIX + "thunk";
 
 
 /******************************************************************************
@@ -222,7 +250,7 @@ const record = (type, o) =>
 const run = (tx, k) =>
   k in tx
     ? tx[k]
-    : _throw(new TypeError(`unknown property ${k} in record`));
+    : _throw(new TypeError(`unknown record property "${k}"`));
 
 
 /******************************************************************************
@@ -240,7 +268,7 @@ const union = type => (tag, o) =>
 const match = (tx, o) =>
   tx.tag in o
     ? o[tx.tag] (tx)
-    : _throw(new TypeError(`unknown property "${tx.tag}" in union`));
+    : _throw(new TypeError(`unknown union property "${tx.tag}"`));
 
 
 /******************************************************************************
@@ -597,6 +625,15 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 ******************************************************************************/
 
 
+/***[Alternative]*************************************************************/
+
+
+// arrAlt @Derived
+
+
+// arrZero @Derived
+
+
 /***[Applicative]*************************************************************/
 
 
@@ -834,6 +871,9 @@ const arrUnfold = f => x => {
 /***[ Derived ]***************************************************************/
 
 
+const arrAlt = arrAppend;
+
+
 const arrAp = tf => xs =>
   arrFold(acc => f =>
     arrAppend(acc)
@@ -858,6 +898,9 @@ const arrLiftA6 = liftA6({map: arrMap, ap: arrAp});
 
 
 const arrLiftAn = liftAn({map: arrMap, ap: arrAp});
+
+
+const arrZero = arrEmpty;
 
 
 /******************************************************************************
@@ -3809,7 +3852,6 @@ module.exports = {
   trace,
   transduce,
   Triple,
-  TYPE,
   uncurry,
   uncurry3,
   uncurry4,
