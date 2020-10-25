@@ -177,7 +177,7 @@ class ThunkProxy {
       return true;
 
     else if (k === "valueOf")
-      return () => this.memo.valueOf();
+      return () => this.memo
 
     else if (k === "toString")
       return () => this.memo.toString();
@@ -205,7 +205,6 @@ class ThunkProxy {
       return true;
 
     else if (this.memo === UNDEFINED) {
-      console.log("A");
       this.memo = g();
 
       while (typeof this.memo === "function"
