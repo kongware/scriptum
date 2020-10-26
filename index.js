@@ -952,9 +952,9 @@ const formatDay = digits => d => {
 
 const formatMonth = nameMap => digits => d => {
   switch (digits) {
-    case 1: return String(d.getUTCMonth());
-    case 2: return String(d.getUTCMonth()).padStart(2, "0");
-    case 3: return nameMap[String(d.getUTCMonth())];
+    case 1: return String(d.getUTCMonth() + 1);
+    case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
+    case 3: return nameMap[String(d.getUTCMonth() + 1)];
     default: throw new RangeError("invalid digits argument");
   }
 };
@@ -2316,14 +2316,22 @@ const listFoldr = f => acc => xs => {
 /***[ Functor ]***************************************************************/
 
 
-const listMap = f => xs => {
-  const go = (xs, i) =>
-    match(xs, {
-      Nil: _ => Nil,
-      Cons: ({head, tail}) => Cons(f(head, i)) (thunk(() => go(tail, i + 1)))
-    });
+const listMap = f =>
+  listFoldr(x => acc =>
+    Cons(f(x)) (acc))
+      (Nil);
 
-  return go(xs, 0);
+
+/***[ Monoid ]****************************************************************/
+
+
+const listChain = mx => fm => {
+  const go = my => match(my, {
+    Nil: _ => Nil,
+    Cons: ({head, tail}) => listAppend(fm(head)) (go(tail))
+  });
+
+  return go(mx);
 };
 
 
@@ -2360,9 +2368,7 @@ const listUnfoldr = f => x =>
 const listAp = fs => xs =>
   listFoldr(f => acc =>
     listAppend(listMap(f) (xs))
-      (acc))
-        (Nil)
-          (fs);
+      (acc)) (Nil) (fs);
 
 
 const listLiftA2 = liftA2({map: listMap, ap: listAp});
@@ -3477,6 +3483,7 @@ module.exports = {
   appr,
   appRest,
   appSpread,
+  arrAlt,
   arrAp,
   arrAppend,
   arrChain,
@@ -3519,6 +3526,7 @@ module.exports = {
   arrUncons,
   arrUnfold,
   arrUnsnoc,
+  arrZero,
   Base,
   Call,
   ceil,
@@ -3672,6 +3680,7 @@ module.exports = {
   List,
   listAp,
   listAppend,
+  listChain,
   listCons,
   listCons_,
   listEmpty,
