@@ -2167,7 +2167,28 @@ const Right = right =>
 /***[ Applicative ]***********************************************************/
 
 
+const eithAp = ft => tx =>
+  match(ft, {
+    Left: _ => ft,
+    Right: ({right: f}) =>
+      match(tx, {
+        Left: _ => tx,
+        Right: ({right: x}) => Right(f(x))
+      })
+  });
+
+
 const eithOf = x => Right(x);
+
+
+/***[ Functor ]***************************************************************/
+
+
+const eithMap = f => tx =>
+  match(tx, {
+    Left: _ => tx,
+    Right: ({right: x}) => Right(f(x))
+  });
 
 
 /***[ Monad ]*****************************************************************/
@@ -2175,8 +2196,8 @@ const eithOf = x => Right(x);
 
 const eithChain = mx => fm =>
   match(tx, {
-    Left: ({left: x}) => Left(x),
-    Right: ({right: y}) => fm(y)
+    Left: _ => tx,
+    Right: ({right: x}) => fm(x)
   });
 
 
@@ -2322,7 +2343,7 @@ const listMap = f =>
       (Nil);
 
 
-/***[ Monoid ]****************************************************************/
+/***[ Monad ]*****************************************************************/
 
 
 const listChain = mx => fm => {
@@ -3593,8 +3614,10 @@ module.exports = {
   effOf,
   effOfT,
   Either,
+  eithAp,
   eithChain,
   eithChainT,
+  eithMap,
   eithOf,
   eithOfT,
   endoAppend,
