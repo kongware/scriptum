@@ -290,13 +290,39 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
+************************[ TAIL RECURSION MODULO CONS ]*************************
+******************************************************************************/
+
+
+const callRec = step => {
+  while (step && step.tag === "Call")
+    step = step.f(step.x);
+
+  return step;
+};
+
+
+const compRec = step => {
+  const stack = [];
+
+  while (step && step.tag === "Comp") {
+    stack.push(step);
+    step = step.g(step.x);
+  }    
+
+  return stack.reduceRight(
+    (acc, step_) => step_.f(acc), step);
+};
+
+
+/******************************************************************************
 ******************************[ MONAD RECURSION ]******************************
 ******************************************************************************/
 
 
 const monadRec = step => {
   while (step.tag !== "Base")
-    step = step.f(...step.args);
+    step = step.f(step.x);
 
   return step.x;
 };
@@ -307,7 +333,7 @@ const monadRec = step => {
 
 const recChain = mx => fm =>
   mx.tag === "Chain"
-    ? Chain(args => recChain(mx.f(...args)) (fm)) (mx.args)
+    ? Chain(x => recChain(mx.f(x)) (fm)) (mx.x)
     : fm(mx.x);
 
 
@@ -323,59 +349,17 @@ const mutuRec = monadRec;
 
 
 /******************************************************************************
-******************************[ POST RECURSION ]*******************************
-******************************************************************************/
-
-
-const postRec = step => {
-  while (step && step.tag === "Call")
-    step = step.f(...step.args);
-
-  return step;
-};
-
-
-/******************************************************************************
 ******************************[ TAIL RECURSION ]*******************************
 ******************************************************************************/
 
 
-const tailRec = f => (...args) => {
-  let step = f(...args);
+const tailRec = f => x => {
+  let step = f(x);
 
   while (step.tag !== "Base")
-    step = f(...step.args);
+    step = f(step.x);
 
   return step.x;
-};
-
-
-/******************************************************************************
-************************[ TAIL RECURSION MODULO CONS ]*************************
-******************************************************************************/
-
-
-const moduloRec = f => (...args) => {
-  let step = f(...args);
-  const stack = [];
-
-  while (step.tag !== "Base") {
-    stack.push(step.f);
-    step = f(...step.step.args);
-  }
-
-  let r = step.x;
-
-  for (let i = stack.length - 1; i >= 0; i--) {
-    r = stack[i] (r);
-    
-    if (r && r.tag === "Base") {
-      r = r.x;
-      break;
-    }
-  }
-
-  return r;
 };
 
 
@@ -388,20 +372,23 @@ const Base = x =>
   ({tag: "Base", x});
 
 
-const Call = f => (...args) =>
-  ({tag: "Call", f, args});
+const Call = f => x =>
+  ({tag: "Call", f, x});
 
 
-const Chain = f => (...args) =>
-  ({tag: "Chain", f, args});
+const Chain = f => x =>
+  ({tag: "Chain", f, x});
+
+
+const Comp = f => g => x =>
+  ({tag: "Comp", f, g, x});
 
 
 const Mutu = Chain;
 
 
-const Step = (...args) =>
-  ({tag: "Step", args});
-
+const Step = x =>
+  ({tag: "Step", x});
 
 
 /******************************************************************************
@@ -670,6 +657,9 @@ const arrClone = xs =>
 // arrFromList @DERIVED
 
 
+// arrFromListT @DERIVED
+
+
 /***[ De-/Construction ]******************************************************/
 
 
@@ -845,6 +835,26 @@ const arrSeqA = ({fold, map, ap, of}) =>
 
 const arrSeqrA = ({foldr, map, ap, of}) =>
   foldr(liftA2({map, ap}) (arrCons)) (of([]));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+// caution: illegal monad, only use with commutative base monads!
+
+
+const arrChainT = ({map, ap, of ,chain}) => mmx => fmm =>
+  chain(mmx) (mx => {
+    const go = ([x, ...xs]) =>
+      x === undefined
+        ? of([])
+        : ap(map(arrCons) (fmm(x))) (go(xs));
+
+    return chain(go(mx)) (ys => of(arrFold(arrAppend) ([]) (ys)));
+  });
+
+
+const arrOfT = of => x => of([x]);
 
 
 /***[ Unfoldable ]************************************************************/
@@ -1051,7 +1061,7 @@ const compn = (...fs) => {
     case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
     case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
     case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: return x => postRec(compn_(fs) (x));
+    default: return x => callRec(compn_(fs) (x));
   }
 };
 
@@ -1715,10 +1725,10 @@ const getTree = (...ks) => o =>
 
 
 const getTreeOr = def => (...ks) => o =>
-  tailRec((p, i) =>
+  tailRec(([p, i]) =>
     i === ks.length ? Base(p)
-      : ks[i] in p ? Step(p[ks[i]], i + 1)
-      : Base(def)) (o, 0);
+      : ks[i] in p ? Step([p[ks[i]], i + 1])
+      : Base(def)) ([o, 0]);
 
 
 const modTree = (...ks) => f => o =>
@@ -2195,8 +2205,8 @@ const eithMap = f => tx =>
 
 
 const eithChain = mx => fm =>
-  match(tx, {
-    Left: _ => tx,
+  match(mx, {
+    Left: _ => mx,
     Right: ({right: x}) => fm(x)
   });
 
@@ -2405,6 +2415,69 @@ const listLiftA5 = liftA5({map: listMap, ap: listAp});
 
 
 const listLiftA6 = liftA6({map: listMap, ap: listAp});
+
+
+/******************************************************************************
+***********************************[ LISTT ]***********************************
+******************************************************************************/
+
+
+const ListT = union("ListT");
+
+
+const NilT = of =>
+  of(ListT("NilT", {}));
+
+
+const ConsT = of => head => tail =>
+  of(ListT("ConsT", {head, tail}));
+
+
+/***[ Conversion ]************************************************************/
+
+
+const listFromArrT = xs =>
+  xs.reduceRight((mmx, x) => ConsT(arrOf) (x) (mmx), NilT(arrOf));
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const listFoldrT = chain => f => acc => {
+  const go = mmx => chain(mmx) (mx =>
+    match(mx, {
+      NilT: () => acc,
+      ConsT: ({head, tail}) =>
+        f(head) (thunk(() => go(tail)))
+    }));
+
+  return go;
+};
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const listAppendT = ({chain, of}) => mmx => mmy =>
+  listFoldrT(chain) (ConsT(of)) (strict(mmy)) (mmx);
+
+
+/***[ Transformer ]***********************************************************/
+
+
+const listChainT = ({chain, of}) => mmx => fmm =>
+  listFoldrT(chain)
+    (x => listAppendT({chain, of}) (fmm(x)))
+      (NilT(of))
+        (mmx);
+
+
+const listLiftT = ({chain, of}) => mx =>
+  chain(mx) (listOfT(of));
+
+
+const listOfT = of => x =>
+  ConsT(of) (x) (NilT(of));
 
 
 /******************************************************************************
@@ -3478,6 +3551,13 @@ const arrFromList =
   listFold(arrSnoc_) ([]);
 
 
+const arrFromListT = arrFold(acc => ({head, tail}) =>
+  head === undefined
+    ? acc
+    : arrAppend(arrSnoc(head) (acc)) (arrFromListT(tail)))
+        ([]);
+
+
 const optmEmpty = None;
 
 
@@ -3522,6 +3602,7 @@ module.exports = {
   arrFoldk,
   arrFoldr,
   arrFromList,
+  arrFromListT,
   arrJoin,
   arrKomp,
   arrKomp3,
@@ -3550,6 +3631,7 @@ module.exports = {
   arrZero,
   Base,
   Call,
+  callRec,
   ceil,
   Chain,
   chain2,
@@ -3573,6 +3655,7 @@ module.exports = {
   compn,
   compn_,
   compOn,
+  compRec,
   concat,
   Cons,
   _const,
@@ -3732,7 +3815,6 @@ module.exports = {
   mapr,
   match,
   modTree,
-  moduloRec,
   monadRec,
   Mutu,
   mutuRec,
@@ -3786,7 +3868,6 @@ module.exports = {
   paraRecover,
   partial,
   partialProps,
-  postRec,
   Pred,
   predAppend,
   predEmpty,
