@@ -3554,8 +3554,10 @@ const arrFromList =
 const arrFromListT = arrFold(acc => ({head, tail}) =>
   head === undefined
     ? acc
-    : arrAppend(arrSnoc(head) (acc)) (arrFromListT(tail)))
-        ([]);
+    : Comp(arrAppend(arrSnoc(head) (compRec(acc))))
+        (arrFromListT)
+          (tail))
+            ([]);
 
 
 const optmEmpty = None;
@@ -3643,6 +3645,7 @@ module.exports = {
   cmpAppend,
   cmpEmpty,
   cmpPrepend,
+  Comp,
   comp,
   comp_,
   comp3,
@@ -3658,6 +3661,7 @@ module.exports = {
   compRec,
   concat,
   Cons,
+  ConsT,
   _const,
   const_,
   Cont,
@@ -3786,21 +3790,28 @@ module.exports = {
   List,
   listAp,
   listAppend,
+  listAppendT,
   listChain,
+  listChainT,
   listCons,
   listCons_,
   listEmpty,
   listFold,
   listFoldr,
+  listFoldrT,
   listFromArr,
+  listFromArrT,
   listLiftA2,
   listLiftA3,
   listLiftA4,
   listLiftA5,
   listLiftA6,
+  listLiftT,
   listMap,
   listOf,
+  listOfT,
   listPrepend,
+  ListT,
   listUnfoldr,
   log,
   LT,
@@ -3820,6 +3831,7 @@ module.exports = {
   mutuRec,
   _new,
   Nil,
+  NilT,
   None,
   not,
   notf,
