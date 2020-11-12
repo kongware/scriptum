@@ -186,15 +186,9 @@ class ThunkProxy {
       return Object.prototype.toString.call(this.memo).slice(8, -1);
 
     else {
-      /*if (typeof this.memo[k] === "function" && THUNK in this.memo[k]) {
-        const r = this.memo[k].valueOf();
-
-        this.memo[k] = typeof r === "object"
-          && "constructor" in r
-          && r.constructor.name === "Thunk"
-          && "memo" in r
-            ? r.memo : r;
-      }*/
+      if (typeof this.memo[k] === "function"
+        && THUNK in this.memo[k])
+          this.memo[k] = this.memo[k].valueOf();
 
       return this.memo[k];
     }
@@ -657,7 +651,8 @@ const arrClone = xs =>
 // arrFromList @DERIVED
 
 
-// arrFromListT @DERIVED
+const arrFromListT = ({chain, of}) => xs => listFoldT(chain) (acc => x =>
+  chain(acc) (acc_ => of(arrSnoc(x) (acc_)))) (of([])) (xs);
 
 
 /***[ De-/Construction ]******************************************************/
@@ -2436,22 +2431,35 @@ const ConsT = of => head => tail =>
 /***[ Conversion ]************************************************************/
 
 
-const listFromArrT = xs =>
-  xs.reduceRight((mmx, x) => ConsT(arrOf) (x) (mmx), NilT(arrOf));
+const listFromArrT = of => xs =>
+  xs.reduceRight((mmx, x) => ConsT(of) (x) (mmx), NilT(of));
 
 
 /***[ Foldable ]**************************************************************/
 
 
 const listFoldrT = chain => f => acc => {
-  const go = mmx => chain(mmx) (mx =>
+  const go = mmx => callRec(chain(mmx) (mx =>
     match(mx, {
-      NilT: () => acc,
+      NilT: _ => acc,
       ConsT: ({head, tail}) =>
-        f(head) (thunk(() => go(tail)))
-    }));
+        Call(f(head)) (thunk(() => go(tail)))
+    })));
 
   return go;
+};
+
+
+const listFoldT = chain => f => init => mmx => {
+  const go = ([acc, mmx_]) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => acc,
+        ConsT: ({head, tail}) =>
+          Call(go) ([f(acc) (head), strict(tail)])
+      }));
+
+  return callRec(go([init, mmx]));
 };
 
 
@@ -2459,7 +2467,7 @@ const listFoldrT = chain => f => acc => {
 
 
 const listAppendT = ({chain, of}) => mmx => mmy =>
-  listFoldrT(chain) (ConsT(of)) (strict(mmy)) (mmx);
+  listFoldrT(chain) (ConsT(of)) (mmy) (mmx);
 
 
 /***[ Transformer ]***********************************************************/
@@ -2469,7 +2477,7 @@ const listChainT = ({chain, of}) => mmx => fmm =>
   listFoldrT(chain)
     (x => listAppendT({chain, of}) (fmm(x)))
       (NilT(of))
-        (mmx);
+        (strict(mmx));
 
 
 const listLiftT = ({chain, of}) => mx =>
@@ -3551,15 +3559,6 @@ const arrFromList =
   listFold(arrSnoc_) ([]);
 
 
-const arrFromListT = arrFold(acc => ({head, tail}) =>
-  head === undefined
-    ? acc
-    : Comp(arrAppend(arrSnoc(head) (compRec(acc))))
-        (arrFromListT)
-          (tail))
-            ([]);
-
-
 const optmEmpty = None;
 
 
@@ -3799,6 +3798,7 @@ module.exports = {
   listFold,
   listFoldr,
   listFoldrT,
+  listFoldT,
   listFromArr,
   listFromArrT,
   listLiftA2,
