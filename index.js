@@ -60,6 +60,9 @@ class ScriptumError extends ExtendableError {};
 class HamtError extends ScriptumError {};
 
 
+class ThunkError extends ScriptumError {};
+
+
 /******************************************************************************
 *******************************************************************************
 ******************************[ IMPLICIT THUNK ]*******************************
@@ -72,10 +75,10 @@ class HamtError extends ScriptumError {};
 ******************************************************************************/
 
 
+const NULL = PREFIX + "null";
+
+
 const THUNK = PREFIX + "thunk";
-
-
-const UNDEFINED = PREFIX + "undefined";
 
 
 /******************************************************************************
@@ -88,21 +91,21 @@ const lazy = f => x =>
 
 
 const strict = thunk =>
-  typeof thunk === "function" && THUNK in thunk
+  thunk && thunk[THUNK] === true
     ? thunk.valueOf()
     : thunk;
 
 
 const strictRec = thunk => {
-  while (typeof thunk === "function" && THUNK in thunk)
+  while (thunk && thunk[THUNK] === true)
     thunk = thunk.valueOf();
 
   return thunk;
 };
 
 
-const thunk = f =>
-  new Proxy(f, new ThunkProxy());
+const thunk = thunk =>
+  new Proxy(thunk, new ThunkProxy());
 
 
 /******************************************************************************
@@ -112,71 +115,40 @@ const thunk = f =>
 
 class ThunkProxy {
   constructor() {
-    this.memo = UNDEFINED;
+    this.memo = NULL;
   }
 
   apply(g, that, args) {
-    if (this.memo === UNDEFINED) {
+    if (this.memo === NULL) {
       this.memo = g();
 
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo.valueOf();
     }
 
     return this.memo(...args);
   }
 
-  defineProperty(g, k, descriptor) {
-    if (this.memo === UNDEFINED) {
-      this.memo = g();
-
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
-    }
-
-    Object.defineProperty(this.memo, k, descriptor);
-    return true;
+  defineProperty(g, k, dtor) {
+    throw new ThunkError(`illegal mutation in "${k}"`);
   }
   
-  ownKeys(g) {
-    if (this.memo === UNDEFINED) {
-      this.memo = g();
-
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
-    }
-
-    return Reflect.ownKeys(this.memo);
-  }
-
-  getOwnPropertyDescriptor(g, k) {
-    if (this.memo === UNDEFINED) {
-      this.memo = g();
-      
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
-    }
-
-    return Reflect.getOwnPropertyDescriptor(this.memo, k);
+  deleteProperty(g, k) {
+    throw new ThunkError(`illegal mutation in "${k}"`);
   }
 
   get(g, k) {
-    if (this.memo === UNDEFINED) {
-      this.memo = g();
-      
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
-    }
-
     if (k === THUNK)
       return true;
 
-    else if (k === "valueOf")
+    else if (this.memo === NULL) {
+      this.memo = g();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo.valueOf();
+    }
+
+    if (k === "valueOf")
       return () => this.memo
 
     else if (k === "toString")
@@ -185,41 +157,50 @@ class ThunkProxy {
     else if (k === Symbol.toStringTag)
       return Object.prototype.toString.call(this.memo).slice(8, -1);
 
-    else {
-      if (typeof this.memo[k] === "function"
-        && THUNK in this.memo[k])
-          this.memo[k] = this.memo[k].valueOf();
+    while (this.memo[k] && this.memo[k] [THUNK] === true)
+      this.memo[k] = this.memo[k].valueOf();
 
-      return this.memo[k];
+    return this.memo[k]; // TODO: do we need to bind if target is a method?
+  }
+
+  getOwnPropertyDescriptor(g, k) {
+    if (this.memo === NULL) {
+      this.memo = g();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo.valueOf();
     }
+
+    return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
   has(g, k) {
     if (k === THUNK)
       return true;
 
-    else if (this.memo === UNDEFINED) {
+    else if (this.memo === NULL) {
       this.memo = g();
 
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo.valueOf();
     }
 
     return k in this.memo;
   }
 
-  set(g, k, v) {
-    if (this.memo === UNDEFINED) {
+  ownKeys(g) {
+    if (this.memo === NULL) {
       this.memo = g();
 
-      while (typeof this.memo === "function"
-        && THUNK in this.memo)
-          this.memo = this.memo.valueOf();
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo.valueOf();
     }
 
-    this.memo[k] = v;
-    return true;
+    return Reflect.ownKeys(this.memo);
+  }
+
+  set(g, k, v) {
+    throw new ThunkError(`illegal mutation in "${k}"`);
   }  
 }
 
@@ -284,29 +265,27 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
-************************[ TAIL RECURSION MODULO CONS ]*************************
+**************************[ DEFERRED CALL RECURSION ]**************************
 ******************************************************************************/
 
 
-const callRec = step => {
-  while (step && step.tag === "Call")
-    step = step.f(step.x);
+const callRec = o => {
+  while (o.tag === "Call")
+    o = o.f(o.call);
 
-  return step;
+  return o.return;
 };
 
 
-const compRec = step => {
-  const stack = [];
+/***[Tags]********************************************************************/
 
-  while (step && step.tag === "Comp") {
-    stack.push(step);
-    step = step.g(step.x);
-  }    
 
-  return stack.reduceRight(
-    (acc, step_) => step_.f(acc), step);
-};
+const Call = f => call =>
+  ({tag: "Call", f, call});
+
+
+const Return = _return =>
+  ({tag: "Return", return: _return});
 
 
 /******************************************************************************
@@ -314,32 +293,48 @@ const compRec = step => {
 ******************************************************************************/
 
 
-const monadRec = step => {
-  while (step.tag !== "Base")
-    step = step.f(step.x);
+const monadRec = o => {
+  while (o.tag === "Chain")
+    o = o.fm(o.chain);
 
-  return step.x;
+  return o.of;
 };
+
+
+/***[ Functor ]***************************************************************/
+
+
+const recMap = f => tx =>
+  Of(f(tx.of));
 
 
 /***[ Monad ]*****************************************************************/
 
 
 const recChain = mx => fm =>
-  mx.tag === "Chain"
-    ? Chain(x => recChain(mx.f(x)) (fm)) (mx.x)
-    : fm(mx.x);
+  mx.tag === "Chain" ? Chain(mx.chain) (x => recChain(mx.fm(x)) (fm))
+    : mx.tag === "Of" ? fm(mx.of)
+    : _throw(new TypeError("unknown case"));
 
 
-// recOf @DERIVED
+// recOf @Derived
 
 
-/******************************************************************************
-*****************************[ MUTUAL RECURSION ]******************************
-******************************************************************************/
+/***[Tags]********************************************************************/
 
 
-const mutuRec = monadRec;
+const Chain = chain => fm =>
+  ({tag: "Chain", fm, chain});
+
+
+const Of = of =>
+  ({tag: "Of", of});
+
+
+/***[Derived]*****************************************************************/
+
+
+const recOf = Of;
 
 
 /******************************************************************************
@@ -348,49 +343,53 @@ const mutuRec = monadRec;
 
 
 const tailRec = f => x => {
-  let step = f(x);
+  let o = f(x);
 
-  while (step.tag !== "Base")
-    step = f(step.x);
+  while (o.tag === "Loop")
+    o = f(o.loop);
 
-  return step.x;
+  return o.base;
 };
 
 
-/******************************************************************************
-***********************************[ TAGS ]************************************
-******************************************************************************/
+/***[Tags]********************************************************************/
 
 
-const Base = x =>
-  ({tag: "Base", x});
+const Base = base =>
+  ({tag: "Base", base});
 
 
-const Call = f => x =>
-  ({tag: "Call", f, x});
-
-
-const Chain = f => x =>
-  ({tag: "Chain", f, x});
-
-
-const Comp = f => g => x =>
-  ({tag: "Comp", f, g, x});
-
-
-const Mutu = Chain;
-
-
-const Step = x =>
-  ({tag: "Step", x});
+const Loop = loop =>
+  ({tag: "Loop", loop});
 
 
 /******************************************************************************
-**********************************[ DERIVED ]**********************************
+************************[ TAIL RECURSION MODULO CONS ]*************************
 ******************************************************************************/
 
 
-const recOf = Base;
+const modRec = o => {
+  const stack = [];
+
+  while (o.tag === "Mod") {
+    stack.push(o);
+    o = o.g(o.mod);
+  }    
+
+  return stack.reduceRight(
+    (acc, p) => p.f(acc), o.total);
+};
+
+
+/***[Tags]********************************************************************/
+
+
+const Mod = f => g => mod =>
+  ({tag: "Mod", f, g, mod});
+
+
+const Total = total =>
+  ({tag: "Total", total});
 
 
 /******************************************************************************
@@ -443,6 +442,9 @@ const liftAn = ({map, ap}) => f => (...ts) => {
     default: throw new TypeError("invalid argument number");
   }
 };
+
+
+// TODO: implement variadic liftAn_
 
 
 /******************************************************************************
@@ -651,8 +653,10 @@ const arrClone = xs =>
 // arrFromList @DERIVED
 
 
-const arrFromListT = ({chain, of}) => xs => listFoldT(chain) (acc => x =>
-  chain(acc) (acc_ => of(arrSnoc(x) (acc_)))) (of([])) (xs);
+const arrFromListT = ({chain, of}) => // TODO: maybe rename to listToArrT?
+  listFoldT(chain) (acc => x =>
+    chain(acc) (acc_ =>
+      of(arrSnoc(x) (acc_)))) (of([]));
 
 
 /***[ De-/Construction ]******************************************************/
@@ -832,26 +836,6 @@ const arrSeqrA = ({foldr, map, ap, of}) =>
   foldr(liftA2({map, ap}) (arrCons)) (of([]));
 
 
-/***[ Transformer ]***********************************************************/
-
-
-// caution: illegal monad, only use with commutative base monads!
-
-
-const arrChainT = ({map, ap, of ,chain}) => mmx => fmm =>
-  chain(mmx) (mx => {
-    const go = ([x, ...xs]) =>
-      x === undefined
-        ? of([])
-        : ap(map(arrCons) (fmm(x))) (go(xs));
-
-    return chain(go(mx)) (ys => of(arrFold(arrAppend) ([]) (ys)));
-  });
-
-
-const arrOfT = of => x => of([x]);
-
-
 /***[ Unfoldable ]************************************************************/
 
 
@@ -905,6 +889,53 @@ const arrLiftAn = liftAn({map: arrMap, ap: arrAp});
 
 
 const arrZero = arrEmpty;
+
+
+/******************************************************************************
+**********************************[ ARRAYT ]***********************************
+******************************************************************************/
+
+
+/***[ Applicative ]***********************************************************/
+
+
+const arrOfT = of => x => of([of(x)]);
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const arrFoldT = chain => f => init => mmx =>
+  chain(mmx) (mx => {
+    const go = (acc, i) =>
+      i === mx.length
+        ? acc
+        : chain(mx[i]) (x =>
+            go(f(acc) (x), i + 1))
+
+    return go(init, 0);
+  });
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const arrAppendT = ({chain, of}) => mmx => mmy =>
+  arrFoldT(chain)
+    (acc => x =>
+      chain(acc) (acc_ =>
+        of(arrSnoc(of(x)) (acc_)))) (mmx) (mmy);
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const arrChainT = ({chain, of}) => mmx => fmm =>
+  arrFoldT(chain)
+    (acc => x =>
+      arrAppendT({chain, of}) (acc) (fmm(x)))
+        (of([]))
+          (mmx);
 
 
 /******************************************************************************
@@ -1021,10 +1052,6 @@ const comp = f => g => x =>
   f(g(x));
 
 
-const comp_ = f => g => x =>
-  Call(f) (g(x));
-
-
 const comp3 = f => g => h => x =>
   f(g(h(x)));
 
@@ -1049,19 +1076,12 @@ const compBin = f => g => x => y =>
   f(g(x) (y));
 
 
-const compn = (...fs) => {
-  switch (fs.length) {
-    case 2: return comp(fs[0]) (fs[1]);
-    case 3: return comp3(fs[0]) (fs[1]) (fs[2]);
-    case 4: return comp4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return comp5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return comp6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: return x => callRec(compn_(fs) (x));
-  }
-};
+const compn = (...fs) =>
+  compn_(fs);
 
 
-// compn_ @Derived
+const compn_ = fs => x =>
+  arrFold(app_) (x) (fs);
 
 
 const compOn = f => g => x => y =>
@@ -1534,10 +1554,6 @@ const transduce = ({append, fold}) => f =>
 /***[ Derived ]***************************************************************/
 
 
-const compn_ =
-  arrFold(comp_) (id);
-
-
 const funLiftA2 = liftA2({map: funMap, ap: funAp});
 
 
@@ -1722,7 +1738,7 @@ const getTree = (...ks) => o =>
 const getTreeOr = def => (...ks) => o =>
   tailRec(([p, i]) =>
     i === ks.length ? Base(p)
-      : ks[i] in p ? Step([p[ks[i]], i + 1])
+      : ks[i] in p ? Loop([p[ks[i]], i + 1])
       : Base(def)) ([o, 0]);
 
 
@@ -2428,10 +2444,29 @@ const ConsT = of => head => tail =>
   of(ListT("ConsT", {head, tail}));
 
 
+/***[ Alternative ]***********************************************************/
+
+
+const listAltT = ({chain, of}) => mmx => mmy => {
+  const go = (mmx_) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => strict(mmy),
+        ConsT: ({head, tail}) =>
+          ConsT(of) (head) (thunk(() => go(tail)))
+      }));
+  
+  return go(mmx);
+};
+
+
+const listZeroT = NilT;
+
+
 /***[ Conversion ]************************************************************/
 
 
-const listFromArrT = of => xs =>
+const listFromArrT = of => xs => // TODO: make less strict (foldr)
   xs.reduceRight((mmx, x) => ConsT(of) (x) (mmx), NilT(of));
 
 
@@ -2439,34 +2474,34 @@ const listFromArrT = of => xs =>
 
 
 const listFoldrT = chain => f => acc => {
-  const go = mmx => callRec(chain(mmx) (mx =>
+  const go = mmx => chain(mmx) (mx =>
     match(mx, {
-      NilT: _ => acc,
+      NilT: () => strict(acc),
       ConsT: ({head, tail}) =>
-        Call(f(head)) (thunk(() => go(tail)))
-    })));
+        f(head) (thunk(() => go(tail)))
+    }));
 
   return go;
 };
 
 
-const listFoldT = chain => f => init => mmx => {
-  const go = ([acc, mmx_]) =>
+const listFoldT = chain => f => init => mmx => { // TODO: make stack safe
+  const go = (acc, mmx_) =>
     chain(mmx_) (mx =>
       match(mx, {
         NilT: _ => acc,
         ConsT: ({head, tail}) =>
-          Call(go) ([f(acc) (head), strict(tail)])
+          go(f(acc) (head), tail)
       }));
 
-  return callRec(go([init, mmx]));
+  return go(init, mmx);
 };
 
 
 /***[ Monoid ]****************************************************************/
 
 
-const listAppendT = ({chain, of}) => mmx => mmy =>
+const listAppendT = ({chain, of}) => mmx => mmy => // TODO: add type check
   listFoldrT(chain) (ConsT(of)) (mmy) (mmx);
 
 
@@ -2477,7 +2512,7 @@ const listChainT = ({chain, of}) => mmx => fmm =>
   listFoldrT(chain)
     (x => listAppendT({chain, of}) (fmm(x)))
       (NilT(of))
-        (strict(mmx));
+        (mmx);
 
 
 const listLiftT = ({chain, of}) => mx =>
@@ -2575,6 +2610,16 @@ const optPrepend = prepend => tx => ty =>
 
 
 const optEmpty = None;
+
+
+/***[Monad]*******************************************************************/
+
+
+const optChain = mx => fm =>
+  match(mx, {
+    None: _ => None,
+    Some: ({some: x}) => fm(x)
+  });
 
 
 /***[Misc. Combinators]*******************************************************/
@@ -3555,7 +3600,7 @@ const hamtDelNode = (node, hash, k, depth) => {
 ******************************************************************************/
 
 
-const arrFromList =
+const arrFromList = // TODO: maybe rename to listToArr?
   listFold(arrSnoc_) ([]);
 
 
@@ -3588,6 +3633,7 @@ module.exports = {
   arrAlt,
   arrAp,
   arrAppend,
+  arrAppendT,
   arrChain,
   arrChain2,
   arrChain3,
@@ -3595,6 +3641,7 @@ module.exports = {
   arrChain5,
   arrChain6,
   arrChainn,
+  arrChainT,
   arrClone,
   arrCons,
   arrCons_,
@@ -3602,6 +3649,7 @@ module.exports = {
   arrFold,
   arrFoldk,
   arrFoldr,
+  arrFoldT,
   arrFromList,
   arrFromListT,
   arrJoin,
@@ -3621,6 +3669,7 @@ module.exports = {
   arrMapA,
   arrMaprA,
   arrOf,
+  arrOfT,
   arrPrepend,
   arrSeqA,
   arrSeqrA,
@@ -3644,9 +3693,7 @@ module.exports = {
   cmpAppend,
   cmpEmpty,
   cmpPrepend,
-  Comp,
   comp,
-  comp_,
   comp3,
   comp4,
   comp5,
@@ -3657,7 +3704,6 @@ module.exports = {
   compn,
   compn_,
   compOn,
-  compRec,
   concat,
   Cons,
   ConsT,
@@ -3788,6 +3834,7 @@ module.exports = {
   liftAn,
   List,
   listAp,
+  listAltT,
   listAppend,
   listAppendT,
   listChain,
@@ -3813,7 +3860,9 @@ module.exports = {
   listPrepend,
   ListT,
   listUnfoldr,
+  listZeroT,
   log,
+  Loop,
   LT,
   mapDel,
   mapEff,
@@ -3825,10 +3874,10 @@ module.exports = {
   mapk,
   mapr,
   match,
+  modRec,
+  Mod,
   modTree,
   monadRec,
-  Mutu,
-  mutuRec,
   _new,
   Nil,
   NilT,
@@ -3841,9 +3890,11 @@ module.exports = {
   objGetOr,
   objKeys,
   objValues,
+  Of,
   Option,
   optAp,
   optAppend,
+  optChain,
   optEmpty,
   optLiftA2,
   optLiftA3,
@@ -3892,9 +3943,11 @@ module.exports = {
   raceEmpty,
   racePrepend,
   recChain,
+  recMap,
   recOf,
   record,
   reset,
+  Return,
   Rex,
   Rexf,
   Rexg,
@@ -3911,7 +3964,6 @@ module.exports = {
   setTree,
   shift,
   Some,
-  Step,
   State,
   stateAp,
   stateChain,
@@ -3973,6 +4025,7 @@ module.exports = {
   throwOnFalse,
   throwOnUnit,
   thunk,
+  Total,
   trace,
   transduce,
   Triple,
