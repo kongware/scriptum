@@ -30,6 +30,9 @@ const fs = require("fs");
 const PREFIX = "scriptum_";
 
 
+const TC = true; // type check
+
+
 /******************************************************************************
 *******************************************************************************
 *****************************[ ERRORS (INTERNAL) ]*****************************
@@ -60,7 +63,87 @@ class ScriptumError extends ExtendableError {};
 class HamtError extends ScriptumError {};
 
 
-class ThunkError extends ScriptumError {};
+/******************************************************************************
+*******************************************************************************
+*******************************[ TYPE CHECKING ]*******************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+************************************[ API ]************************************
+******************************************************************************/
+
+
+const fun = f =>
+  new Proxy(f, new FunProxy());
+
+
+const rec = o =>
+  new Proxy(o, new RecProxy());
+
+
+/******************************************************************************
+*************************[ IMPLEMENTATION (INTERNAL) ]*************************
+******************************************************************************/
+
+
+class FunProxy {
+  apply(f, that, args) {
+    args.forEach(arg => {
+      if (isUnit(arg))
+        throw new TypeError("illegal argument unit type");
+    });
+
+    const r = f(...args);
+
+    if (isUnit(r))
+      throw new TypeError("illegal return unit type");
+
+    else if (typeof r === "function")
+      return fun(r);
+
+    else return r;
+  }
+}
+
+
+class RecProxy {
+  defineProperty(o, k, dtor) {
+    throw new TypeError(`illegal mutation in "${k}"`);
+  }
+  
+  deleteProperty(o, k) {
+    throw new TypeError(`illegal mutation in "${k}"`);
+  }
+
+  get(o, k) {
+    switch (k) {
+      case Symbol.asyncIterator:
+      case Symbol.isConcatSpreadable:
+      case Symbol.iterator:
+      case Symbol.match:
+      case Symbol.matchAll:
+      case Symbol.replace:
+      case Symbol.search:
+      case Symbol.split:
+      case Symbol.toPrimitive:
+      case Symbol.toStringTag: return o[k];
+    }
+
+    if (!(k in o))
+      throw new TypeError(`unknown property "${k}"`);
+
+    else if (typeof o[k] === "function")
+      return fun(o[k].bind(o));
+
+    else return o[k];
+  }
+
+  set(g, k, v) {
+    throw new TypeError(`illegal mutation in "${k}"`);
+  }  
+}
 
 
 /******************************************************************************
@@ -130,11 +213,11 @@ class ThunkProxy {
   }
 
   defineProperty(g, k, dtor) {
-    throw new ThunkError(`illegal mutation in "${k}"`);
+    throw new TypeError(`illegal mutation in "${k}"`);
   }
   
   deleteProperty(g, k) {
-    throw new ThunkError(`illegal mutation in "${k}"`);
+    throw new TypeError(`illegal mutation in "${k}"`);
   }
 
   get(g, k) {
@@ -160,7 +243,10 @@ class ThunkProxy {
     while (this.memo[k] && this.memo[k] [THUNK] === true)
       this.memo[k] = this.memo[k].valueOf();
 
-    return this.memo[k]; // TODO: do we need to bind if target is a method?
+    if (typeof this.memo[k] === "function")
+      return this.memo[k].bind(this.memo);
+
+    else return this.memo[k];
   }
 
   getOwnPropertyDescriptor(g, k) {
@@ -200,7 +286,7 @@ class ThunkProxy {
   }
 
   set(g, k, v) {
-    throw new ThunkError(`illegal mutation in "${k}"`);
+    throw new TypeError(`illegal mutation in "${k}"`);
   }  
 }
 
@@ -217,14 +303,10 @@ class ThunkProxy {
 ******************************************************************************/
 
 
-const record = (type, o) =>
-  (o[type.name || type] = type.name || type, o);
-
-
-const run = (tx, k) =>
-  k in tx
-    ? tx[k]
-    : _throw(new TypeError(`unknown record property "${k}"`));
+const record = (type, o) => (
+  o[type.name || type] = type.name || type,
+  o[Symbol.toStringTag] = type.name || type,
+  TC ? rec(o) : o);
 
 
 /******************************************************************************
@@ -232,17 +314,17 @@ const run = (tx, k) =>
 ******************************************************************************/
 
 
-const union = type => (tag, o) =>
-  (o[type] = type, o.tag = tag.name || tag, o);
+const union = type => (tag, o) => (
+  o[type] = type,
+  o[Symbol.toStringTag] = type,
+  o.tag = tag.name || tag,
+  TC ? rec(o) : o);
 
 
 /***[ Elimination Rule ]******************************************************/
 
 
-const match = (tx, o) =>
-  tx.tag in o
-    ? o[tx.tag] (tx)
-    : _throw(new TypeError(`unknown union property "${tx.tag}"`));
+const match = (tx, o) => o[tx.tag] (tx);
 
 
 /******************************************************************************
@@ -265,6 +347,37 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
+******************************[ BODY RECURSION ]*******************************
+******************************************************************************/
+
+
+const bodyRec = o => {
+  const stack = [];
+
+  while (o.tag === "Stack") {
+    stack.push(o);
+    o = o.g(o.stack);
+  }    
+
+  return o.tag === "Unstack"
+    ? stack.reduceRight(
+        (acc, p) => p.f(acc), o.unstack)
+    : _throw(new TypeError("unknown trampoline tag"));
+};
+
+
+/***[Tags]********************************************************************/
+
+
+const Stack = f => g => stack =>
+  ({tag: "Stack", f, g, stack});
+
+
+const Unstack = unstack =>
+  ({tag: "Unstack", unstack});
+
+
+/******************************************************************************
 **************************[ DEFERRED CALL RECURSION ]**************************
 ******************************************************************************/
 
@@ -273,7 +386,9 @@ const callRec = o => {
   while (o.tag === "Call")
     o = o.f(o.call);
 
-  return o.return;
+  return o.tag === "Return"
+    ? o.return
+    : _throw(new TypeError("unknown trampoline tag"));
 };
 
 
@@ -297,7 +412,9 @@ const monadRec = o => {
   while (o.tag === "Chain")
     o = o.fm(o.chain);
 
-  return o.of;
+  return o.tag === "Of"
+    ? o.of
+    : _throw(new TypeError("unknown trampoline tag"));
 };
 
 
@@ -314,7 +431,7 @@ const recMap = f => tx =>
 const recChain = mx => fm =>
   mx.tag === "Chain" ? Chain(mx.chain) (x => recChain(mx.fm(x)) (fm))
     : mx.tag === "Of" ? fm(mx.of)
-    : _throw(new TypeError("unknown case"));
+    : _throw(new TypeError("unknown trampoline tag"));
 
 
 // recOf @Derived
@@ -348,7 +465,9 @@ const tailRec = f => x => {
   while (o.tag === "Loop")
     o = f(o.loop);
 
-  return o.base;
+  return o.tag === "Base"
+    ? o.base
+    : _throw(new TypeError("unknown trampoline tag"));
 };
 
 
@@ -361,35 +480,6 @@ const Base = base =>
 
 const Loop = loop =>
   ({tag: "Loop", loop});
-
-
-/******************************************************************************
-************************[ TAIL RECURSION MODULO CONS ]*************************
-******************************************************************************/
-
-
-const modRec = o => {
-  const stack = [];
-
-  while (o.tag === "Mod") {
-    stack.push(o);
-    o = o.g(o.mod);
-  }    
-
-  return stack.reduceRight(
-    (acc, p) => p.f(acc), o.total);
-};
-
-
-/***[Tags]********************************************************************/
-
-
-const Mod = f => g => mod =>
-  ({tag: "Mod", f, g, mod});
-
-
-const Total = total =>
-  ({tag: "Total", total});
 
 
 /******************************************************************************
@@ -432,19 +522,12 @@ const liftA6 = ({map, ap}) => f => tu => tv => tw => tx => ty => tz =>
   ap(ap(ap(ap(ap(map(f) (tu)) (tv)) (tw)) (tx)) (ty)) (tz);
 
 
-const liftAn = ({map, ap}) => f => (...ts) => {
-  switch (ts.length) {
-    case 2: return liftA2({map, ap}) (f) (ts[0]) (ts[1]);
-    case 3: return liftA3({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]);
-    case 4: return liftA4({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]);
-    case 5: return liftA5({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]) (ts[4]);
-    case 6: return liftA6({map, ap}) (f) (ts[0]) (ts[1]) (ts[2]) (ts[3]) (ts[4]) (ts[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
-
-
-// TODO: implement variadic liftAn_
+const liftAn = ({map, ap}) => f => ts =>
+  arrFold(acc => (tx, i) =>
+    i + 1 === ts.length
+      ? acc(tx)
+      : ap(acc(tx)))
+          (ts.length === 0 ? f : map(f));
 
 
 /******************************************************************************
@@ -512,19 +595,14 @@ const chain6 = chain => mu => mv => mw => mx => my => mz => fm =>
             (km => chain(mz) (z => km(z)));
 
 
-const chainn = chain => (...ms) => {
-  switch (ms.length) {
-    case 2: return chain2(chain) (ms[0]) (ms[1]);
-    case 3: return chain3(chain) (ms[0]) (ms[1]) (ms[2]);
-    case 4: return chain4(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]);
-    case 5: return chain5(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]) (ms[4]);
-    case 6: return chain6(chain) (ms[0]) (ms[1]) (ms[2]) (ms[3]) (ms[4]) (ms[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
-
-
-// TODO: implement variadic chainn_
+const chainn = chain => ([mx, ...ms]) => fm =>
+  arrFold(acc => (mx_, i) =>
+    i === ms.length
+      ? acc
+      : chain(acc) (acc_ =>
+          chain(mx_) (x => acc_(x))))
+            (mx === undefined ? fm : chain(mx) (fm))
+              (ms);
 
 
 const join = chain => ttx =>
@@ -551,19 +629,14 @@ const komp6 = chain => fm => gm => hm => im => jm => km =>
   x => chain(chain(chain(chain(chain(km(x)) (jm)) (im)) (hm)) (gm)) (fm);
 
 
-const kompn = chain => (...fs) => {
-  switch (fs.length) {
-    case 2: return komp(chain) (fs[0]) (fs[1]);
-    case 3: return komp3(chain) (fs[0]) (fs[1]) (fs[2]);
-    case 4: return komp4(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return komp5(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return komp6(chain) (fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
-
-
-// TODO: implement variadic kompn_
+const kompn = chain => ([fm, ...fs]) => x =>
+  arrFold(acc => (gm, i) =>
+    i === fs.length
+      ? acc
+      : chain(acc) (acc_ =>
+          gm(log(acc_))))
+            (fm === undefined ? x : fm(x))
+              (fs);
 
 
 /******************************************************************************
@@ -653,7 +726,7 @@ const arrClone = xs =>
 // arrFromList @DERIVED
 
 
-const arrFromListT = ({chain, of}) => // TODO: maybe rename to listToArrT?
+const arrFromListT = ({chain, of}) =>
   listFoldT(chain) (acc => x =>
     chain(acc) (acc_ =>
       of(arrSnoc(x) (acc_)))) (of([]));
@@ -793,15 +866,27 @@ const arrKompn = kompn(arrChain);
 
 
 const arrAppend = xs => ys =>
-  introspect(ys) === "Array"
-    ? xs.concat(ys)
-    : _throw(new TypeError("illegal argument type"));
+  xs.concat(TC ? $arrAppend(ys) : ys);
+
+
+const $arrAppend = ys => {
+  if (introspect(ys) !== "Array")
+    throw new TypeError("illegal semigroup argument");
+
+  return ys;
+};
 
 
 const arrPrepend = ys => xs =>
-  introspect(ys) === "Array"
-    ? xs.concat(ys)
-    : _throw(new TypeError("illegal argument type"));
+  xs.concat(TC ? $arrPrepend(ys) : ys);
+
+
+const $arrPrepend = ys => {
+  if (introspect(ys) !== "Array")
+    throw new TypeError("illegal semigroup argument");
+
+  return ys;
+};
 
 
 const arrEmpty = [];
@@ -1076,11 +1161,7 @@ const compBin = f => g => x => y =>
   f(g(x) (y));
 
 
-const compn = (...fs) =>
-  compn_(fs);
-
-
-const compn_ = fs => x =>
+const compn = fs => x =>
   arrFold(app_) (x) (fs);
 
 
@@ -1113,24 +1194,16 @@ const funContra = g => f => x =>
 /***[ Currying/Partial Application ]******************************************/
 
 
-const curry = f => x => y =>
-  f(x, y);
+const curry = f => x => y => f(x, y);
 
 
-const curry3 = f => x => y => z =>
-  f(x, y, z);
+const curry_ = f => x => y => [x, y];
 
 
-const curry4 = f => w => x => y => z =>
-  f(w, x, y, z);
+const curry3 = f => x => y => z => f(x, y, z);
 
 
-const curry5 = f => v => w => x => y => z =>
-  f(v, w, x, y, z);
-
-
-const curry6 = f => u => v => w => x => y => z =>
-  f(u, v, w, x, y, z);
+const curry3_ = f => x => y => z => [x, y, z];
 
 
 const partial = (f, ...args) => (...args_) =>
@@ -1141,24 +1214,10 @@ const partialProps = (f, o) => p =>
   f({...o, ...p});
 
 
-const uncurry = f => (x, y) =>
-  f(x) (y);
+const uncurry = f => (x, y) => f(x) (y);
 
 
-const uncurry3 = f => (x, y, z) =>
-  f(x) (y) (z);
-
-
-const uncurry4 = f => (w, x, y, z) =>
-  f(w) (x) (y) (z);
-
-
-const uncurry5 = f => (v, w, x, y, z) =>
-  f(v) (w) (x) (y) (z);
-
-
-const uncurry6 = f => (u, v, w, x, y, z) =>
-  f(u) (v) (w) (x) (y) (z);
+const uncurry3 = f => (x, y, z) => f(x) (y) (z);
 
 
 /***[ Debugging ]*************************************************************/
@@ -1215,9 +1274,12 @@ const introspect = x =>
 
 const isUnit = x =>
   x === undefined
-    || x === null
     || x === x === false // NaN
-    || x.getTime !== undefined && Number.isNaN(x.getTime()); // Invalid Date
+    || (
+      typeof x === "object"
+        && x !== null
+        && "getTime" in x
+        && Number.isNaN(x.getTime())); // Invalid Date
 
 
 const _new = Cons => x =>
@@ -1273,16 +1335,7 @@ const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infixn = (...fs) => {
-  switch (fs.length) {
-    case 2: return infix(fs[0]) (fs[1]);
-    case 3: return infix3(fs[0]) (fs[1]) (fs[2]);
-    case 4: return infix4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return infix5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return infix6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
+// TODO: infixn
 
 
 const infixr3 = (w, f, x, g, y, h, z) =>
@@ -1301,15 +1354,7 @@ const infixr6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   f(t) (g(u) (h(v) (i(w) (j(x) (k(y) (z))))));
 
 
-const infixrn = (...fs) => {
-  switch (fs.length) {
-    case 3: return infixr3(fs[0]) (fs[1]) (fs[2]);
-    case 4: return infixr4(fs[0]) (fs[1]) (fs[2]) (fs[3]);
-    case 5: return infixr5(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]);
-    case 6: return infixr6(fs[0]) (fs[1]) (fs[2]) (fs[3]) (fs[4]) (fs[5]);
-    default: throw new TypeError("invalid argument number");
-  }
-};
+// TODO: infixrn
 
 
 /***[ Local Binding ]*********************************************************/
@@ -2466,8 +2511,10 @@ const listZeroT = NilT;
 /***[ Conversion ]************************************************************/
 
 
-const listFromArrT = of => xs => // TODO: make less strict (foldr)
-  xs.reduceRight((mmx, x) => ConsT(of) (x) (mmx), NilT(of));
+const listFromArrT = of =>
+  arrFoldr(x => acc =>
+    ConsT(of) (x) (acc))
+      (NilT(of));
 
 
 /***[ Foldable ]**************************************************************/
@@ -2485,24 +2532,33 @@ const listFoldrT = chain => f => acc => {
 };
 
 
-const listFoldT = chain => f => init => mmx => { // TODO: make stack safe
-  const go = (acc, mmx_) =>
+const listFoldT = chain => f => init => mmx =>
+  tailRec(([acc, mmx_]) =>
     chain(mmx_) (mx =>
       match(mx, {
-        NilT: _ => acc,
+        NilT: _ => Base(acc),
         ConsT: ({head, tail}) =>
-          go(f(acc) (head), tail)
-      }));
-
-  return go(init, mmx);
-};
+          Loop([f(acc) (head), tail])
+      }))) ([init, mmx]);
 
 
 /***[ Monoid ]****************************************************************/
 
 
-const listAppendT = ({chain, of}) => mmx => mmy => // TODO: add type check
-  listFoldrT(chain) (ConsT(of)) (mmy) (mmx);
+const listAppendT = ({chain, of}) => mmx => mmy =>
+  listFoldrT(chain)
+    (ConsT(of))
+      (TC && $listAppendT(chain) (mmy) || mmy)
+        (mmx);
+
+
+const $listAppendT = chain => mmy =>
+  chain(mmy) (my => {
+    if (introspect(my) === "ListT")
+      throw new TypeError("illegal semigroup argument");
+
+    return mmy;
+  });
 
 
 /***[ Transformer ]***********************************************************/
@@ -2765,7 +2821,7 @@ const paraAnd = tx => ty => {
 };
 
 
-const paraAll = ({fold, cons, empty, paraMap}) => // TODO: review dictionary
+const paraAll = ({fold, cons, empty, paraMap}) => // TODO: review
   fold(tx => ty =>
     paraMap(([x, y]) =>
       cons(x) (y))
@@ -3004,7 +3060,7 @@ const taskAnd = tx => ty =>
         res([x, y]), rej), rej));
 
 
-const taskAll = ({fold, cons, empty, taskMap}) => // TODO: review dictionary
+const taskAll = ({fold, cons, empty, taskMap}) => // TODO: review
   fold(tx => ty =>
     taskMap(([x, y]) =>
       cons(x) (y))
@@ -3600,7 +3656,7 @@ const hamtDelNode = (node, hash, k, depth) => {
 ******************************************************************************/
 
 
-const arrFromList = // TODO: maybe rename to listToArr?
+const arrFromList =
   listFold(arrSnoc_) ([]);
 
 
@@ -3680,6 +3736,7 @@ module.exports = {
   arrUnsnoc,
   arrZero,
   Base,
+  bodyRec,
   Call,
   callRec,
   ceil,
@@ -3702,7 +3759,6 @@ module.exports = {
   Compare,
   compBin,
   compn,
-  compn_,
   compOn,
   concat,
   Cons,
@@ -3725,10 +3781,9 @@ module.exports = {
   ctorEmpty,
   ctorPrepend,
   curry,
+  curry_,
   curry3,
-  curry4,
-  curry5,
-  curry6,
+  curry3_,
   debug,
   debugIf,
   delayParallel,
@@ -3775,6 +3830,7 @@ module.exports = {
   formatWeekday,
   formatYear,
   fromNullable,
+  fun,
   funAp,
   funAppend,
   funChain,
@@ -3806,12 +3862,10 @@ module.exports = {
   infix4,
   infix5,
   infix6,
-  infixn,
   infixr3,
   infixr4,
   infixr5,
   infixr6,
-  infixrn,
   introspect,
   isUnit,
   iterate,
@@ -3874,8 +3928,6 @@ module.exports = {
   mapk,
   mapr,
   match,
-  modRec,
-  Mod,
   modTree,
   monadRec,
   _new,
@@ -3942,6 +3994,7 @@ module.exports = {
   raceAppend,
   raceEmpty,
   racePrepend,
+  rec,
   recChain,
   recMap,
   recOf,
@@ -3954,7 +4007,6 @@ module.exports = {
   Rexu,
   Right,
   round,
-  run,
   scanDir_,
   ScriptumError,
   select,
@@ -3964,6 +4016,7 @@ module.exports = {
   setTree,
   shift,
   Some,
+  Stack,
   State,
   stateAp,
   stateChain,
@@ -4025,16 +4078,13 @@ module.exports = {
   throwOnFalse,
   throwOnUnit,
   thunk,
-  Total,
   trace,
   transduce,
   Triple,
   uncurry,
   uncurry3,
-  uncurry4,
-  uncurry5,
-  uncurry6,
   union,
+  Unstack,
   Writer,
   writerAp,
   writerCensor,
