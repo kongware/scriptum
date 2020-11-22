@@ -304,7 +304,6 @@ class ThunkProxy {
 
 
 const record = (type, o) => (
-  o[type.name || type] = type.name || type,
   o[Symbol.toStringTag] = type.name || type,
   TC ? rec(o) : o);
 
@@ -315,7 +314,6 @@ const record = (type, o) => (
 
 
 const union = type => (tag, o) => (
-  o[type] = type,
   o[Symbol.toStringTag] = type,
   o.tag = tag.name || tag,
   TC ? rec(o) : o);
@@ -813,7 +811,7 @@ const arrMap = f => xs =>
 
 
 const iterate = f => x => // TODO: use List
-  [x, thunk(() => iterate(f) (f(x)))];
+  Pair(x) (thunk(() => iterate(f) (f(x))));
 
 
 /***[ Monad ]*****************************************************************/
@@ -1194,16 +1192,16 @@ const funContra = g => f => x =>
 /***[ Currying/Partial Application ]******************************************/
 
 
-const curry = f => x => y => f(x, y);
+const curry = f => x => y =>
+  f(x, y);
 
 
-const curry_ = f => x => y => [x, y];
+const curry3 = f => x => y => z =>
+  f(x, y, z);
 
 
-const curry3 = f => x => y => z => f(x, y, z);
-
-
-const curry3_ = f => x => y => z => [x, y, z];
+const curry4 = f => w => x => y => z =>
+  f(w, x, y, z);
 
 
 const partial = (f, ...args) => (...args_) =>
@@ -1214,10 +1212,16 @@ const partialProps = (f, o) => p =>
   f({...o, ...p});
 
 
-const uncurry = f => (x, y) => f(x) (y);
+const uncurry = f => (x, y) =>
+  f(x) (y);
 
 
-const uncurry3 = f => (x, y, z) => f(x) (y) (z);
+const uncurry3 = f => (x, y, z) =>
+  f(x) (y) (z);
+
+
+const uncurry4 = f => (w, x, y, z) =>
+  f(w) (x) (y) (z);
 
 
 /***[ Debugging ]*************************************************************/
@@ -1670,36 +1674,6 @@ const formatInt = sep => ([s]) =>
     Rexg("(\\d)(?=(?:\\d{3})+$)")) (`$1${sep}`) (s);
 
 
-/***[ Monoid under addition ]*************************************************/
-
-
-// TODO: move entire section to Sum ADT
-
-
-const sumAppend = x => y => x + y;
-
-
-const sumPrepend = sumAppend; // commutative
-
-
-const sumEmpty = 0;
-
-
-/***[ Monoid under multiplication ]*******************************************/
-
-
-// TODO: move entire section to Prod ADT
-
-
-const prodAppend = x => y => x * y;
-
-
-const prodPrepend = prodAppend; // commutative
-
-
-const prodEmpty = 1;
-
-
 /***[Misc. Combinators]*******************************************************/
 
 
@@ -1983,24 +1957,79 @@ const strReplaceBy = rx => f => s =>
 ******************************************************************************/
 
 
-const Pair = x => y => [x, y];
+const Pair = _1 => _2 => record(Pair, {
+  0: _1,
+  1: _2,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+  }});
 
 
-const Triple = x => y => z => [x, y, z];
+const Triple = _1 => _2 => _3 => record(Triple, {
+  0: _1,
+  1: _2,
+  2: _3,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+  }});
+
+
+const Quad = _1 => _2 => _3 => _4 => record(Quad, {
+  0: _1,
+  1: _2,
+  2: _3,
+  3: _4,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+    yield _4;
+  }});
 
 
 /***[ Functor ]***************************************************************/
 
 
 const pairMap = f => ([x, y]) =>
-  [x, f(y)];
+  Pair(x) (f(y));
+
+
+const tripMap = f => ([x, y, z]) =>
+  Pair(x) (y) (f(z));
+
+
+const quadMap = f => ([w, x, y, z]) =>
+  Pair(w) (x) (y) (f(z));
 
 
 /***[Misc. Combinators]*******************************************************/
 
 
-const pairMapFirst = f => ([x, y]) =>
-  [f(x), y];
+const pairMap1st = f => ([x, y]) =>
+  Pair(f(x)) (y);
+
+
+const tripMap1st = f => ([x, y, z]) =>
+  Triple(f(x)) (y) (z);
+
+
+const quadMap1st = f => ([w, x, y, z]) =>
+  Quad(f(w)) (x) (y) (z);
+
+
+const tripMap2nd = f => ([x, y, z]) =>
+  Triple(x) (f(y)) (z);
+
+
+const quadMap2nd = f => ([w, x, y, z]) =>
+  Quad(w) (f(x)) (y) (z);
+
+
+const quadMap3rd = f => ([w, x, y, z]) =>
+  Quad(w) (x) (f(y)) (z);
 
 
 /******************************************************************************
@@ -2124,19 +2153,19 @@ const contAp = tf => tx =>
 const contOf = x => Cont(k => k(x));
 
 
-/***[ Delimited Cont w/o Regions ]********************************************/
+/***[ Delimited Cont (w/o Regions) ]******************************************/
 
 
+// reset :: Cont a a -> Cont r a
+// reset :: ((a -> a) -> a) -> (a -> r) -> r
 const reset = tx =>
   Cont(k => k(tx.cont(id)));
 
 
-const shift = tx =>
-  Cont(k => tx.cont(x =>
-    Cont(k_ => k_(k(x))))).cont(id);
-
-
-// TODO: implement delimited continuations with regions
+// ((a -> r) -> Cont r r) -> Cont r a
+// ((a -> r) -> (r -> r) -> r) -> (a -> r) -> r
+const shift = f =>
+  Cont(k => f(k).cont(id));
 
 
 /***[ Functor ]***************************************************************/
@@ -2144,6 +2173,15 @@ const shift = tx =>
 
 const contMap = f => tx =>
   Cont(k => tx.cont(x => k(f(x))));
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const contChain = mx => fm =>
+  Cont(k =>
+    mx.cont(x =>
+      fm(x).cont(k)));
 
 
 /***[ Monoid ]****************************************************************/
@@ -2896,6 +2934,26 @@ const predEmpty = Pred(_ => true);
 
 
 /******************************************************************************
+***********************************[ PROD ]************************************
+******************************************************************************/
+
+
+const Prod = prod => record(Prod, {prod});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const prodAppend = tx => ty => Prod(tx.prod * ty.prod);
+
+
+const prodPrepend = prodAppend; // commutative
+
+
+const prodEmpty = Prod(1);
+
+
+/******************************************************************************
 ***********************************[ STATE ]***********************************
 ******************************************************************************/
 
@@ -2911,11 +2969,11 @@ const stateAp = tf => tx =>
     const [f, s_] = tf.state(s),
       [x, s__] = tx.state(s_);
 
-    return [f(x), s__];
+    return Pair(f(x)) (s__);
   });
 
 
-const stateOf = x => State(s => [x, s]);
+const stateOf = x => State(s => Pair(x) (s));
 
 
 /***[Functor]*****************************************************************/
@@ -2924,7 +2982,7 @@ const stateOf = x => State(s => [x, s]);
 const stateMap = f => tx =>
   State(s => {
     const [x, s_] = tx.state(s);
-    return [f(x), s_];
+    return Pair(f(x)) (s_);
   });
 
 
@@ -2949,19 +3007,39 @@ const stateExec = tf =>
   s => tf.state(s) [1];
 
 
-const stateGet = State(s => [s, s]);
+const stateGet = State(s => Pair(s) (s));
 
 
 const stateGets = f =>
-  State(s => [f(s), s]);
+  State(s => Pair(f(s)) (s));
 
 
 const stateModify = f =>
-  State(s => [null, f(s)]);
+  State(s => Pair(null) (f(s)));
 
 
 const statePut = s =>
-  State(_ => [null, s]);
+  State(_ => Pair(null) (s));
+
+
+/******************************************************************************
+************************************[ SUM ]************************************
+******************************************************************************/
+
+
+const Sum = sum => record(Sum, {sum});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const sumAppend = tx => ty => Sum(tx.sum + ty.sum);
+
+
+const sumPrepend = sumAppend; // commutative
+
+
+const sumEmpty = Sum(0);
 
 
 /******************************************************************************
@@ -3103,18 +3181,18 @@ const Writer = pair => record(Writer, {writer: pair});
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
-  Writer([f(x), append(w) (w_)]);
+  Writer(Pair(f(x)) (append(w) (w_)));
 
 
 const writerOf = empty => x =>
-  Writer([x, empty]);
+  Writer(Pair(x) (empty));
 
 
 /***[Functor]*****************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
-  Writer([f(x), w]);
+  Writer(Pair(f(x)) (w));
 
 
 /***[Monad]*******************************************************************/
@@ -3122,7 +3200,7 @@ const writerMap = f => ({writer: [x, w]}) =>
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
   const [x_, w_] = fm(x).writer;
-  return Writer([x_, append(w) (w_)]);
+  return Writer(Pair(x_) (append(w) (w_)));
 };
 
 
@@ -3132,18 +3210,18 @@ const writerChain = append => ({writer: [x, w]}) => fm => {
 const writerCensor = ({append, empty}) => f => tx =>
   writerPass(
     writerChain(append) (tx) (x =>
-      writerOf(empty) ([x, f])))
+      writerOf(empty) (Pair(x) (f))))
 
 
 const writerExec = ({writer: [_, w]}) => w;
 
 
 const writerListen = ({writer: [x, w]}) =>
-  Writer([[x, w], w]);
+  Writer(Pair(Pair(x) (w)) (w));
 
 
 const writerListens = f => ({writer: [x, w]}) =>
-  Writer([[x, f(w)], w]);
+  Writer(Pair(Pair(x) (f(w))) (w));
 
 
 const writerMapBoth = f => tx =>
@@ -3151,10 +3229,10 @@ const writerMapBoth = f => tx =>
 
 
 const writerPass = ({writer: [[x, f], w]}) =>
-  Writer([x, f(w)]);
+  Writer(Pair(x) (f(w)));
 
 
-const writerTell = w => Writer([null, w]);
+const writerTell = w => Writer(Pair(null) (w));
 
 
 /******************************************************************************
@@ -3768,6 +3846,7 @@ module.exports = {
   Cont,
   contAp,
   contAppend,
+  contChain,
   contEmpty,
   contLiftA2,
   contLiftA3,
@@ -3781,9 +3860,8 @@ module.exports = {
   ctorEmpty,
   ctorPrepend,
   curry,
-  curry_,
   curry3,
-  curry3_,
+  curry4,
   debug,
   debugIf,
   delayParallel,
@@ -3849,7 +3927,6 @@ module.exports = {
   GT,
   guard,
   Hamt,
-  Hamt_,
   hamtDel,
   hamtGet,
   hamtHas,
@@ -3963,7 +4040,7 @@ module.exports = {
   orf,
   Pair,
   pairMap,
-  pairMapFirst,
+  pairMap1st,
   Parallel,
   paraAll,
   paraAnd,
@@ -3988,9 +4065,15 @@ module.exports = {
   predEmpty,
   predPrepend,
   PREFIX,
+  Prod,
   prodAppend,
   prodEmpty,
   prodPrepend,
+  Quad,
+  quadMap,
+  quadMap1st,
+  quadMap2nd,
+  quadMap3rd,
   raceAppend,
   raceEmpty,
   racePrepend,
@@ -4043,6 +4126,7 @@ module.exports = {
   strParse,
   strReplace,
   strReplaceBy,
+  Sum,
   sumAppend,
   sumEmpty,
   sumPrepend,
@@ -4081,8 +4165,12 @@ module.exports = {
   trace,
   transduce,
   Triple,
+  tripMap,
+  tripMap1st,
+  tripMap2nd,
   uncurry,
   uncurry3,
+  uncurry4,
   union,
   Unstack,
   Writer,
