@@ -71,16 +71,30 @@ class HamtError extends ScriptumError {};
 
 
 /******************************************************************************
+*********************************[ CONSTANTS ]*********************************
+******************************************************************************/
+
+
+const FUN = PREFIX + "fun";
+
+
+const OBJ = PREFIX + "obj";
+
+
+/******************************************************************************
 ************************************[ API ]************************************
 ******************************************************************************/
 
 
-const fun = f =>
-  new Proxy(f, new FunProxy());
+const fun = pred => f =>
+  new Proxy(f, new FunProxy(pred));
 
 
-const rec = o =>
-  new Proxy(o, new RecProxy());
+const fun_ = fun(null);
+
+
+const obj = o =>
+  new Proxy(o, new ObjProxy());
 
 
 /******************************************************************************
@@ -89,11 +103,24 @@ const rec = o =>
 
 
 class FunProxy {
+  constructor(pred) {
+    this.pred = pred;
+  }
+
   apply(f, that, args) {
     args.forEach(arg => {
       if (isUnit(arg))
         throw new TypeError("illegal argument unit type");
     });
+
+    let p;
+
+    if (this.pred !== null) {
+      p = this.pred(...args)
+
+      if (p === false)
+        throw new TypeError("illegal argument type");
+    }
 
     const r = f(...args);
 
@@ -101,14 +128,24 @@ class FunProxy {
       throw new TypeError("illegal return unit type");
 
     else if (typeof r === "function")
-      return fun(r);
+      return typeof p === "function" ? fun(p) (r) : fun_(r);
+
+    else if (typeof p === "function")
+      throw new TypeError("redundant type check predicate");
 
     else return r;
+  }
+
+  get(f, k) {
+    if (k === FUN)
+      return true;
+
+    else return f[k];
   }
 }
 
 
-class RecProxy {
+class ObjProxy {
   defineProperty(o, k, dtor) {
     throw new TypeError(`illegal mutation in "${k}"`);
   }
@@ -118,6 +155,12 @@ class RecProxy {
   }
 
   get(o, k) {
+    if (k === OBJ)
+      return true;
+
+    else if (k === THUNK)
+      return o[k]; // allow duck typing
+
     switch (k) {
       case Symbol.asyncIterator:
       case Symbol.isConcatSpreadable:
@@ -134,8 +177,8 @@ class RecProxy {
     if (!(k in o))
       throw new TypeError(`unknown property "${k}"`);
 
-    else if (typeof o[k] === "function")
-      return fun(o[k].bind(o));
+    else if (typeof o[k] === "function" && !o[k] [THUNK])
+      return fun_(o[k].bind(o));
 
     else return o[k];
   }
@@ -243,7 +286,7 @@ class ThunkProxy {
     while (this.memo[k] && this.memo[k] [THUNK] === true)
       this.memo[k] = this.memo[k].valueOf();
 
-    if (typeof this.memo[k] === "function")
+    if (typeof this.memo[k] === "function" && !this.memo[k] [FUN])
       return this.memo[k].bind(this.memo);
 
     else return this.memo[k];
@@ -767,7 +810,7 @@ const hamtDelNode = (node, hash, k, depth) => {
 
 const record = (type, o) => (
   o[Symbol.toStringTag] = type.name || type,
-  TC ? rec(o) : o);
+  TC ? obj(o) : o);
 
 
 /******************************************************************************
@@ -778,7 +821,7 @@ const record = (type, o) => (
 const union = type => (tag, o) => (
   o[Symbol.toStringTag] = type,
   o.tag = tag.name || tag,
-  TC ? rec(o) : o);
+  TC ? obj(o) : o);
 
 
 /***[ Elimination Rule ]******************************************************/
@@ -1314,27 +1357,11 @@ const arrKompn = kompn(arrChain);
 
 
 const arrAppend = xs => ys =>
-  xs.concat(TC ? $arrAppend(ys) : ys);
-
-
-const $arrAppend = ys => {
-  if (introspect(ys) !== "Array")
-    throw new TypeError("illegal semigroup argument");
-
-  return ys;
-};
+  xs.concat(ys);
 
 
 const arrPrepend = ys => xs =>
-  xs.concat(TC ? $arrPrepend(ys) : ys);
-
-
-const $arrPrepend = ys => {
-  if (introspect(ys) !== "Array")
-    throw new TypeError("illegal semigroup argument");
-
-  return ys;
-};
+  xs.concat(ys);
 
 
 const arrEmpty = [];
@@ -1841,6 +1868,10 @@ const orf = f => x => y =>
   f(x) || f(y);
 
 
+const xor = x => y =>
+  !!((x ? 1 : 0) ^ (y ? 1 : 0));
+
+
 /***[ Monad ]*****************************************************************/
 
 
@@ -2095,7 +2126,7 @@ const mapHas = k => m =>
   m.has(k);
 
 
-const mapMod = k => f => m =>
+const mapMod = k => f => m => // TODO: rename + replace with more general version
   m.has(k)
     ? new Map(m).set(k, f(m.get(k)))
     : m;
@@ -2421,7 +2452,27 @@ const Pair = _1 => _2 => record(Pair, {
   }});
 
 
+const Pair_ = (_1, _2) => record(Pair, {
+  0: _1,
+  1: _2,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+  }});
+
+
 const Triple = _1 => _2 => _3 => record(Triple, {
+  0: _1,
+  1: _2,
+  2: _3,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+  }});
+
+
+const Triple_ = (_1, _2, _3) => record(Triple, {
   0: _1,
   1: _2,
   2: _3,
@@ -2445,46 +2496,59 @@ const Quad = _1 => _2 => _3 => _4 => record(Quad, {
   }});
 
 
+const Quad_ = (_1, _2, _3, _4) => record(Quad, {
+  0: _1,
+  1: _2,
+  2: _3,
+  3: _4,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+    yield _4;
+  }});
+
+
 /***[ Functor ]***************************************************************/
 
 
 const pairMap = f => ([x, y]) =>
-  Pair(x) (f(y));
+  Pair_(x, f(y));
 
 
 const tripMap = f => ([x, y, z]) =>
-  Pair(x) (y) (f(z));
+  Triple_(x, y, f(z));
 
 
 const quadMap = f => ([w, x, y, z]) =>
-  Pair(w) (x) (y) (f(z));
+  Quad_(w, x, y, f(z));
 
 
 /***[Misc. Combinators]*******************************************************/
 
 
 const pairMap1st = f => ([x, y]) =>
-  Pair(f(x)) (y);
+  Pair_(f(x), y);
 
 
 const tripMap1st = f => ([x, y, z]) =>
-  Triple(f(x)) (y) (z);
+  Triple_(f(x), y, z);
 
 
 const quadMap1st = f => ([w, x, y, z]) =>
-  Quad(f(w)) (x) (y) (z);
+  Quad_(f(w), x, y, z);
 
 
 const tripMap2nd = f => ([x, y, z]) =>
-  Triple(x) (f(y)) (z);
+  Triple_(x, f(y), z);
 
 
 const quadMap2nd = f => ([w, x, y, z]) =>
-  Quad(w) (f(x)) (y) (z);
+  Quad_(w, f(x), y, z);
 
 
 const quadMap3rd = f => ([w, x, y, z]) =>
-  Quad(w) (x) (f(y)) (z);
+  Quad_(w, x, f(y), z);
 
 
 /******************************************************************************
@@ -2796,8 +2860,8 @@ const endoEmpty = id;
 ******************************************************************************/
 
 
-const iarrNil = Hamt(
-  {[Symbol.toStringTag]: "Iarray", length: 0, offset: 0});
+const iarrEmpty = Hamt(
+  {[Symbol.toStringTag]: "IArray", length: 0, offset: 0});
 
 
 /***[ Conversion ]************************************************************/
@@ -2806,10 +2870,12 @@ const iarrNil = Hamt(
 const iarrFromArr = arrFold(acc => (x, i) =>
   hamtSet(
     acc,
-    {},
-    {[Symbol.toStringTag]: "Iarray", length: i + 1, offset: 0},
+    {}, {
+      [Symbol.toStringTag]: "IArray",
+      length: i + 1,
+      offset: 0},
     i,
-    x)) (iarrNil);
+    x)) (iarrEmpty);
 
 
 const iarrItor = xs => {
@@ -2836,8 +2902,8 @@ const iarrToArr = xs =>
 const iarrCons = x => xs =>
   hamtSet(
     xs,
-    {},
-    {[Symbol.toStringTag]: "Iarray",
+    {}, {
+      [Symbol.toStringTag]: "IArray",
       length: xs.length + 1,
       offset: xs.offset - 1},
     xs.offset - 1,
@@ -2847,8 +2913,8 @@ const iarrCons = x => xs =>
 const iarrSnoc = x => xs =>
   hamtSet(
     xs,
-    {},
-    {[Symbol.toStringTag]: "Iarray",
+    {}, {
+      [Symbol.toStringTag]: "IArray",
       length: xs.length + 1,
       offset: xs.offset},
     xs.length,
@@ -2858,27 +2924,27 @@ const iarrSnoc = x => xs =>
 const iarrUncons = xs =>
   xs.length === 0
     ? None
-    : Some(Pair(
-        hamtGet(xs, xs.offset))
-          (hamtDel(
-            xs,
-            {[Symbol.toStringTag]: "Iarray",
-              length: xs.length - 1,
-              offset: xs.offset + 1},
-            xs.offset)));
+    : Some(Pair_(
+        hamtGet(xs, xs.offset),
+        hamtDel(
+          xs, {
+            [Symbol.toStringTag]: "IArray",
+            length: xs.length - 1,
+            offset: xs.offset + 1},
+          xs.offset)));
 
 
 const iarrUnsnoc = xs =>
   xs.length === 0
     ? None
-    : Some(Pair(
-        hamtGet(xs, xs.length - 1 + xs.offset))
-          (hamtDel(
-            xs,
-            {[Symbol.toStringTag]: "Iarray",
-              length: xs.length - 1,
-              offset: xs.offset},
-            xs.length - 1 + xs.offset)));
+    : Some(Pair_(
+        hamtGet(xs, xs.length - 1 + xs.offset),
+        hamtDel(
+          xs, {
+            [Symbol.toStringTag]: "IArray",
+            length: xs.length - 1,
+            offset: xs.offset},
+          xs.length - 1 + xs.offset)));
 
 
 /***[ Foldable ]**************************************************************/
@@ -2896,7 +2962,8 @@ const iarrFoldr = f => acc => xs => {
   const go = i =>
     i === xs.length
       ? acc
-      : f(hamtGet(xs, i + xs.offset)) (thunk(() => go(i + 1)));
+      : f(hamtGet(xs, i + xs.offset))
+          (thunk(() => go(i + 1)));
 
   return go(0);
 };
@@ -2908,8 +2975,8 @@ const iarrFoldr = f => acc => xs => {
 const iarrDel = i => xs =>
   i === 0 || i === xs.length - 1
     ? hamtDel(
-        xs,
-        {[Symbol.toStringTag]: "Iarray",
+        xs, {
+          [Symbol.toStringTag]: "IArray",
           length: xs.length - 1,
           offset: i === 0 ? xs.offset + 1 : xs.offset},
         i + xs.offset)
@@ -2924,19 +2991,29 @@ const iarrHas = i => xs =>
   hamtHas(xs, i + xs.offset);
 
 
-const iarrSet = (i, x) => xs =>
+const iarrSet = i => x => xs =>
   i > xs.length
     ? _throw(new TypeError("index out of bound"))
     : hamtSet(
-        xs,
-        {[Symbol.toStringTag]: "Iarray",
+        xs, {
+          [Symbol.toStringTag]: "IArray",
           length: xs.length,
-          offset: xs.offset},
-        {[Symbol.toStringTag]: "Iarray",
+          offset: xs.offset}, {
+          [Symbol.toStringTag]: "IArray",
           length: xs.length + 1,
           offset: xs.offset},
         i,
         x);
+
+
+/******************************************************************************
+***********************************[ IMAP ]************************************
+******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ ISET ]************************************
+******************************************************************************/
 
 
 /******************************************************************************
@@ -3202,17 +3279,8 @@ const listFoldT = chain => f => init => mmx =>
 const listAppendT = ({chain, of}) => mmx => mmy =>
   listFoldrT(chain)
     (ConsT(of))
-      (TC && $listAppendT(chain) (mmy) || mmy)
+      (mmy)
         (mmx);
-
-
-const $listAppendT = chain => mmy =>
-  chain(mmy) (my => {
-    if (introspect(my) === "ListT")
-      throw new TypeError("illegal semigroup argument");
-
-    return mmy;
-  });
 
 
 /***[ Transformer ]***********************************************************/
@@ -3585,11 +3653,11 @@ const stateAp = tf => tx =>
     const [f, s_] = tf.state(s),
       [x, s__] = tx.state(s_);
 
-    return Pair(f(x)) (s__);
+    return Pair_(f(x), s__);
   });
 
 
-const stateOf = x => State(s => Pair(x) (s));
+const stateOf = x => State(s => Pair_(x, s));
 
 
 /***[Functor]*****************************************************************/
@@ -3598,7 +3666,7 @@ const stateOf = x => State(s => Pair(x) (s));
 const stateMap = f => tx =>
   State(s => {
     const [x, s_] = tx.state(s);
-    return Pair(f(x)) (s_);
+    return Pair_(f(x), s_);
   });
 
 
@@ -3623,19 +3691,19 @@ const stateExec = tf =>
   s => tf.state(s) [1];
 
 
-const stateGet = State(s => Pair(s) (s));
+const stateGet = State(s => Pair_(s, s));
 
 
 const stateGets = f =>
-  State(s => Pair(f(s)) (s));
+  State(s => Pair_(f(s), s));
 
 
 const stateModify = f =>
-  State(s => Pair(null) (f(s)));
+  State(s => Pair_(null, f(s)));
 
 
 const statePut = s =>
-  State(_ => Pair(null) (s));
+  State(_ => Pair_(null, s));
 
 
 /******************************************************************************
@@ -3797,18 +3865,18 @@ const Writer = pair => record(Writer, {writer: pair});
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
-  Writer(Pair(f(x)) (append(w) (w_)));
+  Writer(Pair_(f(x), append(w) (w_)));
 
 
 const writerOf = empty => x =>
-  Writer(Pair(x) (empty));
+  Writer(Pair_(x, empty));
 
 
 /***[Functor]*****************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
-  Writer(Pair(f(x)) (w));
+  Writer(Pair_(f(x), w));
 
 
 /***[Monad]*******************************************************************/
@@ -3816,7 +3884,7 @@ const writerMap = f => ({writer: [x, w]}) =>
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
   const [x_, w_] = fm(x).writer;
-  return Writer(Pair(x_) (append(w) (w_)));
+  return Writer(Pair_(x_, append(w) (w_)));
 };
 
 
@@ -3826,18 +3894,18 @@ const writerChain = append => ({writer: [x, w]}) => fm => {
 const writerCensor = ({append, empty}) => f => tx =>
   writerPass(
     writerChain(append) (tx) (x =>
-      writerOf(empty) (Pair(x) (f))))
+      writerOf(empty) (Pair_(x, f))))
 
 
 const writerExec = ({writer: [_, w]}) => w;
 
 
 const writerListen = ({writer: [x, w]}) =>
-  Writer(Pair(Pair(x) (w)) (w));
+  Writer(Pair_(Pair_(x, w), w));
 
 
 const writerListens = f => ({writer: [x, w]}) =>
-  Writer(Pair(Pair(x) (f(w))) (w));
+  Writer(Pair_(Pair_(x, f(w)), w));
 
 
 const writerMapBoth = f => tx =>
@@ -3845,10 +3913,10 @@ const writerMapBoth = f => tx =>
 
 
 const writerPass = ({writer: [[x, f], w]}) =>
-  Writer(Pair(x) (f(w)));
+  Writer(Pair_(x, f(w)));
 
 
-const writerTell = w => Writer(Pair(null) (w));
+const writerTell = w => Writer(Pair_(null, w));
 
 
 /******************************************************************************
@@ -3917,7 +3985,13 @@ module.exports = {
   appSpread,
   arrAlt,
   arrAp,
-  arrAppend,
+  arrAppend: TC
+    ? fun(xs => ys =>
+        introspect(ys) !== "Array"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (arrAppend)
+    : arrAppend,
   arrAppendT,
   arrChain,
   arrChain2,
@@ -3953,7 +4027,13 @@ module.exports = {
   arrMaprA,
   arrOf,
   arrOfT,
-  arrPrepend,
+  arrPrepend: TC
+    ? fun(ys =>
+        introspect(ys) !== "Array"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (arrPrepend)
+    : arrPrepend,
   arrSeqA,
   arrSeqrA,
   arrSnoc,
@@ -3977,7 +4057,7 @@ module.exports = {
   cmpAppend,
   cmpEmpty,
   cmpPrepend,
-  comp: TC ? fun(comp) : comp,
+  comp: TC ? fun_(comp) : comp,
   comp3,
   comp4,
   comp5,
@@ -4058,6 +4138,7 @@ module.exports = {
   formatYear,
   fromNullable,
   fun,
+  fun_,
   funAp,
   funAppend,
   funChain,
@@ -4089,13 +4170,13 @@ module.exports = {
   iarrFoldr,
   iarrFromArr,
   iarrItor,
-  iarrNil,
+  iarrEmpty,
   iarrSet,
   iarrSnoc,
   iarrToArr,
   iarrUncons,
   iarrUnsnoc,
-  id: TC ? fun(id) : id,
+  id: TC ? fun_(id) : id,
   ifElse,
   infix,
   infix3,
@@ -4130,7 +4211,14 @@ module.exports = {
   listAp,
   listAltT,
   listAppend,
-  listAppendT,
+  listAppendT: TC
+    ? fun(({chain, of}) => mmx => mmy =>
+        chain(mmy) (my =>
+          introspect(my) !== "ListT"
+            ? _throw(new TypeError("illegal semigroup argument"))
+            : true))
+              (listAppendT)
+    : listAppendT,
   listChain,
   listChainT,
   listCons,
@@ -4169,7 +4257,7 @@ module.exports = {
   map,
   mapk,
   mapr,
-  match: TC ? fun(match) : match,
+  match: TC ? fun_(match) : match,
   modTree,
   monadRec,
   _new,
@@ -4178,6 +4266,7 @@ module.exports = {
   None,
   not,
   notf,
+  obj,
   objClone,
   objEntries,
   objGet,
@@ -4204,6 +4293,7 @@ module.exports = {
   or,
   orf,
   Pair,
+  Pair_,
   pairMap,
   pairMap1st,
   Parallel,
@@ -4235,6 +4325,7 @@ module.exports = {
   prodEmpty,
   prodPrepend,
   Quad,
+  Quad_,
   quadMap,
   quadMap1st,
   quadMap2nd,
@@ -4242,11 +4333,10 @@ module.exports = {
   raceAppend,
   raceEmpty,
   racePrepend,
-  rec,
   recChain,
   recMap,
   recOf,
-  record: TC ? fun(record) : record,
+  record: TC ? fun_(record) : record,
   reset,
   Return,
   Rex,
@@ -4330,13 +4420,14 @@ module.exports = {
   trace,
   transduce,
   Triple,
+  Triple_,
   tripMap,
   tripMap1st,
   tripMap2nd,
   uncurry,
   uncurry3,
   uncurry4,
-  union: TC ? fun(union) : union,
+  union: TC ? fun_(union) : union,
   Unstack,
   Writer,
   writerAp,
