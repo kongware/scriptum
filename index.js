@@ -140,6 +140,9 @@ class FunProxy {
     if (k === FUN)
       return true;
 
+    else if (k === Symbol.toPrimitive)
+      throw new TypeError("illegal type coercion");
+
     else return f[k];
   }
 }
@@ -170,11 +173,13 @@ class ObjProxy {
       case Symbol.replace:
       case Symbol.search:
       case Symbol.split:
-      case Symbol.toPrimitive:
       case Symbol.toStringTag: return o[k];
     }
 
-    if (!(k in o))
+    if (k === Symbol.toPrimitive)
+      throw new TypeError("illegal type coercion");
+
+    else if (!(k in o))
       throw new TypeError(`unknown property "${k}"`);
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
@@ -1038,6 +1043,14 @@ const liftAn = ({map, ap}) => f => ts =>
 ******************************************************************************/
 
 
+const all = ({fold, append, empty}) => p =>
+  comp(tx => tx.all) (foldMap({fold, append, empty}) (comp(All) (p)));
+
+
+const any = ({fold, append, empty}) => p =>
+  comp(tx => tx.any) (foldMap({fold, append, empty}) (comp(Any) (p)));
+
+
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
 
@@ -1496,35 +1509,6 @@ const arrChainT = ({chain, of}) => mmx => fmm =>
       arrAppendT({chain, of}) (acc) (fmm(x)))
         (of([]))
           (mmx);
-
-
-/******************************************************************************
-**********************************[ BOOLEAN ]**********************************
-******************************************************************************/
-
-
-/***[ All Monoid ]************************************************************/
-
-
-const allAppend = x => y => x && y; // truthy/falsy values are allowed
-
-
-const allPrepend = y => x => x && y; // truthy/falsy values are allowed
-
-
-const allEmpty = true;
-
-
-/***[ Any Monoid ]************************************************************/
-
-
-const anyAppend = x => y => x || y; // truthy/falsy values are allowed
-
-
-const anyPrepend = y => x => x || y; // truthy/falsy values are allowed
-
-
-const anyEmpty = false;
 
 
 /******************************************************************************
@@ -2331,6 +2315,18 @@ const setSet = k => v => s =>
 ******************************************************************************/
 
 
+/***[ Monoid ]****************************************************************/
+
+
+const strAppend = s => t => s.concat(t); // TODO: enfore strings
+
+
+const strPrepend = t => s => s.concat(t); // TOIDO: enforce strings
+
+
+const strEmpty = "";
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -2574,6 +2570,48 @@ const quadMap3rd = f => ([w, x, y, z]) =>
 
 
 /******************************************************************************
+************************************[ ALL ]************************************
+******************************************************************************/
+
+
+const All = all => record("All", {all});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const allAppend = tx => ty =>
+  All(tx.all && ty.all);
+
+
+const allPrepend = allAppend;
+
+
+const allEmpty = All(true);
+
+
+/******************************************************************************
+************************************[ ANY ]************************************
+******************************************************************************/
+
+
+const Any = any => record("Any", {any});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const anyAppend = tx => ty =>
+  Any(tx.any || ty.any);
+
+
+const anyPrepend = anyAppend;
+
+
+const anyEmpty = Any(false);
+
+
+/******************************************************************************
 ********************************[ COMPARATOR ]*********************************
 ******************************************************************************/
 
@@ -2622,15 +2660,24 @@ const Compare = cmp => record(
   {cmp});
 
 
+/***[Contravariant ]**********************************************************/
+
+
+const cmpContra = f => tf =>
+  Compare(compOn(tf.cmp) (f));
+
+
 /***[ Monoid ]****************************************************************/
 
 
 const cmpAppend = tx => ty =>
-  Compare(x => y => ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
+  Compare(x => y =>
+    ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
 
 
 const cmpPrepend = ty => tx =>
-  Compare(x => y => ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
+  Compare(x => y =>
+    ctorAppend(tx.cmp(x) (y)) (ty.cmp(x) (y)));
 
 
 const cmpEmpty = _ => _ => ctorEmpty;
@@ -2846,13 +2893,59 @@ const eithOfT = of => x => of(Right(x));
 /***[ Monoid ]****************************************************************/
 
 
-const endoAppend = comp;
+const endoAppend = comp; // TODO: enforce a -> a
 
 
-const endoPrepend = funContra;
+const endoPrepend = funContra;  // TODO: enforce a -> a
 
 
 const endoEmpty = id;
+
+
+/******************************************************************************
+***********************************[ EQUIV ]***********************************
+******************************************************************************/
+
+
+const Equiv = equiv => record("Equiv", {equiv});
+
+
+/***[Contravariant Functor]***************************************************/
+
+
+const equivContra = f => tf =>
+  Equiv(compOn(tf.equiv) (f));
+
+
+/***[Monoid]******************************************************************/
+
+
+const equivAppend = tf => tg =>
+  Equiv(x => y =>
+    tf.equiv(x) (y) && tg.equiv(x) (y));
+
+
+const equivPrepend = equivAppend;
+
+
+const equivEmpty = Equiv(x => y => true);
+
+
+/******************************************************************************
+***********************************[ FIRST ]***********************************
+******************************************************************************/
+
+
+const First = first => record("First", {first});
+
+
+/***[Semigroup]***************************************************************/
+
+
+const firstAppend = x => _ => x;
+
+
+// firstPrepend @DERIVED
 
 
 /******************************************************************************
@@ -3011,9 +3104,32 @@ const iarrSet = i => x => xs =>
 ******************************************************************************/
 
 
+// TODO
+
+
 /******************************************************************************
 ***********************************[ ISET ]************************************
 ******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+***********************************[ LAST ]************************************
+******************************************************************************/
+
+
+const Last = last => record("Last", {last});
+
+
+/***[Semigroup]***************************************************************/
+
+
+const lastAppend = _ => y => y;
+
+
+const lastPrepend = firstAppend;
 
 
 /******************************************************************************
@@ -3254,7 +3370,7 @@ const listToArrT = ({chain, of}) =>
 const listFoldrT = chain => f => acc => {
   const go = mmx => chain(mmx) (mx =>
     match(mx, {
-      NilT: () => strict(acc),
+      NilT: _ => strict(acc),
       ConsT: ({head, tail}) =>
         f(head) (thunk(() => go(tail)))
     }));
@@ -3299,6 +3415,56 @@ const listLiftT = ({chain, of}) => mx =>
 
 const listOfT = of => x =>
   ConsT(of) (x) (NilT(of));
+
+
+/******************************************************************************
+************************************[ MAX ]************************************
+******************************************************************************/
+
+
+const Max = max => record("Max", {max});
+
+
+/***[Monoid]******************************************************************/
+
+
+const maxAppend = max => x => y =>
+  max(x) (y);
+
+
+const maxPrepend = maxAppend;
+
+
+const maxEmpty = minBound => Max(minBound);
+
+
+/******************************************************************************
+************************************[ MIN ]************************************
+******************************************************************************/
+
+
+const Min = min => record("Min", {min});
+
+
+/***[Monoid]******************************************************************/
+
+
+const minAppend = min => x => y =>
+  min(x) (y);
+
+
+const minPrepend = minAppend;
+
+
+const minEmpty = maxBound => Min(maxBound);
+
+
+/******************************************************************************
+*********************************[ NONEMPTY ]**********************************
+******************************************************************************/
+
+
+// TODO: Array/List
 
 
 /******************************************************************************
@@ -3603,6 +3769,13 @@ const paraLiftA6 = liftA6({map: paraMap, ap: paraAp});
 const Pred = pred => record(Pred, {pred});
 
 
+/***[ Contravariant ]*********************************************************/
+
+
+const predContra = p => tp =>
+  x => Pred(tp.pred(p(x)));
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -3854,6 +4027,46 @@ const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 
 
 /******************************************************************************
+********************************[ TREE (ROSE) ]********************************
+******************************************************************************/
+
+
+const RTree = branchKey => node => branches =>
+  ({...node, [branchKey]: branches});
+
+
+/***[Foldable]****************************************************************/
+
+
+const rtreeFold = branchKey => f => { // pre-order
+  const go = acc => ({[branchKey]: branches, ...node}) =>
+    arrFold(go) (f(acc) (node)) (branches);
+
+  return go;
+};
+
+
+const rtreeFoldLevel = branchKey => f => init => node => { // level-order
+  const go = branches =>
+    branches.length === 0
+      ? []
+      : arrAppend(branches)
+          (go(arrFold(acc => ({[branchKey]: branches_}) =>
+            arrAppend(acc) (branches_)) ([]) (branches)));
+
+  return arrFold(acc => node_ => f(acc) (node_)) (init) (go([node]));
+};
+
+
+const rtreeFoldr = branchKey => f => { // post-order
+  const go = acc => ({[branchKey]: branches, ...node}) =>
+    f(node) (arrFold(go) (acc) (branches));
+
+  return go;
+};
+
+
+/******************************************************************************
 **********************************[ WRITER ]***********************************
 ******************************************************************************/
 
@@ -3920,6 +4133,14 @@ const writerTell = w => Writer(Pair_(null, w));
 
 
 /******************************************************************************
+**********************************[ DERIVED ]**********************************
+******************************************************************************/
+
+
+const firstPrepend = lastAppend;
+
+
+/******************************************************************************
 *******************************************************************************
 ************************************[ IO ]*************************************
 *******************************************************************************
@@ -3967,11 +4188,15 @@ const optmEmpty = None;
 
 
 module.exports = {
-  and,
-  andf,
+  All,
+  all,
   allAppend,
   allEmpty,
   allPrepend,
+  and,
+  andf,
+  Any,
+  any,
   anyAppend,
   anyEmpty,
   anyPrepend,
@@ -4055,6 +4280,7 @@ module.exports = {
   chain6,
   chainn,
   cmpAppend,
+  cmpContra,
   cmpEmpty,
   cmpPrepend,
   comp: TC ? fun_(comp) : comp,
@@ -4118,11 +4344,19 @@ module.exports = {
   endoEmpty,
   endoPrepend,
   EQ,
+  Equiv,
+  equivAppend,
+  equivContra,
+  equivEmpty,
+  equivPrepend,
   fileRead_,
   fileWrite_,
   filter,
   filterk,
   filterr,
+  First,
+  firstAppend,
+  firstPrepend,
   fix,
   flip,
   floor,
@@ -4197,6 +4431,9 @@ module.exports = {
   komp5,
   komp6,
   kompn,
+  Last,
+  lastAppend,
+  lastPrepend,
   lazy,
   lazyProp,
   Left,
@@ -4258,6 +4495,12 @@ module.exports = {
   mapk,
   mapr,
   match: TC ? fun_(match) : match,
+  Max,
+  maxAppend,
+  maxPrepend,
+  Min,
+  minAppend,
+  minPrepend,
   modTree,
   monadRec,
   _new,
@@ -4317,6 +4560,7 @@ module.exports = {
   partialProps,
   Pred,
   predAppend,
+  predContra,
   predEmpty,
   predPrepend,
   PREFIX,
@@ -4345,6 +4589,10 @@ module.exports = {
   Rexu,
   Right,
   round,
+  RTree,
+  rtreeFold,
+  rtreeFoldLevel,
+  rtreeFoldr,
   scanDir_,
   ScriptumError,
   select,
@@ -4366,6 +4614,8 @@ module.exports = {
   stateModify,
   stateOf,
   statePut,
+  strAppend,
+  strEmpty,
   strict,
   strictRec,
   strFold,
@@ -4379,6 +4629,7 @@ module.exports = {
   strMatchNth,
   strMatchSection,
   strParse,
+  strPrepend,
   strReplace,
   strReplaceBy,
   Sum,
