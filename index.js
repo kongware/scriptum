@@ -17,6 +17,9 @@
 ******************************************************************************/
 
 
+const crypto = require("crypto");
+
+
 const fs = require("fs");
 
 
@@ -1062,6 +1065,18 @@ const foldMapr = ({foldr, append, empty}) => f =>
   foldr(comp(append) (f)) (empty);
 
 
+const maxn = ({fold1, max}) => tx =>
+  fold1(x => y =>
+    max(x) (y)) (x => x) (tx);
+
+
+const minn = ({fold, min}) => tx =>
+  fold(acc => (x, i) =>
+    i === 0
+      ? x
+      : min(acc) (x)) (null) (tx);
+
+
 /******************************************************************************
 **********************************[ FUNCTOR ]**********************************
 ******************************************************************************/
@@ -1109,6 +1124,10 @@ const chain6 = chain => mu => mv => mw => mx => my => mz => fm =>
         (im => chain(mx) (x => im(x))))
           (jm => chain(my) (y => jm(y))))
             (km => chain(mz) (z => km(z)));
+
+
+const chainEff = chain => mx => my =>
+  chain(_ => my) (mx);
 
 
 const chainn = chain => ([mx, ...ms]) => fm =>
@@ -1196,6 +1215,9 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 ******************************************************************************/
 
 
+const ARRAY = {};
+
+
 /***[Alternative]*************************************************************/
 
 
@@ -1227,6 +1249,9 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 
 
 const arrOf = x => [x];
+
+
+ARRAY.of = arrOf;
 
 
 /***[Clonable]****************************************************************/
@@ -1273,6 +1298,23 @@ const arrUnsnoc = xs => {
 };
 
 
+/***[ Eq ]********************************************************************/
+
+
+const arrEq = eq => xs => ys =>
+  xs.length !== ys.length
+    ? false
+    : tailRec(i =>
+        i === xs.length
+          ? true
+          : eq(xs[i]) (ys[i])
+              ? Loop(i + 1)
+              : Base(false)) (0);
+
+
+ARRAY.eq = arrEq;
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -1284,6 +1326,27 @@ const arrFold = f => init => xs => {
 
   return acc;
 };
+
+
+ARRAY.fold = arrFold;
+
+
+const arrFold1 = f => g => xs => {
+  let acc;
+  
+  if (xs.length === 0)
+    return None;
+
+  acc = g(xs[0]);
+
+  for (let i = 1; i < xs.length; i++)
+    acc = f(acc) (xs[i], i);
+
+  return Some(acc);
+};
+
+
+ARRAY.fold1 = arrFold1;
 
 
 const arrFoldk = f => init => xs => {
@@ -1306,11 +1369,17 @@ const arrFoldr = f => acc => xs => {
 };
 
 
+ARRAY.foldr = arrFoldr;
+
+
 /***[ Functor ]***************************************************************/
 
 
 const arrMap = f => xs =>
   xs.map((x, i) => f(x, i));
+
+
+ARRAY.map = arrMap;
 
 
 /***[ Infinite Lists ]********************************************************/
@@ -1325,6 +1394,9 @@ const iterate = f => x => // TODO: use List
 
 const arrChain = mx => fm =>
   mx.flatMap(fm);
+
+
+ARRAY.chain = arrChain;
 
 
 const arrChain2 = chain2(arrChain);
@@ -1348,7 +1420,13 @@ const arrChainn = chainn(arrChain);
 const arrJoin = join(arrChain);
 
 
+ARRAY.join = arrJoin;
+
+
 const arrKomp = komp(arrChain);
+
+
+ARRAY.komp = arrKomp;
 
 
 const arrKomp3 = komp3(arrChain);
@@ -1373,11 +1451,20 @@ const arrAppend = xs => ys =>
   xs.concat(ys);
 
 
+ARRAY.append = arrAppend;
+
+
 const arrPrepend = ys => xs =>
   xs.concat(ys);
 
 
+ARRAY.prepend = arrPrepend;
+
+
 const arrEmpty = [];
+
+
+ARRAY.empty = arrEmpty;
 
 
 /***[ Traversable ]***********************************************************/
@@ -1392,21 +1479,14 @@ const arrMapA = ({fold, map, ap, of}) => f => xs => {
 };
 
 
-const arrMaprA = ({foldr, map, ap, of}) => f => xs => {
-  const liftA2_ = liftA2({map, ap});
-
-  return foldr(y => ys =>
-    liftA2_(arrCons) (f(y)) (ys))
-      (of([])) (xs);
-};
+ARRAY.mapA = arrMapA;
 
 
 const arrSeqA = ({fold, map, ap, of}) =>
   fold(liftA2({map, ap}) (arrSnoc_)) (of([]));
 
 
-const arrSeqrA = ({foldr, map, ap, of}) =>
-  foldr(liftA2({map, ap}) (arrCons)) (of([]));
+ARRAY.seqA = arrSeqA;
 
 
 /***[ Unfoldable ]************************************************************/
@@ -1426,6 +1506,9 @@ const arrUnfold = f => x => {
 };
 
 
+ARRAY.unfold = arrUnfold;
+
+
 // TODO: implement arrUnfoldr
 
 
@@ -1433,6 +1516,9 @@ const arrUnfold = f => x => {
 
 
 const arrAlt = arrAppend;
+
+
+ARRAY.alt = arrAlt;
 
 
 const arrAp = tf => xs =>
@@ -1443,7 +1529,13 @@ const arrAp = tf => xs =>
           (tf);
 
 
+ARRAY.ap = arrAp;
+
+
 const arrLiftA2 = liftA2({map: arrMap, ap: arrAp});
+
+
+ARRAY.liftA2 = arrLiftA2;
 
 
 const arrLiftA3 = liftA3({map: arrMap, ap: arrAp});
@@ -1464,51 +1556,30 @@ const arrLiftAn = liftAn({map: arrMap, ap: arrAp});
 const arrZero = arrEmpty;
 
 
+ARRAY.zero = arrZero;
+
+
 /******************************************************************************
-**********************************[ ARRAYT ]***********************************
+**********************************[ BOOLEAN ]**********************************
 ******************************************************************************/
 
 
-/***[ Applicative ]***********************************************************/
+const BOOL = {};
 
 
-const arrOfT = of => x => of([of(x)]);
+/***[ Bounded ]***************************************************************/
 
 
-/***[ Foldable ]**************************************************************/
+const boolMaxBound = true;
 
 
-const arrFoldT = chain => f => init => mmx =>
-  chain(mmx) (mx => {
-    const go = (acc, i) =>
-      i === mx.length
-        ? acc
-        : chain(mx[i]) (x =>
-            go(f(acc) (x), i + 1))
-
-    return go(init, 0);
-  });
+BOOL.maxBound = boolMaxBound;
 
 
-/***[ Monoid ]****************************************************************/
+const boolMinBound = false;
 
 
-const arrAppendT = ({chain, of}) => mmx => mmy =>
-  arrFoldT(chain)
-    (acc => x =>
-      chain(acc) (acc_ =>
-        of(arrSnoc(of(x)) (acc_)))) (mmx) (mmy);
-
-
-/***[ Monad ]*****************************************************************/
-
-
-const arrChainT = ({chain, of}) => mmx => fmm =>
-  arrFoldT(chain)
-    (acc => x =>
-      arrAppendT({chain, of}) (acc) (fmm(x)))
-        (of([]))
-          (mmx);
+BOOL.minBound = boolMinBound;
 
 
 /******************************************************************************
@@ -1557,6 +1628,14 @@ const formatYear = digits => d => {
     default: throw new RangeError("invalid digits argument");
   }
 };
+
+
+/******************************************************************************
+********************************[ DATE STRING ]********************************
+******************************************************************************/
+
+
+// TODO: take I18N into account
 
 
 /******************************************************************************
@@ -1705,7 +1784,7 @@ const delayTask = f => ms => x =>
   Task((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
-const delayParallel = f => ms => x =>
+const delayPara = f => ms => x =>
   Parallel((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
@@ -2125,6 +2204,159 @@ const mapSet = k => v => m =>
 ******************************************************************************/
 
 
+NUM = {};
+
+
+/***[ Bounded ]***************************************************************/
+
+
+const numMaxBound = Number.MAX_SAFE_INTEGER;
+
+
+NUM.maxBound = numMaxBound;
+
+
+const numMinBound = Number.MIN_SAFE_INTEGER;
+
+
+NUM.minBound = numMinBound;
+
+
+/***[ Enum ]******************************************************************/
+
+
+const numPred = n =>
+  n === numMinBound
+    ? None
+    : Some(n - 1);
+
+
+NUM.pred = numPred;
+
+
+const numSucc = n =>
+  n === numMaxBound
+    ? None
+    : Some(n + 1);
+
+
+NUM.succ = numSucc;
+
+
+/***[ Ord ]*******************************************************************/
+
+
+const numCompare = m => n =>
+  m < n ? LT
+    : m > n ? GT
+    : EQ;
+
+
+NUM.compare = numCompare;
+
+
+const numGt = m => n => m > n;
+
+
+NUM.gt = numGt;
+
+
+const numGte = m => n => m >= n;
+
+
+NUM.gte = numGte;
+
+
+const numLt = m => n => m < n;
+
+
+NUM.lt = numLt;
+
+
+const numLte = m => n => m <= n;
+
+
+NUM.lte = numLte;
+
+
+const numMax = m => n =>
+  n > m ? n : m;
+
+
+NUM.max = numMax;
+
+
+const numMin = m => n =>
+  n < m ? n : m;
+
+
+NUM.min = numMin;
+
+
+/***[ Read ]******************************************************************/
+
+
+const numRead = s => {
+  const n = parseFloat(s);
+
+  if (n.toString() === s)
+    return n;
+
+  else throw new TypeError("invalid number string");
+};
+
+
+NUM.read = numRead;
+
+
+/***[ Show ]******************************************************************/
+
+
+const numShow = n => n.toString();
+
+
+NUM.show = numShow;
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const decimalAdjust = (k, n, decimalPlaces) => { // internal
+  const p = Math.pow(10, decimalPlaces);
+
+  if (Math.round(n * p) / p === n)
+    return n;
+
+  const m = (n * p) * (1 + Number.EPSILON);
+  
+  return Math[k] (m) / p;
+};
+
+
+const numCeil = decimalPlaces => n =>
+  decimalAdjust("ceil", n, decimalPlaces);
+
+
+const numFloor = decimalPlaces => n =>
+  decimalAdjust("floor", n, decimalPlaces);
+
+
+const numRound = decimalPlaces => n =>
+  decimalAdjust("round", n, decimalPlaces);
+
+
+const numTrunc = decimalPlaces => n =>
+  decimalAdjust("trunc", n, decimalPlaces);
+
+
+/******************************************************************************
+*******************************[ NUMBER STRING ]*******************************
+******************************************************************************/
+
+
+// TODO: take I18N into account
+
+
 const formatNum = sep => (...fs) => n => {
   const s = String(n)
     .split(/[^\d]|$/)
@@ -2142,29 +2374,6 @@ const formatFrac = digits => ([_, s]) =>
 const formatInt = sep => ([s]) =>
   strReplace(
     Rexg("(\\d)(?=(?:\\d{3})+$)")) (`$1${sep}`) (s);
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const ceil = digits => n =>
-  decimalAdjust("ceil", n, -digits);
-
-
-const decimalAdjust = (k, float, exp) => { // internal
-  float = float.toString().split("e");
-  float = Math[k] (+(float[0] + "e" + (float[1] ? (+float[1] - exp) : -exp)));
-  float = float.toString().split("e");
-  return +(float[0] + "e" + (float[1] ? (+float[1] + exp) : exp));
-};
-
-
-const floor = digits => n =>
-  decimalAdjust("floor", n, -digits);
-
-
-const round = digits => n =>
-  decimalAdjust("round", n, -digits);
 
 
 /******************************************************************************
@@ -2369,7 +2578,7 @@ const strFoldChunkr = rx => f => acc => s => {
 };
 
 
-/***[ RegExp ]****************************************************************/
+/***[Misc. Combinators]*******************************************************/
 
 
 const strIncludes = rx => s =>
@@ -2435,134 +2644,6 @@ const strReplaceBy = rx => f => s =>
 
 
 /******************************************************************************
-***********************************[ TUPLE ]***********************************
-******************************************************************************/
-
-
-const Pair = _1 => _2 => record(Pair, {
-  0: _1,
-  1: _2,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-  }});
-
-
-const Pair_ = (_1, _2) => record(Pair, {
-  0: _1,
-  1: _2,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-  }});
-
-
-const Triple = _1 => _2 => _3 => record(Triple, {
-  0: _1,
-  1: _2,
-  2: _3,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-  }});
-
-
-const Triple_ = (_1, _2, _3) => record(Triple, {
-  0: _1,
-  1: _2,
-  2: _3,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-  }});
-
-
-const Quad = _1 => _2 => _3 => _4 => record(Quad, {
-  0: _1,
-  1: _2,
-  2: _3,
-  3: _4,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-    yield _4;
-  }});
-
-
-const Quad_ = (_1, _2, _3, _4) => record(Quad, {
-  0: _1,
-  1: _2,
-  2: _3,
-  3: _4,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-    yield _4;
-  }});
-
-
-/***[ Functor ]***************************************************************/
-
-
-const pairMap = f => ([x, y]) =>
-  Pair_(x, f(y));
-
-
-const tripMap = f => ([x, y, z]) =>
-  Triple_(x, y, f(z));
-
-
-const quadMap = f => ([w, x, y, z]) =>
-  Quad_(w, x, y, f(z));
-
-
-/***[Misc. Combinators]*******************************************************/
-
-
-const pairMap1st = f => ([x, y]) =>
-  Pair_(f(x), y);
-
-
-const tripMap1st = f => ([x, y, z]) =>
-  Triple_(f(x), y, z);
-
-
-const quadMap1st = f => ([w, x, y, z]) =>
-  Quad_(f(w), x, y, z);
-
-
-const tripMap2nd = f => ([x, y, z]) =>
-  Triple_(x, f(y), z);
-
-
-const quadMap2nd = f => ([w, x, y, z]) =>
-  Quad_(w, f(x), y, z);
-
-
-const quadMap3rd = f => ([w, x, y, z]) =>
-  Quad_(w, x, f(y), z);
-
-
-/******************************************************************************
-**********************************[ WEAKMAP ]**********************************
-******************************************************************************/
-
-
-/******************************************************************************
-**********************************[ WEAKSET ]**********************************
-******************************************************************************/
-
-
-/******************************************************************************
-**********************************[ DERIVED ]**********************************
-******************************************************************************/
-
-
-/******************************************************************************
 *******************************************************************************
 *******************************[ CUSTOM TYPES ]********************************
 *******************************************************************************
@@ -2584,7 +2665,7 @@ const allAppend = tx => ty =>
   All(tx.all && ty.all);
 
 
-const allPrepend = allAppend;
+const allPrepend = allAppend; // commutative
 
 
 const allEmpty = All(true);
@@ -2605,7 +2686,7 @@ const anyAppend = tx => ty =>
   Any(tx.any || ty.any);
 
 
-const anyPrepend = anyAppend;
+const anyPrepend = anyAppend; // commutative
 
 
 const anyEmpty = Any(false);
@@ -3429,7 +3510,7 @@ const Max = max => record("Max", {max});
 
 
 const maxAppend = max => x => y =>
-  max(x) (y);
+  Max(max(x) (y));
 
 
 const maxPrepend = maxAppend;
@@ -3450,7 +3531,7 @@ const Min = min => record("Min", {min});
 
 
 const minAppend = min => x => y =>
-  min(x) (y);
+  Min(min(x) (y));
 
 
 const minPrepend = minAppend;
@@ -3460,11 +3541,19 @@ const minEmpty = maxBound => Min(maxBound);
 
 
 /******************************************************************************
-*********************************[ NONEMPTY ]**********************************
+**********************************[ NEArray ]**********************************
 ******************************************************************************/
 
 
-// TODO: Array/List
+// TODO
+
+
+/******************************************************************************
+**********************************[ NEList ]***********************************
+******************************************************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -3801,7 +3890,8 @@ const Prod = prod => record(Prod, {prod});
 /***[ Monoid ]****************************************************************/
 
 
-const prodAppend = tx => ty => Prod(tx.prod * ty.prod);
+const prodAppend = tx => ty =>
+  Prod(tx.prod * ty.prod);
 
 
 const prodPrepend = prodAppend; // commutative
@@ -3890,7 +3980,8 @@ const Sum = sum => record(Sum, {sum});
 /***[ Monoid ]****************************************************************/
 
 
-const sumAppend = tx => ty => Sum(tx.sum + ty.sum);
+const sumAppend = tx => ty =>
+  Sum(tx.sum + ty.sum);
 
 
 const sumPrepend = sumAppend; // commutative
@@ -4067,6 +4158,119 @@ const rtreeFoldr = branchKey => f => { // post-order
 
 
 /******************************************************************************
+***********************************[ TUPLE ]***********************************
+******************************************************************************/
+
+
+const Pair = _1 => _2 => record(Pair, {
+  0: _1,
+  1: _2,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+  }});
+
+
+const Pair_ = (_1, _2) => record(Pair, {
+  0: _1,
+  1: _2,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+  }});
+
+
+const Triple = _1 => _2 => _3 => record(Triple, {
+  0: _1,
+  1: _2,
+  2: _3,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+  }});
+
+
+const Triple_ = (_1, _2, _3) => record(Triple, {
+  0: _1,
+  1: _2,
+  2: _3,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+  }});
+
+
+const Quad = _1 => _2 => _3 => _4 => record(Quad, {
+  0: _1,
+  1: _2,
+  2: _3,
+  3: _4,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+    yield _4;
+  }});
+
+
+const Quad_ = (_1, _2, _3, _4) => record(Quad, {
+  0: _1,
+  1: _2,
+  2: _3,
+  3: _4,
+  [Symbol.iterator]: function*() {
+    yield _1;
+    yield _2;
+    yield _3;
+    yield _4;
+  }});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const pairMap = f => ([x, y]) =>
+  Pair_(x, f(y));
+
+
+const tripMap = f => ([x, y, z]) =>
+  Triple_(x, y, f(z));
+
+
+const quadMap = f => ([w, x, y, z]) =>
+  Quad_(w, x, y, f(z));
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const pairMap1st = f => ([x, y]) =>
+  Pair_(f(x), y);
+
+
+const tripMap1st = f => ([x, y, z]) =>
+  Triple_(f(x), y, z);
+
+
+const quadMap1st = f => ([w, x, y, z]) =>
+  Quad_(f(w), x, y, z);
+
+
+const tripMap2nd = f => ([x, y, z]) =>
+  Triple_(x, f(y), z);
+
+
+const quadMap2nd = f => ([w, x, y, z]) =>
+  Quad_(w, f(x), y, z);
+
+
+const quadMap3rd = f => ([w, x, y, z]) =>
+  Quad_(w, x, f(y), z);
+
+
+/******************************************************************************
 **********************************[ WRITER ]***********************************
 ******************************************************************************/
 
@@ -4138,6 +4342,60 @@ const writerTell = w => Writer(Pair_(null, w));
 
 
 const firstPrepend = lastAppend;
+
+
+/******************************************************************************
+*******************************************************************************
+*******************************[ TRANSFORMERS ]********************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+**********************************[ ARRAYT ]***********************************
+******************************************************************************/
+
+
+/***[ Applicative ]***********************************************************/
+
+
+const arrOfT = of => x => of([of(x)]);
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const arrFoldT = chain => f => init => mmx =>
+  chain(mmx) (mx => {
+    const go = (acc, i) =>
+      i === mx.length
+        ? acc
+        : chain(mx[i]) (x =>
+            go(f(acc) (x), i + 1))
+
+    return go(init, 0);
+  });
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const arrAppendT = ({chain, of}) => mmx => mmy =>
+  arrFoldT(chain)
+    (acc => x =>
+      chain(acc) (acc_ =>
+        of(arrSnoc(of(x)) (acc_)))) (mmx) (mmy);
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const arrChainT = ({chain, of}) => mmx => fmm =>
+  arrFoldT(chain)
+    (acc => x =>
+      arrAppendT({chain, of}) (acc) (fmm(x)))
+        (of([]))
+          (mmx);
 
 
 /******************************************************************************
@@ -4217,7 +4475,15 @@ module.exports = {
           : true)
             (arrAppend)
     : arrAppend,
-  arrAppendT,
+  arrAppendT: TC
+    ? fun(({chain, of}) => mmx => mmy =>
+        chain(mmy) (my =>
+          introspect(my) !== "Array"
+            ? _throw(new TypeError("illegal semigroup argument"))
+            : true))
+              (arrAppendT)
+    : arrAppendT,
+  ARRAY,
   arrChain,
   arrChain2,
   arrChain3,
@@ -4230,7 +4496,9 @@ module.exports = {
   arrCons,
   arrCons_,
   arrEmpty,
+  arrEq,
   arrFold,
+  arrFold1,
   arrFoldk,
   arrFoldr,
   arrFoldT,
@@ -4249,7 +4517,6 @@ module.exports = {
   arrLiftAn,
   arrMap,
   arrMapA,
-  arrMaprA,
   arrOf,
   arrOfT,
   arrPrepend: TC
@@ -4260,7 +4527,6 @@ module.exports = {
             (arrPrepend)
     : arrPrepend,
   arrSeqA,
-  arrSeqrA,
   arrSnoc,
   arrSnoc_,
   arrUncons,
@@ -4269,15 +4535,18 @@ module.exports = {
   arrZero,
   Base,
   bodyRec,
+  BOOL,
+  boolMaxBound,
+  boolMinBound,
   Call,
   callRec,
-  ceil,
   Chain,
   chain2,
   chain3,
   chain4,
   chain5,
   chain6,
+  chainEff,
   chainn,
   cmpAppend,
   cmpContra,
@@ -4319,7 +4588,7 @@ module.exports = {
   curry4,
   debug,
   debugIf,
-  delayParallel,
+  delayPara,
   delayTask,
   drop,
   dropk,
@@ -4359,7 +4628,6 @@ module.exports = {
   firstPrepend,
   fix,
   flip,
-  floor,
   foldMap,
   foldMapr,
   formatDate,
@@ -4497,9 +4765,11 @@ module.exports = {
   match: TC ? fun_(match) : match,
   Max,
   maxAppend,
+  maxn,
   maxPrepend,
   Min,
   minAppend,
+  minn,
   minPrepend,
   modTree,
   monadRec,
@@ -4509,6 +4779,24 @@ module.exports = {
   None,
   not,
   notf,
+  NUM,
+  numCeil,
+  numCompare,
+  numFloor,
+  numGt,
+  numGte,
+  numLt,
+  numLte,
+  numMax,
+  numMaxBound,
+  numMin,
+  numMinBound,
+  numPred,
+  numRead,
+  numRound,
+  numShow,
+  numSucc,
+  numTrunc,
   obj,
   objClone,
   objEntries,
@@ -4588,7 +4876,6 @@ module.exports = {
   Rexg,
   Rexu,
   Right,
-  round,
   RTree,
   rtreeFold,
   rtreeFoldLevel,
