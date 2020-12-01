@@ -1070,11 +1070,9 @@ const maxn = ({fold1, max}) => tx =>
     max(x) (y)) (x => x) (tx);
 
 
-const minn = ({fold, min}) => tx =>
-  fold(acc => (x, i) =>
-    i === 0
-      ? x
-      : min(acc) (x)) (null) (tx);
+const minn = ({fold1, min}) => tx =>
+  fold1(x => y =>
+    min(x) (y)) (x => x) (tx);
 
 
 /******************************************************************************
@@ -2867,6 +2865,28 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 
 
 /******************************************************************************
+***********************************[ CONTT ]***********************************
+******************************************************************************/
+
+
+const ContT = contt => record(ContT, {contt});
+
+
+/***[ Transformer ]***********************************************************/
+
+
+const contChainT = mmk => fmm =>
+  ContT(k => mmk.contt(x => fmm(x).contt(k)));
+
+
+const contLiftT = chain => mmk =>
+  ContT(k => chain(mmk) (k));
+
+
+const contOfT = x => ContT(k => k(x));
+
+
+/******************************************************************************
 **********************************[ EFFECT ]***********************************
 ******************************************************************************/
 
@@ -3995,15 +4015,22 @@ const sumEmpty = Sum(0);
 ******************************************************************************/
 
 
+/*
+TODO: The entire Task type needs revision, because I switch from multi handler
+to ordinary continuations. In order to handle async exceptions there will be
+a TaskT transformer that can be combined with Maybe/Either or add stack-safety.
+*/
+
+
 const Task = task => record(
   Task,
   thisify(o => {
-    o.task = (res, rej) =>
+    o.task = k =>
       task(x => {
-        o.task = k => k(x);
-        return res(x);
-      }, rej);
-    
+        o.task = k_ => k_(x);
+        return k(x);
+      });
+
     return o;
   }));
 
@@ -4086,7 +4113,7 @@ const taskAnd = tx => ty =>
         res([x, y]), rej), rej));
 
 
-const taskAll = ({fold, cons, empty, taskMap}) => // TODO: review
+const taskAll = ({fold, cons, empty, taskMap}) => // TODO: replace with arrSeqA
   fold(tx => ty =>
     taskMap(([x, y]) =>
       cons(x) (y))
@@ -4154,6 +4181,37 @@ const rtreeFoldr = branchKey => f => { // post-order
     f(node) (arrFold(go) (acc) (branches));
 
   return go;
+};
+
+
+/***[Functor]*****************************************************************/
+
+
+const rtreeMap = branchKey => f => root => {
+  const go = ({[branchKey]: branches, ...node}) =>
+    RTree_(f(node)) (arrMap(go) (branches));
+
+  const RTree_ = RTree(branchKey);
+  return go(root);
+};
+
+
+/***[Misc. Combinators]*******************************************************/
+
+
+const rtreeHeight = branchKey => node => {
+  const go = branches =>
+    branches.length === 0
+      ? 0
+      : match(maxn({fold1: arrFold1, max: numMax})
+          (arrMap(({[branchKey]: branches_}) =>
+            go(branches_)) (branches)), {
+
+          None: _ => 0,
+          Some: ({some: n}) => n + 1
+        });
+
+  return go(node[branchKey]);
 };
 
 
@@ -4580,6 +4638,10 @@ module.exports = {
   contMap,
   contOf,
   contPrepend,
+  ContT,
+  contChainT,
+  contLiftT,
+  contOfT,
   ctorAppend,
   ctorEmpty,
   ctorPrepend,
@@ -4880,6 +4942,8 @@ module.exports = {
   rtreeFold,
   rtreeFoldLevel,
   rtreeFoldr,
+  rtreeHeight,
+  rtreeMap,
   scanDir_,
   ScriptumError,
   select,
