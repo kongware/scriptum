@@ -33,7 +33,7 @@ const fs = require("fs");
 const PREFIX = "scriptum_";
 
 
-const TC = true; // type check
+const TC = false; // type check
 
 
 /******************************************************************************
@@ -877,7 +877,7 @@ const bodyRec = o => {
 };
 
 
-/***[Tags]********************************************************************/
+/***[ Tags ]******************************************************************/
 
 
 const Stack = f => g => stack =>
@@ -903,7 +903,7 @@ const callRec = o => {
 };
 
 
-/***[Tags]********************************************************************/
+/***[ Tags ]******************************************************************/
 
 
 const Call = f => call =>
@@ -948,7 +948,7 @@ const recChain = mx => fm =>
 // recOf @Derived
 
 
-/***[Tags]********************************************************************/
+/***[ Tags ]******************************************************************/
 
 
 const Chain = chain => fm =>
@@ -959,7 +959,7 @@ const Of = of =>
   ({tag: "Of", of});
 
 
-/***[Derived]*****************************************************************/
+/***[ Derived ]***************************************************************/
 
 
 const recOf = Of;
@@ -982,7 +982,7 @@ const tailRec = f => x => {
 };
 
 
-/***[Tags]********************************************************************/
+/***[ Tags ]******************************************************************/
 
 
 const Base = base =>
@@ -1067,12 +1067,12 @@ const foldMapr = ({foldr, append, empty}) => f =>
 
 const maxn = ({fold1, max}) => tx =>
   fold1(x => y =>
-    max(x) (y)) (x => x) (tx);
+    max(x) (y)) (tx);
 
 
 const minn = ({fold1, min}) => tx =>
   fold1(x => y =>
-    min(x) (y)) (x => x) (tx);
+    min(x) (y)) (tx);
 
 
 /******************************************************************************
@@ -1216,7 +1216,7 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 const ARRAY = {};
 
 
-/***[Alternative]*************************************************************/
+/***[ Alternative ]***********************************************************/
 
 
 // arrAlt @Derived
@@ -1225,7 +1225,7 @@ const ARRAY = {};
 // arrZero @Derived
 
 
-/***[Applicative]*************************************************************/
+/***[ Applicative ]***********************************************************/
 
 
 // arrAp @Derived
@@ -1252,14 +1252,17 @@ const arrOf = x => [x];
 ARRAY.of = arrOf;
 
 
-/***[Clonable]****************************************************************/
+/***[ Clonable ]**************************************************************/
 
 
 const arrClone = xs =>
   xs.concat();
 
 
-/***[ Con-/Destruction ]******************************************************/
+ARRAY.clone = arrClone;
+
+
+/***[ Con-/Deconstruction ]***************************************************/
 
 
 const arrCons = x => xs =>
@@ -1313,6 +1316,21 @@ const arrEq = eq => xs => ys =>
 ARRAY.eq = arrEq;
 
 
+/***[ Filterable ]************************************************************/
+
+
+const arrFilter = p => xs =>
+  xs.filter(p);
+
+
+const arrPartition = p => xs => pair =>
+  arrFold(([ys, zs]) => x =>
+    p(x)
+      ? Pair_(ys.concat([x]), zs)
+      : Pair_(ys, zs.concat([x])))
+        (pair) (xs);
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -1329,18 +1347,13 @@ const arrFold = f => init => xs => {
 ARRAY.fold = arrFold;
 
 
-const arrFold1 = f => g => xs => {
-  let acc;
-  
-  if (xs.length === 0)
-    return None;
-
-  acc = g(xs[0]);
+const arrFold1 = f => xs => {
+  let acc = xs[0];
 
   for (let i = 1; i < xs.length; i++)
     acc = f(acc) (xs[i], i);
 
-  return Some(acc);
+  return acc;
 };
 
 
@@ -1370,6 +1383,9 @@ const arrFoldr = f => acc => xs => {
 ARRAY.foldr = arrFoldr;
 
 
+const arrSum = arrFold(x => y => x + y) (0);
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -1378,13 +1394,6 @@ const arrMap = f => xs =>
 
 
 ARRAY.map = arrMap;
-
-
-/***[ Infinite Lists ]********************************************************/
-
-
-const iterate = f => x => // TODO: use List
-  Pair(x) (thunk(() => iterate(f) (f(x))));
 
 
 /***[ Monad ]*****************************************************************/
@@ -1463,6 +1472,31 @@ const arrEmpty = [];
 
 
 ARRAY.empty = arrEmpty;
+
+
+/***[ Read ]******************************************************************/
+
+
+const arrRead = read => s =>
+  s[0] !== "[" || s[s.length - 1] !== "]"
+    ? _throw("invalid array string")
+    : s.slice(1, -1)
+        .split(",")
+        .map(s_ => read(s_));
+
+
+ARRAY.read = arrRead;
+
+
+/***[ Show ]******************************************************************/
+
+
+const arrShow = show => xs => {
+  const s = xs.map(x => show(x))
+    .join(",");
+
+  return `[${s}]`;
+};
 
 
 /***[ Traversable ]***********************************************************/
@@ -2187,14 +2221,14 @@ const mapHas = k => m =>
   m.has(k);
 
 
-const mapMod = k => f => m => // TODO: rename + replace with more general version
+const mapSet = k => v => m =>
+  new Map(m).set(k, v);
+
+
+const mapUpd = k => f => m => // TODO: replace with more general version
   m.has(k)
     ? new Map(m).set(k, f(m.get(k)))
     : m;
-
-
-const mapSet = k => v => m =>
-  new Map(m).set(k, v);
 
 
 /******************************************************************************
@@ -2316,7 +2350,7 @@ const numShow = n => n.toString();
 NUM.show = numShow;
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const decimalAdjust = (k, n, decimalPlaces) => { // internal
@@ -2379,10 +2413,7 @@ const formatInt = sep => ([s]) =>
 ******************************************************************************/
 
 
-/***[ Auxiliary Functions ]***************************************************/
-
-
-const thisify = f => f({});
+const OBJECT = {};
 
 
 /***[ Clonable ]**************************************************************/
@@ -2397,6 +2428,81 @@ const objClone = o => {
 
   return p;
 };
+
+
+OBJECT.clone = objClone;
+
+
+/***[ De-/Construction ]******************************************************/
+
+
+const thisify = f => f({});
+
+
+const unprop = k => ({[k]: prop, ...o}) =>
+  Pair_(prop, o);
+
+
+const unprop2 = k1 => k2 => ({[k1]: prop1, [k2]: prop2, ...o}) =>
+  Triple_(prop1, prop2, o);
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const objFold = f => init => o => {
+  let acc = init;
+
+  for (k in o)
+    acc = f(acc) (o[k]);
+
+  return acc;
+};
+
+
+OBJECT.fold = objFold;
+
+
+/***[ Filterable ]************************************************************/
+
+
+const objFilter = p => o => {
+  const p = {};
+
+  for (k in o) {
+    if (p(o[k]))
+      p[k] = o[k];
+  }
+
+  return p;
+};
+
+
+OBJECT.filter = objFilter;
+
+
+const objPartition = p => o => pair =>
+  objFold(([xs, ys]) => prop =>
+    p(prop)
+      ? Pair_(xs.concat([prop]), ys)
+      : Pair_(xs, ys.concat([prop])))
+        (pair) (o);
+
+
+/***[ Functor ]***************************************************************/
+
+
+const objMap = f => o => {
+  const p = {};
+
+  for (k in o)
+    p[k] = f(o[k]);
+
+  return p;
+};
+
+
+OBJECT.map = objMap;
 
 
 /***[ Generator ]*************************************************************/
@@ -2426,36 +2532,34 @@ function* objValues(o) {
 /***[ Getters/Setters ]*******************************************************/
 
 
-const getTree = (...ks) => o =>
-  arrFold(p => k =>
+const objGet = k => o =>
+  o[k] === undefined
+    ? None
+    : Some(o[k]);
+
+
+const objGetOr = def => k => o =>
+  k in o ? o[k] : def;
+
+
+const objGetPath = (...ks) => o => {
+  const r = arrFold(p => k =>
     p[k]) (o) (ks);
 
+  return r === undefined
+    ? None
+    : Some(r);
+};
 
-const getTreeOr = def => (...ks) => o =>
+
+const objGetPathOr = def => (...ks) => o =>
   tailRec(([p, i]) =>
     i === ks.length ? Base(p)
       : ks[i] in p ? Loop([p[ks[i]], i + 1])
       : Base(def)) ([o, 0]);
 
 
-const modTree = (...ks) => f => o =>
-  arrFold(([p, ref, root]) => (k, i) => {
-    if (i === ks.length - 1) {
-      p[k] = f(ref[k]);
-      return root;
-    }
-    
-    else if (Array.isArray(ref[k]))
-      p[k] = ref[k].concat();
-
-    else
-      p[k] = Object.assign({}, ref[k]);
-
-    return [p[k], ref[k], root];
-  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
-
-
-const setTree = (...ks) => v => o =>
+const objSetPath = (...ks) => v => o =>
   arrFold(([p, ref, root]) => (k, i) => {
     if (i === ks.length - 1) {
       p[k] = v;
@@ -2472,11 +2576,21 @@ const setTree = (...ks) => v => o =>
   }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
-const objGet = k => o => o[k];
+const objUpdPath = (...ks) => f => o =>
+  arrFold(([p, ref, root]) => (k, i) => {
+    if (i === ks.length - 1) {
+      p[k] = f(ref[k]);
+      return root;
+    }
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
 
+    else
+      p[k] = Object.assign({}, ref[k]);
 
-const objGetOr = def => k => o =>
-  k in o ? o[k] : def;
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
 /******************************************************************************
@@ -2576,7 +2690,7 @@ const strFoldChunkr = rx => f => acc => s => {
 };
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const strIncludes = rx => s =>
@@ -2739,7 +2853,7 @@ const Compare = cmp => record(
   {cmp});
 
 
-/***[Contravariant ]**********************************************************/
+/***[ Contravariant ]*********************************************************/
 
 
 const cmpContra = f => tf =>
@@ -3011,14 +3125,14 @@ const endoEmpty = id;
 const Equiv = equiv => record("Equiv", {equiv});
 
 
-/***[Contravariant Functor]***************************************************/
+/***[ Contravariant Functor ]*************************************************/
 
 
 const equivContra = f => tf =>
   Equiv(compOn(tf.equiv) (f));
 
 
-/***[Monoid]******************************************************************/
+/***[ Monoid ]****************************************************************/
 
 
 const equivAppend = tf => tg =>
@@ -3040,7 +3154,7 @@ const equivEmpty = Equiv(x => y => true);
 const First = first => record("First", {first});
 
 
-/***[Semigroup]***************************************************************/
+/***[ Semigroup ]*************************************************************/
 
 
 const firstAppend = x => _ => x;
@@ -3090,7 +3204,7 @@ const iarrToArr = xs =>
     })) ([iarrUncons(xs), []]);
 
 
-/***[ Con-/Destruction ]******************************************************/
+/***[ Con-/Deconstruction ]***************************************************/
 
 
 const iarrCons = x => xs =>
@@ -3200,6 +3314,9 @@ const iarrSet = i => x => xs =>
         x);
 
 
+// TODO: add iarrUpd
+
+
 /******************************************************************************
 ***********************************[ IMAP ]************************************
 ******************************************************************************/
@@ -3224,7 +3341,7 @@ const iarrSet = i => x => xs =>
 const Last = last => record("Last", {last});
 
 
-/***[Semigroup]***************************************************************/
+/***[ Semigroup ]*************************************************************/
 
 
 const lastAppend = _ => y => y;
@@ -3245,6 +3362,10 @@ const Nil = List("Nil", {});
 
 
 const Cons = head => tail =>
+  List(Cons, {head, tail});
+
+
+const Cons_ = (head, tail) =>
   List(Cons, {head, tail});
 
 
@@ -3272,7 +3393,7 @@ const Cons = head => tail =>
 const listOf = x => Cons(x) (Nil);
 
 
-/***[Conversion]**************************************************************/
+/***[ Conversion ]************************************************************/
 
 
 const listFromArr = arrFoldr(
@@ -3282,7 +3403,7 @@ const listFromArr = arrFoldr(
 // listToArr @Derived
 
 
-/***[ Con-/Destruction ]******************************************************/
+/***[ Con-/Deconstruction ]***************************************************/
 
 
 const listCons = Cons;
@@ -3306,24 +3427,24 @@ const listCons_ = flip(Cons);
 /***[ Foldable ]**************************************************************/
 
 
-const listFold = f => acc => xs => {
-  let xs_ = xs,
-    acc_ = acc
+const listFold = f => init => xs => {
+  let ys = xs,
+    acc = init
     i = 0;
 
   do {
-    if (xs_.tag === "Nil")
+    if (ys.tag === "Nil")
       break;
 
-    else if (xs_.tag === "Cons") {
-      const {head, tail} = xs_;
-      acc_ = f(acc_) (head, i);
-      xs_ = tail;
+    else if (ys.tag === "Cons") {
+      const {head, tail} = ys;
+      acc = f(acc) (head, i);
+      ys = tail;
       i++;
     }
   } while (true);
 
-  return acc_;
+  return acc;
 };
 
 
@@ -3345,6 +3466,21 @@ const listMap = f =>
   listFoldr(x => acc =>
     Cons(f(x)) (acc))
       (Nil);
+
+
+/***[ Infinite Lists ]********************************************************/
+
+
+const iterate = f => {
+  const go = x =>
+    Cons_(x, thunk(() => go(f(x))));
+
+  return go;
+};
+
+
+const repeat = x =>
+  Cons_(x, thunk(() => repeat(x)));
 
 
 /***[ Monad ]*****************************************************************/
@@ -3526,7 +3662,7 @@ const listOfT = of => x =>
 const Max = max => record("Max", {max});
 
 
-/***[Monoid]******************************************************************/
+/***[ Monoid ]****************************************************************/
 
 
 const maxAppend = max => x => y =>
@@ -3547,7 +3683,7 @@ const maxEmpty = minBound => Max(minBound);
 const Min = min => record("Min", {min});
 
 
-/***[Monoid]******************************************************************/
+/***[ Monoid ]****************************************************************/
 
 
 const minAppend = min => x => y =>
@@ -3791,7 +3927,7 @@ const racePrepend = raceAppend; // order doesn't matter
 const raceEmpty = Parallel((res, rej) => null);
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const paraAnd = tx => ty => {
@@ -3928,7 +4064,7 @@ const prodEmpty = Prod(1);
 const State = f => record("State", {state: f});
 
 
-/***[Applicative]*************************************************************/
+/***[ Applicative ]***********************************************************/
 
 
 const stateAp = tf => tx =>
@@ -3943,7 +4079,7 @@ const stateAp = tf => tx =>
 const stateOf = x => State(s => Pair_(x, s));
 
 
-/***[Functor]*****************************************************************/
+/***[ Functor ]***************************************************************/
 
 
 const stateMap = f => tx =>
@@ -3953,7 +4089,7 @@ const stateMap = f => tx =>
   });
 
 
-/***[Monad]*******************************************************************/
+/***[ Monad ]*****************************************************************/
 
 
 const stateChain = mx => fm =>
@@ -3963,7 +4099,7 @@ const stateChain = mx => fm =>
   });
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const stateEval = tf =>
@@ -4103,7 +4239,7 @@ const taskEmpty = empty =>
   Task((res, rej) => res(empty));
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const taskAnd = tx => ty =>
@@ -4145,7 +4281,48 @@ const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 
 
 /******************************************************************************
-********************************[ TREE (ROSE) ]********************************
+********************************[ TREE (LIKE) ]********************************
+******************************************************************************/
+
+
+/***[ Foldable ]***************************************************************/
+
+
+const tlikeFoldr = f => init => tx => { // post-order TODO: make non-strict
+  const go = acc => tx => {
+    if (Array.isArray(tx))
+      return arrFold(go) (acc) (tx);
+
+    else if (tx !== null && typeof tx === "object")
+      return objFold(go) (acc) (tx);
+
+    else return f(acc) (tx);
+  };
+
+  return go(init) (tx);
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+const tlikeMap = f => {
+  const go = tx => {
+    if (Array.isArray(tx))
+      return arrMap(go) (tx);
+
+    else if (tx !== null && typeof tx === "object")
+      return objMap(go) (tx);
+
+    else return f(tx);
+  };
+
+  return go;
+};
+
+
+/******************************************************************************
+*****************************[ TREE (MULTI-WAY) ]******************************
 ******************************************************************************/
 
 
@@ -4153,7 +4330,7 @@ const RTree = branchKey => node => branches =>
   ({...node, [branchKey]: branches});
 
 
-/***[Foldable]****************************************************************/
+/***[ Foldable ]**************************************************************/
 
 
 const rtreeFold = branchKey => f => { // pre-order
@@ -4184,7 +4361,7 @@ const rtreeFoldr = branchKey => f => { // post-order
 };
 
 
-/***[Functor]*****************************************************************/
+/***[ Functor ]***************************************************************/
 
 
 const rtreeMap = branchKey => f => root => {
@@ -4196,23 +4373,40 @@ const rtreeMap = branchKey => f => root => {
 };
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const rtreeHeight = branchKey => node => {
   const go = branches =>
     branches.length === 0
       ? 0
-      : match(maxn({fold1: arrFold1, max: numMax})
+      : maxn({fold1: arrFold1, max: numMax})
           (arrMap(({[branchKey]: branches_}) =>
-            go(branches_)) (branches)), {
-
-          None: _ => 0,
-          Some: ({some: n}) => n + 1
-        });
+            go(branches_)) (branches));
 
   return go(node[branchKey]);
 };
+
+
+// TODO: rTreeCata (catamorphism)
+
+
+// TODO: rTreeCommonPred (common predecessor of two nodes)
+
+
+// TODO: rTreeLevels (list of tree levels)
+
+
+// TODO: rTreePaths (list of tree paths)
+
+
+// TODO: rTreeUnfold (BFS, DFS/pre-order, DFS/post-order)
+
+
+// TODO: rTreeRead
+
+
+// TODO: rTreeShow
 
 
 /******************************************************************************
@@ -4301,7 +4495,7 @@ const quadMap = f => ([w, x, y, z]) =>
   Quad_(w, x, y, f(z));
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const pairMap1st = f => ([x, y]) =>
@@ -4336,7 +4530,7 @@ const quadMap3rd = f => ([w, x, y, z]) =>
 const Writer = pair => record(Writer, {writer: pair});
 
 
-/***[Applicative]*************************************************************/
+/***[ Applicative ]***********************************************************/
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
@@ -4347,14 +4541,14 @@ const writerOf = empty => x =>
   Writer(Pair_(x, empty));
 
 
-/***[Functor]*****************************************************************/
+/***[ Functor ]***************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
   Writer(Pair_(f(x), w));
 
 
-/***[Monad]*******************************************************************/
+/***[ Monad ]*****************************************************************/
 
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
@@ -4363,7 +4557,7 @@ const writerChain = append => ({writer: [x, w]}) => fm => {
 };
 
 
-/***[Misc. Combinators]*******************************************************/
+/***[ Misc. Combinators ]*****************************************************/
 
 
 const writerCensor = ({append, empty}) => f => tx =>
@@ -4555,8 +4749,15 @@ module.exports = {
   arrCons_,
   arrEmpty,
   arrEq,
+  arrFilter,
   arrFold,
-  arrFold1,
+  arrFold1: TC
+    ? fun(f => xs =>
+        introspect(xs) !== "Array" || xs.length === 0
+          ? _throw(new TypeError("non-empty array expected"))
+          : true)
+            (arrFold1)
+    : arrFold1,
   arrFoldk,
   arrFoldr,
   arrFoldT,
@@ -4577,6 +4778,7 @@ module.exports = {
   arrMapA,
   arrOf,
   arrOfT,
+  arrPartition,
   arrPrepend: TC
     ? fun(ys =>
         introspect(ys) !== "Array"
@@ -4584,7 +4786,9 @@ module.exports = {
           : true)
             (arrPrepend)
     : arrPrepend,
+  arrRead,
   arrSeqA,
+  arrShow,
   arrSnoc,
   arrSnoc_,
   arrUncons,
@@ -4622,6 +4826,7 @@ module.exports = {
   compOn,
   concat,
   Cons,
+  Cons_,
   ConsT,
   _const,
   const_,
@@ -4716,8 +4921,6 @@ module.exports = {
   funMap,
   funOf,
   funPrepend,
-  getTree,
-  getTreeOr,
   GT,
   guard,
   Hamt,
@@ -4819,8 +5022,8 @@ module.exports = {
   mapEff,
   mapHas,
   mapGet,
-  mapMod,
   mapSet,
+  mapUpd,
   map,
   mapk,
   mapr,
@@ -4833,7 +5036,6 @@ module.exports = {
   minAppend,
   minn,
   minPrepend,
-  modTree,
   monadRec,
   _new,
   Nil,
@@ -4862,9 +5064,17 @@ module.exports = {
   obj,
   objClone,
   objEntries,
+  objFilter,
+  objFold,
   objGet,
   objGetOr,
+  objGetPath,
+  objGetPathOr,
   objKeys,
+  objMap,
+  objPartition,
+  objSetPath,
+  objUpdPath,
   objValues,
   Of,
   Option,
@@ -4931,6 +5141,7 @@ module.exports = {
   recMap,
   recOf,
   record: TC ? fun_(record) : record,
+  repeat,
   reset,
   Return,
   Rex,
@@ -4950,7 +5161,6 @@ module.exports = {
   setDel,
   setHas,
   setSet,
-  setTree,
   shift,
   Some,
   Stack,
@@ -5019,6 +5229,8 @@ module.exports = {
   throwOnFalse,
   throwOnUnit,
   thunk,
+  tlikeFoldr,
+  tlikeMap,
   trace,
   transduce,
   Triple,
@@ -5030,6 +5242,8 @@ module.exports = {
   uncurry3,
   uncurry4,
   union: TC ? fun_(union) : union,
+  unprop,
+  unprop2,
   Unstack,
   Writer,
   writerAp,
