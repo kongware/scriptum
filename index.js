@@ -288,6 +288,9 @@ class ThunkProxy {
     else if (k === "toString")
       return () => this.memo.toString();
 
+    else if (k === Symbol.isConcatSpreadable && Array.isArray(this.memo))
+      return true;
+
     else if (k === Symbol.toStringTag)
       return Object.prototype.toString.call(this.memo).slice(8, -1);
 
@@ -333,7 +336,7 @@ class ThunkProxy {
         this.memo = this.memo.valueOf();
     }
 
-    return Reflect.ownKeys(this.memo);
+    return Object.keys(this.memo);
   }
 
   set(g, k, v) {
@@ -1497,6 +1500,9 @@ const arrShow = show => xs => {
 
   return `[${s}]`;
 };
+
+
+ARRAY.show = arrShow;
 
 
 /***[ Traversable ]***********************************************************/
