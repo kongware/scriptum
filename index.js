@@ -33,7 +33,7 @@ const fs = require("fs");
 const PREFIX = "scriptum_";
 
 
-const TC = false; // type check
+const TC = true; // type check
 
 
 /******************************************************************************
@@ -191,8 +191,14 @@ class ObjProxy {
     else return o[k];
   }
 
-  set(g, k, v) {
-    throw new TypeError(`illegal mutation in "${k}"`);
+  set(o, k, v) {debugger;
+    if (o[k] [THUNK]) { // allow mutations to replace thunks
+      o[k] = v;
+      return true;      
+    }
+
+    else
+      throw new TypeError(`illegal mutation in "${k}"`);
   }  
 }
 
@@ -1181,18 +1187,6 @@ const takeWhile_ = ({cons, empty}) => p => xs => // TODO: reconcile with takeWhi
           ? Loop([tail, cons(head) (acc)])
           : Base(acc)
     })) ([xs, empty]);
-
-
-/******************************************************************************
-*********************************[ MONADFIX ]**********************************
-******************************************************************************/
-
-
-const mfix = chain_ => {
-  const go = fm => chain_(fm) (x => go(fm) (x));
-
-  return go;
-};
 
 
 /******************************************************************************
@@ -2882,6 +2876,32 @@ const anyEmpty = Any(false);
 
 
 /******************************************************************************
+**********************************[ COMPARE ]**********************************
+******************************************************************************/
+
+
+const Comp = comp => record(Comp, {comp});
+
+
+/***[Applicative]*************************************************************/
+
+
+const compAp = ({map1, ap1, ap2}) => ttf => ttx => // TODO: replace with liftA2
+  Comp(ap1(map1(ap2) (ttf.comp)) (ttx.comp));
+
+
+const compOf = ({of1, of2}) => x =>
+  Comp(of1(of2(x)));
+
+
+/***[Functor]*****************************************************************/
+
+
+const compMap = ({map1, map2}) => f => ttx =>
+  Comp(map1(map2(f)) (ttx.comp));
+
+
+/******************************************************************************
 ********************************[ COMPARATOR ]*********************************
 ******************************************************************************/
 
@@ -3078,36 +3098,49 @@ const contOfT = x => ContT(k => k(x));
 
 
 /******************************************************************************
-**********************************[ EFFECT ]***********************************
+*********************************[ COYONEDA ]**********************************
 ******************************************************************************/
 
 
-const Effect = eff =>
-  record(Effect, {get eff() {return eff()}});
+const Coyoneda = f => coyo =>
+  record(Coyoneda, Pair_(f, coyo));
 
 
 /***[ Applicative ]***********************************************************/
 
 
-const effOf = x => Effect(() => x);
+const coyoAp = liftA2 => ({coyo: [f, tx]}) => ({coyo: [g, ty]}) =>
+  coyoLift(
+    liftA2(x => y =>
+      f(x) (g(y))) (tx) (ty));
+
+
+const coyoOf = of => f =>
+  comp(coyoLift) (of);
+
+
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+const coyoLift = tx => Coyoneda(id) (tx);
+
+
+const coyoLower = map => ({coyo: [f, tx]}) =>
+  map(f) (tx);
+
+
+/***[ Functor ]***************************************************************/
+
+
+const coyoMap = map => f => ({coyo: [g, tx]}) =>
+  Coyoneda(comp(f) (g)) (tx);
 
 
 /***[ Monad ]*****************************************************************/
 
 
-const effChain = mx => fm =>
-  Eff(() => fm(mx.eff).eff);
-
-
-/***[ Transformer ]***********************************************************/
-
-
-const effChainT = ({map, chain, of}) => mmx => fmm =>
-  chain(mmx) (mx =>
-    Effect(() => map(my => my.eff) (fmm(mx.eff))));
-
-
-const effOfT = of => x => of(Effect(() => x));
+const coyoChain = chain => ({coyo: [f, mx]}) => fm =>
+  coyoLift(chain(mx) (comp3(coyoLower) (fm) (f)));
 
 
 /******************************************************************************
@@ -3399,7 +3432,7 @@ const iarrSet = i => x => xs =>
 ******************************************************************************/
 
 
-// TODO
+// TODO: add insertion order map + key ordered map + unordered map
 
 
 /******************************************************************************
@@ -3407,7 +3440,7 @@ const iarrSet = i => x => xs =>
 ******************************************************************************/
 
 
-// TODO
+// TODO: add insertion order set + unordered set
 
 
 /******************************************************************************
@@ -3446,6 +3479,17 @@ const deferChain = mx => fm =>
 
 const deferJoin = mmx =>
   Defer(() => mmx.defer.defer);
+
+
+/***[ Transformer ]***********************************************************/
+
+
+const deferChainT = ({map, chain, of}) => mmx => fmm =>
+  chain(mmx) (mx =>
+    Defer(() => map(my => my.defer) (fmm(mx.defer))));
+
+
+const deferOfT = of => x => of(Defer(() => x));
 
 
 /******************************************************************************
@@ -4854,6 +4898,52 @@ const writerTell = w => Writer(Pair_(null, w));
 
 
 /******************************************************************************
+**********************************[ YONEDA ]***********************************
+******************************************************************************/
+
+
+const Yoneda = yoneda => record(Yoneda, {yoneda});
+
+
+/***[ Applicative ]***********************************************************/
+
+
+const yoAp = ap => tf => tx =>
+  Yoneda(f =>
+    ap(tf.yoneda(comp(f)))
+      (id(tx.yoneda)));
+
+
+const yoOf = of => x => Yoneda(f => of(f(x)));
+
+
+/***[ Functor ]***************************************************************/
+
+
+const yoMap = f => tx =>
+  Yoneda(g => tx.yoneda(comp(g) (f)));
+
+
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+const yoLift = map => tx =>
+  Yoneda(f => map(f) (tx));
+
+
+const yoLower = tx => tx.yoneda(id);
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const yoChain = chain => mx => fm =>
+  Yoneda(f =>
+    chain(mx.yoneda(id)) (x =>
+      fm(x).yoneda(f)));
+
+
+/******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
 
@@ -5067,6 +5157,13 @@ module.exports = {
   BOOL,
   boolMaxBound,
   boolMinBound,
+  coyoAp,
+  coyoChain,
+  coyoLift,
+  coyoLower,
+  coyoMap,
+  Coyoneda,
+  coyoOf,
   Chain,
   chain2,
   chain3,
@@ -5079,15 +5176,19 @@ module.exports = {
   cmpContra,
   cmpEmpty,
   cmpPrepend,
+  Comp,
   comp: TC ? fun_(comp) : comp,
   comp3,
   comp4,
   comp5,
   comp6,
   comp2nd,
+  compAp,
   Compare,
   compBin,
+  compMap,
   compn,
+  compOf,
   compOn,
   concat,
   Cons,
@@ -5126,9 +5227,11 @@ module.exports = {
   Defer,
   deferAp,
   deferChain,
+  deferChainT,
   deferJoin,
   deferMap,
   deferOf,
+  deferOfT,
   div,
   drop,
   dropk,
@@ -5136,12 +5239,6 @@ module.exports = {
   dropWhile,
   dropWhilek,
   dropWhiler,
-  eff,
-  effChain,
-  effChainT,
-  Effect,
-  effOf,
-  effOfT,
   Either,
   eithAp,
   eithChain,
@@ -5314,7 +5411,6 @@ module.exports = {
   maxAppend,
   maxn,
   maxPrepend,
-  mfix,
   Min,
   minAppend,
   minn,
@@ -5560,5 +5656,12 @@ module.exports = {
   writerPass,
   writerTell,
   Unwind,
-  Unwind2
+  Unwind2,
+  yoAp,
+  yoChain,
+  yoLift,
+  yoLower,
+  yoMap,
+  Yoneda,
+  yoOf
 };
