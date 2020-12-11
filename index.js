@@ -861,21 +861,31 @@ const lazyProp = k => v => o =>
 
 
 /******************************************************************************
-******************************[ BODY RECURSION ]*******************************
+*****************************[ MODULO RECURSION ]******************************
 ******************************************************************************/
 
 
-const bodyRec = o => {
+const moduloRec = o => {
+  while (o.tag === "Wind")
+    o = o.f(o.wind);
+
+  return o.tag === "Unwind"
+    ? o.unwind
+    : _throw(new TypeError("unknown trampoline tag"));
+};
+
+
+const moduloRec2 = o => {
   const stack = [];
 
-  while (o.tag === "Stack") {
+  while (o.tag === "Wind2") {
     stack.push(o);
-    o = o.g(o.stack);
+    o = o.g(o.wind2);
   }    
 
-  return o.tag === "Unstack"
+  return o.tag === "Unwind2"
     ? stack.reduceRight(
-        (acc, p) => p.f(acc), o.unstack)
+        (acc, p) => p.f(acc), o.unwind2)
     : _throw(new TypeError("unknown trampoline tag"));
 };
 
@@ -883,38 +893,20 @@ const bodyRec = o => {
 /***[ Tags ]******************************************************************/
 
 
-const Stack = f => g => stack =>
-  ({tag: "Stack", f, g, stack});
+const Unwind = unwind =>
+  ({tag: "Unwind", unwind});
 
 
-const Unstack = unstack =>
-  ({tag: "Unstack", unstack});
+const Unwind2 = unwind2 =>
+  ({tag: "Unwind2", unwind2});
 
 
-/******************************************************************************
-**************************[ DEFERRED CALL RECURSION ]**************************
-******************************************************************************/
+const Wind = f => wind =>
+  ({tag: "Wind", f, wind});
 
 
-const callRec = o => {
-  while (o.tag === "Call")
-    o = o.f(o.call);
-
-  return o.tag === "Return"
-    ? o.return
-    : _throw(new TypeError("unknown trampoline tag"));
-};
-
-
-/***[ Tags ]******************************************************************/
-
-
-const Call = f => call =>
-  ({tag: "Call", f, call});
-
-
-const Return = _return =>
-  ({tag: "Return", return: _return});
+const Wind2 = f => g => wind2 =>
+  ({tag: "Wind2", f, g, wind2});
 
 
 /******************************************************************************
@@ -1176,6 +1168,34 @@ const kompn = chain => ([fm, ...fs]) => x =>
 
 
 /******************************************************************************
+*****************************[ MISC. COMBINATORS ]*****************************
+******************************************************************************/
+
+
+const takeWhile_ = ({cons, empty}) => p => xs => // TODO: reconcile with takeWhile transducer
+  tailRec(([ys, acc]) =>
+    match(ys, {
+      Nil: _ => Base(acc),
+      Cons: ({head, tail}) =>
+        p(head)
+          ? Loop([tail, cons(head) (acc)])
+          : Base(acc)
+    })) ([xs, empty]);
+
+
+/******************************************************************************
+*********************************[ MONADFIX ]**********************************
+******************************************************************************/
+
+
+const mfix = chain_ => {
+  const go = fm => chain_(fm) (x => go(fm) (x));
+
+  return go;
+};
+
+
+/******************************************************************************
 **********************************[ MONOID ]***********************************
 ******************************************************************************/
 
@@ -1373,13 +1393,13 @@ const arrFoldk = f => init => xs => {
 };
 
 
-const arrFoldr = f => acc => xs => {
-  const go = i =>
-    i === xs.length
-      ? acc
-      : f(xs[i]) (thunk(() => go(i + 1)));
+const arrFoldr = f => init => xs => { // no thunks b/c array is strict
+  let acc = init;
 
-  return go(0);
+  for (let i = xs.length - 1; i >= 0; i--)
+    acc = f(xs[i], i) (acc);
+
+  return acc;
 };
 
 
@@ -1407,6 +1427,13 @@ const arrChain = mx => fm =>
 
 
 ARRAY.chain = arrChain;
+
+
+const arrChain_ = fm => mx =>
+  mx.flatMap(fm);
+
+
+ARRAY.chain_ = arrChain_;
 
 
 const arrChain2 = chain2(arrChain);
@@ -1548,6 +1575,13 @@ ARRAY.unfold = arrUnfold;
 
 
 // TODO: implement arrUnfoldr
+
+
+/***[ Misc. Combinators ]*****************************************************/
+
+
+const _null = xs =>
+  xs.length === 0;
 
 
 /***[ Derived ]***************************************************************/
@@ -1738,8 +1772,8 @@ const compBin = f => g => x => y =>
 
 
 const compn = fs => x =>
-  callRec(arrFold(f => g =>
-    x => Call(f) (g(x))) (x => Return(x)) (fs) (x));
+  moduloRec(arrFold(f => g =>
+    x => Wind(f) (g(x))) (x => Unwind(x)) (fs) (x));
 
 
 const compOn = f => g => x => y =>
@@ -1826,8 +1860,8 @@ const delayPara = f => ms => x =>
   Parallel((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
-const log = s =>
-  (console.log(s), s);
+const log = (...ss) =>
+  (console.log(...ss), ss[ss.length - 1]);
 
 
 const taggedLog = tag => s =>
@@ -2030,6 +2064,12 @@ const const_ = _ => y => y;
 
 const fix = f =>
   x => f(fix(f)) (x);
+
+
+const fix_ = comp(moduloRec) (fix);
+
+
+const fix2 = compBin(moduloRec2) (fix);
 
 
 const flip = f => y => x =>
@@ -2243,6 +2283,37 @@ const mapUpd = k => f => m => // TODO: replace with more general version
 
 
 NUM = {};
+
+
+/***[ Arithmetic ]************************************************************/
+
+
+const add = x => y => x + y;
+
+
+const dec = x => x - 1;
+
+
+const div = x => y => x / y;
+
+
+const inc = x => x + 1;
+
+
+const mod = x => y => x % y;
+
+
+const mul = x => y => x * y;
+
+
+const neg = x => -x;
+
+
+const pow = y => x => x ** y;
+
+
+const sub = x => y => x - y;
+
 
 
 /***[ Bounded ]***************************************************************/
@@ -2728,7 +2799,7 @@ const strMatchNth = rx => n => s =>
   listFoldr((head, i) => tail =>
     i === n
       ? head
-      : strict(tail))
+      : strict(tail)) // TODO: revise strictness
         ("")
           (strFoldChunkr(rx)
             (Cons)
@@ -3340,6 +3411,83 @@ const iarrSet = i => x => xs =>
 
 
 /******************************************************************************
+***********************************[ DEFER ]***********************************
+******************************************************************************/
+
+
+const Defer = defer => record(Defer, {get defer() {
+  return this.defer = defer();
+}});
+
+
+/***[Applicative]*************************************************************/
+
+
+const deferAp = tf => tx =>
+  Defer(() => tf.defer(tx.defer));
+
+
+const deferOf = x => Defer(() => x);
+
+
+/***[Functor]*****************************************************************/
+
+
+const deferMap = f => tx =>
+  Defer(() => f(tx.defer));
+
+
+/***[Monad]*******************************************************************/
+
+
+const deferChain = mx => fm =>
+  Defer(() => fm(mx.defer).defer);
+
+
+const deferJoin = mmx =>
+  Defer(() => mmx.defer.defer);
+
+
+/******************************************************************************
+***********************************[ LAZY ]************************************
+******************************************************************************/
+
+
+const Lazy = lazy => record(Lazy, {get lazy() {
+  delete this.lazy
+  return this.lazy = lazy();
+}});
+
+
+/***[Applicative]*************************************************************/
+
+
+const lazyAp = tf => tx =>
+  Lazy(() => tf.lazy(tx.lazy));
+
+
+const lazyOf = x => Lazy(() => x);
+
+
+/***[Functor]*****************************************************************/
+
+
+const lazyMap = f => tx =>
+  Lazy(() => f(tx.lazy));
+
+
+/***[Monad]*******************************************************************/
+
+
+const lazyChain = mx => fm =>
+  Lazy(() => fm(mx.lazy).lazy);
+
+
+const lazyJoin = mmx =>
+  Lazy(() => mmx.lazy.lazy);
+
+
+/******************************************************************************
 ***********************************[ LAST ]************************************
 ******************************************************************************/
 
@@ -3580,7 +3728,7 @@ const listAltT = ({chain, of}) => mmx => mmy => {
   const go = (mmx_) =>
     chain(mmx_) (mx =>
       match(mx, {
-        NilT: _ => strict(mmy),
+        NilT: _ => strict(mmy), // TODO: revise strictness
         ConsT: ({head, tail}) =>
           ConsT(of) (head) (thunk(() => go(tail)))
       }));
@@ -3613,7 +3761,7 @@ const listToArrT = ({chain, of}) =>
 const listFoldrT = chain => f => acc => {
   const go = mmx => chain(mmx) (mx =>
     match(mx, {
-      NilT: _ => strict(acc),
+      NilT: _ => strict(acc), // TODO: revise strictness
       ConsT: ({head, tail}) =>
         f(head) (thunk(() => go(tail)))
     }));
@@ -3898,7 +4046,7 @@ const paraMap = f => tx =>
 
 const paraMap_ = f => tx =>
   Parallel((res, rej) =>
-    Call(f => tx.para(f)) (x => Call(res) (f(x)), rej));
+    Wind(f => tx.para(f)) (x => Wind(res) (f(x)), rej));
 
 
 /***[ Monoid (type parameter) ]***********************************************/
@@ -4216,7 +4364,7 @@ const taskMap = f => tx =>
 
 const taskMap_ = f => tx =>
   Task((res, rej) =>
-    Call(f => tx.task(f)) (x => Call(res) (f(x)), rej));
+    Wind(f => tx.task(f)) (x => Wind(res) (f(x)), rej));
 
 
 /***[ Monad ]*****************************************************************/
@@ -4291,10 +4439,13 @@ const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 ******************************************************************************/
 
 
+// e.g. {foo: [1, {bat: {baz: "abc"}}, 3], bar: true};
+
+
 /***[ Foldable ]***************************************************************/
 
 
-const tlikeFoldr = f => init => tx => { // post-order TODO: make non-strict
+const tlikeFold = f => init => tx => { // post-order
   const go = acc => tx => {
     if (Array.isArray(tx))
       return arrFold(go) (acc) (tx);
@@ -4332,87 +4483,195 @@ const tlikeMap = f => {
 ******************************************************************************/
 
 
-const RTree = branchKey => node => branches =>
-  ({...node, [branchKey]: branches});
+const Node = branchKey => leaf => branch =>
+  record("Tree", {...leaf, [branchKey]: branch});
+
+
+const Node_ = branchKey => leaf => (...branch) =>
+  record("Tree", {...leaf, [branchKey]: branch});
 
 
 /***[ Foldable ]**************************************************************/
 
 
-const rtreeFold = branchKey => f => { // pre-order
-  const go = acc => ({[branchKey]: branches, ...node}) =>
-    arrFold(go) (f(acc) (node)) (branches);
+const treeFold = uncons => f => { // pre-order
+  const go = acc => node => {
+    const [branch, leaf] = uncons(node);
+    return arrFold(go) (f(acc) (leaf)) (branch);
+  };
 
   return go;
 };
 
-
-const rtreeFoldLevel = branchKey => f => init => node => { // level-order
-  const go = branches =>
-    branches.length === 0
+const treeFoldLevel = uncons => f => init => tree => { // level-order
+  const go = branch =>
+    branch.length === 0
       ? []
-      : arrAppend(branches)
-          (go(arrFold(acc => ({[branchKey]: branches_}) =>
-            arrAppend(acc) (branches_)) ([]) (branches)));
+      : arrAppend(branch)
+          (go(arrFold(acc => node => {
+            const [branch_] = uncons(node);
+            return arrAppend(acc) (branch_);
+          }) ([]) (branch)));
 
-  return arrFold(acc => node_ => f(acc) (node_)) (init) (go([node]));
+  return arrFold(acc => node => f(acc) (node)) (init) (go([tree]));
 };
 
+const treeFoldr = uncons => f => init => tree => { // post-order
+  const go = node => acc => {
+    const [branch, leaf] = uncons(node);
+    return arrFoldr(go) (f(leaf) (acc)) (branch);
+  };
 
-const rtreeFoldr = branchKey => f => { // post-order
-  const go = acc => ({[branchKey]: branches, ...node}) =>
-    f(node) (arrFold(go) (acc) (branches));
-
-  return go;
+  return go(tree) (init);
 };
 
 
 /***[ Functor ]***************************************************************/
 
 
-const rtreeMap = branchKey => f => root => {
-  const go = ({[branchKey]: branches, ...node}) =>
-    RTree_(f(node)) (arrMap(go) (branches));
+const treeMap = ({cons, uncons}) => f =>
+  treeCata(uncons) (comp(cons) (f));
 
-  const RTree_ = RTree(branchKey);
-  return go(root);
+
+/***[ Recursion Schemes ]*****************************************************/
+
+
+const treeCata = uncons => f => {
+  const go = node => {
+    const [branch, leaf] = uncons(node);
+    return f(leaf) (thunk(() => arrMap(go) (branch)));
+  };
+
+  return go;
 };
 
 
-/***[ Misc. Combinators ]*****************************************************/
+const treeCata_ = uncons => f => g => acc => {
+  const go = node => {
+    const [branch, leaf] = uncons(node);
 
+    return comp3(f(leaf))
+      (arrFoldr(g) (acc))
+        (arrMap(go)) (branch);
+  }
 
-const rtreeHeight = branchKey => node => {
-  const go = branches =>
-    branches.length === 0
-      ? 0
-      : maxn({fold1: arrFold1, max: numMax})
-          (arrMap(({[branchKey]: branches_}) =>
-            go(branches_)) (branches));
-
-  return go(node[branchKey]);
+  return go;
 };
 
 
-// TODO: rTreeCata (catamorphism)
+/***[ Tree Structure ]********************************************************/
 
 
-// TODO: rTreeCommonPred (common predecessor of two nodes)
+const treeCountLeafs = uncons =>
+  treeCata(uncons) (_ => branch =>
+    branch.length === 0 ? 1 : arrSum(branch));
 
 
-// TODO: rTreeLevels (list of tree levels)
+const treeCountNodes = uncons =>
+  treeCata(uncons) (_ => branch =>
+    branch.length === 0 ? 0 : 1 + arrSum(branch));
 
 
-// TODO: rTreePaths (list of tree paths)
+const treeHeight = uncons => {
+  const maxn_ = maxn({fold1: arrFold1, max: numMax});
+
+  return treeCata(uncons) (_ => branch =>
+    branch.length === 0
+      ? 0 : 1 + maxn_(branch));
+};
 
 
-// TODO: rTreeUnfold (BFS, DFS/pre-order, DFS/post-order)
+const treeLeafs = uncons => acc =>
+  treeCata(uncons) (leaf => branch =>
+    branch.length === 0
+      ? arrSnoc(leaf) (acc)
+      : arrFold(arrAppend) (acc) (branch));
 
 
-// TODO: rTreeRead
+const treeLevels = uncons => tree =>
+  comp(takeWhile_(
+    {cons: arrSnoc, empty: []})
+      (notf(_null)))
+        (iterate(foldMap({
+          fold: arrFold,
+          append: acc => ([branch]) => arrAppend(acc) (branch),
+          empty: []})
+            (uncons))) ([tree]);
 
 
-// TODO: rTreeShow
+const treeMapLeafs = ({cons, uncons}) => f =>
+  treeCata(uncons) (leaf => branch =>
+    comp(cons) (branch.length === 0 ? f : id) (leaf) (branch));
+
+
+const treeMapNodes = ({cons, uncons}) => f =>
+  treeCata(uncons) (leaf => branch =>
+    comp(cons) (branch.length > 0 ? f : id) (leaf) (branch));
+
+
+const treeNodes = uncons => acc =>
+  treeCata(uncons) (leaf => branch =>
+    branch.length > 0
+      ? arrCons(leaf) (arrFold(arrAppend) (acc) (branch))
+      : acc);
+
+
+const treePaths = uncons => {
+  const go = node => {
+    const [branch, leaf] = uncons(node);
+
+    return branch.length === 0
+      ? [[leaf]]
+      : arrMap(arrCons(leaf))
+          (foldMap({
+            fold: arrFold,
+            append: arrAppend,
+            empty: []})
+              (go) (branch));
+  };
+
+  return go;
+};
+
+
+/******************************************************************************
+********************************[ TREE (AVL) ]*********************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+*****************************[ TREE (RED/BLACK) ]******************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+*******************************[ TREE (Finger) ]*******************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+********************************[ TREE (Rope) ]********************************
+******************************************************************************/
+
+
+// TODO
+
+
+/******************************************************************************
+***********************************[ TRIE ]************************************
+******************************************************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -4704,6 +4963,7 @@ const optmEmpty = None;
 
 
 module.exports = {
+  add,
   All,
   all,
   allAppend,
@@ -4743,6 +5003,7 @@ module.exports = {
     : arrAppendT,
   ARRAY,
   arrChain,
+  arrChain_,
   arrChain2,
   arrChain3,
   arrChain4,
@@ -4797,17 +5058,15 @@ module.exports = {
   arrShow,
   arrSnoc,
   arrSnoc_,
+  arrSum,
   arrUncons,
   arrUnfold,
   arrUnsnoc,
   arrZero,
   Base,
-  bodyRec,
   BOOL,
   boolMaxBound,
   boolMinBound,
-  Call,
-  callRec,
   Chain,
   chain2,
   chain3,
@@ -4863,6 +5122,14 @@ module.exports = {
   debugIf,
   delayPara,
   delayTask,
+  dec,
+  Defer,
+  deferAp,
+  deferChain,
+  deferJoin,
+  deferMap,
+  deferOf,
+  div,
   drop,
   dropk,
   dropr,
@@ -4900,6 +5167,8 @@ module.exports = {
   firstAppend,
   firstPrepend,
   fix,
+  fix_,
+  fix2,
   flip,
   foldMap,
   foldMapr,
@@ -4951,6 +5220,7 @@ module.exports = {
   iarrUnsnoc,
   id: TC ? fun_(id) : id,
   ifElse,
+  inc,
   infix,
   infix3,
   infix4,
@@ -4974,6 +5244,12 @@ module.exports = {
   lastAppend,
   lastPrepend,
   lazy,
+  Lazy,
+  lazyAp,
+  lazyChain,
+  lazyJoin,
+  lazyMap,
+  lazyOf,
   lazyProp,
   Left,
   _let,
@@ -5038,17 +5314,26 @@ module.exports = {
   maxAppend,
   maxn,
   maxPrepend,
+  mfix,
   Min,
   minAppend,
   minn,
   minPrepend,
+  mod,
+  moduloRec,
+  moduloRec2,
   monadRec,
+  mul,
+  neg,
   _new,
   Nil,
   NilT,
+  Node,
+  Node_,
   None,
   not,
   notf,
+  _null,
   NUM,
   numCeil,
   numCompare,
@@ -5124,6 +5409,7 @@ module.exports = {
   paraRecover,
   partial,
   partialProps,
+  pow,
   Pred,
   predAppend,
   predContra,
@@ -5149,18 +5435,11 @@ module.exports = {
   record: TC ? fun_(record) : record,
   repeat,
   reset,
-  Return,
   Rex,
   Rexf,
   Rexg,
   Rexu,
   Right,
-  RTree,
-  rtreeFold,
-  rtreeFoldLevel,
-  rtreeFoldr,
-  rtreeHeight,
-  rtreeMap,
   scanDir_,
   ScriptumError,
   select,
@@ -5169,7 +5448,6 @@ module.exports = {
   setSet,
   shift,
   Some,
-  Stack,
   State,
   stateAp,
   stateChain,
@@ -5199,6 +5477,7 @@ module.exports = {
   strPrepend,
   strReplace,
   strReplaceBy,
+  sub,
   Sum,
   sumAppend,
   sumEmpty,
@@ -5209,6 +5488,7 @@ module.exports = {
   takek,
   taker,
   takeWhile,
+  takeWhile_,
   takeWhilek,
   takeWhiler,
   Task,
@@ -5235,10 +5515,25 @@ module.exports = {
   throwOnFalse,
   throwOnUnit,
   thunk,
-  tlikeFoldr,
+  tlikeFold,
   tlikeMap,
   trace,
   transduce,
+  treeCata,
+  treeCata_,
+  treeCountLeafs,
+  treeCountNodes,
+  treeFold,
+  treeFoldLevel,
+  treeFoldr,
+  treeHeight,
+  treeLeafs,
+  treeLevels,
+  treeMap,
+  treeMapLeafs,
+  treeMapNodes,
+  treeNodes,
+  treePaths,
   Triple,
   Triple_,
   tripMap,
@@ -5250,7 +5545,8 @@ module.exports = {
   union: TC ? fun_(union) : union,
   unprop,
   unprop2,
-  Unstack,
+  Wind,
+  Wind2,
   Writer,
   writerAp,
   writerCensor,
@@ -5262,5 +5558,7 @@ module.exports = {
   writerMapBoth,
   writerOf,
   writerPass,
-  writerTell
+  writerTell,
+  Unwind,
+  Unwind2
 };
