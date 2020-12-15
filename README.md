@@ -26,6 +26,7 @@ Feature selection:
 * linear functional data structures like Random Access, Difference and Skip Lists
 * non-linear functional data structures like Red/Black, AVL and Finger Trees, Tries and Ropes
 * Linked Lists with tons of helpful combinators
+* `Parser` combinators for `String` and `Stream`
 * monadic `Stream` type for uni-/multicast push-based streams
 * purely functional `Observer`/`Behavior` types based on event delegation to build more reliable and maintainable UIs
 * `Yoneda`/`Coyoneda` and `Codensity` types for dynamic code optimization
