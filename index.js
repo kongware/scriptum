@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01;
 const PREFIX = "scriptum_";
 
 
-const TC = false; // type check
+const TC = true; // type check
 
 
 /******************************************************************************
@@ -196,7 +196,7 @@ class ObjProxy {
     else return o[k];
   }
 
-  set(o, k, v) {debugger;
+  set(o, k, v) {
     if (o[k] [THUNK]) { // allow mutations to replace thunks
       o[k] = v;
       return true;      
@@ -1767,12 +1767,7 @@ const funAp = tf => tg => x =>
 /***[ Async ]*****************************************************************/
 
 
-const asyncf = f => x =>
-  Promise.resolve(null)
-    .then(_ => f(x));
-
-
-const asynck = k => f =>
+const _async = k => f => // internal
   Promise.resolve(null)
     .then(_ => k(f));
 
@@ -1897,8 +1892,8 @@ const log = (...ss) =>
   (console.log(...ss), ss[ss.length - 1]);
 
 
-const taggedLog = tag => s =>
-  (console.log(tag, s), s);
+const taggedLog = tag => (...ss) =>
+  (console.log(tag, ...ss), ss[ss.length - 1]);
 
 
 const trace = x =>
@@ -4078,15 +4073,21 @@ const optLiftA6 = liftA6({map: optMap, ap: optAp});
 ******************************************************************************/
 
 
+// TODO: add cancellation
+
+
 const Parallel = para => record(
   Parallel,
   thisify(o => {
-    o.para = (res, rej) =>
+    o.para = k =>
       para(x => {
-        o.para = k => k(x);
-        return res(x);
-      }, rej);
+        o.para = k_ => k_(x);
+        return k(x);
+      });
     
+    if (Math.random() < MICROTASK_TRESHOLD) // defer to next microtask
+      o.para = _async(o.para);
+
     return o;
   }));
 
@@ -4095,10 +4096,10 @@ const Parallel = para => record(
 
 
 const paraAp = tf => tx =>
-  Parallel((res, rej) =>
+  Parallel(k =>
     paraAnd(tf) (tx)
       .para(([f, x]) =>
-         res(f(x)), rej));
+         k(f(x))));
 
 
 // paraLiftA2 @Derived
@@ -4116,116 +4117,100 @@ const paraAp = tf => tx =>
 // paraLiftA6 @Derived
 
 
-const paraOf = x => Parallel((res, rej) => res(x));
+const paraOf = x => Parallel(k => k(x));
 
 
 /***[ Functor ]***************************************************************/
 
 
 const paraMap = f => tx =>
-  Parallel((res, rej) =>
-    tx.para(x => res(f(x)), rej));
-
-
-const paraMap_ = f => tx =>
-  Parallel((res, rej) =>
-    Wind(f => tx.para(f)) (x => Wind(res) (f(x)), rej));
+  Parallel(k => tx.para(x => k(f(x))));
 
 
 /***[ Monoid (type parameter) ]***********************************************/
 
 
 const paraAppend = append => tx => ty =>
-  Parallel((res, rej) =>
+  Parallel(k =>
     paraAnd(tx) (ty)
       .para(([x, y]) =>
-        res(append(x) (y)), rej));
+        k(append(x) (y))));
 
 
 const paraPrepend = paraAppend; // pass prepend as type dictionary
 
   
 const paraEmpty = empty =>
-  Parallel((res, rej) => res(empty));
+  Parallel(k => k(empty));
 
 
 /***[ Monoid (race) ]*********************************************************/
 
 
-const raceAppend = tx => ty =>
-  Parallel((res, rej) =>
-    paraOr(tx) (ty)
-      .para(x => res(x), rej));
+// TODO: move to distinct Race type
 
 
-const racePrepend = raceAppend; // order doesn't matter
+// raceAppend @Derived
 
 
-const raceEmpty = Parallel((res, rej) => null);
+// racePrepend @Derived
+
+
+const raceEmpty = Parallel(k => null);
 
 
 /***[ Misc. Combinators ]*****************************************************/
 
 
 const paraAnd = tx => ty => {
-  const guard = (res, rej, i) => [
-    x => (
-      r[i] = x,
-      isRes || isRej || r[0] === undefined || r[1] === undefined
-        ? false
-        : (isRes = true, res(r))),
-    e =>
-      isRes || isRej
-        ? false
-        : (isRej = true, rej(e))];
+  const guard = (k, i) => x => {
+    pair[i] = x;
 
-  const r = [];
+    return settled || !("0" in pair) || !("1" in pair)
+      ? false
+      : (settled = true, k(Pair_(pair[0], pair[1])));
+  };
 
-  let isRes = false,
-    isRej = false;
+  const pair = [];
+  let settled = false;
 
-  return Parallel(
-    (res, rej) => (
-      tx.para(...guard(res, rej, 0)),
-      ty.para(...guard(res, rej, 1))));
+  return Parallel(k => (
+    tx.para(guard(k, 0)),
+    ty.para(guard(k, 1))));
 };
 
 
-const paraAll = ({fold, cons, empty, paraMap}) => // TODO: review
-  fold(tx => ty =>
-    paraMap(([x, y]) =>
-      cons(x) (y))
-        (paraAnd(tx) (ty)))
-          (paraOf(empty));
+const paraAll = arrSeqA({
+  fold: arrFold,
+  map: paraMap,
+  ap: paraAp,
+  of: paraOf});
+
+
+const paraAny =
+  arrFold(acc => tx =>
+    paraOr(acc) (tx))
+      (raceEmpty);
 
 
 const paraOr = tx => ty => {
-  const guard = (res, rej) => [
-    x => (
-      isRes || isRej
-        ? false
-        : (isRes = true, res(x))),
-    e =>
-        isRes || isRej
-          ? false
-          : (isRej = true, rej(e))];
+  const guard = k => x =>
+    settled
+      ? false
+      : (settled = true, k(x));
 
-  let isRes = false,
-    isRej = false;
+  let settled = false;
 
-  return Parallel(
-    (res, rej) => (
-      tx.para(...guard(res, rej)),
-      ty.para(...guard(res, rej))));
+  return Parallel(k => (
+    tx.para(guard(k)),
+    ty.para(guard(k))));
 };
 
 
-const paraRecover = f => tx =>
-  Parallel((res, rej) =>
-    tx.para(id, f));
-
-
 /***[ Derived ]***************************************************************/
+
+
+const raceAppend = paraOr;
 
 
 const paraLiftA2 = liftA2({map: paraMap, ap: paraAp});
@@ -4241,6 +4226,9 @@ const paraLiftA5 = liftA5({map: paraMap, ap: paraAp});
 
 
 const paraLiftA6 = liftA6({map: paraMap, ap: paraAp});
+
+
+const racePrepend = paraOr; // order doesn't matter
 
 
 /******************************************************************************
@@ -4388,11 +4376,14 @@ const sumEmpty = Sum(0);
 ******************************************************************************/
 
 
-/*
-TODO: The entire Task type needs revision, because I switch from multi handler
-to ordinary continuations. In order to handle async exceptions there will be
-a TaskT transformer that can be combined with Maybe/Either or add stack-safety.
-*/
+// Task is run sequentially if it is composes either with Applicative or Monad.
+// There is no guarantee that two distinct Tasks run in lexical order, because
+// one can run synchronously whereas the other in the next microtask of the
+// event loop. Task is stack-safe because every hundredth constructed value is
+// invoked within the next microtask.
+
+
+// TODO: add cancellation
 
 
 const Task = task => record(
@@ -4405,7 +4396,7 @@ const Task = task => record(
       });
 
     if (Math.random() < MICROTASK_TRESHOLD) // defer to next microtask
-      o.task = asnck(o.task);
+      o.task = _async(o.task);
 
     return o;
   }));
@@ -4415,10 +4406,10 @@ const Task = task => record(
 
 
 const taskAp = tf => tx =>
-  Task((res, rej) =>
+  Task(k =>
     taskAnd(tf) (tx)
       .task(([f, x]) =>
-         res(f(x)), rej));
+         k(f(x))));
 
 
 // taskLiftA2 @Derived
@@ -4436,70 +4427,51 @@ const taskAp = tf => tx =>
 // taskLiftA6 @Derived
 
 
-const taskOf = x =>
-  Task((res, rej) => res(x));
+const taskOf = x => Task(k => k(x));
 
 
 /***[ Functor ]***************************************************************/
 
 
 const taskMap = f => tx =>
-  Task((res, rej) =>
-    tx.task(x => res(f(x)), rej));
-
-
-const taskMap_ = f => tx =>
-  Task((res, rej) =>
-    Wind(f => tx.task(f)) (x => Wind(res) (f(x)), rej));
+  Task(k => tx.task(x => k(f(x))));
 
 
 /***[ Monad ]*****************************************************************/
 
 
 const taskChain = mx => fm =>
-  Task((res, rej) =>
-    mx.task(x =>
-      fm(x).task(res, rej), rej));
+  Task(k => mx.task(x => fm(x).task(k)));
 
 
 /***[ Monoid ]****************************************************************/
 
 
 const taskAppend = append => tx => ty =>
-  Task((res, rej) =>
-    taskAnd(tx) (ty)
-      .task(([x, y]) =>
-        res(append(x) (y)), rej));
+  Task(k => taskAnd(tx) (ty)
+    .task(([x, y]) => k(append(x) (y))));
 
 
 const taskPrepend = taskAppend; // pass prepend as type dictionary
 
 
-const taskEmpty = empty =>
-  Task((res, rej) => res(empty));
+const taskEmpty = empty => Task(k => k(empty));
 
 
 /***[ Misc. Combinators ]*****************************************************/
 
 
 const taskAnd = tx => ty =>
-  Task((res, rej) =>
-    tx.task(x =>
-      ty.task(y =>
-        res([x, y]), rej), rej));
+  Task(k => tx.task(x =>
+    ty.task(y =>
+      k([x, y]))));
 
 
-const taskAll = ({fold, cons, empty, taskMap}) => // TODO: replace with arrSeqA
-  fold(tx => ty =>
-    taskMap(([x, y]) =>
-      cons(x) (y))
-        (taskAnd(tx) (ty)))
-          (taskOf(empty));
-
-
-const taskRecover = f => tx =>
-  Task((res, rej) =>
-    tx.task(id, f));
+const taskAll = arrSeqA({
+  fold: arrFold,
+  map: taskMap,
+  ap: taskAp,
+  of: taskOf});
 
 
 /***[ Derived ]***************************************************************/
@@ -4525,7 +4497,8 @@ const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
 ******************************************************************************/
 
 
-// e.g. {foo: [1, {bat: {baz: "abc"}}, 3], bar: true};
+// Tree-like data structure shaped of arbitrarily nested object and arrays,
+// like {foo: [1, {bat: {baz: "abc"}}, 3], bar: true} for instance.
 
 
 /***[ Foldable ]***************************************************************/
@@ -5095,29 +5068,29 @@ const optmEmpty = None;
 
 
 module.exports = {
-  add,
-  All,
-  all,
-  allAppend,
-  allEmpty,
-  allPrepend,
-  and,
-  andf,
-  Any,
-  any,
-  anyAppend,
-  anyEmpty,
-  anyPrepend,
-  apEff,
-  apEff_,
-  app,
-  app_,
-  appn,
-  appr,
-  appRest,
-  appSpread,
-  arrAlt,
-  arrAp,
+  add: TC ? fun_(add) : add,
+  All: TC ? fun_(All) : All,
+  all: TC ? fun_(all) : all,
+  allAppend: TC ? fun_(allAppend) : allAppend,
+  allEmpty: TC ? fun_(allEmpty) : allEmpty,
+  allPrepend: TC ? fun_(allPrepend) : allPrepend,
+  and: TC ? fun_(and) : and,
+  andf: TC ? fun_(andf) : andf,
+  Any: TC ? fun_(Any) : Any,
+  any: TC ? fun_(any) : any,
+  anyAppend: TC ? fun_(anyAppend) : anyAppend,
+  anyEmpty: TC ? fun_(anyEmpty) : anyEmpty,
+  anyPrepend: TC ? fun_(anyPrepend) : anyPrepend,
+  apEff: TC ? fun_(apEff) : apEff,
+  apEff_: TC ? fun_(apEff_) : apEff_,
+  app: TC ? fun_(app) : app,
+  app_: TC ? fun_(app_) : app_,
+  appn: TC ? fun_(appn) : appn,
+  appr: TC ? fun_(appr) : appr,
+  appRest: TC ? fun_(appRest) : appRest,
+  appSpread: TC ? fun_(appSpread) : appSpread,
+  arrAlt: TC ? fun_(arrAlt) : arrAlt,
+  arrAp: TC ? fun_(arrAp) : arrAp,
   arrAppend: TC
     ? fun(xs => ys =>
         introspect(ys) !== "Array"
@@ -5134,22 +5107,22 @@ module.exports = {
               (arrAppendT)
     : arrAppendT,
   ARRAY,
-  arrChain,
-  arrChain_,
-  arrChain2,
-  arrChain3,
-  arrChain4,
-  arrChain5,
-  arrChain6,
-  arrChainn,
-  arrChainT,
-  arrClone,
-  arrCons,
-  arrCons_,
-  arrEmpty,
-  arrEq,
-  arrFilter,
-  arrFold,
+  arrChain: TC ? fun_(arrChain) : arrChain,
+  arrChain_: TC ? fun_(arrChain_) : arrChain_,
+  arrChain2: TC ? fun_(arrChain2) : arrChain2,
+  arrChain3: TC ? fun_(arrChain3) : arrChain3,
+  arrChain4: TC ? fun_(arrChain4) : arrChain4,
+  arrChain5: TC ? fun_(arrChain5) : arrChain5,
+  arrChain6: TC ? fun_(arrChain6) : arrChain6,
+  arrChainn: TC ? fun_(arrChainn) : arrChainn,
+  arrChainT: TC ? fun_(arrChainT) : arrChainT,
+  arrClone: TC ? fun_(arrClone) : arrClone,
+  arrCons: TC ? fun_(arrCons) : arrCons,
+  arrCons_: TC ? fun_(arrCons_) : arrCons_,
+  arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
+  arrEq: TC ? fun_(arrEq) : arrEq,
+  arrFilter: TC ? fun_(arrFilter) : arrFilter,
+  arrFold: TC ? fun_(arrFold) : arrFold,
   arrFold1: TC
     ? fun(f => xs =>
         introspect(xs) !== "Array" || xs.length === 0
@@ -5157,27 +5130,27 @@ module.exports = {
           : true)
             (arrFold1)
     : arrFold1,
-  arrFoldk,
-  arrFoldr,
-  arrFoldT,
-  arrJoin,
-  arrKomp,
-  arrKomp3,
-  arrKomp4,
-  arrKomp5,
-  arrKomp6,
-  arrKompn,
-  arrLiftA2,
-  arrLiftA3,
-  arrLiftA4,
-  arrLiftA5,
-  arrLiftA6,
-  arrLiftAn,
-  arrMap,
-  arrMapA,
-  arrOf,
-  arrOfT,
-  arrPartition,
+  arrFoldk: TC ? fun_(arrFoldk) : arrFoldk,
+  arrFoldr: TC ? fun_(arrFoldr) : arrFoldr,
+  arrFoldT: TC ? fun_(arrFoldT) : arrFoldT,
+  arrJoin: TC ? fun_(arrJoin) : arrJoin,
+  arrKomp: TC ? fun_(arrKomp) : arrKomp,
+  arrKomp3: TC ? fun_(arrKomp3) : arrKomp3,
+  arrKomp4: TC ? fun_(arrKomp4) : arrKomp4,
+  arrKomp5: TC ? fun_(arrKomp5) : arrKomp5,
+  arrKomp6: TC ? fun_(arrKomp6) : arrKomp6,
+  arrKompn: TC ? fun_(arrKompn) : arrKompn,
+  arrLiftA2: TC ? fun_(arrLiftA2) : arrLiftA2,
+  arrLiftA3: TC ? fun_(arrLiftA3) : arrLiftA3,
+  arrLiftA4: TC ? fun_(arrLiftA4) : arrLiftA4,
+  arrLiftA5: TC ? fun_(arrLiftA5) : arrLiftA5,
+  arrLiftA6: TC ? fun_(arrLiftA6) : arrLiftA6,
+  arrLiftAn: TC ? fun_(arrLiftAn) : arrLiftAn,
+  arrMap: TC ? fun_(arrMap) : arrMap,
+  arrMapA: TC ? fun_(arrMapA) : arrMapA,
+  arrOf: TC ? fun_(arrOf) : arrOf,
+  arrOfT: TC ? fun_(arrOfT) : arrOfT,
+  arrPartition: TC ? fun_(arrPartition) : arrPartition,
   arrPrepend: TC
     ? fun(ys =>
         introspect(ys) !== "Array"
@@ -5185,227 +5158,225 @@ module.exports = {
           : true)
             (arrPrepend)
     : arrPrepend,
-  arrRead,
-  arrSeqA,
-  arrShow,
-  arrSnoc,
-  arrSnoc_,
-  arrSum,
-  arrUncons,
-  arrUnfold,
-  arrUnsnoc,
-  arrZero,
-  asyncf,
-  asynck,
-  Base,
+  arrRead: TC ? fun_(arrRead) : arrRead,
+  arrSeqA: TC ? fun_(arrSeqA) : arrSeqA,
+  arrShow: TC ? fun_(arrShow) : arrShow,
+  arrSnoc: TC ? fun_(arrSnoc) : arrSnoc,
+  arrSnoc_: TC ? fun_(arrSnoc_) : arrSnoc_,
+  arrSum: TC ? fun_(arrSum) : arrSum,
+  arrUncons: TC ? fun_(arrUncons) : arrUncons,
+  arrUnfold: TC ? fun_(arrUnfold) : arrUnfold,
+  arrUnsnoc: TC ? fun_(arrUnsnoc) : arrUnsnoc,
+  arrZero: TC ? fun_(arrZero) : arrZero,
+  Base: TC ? fun_(Base) : Base,
   BOOL,
   boolMaxBound,
   boolMinBound,
   Call,
   Call_,
-  coyoAp,
-  coyoChain,
-  coyoLift,
-  coyoLower,
-  coyoMap,
-  Coyoneda,
-  coyoOf,
+  coyoAp: TC ? fun_(coyoAp) : coyoAp,
+  coyoChain: TC ? fun_(coyoChain) : coyoChain,
+  coyoLift: TC ? fun_(coyoLift) : coyoLift,
+  coyoLower: TC ? fun_(coyoLower) : coyoLower,
+  coyoMap: TC ? fun_(coyoMap) : coyoMap,
+  Coyoneda: TC ? fun_(Coyoneda) : Coyoneda,
+  coyoOf: TC ? fun_(coyoOf) : coyoOf,
   Chain,
-  chain2,
-  chain3,
-  chain4,
-  chain5,
-  chain6,
-  chainEff,
-  chainn,
-  cmpAppend,
-  cmpContra,
-  cmpEmpty,
-  cmpPrepend,
-  Comp,
+  chain2: TC ? fun_(chain2) : chain2,
+  chain3: TC ? fun_(chain3) : chain3,
+  chain4: TC ? fun_(chain4) : chain4,
+  chain5: TC ? fun_(chain5) : chain5,
+  chain6: TC ? fun_(chain6) : chain6,
+  chainEff: TC ? fun_(chainEff) : chainEff,
+  chainn: TC ? fun_(chainn) : chainn,
+  cmpAppend: TC ? fun_(cmpAppend) : cmpAppend,
+  cmpContra: TC ? fun_(cmpContra) : cmpContra,
+  cmpEmpty: TC ? fun_(cmpEmpty) : cmpEmpty,
+  cmpPrepend: TC ? fun_(cmpPrepend) : cmpPrepend,
+  Comp: TC ? fun_(Comp) : Comp,
   comp: TC ? fun_(comp) : comp,
-  comp3,
-  comp4,
-  comp5,
-  comp6,
-  comp2nd,
-  compAp,
-  Compare,
-  compBin,
-  compMap,
-  compn,
-  compOf,
-  compOn,
-  concat,
-  Cons,
-  Cons_,
-  ConsT,
-  _const,
-  const_,
-  Cont,
-  contAp,
-  contAppend,
-  contChain,
-  contEmpty,
-  contLiftA2,
-  contLiftA3,
-  contLiftA4,
-  contLiftA5,
-  contLiftA6,
-  contMap,
-  contOf,
-  contPrepend,
-  ContT,
-  contChainT,
-  contLiftT,
-  contOfT,
-  ctorAppend,
-  ctorEmpty,
-  ctorPrepend,
-  curry,
-  curry3,
-  curry4,
+  comp3: TC ? fun_(comp3) : comp3,
+  comp4: TC ? fun_(comp4) : comp4,
+  comp5: TC ? fun_(comp5) : comp5,
+  comp6: TC ? fun_(comp6) : comp6,
+  comp2nd: TC ? fun_(comp2nd) : comp2nd,
+  compAp: TC ? fun_(compAp) : compAp,
+  Compare: TC ? fun_(Compare) : Compare,
+  compBin: TC ? fun_(compBin) : compBin,
+  compMap: TC ? fun_(compMap) : compMap,
+  compn: TC ? fun_(compn) : compn,
+  compOf: TC ? fun_(compOf) : compOf,
+  compOn: TC ? fun_(compOn) : compOn,
+  concat: TC ? fun_(concat) : concat,
+  Cons: TC ? fun_(Cons) : Cons,
+  Cons_: TC ? fun_(Cons_) : Cons_,
+  ConsT: TC ? fun_(ConsT) : ConsT,
+  _const: TC ? fun_(_const) : _const,
+  const_: TC ? fun_(const_) : const_,
+  Cont: TC ? fun_(Cont) : Cont,
+  contAp: TC ? fun_(contAp) : contAp,
+  contAppend: TC ? fun_(contAppend) : contAppend,
+  contChain: TC ? fun_(contChain) : contChain,
+  contEmpty: TC ? fun_(contEmpty) : contEmpty,
+  contLiftA2: TC ? fun_(contLiftA2) : contLiftA2,
+  contLiftA3: TC ? fun_(contLiftA3) : contLiftA3,
+  contLiftA4: TC ? fun_(contLiftA4) : contLiftA4,
+  contLiftA5: TC ? fun_(contLiftA5) : contLiftA5,
+  contLiftA6: TC ? fun_(contLiftA6) : contLiftA6,
+  contMap: TC ? fun_(contMap) : contMap,
+  contOf: TC ? fun_(contOf) : contOf,
+  contPrepend: TC ? fun_(contPrepend) : contPrepend,
+  ContT: TC ? fun_(ContT) : ContT,
+  contChainT: TC ? fun_(contChainT) : contChainT,
+  contLiftT: TC ? fun_(contLiftT) : contLiftT,
+  contOfT: TC ? fun_(contOfT) : contOfT,
+  ctorAppend: TC ? fun_(ctorAppend) : ctorAppend,
+  ctorEmpty: TC ? fun_(ctorEmpty) : ctorEmpty,
+  ctorPrepend: TC ? fun_(ctorPrepend) : ctorPrepend,
+  curry: TC ? fun_(curry) : curry,
+  curry3: TC ? fun_(curry3) : curry3,
+  curry4: TC ? fun_(curry4) : curry4,
   debug,
   debugIf,
-  delayf,
-  dec,
-  Defer,
-  deferAp,
-  deferChain,
-  deferChainT,
-  deferJoin,
-  deferMap,
-  deferOf,
-  deferOfT,
-  defunc,
-  div,
-  drop,
-  dropk,
-  dropr,
-  dropWhile,
-  dropWhilek,
-  dropWhiler,
-  Either,
-  eithAp,
-  eithChain,
-  eithChainT,
-  eithMap,
-  eithOf,
-  eithOfT,
-  endoAppend,
-  endoEmpty,
-  endoPrepend,
+  delayf: TC ? fun_(delayf) : delayf,
+  dec: TC ? fun_(dec) : dec,
+  Defer: TC ? fun_(Defer) : Defer,
+  deferAp: TC ? fun_(deferAp) : deferAp,
+  deferChain: TC ? fun_(deferChain) : deferChain,
+  deferChainT: TC ? fun_(deferChainT) : deferChainT,
+  deferJoin: TC ? fun_(deferJoin) : deferJoin,
+  deferMap: TC ? fun_(deferMap) : deferMap,
+  deferOf: TC ? fun_(deferOf) : deferOf,
+  deferOfT: TC ? fun_(deferOfT) : deferOfT,
+  defunc: TC ? fun_(defunc) : defunc,
+  div: TC ? fun_(div) : div,
+  drop: TC ? fun_(drop) : drop,
+  dropk: TC ? fun_(dropk) : dropk,
+  dropr: TC ? fun_(dropr) : dropr,
+  dropWhile: TC ? fun_(dropWhile) : dropWhile,
+  dropWhilek: TC ? fun_(dropWhilek) : dropWhilek,
+  dropWhiler: TC ? fun_(dropWhiler) : dropWhiler,
+  Either: TC ? fun_(Either) : Either,
+  eithAp: TC ? fun_(eithAp) : eithAp,
+  eithChain: TC ? fun_(eithChain) : eithChain,
+  eithChainT: TC ? fun_(eithChainT) : eithChainT,
+  eithMap: TC ? fun_(eithMap) : eithMap,
+  eithOf: TC ? fun_(eithOf) : eithOf,
+  eithOfT: TC ? fun_(eithOfT) : eithOfT,
+  endoAppend: TC ? fun_(endoAppend) : endoAppend,
+  endoEmpty: TC ? fun_(endoEmpty) : endoEmpty,
+  endoPrepend: TC ? fun_(endoPrepend) : endoPrepend,
   EQ,
-  Equiv,
-  equivAppend,
-  equivContra,
-  equivEmpty,
-  equivPrepend,
-  fileRead_,
-  fileWrite_,
-  filter,
-  filterk,
-  filterr,
-  First,
-  firstAppend,
-  firstPrepend,
-  fix,
-  fix_,
-  fix2,
-  flip,
-  foldMap,
-  foldMapr,
-  formatDate,
-  formatDay,
-  formatFrac,
-  formatInt,
-  formatMonth,
-  formatNum,
-  formatWeekday,
-  formatYear,
-  fromNullable,
+  Equiv: TC ? fun_(Equiv) : Equiv,
+  equivAppend: TC ? fun_(equivAppend) : equivAppend,
+  equivContra: TC ? fun_(equivContra) : equivContra,
+  equivEmpty: TC ? fun_(equivEmpty) : equivEmpty,
+  equivPrepend: TC ? fun_(equivPrepend) : equivPrepend,
+  fileRead_: TC ? fun_(fileRead_) : fileRead_,
+  fileWrite_: TC ? fun_(fileWrite_) : fileWrite_,
+  filter: TC ? fun_(filter) : filter,
+  filterk: TC ? fun_(filterk) : filterk,
+  filterr: TC ? fun_(filterr) : filterr,
+  First: TC ? fun_(First) : First,
+  firstAppend: TC ? fun_(firstAppend) : firstAppend,
+  firstPrepend: TC ? fun_(firstPrepend) : firstPrepend,
+  fix: TC ? fun_(fix) : fix,
+  fix_: TC ? fun_(fix_) : fix_,
+  fix2: TC ? fun_(fix2) : fix2,
+  flip: TC ? fun_(flip) : flip,
+  foldMap: TC ? fun_(foldMap) : foldMap,
+  foldMapr: TC ? fun_(foldMapr) : foldMapr,
+  formatDate: TC ? fun_(formatDate) : formatDate,
+  formatDay: TC ? fun_(formatDay) : formatDay,
+  formatFrac: TC ? fun_(formatFrac) : formatFrac,
+  formatInt: TC ? fun_(formatInt) : formatInt,
+  formatMonth: TC ? fun_(formatMonth) : formatMonth,
+  formatNum: TC ? fun_(formatNum) : formatNum,
+  formatWeekday: TC ? fun_(formatWeekday) : formatWeekday,
+  formatYear: TC ? fun_(formatYear) : formatYear,
+  fromNullable: TC ? fun_(fromNullable) : fromNullable,
   fun,
   fun_,
-  funAp,
-  funAppend,
-  funChain,
-  funEmpty,
-  funJoin,
-  funLiftA2,
-  funLiftA3,
-  funLiftA4,
-  funLiftA5,
-  funLiftA6,
-  funMap,
-  funOf,
-  funPrepend,
+  funAp: TC ? fun_(funAp) : funAp,
+  funAppend: TC ? fun_(funAppend) : funAppend,
+  funChain: TC ? fun_(funChain) : funChain,
+  funEmpty: TC ? fun_(funEmpty) : funEmpty,
+  funJoin: TC ? fun_(funJoin) : funJoin,
+  funLiftA2: TC ? fun_(funLiftA2) : funLiftA2,
+  funLiftA3: TC ? fun_(funLiftA3) : funLiftA3,
+  funLiftA4: TC ? fun_(funLiftA4) : funLiftA4,
+  funLiftA5: TC ? fun_(funLiftA5) : funLiftA5,
+  funLiftA6: TC ? fun_(funLiftA6) : funLiftA6,
+  funMap: TC ? fun_(funMap) : funMap,
+  funOf: TC ? fun_(funOf) : funOf,
+  funPrepend: TC ? fun_(funPrepend) : funPrepend,
   GT,
-  guard,
-  Hamt,
-  hamtDel,
-  hamtGet,
-  hamtHas,
-  hamtSet,
-  hamtUpd,
-  iarrCons,
-  iarrDel,
-  iarrGet,
-  iarrHas,
-  iarrFold,
-  iarrFoldr,
-  iarrFromArr,
-  iarrItor,
-  iarrEmpty,
-  iarrSet,
-  iarrSnoc,
-  iarrToArr,
-  iarrUncons,
-  iarrUnsnoc,
+  guard: TC ? fun_(guard) : guard,
+  Hamt: TC ? fun_(Hamt) : Hamt,
+  hamtDel: TC ? fun_(hamtDel) : hamtDel,
+  hamtGet: TC ? fun_(hamtGet) : hamtGet,
+  hamtHas: TC ? fun_(hamtHas) : hamtHas,
+  hamtSet: TC ? fun_(hamtSet) : hamtSet,
+  hamtUpd: TC ? fun_(hamtUpd) : hamtUpd,
+  iarrCons: TC ? fun_(iarrCons) : iarrCons,
+  iarrDel: TC ? fun_(iarrDel) : iarrDel,
+  iarrGet: TC ? fun_(iarrGet) : iarrGet,
+  iarrHas: TC ? fun_(iarrHas) : iarrHas,
+  iarrFold: TC ? fun_(iarrFold) : iarrFold,
+  iarrFoldr: TC ? fun_(iarrFoldr) : iarrFoldr,
+  iarrFromArr: TC ? fun_(iarrFromArr) : iarrFromArr,
+  iarrItor: TC ? fun_(iarrItor) : iarrItor,
+  iarrEmpty: TC ? fun_(iarrEmpty) : iarrEmpty,
+  iarrSet: TC ? fun_(iarrSet) : iarrSet,
+  iarrSnoc: TC ? fun_(iarrSnoc) : iarrSnoc,
+  iarrToArr: TC ? fun_(iarrToArr) : iarrToArr,
+  iarrUncons: TC ? fun_(iarrUncons) : iarrUncons,
+  iarrUnsnoc: TC ? fun_(iarrUnsnoc) : iarrUnsnoc,
   id: TC ? fun_(id) : id,
-  ifElse,
-  inc,
-  infix,
-  infix3,
-  infix4,
-  infix5,
-  infix6,
-  infixr3,
-  infixr4,
-  infixr5,
-  infixr6,
+  ifElse: TC ? fun_(ifElse) : ifElse,
+  inc: TC ? fun_(inc) : inc,
+  infix: TC ? fun_(infix) : infix,
+  infix3: TC ? fun_(infix3) : infix3,
+  infix4: TC ? fun_(infix4) : infix4,
+  infix5: TC ? fun_(infix5) : infix5,
+  infix6: TC ? fun_(infix6) : infix6,
+  infixr3: TC ? fun_(infixr3) : infixr3,
+  infixr4: TC ? fun_(infixr4) : infixr4,
+  infixr5: TC ? fun_(infixr5) : infixr5,
+  infixr6: TC ? fun_(infixr6) : infixr6,
   introspect,
   isUnit,
-  iterate,
-  join,
-  komp,
-  komp3,
-  komp4,
-  komp5,
-  komp6,
-  kompn,
-  Last,
-  lastAppend,
-  lastPrepend,
-  lazy,
-  Lazy,
-  lazyAp,
-  lazyChain,
-  lazyJoin,
-  lazyMap,
-  lazyOf,
-  lazyProp,
-  Left,
-  _let,
-  liftA2,
-  liftA3,
-  liftA4,
-  liftA5,
-  liftA6,
-  liftAn,
-  List,
-  listAp,
-  listAltT,
-  listAppend,
+  iterate: TC ? fun_(iterate) : iterate,
+  join: TC ? fun_(join) : join,
+  komp: TC ? fun_(komp) : komp,
+  komp3: TC ? fun_(komp3) : komp3,
+  komp4: TC ? fun_(komp4) : komp4,
+  komp5: TC ? fun_(komp5) : komp5,
+  komp6: TC ? fun_(komp6) : komp6,
+  kompn: TC ? fun_(kompn) : kompn,
+  Last: TC ? fun_(Last) : Last,
+  lastAppend: TC ? fun_(lastAppend) : lastAppend,
+  lastPrepend: TC ? fun_(lastPrepend) : lastPrepend,
+  lazy: TC ? fun_(lazy) : lazy,
+  Lazy: TC ? fun_(Lazy) : Lazy,
+  lazyAp: TC ? fun_(lazyAp) : lazyAp,
+  lazyChain: TC ? fun_(lazyChain) : lazyChain,
+  lazyJoin: TC ? fun_(lazyJoin) : lazyJoin,
+  lazyMap: TC ? fun_(lazyMap) : lazyMap,
+  lazyOf: TC ? fun_(lazyOf) : lazyOf,
+  lazyProp: TC ? fun_(lazyProp) : lazyProp,
+  Left: TC ? fun_(Left) : Left,
+  _let: TC ? fun_(_let) : _let,
+  liftA2: TC ? fun_(liftA2) : liftA2,
+  liftA3: TC ? fun_(liftA3) : liftA3,
+  liftA4: TC ? fun_(liftA4) : liftA4,
+  liftA5: TC ? fun_(liftA5) : liftA5,
+  liftA6: TC ? fun_(liftA6) : liftA6,
+  liftAn: TC ? fun_(liftAn) : liftAn,
+  List: TC ? fun_(List) : List,
+  listAp: TC ? fun_(listAp) : listAp,
+  listAltT: TC ? fun_(listAltT) : listAltT,
+  listAppend: TC ? fun_(listAppend) : listAppend,
   listAppendT: TC
     ? fun(({chain, of}) => mmx => mmy =>
         chain(mmy) (my =>
@@ -5414,299 +5385,296 @@ module.exports = {
             : true))
               (listAppendT)
     : listAppendT,
-  listChain,
-  listChainT,
-  listCons,
-  listCons_,
-  listEmpty,
-  listFold,
-  listFoldr,
-  listFoldrT,
-  listFoldT,
-  listFromArr,
-  listFromArrT,
-  listLiftA2,
-  listLiftA3,
-  listLiftA4,
-  listLiftA5,
-  listLiftA6,
-  listLiftT,
-  listMap,
-  listOf,
-  listOfT,
-  listPrepend,
-  ListT,
-  listToArr,
-  listToArrT,
-  listUnfoldr,
-  listZeroT,
+  listChain: TC ? fun_(listChain) : listChain,
+  listChainT: TC ? fun_(listChainT) : listChainT,
+  listCons: TC ? fun_(listCons) : listCons,
+  listCons_: TC ? fun_(listCons_) : listCons_,
+  listEmpty: TC ? fun_(listEmpty) : listEmpty,
+  listFold: TC ? fun_(listFold) : listFold,
+  listFoldr: TC ? fun_(listFoldr) : listFoldr,
+  listFoldrT: TC ? fun_(listFoldrT) : listFoldrT,
+  listFoldT: TC ? fun_(listFoldT) : listFoldT,
+  listFromArr: TC ? fun_(listFromArr) : listFromArr,
+  listFromArrT: TC ? fun_(listFromArrT) : listFromArrT,
+  listLiftA2: TC ? fun_(listLiftA2) : listLiftA2,
+  listLiftA3: TC ? fun_(listLiftA3) : listLiftA3,
+  listLiftA4: TC ? fun_(listLiftA4) : listLiftA4,
+  listLiftA5: TC ? fun_(listLiftA5) : listLiftA5,
+  listLiftA6: TC ? fun_(listLiftA6) : listLiftA6,
+  listLiftT: TC ? fun_(listLiftT) : listLiftT,
+  listMap: TC ? fun_(listMap) : listMap,
+  listOf: TC ? fun_(listOf) : listOf,
+  listOfT: TC ? fun_(listOfT) : listOfT,
+  listPrepend: TC ? fun_(listPrepend) : listPrepend,
+  ListT: TC ? fun_(ListT) : ListT,
+  listToArr: TC ? fun_(listToArr) : listToArr,
+  listToArrT: TC ? fun_(listToArrT) : listToArrT,
+  listUnfoldr: TC ? fun_(listUnfoldr) : listUnfoldr,
+  listZeroT: TC ? fun_(listZeroT) : listZeroT,
   log,
   Loop,
   LT,
-  mapDel,
-  mapEff,
-  mapHas,
-  mapGet,
-  mapSet,
-  mapUpd,
-  map,
-  mapk,
-  mapr,
+  mapDel: TC ? fun_(mapDel) : mapDel,
+  mapEff: TC ? fun_(mapEff) : mapEff,
+  mapHas: TC ? fun_(mapHas) : mapHas,
+  mapGet: TC ? fun_(mapGet) : mapGet,
+  mapSet: TC ? fun_(mapSet) : mapSet,
+  mapUpd: TC ? fun_(mapUpd) : mapUpd,
+  map: TC ? fun_(map) : map,
+  mapk: TC ? fun_(mapk) : mapk,
+  mapr: TC ? fun_(mapr) : mapr,
   match: TC ? fun_(match) : match,
-  Max,
-  maxAppend,
-  maxn,
-  maxPrepend,
-  Min,
-  minAppend,
-  minn,
-  minPrepend,
-  mod,
-  moduloRec,
-  monadRec,
-  mul,
-  neg,
-  _new,
+  Max: TC ? fun_(Max) : Max,
+  maxAppend: TC ? fun_(maxAppend) : maxAppend,
+  maxn: TC ? fun_(maxn) : maxn,
+  maxPrepend: TC ? fun_(maxPrepend) : maxPrepend,
+  Min: TC ? fun_(Min) : Min,
+  minAppend: TC ? fun_(minAppend) : minAppend,
+  minn: TC ? fun_(minn) : minn,
+  minPrepend: TC ? fun_(minPrepend) : minPrepend,
+  mod: TC ? fun_(mod) : mod,
+  moduloRec: TC ? fun_(moduloRec) : moduloRec,
+  monadRec: TC ? fun_(monadRec) : monadRec,
+  mul: TC ? fun_(mul) : mul,
+  neg: TC ? fun_(neg) : neg,
+  _new: TC ? fun_(_new) : _new,
   Nil,
-  NilT,
-  Node,
-  Node_,
+  NilT: TC ? fun_(NilT) : NilT,
+  Node: TC ? fun_(Node) : Node,
+  Node_: TC ? fun_(Node_) : Node_,
   None,
-  not,
-  notf,
-  _null,
+  not: TC ? fun_(not) : not,
+  notf: TC ? fun_(notf) : notf,
+  _null: TC ? fun_(_null) : _null,
   NUM,
-  numCeil,
-  numCompare,
-  numFloor,
-  numGt,
-  numGte,
-  numLt,
-  numLte,
-  numMax,
+  numCeil: TC ? fun_(numCeil) : numCeil,
+  numCompare: TC ? fun_(numCompare) : numCompare,
+  numFloor: TC ? fun_(numFloor) : numFloor,
+  numGt: TC ? fun_(numGt) : numGt,
+  numGte: TC ? fun_(numGte) : numGte,
+  numLt: TC ? fun_(numLt) : numLt,
+  numLte: TC ? fun_(numLte) : numLte,
+  numMax: TC ? fun_(numMax) : numMax,
   numMaxBound,
-  numMin,
+  numMin: TC ? fun_(numMin) : numMin,
   numMinBound,
-  numPred,
-  numRead,
-  numRound,
-  numShow,
-  numSucc,
-  numTrunc,
+  numPred: TC ? fun_(numPred) : numPred,
+  numRead: TC ? fun_(numRead) : numRead,
+  numRound: TC ? fun_(numRound) : numRound,
+  numShow: TC ? fun_(numShow) : numShow,
+  numSucc: TC ? fun_(numSucc) : numSucc,
+  numTrunc: TC ? fun_(numTrunc) : numTrunc,
   obj,
-  objClone,
-  objEntries,
-  objFilter,
-  objFold,
-  objGet,
-  objGetOr,
-  objGetPath,
-  objGetPathOr,
-  objKeys,
-  objMap,
-  objPartition,
-  objSetPath,
-  objUpdPath,
-  objValues,
+  objClone: TC ? fun_(objClone) : objClone,
+  objEntries: TC ? fun_(objEntries) : objEntries,
+  objFilter: TC ? fun_(objFilter) : objFilter,
+  objFold: TC ? fun_(objFold) : objFold,
+  objGet: TC ? fun_(objGet) : objGet,
+  objGetOr: TC ? fun_(objGetOr) : objGetOr,
+  objGetPath: TC ? fun_(objGetPath) : objGetPath,
+  objGetPathOr: TC ? fun_(objGetPathOr) : objGetPathOr,
+  objKeys: TC ? fun_(objKeys) : objKeys,
+  objMap: TC ? fun_(objMap) : objMap,
+  objPartition: TC ? fun_(objPartition) : objPartition,
+  objSetPath: TC ? fun_(objSetPath) : objSetPath,
+  objUpdPath: TC ? fun_(objUpdPath) : objUpdPath,
+  objValues: TC ? fun_(objValues) : objValues,
   Of,
-  Option,
-  optAp,
-  optAppend,
-  optChain,
-  optEmpty,
-  optLiftA2,
-  optLiftA3,
-  optLiftA4,
-  optLiftA5,
-  optLiftA6,
-  optMap,
-  optmAppend,
-  optmEmpty,
-  optmPrepend,
-  optOf,
-  optPrepend,
-  or,
-  orf,
-  Pair,
-  Pair_,
-  pairMap,
-  pairMap1st,
-  Parallel,
-  paraAll,
-  paraAnd,
-  paraAp,
-  paraAppend,
-  paraEmpty,
-  paraLiftA2,
-  paraLiftA3,
-  paraLiftA4,
-  paraLiftA5,
-  paraLiftA6,
-  paraMap,
-  paraMap_,
-  paraOf,
-  paraOr,
-  paraPrepend,
-  paraRecover,
-  partial,
-  partialProps,
-  pow,
-  Pred,
-  predAppend,
-  predContra,
-  predEmpty,
-  predPrepend,
+  Option: TC ? fun_(Option) : Option,
+  optAp: TC ? fun_(optAp) : optAp,
+  optAppend: TC ? fun_(optAppend) : optAppend,
+  optChain: TC ? fun_(optChain) : optChain,
+  optEmpty: TC ? fun_(optEmpty) : optEmpty,
+  optLiftA2: TC ? fun_(optLiftA2) : optLiftA2,
+  optLiftA3: TC ? fun_(optLiftA3) : optLiftA3,
+  optLiftA4: TC ? fun_(optLiftA4) : optLiftA4,
+  optLiftA5: TC ? fun_(optLiftA5) : optLiftA5,
+  optLiftA6: TC ? fun_(optLiftA6) : optLiftA6,
+  optMap: TC ? fun_(optMap) : optMap,
+  optmAppend: TC ? fun_(optmAppend) : optmAppend,
+  optmEmpty: TC ? fun_(optmEmpty) : optmEmpty,
+  optmPrepend: TC ? fun_(optmPrepend) : optmPrepend,
+  optOf: TC ? fun_(optOf) : optOf,
+  optPrepend: TC ? fun_(optPrepend) : optPrepend,
+  or: TC ? fun_(or) : or,
+  orf: TC ? fun_(orf) : orf,
+  Pair: TC ? fun_(Pair) : Pair,
+  Pair_: TC ? fun_(Pair_) : Pair_,
+  pairMap: TC ? fun_(pairMap) : pairMap,
+  pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
+  Parallel: TC ? fun_(Parallel) : Parallel,
+  paraAll: TC ? fun_(paraAll) : paraAll,
+  paraAnd: TC ? fun_(paraAnd) : paraAnd,
+  paraAny: TC ? fun_(paraAny) : paraAny,
+  paraAp: TC ? fun_(paraAp) : paraAp,
+  paraAppend: TC ? fun_(paraAppend) : paraAppend,
+  paraEmpty: TC ? fun_(paraEmpty) : paraEmpty,
+  paraLiftA2: TC ? fun_(paraLiftA2) : paraLiftA2,
+  paraLiftA3: TC ? fun_(paraLiftA3) : paraLiftA3,
+  paraLiftA4: TC ? fun_(paraLiftA4) : paraLiftA4,
+  paraLiftA5: TC ? fun_(paraLiftA5) : paraLiftA5,
+  paraLiftA6: TC ? fun_(paraLiftA6) : paraLiftA6,
+  paraMap: TC ? fun_(paraMap) : paraMap,
+  paraOf: TC ? fun_(paraOf) : paraOf,
+  paraOr: TC ? fun_(paraOr) : paraOr,
+  paraPrepend: TC ? fun_(paraPrepend) : paraPrepend,
+  partial: TC ? fun_(partial) : partial,
+  partialProps: TC ? fun_(partialProps) : partialProps,
+  pow: TC ? fun_(pow) : pow,
+  Pred: TC ? fun_(Pred) : Pred,
+  predAppend: TC ? fun_(predAppend) : predAppend,
+  predContra: TC ? fun_(predContra) : predContra,
+  predEmpty: TC ? fun_(predEmpty) : predEmpty,
+  predPrepend: TC ? fun_(predPrepend) : predPrepend,
   PREFIX,
-  Prod,
-  prodAppend,
-  prodEmpty,
-  prodPrepend,
-  Quad,
-  Quad_,
-  quadMap,
-  quadMap1st,
-  quadMap2nd,
-  quadMap3rd,
-  raceAppend,
-  raceEmpty,
-  racePrepend,
-  recAp,
-  recChain,
-  recMap,
-  recOf,
+  Prod: TC ? fun_(Prod) : Prod,
+  prodAppend: TC ? fun_(prodAppend) : prodAppend,
+  prodEmpty: TC ? fun_(prodEmpty) : prodEmpty,
+  prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
+  Quad: TC ? fun_(Quad) : Quad,
+  Quad_: TC ? fun_(Quad_) : Quad_,
+  quadMap: TC ? fun_(quadMap) : quadMap,
+  quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
+  quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
+  quadMap3rd: TC ? fun_(quadMap3rd) : quadMap3rd,
+  raceAppend: TC ? fun_(raceAppend) : raceAppend,
+  raceEmpty: TC ? fun_(raceEmpty) : raceEmpty,
+  racePrepend: TC ? fun_(racePrepend) : racePrepend,
+  recAp: TC ? fun_(recAp) : recAp,
+  recChain: TC ? fun_(recChain) : recChain,
+  recMap: TC ? fun_(recMap) : recMap,
+  recOf: TC ? fun_(recOf) : recOf,
   record: TC ? fun_(record) : record,
-  repeat,
-  reset,
+  repeat: TC ? fun_(repeat) : repeat,
+  reset: TC ? fun_(reset) : reset,
   Return,
-  Rex,
-  Rexf,
-  Rexg,
-  Rexu,
-  Right,
-  scanDir_,
+  Rex: TC ? fun_(Rex) : Rex,
+  Rexf: TC ? fun_(Rexf) : Rexf,
+  Rexg: TC ? fun_(Rexg) : Rexg,
+  Rexu: TC ? fun_(Rexu) : Rexu,
+  Right: TC ? fun_(Right) : Right,
+  scanDir_: TC ? fun_(scanDir_) : scanDir_,
   ScriptumError,
-  select,
-  setDel,
-  setHas,
-  setSet,
-  shift,
-  Some,
-  State,
-  stateAp,
-  stateChain,
-  stateEval,
-  stateExec,
-  stateGet,
-  stateGets,
-  stateMap,
-  stateModify,
-  stateOf,
-  statePut,
-  strAppend,
+  select: TC ? fun_(select) : select,
+  setDel: TC ? fun_(setDel) : setDel,
+  setHas: TC ? fun_(setHas) : setHas,
+  setSet: TC ? fun_(setSet) : setSet,
+  shift: TC ? fun_(shift) : shift,
+  Some: TC ? fun_(Some) : Some,
+  State: TC ? fun_(State) : State,
+  stateAp: TC ? fun_(stateAp) : stateAp,
+  stateChain: TC ? fun_(stateChain) : stateChain,
+  stateEval: TC ? fun_(stateEval) : stateEval,
+  stateExec: TC ? fun_(stateExec) : stateExec,
+  stateGet: TC ? fun_(stateGet) : stateGet,
+  stateGets: TC ? fun_(stateGets) : stateGets,
+  stateMap: TC ? fun_(stateMap) : stateMap,
+  stateModify: TC ? fun_(stateModify) : stateModify,
+  stateOf: TC ? fun_(stateOf) : stateOf,
+  statePut: TC ? fun_(statePut) : statePut,
+  strAppend: TC ? fun_(strAppend) : strAppend,
   strEmpty,
-  strict,
-  strictRec,
-  strFold,
-  strFoldChunk,
-  strFoldChunkr,
-  strFoldr,
-  strIncludes,
-  strMatch,
-  strMatchAll,
-  strMatchLast,
-  strMatchNth,
-  strMatchSection,
-  strParse,
-  strPrepend,
-  strReplace,
-  strReplaceBy,
-  sub,
-  Sum,
-  sumAppend,
-  sumEmpty,
-  sumPrepend,
+  strict: TC ? fun_(strict) : strict,
+  strictRec: TC ? fun_(strictRec) : strictRec,
+  strFold: TC ? fun_(strFold) : strFold,
+  strFoldChunk: TC ? fun_(strFoldChunk) : strFoldChunk,
+  strFoldChunkr: TC ? fun_(strFoldChunkr) : strFoldChunkr,
+  strFoldr: TC ? fun_(strFoldr) : strFoldr,
+  strIncludes: TC ? fun_(strIncludes) : strIncludes,
+  strMatch: TC ? fun_(strMatch) : strMatch,
+  strMatchAll: TC ? fun_(strMatchAll) : strMatchAll,
+  strMatchLast: TC ? fun_(strMatchLast) : strMatchLast,
+  strMatchNth: TC ? fun_(strMatchNth) : strMatchNth,
+  strMatchSection: TC ? fun_(strMatchSection) : strMatchSection,
+  strParse: TC ? fun_(strParse) : strParse,
+  strPrepend: TC ? fun_(strPrepend) : strPrepend,
+  strReplace: TC ? fun_(strReplace) : strReplace,
+  strReplaceBy: TC ? fun_(strReplaceBy) : strReplaceBy,
+  sub: TC ? fun_(sub) : sub,
+  Sum: TC ? fun_(Sum) : Sum,
+  sumAppend: TC ? fun_(sumAppend) : sumAppend,
+  sumEmpty: TC ? fun_(sumEmpty) : sumEmpty,
+  sumPrepend: TC ? fun_(sumPrepend) : sumPrepend,
   taggedLog,
-  tailRec,
-  take,
-  takek,
-  taker,
-  takeWhile,
-  takeWhile_,
-  takeWhilek,
-  takeWhiler,
-  Task,
-  taskAll,
-  taskAnd,
-  taskAp,
-  taskAppend,
-  taskChain,
-  taskEmpty,
-  taskLiftA2,
-  taskLiftA3,
-  taskLiftA4,
-  taskLiftA5,
-  taskLiftA6,
-  taskMap,
-  taskMap_,
-  taskOf,
-  taskPrepend,
-  taskRecover,
-  thisify,
-  _throw,
-  throwOn,
-  throwOnEmpty,
-  throwOnFalse,
-  throwOnUnit,
+  tailRec: TC ? fun_(tailRec) : tailRec,
+  take: TC ? fun_(take) : take,
+  takek: TC ? fun_(takek) : takek,
+  taker: TC ? fun_(taker) : taker,
+  takeWhile: TC ? fun_(takeWhile) : takeWhile,
+  takeWhile_: TC ? fun_(takeWhile_) : takeWhile_,
+  takeWhilek: TC ? fun_(takeWhilek) : takeWhilek,
+  takeWhiler: TC ? fun_(takeWhiler) : takeWhiler,
+  Task: TC ? fun_(Task) : Task,
+  taskAll: TC ? fun_(taskAll) : taskAll,
+  taskAnd: TC ? fun_(taskAnd) : taskAnd,
+  taskAp: TC ? fun_(taskAp) : taskAp,
+  taskAppend: TC ? fun_(taskAppend) : taskAppend,
+  taskChain: TC ? fun_(taskChain) : taskChain,
+  taskEmpty: TC ? fun_(taskEmpty) : taskEmpty,
+  taskLiftA2: TC ? fun_(taskLiftA2) : taskLiftA2,
+  taskLiftA3: TC ? fun_(taskLiftA3) : taskLiftA3,
+  taskLiftA4: TC ? fun_(taskLiftA4) : taskLiftA4,
+  taskLiftA5: TC ? fun_(taskLiftA5) : taskLiftA5,
+  taskLiftA6: TC ? fun_(taskLiftA6) : taskLiftA6,
+  taskMap: TC ? fun_(taskMap) : taskMap,
+  taskOf: TC ? fun_(taskOf) : taskOf,
+  taskPrepend: TC ? fun_(taskPrepend) : taskPrepend,
+  thisify: TC ? fun_(thisify) : thisify,
+  _throw: TC ? fun_(_throw) : _throw,
+  throwOn: TC ? fun_(throwOn) : throwOn,
+  throwOnEmpty: TC ? fun_(throwOnEmpty) : throwOnEmpty,
+  throwOnFalse: TC ? fun_(throwOnFalse) : throwOnFalse,
+  throwOnUnit: TC ? fun_(throwOnUnit) : throwOnUnit,
   thunk,
-  tlikeFold,
-  tlikeMap,
+  tlikeFold: TC ? fun_(tlikeFold) : tlikeFold,
+  tlikeMap: TC ? fun_(tlikeMap) : tlikeMap,
   trace,
-  transduce,
-  treeCata,
-  treeCata_,
-  treeCountLeafs,
-  treeCountNodes,
-  treeFold,
-  treeFoldLevel,
-  treeFoldr,
-  treeHeight,
-  treeLeafs,
-  treeLevels,
-  treeMap,
-  treeMapLeafs,
-  treeMapNodes,
-  treeNodes,
-  treePaths,
-  Triple,
-  Triple_,
-  tripMap,
-  tripMap1st,
-  tripMap2nd,
-  uncurry,
-  uncurry3,
-  uncurry4,
+  transduce: TC ? fun_(transduce) : transduce,
+  treeCata: TC ? fun_(treeCata) : treeCata,
+  treeCata_: TC ? fun_(treeCata_) : treeCata_,
+  treeCountLeafs: TC ? fun_(treeCountLeafs) : treeCountLeafs,
+  treeCountNodes: TC ? fun_(treeCountNodes) : treeCountNodes,
+  treeFold: TC ? fun_(treeFold) : treeFold,
+  treeFoldLevel: TC ? fun_(treeFoldLevel) : treeFoldLevel,
+  treeFoldr: TC ? fun_(treeFoldr) : treeFoldr,
+  treeHeight: TC ? fun_(treeHeight) : treeHeight,
+  treeLeafs: TC ? fun_(treeLeafs) : treeLeafs,
+  treeLevels: TC ? fun_(treeLevels) : treeLevels,
+  treeMap: TC ? fun_(treeMap) : treeMap,
+  treeMapLeafs: TC ? fun_(treeMapLeafs) : treeMapLeafs,
+  treeMapNodes: TC ? fun_(treeMapNodes) : treeMapNodes,
+  treeNodes: TC ? fun_(treeNodes) : treeNodes,
+  treePaths: TC ? fun_(treePaths) : treePaths,
+  Triple: TC ? fun_(Triple) : Triple,
+  Triple_: TC ? fun_(Triple_) : Triple_,
+  tripMap: TC ? fun_(tripMap) : tripMap,
+  tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
+  tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
+  uncurry: TC ? fun_(uncurry) : uncurry,
+  uncurry3: TC ? fun_(uncurry3) : uncurry3,
+  uncurry4: TC ? fun_(uncurry4) : uncurry4,
   union: TC ? fun_(union) : union,
-  unprop,
-  unprop2,
+  unprop: TC ? fun_(unprop) : unprop,
+  unprop2: TC ? fun_(unprop2) : unprop2,
   Wind,
-  Writer,
-  writerAp,
-  writerCensor,
-  writerChain,
-  writerExec,
-  writerListen,
-  writerListens,
-  writerMap,
-  writerMapBoth,
-  writerOf,
-  writerPass,
-  writerTell,
+  Writer: TC ? fun_(Writer) : Writer,
+  writerAp: TC ? fun_(writerAp) : writerAp,
+  writerCensor: TC ? fun_(writerCensor) : writerCensor,
+  writerChain: TC ? fun_(writerChain) : writerChain,
+  writerExec: TC ? fun_(writerExec) : writerExec,
+  writerListen: TC ? fun_(writerListen) : writerListen,
+  writerListens: TC ? fun_(writerListens) : writerListens,
+  writerMap: TC ? fun_(writerMap) : writerMap,
+  writerMapBoth: TC ? fun_(writerMapBoth) : writerMapBoth,
+  writerOf: TC ? fun_(writerOf) : writerOf,
+  writerPass: TC ? fun_(writerPass) : writerPass,
+  writerTell: TC ? fun_(writerTell) : writerTell,
   Unwind,
-  yoAp,
-  yoChain,
-  yoLift,
-  yoLower,
-  yoMap,
-  Yoneda,
-  yoOf
+  yoAp: TC ? fun_(yoAp) : yoAp,
+  yoChain: TC ? fun_(yoChain) : yoChain,
+  yoLift: TC ? fun_(yoLift) : yoLift,
+  yoLower: TC ? fun_(yoLower) : yoLower,
+  yoMap: TC ? fun_(yoMap) : yoMap,
+  Yoneda: TC ? fun_(Yoneda) : Yoneda,
+  yoOf: TC ? fun_(yoOf) : yoOf
 };
