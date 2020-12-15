@@ -1,12 +1,14 @@
 /*
-                                                                                 
-                               _|              _|                                
-   _|_|_|    _|_|_|  _|  _|_|      _|_|_|    _|_|_|_|  _|    _|  _|_|_|  _|_|    
- _|_|      _|        _|_|      _|  _|    _|    _|      _|    _|  _|    _|    _|  
-     _|_|  _|        _|        _|  _|    _|    _|      _|    _|  _|    _|    _|  
- _|_|_|      _|_|_|  _|        _|  _|_|_|        _|_|    _|_|_|  _|    _|    _|  
-                                   _|                                            
-                                   _|                                            
+                           ,,                                                
+                           db             mm                                 
+                                          MM                                 
+,pP"Ybd  ,p6"bo `7Mb,od8 `7MM `7MMpdMAo.mmMMmm `7MM  `7MM  `7MMpMMMb.pMMMb.  
+8I   `" 6M'  OO   MM' "'   MM   MM   `Wb  MM     MM    MM    MM    MM    MM  
+`YMMMa. 8M        MM       MM   MM    M8  MM     MM    MM    MM    MM    MM  
+L.   I8 YM.    ,  MM       MM   MM   ,AP  MM     MM    MM    MM    MM    MM  
+M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
+                                MM                                           
+                              .JMML.                                        
 */
 
 
@@ -30,10 +32,13 @@ const fs = require("fs");
 ******************************************************************************/
 
 
+const MICROTASK_TRESHOLD = 0.01;
+
+
 const PREFIX = "scriptum_";
 
 
-const TC = true; // type check
+const TC = false; // type check
 
 
 /******************************************************************************
@@ -861,37 +866,22 @@ const lazyProp = k => v => o =>
 
 /******************************************************************************
 *******************************************************************************
-********************************[ TRAMPOLINES ]********************************
+**************************[ TRAMPOLINES/INTERPRETER ]**************************
 *******************************************************************************
 ******************************************************************************/
 
 
 /******************************************************************************
-*****************************[ MODULO RECURSION ]******************************
+****************************[ DEFUNCTIONALIZATION ]****************************
 ******************************************************************************/
 
 
-const moduloRec = o => {
-  while (o.tag === "Wind")
-    o = o.f(o.wind);
+const defunc = o => {
+  while (o.tag === "Call")
+    o = o.f(o.call);
 
-  return o.tag === "Unwind"
-    ? o.unwind
-    : _throw(new TypeError("unknown trampoline tag"));
-};
-
-
-const moduloRec2 = o => {
-  const stack = [];
-
-  while (o.tag === "Wind2") {
-    stack.push(o);
-    o = o.g(o.wind2);
-  }    
-
-  return o.tag === "Unwind2"
-    ? stack.reduceRight(
-        (acc, p) => p.f(acc), o.unwind2)
+  return o.tag === "Return"
+    ? o.return
     : _throw(new TypeError("unknown trampoline tag"));
 };
 
@@ -899,20 +889,16 @@ const moduloRec2 = o => {
 /***[ Tags ]******************************************************************/
 
 
-const Unwind = unwind =>
-  ({tag: "Unwind", unwind});
+const Call = f => call =>
+  ({tag: "Call", f, call});
 
 
-const Unwind2 = unwind2 =>
-  ({tag: "Unwind2", unwind2});
+const Call_ = (f, call) =>
+  ({tag: "Call", f, call});
 
 
-const Wind = f => wind =>
-  ({tag: "Wind", f, wind});
-
-
-const Wind2 = f => g => wind2 =>
-  ({tag: "Wind2", f, g, wind2});
+const Return = _return =>
+  ({tag: "Return", return: _return});
 
 
 /******************************************************************************
@@ -930,11 +916,23 @@ const monadRec = o => {
 };
 
 
+/***[ Applicative ]***********************************************************/
+
+
+const recAp = tf => tx =>
+  recChain(tf) (f =>
+    recChain(tx) (x =>
+      Of(f(x))));
+
+
+// recOf @Derived
+
+
 /***[ Functor ]***************************************************************/
 
 
 const recMap = f => tx =>
-  Of(f(tx.of));
+  recChain(tx) (x => Of(f(x)));
 
 
 /***[ Monad ]*****************************************************************/
@@ -944,9 +942,6 @@ const recChain = mx => fm =>
   mx.tag === "Chain" ? Chain(mx.chain) (x => recChain(mx.fm(x)) (fm))
     : mx.tag === "Of" ? fm(mx.of)
     : _throw(new TypeError("unknown trampoline tag"));
-
-
-// recOf @Derived
 
 
 /***[ Tags ]******************************************************************/
@@ -964,6 +959,41 @@ const Of = of =>
 
 
 const recOf = Of;
+
+
+/******************************************************************************
+***************************[ MODULO CONS RECURSION ]***************************
+******************************************************************************/
+
+
+const moduloRec = o => {
+  const stack = [];
+
+  while (o.tag === "Wind") {
+    stack.push(o);
+    o = o.g(o.wind);
+  }    
+
+  return o.tag === "Unwind"
+    ? stack.reduceRight(
+        (acc, p) => p.f(acc), o.unwind)
+    : _throw(new TypeError("unknown trampoline tag"));
+};
+
+
+/***[ Tags ]******************************************************************/
+
+
+const Unwind = unwind =>
+  ({tag: "Unwind", unwind});
+
+
+const Wind = f => wind =>
+  ({tag: "Wind", f, wind});
+
+
+const Wind_ = (f, wind) =>
+  ({tag: "Wind", f, wind});
 
 
 /******************************************************************************
@@ -1168,7 +1198,7 @@ const kompn = chain => ([fm, ...fs]) => x =>
     i === fs.length
       ? acc
       : chain(acc) (acc_ =>
-          gm(log(acc_))))
+          gm(acc_)))
             (fm === undefined ? x : fm(x))
               (fs);
 
@@ -1541,7 +1571,7 @@ const arrMapA = ({fold, map, ap, of}) => f => xs => {
 ARRAY.mapA = arrMapA;
 
 
-const arrSeqA = ({fold, map, ap, of}) =>
+const arrSeqA = ({fold, map, ap, of}) => // TODO: refactor to liftA2
   fold(liftA2({map, ap}) (arrSnoc_)) (of([]));
 
 
@@ -1734,6 +1764,23 @@ const funAp = tf => tg => x =>
 // funOf @Derived
 
 
+/***[ Async ]*****************************************************************/
+
+
+const asyncf = f => x =>
+  Promise.resolve(null)
+    .then(_ => f(x));
+
+
+const asynck = k => f =>
+  Promise.resolve(null)
+    .then(_ => k(f));
+
+
+const delayf = Cons => f => ms => x =>
+  Cons(k => setTimeout(comp(k) (f), ms, x));
+
+
 /***[ Composition ]***********************************************************/
 
 
@@ -1766,8 +1813,8 @@ const compBin = f => g => x => y =>
 
 
 const compn = fs => x =>
-  moduloRec(arrFold(f => g =>
-    x => Wind(f) (g(x))) (x => Unwind(x)) (fs) (x));
+  defunc(arrFold(f => g =>
+    x => Call_(f, g(x))) (x => Return(x)) (fs) (x));
 
 
 const compOn = f => g => x => y =>
@@ -1844,14 +1891,6 @@ const debugIf = p => f => (...args) => {
   if (p(...args)) debugger;
   return f(...args);
 };
-
-
-const delayTask = f => ms => x =>
-  Task((res, rej) => setTimeout(comp(res) (f), ms, x));
-
-
-const delayPara = f => ms => x =>
-  Parallel((res, rej) => setTimeout(comp(res) (f), ms, x));
 
 
 const log = (...ss) =>
@@ -2060,10 +2099,10 @@ const fix = f =>
   x => f(fix(f)) (x);
 
 
-const fix_ = comp(moduloRec) (fix);
+const fix_ = comp(defunc) (fix);
 
 
-const fix2 = compBin(moduloRec2) (fix);
+const fix2 = compBin(moduloRec) (fix);
 
 
 const flip = f => y => x =>
@@ -2793,7 +2832,7 @@ const strMatchNth = rx => n => s =>
   listFoldr((head, i) => tail =>
     i === n
       ? head
-      : strict(tail)) // TODO: revise strictness
+      : strict(tail))
         ("")
           (strFoldChunkr(rx)
             (Cons)
@@ -2876,7 +2915,7 @@ const anyEmpty = Any(false);
 
 
 /******************************************************************************
-**********************************[ COMPARE ]**********************************
+**********************************[ COMPOSE ]**********************************
 ******************************************************************************/
 
 
@@ -2886,8 +2925,8 @@ const Comp = comp => record(Comp, {comp});
 /***[Applicative]*************************************************************/
 
 
-const compAp = ({map1, ap1, ap2}) => ttf => ttx => // TODO: replace with liftA2
-  Comp(ap1(map1(ap2) (ttf.comp)) (ttx.comp));
+const compAp = ({liftA2, ap}) => ttf => ttx =>
+  Comp(liftA2(ap) (ttf.comp) (ttx.comp));
 
 
 const compOf = ({of1, of2}) => x =>
@@ -3772,7 +3811,7 @@ const listAltT = ({chain, of}) => mmx => mmy => {
   const go = (mmx_) =>
     chain(mmx_) (mx =>
       match(mx, {
-        NilT: _ => strict(mmy), // TODO: revise strictness
+        NilT: _ => strict(mmy), // strictness is necessary
         ConsT: ({head, tail}) =>
           ConsT(of) (head) (thunk(() => go(tail)))
       }));
@@ -3805,7 +3844,7 @@ const listToArrT = ({chain, of}) =>
 const listFoldrT = chain => f => acc => {
   const go = mmx => chain(mmx) (mx =>
     match(mx, {
-      NilT: _ => strict(acc), // TODO: revise strictness
+      NilT: _ => strict(acc), // strictness is necessary
       ConsT: ({head, tail}) =>
         f(head) (thunk(() => go(tail)))
     }));
@@ -4361,9 +4400,12 @@ const Task = task => record(
   thisify(o => {
     o.task = k =>
       task(x => {
-        o.task = k_ => k_(x);
+        o.task = k_ => k_(x); // sharing of once computed tasks
         return k(x);
       });
+
+    if (Math.random() < MICROTASK_TRESHOLD) // defer to next microtask
+      o.task = asnck(o.task);
 
     return o;
   }));
@@ -5153,10 +5195,14 @@ module.exports = {
   arrUnfold,
   arrUnsnoc,
   arrZero,
+  asyncf,
+  asynck,
   Base,
   BOOL,
   boolMaxBound,
   boolMinBound,
+  Call,
+  Call_,
   coyoAp,
   coyoChain,
   coyoLift,
@@ -5221,8 +5267,7 @@ module.exports = {
   curry4,
   debug,
   debugIf,
-  delayPara,
-  delayTask,
+  delayf,
   dec,
   Defer,
   deferAp,
@@ -5232,6 +5277,7 @@ module.exports = {
   deferMap,
   deferOf,
   deferOfT,
+  defunc,
   div,
   drop,
   dropk,
@@ -5417,7 +5463,6 @@ module.exports = {
   minPrepend,
   mod,
   moduloRec,
-  moduloRec2,
   monadRec,
   mul,
   neg,
@@ -5525,12 +5570,14 @@ module.exports = {
   raceAppend,
   raceEmpty,
   racePrepend,
+  recAp,
   recChain,
   recMap,
   recOf,
   record: TC ? fun_(record) : record,
   repeat,
   reset,
+  Return,
   Rex,
   Rexf,
   Rexg,
@@ -5642,7 +5689,6 @@ module.exports = {
   unprop,
   unprop2,
   Wind,
-  Wind2,
   Writer,
   writerAp,
   writerCensor,
@@ -5656,7 +5702,6 @@ module.exports = {
   writerPass,
   writerTell,
   Unwind,
-  Unwind2,
   yoAp,
   yoChain,
   yoLift,
