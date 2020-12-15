@@ -2,18 +2,39 @@
 
 ## What
 
-A no-frills functional programming course based on the Javascript scriptum library.
-
-* 1st part is untyped
-* 2nd part is typed with [yet to be determined]
+A course about purely functional programming in Javascript based on the scriptum library.
 
 You do not need a math or PLT background to follow this course.
 
-## Status
+## scriptum Library
 
-Individual chapters of this course evolve evolutionary as my experience grows and will be revised regularly. The scriptum library is still experimental.
+scriptum is the attempt to get as close as possible to the functional paradigm using a multi paradigm language that many developer are familiar with. The main goal is to keep scriptum as language agnostic as possible so that you can transfer the acquired knowledge to your preferred language.
 
-## Table of Contents
+Feature selection:
+
+* more rigorous dynamic type checking on demand for resilient and reliable code
+* fully-fledged lazy evaluation through expressions in Weak Head Normal Form
+* stack-safe tail-, modulo-cons-, mutual- and monadic recursion through a couple of bullet-proofed trampolines
+* custom record and tagged union types along with a pattern-matching-like experience
+* instances of common type classes like Functor, Applicative, Monad, Comonad, Profunctors, Traverable etc. for various types
+* effect composition with `Comp` and common Monad Transformers
+* `Task`/`Parallel` types for stack-safe and purely functional async computations in sequence and in parallel
+* `Defer`/`Lazy` types for purely functional synchronous effects with and without sharing
+* blazingly fast persistent data structures based on Hashed Array Mapped Tries and Finger Trees
+* generalized multi-way trees with a bunch of helpful combinators
+* functional optics (`Lens`, `Prism`, `Fold`, `Traverable`, `Review`)
+* linear functional data structures like Random Access, Difference and Skip Lists
+* non-linear functional data structures like Red/Black, AVL and Finger Trees, Tries and Ropes
+* Linked Lists with tons of helpful combinators
+* monadic `Stream` type for uni-/multicast push-based streams
+* purely functional `Observer`/`Behavior` types based on event delegation to build more reliable and maintainable UIs
+* `Yoneda`/`Coyoneda` and `Codensity` types for dynamic code optimization
+* common types like `Reader`, `Writer`, `State`, `ZipList`, `Pred`, `First`, `Last`
+* catamorphisms, paramorphisms, anamorphisms, apomorphisms et al.
+* purely functional memoization
+* navigating through trees with Zippers
+
+## Course - Table of Contents
 
 ### Part I (untyped)
 
@@ -38,27 +59,17 @@ Individual chapters of this course evolve evolutionary as my experience grows an
 19. Planned: Descriptions of Computations and the Impure Edge of Your Application (░░░░░░░░░░ 0% done)
 19. [Respecting the Structure with Natural Transformations](https://github.com/kongware/scriptum/blob/master/course/ch-019.md) [needs editing]
 
+to be continued...
 
 ### Part II (typed)
 
 to be continued...
 
-## How
-
-scriptum is the attempt to get as close as possible to the functional paradigm using a multi paradigm language that many developer are familiar with. The main goal is to be language agnostic so that you can transfer the acquired knowledge to your preferred language.
-
-As it turns out all we need to get there...
-
-* are first class functions
-* is a mechanism to allow expressions to be in weak head normal form
-
-It is remarkable how many purely functional idioms we can express with only these two requirements at hand.
-
 ## Contribution
 
 Please report an issue if you run across a mistake, ambiguous wording or inconsistent statement in the course. Please let me also know if there is an important subject missing in the chapter pipeline. Your help is much appreciated!
 
-## TODO
+## Chapter Pipeline
 
 * Planned: Managing Time-Varying Values in a Functional Fashion
 * Planned: All About Continuations (Transformation, Delimited, etc.)
