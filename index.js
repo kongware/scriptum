@@ -1320,6 +1320,28 @@ const arrCons_ = xs => x =>
   [x].concat(xs);
 
 
+const arrDecon = i => xs =>
+  Pair_(
+    xs[i],
+    xs.slice(0, i)
+      .concat(xs.slice(i + 1)));
+
+
+const arrDel = i => xs =>
+  xs.slice(0, i)
+    .concat(xs.slice(i + 1));
+
+
+const arrIns = i => x => xs =>
+  xs.slice(0, i)
+    .concat(x, xs.slice(i));
+
+
+const arrSet = i => x => xs =>
+  xs.slice(0, i)
+    .concat(x, xs.slice(i + 1));
+
+
 const arrSnoc = x => xs =>
   xs.concat([x]);
 
@@ -1344,6 +1366,11 @@ const arrUnsnoc = xs => {
   else
     return Some([xs[xs.length - 1], xs.slice(0, -1)]);
 };
+
+
+const arrUpd = i => f => xs =>
+  xs.slice(0, i)
+    .concat(f(xs[i]), xs.slice(i + 1));
 
 
 /***[ Eq ]********************************************************************/
@@ -1526,6 +1553,43 @@ const arrEmpty = [];
 
 
 ARRAY.empty = arrEmpty;
+
+
+/***[ Optics ]****************************************************************/
+
+
+const arrGetter = i =>
+  Optic(map => f => xs =>
+    map(id)
+      (f(xs[i])));
+
+
+const arrLens = i =>
+  Optic(map => f => xs =>
+    map(x => arrSet(i) (x) (xs))
+      (f(xs[i])));
+
+
+const arrLensAt = i =>
+  Optic(map => f => xs =>
+    map(tx =>
+      match(tx, {
+        None: _ => arrDel(i) (xs),
+        Some: ({some: x}) => arrIns(i) (x) (xs)
+      })) (f(xs[i])));
+
+
+const arrLensOpt = i =>
+  Optic(map => f => xs =>
+    map(x => arrSet(i) (x) (xs))
+      (f(xs && i < xs.length ? xs[i] : null)));
+// null is necessary to keep optional  ^^^^ lenses composable
+
+
+const arrSetter = i => // TODO: maybe generalize with Settable constraint
+  Optic(_ => f => xs =>
+    idMap(x => arrSet(i) (x) (xs))
+      (f(xs[i])));
 
 
 /***[ Read ]******************************************************************/
@@ -1776,7 +1840,7 @@ const delayf = Cons => f => ms => x =>
   Cons(k => setTimeout(comp(k) (f), ms, x));
 
 
-/***[ Composition ]***********************************************************/
+/***[ Category ]**************************************************************/
 
 
 const comp = f => g => x =>
@@ -2281,6 +2345,12 @@ const funOf = _const;
 ******************************************************************************/
 
 
+const _Map = pairs => new Map(pairs);
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
 const mapDel = k => m =>
   m.has(k)
     ? new Map(m).delete(k)
@@ -2299,10 +2369,38 @@ const mapSet = k => v => m =>
   new Map(m).set(k, v);
 
 
-const mapUpd = k => f => m => // TODO: replace with more general version
+const mapUpd = k => f => m =>
   m.has(k)
     ? new Map(m).set(k, f(m.get(k)))
     : m;
+
+
+/***[ Optics ]****************************************************************/
+
+
+const mapGetter = k =>
+  Optic(map => f => m =>
+    map(id)
+      (f(m.get(k))));
+
+
+const mapLens = k =>
+  Optic(map => f => m =>
+    map(v => mapSet(k) (v) (m))
+      (f(m.get(k))));
+
+
+const mapLensOpt = k =>
+  Optic(map => f => m =>
+    map(v => mapSet(k) (v) (m))
+      (f(m && m.has(k) ? m.get(k) : null)));
+// null is necessary to keep option ^^^^ al lenses composable
+
+
+const mapSetter = k => // TODO: maybe generalize with Settable constraint
+  Optic(_ => f => m =>
+    idMap(v => mapSet(k) (v) (m))
+      (f(m.get(k))));
 
 
 /******************************************************************************
@@ -2541,15 +2639,11 @@ OBJECT.clone = objClone;
 /***[ De-/Construction ]******************************************************/
 
 
+const objDecon = k => ({[k]: k, ...o}) =>
+  Pair_(k, o);
+
+
 const thisify = f => f({});
-
-
-const unprop = k => ({[k]: prop, ...o}) =>
-  Pair_(prop, o);
-
-
-const unprop2 = k1 => k2 => ({[k1]: prop1, [k2]: prop2, ...o}) =>
-  Triple_(prop1, prop2, o);
 
 
 /***[ Foldable ]**************************************************************/
@@ -2637,6 +2731,29 @@ function* objValues(o) {
 /***[ Getters/Setters ]*******************************************************/
 
 
+const objDel = k => ({[k]: _, ...o}) => o;
+
+
+const objDelPath = (...ks) => o =>
+  arrFold(([p, ref, root]) => (k, i) => {
+    if (!(k in p))
+      return root;
+
+    else if (i === ks.length - 1) {
+      delete p[k];
+      return root;
+    }
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
+
+    else
+      p[k] = Object.assign({}, ref[k]);
+
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+
+
 const objGet = k => o =>
   o[k] === undefined
     ? None
@@ -2648,20 +2765,27 @@ const objGetOr = def => k => o =>
 
 
 const objGetPath = (...ks) => o => {
-  const r = arrFold(p => k =>
-    p[k]) (o) (ks);
+  const go = (acc, i) =>
+    i === ks.length ? Some(acc)
+      : ks[i] in acc ? go(acc[ks[i]], i + 1)
+      : None;
 
-  return r === undefined
-    ? None
-    : Some(r);
+  return go(o, 0);
 };
 
 
-const objGetPathOr = def => (...ks) => o =>
-  tailRec(([p, i]) =>
-    i === ks.length ? Base(p)
-      : ks[i] in p ? Loop([p[ks[i]], i + 1])
-      : Base(def)) ([o, 0]);
+const objGetPathOr = def => (...ks) => o => {
+  const go = (acc, i) =>
+    i === ks.length ? acc
+      : ks[i] in acc ? go(acc[ks[i]], i + 1)
+      : def;
+
+  return go(o, 0);
+};
+
+
+const objSet = k => v => o =>
+  ({...o, [k]: v});
 
 
 const objSetPath = (...ks) => v => o =>
@@ -2681,13 +2805,22 @@ const objSetPath = (...ks) => v => o =>
   }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
+const objUpd = k => f => o =>
+  k in o
+    ? ({...o, [k]: f(o[k])})
+    : o;
+
+
 const objUpdPath = (...ks) => f => o =>
   arrFold(([p, ref, root]) => (k, i) => {
-    if (i === ks.length - 1) {
+    if (!(k in p))
+      return root;
+
+    else if (i === ks.length - 1) {
       p[k] = f(ref[k]);
       return root;
     }
-    
+
     else if (Array.isArray(ref[k]))
       p[k] = ref[k].concat();
 
@@ -2696,6 +2829,34 @@ const objUpdPath = (...ks) => f => o =>
 
     return [p[k], ref[k], root];
   }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+
+
+/***[ Optics ]****************************************************************/
+
+
+const objGetter = k =>
+  Optic(map => f => o =>
+    map(id)
+      (f(o[k])));
+
+
+const objLens = k =>
+  Optic(map => f => o =>
+    map(v => objSet(k) (v) (o))
+      (f(o[k])));
+
+
+const objLensOpt = k =>
+  Optic(map => f => o =>
+    map(v => objSet(k) (v) (o))
+      (f(o && k in o ? o[k] : null)));
+// null is necessary to keep  ^^^^ optional lenses composable
+
+
+const objSetter = k => // TODO: maybe generalize with Settable constraint
+  Optic(_ => f => o =>
+    idMap(v => objSet(k) (v) (o))
+      (f(o[k])));
 
 
 /******************************************************************************
@@ -2722,6 +2883,12 @@ const Rexu = Rexf("u");
 ******************************************************************************/
 
 
+const _Set = xs => new Set(xs);
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
 const setDel = k => s =>
   s.has(k)
     ? new Set(s).delete(k)
@@ -2736,9 +2903,36 @@ const setSet = k => v => s =>
   new Set(s).add(k, v);
 
 
+/***[ Optics ]****************************************************************/
+
+
+const setGetter = k =>
+  Optic(map => f => s =>
+    map(id)
+      (f(s.has(k))));
+
+
+const setLens = k =>
+  Optic(map => f => s =>
+    map(v => mapSet(k) (v) (s))
+      (f(s.has(k))));
+
+
+const setSetter = k => // TODO: maybe generalize with Settable constraint
+  Optic(_ => f => s =>
+    idMap(v => mapSet(k) (v) (s))
+      (f(s.has(k))));
+
+
 /******************************************************************************
 **********************************[ STRING ]***********************************
 ******************************************************************************/
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+// TODO
 
 
 /***[ Monoid ]****************************************************************/
@@ -2795,7 +2989,13 @@ const strFoldChunkr = rx => f => acc => s => {
 };
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Optics ]****************************************************************/
+
+
+// TODO
+
+
+/***[ Regex based ]***********************************************************/
 
 
 const strIncludes = rx => s =>
@@ -3005,6 +3205,30 @@ const cmpPrepend = ty => tx =>
 
 
 const cmpEmpty = _ => _ => ctorEmpty;
+
+
+/******************************************************************************
+***********************************[ CONST ]***********************************
+******************************************************************************/
+
+
+const Const = _const => record("Const", {const: _const});
+
+
+/***[Applicative]*************************************************************/
+
+
+const constAp = append => ({const: f}) => ({const: x}) =>
+  Const(append(f) (x));
+
+
+const constOf = empty => _ => Const(empty);
+
+
+/***[Functor]*****************************************************************/
+
+
+const constMap = _ => ({const: x}) => Const(x);
 
 
 /******************************************************************************
@@ -3459,6 +3683,35 @@ const iarrSet = i => x => xs =>
 
 
 // TODO: add iarrUpd
+
+
+/******************************************************************************
+************************************[ ID ]*************************************
+******************************************************************************/
+
+
+const Id = id => record("Id", {id});
+
+
+/***[Applicative]*************************************************************/
+
+
+const idAp = ({id: f}) => ({id: x}) => Id(f(x));
+
+
+const idOf = x => Id(x);
+
+
+/***[Functor]*****************************************************************/
+
+
+const idMap = f => ({id: x}) => Id(f(x));
+
+
+/***[Functor]*****************************************************************/
+
+
+const idChain = ({id: x}) => fm => fm(x);
 
 
 /******************************************************************************
@@ -3942,6 +4195,57 @@ const minEmpty = maxBound => Min(maxBound);
 
 
 // TODO
+
+
+/******************************************************************************
+***********************************[ OPTIC ]***********************************
+******************************************************************************/
+
+
+const Optic = optic => record("Optic", {optic});
+
+
+/***[Category]****************************************************************/
+
+
+const opticComp = tx => ty =>
+  Optic(map => f =>
+    tx.optic(map) (ty.optic(map) (f)));
+
+
+const opticComp3 = tx => ty => tz =>
+  Optic(map => f =>
+    tx.optic(map) (ty.optic(map) (tz.optic(map) (f))));
+
+
+const opticId = Optic(id);
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+const opticDel = tx => o =>
+  tx.optic(idMap) (_const(Id(None))) (o);
+
+
+const opticGet = tx => o =>
+  tx.optic(constMap) (Const) (o);
+
+
+const opticGetOpt = tx => o =>
+  tx.optic(constMap) (x => Const(fromNullable(x))) (o);
+
+
+const opticIns = tx => v => o =>
+  tx.optic(idMap) (_const(Id(Some(v)))) (o);
+
+
+const opticSet = tx => v => o =>
+  tx.optic(idMap) (_const(Id(v))) (o);
+
+
+const opticUpd = tx => f => o =>
+  tx.optic(idMap) (v => Id(f(v))) (o);
 
 
 /******************************************************************************
@@ -5119,6 +5423,8 @@ module.exports = {
   arrClone: TC ? fun_(arrClone) : arrClone,
   arrCons: TC ? fun_(arrCons) : arrCons,
   arrCons_: TC ? fun_(arrCons_) : arrCons_,
+  arrDecon: TC ? fun_(arrDecon) : arrDecon,
+  arrDel: TC ? fun_(arrDel) : arrDel,
   arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
   arrEq: TC ? fun_(arrEq) : arrEq,
   arrFilter: TC ? fun_(arrFilter) : arrFilter,
@@ -5133,6 +5439,8 @@ module.exports = {
   arrFoldk: TC ? fun_(arrFoldk) : arrFoldk,
   arrFoldr: TC ? fun_(arrFoldr) : arrFoldr,
   arrFoldT: TC ? fun_(arrFoldT) : arrFoldT,
+  arrGetter: TC ? fun_(arrGetter) : arrGetter,
+  arrIns: TC ? fun_(arrIns) : arrIns,
   arrJoin: TC ? fun_(arrJoin) : arrJoin,
   arrKomp: TC ? fun_(arrKomp) : arrKomp,
   arrKomp3: TC ? fun_(arrKomp3) : arrKomp3,
@@ -5140,6 +5448,9 @@ module.exports = {
   arrKomp5: TC ? fun_(arrKomp5) : arrKomp5,
   arrKomp6: TC ? fun_(arrKomp6) : arrKomp6,
   arrKompn: TC ? fun_(arrKompn) : arrKompn,
+  arrLens: TC ? fun_(arrLens) : arrLens,
+  arrLensAt: TC ? fun_(arrLensAt) : arrLensAt,
+  arrLensOpt: TC ? fun_(arrLensOpt) : arrLensOpt,
   arrLiftA2: TC ? fun_(arrLiftA2) : arrLiftA2,
   arrLiftA3: TC ? fun_(arrLiftA3) : arrLiftA3,
   arrLiftA4: TC ? fun_(arrLiftA4) : arrLiftA4,
@@ -5160,6 +5471,8 @@ module.exports = {
     : arrPrepend,
   arrRead: TC ? fun_(arrRead) : arrRead,
   arrSeqA: TC ? fun_(arrSeqA) : arrSeqA,
+  arrSet: TC ? fun_(arrSet) : arrSet,
+  arrSetter: TC ? fun_(arrSetter) : arrSetter,
   arrShow: TC ? fun_(arrShow) : arrShow,
   arrSnoc: TC ? fun_(arrSnoc) : arrSnoc,
   arrSnoc_: TC ? fun_(arrSnoc_) : arrSnoc_,
@@ -5167,6 +5480,7 @@ module.exports = {
   arrUncons: TC ? fun_(arrUncons) : arrUncons,
   arrUnfold: TC ? fun_(arrUnfold) : arrUnfold,
   arrUnsnoc: TC ? fun_(arrUnsnoc) : arrUnsnoc,
+  arrUpd: TC ? fun_(arrUpd) : arrUpd,
   arrZero: TC ? fun_(arrZero) : arrZero,
   Base: TC ? fun_(Base) : Base,
   BOOL,
@@ -5211,8 +5525,12 @@ module.exports = {
   Cons: TC ? fun_(Cons) : Cons,
   Cons_: TC ? fun_(Cons_) : Cons_,
   ConsT: TC ? fun_(ConsT) : ConsT,
+  Const: TC ? fun_(Const) : Const,
   _const: TC ? fun_(_const) : _const,
   const_: TC ? fun_(const_) : const_,
+  constAp: TC ? fun_(constAp) : constAp,
+  constMap: TC ? fun_(constMap) : constMap,
+  constOf: TC ? fun_(constOf) : constOf,
   Cont: TC ? fun_(Cont) : Cont,
   contAp: TC ? fun_(contAp) : contAp,
   contAppend: TC ? fun_(contAppend) : contAppend,
@@ -5332,7 +5650,12 @@ module.exports = {
   iarrToArr: TC ? fun_(iarrToArr) : iarrToArr,
   iarrUncons: TC ? fun_(iarrUncons) : iarrUncons,
   iarrUnsnoc: TC ? fun_(iarrUnsnoc) : iarrUnsnoc,
+  Id: TC ? fun_(Id) : Id,
   id: TC ? fun_(id) : id,
+  idAp: TC ? fun_(idAp) : idAp,
+  idChain: TC ? fun_(idChain) : idChain,
+  idMap: TC ? fun_(idMap) : idMap,
+  idOf: TC ? fun_(idOf) : idOf,
   ifElse: TC ? fun_(ifElse) : ifElse,
   inc: TC ? fun_(inc) : inc,
   infix: TC ? fun_(infix) : infix,
@@ -5418,7 +5741,11 @@ module.exports = {
   mapEff: TC ? fun_(mapEff) : mapEff,
   mapHas: TC ? fun_(mapHas) : mapHas,
   mapGet: TC ? fun_(mapGet) : mapGet,
+  mapGetter: TC ? fun_(mapGetter) : mapGetter,
+  mapLens: TC ? fun_(mapLens) : mapLens,
+  mapLensOpt: TC ? fun_(mapLensOpt) : mapLensOpt,
   mapSet: TC ? fun_(mapSet) : mapSet,
+  mapSetter: TC ? fun_(mapSetter) : mapSetter,
   mapUpd: TC ? fun_(mapUpd) : mapUpd,
   map: TC ? fun_(map) : map,
   mapk: TC ? fun_(mapk) : mapk,
@@ -5466,6 +5793,9 @@ module.exports = {
   numTrunc: TC ? fun_(numTrunc) : numTrunc,
   obj,
   objClone: TC ? fun_(objClone) : objClone,
+  objDecon: TC ? fun_(objDecon) : objDecon,
+  objDel: TC ? fun_(objDel) : objDel,
+  objDelPath: TC ? fun_(objDelPath) : objDelPath,
   objEntries: TC ? fun_(objEntries) : objEntries,
   objFilter: TC ? fun_(objFilter) : objFilter,
   objFold: TC ? fun_(objFold) : objFold,
@@ -5473,10 +5803,16 @@ module.exports = {
   objGetOr: TC ? fun_(objGetOr) : objGetOr,
   objGetPath: TC ? fun_(objGetPath) : objGetPath,
   objGetPathOr: TC ? fun_(objGetPathOr) : objGetPathOr,
+  objGetter: TC ? fun_(objGetter) : objGetter,
   objKeys: TC ? fun_(objKeys) : objKeys,
+  objLens: TC ? fun_(objLens) : objLens,
+  objLensOpt: TC ? fun_(objLensOpt) : objLensOpt,
   objMap: TC ? fun_(objMap) : objMap,
   objPartition: TC ? fun_(objPartition) : objPartition,
+  objSet: TC ? fun_(objSet) : objSet,
   objSetPath: TC ? fun_(objSetPath) : objSetPath,
+  objSetter: TC ? fun_(objSetter) : objSetter,
+  objUpd: TC ? fun_(objUpd) : objUpd,
   objUpdPath: TC ? fun_(objUpdPath) : objUpdPath,
   objValues: TC ? fun_(objValues) : objValues,
   Of,
@@ -5485,6 +5821,16 @@ module.exports = {
   optAppend: TC ? fun_(optAppend) : optAppend,
   optChain: TC ? fun_(optChain) : optChain,
   optEmpty: TC ? fun_(optEmpty) : optEmpty,
+  Optic: TC ? fun_(Optic) : Optic,
+  opticComp: TC ? fun_(opticComp) : opticComp,
+  opticComp3: TC ? fun_(opticComp3) : opticComp3,
+  opticDel: TC ? fun_(opticDel) : opticDel,
+  opticGet: TC ? fun_(opticGet) : opticGet,
+  opticGetOpt: TC ? fun_(opticGetOpt) : opticGetOpt,
+  opticId: TC ? fun_(opticId) : opticId,
+  opticIns: TC ? fun_(opticIns) : opticIns,
+  opticSet: TC ? fun_(opticSet) : opticSet,
+  opticUpd: TC ? fun_(opticUpd) : opticUpd,
   optLiftA2: TC ? fun_(optLiftA2) : optLiftA2,
   optLiftA3: TC ? fun_(optLiftA3) : optLiftA3,
   optLiftA4: TC ? fun_(optLiftA4) : optLiftA4,
@@ -5557,8 +5903,11 @@ module.exports = {
   ScriptumError,
   select: TC ? fun_(select) : select,
   setDel: TC ? fun_(setDel) : setDel,
+  setGetter: TC ? fun_(setGetter) : setGetter,
   setHas: TC ? fun_(setHas) : setHas,
+  setLens: TC ? fun_(setLens) : setLens,
   setSet: TC ? fun_(setSet) : setSet,
+  setSetter: TC ? fun_(setSetter) : setSetter,
   shift: TC ? fun_(shift) : shift,
   Some: TC ? fun_(Some) : Some,
   State: TC ? fun_(State) : State,
@@ -5654,8 +6003,6 @@ module.exports = {
   uncurry3: TC ? fun_(uncurry3) : uncurry3,
   uncurry4: TC ? fun_(uncurry4) : uncurry4,
   union: TC ? fun_(union) : union,
-  unprop: TC ? fun_(unprop) : unprop,
-  unprop2: TC ? fun_(unprop2) : unprop2,
   Wind,
   Writer: TC ? fun_(Writer) : Writer,
   writerAp: TC ? fun_(writerAp) : writerAp,
