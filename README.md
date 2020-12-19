@@ -13,6 +13,10 @@ scriptum is the attempt to get as close as possible to the functional paradigm u
 Feature selection:
 
 * more rigorous dynamic type checking on demand for resilient and reliable code
+  * less hidden unit types like undefined, NaN or invalid Date
+  * more immediately thrown errors
+  * less implicit mutations
+  * less unsafe duck typing
 * fully-fledged lazy evaluation through expressions in Weak Head Normal Form
 * stack-safe tail-, modulo-cons-, mutual- and monadic recursion through a couple of bullet-proofed trampolines
 * custom record and tagged union types along with a pattern-matching-like experience
