@@ -139,6 +139,7 @@ class FunProxy {
 
     if (this.pred !== null) {
       p = this.pred(...args)
+// can ei ^^^^^^^^^^^^^^^^^^ ther return a boolean or another predicate
 
       if (p === false)
         throw new TypeError("illegal argument type");
@@ -189,23 +190,8 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    switch (k) {
-      case Symbol.asyncIterator:
-      case Symbol.isConcatSpreadable:
-      case Symbol.iterator:
-      case Symbol.match:
-      case Symbol.matchAll:
-      case Symbol.replace:
-      case Symbol.search:
-      case Symbol.split:
-      case Symbol.toStringTag: return o[k];
-    }
-
     if (k === Symbol.toPrimitive)
       throw new TypeError("illegal type coercion");
-
-    else if (!(k in o))
-      throw new TypeError(`unknown property "${k}"`);
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
       return fun_(o[k].bind(o));
@@ -214,7 +200,9 @@ class ObjProxy {
   }
 
   set(o, k, v) {
-    if (o[k] && o[k] [THUNK]) { // allow mutations to replace thunks
+    if (o[k] && o[k] [THUNK]) {
+// allow mutati ^^^^^^^^^^^^ ons to replace once evaluated thunks with its
+// result
       o[k] = v;
       return true;      
     }
@@ -4061,6 +4049,143 @@ const listToArr =
 
 
 /******************************************************************************
+********************************[ LIST ZIPPER ]********************************
+******************************************************************************/
+
+
+const ListZipper = ls => rs =>
+  record(ListZipper, {lzip: Pair(ls, rs)});
+
+
+/***[ Conversion ]************************************************************/
+
+
+const lzipFromList = xs => ListZipper(Nil) (xs);
+
+
+const lzipFromListEnd = xs =>
+  ListZipper(listReverse(xs)) (Nil);
+
+
+const lzipToList = ({lzip: [ls, rs]}) =>
+  listAppend(listReverse(ls)) (rs);
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+const lzipCursor = ({lzip: [, rs]}) =>
+  match(rs, {
+    Nil: _ => None,
+    Cons: ({head: x}) => Some(x)
+  });
+
+
+const lzipDel = ({lzip: [ls, rs]}) =>
+  match(rs, {
+    Nil: _ => ListZipper(ls) (rs),
+    Cons: ({_, tail: rs_}) =>
+      ListZipper(ls) (rs_)
+  });
+
+
+const lzipIns = x => ({lzip: [ls, rs]}) =>
+  ListZipper(ls) (Cons(x) (rs));
+
+
+const lzipSet = x => ({lzip: [ls, rs]}) =>
+  match(rs, {
+    Nil: _ => ListZipper(ls) (rs),
+    Cons: ({_, tail: rs_}) =>
+      ListZipper(ls) (Cons(x) (rs_))
+  });
+
+
+const lzipUpd = f => ({lzip: [ls, rs]}) =>
+  match(rs, {
+    Nil: _ => ListZipper(ls) (rs),
+    Cons: ({head: r, tail: rs_}) =>
+      ListZipper(ls) (Cons(f(r)) (rs_))
+  });
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const lzipFold = f => init => tx =>
+  tailRec(([ty, acc]) =>
+    lzipIsEnd(ty)
+      ? Base(acc)
+      : Loop([lzipRight(ty), f(acc) (ty.lzip[1].head)]))
+        ([tx, init]);
+
+
+const lzipFoldr = f => acc => tx => {
+  const go = ty =>
+    lzipIsEnd(ty)
+      ? Unwind(acc)
+      : Wind(f(ty.lzip[1].head)) (go) (lzipRight(ty));
+
+  return moduloRec(go(tx));
+};
+
+
+/***[ Navigation ]************************************************************/
+
+
+const lzipEnd = ({lzip: [ls, rs]}) =>
+  ListZipper(listAppend(listReverse(rs)) (ls)) (Nil);
+
+
+const lzipLeft = ({lzip: [ls, rs]}) =>
+  match(ls, {
+    Nil: _ => ListZipper(ls) (rs),
+    Cons: ({head: l, tail: ls_}) =>
+      ListZipper(ls_) (Cons(l) (rs))
+  });
+
+
+const lzipRight = ({lzip: [ls, rs]}) =>
+  match(rs, {
+    Nil: _ => ListZipper(ls) (rs),
+    Cons: ({head: r, tail: rs_}) =>
+      ListZipper(Cons(r) (ls)) (rs_)
+  });
+
+
+const lzipStart = ({lzip: [ls, rs]}) =>
+  ListZipper(Nil) (listAppend(listReverse(ls)) (rs));
+
+
+/***[ Predicates ]************************************************************/
+
+
+const lzipIsEmpty = ({lzip: [ls, rs]}) =>
+  match(ls, {
+    Nil: _ => true,
+    Cons: _ =>
+      match(rs, {
+        Nil: _ => true,
+          Cons: _ => false
+      })
+  });
+
+
+const lzipIsEnd = ({lzip: [, rs]}) =>
+  match(rs, {
+    Nil: _ => true,
+    Cons: _ => false
+  });
+
+
+const lzipIsStart = ({lzip: [ls]}) =>
+  match(ls, {
+    Nil: _ => true,
+    Cons: _ => false
+  });
+
+
+/******************************************************************************
 ************************************[ MAX ]************************************
 ******************************************************************************/
 
@@ -5838,9 +5963,27 @@ module.exports = {
   listUncons: TC ? fun_(listUncons) : listUncons,
   listUnfoldr: TC ? fun_(listUnfoldr) : listUnfoldr,
   listZeroT: TC ? fun_(listZeroT) : listZeroT,
+  ListZipper: TC ? fun_(ListZipper) : ListZipper,
   log,
   Loop,
   LT,
+  lzipCursor: TC ? fun_(lzipCursor) : lzipCursor,
+  lzipDel: TC ? fun_(lzipDel) : lzipDel,
+  lzipEnd: TC ? fun_(lzipEnd) : lzipEnd,
+  lzipFold: TC ? fun_(lzipFold) : lzipFold,
+  lzipFoldr: TC ? fun_(lzipFoldr) : lzipFoldr,
+  lzipFromList: TC ? fun_(lzipFromList) : lzipFromList,
+  lzipFromListEnd: TC ? fun_(lzipFromListEnd) : lzipFromListEnd,
+  lzipIns: TC ? fun_(lzipIns) : lzipIns,
+  lzipIsEmpty: TC ? fun_(lzipIsEmpty) : lzipIsEmpty,
+  lzipIsEnd: TC ? fun_(lzipIsEnd) : lzipIsEnd,
+  lzipIsStart: TC ? fun_(lzipIsStart) : lzipIsStart,
+  lzipLeft: TC ? fun_(lzipLeft) : lzipLeft,
+  lzipRight: TC ? fun_(lzipRight) : lzipRight,
+  lzipSet: TC ? fun_(lzipSet) : lzipSet,
+  lzipStart: TC ? fun_(lzipStart) : lzipStart,
+  lzipToList: TC ? fun_(lzipToList) : lzipToList,
+  lzipUpd: TC ? fun_(lzipUpd) : lzipUpd,
   mapDel: TC ? fun_(mapDel) : mapDel,
   mapEff: TC ? fun_(mapEff) : mapEff,
   mapHas: TC ? fun_(mapHas) : mapHas,
