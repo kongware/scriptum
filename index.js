@@ -1,4 +1,4 @@
-/* 
+/*
                            ,,                                                
                            db             mm                                 
                                           MM                                 
@@ -95,14 +95,31 @@ const OBJ = PREFIX + "obj";
 
 
 const fun = pred => f =>
-  new Proxy(f, new FunProxy(pred));
+  f[FUN]
+    ? _throw(new TypeError("redundant function proxy"))
+    : new Proxy(f, new FunProxy(pred));
 
 
 const fun_ = fun(null);
 
 
-const obj = o =>
-  new Proxy(o, new ObjProxy());
+const obj = o => {
+  if (o[OBJ])
+    throw new TypeError("redundant object proxy");
+
+  for (let [k, v] of (objEntries(o))) {
+    if (isUnit(v))
+      throw new TypeError("illegal property unit type");
+
+    else if (typeof v === "function")
+      o[k] = fun_(v);
+
+    else if (v !== null && typeof v === "object")
+      o[k] = obj(v);
+  }
+
+  return new Proxy(o, new ObjProxy());
+};
 
 
 /******************************************************************************
@@ -168,6 +185,9 @@ class ObjProxy {
   get(o, k) {
     if (k === OBJ)
       return true;
+
+    else if (k === FUN)
+      return false;
 
     else if (k === THUNK)
       return o[k]; // allow duck typing
@@ -1116,6 +1136,42 @@ const mapEff = map => x =>
 
 
 /******************************************************************************
+************************************[ IX ]*************************************
+******************************************************************************/
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+const _1st = ([x]) => x;
+
+
+const _2nd = ([, y]) => y;
+
+
+const _3rd = ([,, z]) => z;
+
+
+const _4th = ([,,, z]) => z;
+
+
+/******************************************************************************
+*********************************[ LIST-LIKE ]*********************************
+******************************************************************************/
+
+
+const takeWhile_ = ({cons, empty}) => p => xs => // TODO: reconcile with takeWhile transducer
+  tailRec(([ys, acc]) =>
+    match(ys, {
+      Nil: _ => Base(acc),
+      Cons: ({head, tail}) =>
+        p(head)
+          ? Loop([tail, cons(head) (acc)])
+          : Base(acc)
+    })) ([xs, empty]);
+
+
+/******************************************************************************
 ***********************************[ MONAD ]***********************************
 ******************************************************************************/
 
@@ -1201,22 +1257,6 @@ const kompn = chain => ([fm, ...fs]) => x =>
           gm(acc_)))
             (fm === undefined ? x : fm(x))
               (fs);
-
-
-/******************************************************************************
-*****************************[ MISC. COMBINATORS ]*****************************
-******************************************************************************/
-
-
-const takeWhile_ = ({cons, empty}) => p => xs => // TODO: reconcile with takeWhile transducer
-  tailRec(([ys, acc]) =>
-    match(ys, {
-      Nil: _ => Base(acc),
-      Cons: ({head, tail}) =>
-        p(head)
-          ? Loop([tail, cons(head) (acc)])
-          : Base(acc)
-    })) ([xs, empty]);
 
 
 /******************************************************************************
@@ -1321,7 +1361,7 @@ const arrCons_ = xs => x =>
 
 
 const arrDecon = i => xs =>
-  Pair_(
+  Pair(
     xs[i],
     xs.slice(0, i)
       .concat(xs.slice(i + 1)));
@@ -1400,8 +1440,8 @@ const arrFilter = p => xs =>
 const arrPartition = p => xs => pair =>
   arrFold(([ys, zs]) => x =>
     p(x)
-      ? Pair_(ys.concat([x]), zs)
-      : Pair_(ys, zs.concat([x])))
+      ? Pair(ys.concat([x]), zs)
+      : Pair(ys, zs.concat([x])))
         (pair) (xs);
 
 
@@ -1559,8 +1599,8 @@ ARRAY.empty = arrEmpty;
 
 
 const arrGetter = i =>
-  Optic(map => f => xs =>
-    map(id)
+  Optic(_ => f => xs =>
+    constMap(id)
       (f(xs[i])));
 
 
@@ -1586,7 +1626,7 @@ const arrLensOpt = i =>
 // null is necessary to keep optional  ^^^^ lenses composable
 
 
-const arrSetter = i => // TODO: maybe generalize with Settable constraint
+const arrSetter = i =>
   Optic(_ => f => xs =>
     idMap(x => arrSet(i) (x) (xs))
       (f(xs[i])));
@@ -1665,11 +1705,14 @@ ARRAY.unfold = arrUnfold;
 // TODO: implement arrUnfoldr
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
-const _null = xs =>
+const arrNull = xs =>
   xs.length === 0;
+
+
+const arrReverse = xs => xs.reverse();
 
 
 /***[ Derived ]***************************************************************/
@@ -1878,6 +1921,9 @@ const compn = fs => x =>
 
 const compOn = f => g => x => y =>
   f(g(x)) (g(y));
+
+
+const id = x => x;
 
 
 /***[ Conditional Combinators ]***********************************************/
@@ -2168,9 +2214,6 @@ const flip = f => y => x =>
   f(x) (y);
 
 
-const id = x => x;
-
-
 /***[ Transducer ]************************************************************/
 
 
@@ -2379,8 +2422,8 @@ const mapUpd = k => f => m =>
 
 
 const mapGetter = k =>
-  Optic(map => f => m =>
-    map(id)
+  Optic(_ => f => m =>
+    constMap(id)
       (f(m.get(k))));
 
 
@@ -2397,7 +2440,7 @@ const mapLensOpt = k =>
 // null is necessary to keep option ^^^^ al lenses composable
 
 
-const mapSetter = k => // TODO: maybe generalize with Settable constraint
+const mapSetter = k =>
   Optic(_ => f => m =>
     idMap(v => mapSet(k) (v) (m))
       (f(m.get(k))));
@@ -2553,7 +2596,7 @@ const numShow = n => n.toString();
 NUM.show = numShow;
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const decimalAdjust = (k, n, decimalPlaces) => { // internal
@@ -2640,7 +2683,7 @@ OBJECT.clone = objClone;
 
 
 const objDecon = k => ({[k]: k, ...o}) =>
-  Pair_(k, o);
+  Pair(k, o);
 
 
 const thisify = f => f({});
@@ -2683,8 +2726,8 @@ OBJECT.filter = objFilter;
 const objPartition = p => o => pair =>
   objFold(([xs, ys]) => prop =>
     p(prop)
-      ? Pair_(xs.concat([prop]), ys)
-      : Pair_(xs, ys.concat([prop])))
+      ? Pair(xs.concat([prop]), ys)
+      : Pair(xs, ys.concat([prop])))
         (pair) (o);
 
 
@@ -2835,8 +2878,8 @@ const objUpdPath = (...ks) => f => o =>
 
 
 const objGetter = k =>
-  Optic(map => f => o =>
-    map(id)
+  Optic(_ => f => o =>
+    constMap(id)
       (f(o[k])));
 
 
@@ -2853,7 +2896,7 @@ const objLensOpt = k =>
 // null is necessary to keep  ^^^^ optional lenses composable
 
 
-const objSetter = k => // TODO: maybe generalize with Settable constraint
+const objSetter = k =>
   Optic(_ => f => o =>
     idMap(v => objSet(k) (v) (o))
       (f(o[k])));
@@ -2907,8 +2950,8 @@ const setSet = k => v => s =>
 
 
 const setGetter = k =>
-  Optic(map => f => s =>
-    map(id)
+  Optic(_ => f => s =>
+    constMap(id)
       (f(s.has(k))));
 
 
@@ -2918,7 +2961,7 @@ const setLens = k =>
       (f(s.has(k))));
 
 
-const setSetter = k => // TODO: maybe generalize with Settable constraint
+const setSetter = k =>
   Optic(_ => f => s =>
     idMap(v => mapSet(k) (v) (s))
       (f(s.has(k))));
@@ -2938,7 +2981,7 @@ const setSetter = k => // TODO: maybe generalize with Settable constraint
 /***[ Monoid ]****************************************************************/
 
 
-const strAppend = s => t => s.concat(t); // TODO: enfore strings
+const strAppend = s => t => s.concat(t); // TODO: enforce strings
 
 
 const strPrepend = t => s => s.concat(t); // TOIDO: enforce strings
@@ -3110,7 +3153,7 @@ const anyEmpty = Any(false);
 
 
 /******************************************************************************
-**********************************[ COMPOSE ]**********************************
+***********************************[ COMP ]************************************
 ******************************************************************************/
 
 
@@ -3334,34 +3377,12 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 
 
 /******************************************************************************
-***********************************[ CONTT ]***********************************
-******************************************************************************/
-
-
-const ContT = contt => record(ContT, {contt});
-
-
-/***[ Transformer ]***********************************************************/
-
-
-const contChainT = mmk => fmm =>
-  ContT(k => mmk.contt(x => fmm(x).contt(k)));
-
-
-const contLiftT = chain => mmk =>
-  ContT(k => chain(mmk) (k));
-
-
-const contOfT = x => ContT(k => k(x));
-
-
-/******************************************************************************
 *********************************[ COYONEDA ]**********************************
 ******************************************************************************/
 
 
 const Coyoneda = f => coyo =>
-  record(Coyoneda, Pair_(f, coyo));
+  record(Coyoneda, Pair(f, coyo));
 
 
 /***[ Applicative ]***********************************************************/
@@ -3454,20 +3475,6 @@ const eithChain = mx => fm =>
   });
 
 
-/***[ Transformer ]***********************************************************/
-
-
-const eithChainT = ({chain, of}) => mmx => fmm =>
-  chain(mmx) (mx =>
-    match(mx, {
-      Left: ({left: x}) => of(Left(x)),
-      Right: ({right: y}) => fmm(y)
-    }));
-
-
-const eithOfT = of => x => of(Right(x));
-
-
 /******************************************************************************
 ***********************************[ ENDO ]************************************
 ******************************************************************************/
@@ -3483,6 +3490,24 @@ const endoPrepend = funContra;  // TODO: enforce a -> a
 
 
 const endoEmpty = id;
+
+
+/******************************************************************************
+************************************[ ENV ]************************************
+******************************************************************************/
+
+
+const Env = pair => record(Env, {env: pair});
+
+
+/***[ Comonad ]***************************************************************/
+
+
+const envExtend = wf => wx =>
+  Env(Pair(wx.env[0], wf(wx)));
+
+
+const envExtract = ({env: [, y]}) => y;
 
 
 /******************************************************************************
@@ -3536,7 +3561,7 @@ const firstAppend = x => _ => x;
 ******************************************************************************/
 
 
-const iarrEmpty = Hamt(
+const IArray = Hamt(
   {[Symbol.toStringTag]: "IArray", length: 0, offset: 0});
 
 
@@ -3551,7 +3576,7 @@ const iarrFromArr = arrFold(acc => (x, i) =>
       length: i + 1,
       offset: 0},
     i,
-    x)) (iarrEmpty);
+    x)) (IArray);
 
 
 const iarrItor = xs => {
@@ -3600,7 +3625,7 @@ const iarrSnoc = x => xs =>
 const iarrUncons = xs =>
   xs.length === 0
     ? None
-    : Some(Pair_(
+    : Some(Pair(
         hamtGet(xs, xs.offset),
         hamtDel(
           xs, {
@@ -3613,7 +3638,7 @@ const iarrUncons = xs =>
 const iarrUnsnoc = xs =>
   xs.length === 0
     ? None
-    : Some(Pair_(
+    : Some(Pair(
         hamtGet(xs, xs.length - 1 + xs.offset),
         hamtDel(
           xs, {
@@ -3645,7 +3670,7 @@ const iarrFoldr = f => acc => xs => {
 };
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const iarrDel = i => xs =>
@@ -3702,13 +3727,25 @@ const idAp = ({id: f}) => ({id: x}) => Id(f(x));
 const idOf = x => Id(x);
 
 
+/***[Comonad]*****************************************************************/
+
+
+const idExtract = tw => tw.id;
+
+
+const idDuplicate = Id;
+
+
+const idExtend = f => comp(Id) (f);
+
+
 /***[Functor]*****************************************************************/
 
 
 const idMap = f => ({id: x}) => Id(f(x));
 
 
-/***[Functor]*****************************************************************/
+/***[Monad]*******************************************************************/
 
 
 const idChain = ({id: x}) => fm => fm(x);
@@ -3766,17 +3803,6 @@ const deferChain = mx => fm =>
 
 const deferJoin = mmx =>
   Defer(() => mmx.defer.defer);
-
-
-/***[ Transformer ]***********************************************************/
-
-
-const deferChainT = ({map, chain, of}) => mmx => fmm =>
-  chain(mmx) (mx =>
-    Defer(() => map(my => my.defer) (fmm(mx.defer))));
-
-
-const deferOfT = of => x => of(Defer(() => x));
 
 
 /******************************************************************************
@@ -3850,7 +3876,7 @@ const Cons = head => tail =>
   List(Cons, {head, tail});
 
 
-const Cons_ = (head, tail) =>
+const Cons_ = tail => head =>
   List(Cons, {head, tail});
 
 
@@ -3894,19 +3920,14 @@ const listFromArr = arrFoldr(
 const listCons = Cons;
 
 
-const listCons_ = flip(Cons);
+const listCons_ = Cons_;
 
 
-// TODO: implement listSnoc
-
-
-// TODO: implement listSnoc_
-
-
-// TODO: implement listUncons
-
-
-// TODO: implement listUnsnoc
+const listUncons = xs =>
+  match(xs, {
+    Nil: _ => None,
+    Cons: ({head, tail}) => Some(Pair(head, tail))
+  });
 
 
 /***[ Foldable ]**************************************************************/
@@ -3958,14 +3979,14 @@ const listMap = f =>
 
 const iterate = f => {
   const go = x =>
-    Cons_(x, thunk(() => go(f(x))));
+    Cons(x) (thunk(() => go(f(x))));
 
   return go;
 };
 
 
 const repeat = x =>
-  Cons_(x, thunk(() => repeat(x)));
+  Cons(x) (thunk(() => repeat(x)));
 
 
 /***[ Monad ]*****************************************************************/
@@ -4008,6 +4029,12 @@ const listUnfoldr = f => x =>
   });
 
 
+/***[ Miscellaneous ]*********************************************************/
+
+
+const listReverse = listFold(Cons_) (Nil);
+
+
 /***[ Derived ]***************************************************************/
 
 
@@ -4034,109 +4061,6 @@ const listLiftA6 = liftA6({map: listMap, ap: listAp});
 
 const listToArr =
   listFold(arrSnoc_) ([]);
-
-
-/******************************************************************************
-***********************************[ LISTT ]***********************************
-******************************************************************************/
-
-
-const ListT = union("ListT");
-
-
-const NilT = of =>
-  of(ListT("NilT", {}));
-
-
-const ConsT = of => head => tail =>
-  of(ListT("ConsT", {head, tail}));
-
-
-/***[ Alternative ]***********************************************************/
-
-
-const listAltT = ({chain, of}) => mmx => mmy => {
-  const go = (mmx_) =>
-    chain(mmx_) (mx =>
-      match(mx, {
-        NilT: _ => strict(mmy), // strictness is necessary
-        ConsT: ({head, tail}) =>
-          ConsT(of) (head) (thunk(() => go(tail)))
-      }));
-  
-  return go(mmx);
-};
-
-
-const listZeroT = NilT;
-
-
-/***[ Conversion ]************************************************************/
-
-
-const listFromArrT = of =>
-  arrFoldr(x => acc =>
-    ConsT(of) (x) (acc))
-      (NilT(of));
-
-
-const listToArrT = ({chain, of}) =>
-  listFoldT(chain) (acc => x =>
-    chain(acc) (acc_ =>
-      of(arrSnoc(x) (acc_)))) (of([]));
-
-
-/***[ Foldable ]**************************************************************/
-
-
-const listFoldrT = chain => f => acc => {
-  const go = mmx => chain(mmx) (mx =>
-    match(mx, {
-      NilT: _ => strict(acc), // strictness is necessary
-      ConsT: ({head, tail}) =>
-        f(head) (thunk(() => go(tail)))
-    }));
-
-  return go;
-};
-
-
-const listFoldT = chain => f => init => mmx =>
-  tailRec(([acc, mmx_]) =>
-    chain(mmx_) (mx =>
-      match(mx, {
-        NilT: _ => Base(acc),
-        ConsT: ({head, tail}) =>
-          Loop([f(acc) (head), tail])
-      }))) ([init, mmx]);
-
-
-/***[ Monoid ]****************************************************************/
-
-
-const listAppendT = ({chain, of}) => mmx => mmy =>
-  listFoldrT(chain)
-    (ConsT(of))
-      (mmy)
-        (mmx);
-
-
-/***[ Transformer ]***********************************************************/
-
-
-const listChainT = ({chain, of}) => mmx => fmm =>
-  listFoldrT(chain)
-    (x => listAppendT({chain, of}) (fmm(x)))
-      (NilT(of))
-        (mmx);
-
-
-const listLiftT = ({chain, of}) => mx =>
-  chain(mx) (listOfT(of));
-
-
-const listOfT = of => x =>
-  ConsT(of) (x) (NilT(of));
 
 
 /******************************************************************************
@@ -4347,7 +4271,7 @@ const optChain = mx => fm =>
   });
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const fromNullable = x =>
@@ -4463,7 +4387,7 @@ const paraEmpty = empty =>
 const raceEmpty = Parallel(k => null);
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const paraAnd = tx => ty => {
@@ -4472,7 +4396,7 @@ const paraAnd = tx => ty => {
 
     return settled || !("0" in pair) || !("1" in pair)
       ? false
-      : (settled = true, k(Pair_(pair[0], pair[1])));
+      : (settled = true, k(Pair(pair[0], pair[1])));
   };
 
   const pair = [];
@@ -4601,11 +4525,11 @@ const stateAp = tf => tx =>
     const [f, s_] = tf.state(s),
       [x, s__] = tx.state(s_);
 
-    return Pair_(f(x), s__);
+    return Pair(f(x), s__);
   });
 
 
-const stateOf = x => State(s => Pair_(x, s));
+const stateOf = x => State(s => Pair(x, s));
 
 
 /***[ Functor ]***************************************************************/
@@ -4614,7 +4538,7 @@ const stateOf = x => State(s => Pair_(x, s));
 const stateMap = f => tx =>
   State(s => {
     const [x, s_] = tx.state(s);
-    return Pair_(f(x), s_);
+    return Pair(f(x), s_);
   });
 
 
@@ -4628,7 +4552,7 @@ const stateChain = mx => fm =>
   });
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const stateEval = tf =>
@@ -4639,19 +4563,37 @@ const stateExec = tf =>
   s => tf.state(s) [1];
 
 
-const stateGet = State(s => Pair_(s, s));
+const stateGet = State(s => Pair(s, s));
 
 
 const stateGets = f =>
-  State(s => Pair_(f(s), s));
+  State(s => Pair(f(s), s));
 
 
 const stateModify = f =>
-  State(s => Pair_(null, f(s)));
+  State(s => Pair(null, f(s)));
 
 
 const statePut = s =>
-  State(_ => Pair_(null, s));
+  State(_ => Pair(null, s));
+
+
+/******************************************************************************
+***********************************[ STORE ]***********************************
+******************************************************************************/
+
+
+const Store = f => x => record(Store, {store: f, x});
+
+
+/***[ Comonad ]***************************************************************/
+
+
+const storeExtend = wf => ({store: g, x}) =>
+  Store(comp(wf) (Store(g))) (x);
+
+
+const storeExtract = ({store: f, x}) => f(x);
 
 
 /******************************************************************************
@@ -4762,7 +4704,7 @@ const taskPrepend = taskAppend; // pass prepend as type dictionary
 const taskEmpty = empty => Task(k => k(empty));
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const taskAnd = tx => ty =>
@@ -4794,6 +4736,24 @@ const taskLiftA5 = liftA5({map: taskMap, ap: taskAp});
 
 
 const taskLiftA6 = liftA6({map: taskMap, ap: taskAp});
+
+
+/******************************************************************************
+**********************************[ TRACED ]***********************************
+******************************************************************************/
+
+
+const Traced = f => record(Traced, {traced: f});
+
+
+/***[ Comonad ]***************************************************************/
+
+
+const traceExtend = fw => ({traced: f}) =>
+  Traced(x => fw(y => f(append(x) (y))));
+
+
+const traceExtract = empty => ({traced: f}) => f(empty);
 
 
 /******************************************************************************
@@ -4954,7 +4914,7 @@ const treeLeafs = uncons => acc =>
 const treeLevels = uncons => tree =>
   comp(takeWhile_(
     {cons: arrSnoc, empty: []})
-      (notf(_null)))
+      (notf(arrNull)))
         (iterate(foldMap({
           fold: arrFold,
           append: acc => ([branch]) => arrAppend(acc) (branch),
@@ -5042,7 +5002,7 @@ const treePaths = uncons => {
 ******************************************************************************/
 
 
-const Pair = _1 => _2 => record(Pair, {
+const Pair = (_1, _2) => record(Pair, {
   0: _1,
   1: _2,
   [Symbol.iterator]: function*() {
@@ -5051,16 +5011,7 @@ const Pair = _1 => _2 => record(Pair, {
   }});
 
 
-const Pair_ = (_1, _2) => record(Pair, {
-  0: _1,
-  1: _2,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-  }});
-
-
-const Triple = _1 => _2 => _3 => record(Triple, {
+const Triple = (_1, _2, _3) => record(Triple, {
   0: _1,
   1: _2,
   2: _3,
@@ -5071,31 +5022,7 @@ const Triple = _1 => _2 => _3 => record(Triple, {
   }});
 
 
-const Triple_ = (_1, _2, _3) => record(Triple, {
-  0: _1,
-  1: _2,
-  2: _3,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-  }});
-
-
-const Quad = _1 => _2 => _3 => _4 => record(Quad, {
-  0: _1,
-  1: _2,
-  2: _3,
-  3: _4,
-  [Symbol.iterator]: function*() {
-    yield _1;
-    yield _2;
-    yield _3;
-    yield _4;
-  }});
-
-
-const Quad_ = (_1, _2, _3, _4) => record(Quad, {
+const Quad = (_1, _2, _3, _4) => record(Quad, {
   0: _1,
   1: _2,
   2: _3,
@@ -5112,42 +5039,39 @@ const Quad_ = (_1, _2, _3, _4) => record(Quad, {
 
 
 const pairMap = f => ([x, y]) =>
-  Pair_(x, f(y));
-
-
-const tripMap = f => ([x, y, z]) =>
-  Triple_(x, y, f(z));
-
-
-const quadMap = f => ([w, x, y, z]) =>
-  Quad_(w, x, y, f(z));
-
-
-/***[ Misc. Combinators ]*****************************************************/
+  Pair(x, f(y));
 
 
 const pairMap1st = f => ([x, y]) =>
-  Pair_(f(x), y);
+  Pair(f(x), y);
+
+
+const tripMap = f => ([x, y, z]) =>
+  Triple(x, y, f(z));
 
 
 const tripMap1st = f => ([x, y, z]) =>
-  Triple_(f(x), y, z);
-
-
-const quadMap1st = f => ([w, x, y, z]) =>
-  Quad_(f(w), x, y, z);
+  Triple(f(x), y, z);
 
 
 const tripMap2nd = f => ([x, y, z]) =>
-  Triple_(x, f(y), z);
+  Triple(x, f(y), z);
+
+
+const quadMap = f => ([w, x, y, z]) =>
+  Quad(w, x, y, f(z));
+
+
+const quadMap1st = f => ([w, x, y, z]) =>
+  Quad(f(w), x, y, z);
 
 
 const quadMap2nd = f => ([w, x, y, z]) =>
-  Quad_(w, f(x), y, z);
+  Quad(w, f(x), y, z);
 
 
 const quadMap3rd = f => ([w, x, y, z]) =>
-  Quad_(w, x, f(y), z);
+  Quad(w, x, f(y), z);
 
 
 /******************************************************************************
@@ -5162,18 +5086,18 @@ const Writer = pair => record(Writer, {writer: pair});
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
-  Writer(Pair_(f(x), append(w) (w_)));
+  Writer(Pair(f(x), append(w) (w_)));
 
 
 const writerOf = empty => x =>
-  Writer(Pair_(x, empty));
+  Writer(Pair(x, empty));
 
 
 /***[ Functor ]***************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
-  Writer(Pair_(f(x), w));
+  Writer(Pair(f(x), w));
 
 
 /***[ Monad ]*****************************************************************/
@@ -5181,28 +5105,28 @@ const writerMap = f => ({writer: [x, w]}) =>
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
   const [x_, w_] = fm(x).writer;
-  return Writer(Pair_(x_, append(w) (w_)));
+  return Writer(Pair(x_, append(w) (w_)));
 };
 
 
-/***[ Misc. Combinators ]*****************************************************/
+/***[ Miscellaneous ]*********************************************************/
 
 
 const writerCensor = ({append, empty}) => f => tx =>
   writerPass(
     writerChain(append) (tx) (x =>
-      writerOf(empty) (Pair_(x, f))))
+      writerOf(empty) (Pair(x, f))))
 
 
 const writerExec = ({writer: [_, w]}) => w;
 
 
 const writerListen = ({writer: [x, w]}) =>
-  Writer(Pair_(Pair_(x, w), w));
+  Writer(Pair(Pair(x, w), w));
 
 
 const writerListens = f => ({writer: [x, w]}) =>
-  Writer(Pair_(Pair_(x, f(w)), w));
+  Writer(Pair(Pair(x, f(w)), w));
 
 
 const writerMapBoth = f => tx =>
@@ -5210,10 +5134,10 @@ const writerMapBoth = f => tx =>
 
 
 const writerPass = ({writer: [[x, f], w]}) =>
-  Writer(Pair_(x, f(w)));
+  Writer(Pair(x, f(w)));
 
 
-const writerTell = w => Writer(Pair_(null, w));
+const writerTell = w => Writer(Pair(null, w));
 
 
 /******************************************************************************
@@ -5282,6 +5206,9 @@ const firstPrepend = lastAppend;
 ******************************************************************************/
 
 
+// has no distinct type, because it is only transformer-like
+
+
 /***[ Applicative ]***********************************************************/
 
 
@@ -5322,6 +5249,172 @@ const arrChainT = ({chain, of}) => mmx => fmm =>
       arrAppendT({chain, of}) (acc) (fmm(x)))
         (of([]))
           (mmx);
+
+
+/******************************************************************************
+***********************************[ CONTT ]***********************************
+******************************************************************************/
+
+
+const ContT = contt => record(ContT, {contt});
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const contChainT = mmk => fmm =>
+  ContT(k => mmk.contt(x => fmm(x).contt(k)));
+
+
+const contLiftT = chain => mmk =>
+  ContT(k => chain(mmk) (k));
+
+
+const contOfT = x => ContT(k => k(x));
+
+
+/******************************************************************************
+**********************************[ DEFERT ]***********************************
+******************************************************************************/
+
+
+// TODO: add type
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const deferChainT = ({map, chain, of}) => mmx => fmm =>
+  chain(mmx) (mx =>
+    Defer(() => map(my => my.defer) (fmm(mx.defer))));
+
+
+const deferOfT = of => x => of(Defer(() => x));
+
+
+/******************************************************************************
+**********************************[ EITHERT ]**********************************
+******************************************************************************/
+
+
+// TODO: add type
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const eithChainT = ({chain, of}) => mmx => fmm =>
+  chain(mmx) (mx =>
+    match(mx, {
+      Left: ({left: x}) => of(Left(x)),
+      Right: ({right: y}) => fmm(y)
+    }));
+
+
+const eithOfT = of => x => of(Right(x));
+
+
+/******************************************************************************
+***********************************[ LISTT ]***********************************
+******************************************************************************/
+
+
+const ListT = union("ListT");
+
+
+const NilT = of =>
+  of(ListT("NilT", {}));
+
+
+const ConsT = of => head => tail =>
+  of(ListT("ConsT", {head, tail}));
+
+
+/***[ Alternative ]***********************************************************/
+
+
+const listAltT = ({chain, of}) => mmx => mmy => {
+  const go = (mmx_) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => strict(mmy), // strictness is necessary
+        ConsT: ({head, tail}) =>
+          ConsT(of) (head) (thunk(() => go(tail)))
+      }));
+  
+  return go(mmx);
+};
+
+
+const listZeroT = NilT;
+
+
+/***[ Conversion ]************************************************************/
+
+
+const listFromArrT = of =>
+  arrFoldr(x => acc =>
+    ConsT(of) (x) (acc))
+      (NilT(of));
+
+
+const listToArrT = ({chain, of}) =>
+  listFoldT(chain) (acc => x =>
+    chain(acc) (acc_ =>
+      of(arrSnoc(x) (acc_)))) (of([]));
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const listFoldrT = chain => f => acc => {
+  const go = mmx => chain(mmx) (mx =>
+    match(mx, {
+      NilT: _ => strict(acc), // strictness is necessary
+      ConsT: ({head, tail}) =>
+        f(head) (thunk(() => go(tail)))
+    }));
+
+  return go;
+};
+
+
+const listFoldT = chain => f => init => mmx =>
+  tailRec(([acc, mmx_]) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => Base(acc),
+        ConsT: ({head, tail}) =>
+          Loop([f(acc) (head), tail])
+      }))) ([init, mmx]);
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const listAppendT = ({chain, of}) => mmx => mmy =>
+  listFoldrT(chain)
+    (ConsT(of))
+      (mmy)
+        (mmx);
+
+
+/***[ Transformer ]***********************************************************/
+
+
+const listChainT = ({chain, of}) => mmx => fmm =>
+  listFoldrT(chain)
+    (x => listAppendT({chain, of}) (fmm(x)))
+      (NilT(of))
+        (mmx);
+
+
+const listLiftT = ({chain, of}) => mx =>
+  chain(mx) (listOfT(of));
+
+
+const listOfT = of => x =>
+  ConsT(of) (x) (NilT(of));
 
 
 /******************************************************************************
@@ -5372,11 +5465,15 @@ const optmEmpty = None;
 
 
 module.exports = {
+  _1st: TC ? fun_(_1st) : _1st,
+  _2nd: TC ? fun_(_2nd) : _2nd,
+  _3rd: TC ? fun_(_3rd) : _3rd,
+  _4th: TC ? fun_(_4th) : _4th,
   add: TC ? fun_(add) : add,
   All: TC ? fun_(All) : All,
   all: TC ? fun_(all) : all,
   allAppend: TC ? fun_(allAppend) : allAppend,
-  allEmpty: TC ? fun_(allEmpty) : allEmpty,
+  allEmpty: TC ? debug(fun_) (allEmpty) : allEmpty,
   allPrepend: TC ? fun_(allPrepend) : allPrepend,
   and: TC ? fun_(and) : and,
   andf: TC ? fun_(andf) : andf,
@@ -5459,6 +5556,7 @@ module.exports = {
   arrLiftAn: TC ? fun_(arrLiftAn) : arrLiftAn,
   arrMap: TC ? fun_(arrMap) : arrMap,
   arrMapA: TC ? fun_(arrMapA) : arrMapA,
+  arrNull: TC ? fun_(arrNull) : arrNull,
   arrOf: TC ? fun_(arrOf) : arrOf,
   arrOfT: TC ? fun_(arrOfT) : arrOfT,
   arrPartition: TC ? fun_(arrPartition) : arrPartition,
@@ -5470,6 +5568,7 @@ module.exports = {
             (arrPrepend)
     : arrPrepend,
   arrRead: TC ? fun_(arrRead) : arrRead,
+  arrReverse: TC ? fun_(arrReverse) : arrReverse,
   arrSeqA: TC ? fun_(arrSeqA) : arrSeqA,
   arrSet: TC ? fun_(arrSet) : arrSet,
   arrSetter: TC ? fun_(arrSetter) : arrSetter,
@@ -5584,6 +5683,9 @@ module.exports = {
   endoAppend: TC ? fun_(endoAppend) : endoAppend,
   endoEmpty: TC ? fun_(endoEmpty) : endoEmpty,
   endoPrepend: TC ? fun_(endoPrepend) : endoPrepend,
+  Env: TC ? fun_(Env) : Env,
+  envExtend: TC ? fun_(envExtend) : envExtend,
+  envExtract: TC ? fun_(envExtract) : envExtract,
   EQ,
   Equiv: TC ? fun_(Equiv) : Equiv,
   equivAppend: TC ? fun_(equivAppend) : equivAppend,
@@ -5636,6 +5738,7 @@ module.exports = {
   hamtHas: TC ? fun_(hamtHas) : hamtHas,
   hamtSet: TC ? fun_(hamtSet) : hamtSet,
   hamtUpd: TC ? fun_(hamtUpd) : hamtUpd,
+  IArray: TC ? fun_(IArray) : IArray,
   iarrCons: TC ? fun_(iarrCons) : iarrCons,
   iarrDel: TC ? fun_(iarrDel) : iarrDel,
   iarrGet: TC ? fun_(iarrGet) : iarrGet,
@@ -5644,7 +5747,6 @@ module.exports = {
   iarrFoldr: TC ? fun_(iarrFoldr) : iarrFoldr,
   iarrFromArr: TC ? fun_(iarrFromArr) : iarrFromArr,
   iarrItor: TC ? fun_(iarrItor) : iarrItor,
-  iarrEmpty: TC ? fun_(iarrEmpty) : iarrEmpty,
   iarrSet: TC ? fun_(iarrSet) : iarrSet,
   iarrSnoc: TC ? fun_(iarrSnoc) : iarrSnoc,
   iarrToArr: TC ? fun_(iarrToArr) : iarrToArr,
@@ -5654,6 +5756,9 @@ module.exports = {
   id: TC ? fun_(id) : id,
   idAp: TC ? fun_(idAp) : idAp,
   idChain: TC ? fun_(idChain) : idChain,
+  idDuplicate: TC ? fun_(idDuplicate) : idDuplicate,
+  idExtend: TC ? fun_(idExtend) : idExtend,
+  idExtract: TC ? fun_(idExtract) : idExtract,
   idMap: TC ? fun_(idMap) : idMap,
   idOf: TC ? fun_(idOf) : idOf,
   ifElse: TC ? fun_(ifElse) : ifElse,
@@ -5729,9 +5834,11 @@ module.exports = {
   listOf: TC ? fun_(listOf) : listOf,
   listOfT: TC ? fun_(listOfT) : listOfT,
   listPrepend: TC ? fun_(listPrepend) : listPrepend,
+  listReverse: TC ? fun_(listReverse) : listReverse,
   ListT: TC ? fun_(ListT) : ListT,
   listToArr: TC ? fun_(listToArr) : listToArr,
   listToArrT: TC ? fun_(listToArrT) : listToArrT,
+  listUncons: TC ? fun_(listUncons) : listUncons,
   listUnfoldr: TC ? fun_(listUnfoldr) : listUnfoldr,
   listZeroT: TC ? fun_(listZeroT) : listZeroT,
   log,
@@ -5772,7 +5879,6 @@ module.exports = {
   None,
   not: TC ? fun_(not) : not,
   notf: TC ? fun_(notf) : notf,
-  _null: TC ? fun_(_null) : _null,
   NUM,
   numCeil: TC ? fun_(numCeil) : numCeil,
   numCompare: TC ? fun_(numCompare) : numCompare,
@@ -5845,7 +5951,6 @@ module.exports = {
   or: TC ? fun_(or) : or,
   orf: TC ? fun_(orf) : orf,
   Pair: TC ? fun_(Pair) : Pair,
-  Pair_: TC ? fun_(Pair_) : Pair_,
   pairMap: TC ? fun_(pairMap) : pairMap,
   pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
   Parallel: TC ? fun_(Parallel) : Parallel,
@@ -5878,7 +5983,6 @@ module.exports = {
   prodEmpty: TC ? fun_(prodEmpty) : prodEmpty,
   prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
   Quad: TC ? fun_(Quad) : Quad,
-  Quad_: TC ? fun_(Quad_) : Quad_,
   quadMap: TC ? fun_(quadMap) : quadMap,
   quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
   quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
@@ -5921,6 +6025,9 @@ module.exports = {
   stateModify: TC ? fun_(stateModify) : stateModify,
   stateOf: TC ? fun_(stateOf) : stateOf,
   statePut: TC ? fun_(statePut) : statePut,
+  Store: TC ? fun_(Store) : Store,
+  storeExtend: TC ? fun_(storeExtend) : storeExtend,
+  storeExtract: TC ? fun_(storeExtract) : storeExtract,
   strAppend: TC ? fun_(strAppend) : strAppend,
   strEmpty,
   strict: TC ? fun_(strict) : strict,
@@ -5978,6 +6085,9 @@ module.exports = {
   tlikeFold: TC ? fun_(tlikeFold) : tlikeFold,
   tlikeMap: TC ? fun_(tlikeMap) : tlikeMap,
   trace,
+  Traced: TC ? fun_(Traced) : Traced,
+  traceExtend: TC ? fun_(traceExtend) : traceExtend,
+  traceExtract: TC ? fun_(traceExtract) : traceExtract,
   transduce: TC ? fun_(transduce) : transduce,
   treeCata: TC ? fun_(treeCata) : treeCata,
   treeCata_: TC ? fun_(treeCata_) : treeCata_,
@@ -5995,7 +6105,6 @@ module.exports = {
   treeNodes: TC ? fun_(treeNodes) : treeNodes,
   treePaths: TC ? fun_(treePaths) : treePaths,
   Triple: TC ? fun_(Triple) : Triple,
-  Triple_: TC ? fun_(Triple_) : Triple_,
   tripMap: TC ? fun_(tripMap) : tripMap,
   tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
   tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
