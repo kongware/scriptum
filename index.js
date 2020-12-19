@@ -3100,7 +3100,7 @@ const strReplaceBy = rx => f => s =>
 ******************************************************************************/
 
 
-const All = all => record("All", {all});
+const All = all => record(All, {all});
 
 
 /***[ Monoid ]****************************************************************/
@@ -3121,7 +3121,7 @@ const allEmpty = All(true);
 ******************************************************************************/
 
 
-const Any = any => record("Any", {any});
+const Any = any => record(Any, {any});
 
 
 /***[ Monoid ]****************************************************************/
@@ -3207,9 +3207,7 @@ const ctorEmpty = EQ;
 ******************************************************************************/
 
 
-const Compare = cmp => record(
-  Compare,
-  {cmp});
+const Compare = cmp => record(Compare, {cmp});
 
 
 /***[ Contravariant ]*********************************************************/
@@ -3240,7 +3238,7 @@ const cmpEmpty = _ => _ => ctorEmpty;
 ******************************************************************************/
 
 
-const Const = _const => record("Const", {const: _const});
+const Const = _const => record(Const, {const: _const});
 
 
 /***[Applicative]*************************************************************/
@@ -3264,7 +3262,7 @@ const constMap = _ => ({const: x}) => Const(x);
 ******************************************************************************/
 
 
-const Cont = cont => record(Cont, {cont});
+const Cont = k => record(Cont, {cont: k});
 
 
 /***[ Applicative ]***********************************************************/
@@ -3366,8 +3364,8 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 ******************************************************************************/
 
 
-const Coyoneda = f => coyo =>
-  record(Coyoneda, Pair(f, coyo));
+const Coyoneda = f => x =>
+  record(Coyoneda, coyo: Pair(f, x));
 
 
 /***[ Applicative ]***********************************************************/
@@ -3482,17 +3480,17 @@ const endoEmpty = id;
 ******************************************************************************/
 
 
-const Env = pair => record(Env, {env: pair});
+const Env = e => x => record(Env, {env: Pair(e, x)});
 
 
 /***[ Comonad ]***************************************************************/
 
 
 const envExtend = wf => wx =>
-  Env(Pair(wx.env[0], wf(wx)));
+  Env(wx.env[0]) (wf(wx));
 
 
-const envExtract = ({env: [, y]}) => y;
+const envExtract = ({env: [, x]}) => x;
 
 
 /******************************************************************************
@@ -3500,7 +3498,7 @@ const envExtract = ({env: [, y]}) => y;
 ******************************************************************************/
 
 
-const Equiv = equiv => record("Equiv", {equiv});
+const Equiv = equiv => record(Equiv, {equiv});
 
 
 /***[ Contravariant Functor ]*************************************************/
@@ -3529,7 +3527,7 @@ const equivEmpty = Equiv(x => y => true);
 ******************************************************************************/
 
 
-const First = first => record("First", {first});
+const First = first => record(First, {first});
 
 
 /***[ Semigroup ]*************************************************************/
@@ -3700,7 +3698,7 @@ const iarrSet = i => x => xs =>
 ******************************************************************************/
 
 
-const Id = id => record("Id", {id});
+const Id = id => record(Id, {id});
 
 
 /***[Applicative]*************************************************************/
@@ -3834,7 +3832,7 @@ const lazyJoin = mmx =>
 ******************************************************************************/
 
 
-const Last = last => record("Last", {last});
+const Last = last => record(Last, {last});
 
 
 /***[ Semigroup ]*************************************************************/
@@ -4190,7 +4188,7 @@ const lzipIsStart = ({lzip: [ls]}) =>
 ******************************************************************************/
 
 
-const Max = max => record("Max", {max});
+const Max = max => record(Max, {max});
 
 
 /***[ Monoid ]****************************************************************/
@@ -4211,7 +4209,7 @@ const maxEmpty = minBound => Max(minBound);
 ******************************************************************************/
 
 
-const Min = min => record("Min", {min});
+const Min = min => record(Min, {min});
 
 
 /***[ Monoid ]****************************************************************/
@@ -4248,7 +4246,7 @@ const minEmpty = maxBound => Min(maxBound);
 ******************************************************************************/
 
 
-const Optic = optic => record("Optic", {optic});
+const Optic = optic => record(Optic, {optic});
 
 
 /***[Category]****************************************************************/
@@ -4636,7 +4634,7 @@ const prodEmpty = Prod(1);
 ******************************************************************************/
 
 
-const State = f => record("State", {state: f});
+const State = f => record(State, {state: f});
 
 
 /***[ Applicative ]***********************************************************/
@@ -4705,17 +4703,17 @@ const statePut = s =>
 ******************************************************************************/
 
 
-const Store = f => x => record(Store, {store: f, x});
+const Store = f => x => record(Store, {store: Pair(f, x)});
 
 
 /***[ Comonad ]***************************************************************/
 
 
-const storeExtend = wf => ({store: g, x}) =>
-  Store(comp(wf) (Store(g))) (x);
+const storeExtend = wf => ({store: [f, x]}) =>
+  Store(comp(wf) (Store(f))) (x);
 
 
-const storeExtract = ({store: f, x}) => f(x);
+const storeExtract = ({store: [f, x]}) => f(x);
 
 
 /******************************************************************************
@@ -5201,25 +5199,25 @@ const quadMap3rd = f => ([w, x, y, z]) =>
 ******************************************************************************/
 
 
-const Writer = pair => record(Writer, {writer: pair});
+const Writer = x => w => record(Writer, {writer: Pair(x, w)});
 
 
 /***[ Applicative ]***********************************************************/
 
 
 const writerAp = append => ({writer: [f, w]}) => ({writer: [x, w_]}) =>
-  Writer(Pair(f(x), append(w) (w_)));
+  Writer(f(x)) (append(w) (w_));
 
 
 const writerOf = empty => x =>
-  Writer(Pair(x, empty));
+  Writer(x) (empty);
 
 
 /***[ Functor ]***************************************************************/
 
 
 const writerMap = f => ({writer: [x, w]}) =>
-  Writer(Pair(f(x), w));
+  Writer(f(x)) (w);
 
 
 /***[ Monad ]*****************************************************************/
@@ -5227,7 +5225,7 @@ const writerMap = f => ({writer: [x, w]}) =>
 
 const writerChain = append => ({writer: [x, w]}) => fm => {
   const [x_, w_] = fm(x).writer;
-  return Writer(Pair(x_, append(w) (w_)));
+  return Writer(x_) (append(w) (w_));
 };
 
 
@@ -5237,18 +5235,18 @@ const writerChain = append => ({writer: [x, w]}) => fm => {
 const writerCensor = ({append, empty}) => f => tx =>
   writerPass(
     writerChain(append) (tx) (x =>
-      writerOf(empty) (Pair(x, f))))
+      writerOf(empty) (Pair(x, f))));
 
 
 const writerExec = ({writer: [_, w]}) => w;
 
 
 const writerListen = ({writer: [x, w]}) =>
-  Writer(Pair(Pair(x, w), w));
+  Writer(Pair(x, w)) (w);
 
 
 const writerListens = f => ({writer: [x, w]}) =>
-  Writer(Pair(Pair(x, f(w)), w));
+  Writer(Pair(x, f(w))) (w);
 
 
 const writerMapBoth = f => tx =>
@@ -5256,10 +5254,10 @@ const writerMapBoth = f => tx =>
 
 
 const writerPass = ({writer: [[x, f], w]}) =>
-  Writer(Pair(x, f(w)));
+  Writer(x) (f(w));
 
 
-const writerTell = w => Writer(Pair(null, w));
+const writerTell = w => Writer(null) (w);
 
 
 /******************************************************************************
@@ -5378,7 +5376,7 @@ const arrChainT = ({chain, of}) => mmx => fmm =>
 ******************************************************************************/
 
 
-const ContT = contt => record(ContT, {contt});
+const ContT = k => record(ContT, {contt: k});
 
 
 /***[ Monad ]*****************************************************************/
