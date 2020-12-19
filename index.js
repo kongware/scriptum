@@ -95,17 +95,14 @@ const OBJ = PREFIX + "obj";
 
 
 const fun = pred => f =>
-  f[FUN]
-    ? _throw(new TypeError("redundant function proxy"))
-    : new Proxy(f, new FunProxy(pred));
+  f[FUN] ? f : new Proxy(f, new FunProxy(pred));
 
 
 const fun_ = fun(null);
 
 
 const obj = o => {
-  if (o[OBJ])
-    throw new TypeError("redundant object proxy");
+  if (o[OBJ]) return o;
 
   for (let [k, v] of (objEntries(o))) {
     if (isUnit(v))
@@ -190,7 +187,7 @@ class ObjProxy {
       return false;
 
     else if (k === THUNK)
-      return o[k]; // allow duck typing
+      return o[k];
 
     switch (k) {
       case Symbol.asyncIterator:
@@ -217,7 +214,7 @@ class ObjProxy {
   }
 
   set(o, k, v) {
-    if (o[k] [THUNK]) { // allow mutations to replace thunks
+    if (o[k] && o[k] [THUNK]) { // allow mutations to replace thunks
       o[k] = v;
       return true;      
     }
@@ -1008,12 +1005,12 @@ const Unwind = unwind =>
   ({tag: "Unwind", unwind});
 
 
-const Wind = f => wind =>
-  ({tag: "Wind", f, wind});
+const Wind = f => g => wind =>
+  ({tag: "Wind", f, g, wind});
 
 
-const Wind_ = (f, wind) =>
-  ({tag: "Wind", f, wind});
+const Wind_ = (f, g, wind) =>
+  ({tag: "Wind", f, g, wind});
 
 
 /******************************************************************************
@@ -5473,7 +5470,7 @@ module.exports = {
   All: TC ? fun_(All) : All,
   all: TC ? fun_(all) : all,
   allAppend: TC ? fun_(allAppend) : allAppend,
-  allEmpty: TC ? debug(fun_) (allEmpty) : allEmpty,
+  allEmpty: TC ? fun_(allEmpty) : allEmpty,
   allPrepend: TC ? fun_(allPrepend) : allPrepend,
   and: TC ? fun_(and) : and,
   andf: TC ? fun_(andf) : andf,
