@@ -13,29 +13,77 @@ scriptum is the attempt to get as close as possible to the functional paradigm u
 Feature selection:
 
 * more rigorous dynamic type checking on demand for resilient and reliable code
-  * less hidden unit types like undefined, NaN or invalid Date
+  * less hidden unit types like `undefined`, `NaN` or `invalid Date`
   * more immediately thrown errors
   * less implicit mutations
   * less unsafe duck typing
 * fully-fledged lazy evaluation through expressions in Weak Head Normal Form
-* stack-safe tail-, modulo-cons-, mutual- and monadic recursion through a couple of bullet-proofed trampolines
+* stack-safe recursion through a family of trampoline techniques
+  * tail recursion
+  * tail recursion modulo cons
+  * mutual recursion
+  * monadic recursion
 * custom record and tagged union types along with a pattern-matching-like experience
-* instances of common type classes like Functor, Applicative, Monad, Comonad, Profunctors, Traverable etc. for various types
+* instances of common type classes for various types
+  * Functor/Applicative/Monad
+  * Monoid
+  * Foldable
+  * Traversable
+  * Comonad
+  * Profunctor
+  * etc.
 * effect composition with `Comp` and common Monad Transformers
-* `Task`/`Parallel` types for stack-safe and purely functional async computations in sequence and in parallel
-* `Defer`/`Lazy` types for purely functional synchronous effects with and without sharing
-* blazingly fast persistent data structures based on Hashed Array Mapped Tries and Finger Trees
-* generalized multi-way trees with a bunch of helpful combinators
-* functional optics (`Lens`, `Prism`, `Fold`, `Traverable`, `Review`)
-* linear functional data structures like Random Access, Difference and Skip Lists
-* non-linear functional data structures like Red/Black, AVL and Finger Trees, Tries and Ropes
-* Linked Lists with tons of helpful combinators
-* `Parser` combinators for `String` and `Stream`
+* lawful, stack-safe and pure asynchronous computations
+  * in sequence with `Task`
+  * in parallel with`Parallel`
+* lawful and pure synchronous effect computation
+  * without sharing of results using `Defer`
+  * with sharing of results using `Lazy`
+* blazingly fast persistent data structures based on
+  * Hashed Array Mapped Tries (HAMT)
+  * Finger Trees
+* generalized multi-way (aka rose) trees with a bunch of helpful combinators
+* van Laarhoven functional optics
+  * `Getter`/`Setter`
+  * `Lens`/`LensAt`/`LensOpt`
+  * Foldable `Getter`s
+  * Traversable `Setter`s
+* linear functional data structures
+  * Random Access List
+  * Difference List
+  * Skip List
+* non-linear functional data structures
+  * Red/Black Tree
+  * AVL Tree
+  * Finger Tree
+  * Trie
+  * Rope
+* variations of linked lists with tons of helpful combinators
+  * Linked List
+  * Difference List
+  * List Zipper
+  * Random Access List
 * monadic `Stream` type for uni-/multicast push-based streams
-* purely functional `Observer`/`Behavior` types based on event delegation to build more reliable and maintainable UIs
-* `Yoneda`/`Coyoneda` and `Codensity` types for dynamic code optimization
-* common types like `Reader`, `Writer`, `State`, `ZipList`, `Pred`, `First`, `Last`
-* catamorphisms, paramorphisms, anamorphisms, apomorphisms et al.
+* `Parser` combinators consuming `String` or `Stream`
+* functional reactive combinators based on event delegation
+  * `Behavior` type
+  * `Observer` type
+* dynamic code optimization
+  * `Yoneda`/`Coyoneda` types
+  * `Codensity` monad
+* a bunch of common functional types
+  * `Reader`
+  * `Writer`
+  * `State`
+  * `ZipList`
+  * `Pred`
+  * `First`/`Last`
+* recursion schemes
+  * catamorphism
+  * paramorphism
+  * anamorphism
+  * apomorphism
+  * etc.
 * purely functional memoization
 * navigating through trees with Zippers
 
