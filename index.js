@@ -3365,7 +3365,7 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 
 
 const Coyoneda = f => x =>
-  record(Coyoneda, coyo: Pair(f, x));
+  record(Coyoneda, {coyo: Pair(f, x)});
 
 
 /***[ Applicative ]***********************************************************/
@@ -4128,6 +4128,13 @@ const lzipFoldr = f => acc => tx => {
 };
 
 
+/***[ Functor ]***************************************************************/
+
+
+const lzipMap = f => ({lzip: [ls, rs]}) =>
+  ListZipper(listMap(f) (ls)) (listMap(f) (rs));
+
+
 /***[ Navigation ]************************************************************/
 
 
@@ -4230,7 +4237,16 @@ const minEmpty = maxBound => Min(maxBound);
 ******************************************************************************/
 
 
-// TODO
+// The constructor of this type synonym only allows non-empty array
+// constructions. Please not that there are several common array combinators
+// like filter that cannot yield a non-empty array. Such combinators fall back
+// to ordinary arrays.
+
+
+const NEArray = x => record(NEArray, [x]);
+
+
+// TODO: add combinators
 
 
 /******************************************************************************
@@ -4238,7 +4254,16 @@ const minEmpty = maxBound => Min(maxBound);
 ******************************************************************************/
 
 
-// TODO
+// The constructor of this type synonym only allows non-empty list
+// constructions. Please not that there are several common list combinators
+// like filter that cannot yield a non-empty list. Such combinators fall back
+// to ordinary lists.
+
+
+const NEList = x => record(NEList, Cons(x) (Nil));
+
+
+// TODO: add combinators
 
 
 /******************************************************************************
@@ -5326,7 +5351,10 @@ const firstPrepend = lastAppend;
 ******************************************************************************/
 
 
-// has no distinct type, because it is only transformer-like
+const ArrayT = x => record(ArrayT, [x]);
+
+
+// TODO: change to ArrayT type synonym
 
 
 /***[ Applicative ]***********************************************************/
@@ -5628,6 +5656,7 @@ module.exports = {
               (arrAppendT)
     : arrAppendT,
   ARRAY,
+  ArrayT: TC ? fun_(ArrayT) : ArrayT,
   arrChain: TC ? fun_(arrChain) : arrChain,
   arrChain_: TC ? fun_(arrChain_) : arrChain_,
   arrChain2: TC ? fun_(arrChain2) : arrChain2,
@@ -5977,6 +6006,7 @@ module.exports = {
   lzipIsEnd: TC ? fun_(lzipIsEnd) : lzipIsEnd,
   lzipIsStart: TC ? fun_(lzipIsStart) : lzipIsStart,
   lzipLeft: TC ? fun_(lzipLeft) : lzipLeft,
+  lzipMap: TC ? fun_(lzipMap) : lzipMap,
   lzipRight: TC ? fun_(lzipRight) : lzipRight,
   lzipSet: TC ? fun_(lzipSet) : lzipSet,
   lzipStart: TC ? fun_(lzipStart) : lzipStart,
@@ -6008,7 +6038,9 @@ module.exports = {
   moduloRec: TC ? fun_(moduloRec) : moduloRec,
   monadRec: TC ? fun_(monadRec) : monadRec,
   mul: TC ? fun_(mul) : mul,
+  NEArray: TC ? fun_(NEArray) : NEArray,
   neg: TC ? fun_(neg) : neg,
+  NEList: TC ? fun_(NEList) : NEList,
   _new: TC ? fun_(_new) : _new,
   Nil,
   NilT: TC ? fun_(NilT) : NilT,
