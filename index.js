@@ -135,13 +135,11 @@ class FunProxy {
         throw new TypeError("illegal argument unit type");
     });
 
-    let p;
-
     if (this.pred !== null) {
-      p = this.pred(...args)
-// can ei ^^^^^^^^^^^^^^^^^^ ther return a boolean or another predicate
+      this.pred = this.pred(...args)
+// may ei ^^^^^^^^^^^^^^^^^^ ther return a boolean or another predicate
 
-      if (p === false)
+      if (this.pred === false)
         throw new TypeError("illegal argument type");
     }
 
@@ -151,9 +149,9 @@ class FunProxy {
       throw new TypeError("illegal return unit type");
 
     else if (typeof r === "function")
-      return typeof p === "function" ? fun(p) (r) : fun_(r);
+      return typeof this.pred === "function" ? fun(this.pred) (r) : fun_(r);
 
-    else if (typeof p === "function")
+    else if (typeof this.pred === "function")
       throw new TypeError("redundant type check predicate");
 
     else return r;
@@ -1283,6 +1281,10 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
+
+
+// Please note that their is no distinct non-empty array type in scriptum,
+// since I fail to see the benefits of such type.
 
 
 const ARRAY = {};
@@ -3849,10 +3851,11 @@ const lastPrepend = firstAppend;
 ******************************************************************************/
 
 
+// Please note that their is no distinct non-empty list type in scriptum,
+// since I fail to see the benefits of such type.
+
+
 const List = union("List");
-
-
-const Nil = List("Nil", {});
 
 
 const Cons = head => tail =>
@@ -3861,6 +3864,9 @@ const Cons = head => tail =>
 
 const Cons_ = tail => head =>
   List(Cons, {head, tail});
+
+
+const Nil = List("Nil", {});
 
 
 /***[ Applicative ]***********************************************************/
@@ -3898,12 +3904,6 @@ const listFromArr = arrFoldr(
 
 
 /***[ Con-/Deconstruction ]***************************************************/
-
-
-const listCons = Cons;
-
-
-const listCons_ = Cons_;
 
 
 const listUncons = xs =>
@@ -4051,132 +4051,122 @@ const listToArr =
 ******************************************************************************/
 
 
-const ListZipper = ls => rs =>
-  record(ListZipper, {lzip: Pair(ls, rs)});
+const ListZipper = ls => x => rs =>
+  record(ListZipper, {lzip: Triple(ls, x, rs)});
+
+
+/***[ Comonad ]***************************************************************/
+
+
+// TODO: const lzipExtrend = wf =>
+
+
+// lzipExtract @Derived
 
 
 /***[ Conversion ]************************************************************/
 
 
-const lzipFromList = xs => ListZipper(Nil) (xs);
+const lzipFromList = ({head: x, tail: xs}) => ListZipper(Nil) (x) (xs);
 
 
-const lzipFromListEnd = xs =>
-  ListZipper(listReverse(xs)) (Nil);
+const lzipFromListEnd = xs => {
+  const {head: x, tail: xs_} = listReverse(xs_);
+  return ListZipper(xs) (x) (Nil);
+};
 
 
-const lzipToList = ({lzip: [ls, rs]}) =>
-  listAppend(listReverse(ls)) (rs);
+const lzipToList = ({lzip: [ls, x, rs]}) =>
+  listAppend(listReverse(ls)) (Cons(x) (rs));
 
 
 /***[ Getters/Setters ]*******************************************************/
 
 
-const lzipCursor = ({lzip: [, rs]}) =>
+const lzipCursor = ({lzip: [, x]}) => x;
+
+
+const lzipDel = ({lzip: [ls,, rs]}) =>
   match(rs, {
-    Nil: _ => None,
-    Cons: ({head: x}) => Some(x)
+    Nil: _ =>
+      match(ls, {
+        Nil: _ => _throw(new TypeError("illegal empty zipper")),
+        Cons: ({head: x, tail: ls_}) => ListZipper(ls_) (x) (rs)
+      }),
+
+    Cons: ({head: x, tail: rs_}) => ListZipper(ls) (x) (rs_)
   });
 
 
-const lzipDel = ({lzip: [ls, rs]}) =>
-  match(rs, {
-    Nil: _ => ListZipper(ls) (rs),
-    Cons: ({_, tail: rs_}) =>
-      ListZipper(ls) (rs_)
-  });
+const lzipIns = x => ({lzip: [ls, y, rs]}) =>
+  ListZipper(ls) (x) (Cons(y) (rs));
 
 
-const lzipIns = x => ({lzip: [ls, rs]}) =>
-  ListZipper(ls) (Cons(x) (rs));
+const lzipSet = x => ({lzip: [ls,, rs]}) =>
+  ListZipper(ls) (x) (rs);
 
 
-const lzipSet = x => ({lzip: [ls, rs]}) =>
-  match(rs, {
-    Nil: _ => ListZipper(ls) (rs),
-    Cons: ({_, tail: rs_}) =>
-      ListZipper(ls) (Cons(x) (rs_))
-  });
-
-
-const lzipUpd = f => ({lzip: [ls, rs]}) =>
-  match(rs, {
-    Nil: _ => ListZipper(ls) (rs),
-    Cons: ({head: r, tail: rs_}) =>
-      ListZipper(ls) (Cons(f(r)) (rs_))
-  });
+const lzipUpd = f => ({lzip: [ls, x, rs]}) =>
+  ListZipper(ls) (f(x)) (rs);
 
 
 /***[ Foldable ]**************************************************************/
 
 
-const lzipFold = f => init => tx =>
-  tailRec(([ty, acc]) =>
-    lzipIsEnd(ty)
-      ? Base(acc)
-      : Loop([lzipRight(ty), f(acc) (ty.lzip[1].head)]))
-        ([tx, init]);
+const lzipFold = f => acc => ({lzip: [, x, rs]}) =>
+  listFold(f) (f(acc) (x)) (rs);
 
 
-const lzipFoldr = f => acc => tx => {
-  const go = ty =>
-    lzipIsEnd(ty)
-      ? Unwind(acc)
-      : Wind(f(ty.lzip[1].head)) (go) (lzipRight(ty));
-
-  return moduloRec(go(tx));
-};
+const lzipFoldr = f => acc => ({lzip: [, x, rs]}) =>
+  listFoldr(f) (thunk(() => f(x) (acc))) (rs);
 
 
 /***[ Functor ]***************************************************************/
 
 
-const lzipMap = f => ({lzip: [ls, rs]}) =>
-  ListZipper(listMap(f) (ls)) (listMap(f) (rs));
+const lzipMap = f => ({lzip: [ls, x, rs]}) =>
+  ListZipper(listMap(f) (ls)) (f(x)) (listMap(f) (rs));
 
 
 /***[ Navigation ]************************************************************/
 
 
-const lzipEnd = ({lzip: [ls, rs]}) =>
-  ListZipper(listAppend(listReverse(rs)) (ls)) (Nil);
+const lzipEnd = ({lzip: [ls, x, rs]}) => {
+  const {head: x_, tail: ls_} =
+    listAppend(listReverse(rs)) (Cons(x) (ls));
+
+  return ListZipper(ls_) (x_) (Nil);
+};
 
 
-const lzipLeft = ({lzip: [ls, rs]}) =>
+const lzipLeft = ({lzip: [ls, x, rs]}) =>
   match(ls, {
-    Nil: _ => ListZipper(ls) (rs),
-    Cons: ({head: l, tail: ls_}) =>
-      ListZipper(ls_) (Cons(l) (rs))
+    Nil: _ => ListZipper(ls) (x) (rs),
+    Cons: ({head: x_, tail: ls_}) =>
+      ListZipper(ls_) (x_) (Cons(x) (rs))
   });
 
 
-const lzipRight = ({lzip: [ls, rs]}) =>
+const lzipRight = ({lzip: [ls, x, rs]}) =>
   match(rs, {
-    Nil: _ => ListZipper(ls) (rs),
-    Cons: ({head: r, tail: rs_}) =>
-      ListZipper(Cons(r) (ls)) (rs_)
+    Nil: _ => ListZipper(ls) (x) (rs),
+    Cons: ({head: x_, tail: rs_}) =>
+      ListZipper(Cons(x) (ls)) (x_) (rs_)
   });
 
 
-const lzipStart = ({lzip: [ls, rs]}) =>
-  ListZipper(Nil) (listAppend(listReverse(ls)) (rs));
+const lzipStart = ({lzip: [ls, x, rs]}) => {
+  const {head: x_, tail: rs_} =
+    listAppend(listReverse(Cons(x) (ls))) (rs);
+
+  return ListZipper(Nil) (x_) (rs_);
+};
 
 
 /***[ Predicates ]************************************************************/
 
 
-const lzipIsEmpty = ({lzip: [ls, rs]}) =>
-  match(ls, {
-    Nil: _ => true,
-    Cons: _ =>
-      match(rs, {
-        Nil: _ => true,
-          Cons: _ => false
-      })
-  });
-
-
-const lzipIsEnd = ({lzip: [, rs]}) =>
+const lzipIsEnd = ({lzip: [,, rs]}) =>
   match(rs, {
     Nil: _ => true,
     Cons: _ => false
@@ -4188,6 +4178,12 @@ const lzipIsStart = ({lzip: [ls]}) =>
     Nil: _ => true,
     Cons: _ => false
   });
+
+
+/***[ Derived ]***************************************************************/
+
+
+const lzipExtract = lzipCursor;
 
 
 /******************************************************************************
@@ -4230,40 +4226,6 @@ const minPrepend = minAppend;
 
 
 const minEmpty = maxBound => Min(maxBound);
-
-
-/******************************************************************************
-**********************************[ NEArray ]**********************************
-******************************************************************************/
-
-
-// The constructor of this type synonym only allows non-empty array
-// constructions. Please not that there are several common array combinators
-// like filter that cannot yield a non-empty array. Such combinators fall back
-// to ordinary arrays.
-
-
-const NEArray = x => record(NEArray, [x]);
-
-
-// TODO: add combinators
-
-
-/******************************************************************************
-**********************************[ NEList ]***********************************
-******************************************************************************/
-
-
-// The constructor of this type synonym only allows non-empty list
-// constructions. Please not that there are several common list combinators
-// like filter that cannot yield a non-empty list. Such combinators fall back
-// to ordinary lists.
-
-
-const NEList = x => record(NEList, Cons(x) (Nil));
-
-
-// TODO: add combinators
 
 
 /******************************************************************************
@@ -5351,7 +5313,7 @@ const firstPrepend = lastAppend;
 ******************************************************************************/
 
 
-const ArrayT = x => record(ArrayT, [x]);
+const ArrayT = x => record(ArrayT, [x]); // type synonym
 
 
 // TODO: change to ArrayT type synonym
@@ -5964,8 +5926,6 @@ module.exports = {
     : listAppendT,
   listChain: TC ? fun_(listChain) : listChain,
   listChainT: TC ? fun_(listChainT) : listChainT,
-  listCons: TC ? fun_(listCons) : listCons,
-  listCons_: TC ? fun_(listCons_) : listCons_,
   listEmpty: TC ? fun_(listEmpty) : listEmpty,
   listFold: TC ? fun_(listFold) : listFold,
   listFoldr: TC ? fun_(listFoldr) : listFoldr,
@@ -5997,12 +5957,12 @@ module.exports = {
   lzipCursor: TC ? fun_(lzipCursor) : lzipCursor,
   lzipDel: TC ? fun_(lzipDel) : lzipDel,
   lzipEnd: TC ? fun_(lzipEnd) : lzipEnd,
+  lzipExtract: TC ? fun_(lzipExtract) : lzipExtract,
   lzipFold: TC ? fun_(lzipFold) : lzipFold,
   lzipFoldr: TC ? fun_(lzipFoldr) : lzipFoldr,
   lzipFromList: TC ? fun_(lzipFromList) : lzipFromList,
   lzipFromListEnd: TC ? fun_(lzipFromListEnd) : lzipFromListEnd,
   lzipIns: TC ? fun_(lzipIns) : lzipIns,
-  lzipIsEmpty: TC ? fun_(lzipIsEmpty) : lzipIsEmpty,
   lzipIsEnd: TC ? fun_(lzipIsEnd) : lzipIsEnd,
   lzipIsStart: TC ? fun_(lzipIsStart) : lzipIsStart,
   lzipLeft: TC ? fun_(lzipLeft) : lzipLeft,
@@ -6038,9 +5998,7 @@ module.exports = {
   moduloRec: TC ? fun_(moduloRec) : moduloRec,
   monadRec: TC ? fun_(monadRec) : monadRec,
   mul: TC ? fun_(mul) : mul,
-  NEArray: TC ? fun_(NEArray) : NEArray,
   neg: TC ? fun_(neg) : neg,
-  NEList: TC ? fun_(NEList) : NEList,
   _new: TC ? fun_(_new) : _new,
   Nil,
   NilT: TC ? fun_(NilT) : NilT,
