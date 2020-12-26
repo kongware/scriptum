@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01;
 const PREFIX = "scriptum_";
 
 
-const TC = false; // type check
+const TC = true; // type check
 
 
 /******************************************************************************
@@ -1305,6 +1305,9 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 const ARRAY = {};
 
 
+// MutableArr @DERIVED
+
+
 /***[ Alternative ]***********************************************************/
 
 
@@ -1358,13 +1361,28 @@ const arrCons = x => xs =>
   [x].concat(xs);
 
 
+const arrConsx = x => xs => // safe-in-place-update variant
+  mutSet(xs_ =>
+    (xs_.unshift(x), xs_)) (xs);
+
+
 const arrCons_ = xs => x =>
   [x].concat(xs);
+
+
+const arrConsx_ = xs => x => // safe-in-place-update variant
+  mutSet(xs_ =>
+    (xs_.unshift(x), xs_)) (xs);
 
 
 const arrDel = i => xs =>
   xs.slice(0, i)
     .concat(xs.slice(i + 1));
+
+
+const arrDelx = i => xs =>  // safe-in-place-update variant
+  mutSet(xs_ =>
+    xs_.splice(i, 1));
 
 
 const arrGet = i => xs =>
@@ -1392,6 +1410,11 @@ const arrIns = i => x => xs =>
     .concat(x, xs.slice(i));
 
 
+const arrInsx = i => x => xs => // safe-in-place-update variant
+  mutSet(xs_ =>
+    xs_.splice(i, 0, x));
+
+
 const arrRem = i => xs =>
   Pair(
     xs[i],
@@ -1399,17 +1422,42 @@ const arrRem = i => xs =>
       .concat(xs.slice(i + 1)));
 
 
+const arrRemx = i => xs => // safe-in-place-update variant
+  mutSet(xs_ => {
+    const y = xs_.splice(i, 1);
+    return Pair(y, xs_);
+  });
+
+
 const arrSet = i => x => xs =>
   xs.slice(0, i)
     .concat(x, xs.slice(i + 1));
+
+
+const arrSetx = i => x => xs => // safe-in-place-update variant
+  mutSet(xs_ => (
+    i > xs_.length
+      ? xs_[xs_.length] = x
+      : xs_[i] = x),
+    xs_);
 
 
 const arrSnoc = x => xs =>
   xs.concat([x]);
 
 
+const arrSnocx = x => xs => // safe-in-place-update variant
+  mutSet(xs_ =>
+    (xs_.push(x), xs_)) (xs);
+
+
 const arrSnoc_ = xs => x =>
   xs.concat([x]);
+
+
+const arrSnocx_ = xs => x => // safe-in-place-update variant
+  mutSet(xs_ =>
+    (xs_.push(x), xs_)) (xs);
 
 
 const arrUncons = xs => {
@@ -1418,6 +1466,19 @@ const arrUncons = xs => {
 
   else
     return Some([xs[0], xs.slice(1)]);
+};
+
+
+const arrUnconsx = xs => {
+  mutSet(xs_ => {
+    if (xs_.length === 0)
+      return None;
+
+    else {
+      const y = xs_.splice(0, 1);
+      return Some([y, xs_]);
+    }
+  });
 };
 
 
@@ -1430,9 +1491,29 @@ const arrUnsnoc = xs => {
 };
 
 
+const arrUnsnocx = xs =>
+  mutSet(xs_ => {
+    if (xs_.length === 0)
+      return None;
+
+    else {
+      const y = xs_.splice(xs_.length - 1, 1);
+      return Some([y, xs_]);
+    }
+  });
+
+
 const arrUpd = i => f => xs =>
   xs.slice(0, i)
     .concat(f(xs[i]), xs.slice(i + 1));
+
+
+const arrUpdx = i => f => xs => // safe-in-place-update variant
+  mutSet(xs_ => (
+    i >= xs_.length
+      ? xs_
+      : xs_[i] = f(xs_[i]),
+    xs));
 
 
 /***[ Eq ]********************************************************************/
@@ -1601,11 +1682,21 @@ const arrAppend = xs => ys =>
   xs.concat(ys);
 
 
+const arrAppendx = xs => ys => // safe-in-place-update variant
+  xs.arr.set(xs_ =>
+    (xs_.push.apply(xs_, ys), xs_));
+
+
 ARRAY.append = arrAppend;
 
 
 const arrPrepend = ys => xs =>
   xs.concat(ys);
+
+
+const arrPrependx = ys => xs => // safe-in-place-update variant
+  xs.arr.set(xs_ =>
+    (xs_.push.apply(xs_, ys), xs_));
 
 
 ARRAY.prepend = arrPrepend;
@@ -2413,6 +2504,15 @@ const funOf = _const;
 const _Map = pairs => new Map(pairs);
 
 
+// MutableMap @Derived
+
+
+/***[ Clonable ]**************************************************************/
+
+
+const mapClone = m => new Map(m);
+
+
 /***[ Getters/Setters ]*******************************************************/
 
 
@@ -2684,6 +2784,9 @@ const formatInt = sep => ([s]) =>
 const OBJECT = {};
 
 
+// MutableObj @Derived
+
+
 /***[ Clonable ]**************************************************************/
 
 
@@ -2949,6 +3052,15 @@ const Rexu = Rexf("u");
 
 
 const _Set = xs => new Set(xs);
+
+
+// MutableSet @Derived
+
+
+/***[ Clonable ]**************************************************************/
+
+
+const setClone = m => new Set(m);
 
 
 /***[ Getters/Setters ]*******************************************************/
@@ -5685,6 +5797,30 @@ const scanDir_ = Async => path =>
 ******************************************************************************/
 
 
+const MutableArr = Mutable(arrClone);
+
+
+const MutableArr_ = Mutable_(arrClone);
+
+
+const MutableMap = Mutable(mapClone);
+
+
+const MutableMap_ = Mutable_(mapClone);
+
+
+const MutableObj = Mutable(objClone);
+
+
+const MutableObj_ = Mutable_(objClone);
+
+
+const MutableSet = Mutable(setClone);
+
+
+const MutableSet_ = Mutable_(setClone);
+
+
 const optmEmpty = None;
 
 
@@ -5738,6 +5874,13 @@ module.exports = {
             : true))
               (arrAppendT)
     : arrAppendT,
+  arrAppendx: TC
+    ? fun(xs => ys =>
+        introspect(ys) !== "Array"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (arrAppendx)
+    : arrAppendx,
   ARRAY,
   ArrayT: TC ? fun_(ArrayT) : ArrayT,
   arrChain: TC ? fun_(arrChain) : arrChain,
@@ -5751,8 +5894,11 @@ module.exports = {
   arrChainT: TC ? fun_(arrChainT) : arrChainT,
   arrClone: TC ? fun_(arrClone) : arrClone,
   arrCons: TC ? fun_(arrCons) : arrCons,
+  arrConsx: TC ? fun_(arrConsx) : arrConsx,
   arrCons_: TC ? fun_(arrCons_) : arrCons_,
+  arrConsx_: TC ? fun_(arrConsx_) : arrConsx_,
   arrDel: TC ? fun_(arrDel) : arrDel,
+  arrDelx: TC ? fun_(arrDelx) : arrDelx,
   arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
   arrEq: TC ? fun_(arrEq) : arrEq,
   arrFilter: TC ? fun_(arrFilter) : arrFilter,
@@ -5772,6 +5918,7 @@ module.exports = {
   arrGetWith: TC ? fun_(arrGetWith) : arrGetWith,
   arrGetter: TC ? fun_(arrGetter) : arrGetter,
   arrIns: TC ? fun_(arrIns) : arrIns,
+  arrInsx: TC ? fun_(arrInsx) : arrInsx,
   arrJoin: TC ? fun_(arrJoin) : arrJoin,
   arrKomp: TC ? fun_(arrKomp) : arrKomp,
   arrKomp3: TC ? fun_(arrKomp3) : arrKomp3,
@@ -5801,20 +5948,34 @@ module.exports = {
           : true)
             (arrPrepend)
     : arrPrepend,
+  arrPrependx: TC
+    ? fun(ys =>
+        introspect(ys) !== "Array"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (arrPrependx)
+    : arrPrependx,
   arrRead: TC ? fun_(arrRead) : arrRead,
   arrRem: TC ? fun_(arrRem) : arrRem,
+  arrRemx: TC ? fun_(arrRemx) : arrRemx,
   arrReverse: TC ? fun_(arrReverse) : arrReverse,
   arrSeqA: TC ? fun_(arrSeqA) : arrSeqA,
   arrSet: TC ? fun_(arrSet) : arrSet,
+  arrSetx: TC ? fun_(arrSetx) : arrSetx,
   arrSetter: TC ? fun_(arrSetter) : arrSetter,
   arrShow: TC ? fun_(arrShow) : arrShow,
   arrSnoc: TC ? fun_(arrSnoc) : arrSnoc,
+  arrSnocx: TC ? fun_(arrSnocx) : arrSnocx,
   arrSnoc_: TC ? fun_(arrSnoc_) : arrSnoc_,
+  arrSnocx_: TC ? fun_(arrSnocx_) : arrSnocx_,
   arrSum: TC ? fun_(arrSum) : arrSum,
   arrUncons: TC ? fun_(arrUncons) : arrUncons,
+  arrUnconsx: TC ? fun_(arrUnconsx) : arrUnconsx,
   arrUnfold: TC ? fun_(arrUnfold) : arrUnfold,
   arrUnsnoc: TC ? fun_(arrUnsnoc) : arrUnsnoc,
+  arrUnsnocx: TC ? fun_(arrUnsnocx) : arrUnsnocx,
   arrUpd: TC ? fun_(arrUpd) : arrUpd,
+  arrUpdx: TC ? fun_(arrUpdx) : arrUpdx,
   arrZero: TC ? fun_(arrZero) : arrZero,
   Base: TC ? fun_(Base) : Base,
   BOOL,
@@ -6102,6 +6263,7 @@ module.exports = {
   lzipStart: TC ? fun_(lzipStart) : lzipStart,
   lzipToList: TC ? fun_(lzipToList) : lzipToList,
   lzipUpd: TC ? fun_(lzipUpd) : lzipUpd,
+  mapClone: TC ? fun_(mapClone) : mapClone,
   mapDel: TC ? fun_(mapDel) : mapDel,
   mapEff: TC ? fun_(mapEff) : mapEff,
   mapHas: TC ? fun_(mapHas) : mapHas,
@@ -6131,6 +6293,14 @@ module.exports = {
   mul: TC ? fun_(mul) : mul,
   Mutable: TC ? fun_(Mutable) : Mutable,
   Mutable_: TC ? fun_(Mutable_) : Mutable_,
+  MutableArr: TC ? fun_(MutableArr) : MutableArr,
+  MutableArr_: TC ? fun_(MutableArr_) : MutableArr_,
+  MutableMap: TC ? fun_(MutableMap) : MutableMap,
+  MutableMap_: TC ? fun_(MutableMap_) : MutableMap_,
+  MutableObj: TC ? fun_(MutableObj) : MutableObj,
+  MutableObj_: TC ? fun_(MutableObj_) : MutableObj_,
+  MutableSet: TC ? fun_(MutableSet) : MutableSet,
+  MutableSet_: TC ? fun_(MutableSet_) : MutableSet_,
   neg: TC ? fun_(neg) : neg,
   _new: TC ? fun_(_new) : _new,
   Nil,
@@ -6267,6 +6437,7 @@ module.exports = {
   scanDir_: TC ? fun_(scanDir_) : scanDir_,
   ScriptumError,
   select: TC ? fun_(select) : select,
+  setClone: TC ? fun_(setClone) : setClone,
   setDel: TC ? fun_(setDel) : setDel,
   setGetter: TC ? fun_(setGetter) : setGetter,
   setHas: TC ? fun_(setHas) : setHas,
