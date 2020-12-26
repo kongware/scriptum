@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01;
 const PREFIX = "scriptum_";
 
 
-const TC = true; // type check
+const TC = false; // type check
 
 
 /******************************************************************************
@@ -1382,7 +1382,7 @@ const arrDel = i => xs =>
 
 const arrDelx = i => xs =>  // safe-in-place-update variant
   mutSet(xs_ =>
-    xs_.splice(i, 1));
+    xs_.splice(i, 1)) (xs);
 
 
 const arrGet = i => xs =>
@@ -1412,7 +1412,7 @@ const arrIns = i => x => xs =>
 
 const arrInsx = i => x => xs => // safe-in-place-update variant
   mutSet(xs_ =>
-    xs_.splice(i, 0, x));
+    xs_.splice(i, 0, x)) (xs);
 
 
 const arrRem = i => xs =>
@@ -1425,7 +1425,7 @@ const arrRem = i => xs =>
 const arrRemx = i => xs => // safe-in-place-update variant
   mutSet(xs_ => {
     const y = xs_.splice(i, 1);
-    return Pair(y, xs_);
+    return Pair(y, xs_) (xs);
   });
 
 
@@ -1439,7 +1439,7 @@ const arrSetx = i => x => xs => // safe-in-place-update variant
     i > xs_.length
       ? xs_[xs_.length] = x
       : xs_[i] = x),
-    xs_);
+    xs_) (xs);
 
 
 const arrSnoc = x => xs =>
@@ -1513,7 +1513,7 @@ const arrUpdx = i => f => xs => // safe-in-place-update variant
     i >= xs_.length
       ? xs_
       : xs_[i] = f(xs_[i]),
-    xs));
+    xs_)) (xs);
 
 
 /***[ Eq ]********************************************************************/
@@ -1540,12 +1540,12 @@ const arrFilter = p => xs =>
   xs.filter(p);
 
 
-const arrPartition = p => xs => pair =>
+const arrPartition = p => xs =>
   arrFold(([ys, zs]) => x =>
     p(x)
       ? Pair(ys.concat([x]), zs)
       : Pair(ys, zs.concat([x])))
-        (pair) (xs);
+        (Pair([], [])) (xs);
 
 
 /***[ Foldable ]**************************************************************/
@@ -2522,6 +2522,13 @@ const mapDel = k => m =>
     : m;
 
 
+const mapDelx = k => m => // safe-in-place-update variant
+  mutSet(m_ =>
+    m_.has(k)
+      ? m_.delete(k)
+      : m_) (m);
+
+
 const mapGet = k => m =>
   m.get(k);
 
@@ -2534,10 +2541,18 @@ const mapSet = k => v => m =>
   new Map(m).set(k, v);
 
 
+const mapSetx = k => v => m => // safe-in-place-update variant
+  mutSet(m_ => m_.set(k, v));
+
+
 const mapUpd = k => f => m =>
   m.has(k)
     ? new Map(m).set(k, f(m.get(k)))
     : m;
+
+
+const mapUpdx = k => f => m => // safe-in-place-update variant
+  mutSet(m_ => m_.set(k, f(m_.get(k))));
 
 
 /***[ Optics ]****************************************************************/
@@ -3072,12 +3087,24 @@ const setDel = k => s =>
     : s;
 
 
+const setDelx = k => s => // safe-in-place-update variant
+  mutSet(s_ =>
+    s_.has(k)
+      ? s_.delete(k)
+      : s_) (s);
+
+
 const setHas = k => s =>
   s.has(k);
 
 
 const setSet = k => v => s =>
   new Set(s).add(k, v);
+
+
+const setSetx = k => v => s => // safe-in-place-update variant
+  mutSet(s_ =>
+    s_.add(k, v)) (s);
 
 
 /***[ Optics ]****************************************************************/
@@ -5375,6 +5402,21 @@ const Quad = (_1, _2, _3, _4) => record(Quad, {
   }});
 
 
+/***[ Clonable ]**************************************************************/
+
+
+const pairClone = ({clonex, cloney}) => ([x, y]) =>
+  Pair(clonex(x), cloney(y));
+
+
+const tripClone = ({clonex, cloney, clonez}) => ([x, y, z]) =>
+  Triple(clonex(x), cloney(y), clonez(z));
+
+
+const quadClone = ({clonew, clonex, cloney, clonez}) => ([w, x, y, z]) =>
+  Triple(clonew(w), clonex(x), cloney(y), clonez(z));
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -6265,6 +6307,7 @@ module.exports = {
   lzipUpd: TC ? fun_(lzipUpd) : lzipUpd,
   mapClone: TC ? fun_(mapClone) : mapClone,
   mapDel: TC ? fun_(mapDel) : mapDel,
+  mapDelx: TC ? fun_(mapDelx) : mapDelx,
   mapEff: TC ? fun_(mapEff) : mapEff,
   mapHas: TC ? fun_(mapHas) : mapHas,
   mapGet: TC ? fun_(mapGet) : mapGet,
@@ -6272,8 +6315,10 @@ module.exports = {
   mapLens: TC ? fun_(mapLens) : mapLens,
   mapLensOpt: TC ? fun_(mapLensOpt) : mapLensOpt,
   mapSet: TC ? fun_(mapSet) : mapSet,
+  mapSetx: TC ? fun_(mapSetx) : mapSetx,
   mapSetter: TC ? fun_(mapSetter) : mapSetter,
   mapUpd: TC ? fun_(mapUpd) : mapUpd,
+  mapUpdx: TC ? fun_(mapUpdx) : mapUpdx,
   map: TC ? fun_(map) : map,
   mapk: TC ? fun_(mapk) : mapk,
   mapr: TC ? fun_(mapr) : mapr,
@@ -6382,6 +6427,7 @@ module.exports = {
   or: TC ? fun_(or) : or,
   orf: TC ? fun_(orf) : orf,
   Pair: TC ? fun_(Pair) : Pair,
+  pairClone: TC ? fun_(pairClone) : pairClone,
   pairMap: TC ? fun_(pairMap) : pairMap,
   pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
   Parallel: TC ? fun_(Parallel) : Parallel,
@@ -6414,6 +6460,7 @@ module.exports = {
   prodEmpty: TC ? fun_(prodEmpty) : prodEmpty,
   prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
   Quad: TC ? fun_(Quad) : Quad,
+  quadClone: TC ? fun_(quadClone) : quadClone,
   quadMap: TC ? fun_(quadMap) : quadMap,
   quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
   quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
@@ -6439,10 +6486,12 @@ module.exports = {
   select: TC ? fun_(select) : select,
   setClone: TC ? fun_(setClone) : setClone,
   setDel: TC ? fun_(setDel) : setDel,
+  setDelx: TC ? fun_(setDelx) : setDelx,
   setGetter: TC ? fun_(setGetter) : setGetter,
   setHas: TC ? fun_(setHas) : setHas,
   setLens: TC ? fun_(setLens) : setLens,
   setSet: TC ? fun_(setSet) : setSet,
+  setSetx: TC ? fun_(setSetx) : setSetx,
   setSetter: TC ? fun_(setSetter) : setSetter,
   shift: TC ? fun_(shift) : shift,
   Some: TC ? fun_(Some) : Some,
@@ -6537,6 +6586,7 @@ module.exports = {
   treeNodes: TC ? fun_(treeNodes) : treeNodes,
   treePaths: TC ? fun_(treePaths) : treePaths,
   Triple: TC ? fun_(Triple) : Triple,
+  tripClone: TC ? fun_(tripClone) : tripClone,
   tripMap: TC ? fun_(tripMap) : tripMap,
   tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
   tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
