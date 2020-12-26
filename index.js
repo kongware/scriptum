@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01;
 const PREFIX = "scriptum_";
 
 
-const TC = true; // type check
+const TC = false; // type check
 
 
 /******************************************************************************
@@ -855,6 +855,10 @@ const union = type => (tag, o) => (
 const match = (tx, o) => o[tx.tag] (tx);
 
 
+const matchAs = (tx, o) => o[tx.tag] (tx, tx);
+// deconstruct the 1st argument and   ^^  ^^ pass the 2nd one as is
+
+
 /******************************************************************************
 ****************************[ AUXILIARY FUNCTION ]*****************************
 ******************************************************************************/
@@ -1208,6 +1212,17 @@ const chainn = chain => ([mx, ...ms]) => fm =>
               (ms);
 
 
+const _do = ({chain, of}) => init => gtor => {
+  const go = ({done, value: x}) =>
+    done
+      ? of(x)
+      : chain(x) (y => go(it.next(y)));
+
+  const it = gtor(init);
+  return go(it.next());
+};
+
+
 const join = chain => ttx =>
   chain(ttx) (id);
 
@@ -1347,21 +1362,41 @@ const arrCons_ = xs => x =>
   [x].concat(xs);
 
 
-const arrDecon = i => xs =>
-  Pair(
-    xs[i],
-    xs.slice(0, i)
-      .concat(xs.slice(i + 1)));
-
-
 const arrDel = i => xs =>
   xs.slice(0, i)
     .concat(xs.slice(i + 1));
 
 
+const arrGet = i => xs =>
+  i < xs.length
+    ? Some(xs[i])
+    : None;
+
+
+const arrGetOr = def => i => xs =>
+  i < xs.length
+    ? xs[i]
+    : def;
+
+
+const arrGetWith = i => xs =>
+  Pair(
+    i < xs.length
+      ? Some(xs[i])
+      : None,
+    xs);
+
+
 const arrIns = i => x => xs =>
   xs.slice(0, i)
     .concat(x, xs.slice(i));
+
+
+const arrRem = i => xs =>
+  Pair(
+    xs[i],
+    xs.slice(0, i)
+      .concat(xs.slice(i + 1)));
 
 
 const arrSet = i => x => xs =>
@@ -3408,6 +3443,44 @@ const coyoChain = chain => ({coyo: [f, mx]}) => fm =>
 
 
 /******************************************************************************
+***********************************[ DEFER ]***********************************
+******************************************************************************/
+
+
+const Defer = defer => record(Defer, {get defer() {
+  return this.defer = defer();
+}});
+
+
+/***[Applicative]*************************************************************/
+
+
+const deferAp = tf => tx =>
+  Defer(() => tf.defer(tx.defer));
+
+
+const deferOf = x => Defer(() => x);
+
+
+/***[Functor]*****************************************************************/
+
+
+const deferMap = f => tx =>
+  Defer(() => f(tx.defer));
+
+
+/***[Monad]*******************************************************************/
+
+
+const deferChain = mx => fm =>
+  Defer(() => fm(mx.defer).defer);
+
+
+const deferJoin = mmx =>
+  Defer(() => mmx.defer.defer);
+
+
+/******************************************************************************
 **********************************[ EITHER ]***********************************
 ******************************************************************************/
 
@@ -3753,44 +3826,6 @@ const idChain = ({id: x}) => fm => fm(x);
 
 
 /******************************************************************************
-***********************************[ DEFER ]***********************************
-******************************************************************************/
-
-
-const Defer = defer => record(Defer, {get defer() {
-  return this.defer = defer();
-}});
-
-
-/***[Applicative]*************************************************************/
-
-
-const deferAp = tf => tx =>
-  Defer(() => tf.defer(tx.defer));
-
-
-const deferOf = x => Defer(() => x);
-
-
-/***[Functor]*****************************************************************/
-
-
-const deferMap = f => tx =>
-  Defer(() => f(tx.defer));
-
-
-/***[Monad]*******************************************************************/
-
-
-const deferChain = mx => fm =>
-  Defer(() => fm(mx.defer).defer);
-
-
-const deferJoin = mmx =>
-  Defer(() => mmx.defer.defer);
-
-
-/******************************************************************************
 ***********************************[ LAZY ]************************************
 ******************************************************************************/
 
@@ -4015,7 +4050,31 @@ const listUnfoldr = f => x =>
 /***[ Miscellaneous ]*********************************************************/
 
 
+const listHead = ({head: x}) => x;
+
+
+const listInit = xs => {
+  const go = ({head: x, tail: xs_}) => match(xs_, {
+    Nil: _ => Unwind(Nil),
+    Cons: _ => Wind(Cons(x)) (go) (xs_)
+  });
+
+  return moduloRec(go(xs));
+};
+
+
+const listLast =
+  tailRec(({head: x, tail: xs}) =>
+    match(xs, {
+      Nil: _ => Base(x),
+      Cons: _ => Loop(xs)
+    }));
+
+
 const listReverse = listFold(Cons_) (Nil);
+
+
+const listTail = ({tail: xs}) => xs;
 
 
 /***[ Derived ]***************************************************************/
@@ -4058,7 +4117,11 @@ const ListZipper = ls => x => rs =>
 /***[ Comonad ]***************************************************************/
 
 
-// TODO: const lzipExtrend = wf =>
+const lzipExtend = wf => tx =>
+  ListZipper(
+    lzipMap(wf) (comp(listTail) (iterate(lzipLeft)) (tx)))
+      (wf(tx.lzip[1]))
+        (lzipMap(wf) (comp(listTail) (iterate(lzipRight)) (tx)));
 
 
 // lzipExtract @Derived
@@ -4226,6 +4289,64 @@ const minPrepend = minAppend;
 
 
 const minEmpty = maxBound => Min(maxBound);
+
+
+/******************************************************************************
+**********************************[ MUTABLE ]**********************************
+******************************************************************************/
+
+
+const Mutable = clone => refType => // strict variant
+  record(Mutable, app(([o, refType]) => {
+    o.mutable = {
+      run: k => {
+        o.mutable.run = _ => {
+          throw new TypeError("illegal subsequent inspection");
+        };
+
+        o.mutable.set = _ => {
+          throw new TypeError("illegal subsequent mutation");
+        };
+
+        return k(refType);
+      },
+
+      set: k => {
+        k(refType);
+        return o;
+      }
+    }
+
+    return o;
+  }) ([{}, clone(refType)]));
+
+
+const Mutable_ = clone => refType => // non-strict variant
+  record(Mutable, app(([o, queue, refType]) => {
+    o.mutable = {
+      run: k => {
+        o.mutable.run = _ => {
+          throw new TypeError("illegal subsequent inspection");
+        };
+
+        o.mutable.set = _ => {
+          throw new TypeError("illegal subsequent mutation");
+        };
+
+        for (k_ of queue)
+          k_(refType);
+
+        return k(refType);
+      },
+
+      set: k => {
+        queue.push(k);
+        return o;
+      }
+    }
+
+    return o;
+  }) ([{}, [], clone(refType)]));
 
 
 /******************************************************************************
@@ -5631,7 +5752,6 @@ module.exports = {
   arrClone: TC ? fun_(arrClone) : arrClone,
   arrCons: TC ? fun_(arrCons) : arrCons,
   arrCons_: TC ? fun_(arrCons_) : arrCons_,
-  arrDecon: TC ? fun_(arrDecon) : arrDecon,
   arrDel: TC ? fun_(arrDel) : arrDel,
   arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
   arrEq: TC ? fun_(arrEq) : arrEq,
@@ -5647,6 +5767,9 @@ module.exports = {
   arrFoldk: TC ? fun_(arrFoldk) : arrFoldk,
   arrFoldr: TC ? fun_(arrFoldr) : arrFoldr,
   arrFoldT: TC ? fun_(arrFoldT) : arrFoldT,
+  arrGet: TC ? fun_(arrGet) : arrGet,
+  arrGetOr: TC ? fun_(arrGetOr) : arrGetOr,
+  arrGetWith: TC ? fun_(arrGetWith) : arrGetWith,
   arrGetter: TC ? fun_(arrGetter) : arrGetter,
   arrIns: TC ? fun_(arrIns) : arrIns,
   arrJoin: TC ? fun_(arrJoin) : arrJoin,
@@ -5679,6 +5802,7 @@ module.exports = {
             (arrPrepend)
     : arrPrepend,
   arrRead: TC ? fun_(arrRead) : arrRead,
+  arrRem: TC ? fun_(arrRem) : arrRem,
   arrReverse: TC ? fun_(arrReverse) : arrReverse,
   arrSeqA: TC ? fun_(arrSeqA) : arrSeqA,
   arrSet: TC ? fun_(arrSet) : arrSet,
@@ -5778,6 +5902,7 @@ module.exports = {
   deferOfT: TC ? fun_(deferOfT) : deferOfT,
   defunc: TC ? fun_(defunc) : defunc,
   div: TC ? fun_(div) : div,
+  _do: TC ? fun_(_do) : _do,
   drop: TC ? fun_(drop) : drop,
   dropk: TC ? fun_(dropk) : dropk,
   dropr: TC ? fun_(dropr) : dropr,
@@ -5933,6 +6058,9 @@ module.exports = {
   listFoldT: TC ? fun_(listFoldT) : listFoldT,
   listFromArr: TC ? fun_(listFromArr) : listFromArr,
   listFromArrT: TC ? fun_(listFromArrT) : listFromArrT,
+  listHead: TC ? fun_(listHead) : listHead,
+  listInit: TC ? fun_(listInit) : listInit,
+  listLast: TC ? fun_(listLast) : listLast,
   listLiftA2: TC ? fun_(listLiftA2) : listLiftA2,
   listLiftA3: TC ? fun_(listLiftA3) : listLiftA3,
   listLiftA4: TC ? fun_(listLiftA4) : listLiftA4,
@@ -5945,6 +6073,7 @@ module.exports = {
   listPrepend: TC ? fun_(listPrepend) : listPrepend,
   listReverse: TC ? fun_(listReverse) : listReverse,
   ListT: TC ? fun_(ListT) : ListT,
+  listTail: TC ? fun_(listTail) : listTail,
   listToArr: TC ? fun_(listToArr) : listToArr,
   listToArrT: TC ? fun_(listToArrT) : listToArrT,
   listUncons: TC ? fun_(listUncons) : listUncons,
@@ -5957,6 +6086,7 @@ module.exports = {
   lzipCursor: TC ? fun_(lzipCursor) : lzipCursor,
   lzipDel: TC ? fun_(lzipDel) : lzipDel,
   lzipEnd: TC ? fun_(lzipEnd) : lzipEnd,
+  lzipExtend: TC ? fun_(lzipExtend) : lzipExtend,
   lzipExtract: TC ? fun_(lzipExtract) : lzipExtract,
   lzipFold: TC ? fun_(lzipFold) : lzipFold,
   lzipFoldr: TC ? fun_(lzipFoldr) : lzipFoldr,
@@ -5986,6 +6116,7 @@ module.exports = {
   mapk: TC ? fun_(mapk) : mapk,
   mapr: TC ? fun_(mapr) : mapr,
   match: TC ? fun_(match) : match,
+  matchAs: TC ? fun_(matchAs) : matchAs,
   Max: TC ? fun_(Max) : Max,
   maxAppend: TC ? fun_(maxAppend) : maxAppend,
   maxn: TC ? fun_(maxn) : maxn,
@@ -5998,6 +6129,8 @@ module.exports = {
   moduloRec: TC ? fun_(moduloRec) : moduloRec,
   monadRec: TC ? fun_(monadRec) : monadRec,
   mul: TC ? fun_(mul) : mul,
+  Mutable: TC ? fun_(Mutable) : Mutable,
+  Mutable_: TC ? fun_(Mutable_) : Mutable_,
   neg: TC ? fun_(neg) : neg,
   _new: TC ? fun_(_new) : _new,
   Nil,
