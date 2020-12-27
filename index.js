@@ -2898,6 +2898,11 @@ function* objValues(o) {
 const objDel = k => ({[k]: _, ...o}) => o;
 
 
+const objDelx = k => o => // safe-in-place-update variant
+  mutSet(o_ =>
+    (Reflect.deleteProperty(o, k), o));
+
+
 const objDelPath = (...ks) => o =>
   arrFold(([p, ref, root]) => (k, i) => {
     if (!(k in p))
@@ -2924,12 +2929,12 @@ const objGet = k => o =>
     : Some(o[k]);
 
 
-const objGetWith = k => o =>
-  Pair(o[k], )
-
-
 const objGetOr = def => k => o =>
   k in o ? o[k] : def;
+
+
+const objGetWith = k => o =>
+  Pair(o[k], )
 
 
 const objGetPath = (...ks) => o => {
@@ -2956,8 +2961,21 @@ const objRem = k => ({[k]: k_, ...o}) =>
   Pair(k_, o);
 
 
+const objRemx = k => o => // safe-in-place-update variant
+  mutSet(o_ => {
+    const r = o_[k];
+    Reflect.deleteProperty(o_, k);
+    return Pair(r, o_);
+  });
+
+
 const objSet = k => v => o =>
   ({...o, [k]: v});
+
+
+const objSetx = k => v => o => // safe-in-place-update variant
+  mutSet(o_ =>
+    (o_[k] = v, o_));
 
 
 const objSetPath = (...ks) => v => o =>
@@ -2981,6 +2999,13 @@ const objUpd = k => f => o =>
   k in o
     ? ({...o, [k]: f(o[k])})
     : o;
+
+
+const objUpdx = k => f => o => // safe-in-place-update variant
+  mutSet(o_ =>
+    k in o_
+      ? (o_[k] = f(o_[k]), o_)
+      : o_);
 
 
 const objUpdPath = (...ks) => f => o =>
@@ -6394,6 +6419,7 @@ module.exports = {
   objClone: TC ? fun_(objClone) : objClone,
   objDel: TC ? fun_(objDel) : objDel,
   objDelPath: TC ? fun_(objDelPath) : objDelPath,
+  objDelx: TC ? fun_(objDelx) : objDelx,
   objEntries: TC ? fun_(objEntries) : objEntries,
   objFilter: TC ? fun_(objFilter) : objFilter,
   objFold: TC ? fun_(objFold) : objFold,
@@ -6401,6 +6427,7 @@ module.exports = {
   objGetOr: TC ? fun_(objGetOr) : objGetOr,
   objGetPath: TC ? fun_(objGetPath) : objGetPath,
   objGetPathOr: TC ? fun_(objGetPathOr) : objGetPathOr,
+  objGetWith: TC ? fun_(objGetWith) : objGetWith,
   objGetter: TC ? fun_(objGetter) : objGetter,
   objKeys: TC ? fun_(objKeys) : objKeys,
   objLens: TC ? fun_(objLens) : objLens,
@@ -6408,11 +6435,14 @@ module.exports = {
   objMap: TC ? fun_(objMap) : objMap,
   objPartition: TC ? fun_(objPartition) : objPartition,
   objRem: TC ? fun_(objRem) : objRem,
+  objRemx: TC ? fun_(objRemx) : objRemx,
   objSet: TC ? fun_(objSet) : objSet,
   objSetPath: TC ? fun_(objSetPath) : objSetPath,
   objSetter: TC ? fun_(objSetter) : objSetter,
+  objSetx: TC ? fun_(objSetx) : objSetx,
   objUpd: TC ? fun_(objUpd) : objUpd,
   objUpdPath: TC ? fun_(objUpdPath) : objUpdPath,
+  objUpdx: TC ? fun_(objUpdx) : objUpdx,
   objValues: TC ? fun_(objValues) : objValues,
   Of,
   Option: TC ? fun_(Option) : Option,
