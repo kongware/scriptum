@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01;
 const PREFIX = "scriptum_";
 
 
-const TC = false; // type check
+const TC = true; // type check
 
 
 /******************************************************************************
@@ -4425,9 +4425,9 @@ const minEmpty = maxBound => Min(maxBound);
 
 
 // Mutable allows safe in-place updates. The type has a
-// copy-at-most-once-on-first-write semantics. It eagerly writes n-times even
-// though the mutable value might never be actually consumed. It can only be
-// consumed once.
+// copy-at-most-once-on-first-write semantics. It strictly writes n-times even
+// though the mutable value might never be actually consumed. Mutable values
+// can only be consumed once.
 
 
 const Mutable = clone => refType => // strict variant
@@ -4462,7 +4462,8 @@ const Mutable = clone => refType => // strict variant
 
 // Mutable allows safe in-place updates. The type has a
 // copy-at-most-once-on-read semantics. It non-strictly writes n-times only if
-// the mutable vlaue is actually consumed. It can only be consumed once.
+// the mutable value is actually consumed. Mutable values can only be consumed
+// once.
 
 
 const Mutable_ = clone => refType => // non-strict variant
