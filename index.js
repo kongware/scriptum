@@ -137,7 +137,7 @@ class FunProxy {
 
     if (this.pred !== null) {
       this.pred = this.pred(...args)
-// may ei ^^^^^^^^^^^^^^^^^^ ther return a boolean or another predicate
+//     may either ^^^^^^^^^^^^^^^^^^ return a boolean or another predicate
 
       if (this.pred === false)
         throw new TypeError("illegal argument type");
@@ -170,14 +170,6 @@ class FunProxy {
 
 
 class ObjProxy {
-  defineProperty(o, k, dtor) {
-    throw new TypeError(`illegal mutation in "${k}"`);
-  }
-  
-  deleteProperty(o, k) {
-    throw new TypeError(`illegal mutation in "${k}"`);
-  }
-
   get(o, k) {
     if (k === OBJ)
       return true;
@@ -196,18 +188,6 @@ class ObjProxy {
 
     else return o[k];
   }
-
-  set(o, k, v) {
-    if (o[k] && o[k] [THUNK]) {
-// allow mutati ^^^^^^^^^^^^ ons to replace once evaluated thunks with its
-// result
-      o[k] = v;
-      return true;      
-    }
-
-    else
-      throw new TypeError(`illegal mutation in "${k}"`);
-  }  
 }
 
 
@@ -1825,7 +1805,12 @@ const arrNull = xs =>
   xs.length === 0;
 
 
-const arrReverse = xs => xs.reverse();
+const arrReverse = xs =>
+  arrClone(xs).reverse();
+
+
+const arrReversex = xs =>
+  mutSet(xs_ => xs_.reverse());
 
 
 /***[ Derived ]***************************************************************/
@@ -2819,11 +2804,7 @@ const objClone = o => {
 OBJECT.clone = objClone;
 
 
-/***[ De-/Construction ]******************************************************/
-
-
-const objDecon = k => ({[k]: k, ...o}) =>
-  Pair(k, o);
+/***[ Con-/Deconstruction ]***************************************************/
 
 
 const thisify = f => f({});
@@ -2943,6 +2924,10 @@ const objGet = k => o =>
     : Some(o[k]);
 
 
+const objGetWith = k => o =>
+  Pair(o[k], )
+
+
 const objGetOr = def => k => o =>
   k in o ? o[k] : def;
 
@@ -2965,6 +2950,10 @@ const objGetPathOr = def => (...ks) => o => {
 
   return go(o, 0);
 };
+
+
+const objRem = k => ({[k]: k_, ...o}) =>
+  Pair(k_, o);
 
 
 const objSet = k => v => o =>
@@ -4435,8 +4424,14 @@ const minEmpty = maxBound => Min(maxBound);
 ******************************************************************************/
 
 
+// Mutable allows safe in-place updates. The type has a
+// copy-at-most-once-on-first-write semantics. It eagerly writes n-times even
+// though the mutable value might never be actually consumed. It can only be
+// consumed once.
+
+
 const Mutable = clone => refType => // strict variant
-  record(Mutable, app(([o, refType]) => {
+  record(Mutable, app(([o, initialCall, refType]) => {
     o.mutable = {
       run: k => {
         o.mutable.run = _ => {
@@ -4451,13 +4446,23 @@ const Mutable = clone => refType => // strict variant
       },
 
       set: k => {
+        if (initialCall) {
+          initialCall = false;
+          refType = clone(refType);
+        }
+
         k(refType);
         return o;
       }
     }
 
     return o;
-  }) ([{}, clone(refType)]));
+  }) ([{}, true, refType]));
+
+
+// Mutable allows safe in-place updates. The type has a
+// copy-at-most-once-on-read semantics. It non-strictly writes n-times only if
+// the mutable vlaue is actually consumed. It can only be consumed once.
 
 
 const Mutable_ = clone => refType => // non-strict variant
@@ -4472,6 +4477,8 @@ const Mutable_ = clone => refType => // non-strict variant
           throw new TypeError("illegal subsequent mutation");
         };
 
+        refType = clone(refType);
+
         for (k_ of queue)
           k_(refType);
 
@@ -4485,7 +4492,7 @@ const Mutable_ = clone => refType => // non-strict variant
     }
 
     return o;
-  }) ([{}, [], clone(refType)]));
+  }) ([{}, [], refType]));
 
 
 /******************************************************************************
@@ -5405,15 +5412,24 @@ const Quad = (_1, _2, _3, _4) => record(Quad, {
 /***[ Clonable ]**************************************************************/
 
 
-const pairClone = ({clonex, cloney}) => ([x, y]) =>
+const pairClone = ([x, y]) => Pair(x, y);
+
+
+const tripClone = ([x, y, z]) => Triple(x, y, z);
+
+
+const quadClone = ([w, x, y, z]) => Quad(w, x, y, z);
+
+
+const pairClone1 = ({clonex, cloney}) => ([x, y]) =>
   Pair(clonex(x), cloney(y));
 
 
-const tripClone = ({clonex, cloney, clonez}) => ([x, y, z]) =>
+const tripClone1 = ({clonex, cloney, clonez}) => ([x, y, z]) =>
   Triple(clonex(x), cloney(y), clonez(z));
 
 
-const quadClone = ({clonew, clonex, cloney, clonez}) => ([w, x, y, z]) =>
+const quadClone1 = ({clonew, clonex, cloney, clonez}) => ([w, x, y, z]) =>
   Triple(clonew(w), clonex(x), cloney(y), clonez(z));
 
 
@@ -6375,7 +6391,6 @@ module.exports = {
   numTrunc: TC ? fun_(numTrunc) : numTrunc,
   obj,
   objClone: TC ? fun_(objClone) : objClone,
-  objDecon: TC ? fun_(objDecon) : objDecon,
   objDel: TC ? fun_(objDel) : objDel,
   objDelPath: TC ? fun_(objDelPath) : objDelPath,
   objEntries: TC ? fun_(objEntries) : objEntries,
@@ -6391,6 +6406,7 @@ module.exports = {
   objLensOpt: TC ? fun_(objLensOpt) : objLensOpt,
   objMap: TC ? fun_(objMap) : objMap,
   objPartition: TC ? fun_(objPartition) : objPartition,
+  objRem: TC ? fun_(objRem) : objRem,
   objSet: TC ? fun_(objSet) : objSet,
   objSetPath: TC ? fun_(objSetPath) : objSetPath,
   objSetter: TC ? fun_(objSetter) : objSetter,
@@ -6428,6 +6444,7 @@ module.exports = {
   orf: TC ? fun_(orf) : orf,
   Pair: TC ? fun_(Pair) : Pair,
   pairClone: TC ? fun_(pairClone) : pairClone,
+  pairClone1: TC ? fun_(pairClone1) : pairClone1,
   pairMap: TC ? fun_(pairMap) : pairMap,
   pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
   Parallel: TC ? fun_(Parallel) : Parallel,
@@ -6461,6 +6478,7 @@ module.exports = {
   prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
   Quad: TC ? fun_(Quad) : Quad,
   quadClone: TC ? fun_(quadClone) : quadClone,
+  quadClone1: TC ? fun_(quadClone1) : quadClone1,
   quadMap: TC ? fun_(quadMap) : quadMap,
   quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
   quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
@@ -6587,6 +6605,7 @@ module.exports = {
   treePaths: TC ? fun_(treePaths) : treePaths,
   Triple: TC ? fun_(Triple) : Triple,
   tripClone: TC ? fun_(tripClone) : tripClone,
+  tripClone1: TC ? fun_(tripClone1) : tripClone1,
   tripMap: TC ? fun_(tripMap) : tripMap,
   tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
   tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
