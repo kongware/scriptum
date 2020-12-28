@@ -32,13 +32,13 @@ const fs = require("fs");
 ******************************************************************************/
 
 
-const MICROTASK_TRESHOLD = 0.01;
+const MICROTASK_TRESHOLD = 0.01; // internal
 
 
-const PREFIX = "scriptum_";
+const PREFIX = "scriptum_"; // internal
 
 
-const TC = true; // type check
+const TC = false; // global type check flag (internal)
 
 
 /******************************************************************************
@@ -126,7 +126,7 @@ const obj = o => {
 
 class FunProxy {
   constructor(pred) {
-    this.pred = pred;
+    this.pred = pred; // custom type checks
   }
 
   apply(f, that, args) {
@@ -161,7 +161,7 @@ class FunProxy {
     if (k === FUN)
       return true;
 
-    else if (k === Symbol.toPrimitive)
+    else if (k === Symbol.toPrimitive) // prevents implicit type coercion
       throw new TypeError("illegal type coercion");
 
     else return f[k];
@@ -180,7 +180,7 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    if (k === Symbol.toPrimitive)
+    if (k === Symbol.toPrimitive) // prevents implicit type coercion
       throw new TypeError("illegal type coercion");
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
@@ -2050,15 +2050,43 @@ const funContra = g => f => x =>
 
 
 const curry = f => x => y =>
+  f(Pair(x, y));
+
+
+const curry_ = f => x => y =>
   f(x, y);
 
 
 const curry3 = f => x => y => z =>
+  f(Triple(x, y, z));
+
+
+const curry3_ = f => x => y => z =>
   f(x, y, z);
 
 
 const curry4 = f => w => x => y => z =>
+  f(Quad(w, x, y, z));
+
+
+const curry4_ = f => w => x => y => z =>
   f(w, x, y, z);
+
+
+const curryn = n => f => {
+  const go = acc =>
+    acc.length < n - 1
+      ? x => go((acc.push(x), acc))
+      : x => f((acc.push(x), acc));
+
+  return go([]);
+};
+
+
+const curryn_ = n => f =>
+  n > 1
+    ? x => curryn_(n - 1) (f.bind(null, x))
+    : x => f(x);
 
 
 const partial = (f, ...args) => (...args_) =>
@@ -2069,16 +2097,36 @@ const partialProps = (f, o) => p =>
   f({...o, ...p});
 
 
-const uncurry = f => (x, y) =>
+const uncurry = f => ([x, y]) =>
   f(x) (y);
 
 
-const uncurry3 = f => (x, y, z) =>
+const uncurry_ = f => (x, y) =>
+  f(x) (y);
+
+
+const uncurry3 = f => ([x, y, z]) =>
   f(x) (y) (z);
 
 
-const uncurry4 = f => (w, x, y, z) =>
+const uncurry3_ = f => (x, y, z) =>
+  f(x) (y) (z);
+
+
+const uncurry4 = f => ([w, x, y, z]) =>
   f(w) (x) (y) (z);
+
+
+const uncurry4_ = f => (w, x, y, z) =>
+  f(w) (x) (y) (z);
+
+
+const uncurryn =
+  arrFold(f => x => f(x));
+
+
+const uncurryn_ = f => (...tuple) =>
+  arrFold(g => x => g(x)) (f) (tuple);
 
 
 /***[ Debugging ]*************************************************************/
@@ -2275,8 +2323,8 @@ const appRest = f => (...args) =>
   f(args);
 
 
-const appSpread = f => tuple =>
-  f(...tuple);
+const appSpread = f => args =>
+  f(...args);
 
 
 /***[ Primitives ]************************************************************/
@@ -4521,6 +4569,17 @@ const Mutable_ = clone => refType => // non-strict variant
   }) ([{}, [], refType]));
 
 
+/***[ Miscellaneous ]*********************************************************/
+
+
+const mutRun = k => o =>
+  o.mutable.run(k);
+
+
+const mutSet = k => o =>
+  o.mutable.set(k);
+
+
 /******************************************************************************
 ***********************************[ OPTIC ]***********************************
 ******************************************************************************/
@@ -4997,6 +5056,44 @@ const storeExtract = ({store: [f, x]}) => f(x);
 
 
 /******************************************************************************
+**********************************[ STREAM ]***********************************
+******************************************************************************/
+
+
+// The decisive property of streams is that the next step can be selected by
+// a Monad. This is not possible or at least quite hard with lists. Stream has
+// a rather complex type, hence here is the respective Haskell signature:
+
+// data Stream m a r = forall s. Stream (s -> m (Step s o r)) (m s)
+
+// data Step s a r
+//   = Emit s a
+//   | Skip s
+//   | Stop r
+
+// m is a monad
+// s is the state
+// a is the emitted value
+// r is the final result
+
+
+const Stream = next => state =>
+  record(Stream, {next, state});
+
+
+const Step = union("Step");
+
+
+const Emit = state => x => Step(Emit, {state, x});
+
+
+const Skip = state => Step(Skip, {state});
+
+
+const Stop = r => Step(Stop, {r});
+
+
+/******************************************************************************
 ************************************[ SUM ]************************************
 ******************************************************************************/
 
@@ -5470,6 +5567,9 @@ const pairMap1st = f => ([x, y]) =>
   Pair(f(x), y);
 
 
+const pairMap2nd = pairMap;
+
+
 const tripMap = f => ([x, y, z]) =>
   Triple(x, y, f(z));
 
@@ -5480,6 +5580,9 @@ const tripMap1st = f => ([x, y, z]) =>
 
 const tripMap2nd = f => ([x, y, z]) =>
   Triple(x, f(y), z);
+
+
+const tripMap3rd = tripMap;
 
 
 const quadMap = f => ([w, x, y, z]) =>
@@ -5496,6 +5599,15 @@ const quadMap2nd = f => ([w, x, y, z]) =>
 
 const quadMap3rd = f => ([w, x, y, z]) =>
   Quad(w, x, f(y), z);
+
+
+const quadMap4th = quadMap;
+
+
+/***[ Miscellaneous ]*********************************************************/
+
+
+const pairSwap = ([x, y]) => Pair(y, x);
 
 
 /******************************************************************************
@@ -6131,8 +6243,13 @@ module.exports = {
   ctorEmpty: TC ? fun_(ctorEmpty) : ctorEmpty,
   ctorPrepend: TC ? fun_(ctorPrepend) : ctorPrepend,
   curry: TC ? fun_(curry) : curry,
+  curry_: TC ? fun_(curry_) : curry_,
   curry3: TC ? fun_(curry3) : curry3,
+  curry3_: TC ? fun_(curry3_) : curry3_,
   curry4: TC ? fun_(curry4) : curry4,
+  curry4_: TC ? fun_(curry4_) : curry4_,
+  curryn: TC ? fun_(curryn) : curryn,
+  curryn_: TC ? fun_(curryn_) : curryn_,
   debug,
   debugIf,
   delayf: TC ? fun_(delayf) : delayf,
@@ -6388,6 +6505,8 @@ module.exports = {
   MutableObj_: TC ? fun_(MutableObj_) : MutableObj_,
   MutableSet: TC ? fun_(MutableSet) : MutableSet,
   MutableSet_: TC ? fun_(MutableSet_) : MutableSet_,
+  mutRun: TC ? fun_(mutRun) : mutRun,
+  mutSet: TC ? fun_(mutSet) : mutSet,
   neg: TC ? fun_(neg) : neg,
   _new: TC ? fun_(_new) : _new,
   Nil,
@@ -6478,6 +6597,8 @@ module.exports = {
   pairClone1: TC ? fun_(pairClone1) : pairClone1,
   pairMap: TC ? fun_(pairMap) : pairMap,
   pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
+  pairMap2nd: TC ? fun_(pairMap2nd) : pairMap2nd,
+  pairSwap: TC ? fun_(pairSwap) : pairSwap,
   Parallel: TC ? fun_(Parallel) : Parallel,
   paraAll: TC ? fun_(paraAll) : paraAll,
   paraAnd: TC ? fun_(paraAnd) : paraAnd,
@@ -6514,6 +6635,7 @@ module.exports = {
   quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
   quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
   quadMap3rd: TC ? fun_(quadMap3rd) : quadMap3rd,
+  quadMap4th: TC ? fun_(quadMap4th) : quadMap4th,
   raceAppend: TC ? fun_(raceAppend) : raceAppend,
   raceEmpty: TC ? fun_(raceEmpty) : raceEmpty,
   racePrepend: TC ? fun_(racePrepend) : racePrepend,
@@ -6640,9 +6762,15 @@ module.exports = {
   tripMap: TC ? fun_(tripMap) : tripMap,
   tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
   tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
+  tripMap3rd: TC ? fun_(tripMap3rd) : tripMap3rd,
   uncurry: TC ? fun_(uncurry) : uncurry,
+  uncurry_: TC ? fun_(uncurry_) : uncurry_,
   uncurry3: TC ? fun_(uncurry3) : uncurry3,
+  uncurry3_: TC ? fun_(uncurry3_) : uncurry3_,
   uncurry4: TC ? fun_(uncurry4) : uncurry4,
+  uncurry4_: TC ? fun_(uncurry4_) : uncurry4_,
+  uncurryn: TC ? fun_(uncurryn) : uncurryn,
+  uncurryn_: TC ? fun_(uncurryn_) : uncurryn_,
   union: TC ? fun_(union) : union,
   Wind,
   Writer: TC ? fun_(Writer) : Writer,
