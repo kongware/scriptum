@@ -1768,7 +1768,7 @@ const arrMapA = ({fold, map, ap, of}) => f => xs => {
 ARRAY.mapA = arrMapA;
 
 
-const arrSeqA = ({fold, map, ap, of}) => // TODO: refactor to liftA2
+const arrSeqA = ({fold, map, ap, of}) =>
   fold(liftA2({map, ap}) (arrSnoc_)) (of([]));
 
 
@@ -5964,6 +5964,124 @@ const listOfT = of => x =>
 
 
 /******************************************************************************
+************************************[ DOM ]************************************
+******************************************************************************/
+
+
+/***[ Behavior ]**************************************************************/
+
+
+// Behavior represents values that vary over time. It has a continuous state,
+// which is safe, because it is decoupled from the parent scope. A Behavior can
+// be observed by passing a function.
+
+
+const DomBehavior = ({type, selector, options}) => handle => init => {
+  const state = Object.assign({}, init),
+    cancel = domListen({type, selector, options}) (handle(state));
+
+  const o = record(DomBehavior, {
+    cancel: () => {
+      cancel();
+
+      o.observe = _ => {
+        throw new TypeError("cancelled behavior");
+      }
+    },
+
+    observe: k => k({...state})
+  });
+
+  return o;
+};
+
+
+/***[ Observable ]************************************************************/
+
+
+// Observable represents events. It has distinct state that varies over time.
+// An Observable can be observed by subscribing to the underlying event. We use
+// Observables instead of events directly to rely on event delegation.
+// Observables are only listening if there is at least one subscription.
+
+
+const DomObservable = ({type, selector, options}) => {
+  const delegate = pair => handlers.forEach(f => f(pair)),
+    handlers = new Set();
+  
+  let status = "initial", cancel = () => null;
+
+  return record(DomObservable, {
+    cancel: () => {
+      if (handlers.size === 0) {
+        cancel();
+        status = "canceled";
+        return null;
+      }
+
+      else throw new TypeError("non-empty event listener");
+    },
+
+    subscribe: f => {
+      if (status != "canceled") {
+        handlers.add(f);
+
+        if (status === "initial" || status === "pending")
+          cancel = domListen({type, selector, options}) (delegate);
+
+        status = "listening";
+      }
+
+      else throw new TypeError("disabled event listener");
+
+      return null;
+    },
+
+    unsubscribe: f => {
+      if (status != "canceled") {
+        handlers.delete(f);
+
+        if (handlers.size === 0) {
+          cancel();
+          status = "pending";
+        }
+      }
+
+      else throw new TypeError("disabled event listener");
+      return null;
+    },
+
+    isSubcribed: f => {
+      if (status != "canceled")
+        return handlers.has(f);
+
+      else throw new TypeError("disabled event listener");
+    },
+
+    status
+  });
+};
+
+
+/***[ Event Listener ]********************************************************/
+
+
+const domListen = ({type, selector, options}) => handle => {
+  const listen = event => {
+    const target = event.target.closest(selector);
+
+    if (target)
+      handle(Pair(event, target));
+
+    return null;
+  };
+
+  document.addEventListener(type, listen, options);
+  return () => document.removeEventListener(type, listen, options);
+};
+
+
+/******************************************************************************
 ********************************[ FILE SYSTEM ]********************************
 ******************************************************************************/
 
@@ -6265,6 +6383,9 @@ module.exports = {
   defunc: TC ? fun_(defunc) : defunc,
   div: TC ? fun_(div) : div,
   _do: TC ? fun_(_do) : _do,
+  DomBehavior: TC ? fun_(DomBehavior) : DomBehavior,
+  domListen: TC ? fun_(domListen) : domListen,
+  DomObservable: TC ? fun_(DomObservable) : DomObservable,
   drop: TC ? fun_(drop) : drop,
   dropk: TC ? fun_(dropk) : dropk,
   dropr: TC ? fun_(dropr) : dropr,
