@@ -5077,20 +5077,32 @@ const storeExtract = ({store: [f, x]}) => f(x);
 // r is the final result
 
 
-const Stream = next => state =>
-  record(Stream, {next, state});
+const Stream = step => state => record(Stream, {step, state});
 
 
 const Step = union("Step");
 
 
-const Emit = state => x => Step(Emit, {state, x});
+const Emit = state => emit => Step(Emit, {state, emit});
 
 
-const Skip = state => Step(Skip, {state});
+const Skip = skip => Step(Skip, {skip});
 
 
-const Stop = r => Step(Stop, {r});
+const Stop = result => Step(Stop, {result});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const streamMap = ({chain, of}) => f => ({step, state: ms}) =>
+  Stream(s =>
+    chain(step(s)) (tx =>
+      of(match(tx, {
+        Emit: ({state: s_, emit: x}) => Emit(s_) (f(x)),
+        Skip: id,
+        Stop: id
+      })))) (ms);
 
 
 /******************************************************************************
@@ -6399,6 +6411,7 @@ module.exports = {
   eithMap: TC ? fun_(eithMap) : eithMap,
   eithOf: TC ? fun_(eithOf) : eithOf,
   eithOfT: TC ? fun_(eithOfT) : eithOfT,
+  Emit: TC ? fun_(Emit) : Emit,
   endoAppend: TC ? fun_(endoAppend) : endoAppend,
   endoEmpty: TC ? fun_(endoEmpty) : endoEmpty,
   endoPrepend: TC ? fun_(endoPrepend) : endoPrepend,
@@ -6786,6 +6799,7 @@ module.exports = {
   setSetx: TC ? fun_(setSetx) : setSetx,
   setSetter: TC ? fun_(setSetter) : setSetter,
   shift: TC ? fun_(shift) : shift,
+  Skip: TC ? fun_(Skip) : Skip,
   Some: TC ? fun_(Some) : Some,
   State: TC ? fun_(State) : State,
   stateAp: TC ? fun_(stateAp) : stateAp,
@@ -6798,10 +6812,13 @@ module.exports = {
   stateModify: TC ? fun_(stateModify) : stateModify,
   stateOf: TC ? fun_(stateOf) : stateOf,
   statePut: TC ? fun_(statePut) : statePut,
+  Stop: TC ? fun_(Stop) : Stop,
   Store: TC ? fun_(Store) : Store,
   storeExtend: TC ? fun_(storeExtend) : storeExtend,
   storeExtract: TC ? fun_(storeExtract) : storeExtract,
   strAppend: TC ? fun_(strAppend) : strAppend,
+  Stream: TC ? fun_(Stream) : Stream,
+  streamMap: TC ? fun_(streamMap) : streamMap,
   strEmpty,
   strict: TC ? fun_(strict) : strict,
   strictRec: TC ? fun_(strictRec) : strictRec,
