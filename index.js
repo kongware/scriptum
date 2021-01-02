@@ -1193,10 +1193,10 @@ const chainn = chain => ([mx, ...ms]) => fm =>
 
 
 const _do = ({chain, of}) => init => gtor => {
-  const go = ({done, value: x}) =>
+  const go = ({done, value: mx}) =>
     done
-      ? of(x)
-      : chain(x) (y => go(it.next(y)));
+      ? of(mx)
+      : chain(mx) (x => go(it.next(x)));
 
   const it = gtor(init);
   return go(it.next());
@@ -1276,10 +1276,6 @@ const optmPrepend = optmAppend; // pass prepend as type dictionary
 /******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
-
-
-// Please note that their is no distinct non-empty array type in scriptum,
-// since I fail to see the benefits of such type.
 
 
 const ARRAY = {};
@@ -3338,7 +3334,7 @@ const strReplaceBy = rx => f => s =>
 ******************************************************************************/
 
 
-const All = all => record(All, {all});
+const All = b => record(All, {all: b});
 
 
 /***[ Monoid ]****************************************************************/
@@ -3359,7 +3355,7 @@ const allEmpty = All(true);
 ******************************************************************************/
 
 
-const Any = any => record(Any, {any});
+const Any = b => record(Any, {any: b});
 
 
 /***[ Monoid ]****************************************************************/
@@ -3445,14 +3441,14 @@ const ctorEmpty = EQ;
 ******************************************************************************/
 
 
-const Compare = cmp => record(Compare, {cmp});
+const Compare = f => record(Compare, {cmp: f});
 
 
 /***[ Contravariant ]*********************************************************/
 
 
-const cmpContra = f => tf =>
-  Compare(compOn(tf.cmp) (f));
+const cmpContra = f => tx =>
+  Compare(compOn(tx.cmp) (f));
 
 
 /***[ Monoid ]****************************************************************/
@@ -3476,7 +3472,7 @@ const cmpEmpty = _ => _ => ctorEmpty;
 ******************************************************************************/
 
 
-const Const = _const => record(Const, {const: _const});
+const Const = x => record(Const, {const: x});
 
 
 /***[Applicative]*************************************************************/
@@ -3682,6 +3678,14 @@ const deferJoin = mmx =>
 
 
 /******************************************************************************
+***********************************[ DLIST ]***********************************
+******************************************************************************/
+
+
+// TODO: difference List
+
+
+/******************************************************************************
 **********************************[ EITHER ]***********************************
 ******************************************************************************/
 
@@ -3774,22 +3778,22 @@ const envExtract = ({env: [, x]}) => x;
 ******************************************************************************/
 
 
-const Equiv = equiv => record(Equiv, {equiv});
+const Equiv = f => record(Equiv, {equiv: f});
 
 
 /***[ Contravariant Functor ]*************************************************/
 
 
-const equivContra = f => tf =>
-  Equiv(compOn(tf.equiv) (f));
+const equivContra = f => tx =>
+  Equiv(compOn(tx.equiv) (f));
 
 
 /***[ Monoid ]****************************************************************/
 
 
-const equivAppend = tf => tg =>
+const equivAppend = tx => ty =>
   Equiv(x => y =>
-    tf.equiv(x) (y) && tg.equiv(x) (y));
+    tx.equiv(x) (y) && ty.equiv(x) (y));
 
 
 const equivPrepend = equivAppend;
@@ -3803,7 +3807,7 @@ const equivEmpty = Equiv(x => y => true);
 ******************************************************************************/
 
 
-const First = first => record(First, {first});
+const First = x => record(First, {first: x});
 
 
 /***[ Semigroup ]*************************************************************/
@@ -3974,7 +3978,7 @@ const iarrSet = i => x => xs =>
 ******************************************************************************/
 
 
-const Id = id => record(Id, {id});
+const Id = x => record(Id, {id: x});
 
 
 /***[Applicative]*************************************************************/
@@ -4070,7 +4074,7 @@ const lazyJoin = mmx =>
 ******************************************************************************/
 
 
-const Last = last => record(Last, {last});
+const Last = x => record(Last, {last: x});
 
 
 /***[ Semigroup ]*************************************************************/
@@ -4455,7 +4459,7 @@ const lzipExtract = lzipCursor;
 ******************************************************************************/
 
 
-const Max = max => record(Max, {max});
+const Max = x => record(Max, {max: x});
 
 
 /***[ Monoid ]****************************************************************/
@@ -4476,7 +4480,7 @@ const maxEmpty = minBound => Max(minBound);
 ******************************************************************************/
 
 
-const Min = min => record(Min, {min});
+const Min = x => record(Min, {min: x});
 
 
 /***[ Monoid ]****************************************************************/
@@ -4581,11 +4585,27 @@ const mutSet = k => o =>
 
 
 /******************************************************************************
+**********************************[ NEARRAY ]**********************************
+******************************************************************************/
+
+
+// TODO: non-empty Array (maybe by suptyping from Array?)
+
+
+/******************************************************************************
+**********************************[ NELIST ]***********************************
+******************************************************************************/
+
+
+// TODO: non-empty List
+
+
+/******************************************************************************
 ***********************************[ OPTIC ]***********************************
 ******************************************************************************/
 
 
-const Optic = optic => record(Optic, {optic});
+const Optic = f => record(Optic, {optic: f});
 
 
 /***[Category]****************************************************************/
@@ -4763,11 +4783,11 @@ const optLiftA6 = liftA6({map: optMap, ap: optAp});
 // TODO: add cancellation
 
 
-const Parallel = para => record(
+const Parallel = f => record(
   Parallel,
   thisify(o => {
     o.para = k =>
-      para(x => {
+      f(x => {
         o.para = k_ => k_(x);
         return k(x);
       });
@@ -4923,7 +4943,7 @@ const racePrepend = paraOr; // order doesn't matter
 ******************************************************************************/
 
 
-const Pred = pred => record(Pred, {pred});
+const Pred = p => record(Pred, {pred: p});
 
 
 /***[ Contravariant ]*********************************************************/
@@ -4952,7 +4972,7 @@ const predEmpty = Pred(_ => true);
 ******************************************************************************/
 
 
-const Prod = prod => record(Prod, {prod});
+const Prod = n => record(Prod, {prod: n});
 
 
 /***[ Monoid ]****************************************************************/
@@ -5014,12 +5034,12 @@ const stateChain = mx => fm =>
 /***[ Miscellaneous ]*********************************************************/
 
 
-const stateEval = tf =>
-  s => tf.state(s) [0];
+const stateEval = tx =>
+  s => tx.state(s) [0];
 
 
-const stateExec = tf =>
-  s => tf.state(s) [1];
+const stateExec = tx =>
+  s => tx.state(s) [1];
 
 
 const stateGet = State(s => Pair(s, s));
@@ -5077,32 +5097,106 @@ const storeExtract = ({store: [f, x]}) => f(x);
 // r is the final result
 
 
-const Stream = step => state => record(Stream, {step, state});
+const Stream = step => ms =>
+  record(Stream, {stream: Pair(step, ms)});
 
 
 const Step = union("Step");
 
 
-const Emit = state => emit => Step(Emit, {state, emit});
+const Emit = s => x =>
+  Step(Emit, {emit: Pair(s, x)});
 
 
-const Skip = skip => Step(Skip, {skip});
+const Skip = s => Step(Skip, {skip: s});
 
 
-const Stop = result => Step(Stop, {result});
+const Stop = r => Step(Stop, {stop: r});
+
+
+/***[ Comonad ]***************************************************************/
+
+
+// TODO
+
+
+/***[ Conversion ]************************************************************/
+
+
+// TODO: streamFromArr
+
+
+// TODO: streamFromList
+
+
+const streamFromStr = of => s =>
+  Stream(i =>
+    i === s.length
+      ? of(Stop(null))
+      : of(Emit(i + 1) (s[i])))
+        (of(0));
+
+
+// TODO: streamGenerator
+
+
+// TODO: streamToArr
+
+
+// TODO: streamToList
+
+
+/***[ Filterable ]************************************************************/
+
+
+// TODO
+
+
+/***[ Foldable ]**************************************************************/
+
+
+const streamFold = ({chain, of}) => f => init => ({stream: [step, ms]}) => {
+  const go = acc => s =>
+    chain(step(s)) (tx =>
+      match(tx, {
+        Emit: ({emit: [s_, x]}) => go(f(acc) (x)) (s_),
+        Skip: ({skip: s_}) => go(acc) (s_),
+        Stop: _ => of(acc)
+      }));
+
+  return chain(ms) (go(init));
+};
+
+
+// TODO: streamFoldr
 
 
 /***[ Functor ]***************************************************************/
 
 
-const streamMap = ({chain, of}) => f => ({step, state: ms}) =>
+const streamMap = ({chain, of}) => f => ({stream: [step, ms]}) =>
   Stream(s =>
     chain(step(s)) (tx =>
       of(match(tx, {
-        Emit: ({state: s_, emit: x}) => Emit(s_) (f(x)),
+        Emit: ({emit: [s_, x]}) => Emit(s_) (f(x)),
         Skip: id,
         Stop: id
       })))) (ms);
+
+
+/***[ Miscellaneous ]*********************************************************/
+
+
+// TODO: streamHead
+
+
+// TODO: streamInit
+
+
+// TODO: streamLast
+
+
+// TODO: streamTail
 
 
 /******************************************************************************
@@ -5110,7 +5204,7 @@ const streamMap = ({chain, of}) => f => ({step, state: ms}) =>
 ******************************************************************************/
 
 
-const Sum = sum => record(Sum, {sum});
+const Sum = n => record(Sum, {sum: n});
 
 
 /***[ Monoid ]****************************************************************/
@@ -5141,11 +5235,11 @@ const sumEmpty = Sum(0);
 // TODO: add cancellation
 
 
-const Task = task => record(
+const Task = f => record(
   Task,
   thisify(o => {
     o.task = k =>
-      task(x => {
+      f(x => {
         o.task = k_ => k_(x); // sharing of once computed tasks
         return k(x);
       });
@@ -5735,6 +5829,14 @@ const yoChain = chain => mx => fm =>
 
 
 /******************************************************************************
+**********************************[ ZIPLIST ]**********************************
+******************************************************************************/
+
+
+// TODO: List, but with Zipper as applicative functor
+
+
+/******************************************************************************
 **********************************[ DERIVED ]**********************************
 ******************************************************************************/
 
@@ -6008,6 +6110,9 @@ const DomBehavior = ({type, selector, options}) => handle => init => {
 };
 
 
+// TODO: add interval Behavior
+
+
 /***[ Observable ]************************************************************/
 
 
@@ -6073,6 +6178,9 @@ const DomObservable = ({type, selector, options}) => {
     status
   });
 };
+
+
+// TODO: add interval Observable
 
 
 /***[ Event Listener ]********************************************************/
@@ -6818,6 +6926,8 @@ module.exports = {
   storeExtract: TC ? fun_(storeExtract) : storeExtract,
   strAppend: TC ? fun_(strAppend) : strAppend,
   Stream: TC ? fun_(Stream) : Stream,
+  streamFold: TC ? fun_(streamFold) : streamFold,
+  streamFromStr: TC ? fun_(streamFromStr) : streamFromStr,
   streamMap: TC ? fun_(streamMap) : streamMap,
   strEmpty,
   strict: TC ? fun_(strict) : strict,
