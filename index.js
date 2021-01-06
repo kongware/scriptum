@@ -3130,6 +3130,14 @@ const rexSetG = rx => // internal
       : rx.flags);
 
 
+const rexUnsetG = rx => // internal
+  new RegExp(
+    rx.source,
+    rx.flags[0] === "g"
+      ? rx.flags.slice(1)
+      : rx.flags);
+
+
 /******************************************************************************
 ************************************[ SET ]************************************
 ******************************************************************************/
@@ -3205,9 +3213,24 @@ const setSetter = k =>
 /***[ Getters/Setters ]*******************************************************/
 
 
+// TODO: strDel
+
+
 // String -> String -> Boolean
 const strHas = substr => s =>
   s.search(substr) !== -1;
+
+
+// TODO: strIns
+
+
+// TODO: strRem
+
+
+// TODO: strSet
+
+
+// TODO: strUpd
 
 
 /***[ Monoid ]****************************************************************/
@@ -3260,7 +3283,7 @@ const strFoldChunkr = rx => f => acc => s => {
 
   const go = r =>
     r === null
-      ? acc // TODO
+      ? acc
       : f(r[0]) (thunk(() => go(ry.exec(s))));
 
   return go(ry.exec(s));
@@ -3286,10 +3309,8 @@ const strMatch = rx => s =>
 
 // RegExp -> String -> [String]
 const strMatchAll = rx => s =>
-  _let((r = s.match(rx)) =>
-    r === null ? []
-      : rx.flags[0] !== "g" ? [] // TODO
-      : r);
+  _let((r = s.match(rx.flags[0] !== "g" ? rexSetG(rx) : rx)) =>
+    r === null ? [] : r);
 
 
 // RegExp -> String -> String
@@ -3303,13 +3324,13 @@ const strMatchLast = rx => s =>
 // RegExp -> Integer -> String -> String
 const strMatchNth = rx => n => s =>
   listFoldr((head, i) => tail =>
-    i === n
+    i === n - 1
       ? head
       : strict(tail))
         ("")
           (strFoldChunkr(rx)
-            (Cons) // TODO
-              ([])
+            (Cons)
+              (Nil)
                 (s));
 
 
@@ -3324,12 +3345,12 @@ const strMatchSection = rx => ry => s =>
     });
 
 
-// RegExp -> String -> Pair<String, String>
-const strParse = rx => s => // TODO: review/rename or remove
+// RegExp -> String -> Char -> Pair<String, String>
+const strParse = rx => sep => s =>
   _let((r = s.match(rx)) =>
-    r === null ? Pair("", "")
-      : rx.flags[0] === "g" ? Pair(r.join(""), "")
-      : Pair(s.slice(r.index + r[0].length), r[0]));
+    r === null ? Pair("", s)
+      : rx.flags[0] === "g" ? Pair(r.join(sep), s.replace(rx, ""))
+      : Pair(r[0], s.slice(r.index + r[0].length)));
 
 
 // RegExp -> String -> String -> String
