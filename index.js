@@ -19,10 +19,10 @@ M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
 ******************************************************************************/
 
 
-const crypto = require("crypto");
+const crypto = require("crypto"); // TODO: unify Node.js/Browser
 
 
-const fs = require("fs");
+const fs = require("fs"); // TODO: create file system mock for browser
 
 
 /******************************************************************************
@@ -2323,6 +2323,9 @@ const appSpread = f => args =>
   f(...args);
 
 
+const rest = (...xs) => xs;
+
+
 /***[ Primitives ]************************************************************/
 
 
@@ -2571,7 +2574,7 @@ const mapSet = k => v => m =>
 
 
 const mapSetx = k => v => m => // safe-in-place-update variant
-  mutSet(m_ => m_.set(k, v));
+  mutSet(m_ => m_.set(k, v)) (m);
 
 
 const mapUpd = k => f => m =>
@@ -2581,7 +2584,7 @@ const mapUpd = k => f => m =>
 
 
 const mapUpdx = k => f => m => // safe-in-place-update variant
-  mutSet(m_ => m_.set(k, f(m_.get(k))));
+  mutSet(m_ => m_.set(k, f(m_.get(k)))) (m);
 
 
 /***[ Optics ]****************************************************************/
@@ -3101,7 +3104,7 @@ const objSetter = k =>
 
 
 /******************************************************************************
-****************************[ REGULAR EXPRESSION ]*****************************
+**********************************[ REGEXP ]***********************************
 ******************************************************************************/
 
 
@@ -3117,6 +3120,14 @@ const Rexg = Rexf("g");
 
 
 const Rexu = Rexf("u");
+
+
+const rexSetG = rx => // internal
+  new RegExp(
+    rx.source,
+    rx.flags[0] !== "g"
+      ? "g" + rx.flags
+      : rx.flags);
 
 
 /******************************************************************************
@@ -3194,18 +3205,23 @@ const setSetter = k =>
 /***[ Getters/Setters ]*******************************************************/
 
 
-// TODO
+// String -> String -> Boolean
+const strHas = substr => s =>
+  s.search(substr) !== -1;
 
 
 /***[ Monoid ]****************************************************************/
 
 
-const strAppend = s => t => s.concat(t); // TODO: enforce strings
+// String -> String -> String
+const strAppend = s => t => s + t;
 
 
-const strPrepend = t => s => s.concat(t); // TOIDO: enforce strings
+// String -> String -> String
+const strPrepend = t => s => s + t;
 
 
+// String
 const strEmpty = "";
 
 
@@ -3218,33 +3234,33 @@ const strFold = arrFold;
 const strFoldr = arrFoldr;
 
 
-const strFoldChunk = rx => f => acc => s => {
-  const ry = new RegExp( // clone
-    rx.source,
-    rx.flags[0] !== "g"
-      ? "g" + rx.flags
-      : rx.flags);
+// As opposed to arrays this string fold embraces the primitive nature of srings
+// in Javascript by consuming a chunk of characters for each iteration. The
+// chunk size is determined by a regular expression.
 
+
+const strFoldChunk = rx => f => acc => s => {
+  const ry = rexSetG(rx);
   let r, acc_ = acc;
 
-  while (r = ry.exec(s)) {
+  while (r = ry.exec(s))
     acc_ = f(acc_) (r[0]);
-  }
 
   return acc_;
 };
 
 
+// As opposed to arrays this risght associative string fold embraces the primitive
+// nature of srings in Javascript by consuming a chunk of characters for each
+// iteration. The chunk size is determined by a regular expression.
+
+
 const strFoldChunkr = rx => f => acc => s => {
-  const ry = new RegExp( // clone
-    rx.source,
-    rx.flags[0] !== "g"
-      ? "g" + rx.flags
-      : rx.flags);
+  const ry = rexSetG(rx);
 
   const go = r =>
     r === null
-      ? Cons(acc) (NIL)
+      ? acc // TODO
       : f(r[0]) (thunk(() => go(ry.exec(s))));
 
   return go(ry.exec(s));
@@ -3260,10 +3276,7 @@ const strFoldChunkr = rx => f => acc => s => {
 /***[ Regex based ]***********************************************************/
 
 
-const strIncludes = rx => s =>
-  s.search(rx) !== -1;
-
-
+// RegExp -> String -> String
 const strMatch = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? ""
@@ -3271,13 +3284,15 @@ const strMatch = rx => s =>
       : r[0]);
 
 
+// RegExp -> String -> [String]
 const strMatchAll = rx => s =>
   _let((r = s.match(rx)) =>
     r === null ? []
-      : rx.flags[0] !== "g" ? []
+      : rx.flags[0] !== "g" ? [] // TODO
       : r);
 
 
+// RegExp -> String -> String
 const strMatchLast = rx => s =>
   strFoldChunk(rx)
     (_ => x => x)
@@ -3285,6 +3300,7 @@ const strMatchLast = rx => s =>
         (s);
 
 
+// RegExp -> Integer -> String -> String
 const strMatchNth = rx => n => s =>
   listFoldr((head, i) => tail =>
     i === n
@@ -3292,34 +3308,43 @@ const strMatchNth = rx => n => s =>
       : strict(tail))
         ("")
           (strFoldChunkr(rx)
-            (Cons)
+            (Cons) // TODO
               ([])
                 (s));
 
 
+// RegExp -> RegExp -> String -> String
 const strMatchSection = rx => ry => s =>
   match(optLiftA2(
     o => p => s.slice(o.index, p.index + p[0].length))
       (fromNullable(s.match(rx)))
         (fromNullable(s.match(ry))), {
       None: _ => "",
-      Some: ({some}) => some
+      Some: ({some: x}) => x
     });
 
 
-const strParse = rx => s => // TODO: return a value of type Parser
+// RegExp -> String -> Pair<String, String>
+const strParse = rx => s => // TODO: review/rename or remove
   _let((r = s.match(rx)) =>
-    r === null ? ["", ""]
-      : rx.flags[0] === "g" ? [r.join(""), ""]
-      : [s.slice(r.index + r[0].length), r[0]]);
+    r === null ? Pair("", "")
+      : rx.flags[0] === "g" ? Pair(r.join(""), "")
+      : Pair(s.slice(r.index + r[0].length), r[0]));
 
 
-const strReplace = rx => x => s =>
-  s.replace(rx, x);
+// RegExp -> String -> String -> String
+const strReplace = rx => substitute => s =>
+  s.replace(rx, substitute);
 
 
+// RegExp -> ([?] -> String) -> String -> String
 const strReplaceBy = rx => f => s =>
   s.replace(rx, (...args) => f(args));
+
+
+// RegExp -> String -> Boolean
+const strSearch = rx => s =>
+  s.search(rx) !== -1;
 
 
 /******************************************************************************
@@ -4939,6 +4964,33 @@ const racePrepend = paraOr; // order doesn't matter
 
 
 /******************************************************************************
+****************************[ PARSER COMBINATORS ]*****************************
+******************************************************************************/
+
+
+const Parser = f => record(Parser, {parse: f});
+
+
+const ParserResult = union("ParserResult");
+
+
+const Malformed = ({meta, state, error, syntax, input}) =>
+  ParserResult(Malformed, {malf: {meta, state, error, syntax, input}});
+
+
+const Wellformed = ({meta, state, syntax, input}) =>
+  ParserResult(Wellformed, {wellf: {meta, state, syntax, input}});
+
+
+const ParserError = ({type, msg, line, col, }) =>
+  record(ParserError, {file, line, col, msg});
+
+
+const ParserMeta = ({source, line, col}) =>
+  record(ParserMeta, {file, line, col});
+
+
+/******************************************************************************
 ***********************************[ PRED ]************************************
 ******************************************************************************/
 
@@ -6265,7 +6317,7 @@ const optmEmpty = None;
 ******************************************************************************/
 
 
-module.exports = {
+module.exports = { // TODO: supply a browserified version
   _1st: TC ? fun_(_1st) : _1st,
   _2nd: TC ? fun_(_2nd) : _2nd,
   _3rd: TC ? fun_(_3rd) : _3rd,
@@ -6888,6 +6940,7 @@ module.exports = {
   record: TC ? fun_(record) : record,
   repeat: TC ? fun_(repeat) : repeat,
   reset: TC ? fun_(reset) : reset,
+  rest: TC ? fun_(rest) : rest,
   Return,
   Rex: TC ? fun_(Rex) : Rex,
   Rexf: TC ? fun_(Rexf) : Rexf,
@@ -6924,7 +6977,13 @@ module.exports = {
   Store: TC ? fun_(Store) : Store,
   storeExtend: TC ? fun_(storeExtend) : storeExtend,
   storeExtract: TC ? fun_(storeExtract) : storeExtract,
-  strAppend: TC ? fun_(strAppend) : strAppend,
+  strAppend: TC
+    ? fun(s => t =>
+        introspect(s) !== "String" || introspect(t) !== "String"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (strAppend)
+    : strAppend,
   Stream: TC ? fun_(Stream) : Stream,
   streamFold: TC ? fun_(streamFold) : streamFold,
   streamFromStr: TC ? fun_(streamFromStr) : streamFromStr,
@@ -6936,16 +6995,23 @@ module.exports = {
   strFoldChunk: TC ? fun_(strFoldChunk) : strFoldChunk,
   strFoldChunkr: TC ? fun_(strFoldChunkr) : strFoldChunkr,
   strFoldr: TC ? fun_(strFoldr) : strFoldr,
-  strIncludes: TC ? fun_(strIncludes) : strIncludes,
+  strHas: TC ? fun_(strHas) : strHas,
   strMatch: TC ? fun_(strMatch) : strMatch,
   strMatchAll: TC ? fun_(strMatchAll) : strMatchAll,
   strMatchLast: TC ? fun_(strMatchLast) : strMatchLast,
   strMatchNth: TC ? fun_(strMatchNth) : strMatchNth,
   strMatchSection: TC ? fun_(strMatchSection) : strMatchSection,
   strParse: TC ? fun_(strParse) : strParse,
-  strPrepend: TC ? fun_(strPrepend) : strPrepend,
+  strPrepend: TC
+    ? fun(t => s =>
+        introspect(s) !== "String" || introspect(t) !== "String"
+          ? _throw(new TypeError("illegal semigroup argument"))
+          : true)
+            (strPrepend)
+    : strPrepend,
   strReplace: TC ? fun_(strReplace) : strReplace,
   strReplaceBy: TC ? fun_(strReplaceBy) : strReplaceBy,
+  strSearch: TC ? fun_(strSearch) : strSearch,
   sub: TC ? fun_(sub) : sub,
   Sum: TC ? fun_(Sum) : Sum,
   sumAppend: TC ? fun_(sumAppend) : sumAppend,
