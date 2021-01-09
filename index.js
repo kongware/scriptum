@@ -2554,11 +2554,11 @@ const mapDel = k => m =>
     : m;
 
 
-const mapDelx = k => m => // safe-in-place-update variant
+const mapDelx = k => // safe-in-place-update variant
   mutSet(m_ =>
     m_.has(k)
       ? m_.delete(k)
-      : m_) (m);
+      : m_);
 
 
 const mapGet = k => m =>
@@ -2573,8 +2573,8 @@ const mapSet = k => v => m =>
   new Map(m).set(k, v);
 
 
-const mapSetx = k => v => m => // safe-in-place-update variant
-  mutSet(m_ => m_.set(k, v)) (m);
+const mapSetx = k => v => // safe-in-place-update variant
+  mutSet(m_ => m_.set(k, v));
 
 
 const mapUpd = k => f => m =>
@@ -2583,8 +2583,11 @@ const mapUpd = k => f => m =>
     : m;
 
 
-const mapUpdx = k => f => m => // safe-in-place-update variant
-  mutSet(m_ => m_.set(k, f(m_.get(k)))) (m);
+const mapUpdx = k => f => // safe-in-place-update variant
+  mutSet(m_ =>
+    m_.has(k)
+      ? m_.set(k, f(m_.get(k)))
+      : m_);
 
 
 /***[ Optics ]****************************************************************/
@@ -3213,7 +3216,9 @@ const setSetter = k =>
 /***[ Getters/Setters ]*******************************************************/
 
 
-// TODO: strDel
+// Integer -> Integer -> String -> String -> String
+const strDel = i => len => s =>
+  s.slice(0, i) + s.slice(i + len);
 
 
 // String -> String -> Boolean
@@ -3221,16 +3226,24 @@ const strHas = substr => s =>
   s.search(substr) !== -1;
 
 
-// TODO: strIns
+// Integer -> String -> String -> String
+const strIns = i => substr => s =>
+  s.slice(0, i) + substr + s.slice(i);
 
 
-// TODO: strRem
+// Integer -> Integer -> String -> String
+const strRem = i => len => s =>
+  Pair(s.slice(i, i + len), s.slice(0, i) + s.slice(i + len));
 
 
-// TODO: strSet
+// Integer -> String -> String -> String
+const strSet = i => substr => s =>
+  s.slice(0, i) + substr + s.slice(i + substr.length);
 
 
-// TODO: strUpd
+// Integer -> Integer -> (String -> String) -> String -> String
+const strUpd = i => len => f => s =>
+  s.slice(0, i) + f(s.slice(i, i + len)) + s.slice(i + len);
 
 
 /***[ Monoid ]****************************************************************/
@@ -3366,6 +3379,12 @@ const strReplaceBy = rx => f => s =>
 // RegExp -> String -> Boolean
 const strSearch = rx => s =>
   s.search(rx) !== -1;
+
+
+/***[ Miscellaneous ]*********************************************************/
+
+
+const strArrange = (...ss) => ss.join("");
 
 
 /******************************************************************************
@@ -4989,26 +5008,121 @@ const racePrepend = paraOr; // order doesn't matter
 ******************************************************************************/
 
 
+// Simple monadic parser combinators based on text as input for the sake of
+// simplicity and performance. There will be another fully fledged stream-
+// based parser any time soon.
+
+
 const Parser = f => record(Parser, {parse: f});
 
 
 const ParserResult = union("ParserResult");
 
 
-const Malformed = ({meta, state, error, syntax, input}) =>
-  ParserResult(Malformed, {malf: {meta, state, error, syntax, input}});
+const Malformed = ({meta, state, error, input}) =>
+  ParserResult(Malformed, {malf: {meta, state, error, input}});
 
 
-const Wellformed = ({meta, state, syntax, input}) =>
-  ParserResult(Wellformed, {wellf: {meta, state, syntax, input}});
+const Wellformed = ({meta, state, struct, input}) =>
+  ParserResult(Wellformed, {wellf: {meta, state, struct, input}});
 
 
-const ParserError = ({type, msg, line, col, }) =>
-  record(ParserError, {file, line, col, msg});
+/***[ Alternative ]***********************************************************/
 
 
-const ParserMeta = ({source, line, col}) =>
-  record(ParserMeta, {file, line, col});
+const parseAlt = tx => ty =>
+  Parser(meta => s => inp =>
+    match(tx.parse(meta) (s) (inp), {
+      Malformed: ty.parse(meta) (s) (inp),
+      Wellformed: id
+    }));
+
+
+const parseZero = err =>
+  Parser(meta => s => inp =>
+    Malformed({
+      meta,
+      state: s,
+      error: err, // TODO: add meta details
+      input: inp}));
+
+
+/***[ Applicative ]***********************************************************/
+
+
+const parseAp = tf => tx =>
+  Parser(meta => s => inp =>
+    match(tf.parse(meta) (s) (inp), {
+      Malformed: id,
+      Wellformed: ({wellf: {meta, state, struct: f, input: inp_}}) =>
+        parseMap(f) (tx).parse(meta) (state) (inp_)
+    }));
+
+
+const parseOf = x =>
+  Parser(meta => s => inp =>
+    Wellformed({meta, state: s, struct: x, input: inp}));
+
+
+/***[ Functor ]***************************************************************/
+
+
+const parseMap = f => tx =>
+  Parser(meta => s => inp =>
+    match(tx.parse(meta) (s) (inp), {
+      Malformed: id,
+      Wellformed: ({wellf: {meta, state, struct: x, input}}) =>
+        Wellformed({meta, state, struct: f(x), input})
+    }));
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const parseChain = mx => fm =>
+  Parser(meta => s => inp =>
+    match(mx.parse(meta) (s) (inp), {
+      Malformed: id,
+      Wellformed: ({wellf: {meta, state, struct: x, input: inp_}}) =>
+        fm(x).parse(meta) (state) (inp_)
+    }));
+
+
+/***[ Primitives ]************************************************************/
+
+
+const parseChar =
+  Parser(({source, line, col}) => s => inp =>
+    inp.length === 0 ? Malformed({
+      meta: {source, line, col},
+      state: s,
+      get error() {return `char expected but EOS received in "${source}" @${line}/${col}`},
+      input: inp})
+        : Wellformed({
+            meta: {source, line, col: col + 1},
+            state: s,
+            struct: inp[0],
+            input: inp.slice(1)}));
+
+
+const parseSatisfy = err => p =>
+  Parser(({source, line, col}) => s => inp =>
+    inp.length === 0 ? Malformed({
+      meta: {source, line, col},
+      state: s,
+      get error() {return `char expected but EOS received in "${source}" @${line}/${col}`},
+      input: inp})
+        : p(inp[0]) ? Wellformed({
+            meta: {source, line, col: col + 1},
+            state: s,
+            struct: inp[0],
+            input: inp.slice(1)})
+        : Malformed({
+            meta: {source, line, col},
+            state: s,
+            error: err, // TODO: add meta details
+            input: inp}));
+
 
 
 /******************************************************************************
@@ -5433,7 +5547,7 @@ const traceExtract = empty => ({traced: f}) => f(empty);
 
 
 /******************************************************************************
-********************************[ TREE (LIKE) ]********************************
+*********************************[ TREE-LIKE ]*********************************
 ******************************************************************************/
 
 
@@ -6779,6 +6893,7 @@ module.exports = { // TODO: supply a browserified version
   lzipStart: TC ? fun_(lzipStart) : lzipStart,
   lzipToList: TC ? fun_(lzipToList) : lzipToList,
   lzipUpd: TC ? fun_(lzipUpd) : lzipUpd,
+  Malformed: TC ? fun_(Malformed) : Malformed,
   mapClone: TC ? fun_(mapClone) : mapClone,
   mapDel: TC ? fun_(mapDel) : mapDel,
   mapDelx: TC ? fun_(mapDelx) : mapDelx,
@@ -6930,6 +7045,16 @@ module.exports = { // TODO: supply a browserified version
   paraOf: TC ? fun_(paraOf) : paraOf,
   paraOr: TC ? fun_(paraOr) : paraOr,
   paraPrepend: TC ? fun_(paraPrepend) : paraPrepend,
+  parseAlt: TC ? fun_(parseAlt) : parseAlt,
+  parseAp: TC ? fun_(parseAp) : parseAp,
+  parseChain: TC ? fun_(parseChain) : parseChain,
+  parseChar: TC ? fun_(parseChar) : parseChar,
+  parseMap: TC ? fun_(parseMap) : parseMap,
+  parseOf: TC ? fun_(parseOf) : parseOf,
+  Parser: TC ? fun_(Parser) : Parser,
+  ParserResult: TC ? fun_(ParserResult) : ParserResult,
+  parseSatisfy: TC ? fun_(parseSatisfy) : parseSatisfy,
+  parseZero: TC ? fun_(parseZero) : parseZero,
   partial: TC ? fun_(partial) : partial,
   partialProps: TC ? fun_(partialProps) : partialProps,
   pow: TC ? fun_(pow) : pow,
@@ -7005,6 +7130,7 @@ module.exports = { // TODO: supply a browserified version
           : true)
             (strAppend)
     : strAppend,
+  strArrange: TC ? fun_(strArrange) : strArrange,
   Stream: TC ? fun_(Stream) : Stream,
   streamFold: TC ? fun_(streamFold) : streamFold,
   streamFromStr: TC ? fun_(streamFromStr) : streamFromStr,
@@ -7016,7 +7142,12 @@ module.exports = { // TODO: supply a browserified version
   strFoldChunk: TC ? fun_(strFoldChunk) : strFoldChunk,
   strFoldChunkr: TC ? fun_(strFoldChunkr) : strFoldChunkr,
   strFoldr: TC ? fun_(strFoldr) : strFoldr,
+  strDel: TC ? fun_(strDel) : strDel,
   strHas: TC ? fun_(strHas) : strHas,
+  strIns: TC ? fun_(strIns) : strIns,
+  strRem: TC ? fun_(strRem) : strRem,
+  strSet: TC ? fun_(strSet) : strSet,
+  strUpd: TC ? fun_(strUpd) : strUpd,
   strMatch: TC ? fun_(strMatch) : strMatch,
   strMatchAll: TC ? fun_(strMatchAll) : strMatchAll,
   strMatchLast: TC ? fun_(strMatchLast) : strMatchLast,
@@ -7107,6 +7238,7 @@ module.exports = { // TODO: supply a browserified version
   uncurryn: TC ? fun_(uncurryn) : uncurryn,
   uncurryn_: TC ? fun_(uncurryn_) : uncurryn_,
   union: TC ? fun_(union) : union,
+  Wellformed: TC ? fun_(Wellformed) : Wellformed,
   Wind,
   Writer: TC ? fun_(Writer) : Writer,
   writerAp: TC ? fun_(writerAp) : writerAp,
