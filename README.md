@@ -12,12 +12,12 @@ scriptum is the attempt to get as close as possible to the functional paradigm u
 
 Feature selection:
 
-* more rigorous dynamic type checking on demand
-  * throws on `undefined`, `NaN` and `invalid Date` immediately
-  * throws on implicit type coercions immediately
-  * allows for custom type checks
-  * safer duck typing
-  * less silent errors
+* less silent errors through more rigorous dynamic type checking (on demand)
+  * throws immediately on implicit duck typing
+  * throws immediately on `undefined`, `NaN` and `invalid Date`
+  * throws immediately on implicit type coercions
+  * allows custom type checks
+* safe in-place updates (mutations) through an affine-like type
 * fully-fledged lazy evaluation through expressions in Weak Head Normal Form
 * stack-safe recursion through a family of trampoline techniques
   * tail recursion
