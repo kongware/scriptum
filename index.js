@@ -161,7 +161,7 @@ class FunProxy {
     if (k === FUN)
       return true;
 
-    else if (k === Symbol.toPrimitive) // prevents implicit type coercion
+    else if (k === Symbol.toPrimitive)
       throw new TypeError("illegal type coercion");
 
     else return f[k];
@@ -180,7 +180,16 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    if (k === Symbol.toPrimitive) // prevents implicit type coercion
+    if (!(k in o)) {
+      switch (k) {
+        case "length": break;
+        
+        default:
+          throw new TypeError("illegal implicit duck typing");
+      }
+    }
+
+    else if (k === Symbol.toPrimitive)
       throw new TypeError("illegal type coercion");
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
@@ -1064,19 +1073,8 @@ const liftAn = ({map, ap}) => f => ts =>
 ******************************************************************************/
 
 
-const all = ({fold, append, empty}) => p =>
-  comp(tx => tx.all) (foldMap({fold, append, empty}) (comp(All) (p)));
-
-
-const any = ({fold, append, empty}) => p =>
-  comp(tx => tx.any) (foldMap({fold, append, empty}) (comp(Any) (p)));
-
-
 const foldMap = ({fold, append, empty}) => f =>
   fold(comp2nd(append) (f)) (empty);
-
-
-// TODO: add foldMapk
 
 
 const foldMapr = ({foldr, append, empty}) => f =>
@@ -1337,94 +1335,26 @@ const arrCons = x => xs =>
   [x].concat(xs);
 
 
-const arrConsx = x => xs => // safe-in-place-update variant
-  mutSet(xs_ =>
-    (xs_.unshift(x), xs_)) (xs);
-
-
 const arrCons_ = xs => x =>
   [x].concat(xs);
 
 
+const arrConsx = x => // safe-in-place-update variant
+  mutExec(xs =>
+    (xs.unshift(x), xs));
+
+
 const arrConsx_ = xs => x => // safe-in-place-update variant
-  mutSet(xs_ =>
+  mutExec(xs_ =>
     (xs_.unshift(x), xs_)) (xs);
-
-
-const arrDel = i => xs =>
-  xs.slice(0, i)
-    .concat(xs.slice(i + 1));
-
-
-const arrDelx = i => xs =>  // safe-in-place-update variant
-  mutSet(xs_ =>
-    xs_.splice(i, 1)) (xs);
-
-
-const arrGet = i => xs =>
-  i < xs.length
-    ? Some(xs[i])
-    : None;
-
-
-const arrGetOr = def => i => xs =>
-  i < xs.length
-    ? xs[i]
-    : def;
-
-
-const arrGetWith = i => xs =>
-  Pair(
-    i < xs.length
-      ? Some(xs[i])
-      : None,
-    xs);
-
-
-const arrIns = i => x => xs =>
-  xs.slice(0, i)
-    .concat(x, xs.slice(i));
-
-
-const arrInsx = i => x => xs => // safe-in-place-update variant
-  mutSet(xs_ =>
-    xs_.splice(i, 0, x)) (xs);
-
-
-const arrRem = i => xs =>
-  Pair(
-    xs[i],
-    xs.slice(0, i)
-      .concat(xs.slice(i + 1)));
-
-
-const arrRemx = i => xs => // safe-in-place-update variant
-  mutSet(xs_ => {
-    const y = xs_.splice(i, 1);
-    return Pair(y, xs_) (xs);
-  });
-
-
-const arrSet = i => x => xs =>
-  xs.slice(0, i)
-    .concat(x, xs.slice(i + 1));
-
-
-const arrSetx = i => x => xs => // safe-in-place-update variant
-  mutSet(xs_ => (
-    i > xs_.length
-      ? xs_[xs_.length] = x
-      : xs_[i] = x),
-    xs_) (xs);
 
 
 const arrSnoc = x => xs =>
   xs.concat([x]);
 
 
-const arrSnocx = x => xs => // safe-in-place-update variant
-  mutSet(xs_ =>
-    (xs_.push(x), xs_)) (xs);
+const arrSnocx = x => // safe-in-place-update variant
+  mutExec(xs => (xs.push(x), xs));
 
 
 const arrSnoc_ = xs => x =>
@@ -1432,8 +1362,7 @@ const arrSnoc_ = xs => x =>
 
 
 const arrSnocx_ = xs => x => // safe-in-place-update variant
-  mutSet(xs_ =>
-    (xs_.push(x), xs_)) (xs);
+  mutExec(xs_ => (xs_.push(x), xs_)) (xs);
 
 
 const arrUncons = xs => {
@@ -1445,17 +1374,14 @@ const arrUncons = xs => {
 };
 
 
-const arrUnconsx = xs => {
-  mutSet(xs_ => {
+const arrUnconsx = xs => // safe-in-place-update variant
+  mutExec(xs_ => {
     if (xs_.length === 0)
       return None;
 
-    else {
-      const y = xs_.splice(0, 1);
-      return Some([y, xs_]);
-    }
-  });
-};
+    else
+      return Some([xs_.shift(), xs_]);
+  }) (xs);
 
 
 const arrUnsnoc = xs => {
@@ -1468,28 +1394,13 @@ const arrUnsnoc = xs => {
 
 
 const arrUnsnocx = xs =>
-  mutSet(xs_ => {
+  mutExec(xs_ => {
     if (xs_.length === 0)
       return None;
 
-    else {
-      const y = xs_.splice(xs_.length - 1, 1);
-      return Some([y, xs_]);
-    }
-  });
-
-
-const arrUpd = i => f => xs =>
-  xs.slice(0, i)
-    .concat(f(xs[i]), xs.slice(i + 1));
-
-
-const arrUpdx = i => f => xs => // safe-in-place-update variant
-  mutSet(xs_ => (
-    i >= xs_.length
-      ? xs_
-      : xs_[i] = f(xs_[i]),
-    xs_)) (xs);
+    else
+      return Some([xs_.pop(), xs_]);
+  }) (xs);
 
 
 /***[ Eq ]********************************************************************/
@@ -1589,6 +1500,133 @@ const arrMap = f => xs =>
 ARRAY.map = arrMap;
 
 
+/***[ Getters/Setters ]*******************************************************/
+
+
+const arrDel = i => xs =>
+  xs.slice(0, i)
+    .concat(xs.slice(i + 1));
+
+
+const arrDelx = i => // safe-in-place-update variant
+  mutExec(xs =>
+    xs.splice(i, 1));
+
+
+const arrGet = i => xs =>
+  i < xs.length
+    ? Some(xs[i])
+    : None;
+
+
+const arrGetOr = def => i => xs =>
+  i < xs.length
+    ? xs[i]
+    : def;
+
+
+const arrGetWith = i => xs =>
+  Pair(
+    i < xs.length
+      ? Some(xs[i])
+      : None,
+    xs);
+
+
+const arrHead = xs =>
+  xs.length === 0
+    ? None
+    : Some(xs[0]);
+
+
+const arrHeadOr = def => xs =>
+  xs.length === 0
+    ? def
+    : xs[0];
+
+
+const arrInit = xs => xs.slice(0, -1);
+
+
+// TODO: arrInits (not a comonad)
+
+
+const arrIns = i => x => xs =>
+  xs.slice(0, i)
+    .concat(x, xs.slice(i));
+
+
+const arrInsx = i => x => // safe-in-place-update variant
+  mutExec(xs =>
+    xs.splice(i, 0, x));
+
+
+const arrLast = xs =>
+  xs.length === 0
+    ? None
+    : Some(xs[xs.length - 1]);
+
+
+const arrLastOr = def => xs =>
+  xs.length === 0
+    ? def
+    : xs[xs.length - 1];
+
+
+const arrRem = i => xs =>
+  Pair(
+    xs[i],
+    xs.slice(0, i)
+      .concat(xs.slice(i + 1)));
+
+
+const arrRemx = i => // safe-in-place-update variant
+  mutExec(xs => {
+    const y = xs.splice(i, 1);
+    return Pair(y, xs);
+  });
+
+
+const arrSet = i => x => xs =>
+  xs.slice(0, i)
+    .concat(x, xs.slice(i + 1));
+
+
+const arrSetx = i => x => // safe-in-place-update variant
+  mutExec(xs => (
+    i > xs.length
+      ? xs[xs.length] = x
+      : xs[i] = x),
+    xs_);
+
+
+const arrTail = ([, ...xs]) => xs;
+
+
+// TODO: arrTails (not a comonad)
+
+
+const arrUnheadx = xs => // safe-in-place-update variant
+  mutExec(xs_ => (xs_.shift(), xs_)) (xs);
+
+
+const arrUnlastx = xs => // safe-in-place-update variant
+  mutExec(xs_ => (xs_.pop(), xs_)) (xs);
+
+
+const arrUpd = i => f => xs =>
+  xs.slice(0, i)
+    .concat(f(xs[i]), xs.slice(i + 1));
+
+
+const arrUpdx = i => f => // safe-in-place-update variant
+  mutExec(xs => (
+    i >= xs.length
+      ? xs
+      : xs[i] = f(xs[i]),
+    xs));
+
+
 /***[ Monad ]*****************************************************************/
 
 
@@ -1654,24 +1692,22 @@ const arrKompn = kompn(arrChain);
 /***[ Monoid ]****************************************************************/
 
 
-const arrAppend = xs => ys =>
-  xs.concat(ys);
+const arrAppend = xs => ys => xs.concat(ys);
 
 
 const arrAppendx = xs => ys => // safe-in-place-update variant
-  xs.arr.set(xs_ =>
+  xs.arr.exec(xs_ =>
     (xs_.push.apply(xs_, ys), xs_));
 
 
 ARRAY.append = arrAppend;
 
 
-const arrPrepend = ys => xs =>
-  xs.concat(ys);
+const arrPrepend = ys => xs => xs.concat(ys);
 
 
 const arrPrependx = ys => xs => // safe-in-place-update variant
-  xs.arr.set(xs_ =>
+  xs.arr.exec(xs_ =>
     (xs_.push.apply(xs_, ys), xs_));
 
 
@@ -1806,7 +1842,7 @@ const arrReverse = xs =>
 
 
 const arrReversex = xs =>
-  mutSet(xs_ => xs_.reverse());
+  mutExec(xs_ => xs_.reverse());
 
 
 /***[ Derived ]***************************************************************/
@@ -1877,6 +1913,32 @@ const boolMinBound = false;
 
 
 BOOL.minBound = boolMinBound;
+
+
+/***[ Monoid (All) ]**********************************************************/
+
+
+const allAppend = b => c => // TODO: type check
+  All(b && c);
+
+
+const allPrepend = allAppend; // commutative
+
+
+const allEmpty = true;
+
+
+/***[ Monoid (Any) ]**********************************************************/
+
+
+const anyAppend = b => c => // TODO: type check
+  Any(b || c);
+
+
+const anyPrepend = anyAppend; // commutative
+
+
+const anyEmpty = false;
 
 
 /******************************************************************************
@@ -2298,7 +2360,7 @@ const funJoin = mmf => x =>
   mmf(x) (x);
 
 
-/***[ Monoid ]****************************************************************/
+/***[ Monoid (Type Parameter) ]***********************************************/
 
 
 const funAppend = append => f => g => x =>
@@ -2311,6 +2373,19 @@ const funPrepend = prepend => f => g => x =>
 
 const funEmpty = empty =>
   _ => empty;
+
+
+/***[ Monoid (Endomorphism) ]*************************************************/
+
+
+const endoAppend = comp; // TODO: enforce a -> a
+
+
+const endoPrepend = funContra;  // TODO: enforce a -> a
+
+
+const endoEmpty = id;
+
 
 /***[ Multi-Argument ]********************************************************/
 
@@ -2555,7 +2630,7 @@ const mapDel = k => m =>
 
 
 const mapDelx = k => // safe-in-place-update variant
-  mutSet(m_ =>
+  mutExec(m_ =>
     m_.has(k)
       ? m_.delete(k)
       : m_);
@@ -2574,7 +2649,7 @@ const mapSet = k => v => m =>
 
 
 const mapSetx = k => v => // safe-in-place-update variant
-  mutSet(m_ => m_.set(k, v));
+  mutExec(m_ => m_.exec(k, v));
 
 
 const mapUpd = k => f => m =>
@@ -2584,9 +2659,9 @@ const mapUpd = k => f => m =>
 
 
 const mapUpdx = k => f => // safe-in-place-update variant
-  mutSet(m_ =>
+  mutExec(m_ =>
     m_.has(k)
-      ? m_.set(k, f(m_.get(k)))
+      ? m_.exec(k, f(m_.get(k)))
       : m_);
 
 
@@ -2691,6 +2766,32 @@ const numSucc = n =>
 
 
 NUM.succ = numSucc;
+
+
+/***[ Monoid (Product) ]******************************************************/
+
+
+const prodAppend = m => n => // TODO: type check
+  Prod(m + n);
+
+
+const prodPrepend = prodAppend; // commutative
+
+
+const prodEmpty = 1;
+
+
+/***[ Monoid (Sum)]***********************************************************/
+
+
+const sumAppend = m => n => // TODO: type check
+  Sum(m + n);
+
+
+const sumPrepend = sumAppend; // commutative
+
+
+const sumEmpty = 0;
 
 
 /***[ Ord ]*******************************************************************/
@@ -2804,26 +2905,34 @@ const numTrunc = decimalPlaces => n =>
 ******************************************************************************/
 
 
-// TODO: take I18N into account
+// (Triple<String, String, String> -> String) -> [Triple<String, String, String> -> String] -> Float -> String
+const formatNum = join => (...fs) => n => {
+  const s = String(n),
+    xs = s.split(/[^\d]/),
+    offset = n < 0 ? 1 : 0;
 
+  const sign = n < 0 ? "-" : "",
+    int = xs[offset],
+    frac = xs.length - offset === 2 ? xs[1 + offset] : "";
 
-const formatNum = sep => (...fs) => n => {
-  const s = String(n)
-    .split(/[^\d]|$/)
-    .concat("");
-
-  return fs.map(f => f(s))
-    .join(sep);
+  return join(tripFromArr(fs.map(f => f(Triple(sign, int, frac)))));
 };
 
 
-const formatFrac = digits => ([_, s]) =>
+// Integer -> (Triple<String, String, String> -> String) -> String
+const formatFrac = digits => ([_, __, s]) =>
     s.padEnd(digits, "0");
 
 
-const formatInt = sep => ([s]) =>
+// String -> (Triple<String, String, String> -> String) -> String
+const formatInt = sep => ([_, s, __]) =>
   strReplace(
     Rexg("(\\d)(?=(?:\\d{3})+$)")) (`$1${sep}`) (s);
+
+
+// String -> String -> (Triple<String, String, String> -> String) -> String
+const formatSign = pos => neg => ([s, _, __]) =>
+  s === "-" ? neg : pos;
 
 
 /******************************************************************************
@@ -2949,7 +3058,7 @@ const objDel = k => ({[k]: _, ...o}) => o;
 
 
 const objDelx = k => o => // safe-in-place-update variant
-  mutSet(o_ =>
+  mutExec(o_ =>
     (Reflect.deleteProperty(o, k), o));
 
 
@@ -3012,7 +3121,7 @@ const objRem = k => ({[k]: k_, ...o}) =>
 
 
 const objRemx = k => o => // safe-in-place-update variant
-  mutSet(o_ => {
+  mutExec(o_ => {
     const r = o_[k];
     Reflect.deleteProperty(o_, k);
     return Pair(r, o_);
@@ -3024,7 +3133,7 @@ const objSet = k => v => o =>
 
 
 const objSetx = k => v => o => // safe-in-place-update variant
-  mutSet(o_ =>
+  mutExec(o_ =>
     (o_[k] = v, o_));
 
 
@@ -3052,7 +3161,7 @@ const objUpd = k => f => o =>
 
 
 const objUpdx = k => f => o => // safe-in-place-update variant
-  mutSet(o_ =>
+  mutExec(o_ =>
     k in o_
       ? (o_[k] = f(o_[k]), o_)
       : o_);
@@ -3168,7 +3277,7 @@ const setDel = k => s =>
 
 
 const setDelx = k => s => // safe-in-place-update variant
-  mutSet(s_ =>
+  mutExec(s_ =>
     s_.has(k)
       ? s_.delete(k)
       : s_) (s);
@@ -3183,7 +3292,7 @@ const setSet = k => v => s =>
 
 
 const setSetx = k => v => s => // safe-in-place-update variant
-  mutSet(s_ =>
+  mutExec(s_ =>
     s_.add(k, v)) (s);
 
 
@@ -3395,45 +3504,21 @@ const strArrange = (...ss) => ss.join("");
 
 
 /******************************************************************************
-************************************[ ALL ]************************************
+************************************[ BOX ]************************************
 ******************************************************************************/
 
 
-const All = b => record(All, {all: b});
+// Identity type for native Javascript objects that implements functor,
+// applicative and monad and enables method chaining while using these
+// algebras.
 
 
-/***[ Monoid ]****************************************************************/
-
-
-const allAppend = tx => ty =>
-  All(tx.all && ty.all);
-
-
-const allPrepend = allAppend; // commutative
-
-
-const allEmpty = All(true);
-
-
-/******************************************************************************
-************************************[ ANY ]************************************
-******************************************************************************/
-
-
-const Any = b => record(Any, {any: b});
-
-
-/***[ Monoid ]****************************************************************/
-
-
-const anyAppend = tx => ty =>
-  Any(tx.any || ty.any);
-
-
-const anyPrepend = anyAppend; // commutative
-
-
-const anyEmpty = Any(false);
+const Box = x => ({
+  map: f => Box(f(x)),
+  ap: tx => Box(x(tx.unbox)),
+  chain: fm => fm(x),
+  unbox: x
+});
 
 
 /******************************************************************************
@@ -3801,23 +3886,6 @@ const eithChain = mx => fm =>
     Left: _ => mx,
     Right: ({right: x}) => fm(x)
   });
-
-
-/******************************************************************************
-***********************************[ ENDO ]************************************
-******************************************************************************/
-
-
-/***[ Monoid ]****************************************************************/
-
-
-const endoAppend = comp; // TODO: enforce a -> a
-
-
-const endoPrepend = funContra;  // TODO: enforce a -> a
-
-
-const endoEmpty = id;
 
 
 /******************************************************************************
@@ -4390,7 +4458,7 @@ const ListZipper = ls => x => rs =>
 const lzipExtend = wf => tx =>
   ListZipper(
     lzipMap(wf) (comp(listTail) (iterate(lzipLeft)) (tx)))
-      (wf(tx.lzip[1]))
+      (wf(tx))
         (lzipMap(wf) (comp(listTail) (iterate(lzipRight)) (tx)));
 
 
@@ -4576,11 +4644,11 @@ const Mutable = clone => refType => // strict variant
   record(Mutable, app(([o, initialCall, refType]) => {
     o.mutable = {
       run: k => {
-        o.mutable.run = _ => {
+        o.mutable.inspect = _ => {
           throw new TypeError("illegal subsequent inspection");
         };
 
-        o.mutable.set = _ => {
+        o.mutable.exec = _ => {
           throw new TypeError("illegal subsequent mutation");
         };
 
@@ -4612,11 +4680,11 @@ const Mutable_ = clone => refType => // non-strict variant
   record(Mutable, app(([o, queue, refType]) => {
     o.mutable = {
       run: k => {
-        o.mutable.run = _ => {
+        o.mutable.inspect = _ => {
           throw new TypeError("illegal subsequent inspection");
         };
 
-        o.mutable.set = _ => {
+        o.mutable.exec = _ => {
           throw new TypeError("illegal subsequent mutation");
         };
 
@@ -4641,12 +4709,12 @@ const Mutable_ = clone => refType => // non-strict variant
 /***[ Miscellaneous ]*********************************************************/
 
 
-const mutRun = k => o =>
-  o.mutable.run(k);
+const mutInspect = k => o =>
+  o.mutable.inspect(k);
 
 
-const mutSet = k => o =>
-  o.mutable.set(k);
+const mutExec = k => o =>
+  o.mutable.exec(k);
 
 
 /******************************************************************************
@@ -4654,7 +4722,63 @@ const mutSet = k => o =>
 ******************************************************************************/
 
 
-// TODO: non-empty Array (maybe by suptyping from Array?)
+class NEArray extends Array {
+  constructor(head) {
+    super(1);
+    this[0] = head;
+  }
+}
+
+
+const NEArray_ = head => new NEArray(head);
+
+
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+// TODO
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+const neaHead = ([x]) => x;
+
+
+const neaInit = xs => xs.slice(0 , -1);
+
+
+/***[ Comonad (tails) ]*******************************************************/
+
+
+// ([a] -> b) -> NEArray<a> -> NEArray<b>
+const tailExtend = f => xs => { // TODO: review
+  const go = xs_ =>
+    xs_.length === 1
+      ? Unwind([f(xs_)])
+      : Wind(neaAppend(f(xs_))) (go) (xs_.slice(1));
+//                       prevents NEArray ^^^^^
+
+  return moduloRec(go(neaInit(xs)));
+};
+
+
+const tailExtract = neaHead;
+
+
+/***[ Monoid ]****************************************************************/
+
+
+// NEArray does not include a monoid, because the empty array is not allowed.
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+const neaAppend = xs => ys => xs.concat(ys);
+
+
+const neaPrepend = ys => xs => xs.concat(ys);
 
 
 /******************************************************************************
@@ -4919,9 +5043,6 @@ const paraEmpty = empty =>
 /***[ Monoid (race) ]*********************************************************/
 
 
-// TODO: move to distinct Race type
-
-
 // raceAppend @Derived
 
 
@@ -5043,7 +5164,7 @@ const parseZero = err =>
     Malformed({
       meta,
       state: s,
-      error: err, // TODO: add meta details
+      error: `${err} in "${source}" @${line}/${col}`,
       input: inp}));
 
 
@@ -5088,6 +5209,22 @@ const parseChain = mx => fm =>
     }));
 
 
+/***[ Monoid ]****************************************************************/
+
+
+const parseAppend = append => tx => ty =>
+  Parser(meta => s => inp =>
+    match(tx.parse(meta) (s) (inp), {
+      Malformed: id,
+      Wellformed: ({wellf: {meta, state, struct: x, input}}) =>
+        match(ty.parse(meta) (s) (inp), {
+          Malformed: id,
+          Wellformed: ({wellf: {meta, state, struct: y, input}}) =>
+            Wellformed({meta, state, struct: append(x) (y), input})
+        })
+    }));
+
+
 /***[ Primitives ]************************************************************/
 
 
@@ -5120,9 +5257,8 @@ const parseSatisfy = err => p =>
         : Malformed({
             meta: {source, line, col},
             state: s,
-            error: err, // TODO: add meta details
+            error: `${err} in "${source}" @${line}/${col}`,
             input: inp}));
-
 
 
 /******************************************************************************
@@ -5152,27 +5288,6 @@ const predPrepend = tq => tp =>
 
 
 const predEmpty = Pred(_ => true);
-
-
-/******************************************************************************
-***********************************[ PROD ]************************************
-******************************************************************************/
-
-
-const Prod = n => record(Prod, {prod: n});
-
-
-/***[ Monoid ]****************************************************************/
-
-
-const prodAppend = tx => ty =>
-  Prod(tx.prod * ty.prod);
-
-
-const prodPrepend = prodAppend; // commutative
-
-
-const prodEmpty = Prod(1);
 
 
 /******************************************************************************
@@ -5387,27 +5502,6 @@ const streamMap = ({chain, of}) => f => ({stream: [step, ms]}) =>
 
 
 /******************************************************************************
-************************************[ SUM ]************************************
-******************************************************************************/
-
-
-const Sum = n => record(Sum, {sum: n});
-
-
-/***[ Monoid ]****************************************************************/
-
-
-const sumAppend = tx => ty =>
-  Sum(tx.sum + ty.sum);
-
-
-const sumPrepend = sumAppend; // commutative
-
-
-const sumEmpty = Sum(0);
-
-
-/******************************************************************************
 ***********************************[ TASK ]************************************
 ******************************************************************************/
 
@@ -5616,6 +5710,7 @@ const treeFold = uncons => f => { // pre-order
   return go;
 };
 
+
 const treeFoldLevel = uncons => f => init => tree => { // level-order
   const go = branch =>
     branch.length === 0
@@ -5628,6 +5723,7 @@ const treeFoldLevel = uncons => f => init => tree => { // level-order
 
   return arrFold(acc => node => f(acc) (node)) (init) (go([tree]));
 };
+
 
 const treeFoldr = uncons => f => init => tree => { // post-order
   const go = node => acc => {
@@ -5837,16 +5933,28 @@ const tripClone = ([x, y, z]) => Triple(x, y, z);
 const quadClone = ([w, x, y, z]) => Quad(w, x, y, z);
 
 
-const pairClone1 = ({clonex, cloney}) => ([x, y]) =>
+const pairCloneDeep = ({clonex, cloney}) => ([x, y]) =>
   Pair(clonex(x), cloney(y));
 
 
-const tripClone1 = ({clonex, cloney, clonez}) => ([x, y, z]) =>
+const tripCloneDeep = ({clonex, cloney, clonez}) => ([x, y, z]) =>
   Triple(clonex(x), cloney(y), clonez(z));
 
 
-const quadClone1 = ({clonew, clonex, cloney, clonez}) => ([w, x, y, z]) =>
-  Triple(clonew(w), clonex(x), cloney(y), clonez(z));
+const quadCloneDeep = ({clonew, clonex, cloney, clonez}) => ([w, x, y, z]) =>
+  Quad(clonew(w), clonex(x), cloney(y), clonez(z));
+
+
+/***[ Conversion ]************************************************************/
+
+
+const pairFromArr = ([x, y]) => Pair(x, y);
+
+
+const tripFromArr = ([x, y, z]) => Triple(x, y, z);
+
+
+const quadFromArr = ([w, x, y, z]) => Quad(w, x, y, z);
 
 
 /***[ Functor ]***************************************************************/
@@ -6458,15 +6566,11 @@ module.exports = { // TODO: supply a browserified version
   _3rd: TC ? fun_(_3rd) : _3rd,
   _4th: TC ? fun_(_4th) : _4th,
   add: TC ? fun_(add) : add,
-  All: TC ? fun_(All) : All,
-  all: TC ? fun_(all) : all,
   allAppend: TC ? fun_(allAppend) : allAppend,
   allEmpty: TC ? fun_(allEmpty) : allEmpty,
   allPrepend: TC ? fun_(allPrepend) : allPrepend,
   and: TC ? fun_(and) : and,
   andf: TC ? fun_(andf) : andf,
-  Any: TC ? fun_(Any) : Any,
-  any: TC ? fun_(any) : any,
   anyAppend: TC ? fun_(anyAppend) : anyAppend,
   anyEmpty: TC ? fun_(anyEmpty) : anyEmpty,
   anyPrepend: TC ? fun_(anyPrepend) : anyPrepend,
@@ -6522,6 +6626,8 @@ module.exports = { // TODO: supply a browserified version
   arrDelx: TC ? fun_(arrDelx) : arrDelx,
   arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
   arrEq: TC ? fun_(arrEq) : arrEq,
+  arrHead: TC ? fun_(arrHead) : arrHead,
+  arrHeadOr: TC ? fun_(arrHeadOr) : arrHeadOr,
   arrFilter: TC ? fun_(arrFilter) : arrFilter,
   arrFold: TC ? fun_(arrFold) : arrFold,
   arrFold1: TC
@@ -6538,6 +6644,7 @@ module.exports = { // TODO: supply a browserified version
   arrGetOr: TC ? fun_(arrGetOr) : arrGetOr,
   arrGetWith: TC ? fun_(arrGetWith) : arrGetWith,
   arrGetter: TC ? fun_(arrGetter) : arrGetter,
+  arrInit: TC ? fun_(arrInit) : arrInit,
   arrIns: TC ? fun_(arrIns) : arrIns,
   arrInsx: TC ? fun_(arrInsx) : arrInsx,
   arrJoin: TC ? fun_(arrJoin) : arrJoin,
@@ -6547,6 +6654,8 @@ module.exports = { // TODO: supply a browserified version
   arrKomp5: TC ? fun_(arrKomp5) : arrKomp5,
   arrKomp6: TC ? fun_(arrKomp6) : arrKomp6,
   arrKompn: TC ? fun_(arrKompn) : arrKompn,
+  arrLast: TC ? fun_(arrLast) : arrLast,
+  arrLastOr: TC ? fun_(arrLastOr) : arrLastOr,
   arrLens: TC ? fun_(arrLens) : arrLens,
   arrLensAt: TC ? fun_(arrLensAt) : arrLensAt,
   arrLensOpt: TC ? fun_(arrLensOpt) : arrLensOpt,
@@ -6590,9 +6699,12 @@ module.exports = { // TODO: supply a browserified version
   arrSnoc_: TC ? fun_(arrSnoc_) : arrSnoc_,
   arrSnocx_: TC ? fun_(arrSnocx_) : arrSnocx_,
   arrSum: TC ? fun_(arrSum) : arrSum,
+  arrTail: TC ? fun_(arrTail) : arrTail,
   arrUncons: TC ? fun_(arrUncons) : arrUncons,
   arrUnconsx: TC ? fun_(arrUnconsx) : arrUnconsx,
   arrUnfold: TC ? fun_(arrUnfold) : arrUnfold,
+  arrUnheadx: TC ? fun_(arrUnheadx) : arrUnheadx,
+  arrUnlastx: TC ? fun_(arrUnlastx) : arrUnlastx,
   arrUnsnoc: TC ? fun_(arrUnsnoc) : arrUnsnoc,
   arrUnsnocx: TC ? fun_(arrUnsnocx) : arrUnsnocx,
   arrUpd: TC ? fun_(arrUpd) : arrUpd,
@@ -6602,6 +6714,7 @@ module.exports = { // TODO: supply a browserified version
   BOOL,
   boolMaxBound,
   boolMinBound,
+  Box,
   Call,
   Call_,
   coyoAp: TC ? fun_(coyoAp) : coyoAp,
@@ -6737,6 +6850,7 @@ module.exports = { // TODO: supply a browserified version
   formatDay: TC ? fun_(formatDay) : formatDay,
   formatFrac: TC ? fun_(formatFrac) : formatFrac,
   formatInt: TC ? fun_(formatInt) : formatInt,
+  formatSign: TC ? fun_(formatSign) : formatSign,
   formatMonth: TC ? fun_(formatMonth) : formatMonth,
   formatNum: TC ? fun_(formatNum) : formatNum,
   formatWeekday: TC ? fun_(formatWeekday) : formatWeekday,
@@ -6935,8 +7049,14 @@ module.exports = { // TODO: supply a browserified version
   MutableObj_: TC ? fun_(MutableObj_) : MutableObj_,
   MutableSet: TC ? fun_(MutableSet) : MutableSet,
   MutableSet_: TC ? fun_(MutableSet_) : MutableSet_,
-  mutRun: TC ? fun_(mutRun) : mutRun,
-  mutSet: TC ? fun_(mutSet) : mutSet,
+  mutInspect: TC ? fun_(mutInspect) : mutInspect,
+  mutExec: TC ? fun_(mutExec) : mutExec,
+  NEArray: TC ? fun_(NEArray) : NEArray, // TODO: add non-empty check
+  NEArray_: TC ? fun_(NEArray_) : NEArray_,
+  neaAppend: TC ? fun_(neaAppend) : neaAppend,
+  neaHead: TC ? fun_(neaHead) : neaHead,
+  neaInit: TC ? fun_(neaInit) : neaInit,
+  neaPrepend: TC ? fun_(neaPrepend) : neaPrepend,
   neg: TC ? fun_(neg) : neg,
   _new: TC ? fun_(_new) : _new,
   Nil,
@@ -7024,7 +7144,8 @@ module.exports = { // TODO: supply a browserified version
   orf: TC ? fun_(orf) : orf,
   Pair: TC ? fun_(Pair) : Pair,
   pairClone: TC ? fun_(pairClone) : pairClone,
-  pairClone1: TC ? fun_(pairClone1) : pairClone1,
+  pairCloneDeep: TC ? fun_(pairCloneDeep) : pairCloneDeep,
+  pairFromArr: TC ? fun_(pairFromArr) : pairFromArr,
   pairMap: TC ? fun_(pairMap) : pairMap,
   pairMap1st: TC ? fun_(pairMap1st) : pairMap1st,
   pairMap2nd: TC ? fun_(pairMap2nd) : pairMap2nd,
@@ -7064,13 +7185,13 @@ module.exports = { // TODO: supply a browserified version
   predEmpty: TC ? fun_(predEmpty) : predEmpty,
   predPrepend: TC ? fun_(predPrepend) : predPrepend,
   PREFIX,
-  Prod: TC ? fun_(Prod) : Prod,
   prodAppend: TC ? fun_(prodAppend) : prodAppend,
   prodEmpty: TC ? fun_(prodEmpty) : prodEmpty,
   prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
   Quad: TC ? fun_(Quad) : Quad,
   quadClone: TC ? fun_(quadClone) : quadClone,
-  quadClone1: TC ? fun_(quadClone1) : quadClone1,
+  quadCloneDeep: TC ? fun_(quadCloneDeep) : quadCloneDeep,
+  quadFromArr: TC ? fun_(quadFromArr) : quadFromArr,
   quadMap: TC ? fun_(quadMap) : quadMap,
   quadMap1st: TC ? fun_(quadMap1st) : quadMap1st,
   quadMap2nd: TC ? fun_(quadMap2nd) : quadMap2nd,
@@ -7165,11 +7286,12 @@ module.exports = { // TODO: supply a browserified version
   strReplaceBy: TC ? fun_(strReplaceBy) : strReplaceBy,
   strSearch: TC ? fun_(strSearch) : strSearch,
   sub: TC ? fun_(sub) : sub,
-  Sum: TC ? fun_(Sum) : Sum,
   sumAppend: TC ? fun_(sumAppend) : sumAppend,
   sumEmpty: TC ? fun_(sumEmpty) : sumEmpty,
   sumPrepend: TC ? fun_(sumPrepend) : sumPrepend,
   taggedLog,
+  tailExtend: TC ? fun_(tailExtend) : tailExtend,
+  tailExtract: TC ? fun_(tailExtract) : tailExtract,
   tailRec: TC ? fun_(tailRec) : tailRec,
   take: TC ? fun_(take) : take,
   takek: TC ? fun_(takek) : takek,
@@ -7224,7 +7346,8 @@ module.exports = { // TODO: supply a browserified version
   treePaths: TC ? fun_(treePaths) : treePaths,
   Triple: TC ? fun_(Triple) : Triple,
   tripClone: TC ? fun_(tripClone) : tripClone,
-  tripClone1: TC ? fun_(tripClone1) : tripClone1,
+  tripCloneDeep: TC ? fun_(tripCloneDeep) : tripCloneDeep,
+  tripFromArr: TC ? fun_(tripFromArr) : tripFromArr,
   tripMap: TC ? fun_(tripMap) : tripMap,
   tripMap1st: TC ? fun_(tripMap1st) : tripMap1st,
   tripMap2nd: TC ? fun_(tripMap2nd) : tripMap2nd,
