@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01; // internal
 const PREFIX = "scriptum_"; // internal
 
 
-const TC = false; // global type check flag (internal)
+const TC = true; // global type check flag (internal)
 
 
 /******************************************************************************
@@ -1696,8 +1696,8 @@ const arrAppend = xs => ys => xs.concat(ys);
 
 
 const arrAppendx = xs => ys => // safe-in-place-update variant
-  xs.arr.exec(xs_ =>
-    (xs_.push.apply(xs_, ys), xs_));
+  mutExec(xs_ =>
+    (xs_.push.apply(xs_, ys), xs_)) (xs);
 
 
 ARRAY.append = arrAppend;
@@ -1706,8 +1706,8 @@ ARRAY.append = arrAppend;
 const arrPrepend = ys => xs => xs.concat(ys);
 
 
-const arrPrependx = ys => xs => // safe-in-place-update variant
-  xs.arr.exec(xs_ =>
+const arrPrependx = ys => // safe-in-place-update variant
+  mutExec(xs_ =>
     (xs_.push.apply(xs_, ys), xs_));
 
 
@@ -2649,7 +2649,7 @@ const mapSet = k => v => m =>
 
 
 const mapSetx = k => v => // safe-in-place-update variant
-  mutExec(m_ => m_.exec(k, v));
+  mutExec(m_ => m_.set(k, v));
 
 
 const mapUpd = k => f => m =>
@@ -2661,7 +2661,7 @@ const mapUpd = k => f => m =>
 const mapUpdx = k => f => // safe-in-place-update variant
   mutExec(m_ =>
     m_.has(k)
-      ? m_.exec(k, f(m_.get(k)))
+      ? m_.set(k, f(m_.get(k)))
       : m_);
 
 
@@ -4643,9 +4643,9 @@ const minEmpty = maxBound => Min(maxBound);
 const Mutable = clone => refType => // strict variant
   record(Mutable, app(([o, initialCall, refType]) => {
     o.mutable = {
-      run: k => {
-        o.mutable.inspect = _ => {
-          throw new TypeError("illegal subsequent inspection");
+      consume: k => {
+        o.mutable.consume = _ => {
+          throw new TypeError("illegal subsequent consumption");
         };
 
         o.mutable.exec = _ => {
@@ -4655,7 +4655,7 @@ const Mutable = clone => refType => // strict variant
         return k(refType);
       },
 
-      set: k => {
+      exec: k => {
         if (initialCall) {
           initialCall = false;
           refType = clone(refType);
@@ -4679,9 +4679,9 @@ const Mutable = clone => refType => // strict variant
 const Mutable_ = clone => refType => // non-strict variant
   record(Mutable, app(([o, queue, refType]) => {
     o.mutable = {
-      run: k => {
-        o.mutable.inspect = _ => {
-          throw new TypeError("illegal subsequent inspection");
+      consume: k => {
+        o.mutable.consume = _ => {
+          throw new TypeError("illegal subsequent consumption");
         };
 
         o.mutable.exec = _ => {
@@ -4696,7 +4696,7 @@ const Mutable_ = clone => refType => // non-strict variant
         return k(refType);
       },
 
-      set: k => {
+      exec: k => {
         queue.push(k);
         return o;
       }
@@ -4709,8 +4709,8 @@ const Mutable_ = clone => refType => // non-strict variant
 /***[ Miscellaneous ]*********************************************************/
 
 
-const mutInspect = k => o =>
-  o.mutable.inspect(k);
+const mutConsume = k => o =>
+  o.mutable.consume(k);
 
 
 const mutExec = k => o =>
@@ -4739,6 +4739,12 @@ const NEArray_ = head => new NEArray(head);
 // TODO
 
 
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+const neaCons = x => xs => new NEArray(x).concat(xs);
+
+
 /***[ Getters/Setters ]*******************************************************/
 
 
@@ -4754,12 +4760,12 @@ const neaInit = xs => xs.slice(0 , -1);
 // ([a] -> b) -> NEArray<a> -> NEArray<b>
 const tailExtend = f => xs => { // TODO: review
   const go = xs_ =>
-    xs_.length === 1
-      ? Unwind([f(xs_)])
-      : Wind(neaAppend(f(xs_))) (go) (xs_.slice(1));
-//                       prevents NEArray ^^^^^
+    xs_.length === 0
+      ? Unwind(f([]))
+      : Wind(neaCons(f(xs_))) (go) (xs_.slice(1));
+//  prevents NEArray as inner structure ^^^^^
 
-  return moduloRec(go(neaInit(xs)));
+  return moduloRec(go(xs));
 };
 
 
@@ -6567,12 +6573,12 @@ module.exports = { // TODO: supply a browserified version
   _4th: TC ? fun_(_4th) : _4th,
   add: TC ? fun_(add) : add,
   allAppend: TC ? fun_(allAppend) : allAppend,
-  allEmpty: TC ? fun_(allEmpty) : allEmpty,
+  allEmpty,
   allPrepend: TC ? fun_(allPrepend) : allPrepend,
   and: TC ? fun_(and) : and,
   andf: TC ? fun_(andf) : andf,
   anyAppend: TC ? fun_(anyAppend) : anyAppend,
-  anyEmpty: TC ? fun_(anyEmpty) : anyEmpty,
+  anyEmpty,
   anyPrepend: TC ? fun_(anyPrepend) : anyPrepend,
   apEff: TC ? fun_(apEff) : apEff,
   apEff_: TC ? fun_(apEff_) : apEff_,
@@ -7049,7 +7055,7 @@ module.exports = { // TODO: supply a browserified version
   MutableObj_: TC ? fun_(MutableObj_) : MutableObj_,
   MutableSet: TC ? fun_(MutableSet) : MutableSet,
   MutableSet_: TC ? fun_(MutableSet_) : MutableSet_,
-  mutInspect: TC ? fun_(mutInspect) : mutInspect,
+  mutConsume: TC ? fun_(mutConsume) : mutConsume,
   mutExec: TC ? fun_(mutExec) : mutExec,
   NEArray: TC ? fun_(NEArray) : NEArray, // TODO: add non-empty check
   NEArray_: TC ? fun_(NEArray_) : NEArray_,
@@ -7186,7 +7192,7 @@ module.exports = { // TODO: supply a browserified version
   predPrepend: TC ? fun_(predPrepend) : predPrepend,
   PREFIX,
   prodAppend: TC ? fun_(prodAppend) : prodAppend,
-  prodEmpty: TC ? fun_(prodEmpty) : prodEmpty,
+  prodEmpty,
   prodPrepend: TC ? fun_(prodPrepend) : prodPrepend,
   Quad: TC ? fun_(Quad) : Quad,
   quadClone: TC ? fun_(quadClone) : quadClone,
@@ -7287,7 +7293,7 @@ module.exports = { // TODO: supply a browserified version
   strSearch: TC ? fun_(strSearch) : strSearch,
   sub: TC ? fun_(sub) : sub,
   sumAppend: TC ? fun_(sumAppend) : sumAppend,
-  sumEmpty: TC ? fun_(sumEmpty) : sumEmpty,
+  sumEmpty,
   sumPrepend: TC ? fun_(sumPrepend) : sumPrepend,
   taggedLog,
   tailExtend: TC ? fun_(tailExtend) : tailExtend,
