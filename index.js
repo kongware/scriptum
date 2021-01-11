@@ -182,7 +182,7 @@ class ObjProxy {
 
     if (!(k in o)) {
       switch (k) {
-        case "length": break;
+        case "length": return o[k];
         
         default:
           throw new TypeError("illegal implicit duck typing");
