@@ -38,6 +38,9 @@ const MICROTASK_TRESHOLD = 0.01; // internal
 const PREFIX = "scriptum_"; // internal
 
 
+// Switch TC off while debugging for a less verbose debug experience.
+
+
 const TC = true; // global type check flag (internal)
 
 
@@ -180,14 +183,25 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    if (!(k in o)) {
-      switch (k) {
-        case "length": return o[k];
-        
-        default:
-          throw new TypeError("illegal implicit duck typing");
-      }
+    switch (k) { // Symbols are excluded from duck typing check
+      case Symbol.asyncIterator:
+      case Symbol.hasInstance:
+      case Symbol.isConcatSpreadable:
+      case Symbol.iterator:
+      case Symbol.match:
+      case Symbol.matchAll:
+      case Symbol.replace:
+      case Symbol.search:
+      case Symbol.species:
+      case Symbol.split:
+      case Symbol.toPrimitive:
+      case Symbol.toStringTag:
+      case Symbol.unscopables:
+      case "length": return o[k]; // used for duck typing internally
     }
+
+    if (!(k in o))
+      throw new TypeError("illegal implicit duck typing");
 
     else if (k === Symbol.toPrimitive)
       throw new TypeError("illegal type coercion");
@@ -1370,7 +1384,7 @@ const arrUncons = xs => {
     return None;
 
   else
-    return Some([xs[0], xs.slice(1)]);
+    return Some(Pair(xs[0], xs.slice(1)));
 };
 
 
@@ -1380,7 +1394,7 @@ const arrUnconsx = xs => // safe-in-place-update variant
       return None;
 
     else
-      return Some([xs_.shift(), xs_]);
+      return Some(Pair(xs_.shift(), xs_));
   }) (xs);
 
 
@@ -1551,6 +1565,10 @@ const arrInit = xs => xs.slice(0, -1);
 // TODO: arrInits (not a comonad)
 
 
+const arrInitx = xs => // safe-in-place-update variant
+  mutExec(xs_ => (xs_.pop(), xs_)) (xs);
+
+
 const arrIns = i => x => xs =>
   xs.slice(0, i)
     .concat(x, xs.slice(i));
@@ -1603,15 +1621,11 @@ const arrSetx = i => x => // safe-in-place-update variant
 const arrTail = ([, ...xs]) => xs;
 
 
-// TODO: arrTails (not a comonad)
+// TODO: arrTails (not as a comonad)
 
 
-const arrUnheadx = xs => // safe-in-place-update variant
+const arrTailx = xs => // safe-in-place-update variant
   mutExec(xs_ => (xs_.shift(), xs_)) (xs);
-
-
-const arrUnlastx = xs => // safe-in-place-update variant
-  mutExec(xs_ => (xs_.pop(), xs_)) (xs);
 
 
 const arrUpd = i => f => xs =>
@@ -3379,9 +3393,9 @@ const strFold = arrFold;
 const strFoldr = arrFoldr;
 
 
-// As opposed to arrays this string fold embraces the primitive nature of srings
-// in Javascript by consuming a chunk of characters for each iteration. The
-// chunk size is determined by a regular expression.
+// As opposed to arrays strFoldChunk embraces the primitive nature of srings
+// in Javascript by consuming an arbitrarily chunk of characters for each
+// iteration. The chunk size is determined by a regular expression.
 
 
 const strFoldChunk = rx => f => acc => s => {
@@ -3395,8 +3409,8 @@ const strFoldChunk = rx => f => acc => s => {
 };
 
 
-// As opposed to arrays this risght associative string fold embraces the primitive
-// nature of srings in Javascript by consuming a chunk of characters for each
+// As opposed to arrays strFoldChunk embraces the primitive nature of srings
+// in Javascript by consuming an arbitrarily chunk of characters for each
 // iteration. The chunk size is determined by a regular expression.
 
 
@@ -3516,6 +3530,7 @@ const strArrange = (...ss) => ss.join("");
 const Box = x => ({
   map: f => Box(f(x)),
   ap: tx => Box(x(tx.unbox)),
+  of: x => Box(x),
   chain: fm => fm(x),
   unbox: x
 });
@@ -4224,10 +4239,6 @@ const lastPrepend = firstAppend;
 ******************************************************************************/
 
 
-// Please note that their is no distinct non-empty list type in scriptum,
-// since I fail to see the benefits of such type.
-
-
 const List = union("List");
 
 
@@ -4722,53 +4733,92 @@ const mutExec = k => o =>
 ******************************************************************************/
 
 
+// NEArray is constructed in a way that makes it hard to create an empty
+// instance. It is not impossible, though. You can either use the delete
+// operator or set the length attribute to zero in order to obtain an illegal
+// empty structure.
+
+// All combinators which reduce the structure of non-empty arrays implicitly
+// converts them to regular arrays. For this reason there are no variants with
+// in-place update for such combinators.
+
+
 class NEArray extends Array {
   constructor(head) {
     super(1);
     this[0] = head;
   }
+
+  filter() {throw new TypeError("illegal operation on non-empty structure")}
+
+  pop() {throw new TypeError("illegal operation on non-empty structure")}
+
+  shift() {throw new TypeError("illegal operation on non-empty structure")}
+
+  slice() {throw new TypeError("illegal operation on non-empty structure")}
+
+  splice() {throw new TypeError("illegal operation on non-empty structure")}
 }
 
 
-const NEArray_ = head => new NEArray(head);
+const NEArray_ = xs => record(NEArray, {nearray: xs});
 
 
 /***[ Con-/Deconstruction ]***************************************************/
 
 
-// TODO
+// a -> NEArray<a> -> NEArray<a>
+const neaCons = x => ({nearray: xs}) => NEArray_(x.concat(xs));
 
 
-/***[ Con-/Deconstruction ]***************************************************/
+// NEArray<a> -> Pair<a, [a]>
+const neaUncons = ({nearray: [x, ...xs]}) => Pair(x, xs);
 
 
-const neaCons = x => xs => new NEArray(x).concat(xs);
+/***[ Conversion ]************************************************************/
+
+
+// [a] -> NEArray<a>
+const neaFromArr = xs =>
+  tailRec(([acc, i]) =>
+    i === xs.length
+      ? Base(NEArray_(acc))
+      : Loop([acc.concat([xs[i]]), i + 1]))
+        ([new NEArray(xs[0]), 1]);
 
 
 /***[ Getters/Setters ]*******************************************************/
 
 
-const neaHead = ([x]) => x;
+// NEArray<a> -> a
+const neaHead = ({nearray: [x]}) => x;
 
 
-const neaInit = xs => xs.slice(0 , -1);
+// NEArray<a> -> [a]
+const neaTail = ({nearray: [, ...xs]}) => xs;
+
+
+/***[ Comonad (inits) ]*******************************************************/
+
+
+// TODO
 
 
 /***[ Comonad (tails) ]*******************************************************/
 
 
-// ([a] -> b) -> NEArray<a> -> NEArray<b>
-const tailExtend = f => xs => { // TODO: review
+// ([a] -> b) -> NEArray<a> -> [b]
+const tailExtend = f => ({nearray: xs}) => {
   const go = xs_ =>
     xs_.length === 0
-      ? Unwind(f([]))
-      : Wind(neaCons(f(xs_))) (go) (xs_.slice(1));
-//  prevents NEArray as inner structure ^^^^^
+      ? Unwind([])
+      : Wind(arrCons(thunk(() => f(xs_)))) (go) (arrTail(xs_));
 
-  return moduloRec(go(xs));
+  return arrInit(moduloRec(go(xs)));
 };
 
 
+// NEArray<a> -> a
 const tailExtract = neaHead;
 
 
@@ -4781,10 +4831,14 @@ const tailExtract = neaHead;
 /***[ Semigroup ]*************************************************************/
 
 
-const neaAppend = xs => ys => xs.concat(ys);
+// NEArray<a> -> NEArray<a> -> NEArray<a>
+const neaAppend = ({nearray: xs}) => ({nearray: ys}) =>
+  NEArray_(xs.concat(ys));
 
 
-const neaPrepend = ys => xs => xs.concat(ys);
+// NEArray<a> -> NEArray<a> -> NEArray<a>
+const neaPrepend = ({nearray: ys}) => ({nearray: xs}) =>
+  NEArray_(xs.concat(ys));
 
 
 /******************************************************************************
@@ -6651,6 +6705,7 @@ module.exports = { // TODO: supply a browserified version
   arrGetWith: TC ? fun_(arrGetWith) : arrGetWith,
   arrGetter: TC ? fun_(arrGetter) : arrGetter,
   arrInit: TC ? fun_(arrInit) : arrInit,
+  arrInitx: TC ? fun_(arrInitx) : arrInitx,
   arrIns: TC ? fun_(arrIns) : arrIns,
   arrInsx: TC ? fun_(arrInsx) : arrInsx,
   arrJoin: TC ? fun_(arrJoin) : arrJoin,
@@ -6706,11 +6761,10 @@ module.exports = { // TODO: supply a browserified version
   arrSnocx_: TC ? fun_(arrSnocx_) : arrSnocx_,
   arrSum: TC ? fun_(arrSum) : arrSum,
   arrTail: TC ? fun_(arrTail) : arrTail,
+  arrTailx: TC ? fun_(arrTailx) : arrTailx,
   arrUncons: TC ? fun_(arrUncons) : arrUncons,
   arrUnconsx: TC ? fun_(arrUnconsx) : arrUnconsx,
   arrUnfold: TC ? fun_(arrUnfold) : arrUnfold,
-  arrUnheadx: TC ? fun_(arrUnheadx) : arrUnheadx,
-  arrUnlastx: TC ? fun_(arrUnlastx) : arrUnlastx,
   arrUnsnoc: TC ? fun_(arrUnsnoc) : arrUnsnoc,
   arrUnsnocx: TC ? fun_(arrUnsnocx) : arrUnsnocx,
   arrUpd: TC ? fun_(arrUpd) : arrUpd,
@@ -7057,12 +7111,15 @@ module.exports = { // TODO: supply a browserified version
   MutableSet_: TC ? fun_(MutableSet_) : MutableSet_,
   mutConsume: TC ? fun_(mutConsume) : mutConsume,
   mutExec: TC ? fun_(mutExec) : mutExec,
-  NEArray: TC ? fun_(NEArray) : NEArray, // TODO: add non-empty check
+  NEArray: TC ? fun_(NEArray) : NEArray,
   NEArray_: TC ? fun_(NEArray_) : NEArray_,
   neaAppend: TC ? fun_(neaAppend) : neaAppend,
+  neaCons: TC ? fun_(neaCons) : neaCons,
+  neaFromArr: TC ? fun_(neaFromArr) : neaFromArr,
   neaHead: TC ? fun_(neaHead) : neaHead,
-  neaInit: TC ? fun_(neaInit) : neaInit,
   neaPrepend: TC ? fun_(neaPrepend) : neaPrepend,
+  neaTail: TC ? fun_(neaTail) : neaTail,
+  neaUncons: TC ? fun_(neaUncons) : neaUncons,
   neg: TC ? fun_(neg) : neg,
   _new: TC ? fun_(_new) : _new,
   Nil,
