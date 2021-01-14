@@ -74,6 +74,9 @@ class ScriptumError extends ExtendableError {};
 class HamtError extends ScriptumError {};
 
 
+class ParserError extends ScriptumError {};
+
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ TYPE CHECKING ]*******************************
@@ -108,8 +111,9 @@ const obj = o => {
   if (o[OBJ]) return o;
 
   for (let [k, v] of (objEntries(o))) {
-    if (isUnit(v))
-      throw new TypeError("illegal property unit type");
+    if (isBottom(v))
+      throw new TypeError(
+        strJoin("illegal unit type detected ", formatType(`${k}: ${instrospect(v)}`) (o)));
 
     else if (typeof v === "function")
       o[k] = fun_(v);
@@ -130,26 +134,32 @@ const obj = o => {
 class FunProxy {
   constructor(pred) {
     this.pred = pred; // custom type checks
+    this.predName = pred && pred.name || "lambda";
   }
 
   apply(f, that, args) {
+    const funName = f.name || "lambda";
+
     args.forEach(arg => {
-      if (isUnit(arg))
-        throw new TypeError("illegal argument unit type");
+      if (isBottom(arg))
+        throw new TypeError(
+          strJoin("illegal unit type detected ", formatType(instrospect(arg)) (f)));
     });
 
     if (this.pred !== null) {
-      this.pred = this.pred(...args)
-//     may either ^^^^^^^^^^^^^^^^^^ return a boolean or another predicate
+      this.pred = this.pred(...args);
+//     may either ^^^^^^^^^^^^^^^^^^ return another predicate or a boolean value
 
       if (this.pred === false)
-        throw new TypeError("illegal argument type");
+        throw new TypeError(
+          strJoin(`argument does not satisfy ${predName} predicate`, formatType(instrospect(arg)) (f)));
     }
 
     const r = f(...args);
 
-    if (isUnit(r))
-      throw new TypeError("illegal return unit type");
+    if (isBottom(r))
+      throw new TypeError(
+        "illegal unit type in ");
 
     else if (typeof r === "function")
       return typeof this.pred === "function" ? fun(this.pred) (r) : fun_(r);
@@ -165,7 +175,8 @@ class FunProxy {
       return true;
 
     else if (k === Symbol.toPrimitive)
-      throw new TypeError("illegal type coercion");
+      throw new TypeError(
+        strJoin("illegal type coercion", formatType("[Symbol.toPrimitive]: Function") (f)));
 
     else return f[k];
   }
@@ -201,10 +212,12 @@ class ObjProxy {
     }
 
     if (!(k in o))
-      throw new TypeError("illegal implicit duck typing");
+      throw new TypeError(
+        strJoin("illegal implicit duck typing", formatType(`${k}: Undefined`) (o)));
 
     else if (k === Symbol.toPrimitive)
-      throw new TypeError("illegal type coercion");
+      throw new TypeError(
+        strJoin("illegal type coercion", formatType("[Symbol.toPrimitive]: Function") (o)));
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
       return fun_(o[k].bind(o));
@@ -280,14 +293,6 @@ class ThunkProxy {
     return this.memo(...args);
   }
 
-  defineProperty(g, k, dtor) {
-    throw new TypeError(`illegal mutation in "${k}"`);
-  }
-  
-  deleteProperty(g, k) {
-    throw new TypeError(`illegal mutation in "${k}"`);
-  }
-
   get(g, k) {
     if (k === THUNK)
       return true;
@@ -355,10 +360,6 @@ class ThunkProxy {
 
     return Object.keys(this.memo);
   }
-
-  set(g, k, v) {
-    throw new TypeError(`illegal mutation in "${k}"`);
-  }  
 }
 
 
@@ -859,19 +860,7 @@ const match = (tx, o) => o[tx.tag] (tx);
 
 
 const matchAs = (tx, o) => o[tx.tag] (tx, tx);
-// deconstruct the 1st argument and   ^^  ^^ pass the 2nd one as is
-
-
-/******************************************************************************
-****************************[ AUXILIARY FUNCTION ]*****************************
-******************************************************************************/
-
-
-const lazyProp = k => v => o =>
-  Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = v()},
-    configurable: true,
-    enumerable: true});
+//  deconstructs the 1st argument and ^^  ^^ passes the 2nd one as is
 
 
 /******************************************************************************
@@ -2241,11 +2230,21 @@ const eff = f => x =>
   (f(x), x);
 
 
+const formatType = content => x => { // internal
+  switch (introspect(x)) {
+    case "Array": return `[${content}]`;
+    case "Function": return `${f.name || "lambda"}(${content})`;
+    case "Object": return `{${content}}`;
+    default: return `${x}<${content}>`;
+  }
+};
+
+
 const introspect = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
-const isUnit = x =>
+const isBottom = x =>
   x === undefined
     || x === x === false // NaN
     || (
@@ -2278,7 +2277,7 @@ const throwOnEmpty = throwOn(xs => xs.length === 0);
 const throwOnFalse = throwOn(x => x === false);
 
 
-const throwOnUnit = throwOn(isUnit);
+const throwOnUnit = throwOn(isBottom);
 
 
 /***[ Infix Combinators ]*****************************************************/
@@ -2980,6 +2979,10 @@ OBJECT.clone = objClone;
 /***[ Con-/Deconstruction ]***************************************************/
 
 
+// Implicitly passes a fresh Object instance to the provided function, e.g.
+// thisify(o => {o.foo = "abc", o.bar = 123; return o})
+
+
 const thisify = f => f({});
 
 
@@ -3066,6 +3069,13 @@ function* objValues(o) {
 
 
 /***[ Getters/Setters ]*******************************************************/
+
+
+const lazyProp = k => v => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = v()},
+    configurable: true,
+    enumerable: true});
 
 
 const objDel = k => ({[k]: _, ...o}) => o;
@@ -3507,7 +3517,7 @@ const strSearch = rx => s =>
 /***[ Miscellaneous ]*********************************************************/
 
 
-const strArrange = (...ss) => ss.join("");
+const strJoin = (...ss) => ss.join("");
 
 
 /******************************************************************************
@@ -5285,6 +5295,24 @@ const parseAppend = append => tx => ty =>
     }));
 
 
+const parsePrepend = append => ty => tx => // Q: restrict Monoid on Strings?
+  Parser(meta => s => inp =>
+    match(tx.parse(meta) (s) (inp), {
+      Malformed: id,
+      Wellformed: ({wellf: {meta, state, struct: x, input}}) =>
+        match(ty.parse(meta) (s) (inp), {
+          Malformed: id,
+          Wellformed: ({wellf: {meta, state, struct: y, input}}) =>
+            Wellformed({meta, state, struct: append(x) (y), input})
+        })
+    }));
+
+
+const parseEmpty = empty => // TODO: review
+  Parser(meta => s => inp =>
+    Wellformed({meta, state: s, struct: empty, input: inp}));
+
+
 /***[ Primitives ]************************************************************/
 
 
@@ -6620,7 +6648,10 @@ const optmEmpty = None;
 ******************************************************************************/
 
 
-module.exports = { // TODO: supply a browserified version
+// TODO: switch to ESM modules
+
+
+module.exports = {
   _1st: TC ? fun_(_1st) : _1st,
   _2nd: TC ? fun_(_2nd) : _2nd,
   _3rd: TC ? fun_(_3rd) : _3rd,
@@ -6974,7 +7005,7 @@ module.exports = { // TODO: supply a browserified version
   infixr5: TC ? fun_(infixr5) : infixr5,
   infixr6: TC ? fun_(infixr6) : infixr6,
   introspect,
-  isUnit,
+  isBottom,
   iterate: TC ? fun_(iterate) : iterate,
   join: TC ? fun_(join) : join,
   komp: TC ? fun_(komp) : komp,
@@ -7231,10 +7262,13 @@ module.exports = { // TODO: supply a browserified version
   paraPrepend: TC ? fun_(paraPrepend) : paraPrepend,
   parseAlt: TC ? fun_(parseAlt) : parseAlt,
   parseAp: TC ? fun_(parseAp) : parseAp,
+  parseAppend: TC ? fun_(parseAppend) : parseAppend,
   parseChain: TC ? fun_(parseChain) : parseChain,
   parseChar: TC ? fun_(parseChar) : parseChar,
+  parseEmpty: TC ? fun_(parseEmpty) : parseEmpty,
   parseMap: TC ? fun_(parseMap) : parseMap,
   parseOf: TC ? fun_(parseOf) : parseOf,
+  parsePrepend: TC ? fun_(parsePrepend) : parsePrepend,
   Parser: TC ? fun_(Parser) : Parser,
   ParserResult: TC ? fun_(ParserResult) : ParserResult,
   parseSatisfy: TC ? fun_(parseSatisfy) : parseSatisfy,
@@ -7314,7 +7348,6 @@ module.exports = { // TODO: supply a browserified version
           : true)
             (strAppend)
     : strAppend,
-  strArrange: TC ? fun_(strArrange) : strArrange,
   Stream: TC ? fun_(Stream) : Stream,
   streamFold: TC ? fun_(streamFold) : streamFold,
   streamFromStr: TC ? fun_(streamFromStr) : streamFromStr,
@@ -7322,6 +7355,7 @@ module.exports = { // TODO: supply a browserified version
   strEmpty,
   strict: TC ? fun_(strict) : strict,
   strictRec: TC ? fun_(strictRec) : strictRec,
+  strJoin: TC ? fun_(strJoin) : strJoin,
   strFold: TC ? fun_(strFold) : strFold,
   strFoldChunk: TC ? fun_(strFoldChunk) : strFoldChunk,
   strFoldChunkr: TC ? fun_(strFoldChunkr) : strFoldChunkr,
