@@ -112,8 +112,10 @@ const obj = o => {
 
   for (let [k, v] of (objEntries(o))) {
     if (isBottom(v))
-      throw new TypeError(
-        strJoin("illegal unit type detected: ", formatType(`${k}: ${introspect(v)}`) (o)));
+      throw new TypeError(strJoin(
+        "illegal unit type in object property:\n",
+        formatType(`${k}: ${introspect(v)}`) (o),
+        "\n"));
 
     else if (typeof v === "function")
       o[k] = fun_(v);
@@ -140,8 +142,10 @@ class FunProxy {
   apply(f, that, args) {
     args.forEach(arg => {
       if (isBottom(arg))
-        throw new TypeError(
-          strJoin("illegal unit type detected: ", formatType(introspect(arg)) (f)));
+        throw new TypeError(strJoin(
+          "illegal unit type in function argument:\n",
+          formatType(introspect(arg)) (f),
+          "\n"));
     });
 
     if (this.pred !== null) {
@@ -150,16 +154,18 @@ class FunProxy {
 
       if (this.pred === false)
         throw new TypeError(strJoin(
-          `argument does not satisfy ${this.predName} predicate: `,
-          formatType(introspect(arg)) (f)));
+          `function argument does not satisfy ${this.predName} predicate:\n`,
+          formatType(introspect(arg)) (f),
+          "\n"));
     }
-debugger;
+
     const r = f(...args);
 
     if (isBottom(r))
       throw new TypeError(strJoin(
-        "illegal unit type detected: ",
-        formatType(introspect(r)) (ReturnType(f) (...args))));
+        "illegal unit type in function return value:\n",
+        formatType(introspect(r)) (ReturnValue(f) (...args)),
+        "\n"));
 
     else if (typeof r === "function")
       return typeof this.pred === "function" ? fun(this.pred) (r) : fun_(r);
@@ -175,8 +181,10 @@ debugger;
       return true;
 
     else if (k === Symbol.toPrimitive)
-      throw new TypeError(
-        strJoin("illegal type coercion: ", formatType("[Symbol.toPrimitive]: Function") (f)));
+      throw new TypeError(strJoin(
+        "illegal type coercion in function object:\n",
+        formatType(f.name || "lambda") (f),
+        "\n"));
 
     else return f[k];
   }
@@ -212,12 +220,20 @@ class ObjProxy {
     }
 
     if (!(k in o))
-      throw new TypeError(
-        strJoin("illegal implicit duck typing: ", formatType(`${k}: Undefined`) (o)));
+      throw new TypeError(strJoin(
+        `illegal implicit duck typing with "${k}" property:\n`,
+        formatType(Array.from(objEntries(o))
+          .map(([k, v]) => `${k}: ${introspect(v)}`)
+          .join(", ")) (o),
+        "\n"));
 
     else if (k === Symbol.toPrimitive)
-      throw new TypeError(
-        strJoin("illegal type coercion: ", formatType("[Symbol.toPrimitive]: Function") (o)));
+      throw new TypeError(strJoin(
+        "illegal type coercion in object:\n",
+        formatType(Array.from(objEntries(o))
+          .map(([k, v]) => `${k}: ${introspect(v)}`)
+          .join(", ")) (o),
+        "\n"));
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
       return fun_(o[k].bind(o));
@@ -2237,7 +2253,7 @@ const formatType = content => o => { // internal
     case "Array": return `[${content}]`;
     case "Function": return `${o.name || "lambda"}(${content})`;
     
-    case "ReturnType": return strJoin(
+    case "ReturnValue": return strJoin(
       o.f.name || "lambda",
       `(${o.args
         .map(arg =>
@@ -2271,8 +2287,8 @@ const _new = Cons => x =>
   new Cons(x);
 
 
-const ReturnType = f => (...args) =>
-  ({[Symbol.toStringTag]: "ReturnType", f, args}); // internal
+const ReturnValue = f => (...args) =>
+  ({[Symbol.toStringTag]: "ReturnValue", f, args}); // internal
 
 
 const _throw = e => {
