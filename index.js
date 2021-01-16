@@ -113,7 +113,7 @@ const obj = o => {
   for (let [k, v] of (objEntries(o))) {
     if (isBottom(v))
       throw new TypeError(
-        strJoin("illegal unit type detected ", formatType(`${k}: ${instrospect(v)}`) (o)));
+        strJoin("illegal unit type detected: ", formatType(`${k}: ${introspect(v)}`) (o)));
 
     else if (typeof v === "function")
       o[k] = fun_(v);
@@ -138,12 +138,10 @@ class FunProxy {
   }
 
   apply(f, that, args) {
-    const funName = f.name || "lambda";
-
     args.forEach(arg => {
       if (isBottom(arg))
         throw new TypeError(
-          strJoin("illegal unit type detected ", formatType(instrospect(arg)) (f)));
+          strJoin("illegal unit type detected: ", formatType(introspect(arg)) (f)));
     });
 
     if (this.pred !== null) {
@@ -151,15 +149,17 @@ class FunProxy {
 //     may either ^^^^^^^^^^^^^^^^^^ return another predicate or a boolean value
 
       if (this.pred === false)
-        throw new TypeError(
-          strJoin(`argument does not satisfy ${predName} predicate`, formatType(instrospect(arg)) (f)));
+        throw new TypeError(strJoin(
+          `argument does not satisfy ${this.predName} predicate: `,
+          formatType(introspect(arg)) (f)));
     }
-
+debugger;
     const r = f(...args);
 
     if (isBottom(r))
-      throw new TypeError(
-        "illegal unit type in ");
+      throw new TypeError(strJoin(
+        "illegal unit type detected: ",
+        formatType(introspect(r)) (ReturnType(f) (...args))));
 
     else if (typeof r === "function")
       return typeof this.pred === "function" ? fun(this.pred) (r) : fun_(r);
@@ -176,7 +176,7 @@ class FunProxy {
 
     else if (k === Symbol.toPrimitive)
       throw new TypeError(
-        strJoin("illegal type coercion", formatType("[Symbol.toPrimitive]: Function") (f)));
+        strJoin("illegal type coercion: ", formatType("[Symbol.toPrimitive]: Function") (f)));
 
     else return f[k];
   }
@@ -213,11 +213,11 @@ class ObjProxy {
 
     if (!(k in o))
       throw new TypeError(
-        strJoin("illegal implicit duck typing", formatType(`${k}: Undefined`) (o)));
+        strJoin("illegal implicit duck typing: ", formatType(`${k}: Undefined`) (o)));
 
     else if (k === Symbol.toPrimitive)
       throw new TypeError(
-        strJoin("illegal type coercion", formatType("[Symbol.toPrimitive]: Function") (o)));
+        strJoin("illegal type coercion: ", formatType("[Symbol.toPrimitive]: Function") (o)));
 
     else if (typeof o[k] === "function" && !o[k] [THUNK])
       return fun_(o[k].bind(o));
@@ -2230,12 +2230,25 @@ const eff = f => x =>
   (f(x), x);
 
 
-const formatType = content => x => { // internal
-  switch (introspect(x)) {
+const formatType = content => o => { // internal
+  const type = introspect(o);
+
+  switch (type) {
     case "Array": return `[${content}]`;
-    case "Function": return `${f.name || "lambda"}(${content})`;
+    case "Function": return `${o.name || "lambda"}(${content})`;
+    
+    case "ReturnType": return strJoin(
+      o.f.name || "lambda",
+      `(${o.args
+        .map(arg =>
+          typeof arg === "function"
+            ? arg.name || "lambda"
+            : introspect(arg))
+        .join(", ")})`,
+      ` = ${content}`);
+    
     case "Object": return `{${content}}`;
-    default: return `${x}<${content}>`;
+    default: return `${type} {${content}}`;
   }
 };
 
@@ -2256,6 +2269,10 @@ const isBottom = x =>
 
 const _new = Cons => x =>
   new Cons(x);
+
+
+const ReturnType = f => (...args) =>
+  ({[Symbol.toStringTag]: "ReturnType", f, args}); // internal
 
 
 const _throw = e => {
@@ -3769,6 +3786,110 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 
 
 /******************************************************************************
+*********************************[ COROUTINE ]*********************************
+******************************************************************************/
+
+
+// Completely untested!
+
+
+const Coroutine = mx => record(Coroutine, {resume: mx});
+
+
+const Await = f => record(Await, {await: f});
+
+
+const Request = req => res => x =>
+  record(Request, {request: req, response: res => x});
+
+
+const Yield = x => y => record(Yield, {yield: {x, y}});
+
+
+/***[ Functor ]***************************************************************/
+
+
+const coroMap = ({maps, mapm}) => f => mx =>
+  Coroutine(mapm(tx =>
+    match(tx, {
+      Left: ({left: s}) => Left(maps(f) (s)),
+      Right: ({right: x}) => Right(f(x))
+    })) (mx.resume));
+
+
+/***[ Monad ]*****************************************************************/
+
+
+const coroOf = of => x => Coroutine(of(Right(x)));
+
+
+const coroChain = ({map, chain, of}) => mx => fm => {
+  const go = fm => mx => Coroutine(chain(mx.resume) (tx =>
+    match(tx, {
+      Left: ({left: s}) => of(Left(map(go(fm)) (s))),
+      Right: ({right: x}) => fm(x).resume
+    })));
+
+  return go(fm) (mx);
+};
+
+
+const coroLift = map => comp(Coroutine) (map(Right));
+
+
+/***[ Miscellaneous ]*********************************************************/
+
+
+const coroAwait = of => coroSuspend(of) (Await(of));
+
+
+// TODO: coroBounce
+
+
+// TODO: coroConcatYields
+
+
+// TODO: coroConcatAwaits
+
+
+// TODO: coroFoldRun
+
+
+const coroMapMonad = ({maps, mapr}) => f => mx =>
+  Coroutine(mapr(tx => match(tx, {
+    Left: ({left: s}) => Left(maps(mapMonad(f)) (s)),
+    Right: id
+  })) (f(mx.resume)));
+
+
+const coroMapSuspension = ({maps, mapr}) => f => mx =>
+  Coroutine(mapr(tx => match(tx, {
+    Left: id,
+    Right: ({left: s}) => Left(maps(coroMapSuspension(f)) (s))
+  })) (f(mx.resume)));
+
+
+// TODO: coroPogoStick
+
+
+// TODO: coroPogoStickM
+
+
+// TODO: coroRequest
+
+
+// TODO: coroRun
+
+
+const coroSuspend = of => s =>
+  Coroutine(of(Left(s)));
+
+
+const coroYield = of => x =>
+  coroSuspend(of) (Yield(x) (of(null)));
+
+
+/******************************************************************************
 *********************************[ COYONEDA ]**********************************
 ******************************************************************************/
 
@@ -5210,8 +5331,8 @@ const Parser = f => record(Parser, {parse: f});
 const ParserResult = union("ParserResult");
 
 
-const Malformed = ({meta, state, error, input}) =>
-  ParserResult(Malformed, {malf: {meta, state, error, input}});
+const Malformed = ({meta, state, errmsg, input}) =>
+  ParserResult(Malformed, {malf: {meta, state, errmsg, input}});
 
 
 const Wellformed = ({meta, state, struct, input}) =>
@@ -5229,12 +5350,12 @@ const parseAlt = tx => ty =>
     }));
 
 
-const parseZero = err =>
+const parseZero =
   Parser(meta => s => inp =>
     Malformed({
       meta,
       state: s,
-      error: `${err} in "${source}" @${line}/${col}`,
+      errmsg: `empty parser in "${source}" @${line}/${col}`,
       input: inp}));
 
 
@@ -5253,6 +5374,18 @@ const parseAp = tf => tx =>
 const parseOf = x =>
   Parser(meta => s => inp =>
     Wellformed({meta, state: s, struct: x, input: inp}));
+
+
+/***[ Backtracking ]**********************************************************/
+
+
+const parseTry = tx =>
+  Parser(meta => s => inp =>
+    match(tx.parse(meta) (s) (inp), {
+      Malformed: ({meta, state, errmsg, input}) =>
+        Malformed({meta, state, errmsg, input: inp}),
+      Wellformed: id
+    }));
 
 
 /***[ Functor ]***************************************************************/
@@ -5321,7 +5454,7 @@ const parseChar =
     inp.length === 0 ? Malformed({
       meta: {source, line, col},
       state: s,
-      get error() {return `char expected but EOS received in "${source}" @${line}/${col}`},
+      get errmsg() {return `char expected but EOS received in "${source}" @${line}/${col}`},
       input: inp})
         : Wellformed({
             meta: {source, line, col: col + 1},
@@ -5330,12 +5463,12 @@ const parseChar =
             input: inp.slice(1)}));
 
 
-const parseSatisfy = err => p =>
+const parseSatisfy = errmsg => p =>
   Parser(({source, line, col}) => s => inp =>
     inp.length === 0 ? Malformed({
       meta: {source, line, col},
       state: s,
-      get error() {return `char expected but EOS received in "${source}" @${line}/${col}`},
+      get errmsg() {return `char expected but EOS received in "${source}" @${line}/${col}`},
       input: inp})
         : p(inp[0]) ? Wellformed({
             meta: {source, line, col: col + 1},
@@ -5345,7 +5478,7 @@ const parseSatisfy = err => p =>
         : Malformed({
             meta: {source, line, col},
             state: s,
-            error: `${err} in "${source}" @${line}/${col}`,
+            errmsg: `${errmsg} in "${source}" @${line}/${col}`,
             input: inp}));
 
 
@@ -6801,6 +6934,7 @@ module.exports = {
   arrUpd: TC ? fun_(arrUpd) : arrUpd,
   arrUpdx: TC ? fun_(arrUpdx) : arrUpdx,
   arrZero: TC ? fun_(arrZero) : arrZero,
+  Await: TC ? fun_(Await) : Await,
   Base: TC ? fun_(Base) : Base,
   BOOL,
   boolMaxBound,
@@ -6868,6 +7002,16 @@ module.exports = {
   contChainT: TC ? fun_(contChainT) : contChainT,
   contLiftT: TC ? fun_(contLiftT) : contLiftT,
   contOfT: TC ? fun_(contOfT) : contOfT,
+  coroAwait: TC ? fun_(coroAwait) : coroAwait,
+  coroChain: TC ? fun_(coroChain) : coroChain,
+  coroLift: TC ? fun_(coroLift) : coroLift,
+  coroMap: TC ? fun_(coroMap) : coroMap,
+  coroMapMonad: TC ? fun_(coroMapMonad) : coroMapMonad,
+  coroSuspend: TC ? fun_(coroSuspend) : coroSuspend,
+  coroMapSuspension: TC ? fun_(coroMapSuspension) : coroMapSuspension,
+  coroOf: TC ? fun_(coroOf) : coroOf,
+  Coroutine: TC ? fun_(Coroutine) : Coroutine,
+  coroYield: TC ? fun_(coroYield) : coroYield,
   ctorAppend: TC ? fun_(ctorAppend) : ctorAppend,
   ctorEmpty: TC ? fun_(ctorEmpty) : ctorEmpty,
   ctorPrepend: TC ? fun_(ctorPrepend) : ctorPrepend,
@@ -7272,6 +7416,7 @@ module.exports = {
   Parser: TC ? fun_(Parser) : Parser,
   ParserResult: TC ? fun_(ParserResult) : ParserResult,
   parseSatisfy: TC ? fun_(parseSatisfy) : parseSatisfy,
+  parseTry: TC ? fun_(parseTry) : parseTry,
   parseZero: TC ? fun_(parseZero) : parseZero,
   partial: TC ? fun_(partial) : partial,
   partialProps: TC ? fun_(partialProps) : partialProps,
@@ -7303,6 +7448,7 @@ module.exports = {
   recOf: TC ? fun_(recOf) : recOf,
   record: TC ? fun_(record) : record,
   repeat: TC ? fun_(repeat) : repeat,
+  Request: TC ? fun_(Request) : Request,
   reset: TC ? fun_(reset) : reset,
   rest: TC ? fun_(rest) : rest,
   Return,
@@ -7473,6 +7619,7 @@ module.exports = {
   writerPass: TC ? fun_(writerPass) : writerPass,
   writerTell: TC ? fun_(writerTell) : writerTell,
   Unwind,
+  Yield: TC ? fun_(Yield) : Yield,
   yoAp: TC ? fun_(yoAp) : yoAp,
   yoChain: TC ? fun_(yoChain) : yoChain,
   yoLift: TC ? fun_(yoLift) : yoLift,
