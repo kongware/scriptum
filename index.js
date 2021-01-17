@@ -1,14 +1,14 @@
 /*
-                           ,,                                                
-                           db             mm                                 
-                                          MM                                 
-,pP"Ybd  ,p6"bo `7Mb,od8 `7MM `7MMpdMAo.mmMMmm `7MM  `7MM  `7MMpMMMb.pMMMb.  
-8I   `" 6M'  OO   MM' "'   MM   MM   `Wb  MM     MM    MM    MM    MM    MM  
-`YMMMa. 8M        MM       MM   MM    M8  MM     MM    MM    MM    MM    MM  
-L.   I8 YM.    ,  MM       MM   MM   ,AP  MM     MM    MM    MM    MM    MM  
-M9mmmP'  YMbmd' .JMML.   .JMML. MMbmmd'   `Mbmo  `Mbod"YML..JMML  JMML  JMML.
-                                MM                                           
-                              .JMML.                                        
+                                88                                                    
+                                ""              ,d                                    
+                                                88                                    
+,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
+I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
+ `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
+aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
+`"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
+                                   88                                                 
+                                   88                                                 
 */
 
 
@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01; // internal
 const PREFIX = "scriptum_"; // internal
 
 
-// Switch TC off while debugging for a less verbose debug experience.
+// Switch TC off while debugging for a less verbose experience.
 
 
 const TC = true; // global type check flag (internal)
@@ -100,27 +100,51 @@ const OBJ = PREFIX + "obj";
 ******************************************************************************/
 
 
-const fun = pred => f =>
-  f[FUN] ? f : new Proxy(f, new FunProxy(pred));
+const fun = (pred, funName = "", callHistory = []) => f => {
+  if (typeof f !== "function") { // defensive type check
+    throw new TypeError("illegal FunProxy");
+  }
+
+  else if (f[OBJ]) // defensive type check
+    throw new TypeError("illegal ObjProxy");
+
+  else if (f[FUN]) // defensive type check
+    throw new TypeError("redundant FunProxy");
+
+  else if (f[THUNK]) // thunks are not further proxified
+    return f;
+
+  return new Proxy(f, new FunProxy(pred, funName, callHistory));
+};
 
 
 const fun_ = fun(null);
 
 
 const obj = o => {
-  if (o[OBJ]) return o;
+  if (typeof o !== "object") // defensive type check
+    throw new TypeError("illegal ObjProxy");
 
-  for (let [k, v] of (objEntries(o))) {
+  else if (o[FUN]) // defensive type check
+    throw new TypeError("illegal FunProxy");
+
+  else if (o[OBJ]) // defensive type check
+    throw new TypeError("redundant ObjProxy");
+
+  else if (o[THUNK]) // thunks are not further proxified
+    return o;
+
+  for (let [k, v] of (objEntries(o))) { // throw on bottom type properties
     if (isBottom(v))
       throw new TypeError(strJoin(
         "illegal unit type in object property:\n",
         formatType(`${k}: ${introspect(v)}`) (o),
         "\n"));
 
-    else if (typeof v === "function")
+    else if (typeof v === "function" && !v[FUN]) // proxify function propeties
       o[k] = fun_(v);
 
-    else if (v !== null && typeof v === "object")
+    else if (v !== null && typeof v === "object" && !v[OBJ]) // proxify object properties
       o[k] = obj(v);
   }
 
@@ -134,41 +158,66 @@ const obj = o => {
 
 
 class FunProxy {
-  constructor(pred) {
+  constructor(pred, funName, callHistory) {
+    this.funName = (funName || "lambda");
     this.pred = pred; // custom type checks
-    this.predName = pred && pred.name || "lambda";
+    this.callHistory = callHistory;
   }
 
-  apply(f, that, args) {
+  apply(f, that, args) { // throw on bottom type arguments
     args.forEach(arg => {
-      if (isBottom(arg))
+      if (isBottom(arg)) {
+        this.callHistory.push(
+          `(${args.map(arg => introspect(arg)).join(",")})`);
+
         throw new TypeError(strJoin(
           "illegal unit type in function argument:\n",
-          formatType(introspect(arg)) (f),
+          this.funName + this.callHistory.join(" "),
           "\n"));
+      }
     });
 
-    if (this.pred !== null) {
+    if (this.pred !== null) { // perform custom type checks
       this.pred = this.pred(...args);
 //     may either ^^^^^^^^^^^^^^^^^^ return another predicate or a boolean value
 
-      if (this.pred === false)
+      if (this.pred === false) { // throw on unsatisfied predicates
+        this.callHistory.push(
+          `(predicate(${args.map(arg => introspect(arg)).join(",")}))`);
+
         throw new TypeError(strJoin(
-          `function argument does not satisfy ${this.predName} predicate:\n`,
-          formatType(introspect(arg)) (f),
+          `function argument does not satisfy predicate:\n`,
+          this.funName + this.callHistory.join(" "),
           "\n"));
+      }
     }
 
     const r = f(...args);
 
-    if (isBottom(r))
+    // concatenates function call history
+
+    if (typeof r === "function") {
+      if (this.callHistory[this.callHistory.length - 1].slice(-1) === ";")
+        this.callHistory.push(
+          f.name || "lambda" + `(${args.map(arg => introspect(arg)).join(",")})`);
+
+      else
+        this.callHistory.push(
+          `(${args.map(arg => introspect(arg)).join(",")})`);
+    }
+
+    else
+      this.callHistory.push(
+        `(${args.map(arg => introspect(arg)).join(",")}) = ${introspect(r)};`);
+
+    if (isBottom(r)) // throw on bottom type return values
       throw new TypeError(strJoin(
         "illegal unit type in function return value:\n",
-        formatType(introspect(r)) (ReturnValue(f) (...args)),
+        this.funName + this.callHistory.join(" "),
         "\n"));
 
-    else if (typeof r === "function")
-      return typeof this.pred === "function" ? fun(this.pred) (r) : fun_(r);
+    else if (typeof r === "function" && !r[FUN]) // maintain type information
+      return fun(this.pred, this.funName, this.callHistory) (r);
 
     else if (typeof this.pred === "function")
       throw new TypeError("redundant type check predicate");
@@ -180,10 +229,10 @@ class FunProxy {
     if (k === FUN)
       return true;
 
-    else if (k === Symbol.toPrimitive)
+    else if (k === Symbol.toPrimitive) // prevent implicit type coersions
       throw new TypeError(strJoin(
-        "illegal type coercion in function object:\n",
-        formatType(f.name || "lambda") (f),
+        "illegal type coersion of function:\n",
+        this.funName + this.callHistory.join(" "),
         "\n"));
 
     else return f[k];
@@ -202,7 +251,9 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    switch (k) { // Symbols are excluded from duck typing check
+    // prevent implicit duck typing
+
+    switch (k) { // skip Symbols b/c they indicate native behavior
       case Symbol.asyncIterator:
       case Symbol.hasInstance:
       case Symbol.isConcatSpreadable:
@@ -215,28 +266,35 @@ class ObjProxy {
       case Symbol.split:
       case Symbol.toPrimitive:
       case Symbol.toStringTag:
-      case Symbol.unscopables:
-      case "length": return o[k]; // used for duck typing internally
+      case Symbol.unscopables: return o[k];
+
+      case "length": return o[k]; // skip b/c frequently used internally
+
+      default: {
+        if (!(k in o))
+          throw new TypeError(strJoin(
+            `illegal implicit duck typing with "${k}" property:\n`,
+            formatType(Array.from(objEntries(o))
+              .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .join(", ")) (o),
+            "\n"));
+      }
     }
 
-    if (!(k in o))
+    if (k === Symbol.toPrimitive) // prevent implicit type coersions
       throw new TypeError(strJoin(
-        `illegal implicit duck typing with "${k}" property:\n`,
+        "illegal type coersion of object:\n",
         formatType(Array.from(objEntries(o))
           .map(([k, v]) => `${k}: ${introspect(v)}`)
           .join(", ")) (o),
         "\n"));
 
-    else if (k === Symbol.toPrimitive)
-      throw new TypeError(strJoin(
-        "illegal type coercion in object:\n",
-        formatType(Array.from(objEntries(o))
-          .map(([k, v]) => `${k}: ${introspect(v)}`)
-          .join(", ")) (o),
-        "\n"));
+    else if (typeof o[k] === "function" && !o[k] [THUNK]) { // bind methods
+      if (!o[k] [FUN])
+        return fun_(o[k].bind(o));
 
-    else if (typeof o[k] === "function" && !o[k] [THUNK])
-      return fun_(o[k].bind(o));
+      else return o[k].bind(o);
+    }
 
     else return o[k];
   }
@@ -335,7 +393,7 @@ class ThunkProxy {
     while (this.memo[k] && this.memo[k] [THUNK] === true)
       this.memo[k] = this.memo[k].valueOf();
 
-    if (typeof this.memo[k] === "function" && !this.memo[k] [FUN])
+    if (typeof this.memo[k] === "function" && !this.memo[k] [FUN]) // TODO: review FUN check
       return this.memo[k].bind(this.memo);
 
     else return this.memo[k];
@@ -2251,18 +2309,6 @@ const formatType = content => o => { // internal
 
   switch (type) {
     case "Array": return `[${content}]`;
-    case "Function": return `${o.name || "lambda"}(${content})`;
-    
-    case "ReturnValue": return strJoin(
-      o.f.name || "lambda",
-      `(${o.args
-        .map(arg =>
-          typeof arg === "function"
-            ? arg.name || "lambda"
-            : introspect(arg))
-        .join(", ")})`,
-      ` = ${content}`);
-    
     case "Object": return `{${content}}`;
     default: return `${type} {${content}}`;
   }
@@ -2285,10 +2331,6 @@ const isBottom = x =>
 
 const _new = Cons => x =>
   new Cons(x);
-
-
-const ReturnValue = f => (...args) =>
-  ({[Symbol.toStringTag]: "ReturnValue", f, args}); // internal
 
 
 const _throw = e => {
@@ -3806,7 +3848,7 @@ const contLiftA6 = liftA6({map: contMap, ap: contAp});
 ******************************************************************************/
 
 
-// Completely untested!
+// Currently broken!!!
 
 
 const Coroutine = mx => record(Coroutine, {resume: mx});
@@ -6864,7 +6906,7 @@ module.exports = {
   arrConsx_: TC ? fun_(arrConsx_) : arrConsx_,
   arrDel: TC ? fun_(arrDel) : arrDel,
   arrDelx: TC ? fun_(arrDelx) : arrDelx,
-  arrEmpty: TC ? fun_(arrEmpty) : arrEmpty,
+  arrEmpty,
   arrEq: TC ? fun_(arrEq) : arrEq,
   arrHead: TC ? fun_(arrHead) : arrHead,
   arrHeadOr: TC ? fun_(arrHeadOr) : arrHeadOr,
@@ -6949,7 +6991,7 @@ module.exports = {
   arrUnsnocx: TC ? fun_(arrUnsnocx) : arrUnsnocx,
   arrUpd: TC ? fun_(arrUpd) : arrUpd,
   arrUpdx: TC ? fun_(arrUpdx) : arrUpdx,
-  arrZero: TC ? fun_(arrZero) : arrZero,
+  arrZero,
   Await: TC ? fun_(Await) : Await,
   Base: TC ? fun_(Base) : Base,
   BOOL,
@@ -7029,7 +7071,7 @@ module.exports = {
   Coroutine: TC ? fun_(Coroutine) : Coroutine,
   coroYield: TC ? fun_(coroYield) : coroYield,
   ctorAppend: TC ? fun_(ctorAppend) : ctorAppend,
-  ctorEmpty: TC ? fun_(ctorEmpty) : ctorEmpty,
+  ctorEmpty,
   ctorPrepend: TC ? fun_(ctorPrepend) : ctorPrepend,
   curry: TC ? fun_(curry) : curry,
   curry_: TC ? fun_(curry_) : curry_,
@@ -7081,7 +7123,7 @@ module.exports = {
   Equiv: TC ? fun_(Equiv) : Equiv,
   equivAppend: TC ? fun_(equivAppend) : equivAppend,
   equivContra: TC ? fun_(equivContra) : equivContra,
-  equivEmpty: TC ? fun_(equivEmpty) : equivEmpty,
+  equivEmpty,
   equivPrepend: TC ? fun_(equivPrepend) : equivPrepend,
   fileRead_: TC ? fun_(fileRead_) : fileRead_,
   fileWrite_: TC ? fun_(fileWrite_) : fileWrite_,
@@ -7130,7 +7172,7 @@ module.exports = {
   hamtHas: TC ? fun_(hamtHas) : hamtHas,
   hamtSet: TC ? fun_(hamtSet) : hamtSet,
   hamtUpd: TC ? fun_(hamtUpd) : hamtUpd,
-  IArray: TC ? fun_(IArray) : IArray,
+  IArray,
   iarrCons: TC ? fun_(iarrCons) : iarrCons,
   iarrDel: TC ? fun_(iarrDel) : iarrDel,
   iarrGet: TC ? fun_(iarrGet) : iarrGet,
@@ -7207,7 +7249,7 @@ module.exports = {
     : listAppendT,
   listChain: TC ? fun_(listChain) : listChain,
   listChainT: TC ? fun_(listChainT) : listChainT,
-  listEmpty: TC ? fun_(listEmpty) : listEmpty,
+  listEmpty,
   listFold: TC ? fun_(listFold) : listFold,
   listFoldr: TC ? fun_(listFoldr) : listFoldr,
   listFoldrT: TC ? fun_(listFoldrT) : listFoldrT,
@@ -7372,14 +7414,14 @@ module.exports = {
   optAp: TC ? fun_(optAp) : optAp,
   optAppend: TC ? fun_(optAppend) : optAppend,
   optChain: TC ? fun_(optChain) : optChain,
-  optEmpty: TC ? fun_(optEmpty) : optEmpty,
+  optEmpty,
   Optic: TC ? fun_(Optic) : Optic,
   opticComp: TC ? fun_(opticComp) : opticComp,
   opticComp3: TC ? fun_(opticComp3) : opticComp3,
   opticDel: TC ? fun_(opticDel) : opticDel,
   opticGet: TC ? fun_(opticGet) : opticGet,
   opticGetOpt: TC ? fun_(opticGetOpt) : opticGetOpt,
-  opticId: TC ? fun_(opticId) : opticId,
+  opticId,
   opticIns: TC ? fun_(opticIns) : opticIns,
   opticSet: TC ? fun_(opticSet) : opticSet,
   opticUpd: TC ? fun_(opticUpd) : opticUpd,
@@ -7390,7 +7432,7 @@ module.exports = {
   optLiftA6: TC ? fun_(optLiftA6) : optLiftA6,
   optMap: TC ? fun_(optMap) : optMap,
   optmAppend: TC ? fun_(optmAppend) : optmAppend,
-  optmEmpty: TC ? fun_(optmEmpty) : optmEmpty,
+  optmEmpty,
   optmPrepend: TC ? fun_(optmPrepend) : optmPrepend,
   optOf: TC ? fun_(optOf) : optOf,
   optPrepend: TC ? fun_(optPrepend) : optPrepend,
@@ -7424,7 +7466,7 @@ module.exports = {
   parseAp: TC ? fun_(parseAp) : parseAp,
   parseAppend: TC ? fun_(parseAppend) : parseAppend,
   parseChain: TC ? fun_(parseChain) : parseChain,
-  parseChar: TC ? fun_(parseChar) : parseChar,
+  parseChar,
   parseEmpty: TC ? fun_(parseEmpty) : parseEmpty,
   parseMap: TC ? fun_(parseMap) : parseMap,
   parseOf: TC ? fun_(parseOf) : parseOf,
@@ -7433,14 +7475,14 @@ module.exports = {
   ParserResult: TC ? fun_(ParserResult) : ParserResult,
   parseSatisfy: TC ? fun_(parseSatisfy) : parseSatisfy,
   parseTry: TC ? fun_(parseTry) : parseTry,
-  parseZero: TC ? fun_(parseZero) : parseZero,
+  parseZero,
   partial: TC ? fun_(partial) : partial,
   partialProps: TC ? fun_(partialProps) : partialProps,
   pow: TC ? fun_(pow) : pow,
   Pred: TC ? fun_(Pred) : Pred,
   predAppend: TC ? fun_(predAppend) : predAppend,
   predContra: TC ? fun_(predContra) : predContra,
-  predEmpty: TC ? fun_(predEmpty) : predEmpty,
+  predEmpty,
   predPrepend: TC ? fun_(predPrepend) : predPrepend,
   PREFIX,
   prodAppend: TC ? fun_(prodAppend) : prodAppend,
@@ -7456,7 +7498,7 @@ module.exports = {
   quadMap3rd: TC ? fun_(quadMap3rd) : quadMap3rd,
   quadMap4th: TC ? fun_(quadMap4th) : quadMap4th,
   raceAppend: TC ? fun_(raceAppend) : raceAppend,
-  raceEmpty: TC ? fun_(raceEmpty) : raceEmpty,
+  raceEmpty,
   racePrepend: TC ? fun_(racePrepend) : racePrepend,
   recAp: TC ? fun_(recAp) : recAp,
   recChain: TC ? fun_(recChain) : recChain,
@@ -7493,7 +7535,7 @@ module.exports = {
   stateChain: TC ? fun_(stateChain) : stateChain,
   stateEval: TC ? fun_(stateEval) : stateEval,
   stateExec: TC ? fun_(stateExec) : stateExec,
-  stateGet: TC ? fun_(stateGet) : stateGet,
+  stateGet,
   stateGets: TC ? fun_(stateGets) : stateGets,
   stateMap: TC ? fun_(stateMap) : stateMap,
   stateModify: TC ? fun_(stateModify) : stateModify,
