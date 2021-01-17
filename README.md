@@ -17,6 +17,7 @@ Feature selection:
   * throws immediately on `undefined`, `NaN` and `invalid Date`
   * throws immediately on implicit type coercions
   * allows custom type checks
+* improved debugging experience along with curried functions
 * safe in-place updates (mutations) through an affine-like type
 * fully-fledged lazy evaluation through expressions in Weak Head Normal Form
 * stack-safe recursion through a family of trampoline techniques
