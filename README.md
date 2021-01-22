@@ -110,7 +110,7 @@ Feature selection:
 * purely functional memoization
 * navigating through trees with Zippers
 
-## Course - Table of Contents
+## Functional Programming Course - Table of Contents
 
 ### Part I (untyped)
 
