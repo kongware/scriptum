@@ -62,9 +62,6 @@ Feature selection:
 * lawful and pure synchronous effect computation
   * without sharing of results using `Defer`
   * with sharing of results using `Lazy`
-* blazingly fast persistent data structures based on
-  * Hashed Array Mapped Tries (HAMT)
-  * Finger Trees
 * generalized multi-way (aka rose) trees with a bunch of helpful combinators
 * van Laarhoven functional optics
   * `Getter`/`Setter`
