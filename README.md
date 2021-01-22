@@ -1,14 +1,35 @@
-<img src="./scriptum.png" alt="scriptum"><br>
+/*
+                                88                                                    
+                                ""              ,d                                    
+                                                88                                    
+,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
+I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
+ `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
+aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
+`"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
+                                   88                                                 
+                                   88                                                 
+*/
 
 ## What
 
-A course about purely functional programming in Javascript based on the scriptum library.
-
-You do not need a math or PLT background to follow this course.
+Yet another functional programming lib for Node.js and the browser.
 
 ## scriptum Library
 
-scriptum is the attempt to get as close as possible to the functional paradigm using a multi paradigm language that many developer are familiar with. The main goal is to keep scriptum as language agnostic as possible so that you can transfer the acquired knowledge to your preferred language.
+scriptum mainly pursues three goals:
+
+* be language agnostic as far as possible
+* reduce the potential of bugs
+* render code more predictable
+
+First of all, scriptum is the attempt to get as close as possible to the purely functional paradigm using a multi-paradigm language lots of developers are familiar with. By keeping the lib essentially language agnostic you can more easily transfer the acquired knowledge to your preferred language.
+
+Secondly, scriptum ships with a zero-cost extended runtime type checker that reduces the potential of bugs significantly. It is zero-cost, because you can switch it on and off on demand. Moreover, scriptum heavily relies on mutable data structures that provide a safe in-place update API. This prevents bugs caused by side effects and reduces the potential of race conditions and dead locks when using the event loop in asynchronous computations.
+
+Thirdly, scriptum uses a monad based effect system in order to make effects explicit and thus enable more predictable code. Effects can be composed using monad transformers and there is a variety of predefined transformers available.
+
+Please note that scriptum does not include persistent data strucutres beased on finger trees or hashed array mapped tries for the time being, because it relies upon safe in-place updates instead.
 
 Feature selection:
 
