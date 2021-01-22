@@ -38,7 +38,7 @@ const MICROTASK_TRESHOLD = 0.01; // internal
 const PREFIX = "scriptum_"; // internal
 
 
-// Switch TC off while debugging for a less verbose experience.
+// Switch TC off for a less verbose debug experience.
 
 
 const TC = true; // global type check flag (internal)
@@ -71,7 +71,7 @@ class ScriptumError extends ExtendableError {};
 /***[ Subclasses ]************************************************************/
 
 
-class HamtError extends ScriptumError {};
+class MutableError extends ScriptumError {};
 
 
 class ParserError extends ScriptumError {};
@@ -79,9 +79,12 @@ class ParserError extends ScriptumError {};
 
 /******************************************************************************
 *******************************************************************************
-*******************************[ TYPE CHECKING ]*******************************
+***************************[ RUNTIME TYPE CHECKING ]***************************
 *******************************************************************************
 ******************************************************************************/
+
+
+// Zero cost extended runtime type checking
 
 
 /******************************************************************************
@@ -100,7 +103,7 @@ const OBJ = PREFIX + "obj";
 ******************************************************************************/
 
 
-const fun = (pred, funName = "", callHistory = []) => f => {
+const fun = (pred, funName = "", callHist = []) => f => {
   if (typeof f !== "function") { // defensive type check
     throw new TypeError("illegal FunProxy");
   }
@@ -114,11 +117,11 @@ const fun = (pred, funName = "", callHistory = []) => f => {
   else if (f[THUNK]) // thunks are not further proxified
     return f;
 
-  return new Proxy(f, new FunProxy(pred, funName, callHistory));
+  return new Proxy(f, new FunProxy(pred, funName, callHist));
 };
 
 
-const fun_ = fun(null);
+const fun_ = fun(null); // no custom type predicate as default
 
 
 const obj = o => {
@@ -134,17 +137,17 @@ const obj = o => {
   else if (o[THUNK]) // thunks are not further proxified
     return o;
 
-  for (let [k, v] of (objEntries(o))) { // throw on bottom type properties
+  for (let [k, v] of (objEntries(o))) { // throws on props of type bottom
     if (isBottom(v))
       throw new TypeError(strJoin(
         "illegal unit type in object property:\n",
         formatType(`${k}: ${introspect(v)}`) (o),
         "\n"));
 
-    else if (typeof v === "function" && !v[FUN]) // proxify function propeties
+    else if (typeof v === "function" && !v[FUN]) // proxifies function props
       o[k] = fun_(v);
 
-    else if (v !== null && typeof v === "object" && !v[OBJ]) // proxify object properties
+    else if (v !== null && typeof v === "object" && !v[OBJ]) // proxifies object props
       o[k] = obj(v);
   }
 
@@ -158,69 +161,84 @@ const obj = o => {
 
 
 class FunProxy {
-  constructor(pred, funName, callHistory) {
+  constructor(pred, funName, callHist) {
     this.funName = (funName || "lambda");
-    this.pred = pred; // custom type checks
-    this.callHistory = callHistory;
+    this.pred = pred; // custom type predicate
+    this.callHist = callHist; // call history
   }
 
-  apply(f, that, args) { // throw on bottom type arguments
+  apply(f, that, args) {
     args.forEach(arg => {
-      if (isBottom(arg)) {
-        this.callHistory.push(
+      if (isBottom(arg)) { // throws on args of type bottom
+        this.callHist.push(
           `(${args.map(arg => introspect(arg)).join(",")})`);
 
         throw new TypeError(strJoin(
           "illegal unit type in function argument:\n",
-          this.funName + this.callHistory.join(" "),
+          this.funName + this.callHist.join(" "),
           "\n"));
       }
     });
 
-    if (this.pred !== null) { // perform custom type checks
+    if (this.pred !== null) { // performs custom type check on argument
       this.pred = this.pred(...args);
-//     may either ^^^^^^^^^^^^^^^^^^ return another predicate or a boolean value
+//                ^^^^^^^^^^^^^^^^^^ either returns a Boolean or just another predicate
 
-      if (this.pred === false) { // throw on unsatisfied predicates
-        this.callHistory.push(
+      if (this.pred === false) { // throws on unsatisfied predicate
+        this.callHist.push(
           `(predicate(${args.map(arg => introspect(arg)).join(",")}))`);
 
         throw new TypeError(strJoin(
-          `function argument does not satisfy predicate:\n`,
-          this.funName + this.callHistory.join(" "),
+          `function argument does not satisfy type predicate:\n`,
+          this.funName + this.callHist.join(" "),
           "\n"));
       }
     }
 
     const r = f(...args);
 
-    // concatenates function call history
+    // logs function call history
 
     if (typeof r === "function") {
-      if (this.callHistory[this.callHistory.length - 1].slice(-1) === ";")
-        this.callHistory.push(
+      if (this.callHist[this.callHist.length - 1].slice(-1) === ";")
+        this.callHist.push(
           f.name || "lambda" + `(${args.map(arg => introspect(arg)).join(",")})`);
 
       else
-        this.callHistory.push(
+        this.callHist.push(
           `(${args.map(arg => introspect(arg)).join(",")})`);
     }
 
     else
-      this.callHistory.push(
+      this.callHist.push(
         `(${args.map(arg => introspect(arg)).join(",")}) = ${introspect(r)};`);
 
-    if (isBottom(r)) // throw on bottom type return values
+    if (isBottom(r)) // throws on return value of type bottom
       throw new TypeError(strJoin(
         "illegal unit type in function return value:\n",
-        this.funName + this.callHistory.join(" "),
+        this.funName + this.callHist.join(" "),
         "\n"));
 
-    else if (typeof r === "function" && !r[FUN]) // maintain type information
-      return fun(this.pred, this.funName, this.callHistory) (r);
+    else if (typeof this.pred === "function") { // performs custom type check on return value
+      this.pred = this.pred(r);
+//                ^^^^^^^^^^^^ either returns a Boolean or just another predicate
+
+      if (this.pred === false) { // throws on unsatisfied predicate
+        this.callHist.push(
+          `(predicate(${args.map(arg => introspect(arg)).join(",")}))`);
+
+        throw new TypeError(strJoin(
+          `function return value does not satisfy type predicate:\n`,
+          this.funName + this.callHist.join(" "),
+          "\n"));
+      }
+    }
+
+    if (typeof r === "function" && !r[FUN]) // maintains type information across function calls
+      return fun(this.pred, this.funName, this.callHist) (r);
 
     else if (typeof this.pred === "function")
-      throw new TypeError("redundant type check predicate");
+      throw new TypeError("redundant type predicate");
 
     else return r;
   }
@@ -229,10 +247,39 @@ class FunProxy {
     if (k === FUN)
       return true;
 
-    else if (k === Symbol.toPrimitive) // prevent implicit type coersions
+    else if (k === OBJ)
+      return false;
+
+    // prevents implicit duck typing
+
+    switch (k) { // skips Symbols b/c they indicate native behavior
+      case Symbol.asyncIterator:
+      case Symbol.hasInstance:
+      case Symbol.isConcatSpreadable:
+      case Symbol.iterator:
+      case Symbol.match:
+      case Symbol.matchAll:
+      case Symbol.replace:
+      case Symbol.search:
+      case Symbol.species:
+      case Symbol.split:
+      case Symbol.toPrimitive:
+      case Symbol.toStringTag:
+      case Symbol.unscopables: return f[k];
+
+      default: {
+        if (!(k in f))
+          throw new TypeError(strJoin(
+            `illegal implicit duck typing with "${k}" property:\n`,
+            formatType(this.funName) (f),
+            "\n"));
+      }
+    }
+
+    if (k === Symbol.toPrimitive) // prevents implicit type coersion
       throw new TypeError(strJoin(
         "illegal type coersion of function:\n",
-        this.funName + this.callHistory.join(" "),
+        this.funName + this.callHist.join(" "),
         "\n"));
 
     else return f[k];
@@ -251,9 +298,9 @@ class ObjProxy {
     else if (k === THUNK)
       return o[k];
 
-    // prevent implicit duck typing
+    // prevents implicit duck typing
 
-    switch (k) { // skip Symbols b/c they indicate native behavior
+    switch (k) { // skips Symbols b/c they indicate native behavior
       case Symbol.asyncIterator:
       case Symbol.hasInstance:
       case Symbol.isConcatSpreadable:
@@ -268,7 +315,7 @@ class ObjProxy {
       case Symbol.toStringTag:
       case Symbol.unscopables: return o[k];
 
-      case "length": return o[k]; // skip b/c frequently used internally
+      case "length": return o[k]; // loop hole for language internal duck typing
 
       default: {
         if (!(k in o))
@@ -276,20 +323,22 @@ class ObjProxy {
             `illegal implicit duck typing with "${k}" property:\n`,
             formatType(Array.from(objEntries(o))
               .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .slice(0, 10)
               .join(", ")) (o),
             "\n"));
       }
     }
 
-    if (k === Symbol.toPrimitive) // prevent implicit type coersions
+    if (k === Symbol.toPrimitive) // prevents implicit type coersion
       throw new TypeError(strJoin(
         "illegal type coersion of object:\n",
         formatType(Array.from(objEntries(o))
           .map(([k, v]) => `${k}: ${introspect(v)}`)
+          .slice(0, 10)
           .join(", ")) (o),
         "\n"));
 
-    else if (typeof o[k] === "function" && !o[k] [THUNK]) { // bind methods
+    else if (typeof o[k] === "function" && !o[k] [THUNK]) { // binds in case of a method
       if (!o[k] [FUN])
         return fun_(o[k].bind(o));
 
@@ -357,7 +406,7 @@ class ThunkProxy {
   }
 
   apply(g, that, args) {
-    if (this.memo === NULL) {
+    if (this.memo === NULL) { // evaluate thunk once
       this.memo = g();
 
       while (this.memo && this.memo[THUNK] === true)
@@ -368,10 +417,10 @@ class ThunkProxy {
   }
 
   get(g, k) {
-    if (k === THUNK)
+    if (k === THUNK) // prevent evaluation
       return true;
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL) { // evaluate thunk once
       this.memo = g();
       
       while (this.memo && this.memo[THUNK] === true)
@@ -384,7 +433,7 @@ class ThunkProxy {
     else if (k === "toString")
       return () => this.memo.toString();
 
-    else if (k === Symbol.isConcatSpreadable && Array.isArray(this.memo))
+    else if (k === Symbol.isConcatSpreadable && Array.isArray(this.memo)) // enforce strict array evaluation
       return true;
 
     else if (k === Symbol.toStringTag)
@@ -393,14 +442,14 @@ class ThunkProxy {
     while (this.memo[k] && this.memo[k] [THUNK] === true)
       this.memo[k] = this.memo[k].valueOf();
 
-    if (typeof this.memo[k] === "function" && !this.memo[k] [FUN]) // TODO: review FUN check
+    if (typeof this.memo[k] === "function" && !this.memo[k] [FUN]) // bind thunk result in case of a method
       return this.memo[k].bind(this.memo);
 
     else return this.memo[k];
   }
 
   getOwnPropertyDescriptor(g, k) {
-    if (this.memo === NULL) {
+    if (this.memo === NULL) { // evaluate thunk once
       this.memo = g();
       
       while (this.memo && this.memo[THUNK] === true)
@@ -411,10 +460,10 @@ class ThunkProxy {
   }
 
   has(g, k) {
-    if (k === THUNK)
+    if (k === THUNK) // prevent evaluation
       return true;
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL) { // evaluate thunk once
       this.memo = g();
 
       while (this.memo && this.memo[THUNK] === true)
@@ -425,7 +474,7 @@ class ThunkProxy {
   }
 
   ownKeys(g) {
-    if (this.memo === NULL) {
+    if (this.memo === NULL) { // evaluate thunk once
       this.memo = g();
 
       while (this.memo && this.memo[THUNK] === true)
@@ -439,469 +488,7 @@ class ThunkProxy {
 
 /******************************************************************************
 *******************************************************************************
-***********************[ HASHED ARRAY MAP TRIE (HAMT) ]************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-**************************[ DEPENDENCIES (INTERNAL) ]**************************
-******************************************************************************/
-
-
-const getHamtRandomBytes = () =>
-  !crypto ? _throw("missing crypto api")
-    : "getRandomValues" in crypto ? crypto.getRandomValues(new Uint32Array(1)) [0]
-    : "randomBytes" ? crypto.randomBytes(4).readUInt32BE()
-    : _throw("unknown crypto api");
-
-
-/******************************************************************************
-***************************[ CONSTANTS (INTERNAL) ]****************************
-******************************************************************************/
-
-
-const HAMT_BITS = 5;
-
-
-const HAMT_SIZE = Math.pow(2, HAMT_BITS);
-
-
-const HAMT_MASK = HAMT_SIZE - 1;
-
-
-const HAMT_LEAF = "Leaf";
-
-
-const HAMT_BRANCH = "Branch";
-
-
-const HAMT_COLLISION = "Collision";
-
-
-const HAMT_EMPTY = "empty";
-
-
-const HAMT_NOOP = "noop";
-
-
-/******************************************************************************
-***************************[ CONSTANTS (INTERNAL) ]****************************
-******************************************************************************/
-
-
-const hamtObjKeys = new WeakMap();
-
-
-const hamtHash = k => {
-  switch (typeof k) {
-    case "string":
-      return hamtStrHash(k);
-
-    case "number":
-      return k === 0 ? 0x42108420
-        : k !== k ? 0x42108421
-        : k === Infinity ? 0x42108422
-        : k === -Infinity ? 0x42108423
-        : (k % 1) > 0 ? hamtStrHash(k + "") // string hashes for floats
-        : hamtNumHash(k);
-
-    case "boolean":
-      return k === false
-        ? 0x42108424
-        : 0x42108425;
-
-    case "undefined":
-      return 0x42108426;
-
-    case "function":
-    case "object":
-    case "symbol": {
-      if (k === null)
-        return 0x42108427;
-
-      else if (hamtObjKeys.has(k))
-        return hamtObjKeys.get(k);
-
-      else {
-        const k_ = getHamtRandomBytes();
-
-        hamtObjKeys.set(k, k_);
-        return k_;
-      }
-    }
-  }
-};
-
-
-const hamtStrHash = s => {
-  let r = 0x811c9dc5;
-
-  for (let i = 0, l = s.length; i < l; i++) {
-    r ^= s.charCodeAt(i);
-    r = Math.imul(r, 0x1000193);
-  }
-
-  return r >>> 0;
-};
-
-
-const hamtNumHash = n => {
-  n = (n + 0x7ed55d16) + (n << 12);
-  n = (n ^ 0xc761c23c) ^ (n >> 19);
-  n = (n + 0x165667b1) + (n << 5);
-  n = (n + 0xd3a2646c) ^ (n << 9);
-  n = (n + 0xfd7046c5) + (n << 3);
-  n = (n ^ 0xb55a4f09) ^ (n >> 16);
-  return n >>> 0;
-};
-
-
-/******************************************************************************
-************************[ POPULATION COUNT (INTERNAL) ]************************
-******************************************************************************/
-
-
-const hamtPopCount = (x, n) => {
-  if (n !== undefined)
-    x &= (1 << n) - 1;
-
-  x -= (x >> 1) & 0x55555555;
-  x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
-  x = (x + (x >> 4)) & 0x0f0f0f0f;
-  return Math.imul(x, 0x01010101) >> 24;
-};
-
-
-/******************************************************************************
-**************************[ CONSTRUCTORS (INTERNAL) ]**************************
-******************************************************************************/
-
-
-const hamtBranch = (mask = 0, children = []) => ({
-  type: HAMT_BRANCH,
-  mask,
-  children
-});
-
-
-const hamtCollision = (hash, children) => ({
-  type: HAMT_COLLISION,
-  hash,
-  children
-});
-
-
-const hamtLeaf = (hash, k, v) => ({
-  type: HAMT_LEAF,
-  hash,
-  k,
-  v
-});
-
-
-/******************************************************************************
-************************************[ API ]************************************
-******************************************************************************/
-
-
-const hamtDel = (hamt, props, k) => {
-  if (hamt.type !== HAMT_BRANCH)
-    throw new HamtError("invalid HAMT");
-
-  const hamt_ = hamtDelNode(hamt, hamtHash(k), k, 0);
-
-  switch (hamt_) {
-    case HAMT_NOOP:
-      return hamt;
-
-    case HAMT_EMPTY:
-      return Object.assign(
-        hamtBranch(), props);
-
-    default:
-      return Object.assign(
-        hamt_, props);
-  }
-};
-
-
-const Hamt = props =>
-  Object.assign(hamtBranch(), props);
-
-
-const Hamt_ = hamtBranch();
-
-
-const hamtGet = (hamt, k) => {
-  if (hamt.type !== HAMT_BRANCH)
-    throw new HamtError("invalid HAMT");
-
-  let node = hamt,
-    depth = -1;
-
-  while (true) {
-    ++depth;
-
-    switch (node.type) {
-      case HAMT_BRANCH: {
-        const frag = (hamtHash(k) >>> (HAMT_BITS * depth)) & HAMT_MASK,
-          mask = 1 << frag;
-
-        if (node.mask & mask) {
-          node = node.children[hamtPopCount(node.mask, frag)];
-          continue;
-        }
-
-        else
-          return undefined;
-      }
-
-      case HAMT_COLLISION: {
-        for (let i = 0, len = node.children.length; i < len; ++i) {
-          const child = node.children[i];
-
-          if (child.k === k)
-            return child.v;
-        }
-
-        return undefined;
-      }
-
-      case HAMT_LEAF: {
-        return node.k === k
-          ? node.v
-          : undefined;
-      }
-    }
-  }
-};
-
-
-const hamtHas = (hamt, k) => {
-  if (hamt.type !== HAMT_BRANCH)
-    throw new HamtError("invalid HAMT");
-
-  let node = hamt,
-    depth = -1;
-
-  while (true) {
-    ++depth;
-
-    switch (node.type) {
-      case HAMT_BRANCH: {
-        const frag = (hamtHash(k) >>> (HAMT_BITS * depth)) & HAMT_MASK,
-          mask = 1 << frag;
-
-        if (node.mask & mask) {
-          node = node.children[hamtPopCount(node.mask, frag)];
-          continue;
-        }
-
-        else
-          return false;
-      }
-
-      case HAMT_COLLISION: {
-        for (let i = 0, len = node.children.length; i < len; ++i) {
-          const child = node.children[i];
-
-          if (child.k === k)
-            return true;
-        }
-
-        return false;
-      }
-
-      case HAMT_LEAF: {
-        return node.k === k
-          ? true
-          : false;
-      }
-    }
-  }
-};
-
-
-const hamtSet = (hamt, props1, props2, k, v) => {
-  if (hamt.type !== HAMT_BRANCH)
-    throw new HamtError("invalid HAMT");
-
-  const [hamt_, existing] =
-    hamtSetNode(hamt, hamtHash(k), k, v, false, 0);
-  
-  return Object.assign(
-    hamt_, existing ? props1 : props2);
-};
-
-
-const hamtUpd = (hamt, props, k, f) => {
-  if (hamt.type !== HAMT_BRANCH)
-    throw new HamtError("invalid HAMT");
-
-  return Object.assign(
-    hamtSetNode(
-      hamt, hamtHash(k), k, f(hamtGet(hamt, k)), false, 0) [0], props);
-};
-
-
-/******************************************************************************
-*************************[ IMPLEMENTATION (INTERNAL) ]*************************
-******************************************************************************/
-
-
-const hamtSetNode = (node, hash, k, v, existing, depth) => {
-  const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
-    mask = 1 << frag;
-
-  switch (node.type) {
-    case HAMT_LEAF: {
-      if (node.hash === hash) {
-        if (node.k === k)
-          return [hamtLeaf(hash, k, v), true];
-
-        else
-          return [
-            hamtCollision(
-              hash,
-              [node, hamtLeaf(hash, k, v)]), existing];
-      }
-
-      else {
-        const frag_ = (node.hash >>> (HAMT_BITS * depth)) & HAMT_MASK;
-
-        if (frag_ === frag)
-          return [
-            hamtBranch(
-              mask, [
-                hamtSetNode(
-                  hamtSetNode(Hamt_, hash, k, v, existing, depth + 1) [0],
-                node.hash,
-                node.k,
-                node.v,
-                existing,
-                depth + 1) [0]]), existing];
-
-        else {
-          const mask_ = 1 << frag_,
-            children = frag_ < frag
-              ? [node, hamtLeaf(hash, k, v)]
-              : [hamtLeaf(hash, k, v), node];
-
-          return [hamtBranch(mask | mask_, children), existing];
-        }
-      }
-    }
-
-    case HAMT_BRANCH: {
-      const i = hamtPopCount(node.mask, frag),
-        children = node.children;
-
-      if (node.mask & mask) {
-        const child = children[i],
-          children_ = Array.from(children);
-
-        const r = hamtSetNode(
-          child, hash, k, v, existing, depth + 1);
-        
-        children_[i] = r[0];
-        existing = r[1];
-        
-        return [
-          hamtBranch(node.mask, children_), existing];
-      }
-
-      else {
-        const children_ = Array.from(children);
-        children_.splice(i, 0, hamtLeaf(hash, k, v));
-        
-        return [
-          hamtBranch(node.mask | mask, children_), existing];
-      }
-    }
-
-    case HAMT_COLLISION: {
-      for (let i = 0, len = node.children.length; i < len; ++i) {
-        if (node.children[i].k === k) {
-          const children = Array.from(node.children);
-          children[i] = hamtLeaf(hash, k, v);
-          
-          return [
-            hamtCollision(node.hash, children), existing];
-        }
-      }
-
-      return [
-        hamtCollision(
-          node.hash,
-          node.children.concat(hamtLeaf(hash, k, v))), existing];
-    }
-  }
-};
-
-
-const hamtDelNode = (node, hash, k, depth) => {
-  const frag = (hash >>> (HAMT_BITS * depth)) & HAMT_MASK,
-    mask = 1 << frag;
-
-  switch (node.type) {
-    case HAMT_LEAF:
-      return node.k === k ? HAMT_EMPTY : HAMT_NOOP;
-
-    case HAMT_BRANCH: {
-      if (node.mask & mask) {
-        const i = hamtPopCount(node.mask, frag),
-          node_ = hamtDelNode(node.children[i], hash, k, depth + 1);
-
-        if (node_ === HAMT_EMPTY) {
-          const mask_ = node.mask & ~mask;
-
-          if (mask_ === 0)
-            return HAMT_EMPTY;
-          
-          else {
-            const children = Array.from(node.children);
-            children.splice(i, 1);
-            return hamtBranch(mask_, children);
-          }
-        }
-
-        else if (node_ === HAMT_NOOP)
-          return HAMT_NOOP;
-
-        else {
-          const children = Array.from(node.children);
-          children[i] = node_;
-          return hamtBranch(node.mask, children);
-        }
-      }
-
-      else
-        return HAMT_NOOP;
-    }
-
-    case HAMT_COLLISION: {
-      if (node.hash === hash) {
-        for (let i = 0, len = node.children.length; i < len; ++i) {
-          const child = node.children[i];
-
-          if (child.k === k) {
-            const children = Array.from(node.children);
-            children.splice(i, 1);
-            return hamtCollision(node.hash, children);
-          }
-        }
-      }
-
-      return HAMT_NOOP;
-    }
-  }
-};
-
-
-/******************************************************************************
-*******************************************************************************
-***************************[ ALGEBRAIC DATA TYPES ]****************************
+************************[ ALGEBRAIC DATA CONSTRUCTORS ]************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -2309,6 +1896,7 @@ const formatType = content => o => { // internal
 
   switch (type) {
     case "Array": return `[${content}]`;
+    case "Function": return `callable object ${content}()`;
     case "Object": return `{${content}}`;
     default: return `${type} {${content}}`;
   }
@@ -3612,12 +3200,12 @@ const strJoin = (...ss) => ss.join("");
 // algebras.
 
 
-const Box = x => ({
-  map: f => Box(f(x)),
-  ap: tx => Box(x(tx.unbox)),
-  of: x => Box(x),
+const Box = x => record(Box, {
+  ap: tx => tx.map(x),
+  cata: f => f(x),
   chain: fm => fm(x),
-  unbox: x
+  map: f => Box(f(x)),
+  of: x => Box(x)
 });
 
 
@@ -4157,160 +3745,6 @@ const firstAppend = x => _ => x;
 
 
 /******************************************************************************
-**********************************[ IARRAY ]***********************************
-******************************************************************************/
-
-
-const IArray = Hamt(
-  {[Symbol.toStringTag]: "IArray", length: 0, offset: 0});
-
-
-/***[ Conversion ]************************************************************/
-
-
-const iarrFromArr = arrFold(acc => (x, i) =>
-  hamtSet(
-    acc,
-    {}, {
-      [Symbol.toStringTag]: "IArray",
-      length: i + 1,
-      offset: 0},
-    i,
-    x)) (IArray);
-
-
-const iarrItor = xs => {
-  return {[Symbol.iterator]: function* () {
-    for (let i = 0; i < xs.length; i++) {
-      yield hamtGet(xs, i + xs.offset);
-    }
-  }};
-};
-
-
-const iarrToArr = xs =>
-  tailRec(([tx, acc]) =>
-    match(tx, {
-      None: _ => Base(acc),
-      Some: ({some: [y, ys]}) =>
-        Loop([iarrUncons(ys), acc.concat([y])])
-    })) ([iarrUncons(xs), []]);
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-const iarrCons = x => xs =>
-  hamtSet(
-    xs,
-    {}, {
-      [Symbol.toStringTag]: "IArray",
-      length: xs.length + 1,
-      offset: xs.offset - 1},
-    xs.offset - 1,
-    x);
-
-
-const iarrSnoc = x => xs =>
-  hamtSet(
-    xs,
-    {}, {
-      [Symbol.toStringTag]: "IArray",
-      length: xs.length + 1,
-      offset: xs.offset},
-    xs.length,
-    x);
-
-
-const iarrUncons = xs =>
-  xs.length === 0
-    ? None
-    : Some(Pair(
-        hamtGet(xs, xs.offset),
-        hamtDel(
-          xs, {
-            [Symbol.toStringTag]: "IArray",
-            length: xs.length - 1,
-            offset: xs.offset + 1},
-          xs.offset)));
-
-
-const iarrUnsnoc = xs =>
-  xs.length === 0
-    ? None
-    : Some(Pair(
-        hamtGet(xs, xs.length - 1 + xs.offset),
-        hamtDel(
-          xs, {
-            [Symbol.toStringTag]: "IArray",
-            length: xs.length - 1,
-            offset: xs.offset},
-          xs.length - 1 + xs.offset)));
-
-
-/***[ Foldable ]**************************************************************/
-
-
-const iarrFold = f => acc => xs => {
-  for (let i = 0; i < xs.length; i++)
-    acc = f(acc) (hamtGet(xs, i + xs.offset));
-
-  return acc;
-};
-
-
-const iarrFoldr = f => acc => xs => {
-  const go = i =>
-    i === xs.length
-      ? acc
-      : f(hamtGet(xs, i + xs.offset))
-          (thunk(() => go(i + 1)));
-
-  return go(0);
-};
-
-
-/***[ Miscellaneous ]*********************************************************/
-
-
-const iarrDel = i => xs =>
-  i === 0 || i === xs.length - 1
-    ? hamtDel(
-        xs, {
-          [Symbol.toStringTag]: "IArray",
-          length: xs.length - 1,
-          offset: i === 0 ? xs.offset + 1 : xs.offset},
-        i + xs.offset)
-    : _throw(new TypeError("illegal index for removal"));
-
-
-const iarrGet = i => xs =>
-  hamtGet(xs, i + xs.offset);
-
-
-const iarrHas = i => xs =>
-  hamtHas(xs, i + xs.offset);
-
-
-const iarrSet = i => x => xs =>
-  i > xs.length
-    ? _throw(new TypeError("index out of bound"))
-    : hamtSet(
-        xs, {
-          [Symbol.toStringTag]: "IArray",
-          length: xs.length,
-          offset: xs.offset}, {
-          [Symbol.toStringTag]: "IArray",
-          length: xs.length + 1,
-          offset: xs.offset},
-        i,
-        x);
-
-
-// TODO: add iarrUpd
-
-
-/******************************************************************************
 ************************************[ ID ]*************************************
 ******************************************************************************/
 
@@ -4835,65 +4269,88 @@ const minEmpty = maxBound => Min(maxBound);
 
 
 // Mutable allows safe in-place updates. The type has a
-// copy-at-most-once-on-first-write semantics. It strictly writes n-times even
-// though the mutable value might never be actually consumed. Mutable values
-// can only be consumed once.
+// copy-once-on-first-write semantics. It strictly writes n-times even though
+// the mutable value might never be actually consumed. Mutable values can only
+// be consumed (inspected) once.
 
 
-const Mutable = clone => refType => // strict variant
-  record(Mutable, app(([o, initialCall, refType]) => {
+const Mutable = clone => ref =>
+  record(Mutable, app(([o, initial, ref]) => {
     o.mutable = {
       consume: k => {
         o.mutable.consume = _ => {
-          throw new TypeError("illegal subsequent consumption");
+          throw new MutableError(strJoin(
+            "illegal sharing of mutable data structure\n",
+            formatType(Array.from(objEntries(o))
+              .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .slice(0, 10)
+              .join(", ")) (o),
+            "\n"));
         };
 
         o.mutable.exec = _ => {
-          throw new TypeError("illegal subsequent mutation");
+          throw new MutableError(strJoin(
+            "illegal in-place update of consumed data structure\n",
+            formatType(Array.from(objEntries(o))
+              .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .slice(0, 10)
+              .join(", ")) (o),
+            "\n"));
         };
 
-        return k(refType);
+        return k(ref);
       },
 
       exec: k => {
-        if (initialCall) {
-          initialCall = false;
-          refType = clone(refType);
+        if (initial) {
+          initial = false;
+          ref = clone(ref); // copy-once-on-first-write semantics
         }
 
-        k(refType);
+        k(ref);
         return o;
       }
     }
 
     return o;
-  }) ([{}, true, refType]));
+  }) ([{}, true, ref]));
 
 
-// Mutable allows safe in-place updates. The type has a
-// copy-at-most-once-on-read semantics. It non-strictly writes n-times only if
-// the mutable value is actually consumed. Mutable values can only be consumed
-// once.
+// Mutable_ allows safe in-place updates. The type has a copy-once-on-read
+// semantics. It non-strictly writes n-times only if the mutable value is
+// actually consumed. Mutable values can only be consumed (inspected) once.
 
 
-const Mutable_ = clone => refType => // non-strict variant
-  record(Mutable, app(([o, queue, refType]) => {
+const Mutable_ = clone => ref => // non-strict variant
+  record(Mutable, app(([o, queue, ref]) => {
     o.mutable = {
       consume: k => {
         o.mutable.consume = _ => {
-          throw new TypeError("illegal subsequent consumption");
+          throw new MutableError(strJoin(
+            "illegal sharing of mutable data structure\n",
+            formatType(Array.from(objEntries(o))
+              .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .slice(0, 10)
+              .join(", ")) (o),
+            "\n"));
         };
 
         o.mutable.exec = _ => {
-          throw new TypeError("illegal subsequent mutation");
+          throw new MutableError(strJoin(
+            "illegal in-place update of consumed data structure\n",
+            formatType(Array.from(objEntries(o))
+              .map(([k, v]) => `${k}: ${introspect(v)}`)
+              .slice(0, 10)
+              .join(", ")) (o),
+            "\n"));
         };
 
-        refType = clone(refType);
+        ref = clone(ref); // copy-once-on-read semantics
 
         for (k_ of queue)
-          k_(refType);
+          k_(ref);
 
-        return k(refType);
+        return k(ref);
       },
 
       exec: k => {
@@ -4903,7 +4360,7 @@ const Mutable_ = clone => refType => // non-strict variant
     }
 
     return o;
-  }) ([{}, [], refType]));
+  }) ([{}, [], ref]));
 
 
 /***[ Miscellaneous ]*********************************************************/
@@ -7166,26 +6623,6 @@ module.exports = {
   funPrepend: TC ? fun_(funPrepend) : funPrepend,
   GT,
   guard: TC ? fun_(guard) : guard,
-  Hamt: TC ? fun_(Hamt) : Hamt,
-  hamtDel: TC ? fun_(hamtDel) : hamtDel,
-  hamtGet: TC ? fun_(hamtGet) : hamtGet,
-  hamtHas: TC ? fun_(hamtHas) : hamtHas,
-  hamtSet: TC ? fun_(hamtSet) : hamtSet,
-  hamtUpd: TC ? fun_(hamtUpd) : hamtUpd,
-  IArray,
-  iarrCons: TC ? fun_(iarrCons) : iarrCons,
-  iarrDel: TC ? fun_(iarrDel) : iarrDel,
-  iarrGet: TC ? fun_(iarrGet) : iarrGet,
-  iarrHas: TC ? fun_(iarrHas) : iarrHas,
-  iarrFold: TC ? fun_(iarrFold) : iarrFold,
-  iarrFoldr: TC ? fun_(iarrFoldr) : iarrFoldr,
-  iarrFromArr: TC ? fun_(iarrFromArr) : iarrFromArr,
-  iarrItor: TC ? fun_(iarrItor) : iarrItor,
-  iarrSet: TC ? fun_(iarrSet) : iarrSet,
-  iarrSnoc: TC ? fun_(iarrSnoc) : iarrSnoc,
-  iarrToArr: TC ? fun_(iarrToArr) : iarrToArr,
-  iarrUncons: TC ? fun_(iarrUncons) : iarrUncons,
-  iarrUnsnoc: TC ? fun_(iarrUnsnoc) : iarrUnsnoc,
   Id: TC ? fun_(Id) : Id,
   id: TC ? fun_(id) : id,
   idAp: TC ? fun_(idAp) : idAp,
