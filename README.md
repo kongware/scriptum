@@ -20,7 +20,7 @@ Yet another functional programming lib for Node.js and the browser.
 scriptum mainly pursues three goals:
 
 * be language agnostic as far as possible
-* reduce the potential of bugs
+* reduce the potential for bugs
 * render code more predictable
 
 First of all, scriptum is the attempt to get as close as possible to the purely functional paradigm using a multi-paradigm language lots of developers are familiar with. By keeping the lib essentially language agnostic you can more easily transfer the acquired knowledge to your preferred language.
