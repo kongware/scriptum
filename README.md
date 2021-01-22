@@ -34,14 +34,14 @@ Please note that scriptum does not include persistent data strucutres beased on 
 Feature selection:
 
 * less silent errors through more rigorous dynamic type checking (on demand)
-  * throws immediately on implicit duck typing
   * throws immediately on `undefined`, `NaN` and `invalid Date`
   * throws immediately on implicit type coercions
+  * throws immediately on implicit duck typing
   * allows custom type checks
 * improved debugging experience along with curried functions
-* safe in-place updates (mutations) through an affine-like type
-* fully-fledged lazy evaluation through expressions in Weak Head Normal Form
-* stack-safe recursion through a family of trampoline techniques
+* safe in-place updates (mutations) with the `Mutable` type (affine-like)
+* fully-fledged lazy evaluation with the `Thunk` type (allows expressions in WHNF)
+* stack-safe recursion through a family of trampolines
   * tail recursion
   * tail recursion modulo cons
   * mutual recursion
