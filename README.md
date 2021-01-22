@@ -25,7 +25,7 @@ scriptum mainly pursues three goals:
 
 First of all, scriptum is the attempt to get as close as possible to the purely functional paradigm using a multi-paradigm language lots of developers are familiar with. By keeping the lib essentially language agnostic you can more easily transfer the acquired knowledge to your preferred language.
 
-Secondly, scriptum ships with a zero-cost extended runtime type checker that reduces the potential of bugs significantly. It is zero-cost, because you can switch it on and off on demand. Moreover, scriptum heavily relies on mutable data structures that provide a safe in-place update API. This prevents bugs caused by side effects and reduces the potential of race conditions and dead locks when using the event loop in asynchronous computations.
+Secondly, scriptum ships with a zero-cost extended runtime type checker that reduces the potential of bugs significantly. It is zero-cost, because you can switch it on and off on demand. Moreover, scriptum heavily relies on mutable data structures that provide a safe in-place update interface. This prevents bugs caused by side effects and reduces the potential for race conditions and dead locks when using the event loop in asynchronous computations.
 
 Thirdly, scriptum uses a monad based effect system in order to make effects explicit and thus enable more predictable code. Effects can be composed using monad transformers and there is a variety of predefined transformers available.
 
