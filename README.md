@@ -11,6 +11,10 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
                                    88                                                 
 ```
 
+# Status: Working on a Hindley-Milner Type Validtor
+
+...to close the gap between dynamically and statically typed languages. This will take a couple of days so please bear with me.
+
 ## What
 
 Yet another functional programming lib for Node.js and the browser.
