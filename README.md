@@ -15,6 +15,8 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 ...to close the gap between dynamically and statically typed languages. This will take a couple of days so please bear with me.
 
+[UPDATE: The pilot only worked partially but revealed the issues arising if you attempt to implement a type validator with higher-rank/-kinded support. I'm currently working on the final implementation and haven't encountered any further obstacles yet.]
+
 ## What
 
 Yet another functional programming lib for Node.js and the browser.
