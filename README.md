@@ -43,7 +43,7 @@ If you wonder what the latter could possibly be good for, it enables proper lazy
 
 ## Representation of Types
 
-The type validator operates at runtime and thus can represent types as first class `String`s, which allows some beneficial operations as we will see later on. As I have already mentioned only function types have to be explicitly annotated. Here is a simple function type:
+The type validator operates at runtime and thus can represent types as first class `String`s, which allow some useful operations as we will see later on. Here is our first simple type:
 
     "Number => String"
 
