@@ -44,8 +44,9 @@ If you wonder what the latter could possibly be good for, it enables proper lazy
 
 The type validator operates at runtime and thus can represent types as first class `String`s, which allow some useful operations as we will see later on. Here is our first simple type:
 
-    "String => Number"
-
+```javascript
+"String => Number"
+```
 This is just a string, that is to say we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
 
 ## Associate Types with Functions
@@ -62,12 +63,16 @@ length([1, 2, 3]); // type error
 
 ## Downside of the Validator Approach
 
-The attentive reader has probably anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
+The attentive reader has probably already anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
 
 ```javascript
 const length = fun(s => s.length, "Number => String"); // accepted
 length("Dijkstra"); // type error
 ```
 This is the reason why I headlined this introduction with _gradual typing_ as opposed to sound typing. However, the following sections are going to prove that the type validator concept is able to assist developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us use it!
+
+## Short Detour on the Topic of Performance
+
+The type validator proceeds in an on-demand mode. In a common setting it is active during the development stage and deactivated as soon as the code is operational. Performance penalties and memory footprint of the deactivated validator are negligible.
 
 ## To be continued...
