@@ -25,9 +25,9 @@ Like Typescript scriptum enables a gradual typing experience in Javascript but w
 
 Usually the type system is designed first and afterwards the rest of the language. Doing it the other way around is a Sisyphean task as you can observe with Typescript.
 
-scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the developer would have to annotate every single term. For this reason scriptum validates types at runtime, where the validator can rely on introspection. Javascript is able to introspect all sorts of values except for functions, so only the latter has to be manually type annotated.
+scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the developer would have to annotate every single term. For this reason scriptum validates types at runtime, where the validator can rely on introspection. Javascript is able to introspect all sorts of values except for functions, so only the latter have to be manually type annotated.
 
-The type validator is based on the Hindley-Milner type system extended by higher-kinded and higher-rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction will explain each one of the concepts in Layman's terms and using practical examples.
+The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction will explain each one of the concepts in Layman's terms and with practical examples.
 
 ## Standard Standard Library
 
@@ -39,7 +39,7 @@ The standard library ships with a great variety of typed functional combinators 
 * effect handling and composition
 * expressions in weak head normal form
 
-If you wonder what the latter could be possibly good for, it enables proper lazy evaluation.
+If you wonder what the latter could possibly be good for, it enables proper lazy evaluation.
 
 ## Representation of Types
 
