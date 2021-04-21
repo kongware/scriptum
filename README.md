@@ -1,15 +1,14 @@
-```
-                                88                                                    
-                                ""              ,d                                    
-                                                88                                    
-,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
-I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
- `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
-aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
-`"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
-                                   88                                                 
-                                   88                                                 
-```
+                                    88                                                    
+                                    ""              ,d                                    
+                                                    88                                    
+    ,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
+    I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
+     `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
+    aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
+    `"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
+                                       88                                                 
+                                       88                                                 
+                                   
 **[Status: work in progress]**
 
 # Gradual Typed Functional Programming with Javascript
@@ -45,8 +44,30 @@ If you wonder what the latter could possibly be good for, it enables proper lazy
 
 The type validator operates at runtime and thus can represent types as first class `String`s, which allow some useful operations as we will see later on. Here is our first simple type:
 
-    "Number => String"
+    "String => Number"
 
 This is just a string, that is to say we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
+
+## Associate Types with Functions
+
+We need the `fun` operator to associate a function with a given type:
+
+```javascript
+const length = fun(s => s.length, "String => Number");
+
+length("Dijkstra"); // 8
+length([1, 2, 3]); // type error
+```
+`fun` takes the function and a type in string form and returns a typed version of the supplied function.
+
+## Downside of the Validator Approach
+
+The attentive reader has probably anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
+
+```javascript
+const length = fun(s => s.length, "Number => String"); // accepted
+length("Dijkstra"); // type error
+```
+This is the reason why I headlined this introduction with _gradual typing_ as opposed to sound typing. However, the following sections are going to prove that the type validator concept is able to assist developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us use it!
 
 ## To be continued...
