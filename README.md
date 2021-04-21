@@ -16,16 +16,18 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 scriptum consists of two components:
 
-* a type validator
+* a runtime type validator
 * a typed standard library
 
 Like Typescript scriptum enables a gradual typing experience in Javascript but with a radical different approach. While Typescript aims for the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
-## Type Validator
+## Runtime Type Validator
 
-Usually the type system is designed first and afterwards the rest of the language. Doing it the other way around is a Sisyphean task as you can observe with Typescript. scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. Fortunately this does not mean that the developer has to annotate every single term. After all, the type validator operates at runtime and Javasscript allows the introspection of all sorts of values, except for functions. The latter have to be manually type annotated.
+Usually the type system is designed first and afterwards the rest of the language. Doing it the other way around is a Sisyphean task as you can observe with Typescript.
 
-The type validator is based on the Hindley-Milner type systems extended by higher-kinded and higher-rank types and row polymorphism. Do not be scared by this type theory lingo. This introduction will explain each one of them in Layman's terms and with practical examples.
+scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the developer would have to annotate every single term. For this reason types are validated at runtime, where the validator can rely on introspection. Javascript is able to introspect every value except for functions, so only the latter has to be manually type annotated.
+
+The type validator is based on the Hindley-Milner type system extended by higher-kinded and higher-rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction will explain each one of the concepts in Layman's terms and using practical examples.
 
 ## Standard Standard Library
 
@@ -38,5 +40,13 @@ The standard library ships with a great variety of typed functional combinators 
 * expressions in weak head normal form
 
 If you wonder what the latter could be possibly good for, it enables proper lazy evaluation.
+
+## Representation of Types
+
+The type validator operates at runtime and thus can represent types as first class `String`s, which allows some beneficial operations as we will see later on. As I have already mentioned only function types have to be explicitly annotated. Here is a simple function type:
+
+    "Number => String"
+
+This is just a string, that is to say we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
 
 ## To be continued...
