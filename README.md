@@ -95,7 +95,7 @@ add("2"); // type error
 
 Javascript supports multi-argument and variadic functions as well as thunks and so does scriptum.
 
-### Multi-argument functions
+### Multi-argument
 
 While the type validator allows multi-argument functions it is strict in the number supplied arguments:
 
@@ -107,7 +107,7 @@ add(2, "3"); // type error
 add(2, 3, 4); // type error
 ```
 
-### Variadic functions
+### Variadic
 
 Variadic functions can be defined in two forms, either with a single variadic parameter or with several parameters with a closing variadic one:
 
