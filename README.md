@@ -75,6 +75,52 @@ In most cases you can tell from the type error message that there is a mismatch 
 
 ## Brief Performance Considerations
 
-The type validator proceeds in an on-demand mode. In a common setting it is active during the development stage and deactivated as soon as the code is operational. Performance penalties and memory footprint of the deactivated validator are negligible.
+The type validator proceeds in an on-demand mode. In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalties and memory footprint of the deactivated validator are negligible.
 
 ## To be continued...
+
+## Type Tracking and Type Directed Programming
+
+## Curried Functions
+
+## Javascript specific functions
+
+### Multi-argument functions
+
+### Variadic functions
+
+### Thunks
+
+## Structural Typing
+
+### Row Types
+
+## Generics
+
+### Parametricity
+
+## Recursive Types
+
+### Mutual recursice types
+
+## Higher-order Generics
+
+## Higher-rank Generics
+
+### Explicit type equalaties
+
+### Value-level type classes
+
+### Algebraic Data types
+
+## Algebraic Data Types
+
+### Product types
+
+### Sum types
+
+### Constructing nullary constructors
+
+## Phantom Types
+
+## Polymorphic Recursion
