@@ -149,7 +149,6 @@ prop(q); // type error
 
 ### Row Types
 
-
 ## To be continued...
 
 ## Generics
@@ -158,9 +157,18 @@ prop(q); // type error
 
 ## Type Tracking Assistance
 
-## Recursive Types
+## `undefined`
 
-### Mutual recursice types
+Although `undefined` denotes a type error, Javascript silently accepts them. scriptum addresses this questionable design choice by throwing an error when a function returns it. `undefined` arguments are legitimate though, because they allow for the necessary flexibility to process thunks, for instance:
+
+```javascript
+const prop = fun(o => k => o[k], "{foo: Number, bar: Number} => String => a");
+const lazyExp = fun(() => 2 * 3, "_ => Number");
+
+prop(o) ("xyz"); // type error
+lazyExp(undefined); // 6
+```
+This approach is a tradeoff between soundness and practicality.
 
 ## Higher-order Generics
 
@@ -179,6 +187,10 @@ prop(q); // type error
 ### Sum types
 
 ### Creating nullary constructors
+
+## Recursive Types
+
+### Mutual recursice types
 
 ## Phantom Types
 
