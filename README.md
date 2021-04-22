@@ -73,7 +73,7 @@ This is the reason why I headlined this introduction with _gradual typing_ as op
 
 In most cases you can tell from the type error message that there is a mismatch between type annotation and function. We will cover some cases in this introducation to get a better intuition.
 
-## Short Detour on the Topic of Performance
+## Brief Performance Considerations
 
 The type validator proceeds in an on-demand mode. In a common setting it is active during the development stage and deactivated as soon as the code is operational. Performance penalties and memory footprint of the deactivated validator are negligible.
 
