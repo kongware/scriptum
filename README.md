@@ -69,13 +69,13 @@ The attentive reader has probably already anticipated the downside of the valida
 const length = fun(s => s.length, "Number => String"); // accepted
 length("Dijkstra"); // type error
 ```
-This is the reason why I headlined this introduction with _gradual typing_ as opposed to sound typing. However, the following sections are going to prove that the type validator concept is able to assist developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us use it!
+This is the reason why I headlined this introduction with _gradual_ as opposed to sound typing. However, the following sections are going to demonstrate that the presented type validator is suitable for assisting developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us try to use it in this rather unusual manner.
 
-In most cases you can tell from the type error message that there is a mismatch between type annotation and function. We will cover some cases in this introducation to get a better intuition.
+By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
 
 ## Brief Performance Considerations
 
-The type validator proceeds in an on-demand mode. In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalties and memory footprint of the deactivated validator are negligible.
+The type validator proceeds in an on-demand mode. In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalty and memory footprint of the deactivated validator are negligible.
 
 ## To be continued...
 
