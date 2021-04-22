@@ -190,10 +190,14 @@ getName(o2); // type error
 Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design choice by throwing an error when a function returns a value of this type. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
 
 ```javascript
-const prop = fun(o => k => o[k], "{foo: Number, bar: Number} => String => a");
+const prop = fun(o => k => o[k], "{name: String, age: Number} => String => a"),
+  o = {name: "Binoche", age: 57};
+
 const lazyExp = fun(() => 2 * 3, "_ => Number");
 
-prop(o) ("xyz"); // type error
+prop(o) ("name"); // "Binoche"
+prop(o) ("foo"); // type error
+
 lazyExp(); // 6
 lazyExp(undefined); // 6
 ```
