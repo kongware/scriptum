@@ -13,7 +13,7 @@
 
 # Gradual Typed Functional Programming with Javascript
 
-scriptum consists of two components:
+scriptum consists of two parts:
 
 * a runtime type validator
 * a typed standard library
