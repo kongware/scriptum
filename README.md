@@ -77,27 +77,86 @@ By the way, in most cases you can tell from the type error message if there is a
 
 The type validator proceeds in an on-demand mode. In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalty and memory footprint of the deactivated validator are negligible.
 
-## To be continued...
-
-## Type Tracking and Type Directed Programming
-
 ## Curried Functions
 
-## Javascript specific functions
+Curried functions are the first choice of the functional programmer, because they greatly simplify the function interface. Typing them is easy:
+
+```javascript
+const add = fun(m => n => m + n, "Number => Number => Number");
+
+add(2) (3); // 5
+add("2"); // type error
+```
+## Imperative Functions
+
+Javascript supports multi-argument and variadic functions as well as thunks and so does scriptum.
 
 ### Multi-argument functions
 
+```javascript
+const add = fun((m, n) => m + n, "Number, Number => Number");
+
+add(2, 3); // 5
+add(2, "3"); // type error
+```
+
 ### Variadic functions
 
+Variadic functions can be in single- or multi-argument form:
+
+```javascript
+const sum = fun((...ns) => ns.reduce(n + acc, 0), "..[Number] => Number");
+
+const showSum = fun(
+  caption, (...ns) => `${caption}: ${ns.reduce(n + acc, 0)}`,
+  "String, ..[Number] => String");
+
+sum(1, 2, 3); // 6
+sum(); // 0
+sum(1, "2", 3); // type error
+showSum("total", 1, 2, 3); // "total: 6"
+```
 ### Thunks
+
+Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it gives us a means to prevent evaluation until it is needed:
+
+```javascript
+const lazyAdd = fun(x => y => () => x + y, "Number => Number => _ => Number");
+
+const thunk = lazyAdd(2) (3);
+thunk(); // 5
+thunk(4); // type error
+```
+It is permitted to pass a redundant argument to a thunk, except `undefined`, but you should not use the latter in your code anyway.
 
 ## Structural Typing
 
+scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs. Here is a first, rather contrived example:
+
+```javascript
+const prop = fun(o => k => o[k], "{foo: Number, bar: Number} => String => Number");
+
+const o = {foo: 2, bar: 3},
+  p = {bar: 2, foo: 3}
+  q = {a: 2, b: 3};
+
+prop(o) ("foo"); // 2
+prop(p) ("foo"); // 3
+prop(o) ("xyz"); // type error
+prop(q); // type error
+```
+### Combined structural/nominal typing
+
 ### Row Types
+
+
+## To be continued...
 
 ## Generics
 
 ### Parametricity
+
+## Type Tracking Assistance
 
 ## Recursive Types
 
@@ -119,7 +178,7 @@ The type validator proceeds in an on-demand mode. In a common setting it is acti
 
 ### Sum types
 
-### Constructing nullary constructors
+### Creating nullary constructors
 
 ## Phantom Types
 
