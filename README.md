@@ -167,7 +167,7 @@ const Actor = fun(
 const getName = fun(o => o.name, "Actor {name: String, age: Number} => String");
 
 const o1 = new Actor("Fassbender", 43),
-  o2 = {name: "Tawny Port", 20};
+  o2 = {name: "Tawny Port", age: 20};
 
 getName(o1); // Fassbender
 getName(o2); // type error
