@@ -159,7 +159,7 @@ prop(q); // type error
 
 ## `undefined`
 
-Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design choice by throwing an error when a function returns it. `undefined` arguments are legitimate though, because they allow for the necessary flexibility to process thunks, for instance:
+Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design choice by throwing an error when a function returns a value of this type. `undefined` arguments are legitimate though, because they allow for the necessary flexibility to process thunks, for instance:
 
 ```javascript
 const prop = fun(o => k => o[k], "{foo: Number, bar: Number} => String => a");
