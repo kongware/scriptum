@@ -109,7 +109,7 @@ add(2, 3, 4); // type error
 
 ### Variadic functions
 
-Variadic functions can be in single- or multi-argument form:
+Variadic functions can be defined in two forms, either with a single variadic parameter or with several parameters with a closing variadic one:
 
 ```javascript
 const sum = fun((...ns) => ns.reduce(n + acc, 0), "..[Number] => Number");
@@ -155,6 +155,8 @@ getName(o3); // type error
 ```
 
 ### Combined structural/nominal typing
+
+Both typing strategies can be combined to obtain more rigid strucural types:
 
 ```javascript
 const Actor = fun(
