@@ -47,6 +47,7 @@ The type validator operates at runtime and thus can represent types as first cla
 ```javascript
 "String => Number"
 ```
+
 This is just a string, that is to say we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
 
 ## Associate Types with Functions
@@ -59,9 +60,10 @@ const length = fun(s => s.length, "String => Number");
 length("Dijkstra"); // 8
 length([1, 2, 3]); // type error
 ```
+
 `fun` takes the function and a type in string form and returns a typed version of the supplied function.
 
-## Downside of the Validator Approach
+## Downside of the Type Validator Approach
 
 The attentive reader has probably already anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
 
@@ -69,6 +71,7 @@ The attentive reader has probably already anticipated the downside of the valida
 const length = fun(s => s.length, "Number => String"); // accepted
 length("Dijkstra"); // type error
 ```
+
 This is the reason why I headlined this introduction with _gradual_ as opposed to sound typing. However, the following sections are going to demonstrate that the presented type validator is suitable for assisting developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us try to use it in this rather unusual manner.
 
 By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
@@ -87,17 +90,21 @@ const add = fun(m => n => m + n, "Number => Number => Number");
 add(2) (3); // 5
 add("2"); // type error
 ```
+
 ## Imperative Functions
 
 Javascript supports multi-argument and variadic functions as well as thunks and so does scriptum.
 
 ### Multi-argument functions
 
+While the type validator allows multi-argument functions it is strict in the number supplied arguments:
+
 ```javascript
 const add = fun((m, n) => m + n, "Number, Number => Number");
 
 add(2, 3); // 5
 add(2, "3"); // type error
+add(2, 3, 4); // type error
 ```
 
 ### Variadic functions
@@ -116,6 +123,7 @@ sum(); // 0
 sum(1, "2", 3); // type error
 showSum("total", 1, 2, 3); // "total: 6"
 ```
+
 ### Thunks
 
 Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it gives us a means to prevent evaluation until it is needed:
@@ -127,25 +135,43 @@ const thunk = lazyAdd(2) (3);
 thunk(); // 5
 thunk(4); // type error
 ```
+
 It is permitted to pass a redundant argument to a thunk, except `undefined`, but you should not use the latter in your code anyway.
 
 ## Structural Typing
 
-scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs. Here is a first, rather contrived example:
+scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs:
 
 ```javascript
-const prop = fun(o => k => o[k], "{foo: Number, bar: Number} => String => Number");
+const getName = fun(o => o.name, "{name: String, age: Number} => String");
 
-const o = {foo: 2, bar: 3},
-  p = {bar: 2, foo: 3}
-  q = {a: 2, b: 3};
+const o1 = {name: "Fassbender", age: 43},
+  o2 = {age: 43, name: "Fassbender"},
+  o3 = {foo: 123, bar: "abc"};
 
-prop(o) ("foo"); // 2
-prop(p) ("foo"); // 3
-prop(o) ("xyz"); // type error
-prop(q); // type error
+getName(o1); // "Fassbender"
+getName(o2); // "Fassbender"
+getName(o3); // type error
 ```
+
 ### Combined structural/nominal typing
+
+```javascript
+const Actor = fun(
+  function Actor(name, age) {
+    this.name = name;
+    this.age = age;
+  },
+  "String, Number => Foo {name: String, age: Number}");
+
+const getName = fun(o => o.name, "Actor {name: String, age: Number} => String");
+
+const o1 = new Actor("Fassbender", 43),
+  o2 = {name: "Tawny Port", 20};
+
+getName(o1); // Fassbender
+getName(o2); // type error
+```
 
 ### Row Types
 
@@ -168,6 +194,7 @@ const lazyExp = fun(() => 2 * 3, "_ => Number");
 prop(o) ("xyz"); // type error
 lazyExp(undefined); // 6
 ```
+
 This approach is a tradeoff between soundness and practicality.
 
 ## Higher-order Generics
