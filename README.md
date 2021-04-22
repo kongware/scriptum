@@ -136,7 +136,7 @@ thunk(); // 5
 thunk(4); // type error
 ```
 
-It is permitted to pass a redundant argument to a thunk, except `undefined`, but you should not use the latter in your code anyway.
+It is not permitted to pass a redundant argument to a thunk, except `undefined`.
 
 ## Structural Typing
 
