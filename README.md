@@ -63,6 +63,20 @@ length([1, 2, 3]); // type error
 
 `fun` takes the function and a type in string form and returns a typed version of the supplied function.
 
+There is no corresponding operator for native data types like `Array` or `Object`. You can create data or request it from an external source as usual but you might have to prepare it before passing data to typed functions:
+
+```javascript
+const sum = fun(ns => ns.reduce((n, acc) => n + acc, 0), "[Number] => Number");
+
+const xs = [1, 2, 3, 4, 5],
+  ys = [1, "2", 3, 4, 5];
+
+sum(xs); 15
+sum(ys); // type error
+sum(ys.map(Number)); // 15
+```
+The untyped realm of this program is not type safe, of course, but this approach provides the necessary flexibility to work with the untyped Javascript ecosystem.
+
 ## Downside of the Type Validator Approach
 
 The attentive reader has probably already anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
@@ -138,6 +152,8 @@ thunk(4); // type error
 
 It is not permitted to pass a redundant argument to a thunk, except `undefined`.
 
+## Generics
+
 ## Structural Typing
 
 scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs:
@@ -177,13 +193,19 @@ getName(o2); // type error
 
 ### Row Types
 
-## To be continued...
-
-## Generics
-
-### Parametricity
+### Subtyping
 
 ## Type Tracking Assistance
+
+## `Tuple` Type
+
+## Non-empty `Array` Type
+
+## Other Built-in Extended Object Types
+
+### `Map` type
+
+### `Set` type
 
 ## `undefined`
 
