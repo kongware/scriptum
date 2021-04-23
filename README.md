@@ -171,9 +171,11 @@ Let us have a closer look at what happens here. During the application of the fi
 (b => c) => (a => b) => a => c // apply "Number => Number"
 b ~ Number
 c ~ Number
-(Number => Number) => (a => Number) => a => Number // apply "String => Number"
+
+~~(Number => Number) =>~~ (a => Number) => a => Number // apply "String => Number"
 a ~ String
-(String => Number) => String => Number // apply a String
+
+~~(String => Number) =>~~ String => Number // apply a String
 Number
 ```
 
@@ -184,11 +186,13 @@ const comp = fun(f => g => x => f(g(x)), "(b => c) => (a => b) => a => c");
 const id = fun(x => x, "d => d");
 
 comp(id);
+
 (b => c) => (a => b) => a => c // apply "d => d"
 d ~ b
 d ~ c
 b ~ c // transitive property
-(b => b) => (a => b) => a => b
+
+~~(b => b) =>~~ (a => b) => a => b
 ```
 
 The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
