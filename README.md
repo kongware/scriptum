@@ -172,10 +172,11 @@ Let us have a closer look at what happens here. During the application of the fi
 b ~ Number
 c ~ Number
 
-~~(Number => Number) =>~~ (a => Number) => a => Number // apply "String => Number"
+(a => Number) => a => Number // apply "String => Number"
 a ~ String
 
-~~(String => Number) =>~~ String => Number // apply a String
+String => Number // apply a String
+
 Number
 ```
 
@@ -192,7 +193,7 @@ d ~ b
 d ~ c
 b ~ c // transitive property
 
-~~(b => b) =>~~ (a => b) => a => b
+(a => b) => a => b
 ```
 
 The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
