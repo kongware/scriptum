@@ -291,6 +291,10 @@ In order to understand why the third invocation is rejected by the validator, we
 
 Please note that `r` and `a` are nothing alike. The former is a row variable and the latter a universally quantified type variable.
 
+### Object type concatenation
+
+Types are represented as first class `String`s in scriptum, i.e. you can just concatenate them with Javascript's `String` and `Array` methods. This helps to keep your type definitions DRY.
+
 ### Subtyping
 
 scriptum is designed to avoid subtyping whenever possible, because it is a functional language extension of Javascript. If you feel the need to rely on it, then Typescript is probably a more suitable alternative.
