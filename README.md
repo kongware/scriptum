@@ -352,7 +352,7 @@ const appendMap = fun(m => n => new Map(...m, ...n), appendAnno); // accpeted
 const appendNum = fun(m => n => m + n, appendAnno); // rejected
 ```
 
-`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. It is general enough to be applied to different value constructors, provided that their corresponding type constructors expect at least as much type parameters as `t`.
+`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. It is general enough to be applied to different value constructors, provided that their corresponding type constructors expect at least as much type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
 
 ## Higher-rank Generics
 
