@@ -341,7 +341,7 @@ The last two lines are equivalent, because with `lazyExp()` `undefined` is impli
 
 ## Higher-order Generics
 
-Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. It is useful to define more general types like monoids, functors et al. Unfortunately we are not quite ready to discuss them at this point, hence we will stick with a rather contrieved example merely to demonstrate the idea:
+Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. They are useful to define more general types like monoids, functors et al. Unfortunately we are not quite ready to discuss them at this point, hence we will stick with a rather contrieved example merely to demonstrate the idea:
 
 ```javascript
 const appendAnno = "t<a> => t<a> => t<a>";
