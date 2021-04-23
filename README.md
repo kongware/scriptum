@@ -154,6 +154,45 @@ It is not permitted to pass a redundant argument to a thunk, except `undefined`.
 
 ## Generics
 
+scriptum excels in handling generics also known as polymorphic types:
+
+```javascript
+const comp = fun(f => g => x => f(g(x)), "(b => c) => (a => b) => a => c");
+const length = fun(s => s.length, "String => Number");
+const sqr = fun(n => n * n, "Number => Number");
+
+comp(sqr) (length) ("Curie"); // 25
+comp(length) (sqr); // type error
+```
+
+Let us have a closer look at what happens here. During the application of the first function argument the type variables `b` and `c` are instantiated with and substituted by the types of the supplied function, namely `Number`. The same happens when passing the second argument:
+
+```javascript
+(b => c) => (a => b) => a => c // apply "Number => Number"
+b ~ Number
+c ~ Number
+(Number => Number) => (a => Number) => a => Number // apply "String => Number"
+a ~ String
+(String => Number) => String => Number // apply a String
+Number
+```
+
+`comp` is a polymorphic type, that is it treats every value uniformly no matter of what type it is. What makes this technique so intriguing is that the passed arguments themselves can be polymorphic. Here is a contrived example to demonstrate the concept:
+
+```javascript
+const comp = fun(f => g => x => f(g(x)), "(b => c) => (a => b) => a => c");
+const id = fun(x => x, "d => d");
+
+comp(id);
+(b => c) => (a => b) => a => c // apply "d => d"
+d ~ b
+d ~ c
+b ~ c // transitive property
+(b => b) => (a => b) => a => b
+```
+
+The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
+
 ## Structural Typing
 
 scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs:
