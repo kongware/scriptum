@@ -24,7 +24,7 @@ Like Typescript scriptum enables a gradual typing experience in Javascript but w
 
 Usually the type system is designed first and afterwards the rest of the language. Doing it the other way around is a Sisyphean task as you can observe with Typescript.
 
-scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the developer would have to annotate every single term. For this reason scriptum validates types at runtime, where the validator can rely on introspection. Javascript is able to introspect all sorts of values except for functions, so only the latter have to be manually type annotated.
+scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the programmer would have to annotate every single term. For this reason scriptum validates types at runtime, where the validator can rely on introspection. Javascript is able to introspect all sorts of values except for functions, so only the latter have to be manually type annotated.
 
 The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction will explain each one of the concepts in Layman's terms and with practical examples.
 
@@ -86,7 +86,7 @@ const length = fun(s => s.length, "Number => String"); // accepted
 length("Dijkstra"); // type error
 ```
 
-This is the reason why I headlined this introduction with _gradual_ as opposed to sound typing. However, the following sections are going to demonstrate that the presented type validator is suitable for assisting developers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us try to use it in this rather unusual manner.
+This is the reason why I headlined this introduction with _gradual_ as opposed to sound typing. However, the following sections are going to demonstrate that the presented type validator is suitable for assisting programmers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us try to use it in this rather unusual manner.
 
 By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
 
@@ -206,25 +206,49 @@ b ~ c // transitive property
 
 The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
-## Structural Typing
+## Type Tracking Assistance
 
-scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs:
+Beside checking whether types and terms match an important task of the type validator is to assist programmers in tracking types:
 
 ```javascript
-const getName = fun(o => o.name, "{name: String, age: Number} => String");
+const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+comp(comp) (comp); // type?
+```
+Without manually unifiying the types it is impossible to infer the of `comp` applied twice to itself. Fortunately the type validator has already done all the hard work:
+
+```javascript
+comp(comp) (comp) [ANNO]; // (b => c) => (d => a => b) => d => a => c
+```
+You can retrieve the current type using the `ANNO` accessor. From the type annotation you can read that the resulting function expects a binary and a ternary function and two values, which are passed to the second function argument.
+
+This feature is also incredible helpful if you are in the middle of a deeply nested composite data structure.
+
+## Structural Typing
+
+scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs. Here is a rather limited property accessor:
+
+```javascript
+const prop = fun(k => o => o[k], "{name: String, age: Number} => a");
 
 const o1 = {name: "Fassbender", age: 43},
   o2 = {age: 43, name: "Fassbender"},
-  o3 = {foo: 123, bar: "abc"};
+  o3 = {name: "Mulligan", age: 35, profession: "actress"};
+  o4 = {name: "Tawny Port", age: 20};
 
-getName(o1); // "Fassbender"
-getName(o2); // "Fassbender"
-getName(o3); // type error
+prop("name") (o1); // "Fassbender"
+prop("age") (o2); // 43
+prop("gender") (o1); // type error
+prop("name") (o3); // type error
+prop("name") (o4); // "Tawny Port"
 ```
+`prop` is not that useful, because on the one hand it only works with objects with the exact defined type (`o3`). On the other hand it does not prevent you from invoking it with an object of completely different semantics (`o4`). The type validator comes with two extensions to address both these shortcomings.
 
 ### Combined structural/nominal typing
 
-Both typing strategies can be combined to obtain more rigid strucural types:
+If we combine both typing strategies, a more rigid strucural type can be obtained, which rules out the different-semantics issue:
 
 ```javascript
 const Actor = fun(
@@ -234,20 +258,42 @@ const Actor = fun(
   },
   "String, Number => Foo {name: String, age: Number}");
 
-const getName = fun(o => o.name, "Actor {name: String, age: Number} => String");
+const props = fun(k => o => o[k], "Actor {name: String, age: Number} => a");
 
 const o1 = new Actor("Fassbender", 43),
   o2 = {name: "Tawny Port", age: 20};
 
-getName(o1); // Fassbender
-getName(o2); // type error
+prop("name") (o1); // Fassbender
+prop("name") (o2); // type error
 ```
 
 ### Row Types
 
+If we introduce a row variable that is instantiated with the non-matching properties, a more flexible structural type can be obtained:
+
+```javascript
+const props = fun(k => o => o[k], "String => {name: String | r} => a");
+
+const compareName = fun(
+  o => p => o.name === p.name,
+  "{name: String} => {name: String} => Boolean");
+
+const o1 = {name: "Fassbender", age: 43},
+  o2 = {name: "Mulligan", age: 35, profession: "actress"},
+  o3 = {name: "Ernie", age: 52, pronouns: "they/them"};
+
+prop("name") (o1); // Fassbender
+prop("name") (o2); // Mulligan
+compareName(o2) (o3); // type error
+```
+
+In order to understand why the third invocation is rejected by the validator, we must realize which row type `r` is instantiated with. The first argument `o1` calls for `r` to be `age: Number, profession: String`. Thre second argument `o2`, however, requires `r` to be `age: Number, pronouns: String`, which evidently does not hold. Row types relax the sturcutal typing without giving up much type safety.
+
+Please note that `r` and `a` are nothing alike. The former is a row variable and the latter a universally quantified type variable.
+
 ### Subtyping
 
-## Type Tracking Assistance
+scriptum is designed to avoid subtyping whenever possible, because it is a functional language extension of Javascript. If you feel the need to rely on it, then Typescript is probably a more suitable alternative.
 
 ## `Tuple` Type
 
