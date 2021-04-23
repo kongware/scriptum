@@ -157,7 +157,10 @@ It is not permitted to pass a redundant argument to a thunk, except `undefined`.
 scriptum excels in handling generics also known as polymorphic types:
 
 ```javascript
-const comp = fun(f => g => x => f(g(x)), "(b => c) => (a => b) => a => c");
+const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
 const length = fun(s => s.length, "String => Number");
 const sqr = fun(n => n * n, "Number => Number");
 
