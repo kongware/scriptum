@@ -307,13 +307,7 @@ scriptum is designed to avoid subtyping whenever possible, because it is a funct
 
 ## Built-in Primitives
 
-### Boolean
-
-### Number
-
-### Null
-
-### String
+### BigInt, Boolean, Number, Null and String
 
 ### `undefined`
 
@@ -339,6 +333,10 @@ The last two lines are equivalent, because with `lazyExp()` `undefined` is impli
 
 ### `Set` type
 
+### `WeakMap` type
+
+### `WeakSet` type
+
 ## Higher-order Generics
 
 Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. They are useful to define more general types like monoids, functors et al. Unfortunately we are not quite ready to discuss them at this point, hence we will stick with a rather contrieved example merely to demonstrate the idea:
@@ -352,7 +350,7 @@ const appendMap = fun(m => n => new Map(...m, ...n), appendAnno); // accpeted
 const appendNum = fun(m => n => m + n, appendAnno); // rejected
 ```
 
-`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. It is general enough to be applied to different value constructors, provided that their corresponding type constructors expect at least as much type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
+`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. It is general enough to be applied to different value constructors, provided that their corresponding type constructors expect at least as many type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
 
 ## Higher-rank Generics
 
