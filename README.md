@@ -299,17 +299,23 @@ Types are represented as first class `String`s in scriptum, i.e. you can just co
 
 scriptum is designed to avoid subtyping whenever possible, because it is a functional language extension of Javascript. If you feel the need to rely on it, then Typescript is probably a more suitable alternative.
 
-## `Tuple` Type
+## `Array` Type
 
 ## Non-empty `Array` Type
 
-## Other Built-in Extended Object Types
+## `Tuple` Type
 
-### `Map` type
+## Built-in Primitives
 
-### `Set` type
+### Boolean
 
-## `undefined`
+### Number
+
+### Null
+
+### String
+
+### `undefined`
 
 Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design choice by throwing an error when a function returns a value of this type. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
 
@@ -326,6 +332,12 @@ lazyExp(); // 6
 lazyExp(undefined); // 6
 ```
 The last two lines are equivalent, because with `lazyExp()` `undefined` is implicitly passed. This approach is a tradeoff between soundness and practicality.
+
+## Built-in Exotic Object Types
+
+### `Map` type
+
+### `Set` type
 
 ## Higher-order Generics
 
