@@ -63,7 +63,7 @@ length([1, 2, 3]); // type error
 
 `fun` takes the function and a type in string form and returns a typed version of the supplied function.
 
-There is no corresponding operator for native data types like `Array` or `Object`. You can create data or request it from an external source as usual but you might have to prepare it before passing data to typed functions:
+There are no corresponding operators for native data types like `Array` or `Object`. You can create data or request it from an external source as usual, but you might have to prepare it before passing data to typed functions:
 
 ```javascript
 const sum = fun(ns => ns.reduce((n, acc) => n + acc, 0), "[Number] => Number");
