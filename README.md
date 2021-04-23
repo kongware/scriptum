@@ -171,6 +171,8 @@ comp(length) (sqr); // type error
 Let us have a closer look at what happens here. During the application of the first function argument the type variables `b` and `c` are instantiated with and substituted by the types of the supplied function, namely `Number`. The same happens when passing the second argument:
 
 ```javascript
+comp(sqr) (length) ("Curie");
+
 (b => c) => (a => b) => a => c // apply "Number => Number"
 b ~ Number
 c ~ Number
@@ -186,7 +188,10 @@ Number
 `comp` is a polymorphic type, that is it treats every value uniformly no matter of what type it is. What makes this technique so intriguing is that the passed arguments themselves can be polymorphic. Here is a contrived example to demonstrate the concept:
 
 ```javascript
-const comp = fun(f => g => x => f(g(x)), "(b => c) => (a => b) => a => c");
+const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
 const id = fun(x => x, "d => d");
 
 comp(id);
