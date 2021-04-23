@@ -206,7 +206,7 @@ b ~ c // transitive property
 
 The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
-## Type Tracking Assistance
+## Type Hints
 
 Beside checking whether types and terms match an important task of the type validator is to assist programmers in tracking types:
 
@@ -269,7 +269,7 @@ prop("name") (o2); // type error
 
 ### Row Types
 
-If we introduce a row variable that is instantiated with the non-matching properties, a more flexible structural type can be obtained:
+If we introduce a row variable that is instantiated with the non-matching properties, a more flexible structural type can be obtained, which allows the processing of partial objects:
 
 ```javascript
 const props = fun(k => o => o[k], "String => {name: String | r} => a");
