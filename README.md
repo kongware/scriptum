@@ -93,11 +93,19 @@ This is a severe downside and I do not even try to sugarcoat it. Please keep in 
 
 By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
 
-## Brief Performance Considerations
+## Performance Impact and Memory Footprint
 
-The type validator proceeds in an on-demand mode. In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalty and memory footprint of the deactivated validator are negligible.
+The type validator proceeds in an on-demand mode. All you need to do is to switch the `CHECK` flag:
 
-## Curried Functions
+```javascript
+const CHECK = true;
+```
+
+In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalty and memory footprint of the deactivated validator are negligible.
+
+## Function Type
+
+### Curried Functions
 
 Curried functions are the first choice of the functional programmer, because they greatly simplify the function interface. Typing them is easy:
 
@@ -108,13 +116,13 @@ add(2) (3); // 5
 add("2"); // type error
 ```
 
-## Imperative Functions
+### Imperative Functions
 
 Javascript supports multi-argument and variadic functions as well as thunks and so does scriptum.
 
-### Multi-argument
+#### Multi-argument
 
-While the type validator allows multi-argument functions it is strict in the number supplied arguments:
+While the type validator allows multi-argument functions, it is strict in the number supplied arguments:
 
 ```javascript
 const add = fun((m, n) => m + n, "Number, Number => Number");
@@ -124,7 +132,7 @@ add(2, "3"); // type error
 add(2, 3, 4); // type error
 ```
 
-### Variadic
+#### Variadic
 
 Variadic functions can be defined in two forms, either with a single variadic parameter or with several parameters with a closing variadic one:
 
@@ -141,19 +149,20 @@ sum(1, "2", 3); // type error
 showSum("total", 1, 2, 3); // "total: 6"
 ```
 
-### Thunks
+#### Thunks
 
-Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it gives us a means to prevent evaluation until it is needed:
+Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it provides a means to prevent evaluation until needed:
 
 ```javascript
 const lazyAdd = fun(x => y => () => x + y, "Number => Number => _ => Number");
 
 const thunk = lazyAdd(2) (3);
 thunk(); // 5
-thunk(4); // type error
+thunk(undefined); // 5 (A)
+thunk(4); // type error (A)
 ```
 
-It is not permitted to pass a redundant argument to a thunk, except `undefined`.
+Please note that it is not permitted to pass a redundant argument to a thunk, except `undefined` (see line `A`).
 
 ## Generics
 
@@ -188,7 +197,7 @@ String => Number // apply a String
 Number
 ```
 
-`comp` is a polymorphic type, that is it treats every value uniformly no matter of what type it is. What makes this technique so intriguing is that the passed arguments themselves can be polymorphic. Here is a contrived example to demonstrate the concept:
+`comp` is a polymorphic type, that is it treats every value uniformly no matter of what type it is. This technique is not limited to specific types, that is the provided function can be polymorphic as well. Here is a somewhat contrived example:
 
 ```javascript
 const comp = fun(
@@ -207,7 +216,7 @@ b ~ c // transitive property
 (a => b) => a => b
 ```
 
-The type valdiator goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
+scriptum goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
 ## Type Hints
 
