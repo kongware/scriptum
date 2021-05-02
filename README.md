@@ -18,15 +18,17 @@ scriptum consists of two parts:
 * a runtime type validator
 * a typed standard library
 
-Like Typescript scriptum enables a gradual typing experience in Javascript but with a radical different approach. While Typescript aims for the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
+Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
 ## Runtime Type Validator
 
-Usually the type system is designed first and afterwards the rest of the language. Doing it the other way around is a Sisyphean task as you can observe with Typescript.
+Usually the type system is designed first and the rest of the language around it. However, with Javascript we are stuck with an untyped language. Adding a type system with hindsight is a Sisyphean task as you can observe with Typescript.
 
-scriptum bypasses this problem by implementing only a part of a traditional type checker: It checks applications but not definitions, i.e. there is no automatic inference from terms to types but terms have to be explicitly annotated. If type checking takes place at compile time this means that the programmer would have to annotate every single term. For this reason scriptum validates types at runtime, where the validator can rely on introspection. Javascript is able to introspect all sorts of values except for functions, so only the latter have to be manually type annotated.
+scriptum partially bypasses this problem by implementing only a part of a traditional type checker: It checks applications but no definitions, i.e. there is no automated inference from terms to types but terms have to be annotated explicitly.
 
-The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction will explain each one of the concepts in Layman's terms and with practical examples.
+But how can we reduce the amount of necessary user-defined annotations? If we validate types at runtime we can fall back to Javascript's introspection abilities. Every term can be introspected except for functions, that is to say with a runtime approach only the latter requires explicit annotations.
+
+The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction explains these concepts in Layman's terms and with practical examples.
 
 ## Standard Standard Library
 
@@ -38,21 +40,21 @@ The standard library ships with a great variety of typed functional combinators 
 * effect handling and composition
 * expressions in weak head normal form
 
-If you wonder what the latter could possibly be good for, it enables proper lazy evaluation.
+These terms are in turn described comprehensively in the respective sections of this introduction.
 
 ## Representation of Types
 
-The type validator operates at runtime and thus can represent types as first class `String`s, which allow some useful operations as we will see later on. Here is our first simple type:
+The type validator operates at runtime and thus can represent types as first class `String`s. Here is our first simple type:
 
 ```javascript
 "String => Number"
 ```
 
-This is just a string, that is to say we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
+This is just a string, i.e. we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
 
 ## Associate Types with Functions
 
-We need the `fun` operator to associate a function with a given type:
+We need the `fun` operator to associate a type with a function:
 
 ```javascript
 const length = fun(s => s.length, "String => Number");
@@ -61,21 +63,22 @@ length("Dijkstra"); // 8
 length([1, 2, 3]); // type error
 ```
 
-`fun` takes the function and a type in string form and returns a typed version of the supplied function.
+`fun` takes the function and a type and returns a typed version of the supplied function.
 
-There are no corresponding operators for native data types like `Array` or `Object`. You can create data or request it from an external source as usual, but you might have to prepare it before passing data to typed functions:
+There are no corresponding operators for native data types like `Array` or `Object`. You can create or request data from an external source as usual, but you might have to prepare it before it passes the type validator:
 
 ```javascript
-const sum = fun(ns => ns.reduce((n, acc) => n + acc, 0), "[Number] => Number");
+const append = fun(xs => ys => xs.concat(ys), "[Number] => [Number] => [Number]");
 
-const xs = [1, 2, 3, 4, 5],
-  ys = [1, "2", 3, 4, 5];
+const xs = [1, 2],
+  ys = ["1", 2],
+  zs = [3, 4];
 
-sum(xs); 15
-sum(ys); // type error
-sum(ys.map(Number)); // 15
+append(xs) (zs); // [1, 2, 3, 4]
+append(ys); // type error (A)
+append(ys.map(Number)) (zs); // [1, 2, 3, 4]
 ```
-The untyped realm of this program is not type safe, of course, but this approach provides the necessary flexibility to work with the untyped Javascript ecosystem.
+As opposed to static type checking some type errors are only thrown after functions are applied, but often partial application is sufficient to actuall throw it (see line `A`).
 
 ## Downside of the Type Validator Approach
 
