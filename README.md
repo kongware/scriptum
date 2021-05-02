@@ -107,7 +107,7 @@ In a common setting it is active during development stage and deactivated as soo
 
 ### Curried Functions
 
-Curried functions are the first choice of the functional programmer, because they greatly simplify the function interface. Typing them is easy:
+Curried functions are the first choice of the functional programmer, because they greatly simplify the function interface. Typing them with scriptum is easy:
 
 ```javascript
 const add = fun(m => n => m + n, "Number => Number => Number");
@@ -218,7 +218,7 @@ b ~ c // transitive property
 
 scriptum goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
-## Type Hints
+## Type Tracking through type hints
 
 Beside checking whether types and terms match an important task of the type validator is to assist programmers in tracking types:
 
@@ -227,14 +227,41 @@ const comp = fun(
   f => g => x => f(g(x)),
   "(b => c) => (a => b) => a => c");
 
-comp(comp) (comp); // type?
+const compx = comp(comp) (comp), // ?
+  compy = comp(comp(comp)) (comp); // ??
 ```
-Without manually unifiying the types it is impossible to infer the of `comp` applied twice to itself. Fortunately the type validator has already done all the hard work:
+Without manually unifiying the types it is impossible to infer them for `compx` and `compy`. Fortunately the type validator has already done all the hard work:
 
 ```javascript
-comp(comp) (comp) [ANNO]; // (b => c) => (d => a => b) => d => a => c
+compx[ANNO] // (b => c) => (d => a => b) => d => a => c
+compy[ANNO] // (b => c) => (a => b) => (e => a) => e => c
 ```
-You can retrieve the current type using the `ANNO` accessor. From the type annotation you can read that the resulting function expects a binary and a ternary function and two values, which are passed to the second function argument.
+You can retrieve the current type using the `ANNO` property. From the type annotations you can read that the resulting functions both expect a binary function as their first argument, which can have a different argument and result type. Let us apply a function to see the types in motion:
+
+```javascript
+const len = fun(s => s.length, "String => Number");
+const shout = fun(s => s.toUpperCase() + "!", "String => String");
+
+compx(len) [ANNO] // (d => a => String) => d => a => Number
+compy(shout) [ANNO] // (a => String) => (e => a) => e => Number
+```
+
+From here on we can easily see which functions to pass next:
+
+```javascript
+const repeat = fun(s => n => s.repeat(n), "String => Number => String");
+
+compx(len) [ANNO] // (d => a => String) => d => a => Number
+compy(len) (repeat) [ANNO] // (e => Number) => e => Number
+```
+
+```javascript
+const snd = fun(pair => pair[1], "[a, b] => b");
+
+compx(len) [ANNO] // (d => a => String) => d => a => Number
+compy(len) (repeat) (snd) [ANNO] // (a => String) => (e => a) => e => Number
+compy(e => Number) => e => Number
+```
 
 This feature is also incredible helpful if you are in the middle of a deeply nested composite data structure.
 
