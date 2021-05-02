@@ -65,7 +65,7 @@ length([1, 2, 3]); // type error
 
 `fun` takes the function and a type and returns a typed version of the supplied function.
 
-There are no corresponding operators for native data types like `Array` or `Object`. You can create or request data from an external source as usual, but you might have to prepare it before it passes the type validator:
+There are no corresponding operators for native data types like `Array` or `Object`. You can create or request data from an external source as usual, but you might have to prepare it before it passes the type validator (see line `B`):
 
 ```javascript
 const append = fun(xs => ys => xs.concat(ys), "[Number] => [Number] => [Number]");
@@ -76,20 +76,20 @@ const xs = [1, 2],
 
 append(xs) (zs); // [1, 2, 3, 4]
 append(ys); // type error (A)
-append(ys.map(Number)) (zs); // [1, 2, 3, 4]
+append(ys.map(Number)) (zs); // [1, 2, 3, 4] (B)
 ```
 As opposed to static type checking some type errors are only thrown after functions are applied, but often partial application is sufficient to actuall throw it (see line `A`).
 
 ## Downside of the Type Validator Approach
 
-The attentive reader has probably already anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function:
+The attentive reader has probably already anticipated the downside of the validator approach, which is caused by the lack of type inference. There is no guarantee that an associated type matches its function term:
 
 ```javascript
 const length = fun(s => s.length, "Number => String"); // accepted
 length("Dijkstra"); // type error
 ```
 
-This is the reason why I headlined this introduction with _gradual_ as opposed to sound typing. However, the following sections are going to demonstrate that the presented type validator is suitable for assisting programmers in tracking types even in quite complex scenarios. Do not forget that we have the expressivness of the extended Hindley-Milner type system at our disposal. Let us try to use it in this rather unusual manner.
+This is a severe downside and I do not even try to sugarcoat it. Please keep in mind that scriptum promises _gradual_ not entirely sound typing. Other approaches come along with  other tradeoffs. What scriptum excels in is assisting the programmer with tracking types. This opens up the world of type directed programming in Javascript.
 
 By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
 
