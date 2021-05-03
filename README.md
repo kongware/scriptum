@@ -374,18 +374,18 @@ Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 
 ## Higher-order Generics
 
-Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. They are useful to define more general types like monoids, functors et al. Unfortunately we are not quite ready to discuss them at this point, hence we will stick with a rather contrieved example merely to demonstrate the idea:
+Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. They are useful to define more general types like monoids, functors et al. Unfortunately we have yet to discuss higher-kinded types and type classes before we can encode them, hence we stick with a rather contrived example for now:
 
 ```javascript
 const appendAnno = "t<a> => t<a> => t<a>";
 
 const appendArr = fun(xs => ys => xs.concat(ys), appendAnno); // accpeted
 const appendFun = fun(f => g => x => f(g(x)), appendAnno); // accpeted
-const appendMap = fun(m => n => new Map(...m, ...n), appendAnno); // accpeted
+const appendMap = fun(m => n => new Map([...m, ...n]), appendAnno); // accpeted
 const appendNum = fun(m => n => m + n, appendAnno); // rejected
 ```
 
-`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. It is general enough to be applied to different value constructors, provided that their corresponding type constructors expect at least as many type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
+`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. Hence it can be applied to different value constructors, provided that their corresponding type constructors expect at least as many type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
 
 ## Higher-rank Generics
 
