@@ -218,7 +218,7 @@ b ~ c // transitive property
 
 scriptum goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
-## Type Tracking through type hints
+## Type Tracking Assistance
 
 Beside checking whether types and terms match an important task of the type validator is to assist programmers in tracking types:
 
@@ -227,43 +227,35 @@ const comp = fun(
   f => g => x => f(g(x)),
   "(b => c) => (a => b) => a => c");
 
-const compx = comp(comp) (comp), // ?
-  compy = comp(comp(comp)) (comp); // ??
+comp(comp) (comp), // ?
+comp(comp(comp)) (comp); // ??
 ```
+
 Without manually unifiying the types it is impossible to infer them for `compx` and `compy`. Fortunately the type validator has already done all the hard work:
 
 ```javascript
-compx[ANNO] // (b => c) => (d => a => b) => d => a => c
-compy[ANNO] // (b => c) => (a => b) => (e => a) => e => c
-```
-You can retrieve the current type using the `ANNO` property. From the type annotations you can read that the resulting functions both expect a binary function as their first argument, which can have a different argument and result type. Let us apply a function to see the types in motion:
-
-```javascript
-const len = fun(s => s.length, "String => Number");
-const shout = fun(s => s.toUpperCase() + "!", "String => String");
-
-compx(len) [ANNO] // (d => a => String) => d => a => Number
-compy(shout) [ANNO] // (a => String) => (e => a) => e => Number
+comp(comp) (comp) [ANNO] // (b => c) => (d => a => b) => d => a => c
+comp(comp(comp)) (comp) [ANNO] // (b => c) => (a => b) => (e => a) => e => c
 ```
 
-From here on we can easily see which functions to pass next:
+You can retrieve the current type using the `ANNO` property. From the type annotations you can read that the resulting functions both expect a binary function as their first argument, which can have different argument and result types. Let us apply the first function to see its type in motion:
 
 ```javascript
 const repeat = fun(s => n => s.repeat(n), "String => Number => String");
 
-compx(len) [ANNO] // (d => a => String) => d => a => Number
-compy(len) (repeat) [ANNO] // (e => Number) => e => Number
+const foldl = fun(
+  f => acc => xs => xs.reduce(f, acc),
+  "(b, a => b) => b => [a] => b");
+
+const add = fun((m, n) => m + n, "Number, Number => Number");
+
+comp(comp) (comp) (repeat) [ANNO] // (d => a => Number) => d => a => String
+comp(comp) (comp) (repeat) (foldl(add)) [ANNO] // Number => [Number] => String
+comp(comp) (comp) (repeat) (foldl(add)) (0) [ANNO] // [Number] => String
+comp(comp) (comp) (repeat) (foldl(add)) (0) [1, 2, 3] // "******"
 ```
 
-```javascript
-const snd = fun(pair => pair[1], "[a, b] => b");
-
-compx(len) [ANNO] // (d => a => String) => d => a => Number
-compy(len) (repeat) (snd) [ANNO] // (a => String) => (e => a) => e => Number
-compy(e => Number) => e => Number
-```
-
-This feature is also incredible helpful if you are in the middle of a deeply nested composite data structure.
+The type validator has guided as through the application of a complex combinator. This assistance is also incredible helpful if you are in the middle of a deeply nested composite data structure.
 
 ## Structural Typing
 
