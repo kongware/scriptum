@@ -42,7 +42,7 @@ The standard library ships with a great variety of typed functional combinators 
 
 These terms are in turn described comprehensively in the respective sections of this introduction.
 
-## Representation of Types
+## Encoding of Types
 
 The type validator operates at runtime and thus can represent types as first class `String`s. Here is our first simple type:
 
@@ -158,11 +158,10 @@ const lazyAdd = fun(x => y => () => x + y, "Number => Number => _ => Number");
 
 const thunk = lazyAdd(2) (3);
 thunk(); // 5
-thunk(undefined); // 5 (A)
-thunk(4); // type error (A)
+thunk(4); // type error
 ```
 
-Please note that it is not permitted to pass a redundant argument to a thunk, except `undefined` (see line `A`).
+Please note that it is not permitted to pass a redundant argument to a thunk.
 
 ## Generics
 
@@ -218,33 +217,33 @@ b ~ c // transitive property
 
 scriptum goes beyond normal genrics by supporting higher-kinded and higher-rank generics. You will learn about these techniques in subsequent sections of this introduction.
 
-## Type Tracking Assistance
+## Tracking Types
 
-Beside checking whether types and terms match an important task of the type validator is to assist programmers in tracking types:
+Beside checking whether types and terms match a decisive task of the type validator is to assist programmers in tracking types:
 
 ```javascript
 const comp = fun(
   f => g => x => f(g(x)),
   "(b => c) => (a => b) => a => c");
 
-comp(comp) (comp), // ?
-comp(comp(comp)) (comp); // ??
+comp(comp) (comp), // A
+comp(comp(comp)) (comp); // A
 ```
 
-Without manually unifiying the types it is impossible to infer them for `compx` and `compy`. Fortunately the type validator has already done all the hard work:
+Without manually unifiying the types it is impossible to infer them in lines `A`. Fortunately the type validator has already done the heavy lifting. You can retrieve the current type using the `ANNO` property:
 
 ```javascript
 comp(comp) (comp) [ANNO] // (b => c) => (d => a => b) => d => a => c
 comp(comp(comp)) (comp) [ANNO] // (b => c) => (a => b) => (e => a) => e => c
 ```
 
-You can retrieve the current type using the `ANNO` property. From the type annotations you can read that the resulting functions both expect a binary function as their first argument, which can have different argument and result types. Let us apply the first function to see its type in motion:
+From here on applying the function is easy. Let us pick the first one and see its type in motion:
 
 ```javascript
 const repeat = fun(s => n => s.repeat(n), "String => Number => String");
 
 const foldl = fun(
-  f => acc => xs => xs.reduce(f, acc),
+  f => acc => xs => xs.reduce((acc, x) => f(acc, x), acc),
   "(b, a => b) => b => [a] => b");
 
 const add = fun((m, n) => m + n, "Number, Number => Number");
@@ -252,10 +251,10 @@ const add = fun((m, n) => m + n, "Number, Number => Number");
 comp(comp) (comp) (repeat) [ANNO] // (d => a => Number) => d => a => String
 comp(comp) (comp) (repeat) (foldl(add)) [ANNO] // Number => [Number] => String
 comp(comp) (comp) (repeat) (foldl(add)) (0) [ANNO] // [Number] => String
-comp(comp) (comp) (repeat) (foldl(add)) (0) [1, 2, 3] // "******"
+comp(comp) (comp) (repeat) (foldl(add)) (0) ([1, 2, 3]) // "******"
 ```
 
-The type validator has guided as through the application of a complex combinator. This assistance is also incredible helpful if you are in the middle of a deeply nested composite data structure.
+The type validator has guided as through the application of a complex combinator. This assistance is also incredible helpful when you are in the middle of a deeply nested composite data structure.
 
 ## Structural Typing
 
@@ -275,11 +274,16 @@ prop("gender") (o1); // type error
 prop("name") (o3); // type error
 prop("name") (o4); // "Tawny Port"
 ```
-`prop` is not that useful, because on the one hand it only works with objects with the exact defined type (`o3`). On the other hand it does not prevent you from invoking it with an object of completely different semantics (`o4`). The type validator comes with two extensions to address both these shortcomings.
+`prop` is not that useful for two reasons:
+
+* it only works with a specific object type
+* it still does not prevent you from invoking it with a semantically different object
+
+The type validator comes with two extensions to address both these shortcomings.
 
 ### Combined structural/nominal typing
 
-If we combine both typing strategies, a more rigid strucural type can be obtained, which rules out the different-semantics issue:
+If we combine both typing strategies, more rigid strucural types can be obtained, which rules out the _different-semantics_ issue:
 
 ```javascript
 const Actor = fun(
@@ -300,7 +304,7 @@ prop("name") (o2); // type error
 
 ### Row Types
 
-If we introduce a row variable that is instantiated with the non-matching properties, a more flexible structural type can be obtained, which allows the processing of partial objects:
+If we introduce a row variable that gets instantiated with the non-matching properties, a more flexible structural type can be obtained, which allows the processing of partial objects:
 
 ```javascript
 const props = fun(k => o => o[k], "String => {name: String | r} => a");
@@ -318,17 +322,17 @@ prop("name") (o2); // Mulligan
 compareName(o2) (o3); // type error
 ```
 
-In order to understand why the third invocation is rejected by the validator, we must realize which row type `r` is instantiated with. The first argument `o1` calls for `r` to be `age: Number, profession: String`. Thre second argument `o2`, however, requires `r` to be `age: Number, pronouns: String`, which evidently does not hold. Row types relax the sturcutal typing without giving up much type safety.
+In order to understand why the third invocation is rejected by the validator, we must realize which row type `r` is instantiated with. The first argument `o1` demands `r` to be `age: Number, profession: String`. `o2`, however, expects `r` to be `age: Number, pronouns: String`, which evidently does not hold. Row types facilitate strucutal typing without giving up much type safety.
 
-Please note that `r` and `a` are nothing alike. The former is a row variable and the latter a universally quantified type variable.
+Please note that `r` and `a` from the above example might resemble each other but are nothing alike. The former is a row variable and the latter a universally quantified type variable.
 
 ### Object type concatenation
 
-Types are represented as first class `String`s in scriptum, i.e. you can just concatenate them with Javascript's `String` and `Array` methods. This helps to keep your type definitions DRY.
+Types are encoded as first class `String`s in scriptum, i.e. you can just concatenate them with Javascript's `String` and `Array` methods. This is helpful to keep your type definitions DRY.
 
 ### Subtyping
 
-scriptum is designed to avoid subtyping whenever possible, because it is a functional language extension of Javascript. If you feel the need to rely on it, then Typescript is probably a more suitable alternative.
+scriptum avoids subtype polymorphism, because I do not want to mix the functional paradigm with the idea of class hierarchies. If you feel the need to rely on classes, Typescript is probably a more suitable alternative.
 
 ## `Array` Type
 
@@ -342,7 +346,7 @@ scriptum is designed to avoid subtyping whenever possible, because it is a funct
 
 ### `undefined`
 
-Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design choice by throwing an error when a function returns a value of this type. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
+Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design decision by throwing an error when a function returns a an undefined value. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
 
 ```javascript
 const prop = fun(o => k => o[k], "{name: String, age: Number} => String => a"),
@@ -353,10 +357,10 @@ const lazyExp = fun(() => 2 * 3, "_ => Number");
 prop(o) ("name"); // "Binoche"
 prop(o) ("foo"); // type error
 
-lazyExp(); // 6
-lazyExp(undefined); // 6
+lazyExp(); // 6 (A)
 ```
-The last two lines are equivalent, because with `lazyExp()` `undefined` is implicitly passed. This approach is a tradeoff between soundness and practicality.
+
+Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 
 ## Built-in Exotic Object Types
 
