@@ -260,6 +260,45 @@ comp(comp) (comp) (repeat) (foldl(add)) (0) ([1, 2, 3]) // "******"
 
 The type validator has guided us through the application of a complex combinator. This kind of assistance is also incredible helpful when you are in the middle of a transformation of a complex composite data structure.
 
+## Gradual Typing
+
+We already learned that variadic arguments yield a homogeneous array. So how can the following function be typed:
+
+```javascript
+const _let = (f, ...args) => f(...args);
+
+const collectConsonants = s => s.match(/[^aeiou]/g),
+  collectVowels = s => s.match(/[aeiou]/g);
+  
+_let((name, consonants, vowels) =>
+  `${name} includes ${consonants.length} consonants and ${vowels.length} vowels,`
+    + ` namely ${consonants.join(", ")} and ${vowels.join(", ")}`,
+  name = "Papastathopoulos",
+  collectConsonants(name),
+  collectVowels(name));
+  
+  // "Papastathopoulos includes 9 consonants and 7 vowels, namely P, p, s, t, t, h, p, l, s and a, a, a, o, o, u, o"
+```
+
+`_let` facilitates local bindings in Javascript. Unlike the native `let` declarartion it is a first class expression and unlike an IIFE it renders the function invocation explicit. `_let` is useful whenever the the result of an evaluation is needed multiple times. Unfortunately, we cannot type it with the means of the type validator.
+
+At this point gradual typing comes into play. We do not actually need to type the function itself, but only the function argument it receives:
+
+```javascript
+_let(fun(
+  (name, consonants, vowels) =>
+    `${name} includes ${consonants.length} consonants and ${vowels.length} vowels,`
+      + ` namely ${consonants.join(", ")} and ${vowels.join(", ")}`
+    , "String, [String], [String] => String"),
+  name = "Papastathopoulos",
+  collectConsonants(name),
+  collectVowels(name));
+  
+  // "Papastathopoulos includes 9 consonants and 7 vowels, namely P, p, s, t, t, h, p, l, s and a, a, a, o, o, u, o"
+```
+
+Usually we would type `collectConsonants` and `collectVowels` as well, but I leave that out for the sake of simplicity.
+
 ## Structural Typing
 
 scriptum's type validator supports structural typing along with the native `Object` type. Javascript objects are treated as an unordered map of key/value pairs. Here is a rather limited property accessor:
@@ -422,9 +461,9 @@ funMap(inc) (inc) (1); // 3
 tupMap(toUC) (new Tuple(1, true, "foo")); // [1, true, "FOO"]
 numMap(inc) (1); // type error
 ```
-`mapAnno` expects a function `a => b` and an unary type constructor `f<a>` to produce an `f<b>`. The array type constructor satisfies the latter, because it requires a single type parameter to construct a value `[a]`. Functions and 3-tuples on the other hand expect more than one type parameter to construct values of type `a => b` and `[a, b, c]` respectively. This still works, because functions are only mappable in their result type `b` and 3-tuples only in their last field `c`.
+`mapAnno` expects a function `a => b` and an unary type constructor `f<a>` to produce an `f<b>`. The array type constructor satisfies the latter, because it requires a single type parameter to construct `[a]` values. Functions and 3-tuples on the other hand expect more than one type parameter to construct values of type `a => b` and `[a, b, c]` respectively. This still works, because functions are only mappable in their result type `b` and 3-tuples only in their last field `c`.
 
-Numbers, however, are not mappable, because their type constructor takes no arguments. It is a nullary constructor or type constant. Hence the type error.
+Numbers, however, are not mappable, because their type constructor takes no arguments at all. It is a nullary constructor or type constant. Hence the type error.
 
 ## Higher-rank Generics
 
