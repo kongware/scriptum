@@ -30,9 +30,9 @@ Explicit annotations sounds laborious. How can we reduce them? If we validate ty
 
 The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction explains these concepts in Layman's terms together with practical examples.
 
-## Standard Standard Library
+## Standard Functional Library
 
-The standard library ships with a great variety of typed functional combinators every functional programmer is accustomed to. Additionally it covers crucial aspects to render the functional paradigm practical in Javascript like...
+The standard library ships with a great variety of typed functional combinators most functional programmers are accustomed to. Additionally it supplies basic tools that enable programmers to address problems in a purely functional manner, like...
 
 * stack-safe sync/async recursion
 * persistent data structures
@@ -40,9 +40,9 @@ The standard library ships with a great variety of typed functional combinators 
 * effect handling and composition
 * expressions in weak head normal form
 
-These terms are in turn described comprehensively in the respective sections of this introduction.
+We will deepen these concepts in the course of this introduction.
 
-## Encoding of Types
+## Type Encoding
 
 The type validator operates at runtime and thus can represent types as first class `String`s. Here is our first simple type:
 
