@@ -466,7 +466,7 @@ Numbers, however, are not mappable, because their type constructor takes no argu
 
 ## Higher-rank Generics
 
-If we pass a polymorphhic function argument `g` to a function `f`, then `f`'s caller decides which specific type `g` gets. An approach that will fail as soon as `f` needs to make this decision:
+Higher-rank generics better known as higher-rank types are a bit hard to get. If we pass a polymorphhic function argument `g` to a function `f`, then `f`'s caller decides which specific type `g` gets. An approach that will fail as soon as `f` needs to make this decision:
 
 ```javacript
 const foo = fun(
@@ -492,9 +492,11 @@ const id = fun(x => x, "a => a");
 foo(id) (123) ("abc"); // [123, "abc"]
 ```
 
-I intentionally complicated the type to emphasize what is going on. The type variable `a` of the function type is not the same as in the second argument, because the former is rank-1 whereas the latter rank-2. You might ask yourself what this is good for. As a matter of fact higher-rank types are extremely useful for a couple of things as we will see in the next sections.
+I intentionally complicated the type to emphasize what is going on. The type variable `a` of the function type is not the same as in the second argument, because the former is rank-1 whereas the latter rank-2, which is denoted by the caret symbol at the beginning of the annotation.
 
-But first we need to understand another crucial property of higher-rank types. They are extremely limiting. Do you recall what I said about polymorphic types? The type system must treat them uniformely no matter which specific type they are instantiated with. This property is called parametricity and it also kicks in with higher-rank types:
+You might ask yourself what this is good for. As a matter of fact higher-rank types are extremely useful for a couple of things as we will see in the next sections.
+
+But first we need to understand another crucial property of the concept. Higher-rank types are astonishingly limiting. Do you recall what I said about polymorphic types? The type system must treat them uniformely no matter which specific type they are instantiated with. This property is called parametricity and it also kicks in in the context of higher-rank types:
 
 ```javascript
 const length = fun(o => o.length, "{length: Number | r} => Number");
