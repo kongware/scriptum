@@ -80,9 +80,9 @@ append(ys.map(Number)) (zs); // [1, 2, 3, 4] (B)
 ```
 As opposed to static type checking type errors are usually only thrown after a function is applied. However, frequently partial application is sufficient to trigger an error (see line `A`).
 
-## Downside of the Type Validator Approach
+## Downside of the approach
 
-The attentive reader has probably already anticipated the decisive downside of the validator approach.It is associated with the lack of type inference. There is no guarantee that an associated type matches its term:
+The attentive reader has probably already anticipated the decisive downside of the validator approach: There is no type inference and thus no guarantee that an associated type matches its term:
 
 ```javascript
 const length = fun(s => s.length, "Number => String"); // accepted
@@ -91,7 +91,7 @@ length("Dijkstra"); // type error
 
 This is a severe downside and I do not even try to sugarcoat it. Please keep in mind that scriptum only promises _gradual_ typing. Other approaches entail different tradeoffs. I am still convinced that gradual typing is the most natural approach to type Javascript and that the advantages outweigh the disadvantages.
 
-By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to get a better intuition for this class of type errors.
+By the way, in most cases you can tell from the type error message if there is a mismatch between type annotation and function term. We will cover some cases in this introducation to gain a better intuition for this issue.
 
 ## Performance Impact and Memory Footprint
 
@@ -149,6 +149,8 @@ sum(1, "2", 3); // type error
 showSum("total", 1, 2, 3); // "total: 6"
 ```
 
+Unlike in Javascript variadic arguments must be homogeneous in their type, because they yield an typed array.
+
 #### Thunks
 
 Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it provides a means to prevent evaluation until needed:
@@ -179,7 +181,7 @@ comp(sqr) (length) ("Curie"); // 25
 comp(length) (sqr); // type error
 ```
 
-Let us have a closer look at what happens here. During the application of the first function argument the type variables `b` and `c` are instantiated with and substituted by the types of the supplied function, namely `Number`. The same happens when passing the second argument:
+Let us have a closer look at what is happening here. During the application of the first function argument the type variables `b` and `c` are instantiated with and substituted by the types of the supplied function, namely `Number`. The same happens when the second argument is passed:
 
 ```javascript
 comp(sqr) (length) ("Curie");
@@ -196,7 +198,9 @@ String => Number // apply a String
 Number
 ```
 
-`comp` is a polymorphic type, that is it treats every value uniformly no matter of what type it is. This technique is not limited to specific types, that is the provided function can be polymorphic as well. Here is a somewhat contrived example:
+`comp` is a parametric polymorphic type, that is it treats every value uniformly regardless of its type. Unknown types are represented by type variables and are resolved during unification.
+
+Unification is a powerful concept that also covers cases where the provided function argument is itself polymorphic. Here is a contrived example merely for deomnstration purposes:
 
 ```javascript
 const comp = fun(
@@ -254,7 +258,7 @@ comp(comp) (comp) (repeat) (foldl(add)) (0) [ANNO] // [Number] => String
 comp(comp) (comp) (repeat) (foldl(add)) (0) ([1, 2, 3]) // "******"
 ```
 
-The type validator has guided as through the application of a complex combinator. This assistance is also incredible helpful when you are in the middle of a deeply nested composite data structure.
+The type validator has guided us through the application of a complex combinator. This kind of assistance is also incredible helpful when you are in the middle of a transformation of a complex composite data structure.
 
 ## Structural Typing
 
@@ -279,11 +283,11 @@ prop("name") (o4); // "Tawny Port"
 * it only works with a specific object type
 * it still does not prevent you from invoking it with a semantically different object
 
-The type validator comes with two extensions to address both these shortcomings.
+The type validator is accompanied by two extensions to address both these shortcomings.
 
 ### Combined structural/nominal typing
 
-If we combine both typing strategies, more rigid strucural types can be obtained, which rules out the _different-semantics_ issue:
+If we combine both structural and nominal typing, more rigid strucural types can be obtained that rule out the semantics issue:
 
 ```javascript
 const Actor = fun(
@@ -304,7 +308,7 @@ prop("name") (o2); // type error
 
 ### Row Types
 
-If we introduce a row variable that gets instantiated with the non-matching properties, a more flexible structural type can be obtained, which allows the processing of partial objects:
+If we introduce a row variable that gets substituted with the non-matching properties, a more flexible structural type can be obtained that allows the processing of object intersetions:
 
 ```javascript
 const props = fun(k => o => o[k], "String => {name: String | r} => a");
@@ -322,9 +326,9 @@ prop("name") (o2); // Mulligan
 compareName(o2) (o3); // type error
 ```
 
-In order to understand why the third invocation is rejected by the validator, we must realize which row type `r` is instantiated with. The first argument `o1` demands `r` to be `age: Number, profession: String`. `o2`, however, expects `r` to be `age: Number, pronouns: String`, which evidently does not hold. Row types facilitate strucutal typing without giving up much type safety.
+In order to understand why the third invocation is rejected by the validator, we must realize which row type `r` is instantiated with. The first argument `o1` demands `r` to be `age: Number, profession: String`. `o2`, however, expects `r` to be `age: Number, pronouns: String`, which evidently does not match. Row types simulate subtyping of structura types without information loss.
 
-Please note that `r` and `a` from the above example might resemble each other but are nothing alike. The former is a row variable and the latter a universally quantified type variable.
+Please note that `r` and `a` from the above example might resemble each other but are nothing alike. The former is a row variable whereas the latter is a universally quantified type variable.
 
 ### Object type concatenation
 
@@ -342,9 +346,19 @@ scriptum avoids subtype polymorphism, because I do not want to mix the functiona
 
 ## Built-in Primitives
 
-### BigInt, Boolean, Number, Null and String
+### `BigInt`
 
-### `undefined`
+### `Boolean`
+
+### `Number`
+
+### `null`
+
+### `String`
+
+### `Symbol`
+
+### `undefined`/`NaN`/`Infinity`
 
 Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design decision by throwing an error when a function returns a an undefined value. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
 
@@ -362,15 +376,31 @@ lazyExp(); // 6 (A)
 
 Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 
+`NaN` and `Infinity` are treated as type errors just like `undefined`.
+
 ## Built-in Exotic Object Types
 
-### `Map` type
+### `Date`
 
-### `Set` type
+### `Error`
 
-### `WeakMap` type
+### `Generator`/`Iterator`
 
-### `WeakSet` type
+### `Map`
+
+### `Promise`
+
+### `RegExp`
+
+### `Set`
+
+### Typed arrays
+
+### `WeakMap`
+
+### `WeakRef`
+
+### `WeakSet`
 
 ## Higher-order Generics
 
