@@ -466,7 +466,7 @@ Numbers, however, are not mappable, because their type constructor takes no argu
 
 ## Higher-rank Generics
 
-Higher-rank generics better known as higher-rank types are a bit hard to get. If we pass a polymorphhic function argument `g` to a function `f`, then `f`'s caller decides which specific type `g` gets. An approach that will fail as soon as `f` needs to make this decision:
+Higher-rank generics better known as higher-rank types are a bit hard to get. If we pass a polymorphhic function `f` to a function `foo`, then `foo`'s caller decides which specific type `f` actually has. But what happens if instead of its caller `foo` itself needs to make this decision:
 
 ```javacript
 const foo = fun(
@@ -478,9 +478,9 @@ const id = fun(x => x, "a => a");
 foo(id) (123) ("abc"); // type error
 ```
 
-The problem at hand is caused by the unification process. The type variable `a` in `(a => a)` is instantiated with the `Number` type of the following argument. The last argument is of type `String` though and `a` cannot be instantiated with `Number` and `String` at the same time.
+The type error is caused by the unification process. The type variable `a` in `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and `a` cannot be instantiated with `Number` and `String` at the same time.
 
-Evidently this is a case where `foo` itself needs to decide, which type `a` is to be instantiated with for each invocation. As a consequence the function argument passed to `foo` must be a first class polymorphic function by giving it a higher-rank type:
+Evidently this is a case where `foo` itself needs to decide for each function invocation, which type `a` is to be instantiated with. As a consequence `f` must be a first class polymorphic function by giving it a higher-rank type:
 
 ```javascript
 const foo = fun(
