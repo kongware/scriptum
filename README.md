@@ -404,18 +404,27 @@ Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 
 ## Higher-order Generics
 
-Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. They are useful to define more general types like monoids, functors et al. Unfortunately we have yet to discuss higher-kinded types and type classes before we can encode them, hence we stick with a rather contrived example for now:
+Higher-order generics better known as higher-kinded types allow the type constructor itself to be polymorphic. It gives you finer-grained control over the arity of type constructors. This is useful to define more general types like monoids, functors et al. Unfortunately we have yet to discuss higher-kinded types and type classes before we can encode them, hence we stick with a more simple example for now:
 
 ```javascript
-const appendAnno = "t<a> => t<a> => t<a>";
+const mapAnno = "(a => b) => f<a> => f<b>";
 
-const appendArr = fun(xs => ys => xs.concat(ys), appendAnno); // accpeted
-const appendFun = fun(f => g => x => f(g(x)), appendAnno); // accpeted
-const appendMap = fun(m => n => new Map([...m, ...n]), appendAnno); // accpeted
-const appendNum = fun(m => n => m + n, appendAnno); // rejected
+const arrMap = fun(f => xs => xs.map(x => f(x)), mapAnno);
+const funMap = fun(f => g => x => f(g(x)), mapAnno);
+const tupMap = fun(f => ([x, y, z]) => new Tuple(x, y, f(z)), mapAnno);
+const numMap = fun(f => n => f(n), mapAnno);
+
+const inc = fun(x => x + 1, "Number => Number");
+const toUC = fun(s => s.toUpperCase(), "String => String");
+
+arrMap(inc) ([1, 2, 3]); // [2, 3, 4]
+funMap(inc) (inc) (1); // 3
+tupMap(toUC) (new Tuple(1, true, "foo")); // [1, true, "FOO"]
+numMap(inc) (1); // type error
 ```
+`mapAnno` expects a function `a => b` and an unary type constructor `f<a>` to produce an `f<b>`. The array type constructor satisfies the latter, because it requires a single type parameter to construct a value `[a]`. Functions and 3-tuples on the other hand expect more than one type parameter to construct values of type `a => b` and `[a, b, c]` respectively. This still works, because functions are only mappable in their result type `b` and 3-tuples only in their last field `c`.
 
-`appendAnno` defines a type that is polymorphic both in the type parameter `a` and in the type constructor `t`. Hence it can be applied to different value constructors, provided that their corresponding type constructors expect at least as many type parameters as `t`, namely one in the example. For this reason the last application is rejected, because Javascript's native `String` type has a nullary type constructor.
+Numbers, however, are not mappable, because their type constructor takes no arguments. It is a nullary constructor or type constant. Hence the type error.
 
 ## Higher-rank Generics
 
