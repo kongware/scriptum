@@ -285,11 +285,10 @@ _let((name, consonants, vowels) =>
 At this point gradual typing comes into play. We do not actually need to type the function itself, but only the function argument it receives:
 
 ```javascript
-_let(fun(
-  (name, consonants, vowels) =>
-    `${name} includes ${consonants.length} consonants and ${vowels.length} vowels,`
-      + ` namely ${consonants.join(", ")} and ${vowels.join(", ")}`
-    , "String, [String], [String] => String"),
+_let(fun((name, consonants, vowels) =>
+  `${name} includes ${consonants.length} consonants and ${vowels.length} vowels,`
+    + ` namely ${consonants.join(", ")} and ${vowels.join(", ")}`,
+  "String, [String], [String] => String"),
   name = "Papastathopoulos",
   collectConsonants(name),
   collectVowels(name));
