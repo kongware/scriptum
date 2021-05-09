@@ -280,7 +280,7 @@ _let((name, consonants, vowels) =>
   // "Papastathopoulos includes 9 consonants and 7 vowels, namely P, p, s, t, t, h, p, l, s and a, a, a, o, o, u, o"
 ```
 
-`_let` facilitates local bindings in Javascript. Unlike the native `let` declarartion it is a first class expression and unlike an IIFE it renders the function invocation explicit. `_let` is useful whenever the the result of an evaluation is needed multiple times. Unfortunately, we cannot type it with the means of the type validator.
+`_let` facilitates local bindings in Javascript. Unlike the native `let` declarartion it is a first class expression and unlike an IIFE it renders the function invocation explicit. `_let` is useful whenever the result of an evaluation is needed multiple times. Unfortunately, we cannot type it with the means of the type validator.
 
 At this point gradual typing comes into play. We do not actually need to type the function itself, but only the function argument it receives:
 
@@ -297,7 +297,7 @@ _let(fun(
   // "Papastathopoulos includes 9 consonants and 7 vowels, namely P, p, s, t, t, h, p, l, s and a, a, a, o, o, u, o"
 ```
 
-Usually we would type `collectConsonants` and `collectVowels` as well, but I leave that out for the sake of simplicity.
+Usually we would type `collectConsonants` and `collectVowels` as well, but I leave that out for the sake of simplicity. This is almost the implementation in the standard library, only with the minor difference that the latter enforces the function argument `f` to be typed.
 
 ## Structural Typing
 
