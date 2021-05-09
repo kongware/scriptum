@@ -466,7 +466,7 @@ Numbers, however, are not mappable, because their type constructor takes no argu
 
 ## Higher-rank Generics
 
-Higher-rank generics better known as higher-rank types are a bit hard to get. If we pass a polymorphhic function `f` to a function `foo`, then `foo`'s caller decides which specific type `f` actually has. But what happens if instead of its caller `foo` itself needs to make this decision:
+Higher-rank generics better known as higher-rank types are rather hard to grasp. If we pass a polymorphhic function `f` to a function `foo`, then it is usually `foo`'s caller who decides which specific type `f` actually has. Can we construct a reasonable type `f` has to pick the right type for? As it turns out we can:
 
 ```javacript
 const foo = fun(
@@ -478,9 +478,9 @@ const id = fun(x => x, "a => a");
 foo(id) (123) ("abc"); // type error
 ```
 
-The type error is caused by the unification process. The type variable `a` in `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and `a` cannot be instantiated with `Number` and `String` at the same time.
+The type error is caused by the unification process. The type variable `a` in the function parameter `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and `a` cannot be instantiated with `Number` and `String` at the same time.
 
-Evidently this is a case where `foo` itself needs to decide for each function invocation, which type `a` is to be instantiated with. As a consequence `f` must be a first class polymorphic function by giving it a higher-rank type:
+The only way to get `foo` to work is to let `f` decide for each invocation which specific type `id` has. This can be achieved by defining the function paramerer `(a => a)` as a  first class polymorphic function. In type theory parlance this is called a higher-rank type, namely a rank-2 one:
 
 ```javascript
 const foo = fun(
@@ -492,9 +492,9 @@ const id = fun(x => x, "a => a");
 foo(id) (123) ("abc"); // [123, "abc"]
 ```
 
-I intentionally complicated the type to emphasize what is going on. The type variable `a` of the function type is not the same as in the second argument, because the former is rank-1 whereas the latter rank-2, which is denoted by the caret symbol at the beginning of the annotation.
+The caret symbol at the beginning of the annotation denotes the higher-rank part of the type. I intentionally obfuscated it to draw the attention to the type variable names. Even though `a` in the first and the second parameter seem to be the same both are distinct type variables, that is the instantiation of the second variable with a specific type does not affect the first one.
 
-You might ask yourself what this is good for. As a matter of fact higher-rank types are extremely useful for a couple of things as we will see in the next sections.
+// TODO
 
 But first we need to understand another crucial property of the concept. Higher-rank types are astonishingly limiting. Do you recall what I said about polymorphic types? The type system must treat them uniformely no matter which specific type they are instantiated with. This property is called parametricity and it also kicks in in the context of higher-rank types:
 
