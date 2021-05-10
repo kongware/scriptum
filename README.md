@@ -519,7 +519,7 @@ You might wonder what this limitation is good for. It actually makes higher-rank
 
 ### Algebraic Data types
 
-Algebraic data types are crutial to scriptum and are therefore dealt with in their own main section of this introduction. Since they rely on higher-rank types here is a brief preview. With ADTs, for instance, you can define a type that acts like `null` in imperative languages:
+Algebraic data types are crucial to scriptum and are therefore dealt with in their own major section of this introduction. I provide a brief preview at this point, since they rely on higher-rank types. With ADTs you can define a type that acts like `null` in imperative languages, for instance:
 
 ```javascript
 const Option = type("(^r. r => (a => r) => r) => Option<a>");
@@ -529,18 +529,20 @@ const None = Option(none => some => none);
 
 const repeat = fun(s => n => s.repeat(n), "String => Number => String")
 
-const x = Some(3),
-  y = None;
+const x = Some(3), // Option<Number>
+  y = None; // Option<a>
 
 x.run("?") (repeat("*")); // "***"
 y.run("?") (repeat("*")); // "?"
 ```
 
-When such a value is created, the type constructor `Option` along with its type parameter `a` are known by the caller. The result type `r`, however, is only determined by the continuations `"?"` and `repeat("*")`. In order to defer the instantiation of `r` with a specific type it is encoded as a rank-2 type.
+When a value of type `Option` is created by the `Some` value constructor the type parameter `a` is known by the caller. The result type `r`, however, is only determined by the continuations `"?"` and `repeat("*")`. In order to defer the instantiation of `r` with a specific type it is encoded as a rank-2 type.
+
+TODO
 
 ### Value-level type classes
 
-Type classes are a type system feature that became popular by Haskell. scriptum encodes them entirely on the value level, i.e. solely with functions and values. Higher-rank types make this possible. Here is the monad type class together with the `Option` instance:
+Type classes are a type system feature that became popular by Haskell. scriptum encodes them entirely on the value level, i.e. solely with functions and values. Higher-rank types make this possible. Here is the monad type class together with its `Option` instance:
 
 ```javascript
 const Monad = type(`
@@ -556,7 +558,18 @@ const optChain = fun(
   "Option<a> => (a => Option<a>) => Option<b>");
 
 const MonadOpt = Monad({of: Some, chain: optChain});
+
+const safeInc = fun(x => Some(x + 1), "Number => Number),
+  id = fun(x => x, "a => a");
+
+const x = MonadOpt.chain(Some(3)) (safeInc),
+  y = MonadOpt.chain(None) (safeInc);
+
+x.run(0) (id); // 4
+y.run(0) (id); // 0
 ```
+
+TODO
 
 #### Mix and match type class operations
 
