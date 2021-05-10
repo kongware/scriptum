@@ -52,6 +52,18 @@ The type validator operates at runtime and thus can represent types as first cla
 
 This is just a string, i.e. we can assign it to a variable, pass it around or manipulate it with Javascript's string operations.
 
+If you have a more complex type you can add newlines and indentations to render it more readable:
+
+```javascript
+`{
+   foo: String => Number,·
+   bar: Map<String, Number>,·
+   baz: [String, Number]
+ }`
+```
+
+Please note that all spaces/tabs and newlines are erased automatically. Use the `·` symbol to denote a protected space.
+
 ## Associate Types with Functions
 
 We need the `fun` operator to associate a type with a function:
@@ -466,7 +478,7 @@ Numbers, however, are not mappable, because their type constructor takes no argu
 
 ## Higher-rank Generics
 
-Higher-rank generics better known as higher-rank types are rather hard to grasp. If we pass a polymorphhic function `f` to a function `foo`, then it is usually `foo`'s caller who decides which specific type `f` actually has. Can we construct a reasonable type `f` has to pick the right type for? As it turns out we can:
+Higher-rank generics better known as higher-rank types encode the idea of first class polymorphic functions. Usually, when a polymorphic function `foo` is applied to a polymorphic function argument `f`, the caller of `foo` decides what specific type `f` is instantiated with. This mechanism limits the types we can express:
 
 ```javacript
 const foo = fun(
@@ -478,38 +490,77 @@ const id = fun(x => x, "a => a");
 foo(id) (123) ("abc"); // type error
 ```
 
-The type error is caused by the unification process. The type variable `a` in the function parameter `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and `a` cannot be instantiated with `Number` and `String` at the same time.
+The type error is caused by the unification process. The type variable `a` in the function parameter `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and the validator's attempt to instantiate `a` accordingly fails, because a type variable cannot be instantiated with two different types at the same time.
 
-The only way to get `foo` to work is to let `f` decide for each invocation which specific type `id` has. This can be achieved by defining the function paramerer `(a => a)` as a  first class polymorphic function. In type theory parlance this is called a higher-rank type, namely a rank-2 one:
+The only way to get `foo` to work is to let `foo` decide for each invocation which specific type `(a => a)` has. This can be achieved by defining the function parameter as a  first class polymorphic function. In type theory parlance this is called a higher-rank type, namely a rank-2 one:
 
 ```javascript
 const foo = fun(
   f => x => y => new Tuple(f(x), f(y)),
-  "(^a a => a) => a => b => [a, b]");
+  "(^a. a => a) => a => b => [a, b]");
   
 const id = fun(x => x, "a => a");
 
 foo(id) (123) ("abc"); // [123, "abc"]
 ```
 
-The caret symbol at the beginning of the annotation denotes the higher-rank part of the type. I intentionally obfuscated it to draw the attention to the type variable names. Even though `a` in the first and the second parameter seem to be the same both are distinct type variables, that is the instantiation of the second variable with a specific type does not affect the first one.
+The caret symbol at the beginning of the annotation denotes the higher-rank part of the type. I intentionally obfuscated the annotation to draw the attention to the type variable names. Even though `a` in the first and the second parameter seem to be the same, both are distinct type variables. The instantiation of the first variable with a specific type does not affect the second one and vice versa.
 
-// TODO
-
-But first we need to understand another crucial property of the concept. Higher-rank types are astonishingly limiting. Do you recall what I said about polymorphic types? The type system must treat them uniformely no matter which specific type they are instantiated with. This property is called parametricity and it also kicks in in the context of higher-rank types:
+Higher-rank types are astonishingly limiting, because they enforce the provision of fully polymorphic functions that behave uniformly for every type instance:
 
 ```javascript
 const length = fun(o => o.length, "{length: Number | r} => Number");
 foo(length); // type error
 ```
 
-`length` breaches the contract, because it does not behave the same for every possible instance. As a matter of fact it only behaves as intended for values of type `{length: Number | r}`. This is clearly a type error.
+`length` does not behave uniformly for every type instance. As a matter of fact it only behaves as intended for values of type `{length: Number | r}`. If we can only pass fully polymorphic functions to a higher-rank type than we are quite limited in what we are able to do, because we know absolutely nothing about their types and what values they are inhabited with.
 
-### Explicit type equalaties
+You might wonder what this limitation is good for. It actually makes higher-rank types quite expressive, as you will see in the next sections.
+
+### Algebraic Data types
+
+Algebraic data types are crutial to scriptum and are therefore dealt with in their own main section of this introduction. Since they rely on higher-rank types here is a brief preview. With ADTs, for instance, you can define a type that acts like `null` in imperative languages:
+
+```javascript
+const Option = type("(^r. r => (a => r) => r) => Option<a>");
+
+const Some = fun(x => Option(none => some => some(x)), "a => Option<a>");
+const None = Option(none => some => none);
+
+const repeat = fun(s => n => s.repeat(n), "String => Number => String")
+
+const x = Some(3),
+  y = None;
+
+x.run("?") (repeat("*")); // "***"
+y.run("?") (repeat("*")); // "?"
+```
+
+When such a value is created, the type constructor `Option` along with its type parameter `a` are known by the caller. The result type `r`, however, is only determined by the continuations `"?"` and `repeat("*")`. In order to defer the instantiation of `r` with a specific type it is encoded as a rank-2 type.
 
 ### Value-level type classes
 
-### Algebraic Data types
+Type classes are a type system feature that became popular by Haskell. scriptum encodes them entirely on the value level, i.e. solely with functions and values. Higher-rank types make this possible. Here is the monad type class together with the `Option` instance:
+
+```javascript
+const Monad = type(`
+  (^a, b. {
+    of: (a => m<a>),·
+    chain: (m<a> => (a => m<a>) => m<b>)
+  }) => Monad<m>`);
+
+// option instance
+
+const optChain = fun(
+  mx => fm => mx.run(mx) (fm),
+  "Option<a> => (a => Option<a>) => Option<b>");
+
+const MonadOpt = Monad({of: Some, chain: optChain});
+```
+
+#### Mix and match type class operations
+
+### Explicit type equalaties
 
 ## Algebraic Data Types
 
