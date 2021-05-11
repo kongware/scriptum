@@ -481,7 +481,7 @@ Numbers, however, are not mappable, because their type constructor takes no argu
 
 Higher-rank generics better known as higher-rank types encode the idea of first class polymorphic functions. Usually, when a polymorphic function `foo` is applied to a polymorphic function argument `f`, the caller of `foo` decides upfront what specific type `f` is instantiated with. This mechanism limits the types we can express:
 
-```javacript
+```javascript
 const foo = fun(
   f => x => y => new Tuple(f(x), f(y)),
   "(a => b) => c => d => [c, d]");
@@ -578,7 +578,7 @@ A type class knows upfront which type constructor it is instantiated from, but i
 
 Let us revisit the initial example of the higher-rank types section. There is an issue I have kept secret so far:
 
-```javacript
+```javascript
 const foo = fun(
   f => x => y => new Tuple(f(x), f(y)),
   "(^a. a => a) => b => c => [b, c]");
@@ -590,7 +590,7 @@ foo(id) (123) ("abc"); // [123, "abc"]
 
 As I have already mentioned the type validator only checks applications, not definition. Consequently, it cannot infer which type variable of the function argument `(a => a)` needs to be unified with. Is it `a ~ b` or `a ~ c` or both? From the term it is obvious that both unifications are necessary and that is what we have to tell the validator through explicit type equality hints:
 
-```javacript
+```javascript
 const foo = fun(
   f => x => y => new Tuple(f(x), f(y)),
   "(^a. a => a) => b => c => [b, c]",
