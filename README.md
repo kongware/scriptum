@@ -56,13 +56,13 @@ If you have a more complex type you can add newlines and indentations to render 
 
 ```javascript
 `{
-   foo: String => Number,·
-   bar: Map<String, Number>,·
+   foo: String => Number,Â·
+   bar: Map<String, Number>,Â·
    baz: [String, Number]
  }`
 ```
 
-Please note that all spaces/tabs and newlines are erased automatically. Use the `·` symbol to denote a protected space.
+Please note that all spaces/tabs and newlines are erased automatically. Use the `Â·` symbol to denote a protected space.
 
 ## Associate Types with Functions
 
@@ -472,13 +472,14 @@ funMap(inc) (inc) (1); // 3
 tupMap(toUC) (new Tuple(1, true, "foo")); // [1, true, "FOO"]
 numMap(inc) (1); // type error
 ```
+
 `mapAnno` expects a function `a => b` and an unary type constructor `f<a>` to produce an `f<b>`. The array type constructor satisfies the latter, because it requires a single type parameter to construct `[a]` values. Functions and 3-tuples on the other hand expect more than one type parameter to construct values of type `a => b` and `[a, b, c]` respectively. This still works, because functions are only mappable in their result type `b` and 3-tuples only in their last field `c`.
 
 Numbers, however, are not mappable, because their type constructor takes no arguments at all. It is a nullary constructor or type constant. Hence the type error.
 
 ## Higher-rank Generics
 
-Higher-rank generics better known as higher-rank types encode the idea of first class polymorphic functions. Usually, when a polymorphic function `foo` is applied to a polymorphic function argument `f`, the caller of `foo` decides what specific type `f` is instantiated with. This mechanism limits the types we can express:
+Higher-rank generics better known as higher-rank types encode the idea of first class polymorphic functions. Usually, when a polymorphic function `foo` is applied to a polymorphic function argument `f`, the caller of `foo` decides upfront what specific type `f` is instantiated with. This mechanism limits the types we can express:
 
 ```javacript
 const foo = fun(
@@ -492,7 +493,7 @@ foo(id) (123) ("abc"); // type error
 
 The type error is caused by the unification process. The type variable `a` in the function parameter `(a => a)` is instantiated with the type of `foo`'s second argument, namely `Number`. The last argument is of type `String` though and the validator's attempt to instantiate `a` accordingly fails, because a type variable cannot be instantiated with two different types at the same time.
 
-The only way to get `foo` to work is to let `foo` decide for each invocation which specific type `(a => a)` has. This can be achieved by defining the function parameter as a  first class polymorphic function. In type theory parlance this is called a higher-rank type, namely a rank-2 one:
+The only way to get this to work is to defer the instantiation of `a` by letting `foo` decide for each invocation which specific type `(a => a)` has. If the function argument is still polymorphic when it is passed to `foo`, then it needs to be first class and that is exactly what higher-rank types enable:
 
 ```javascript
 const foo = fun(
@@ -506,20 +507,20 @@ foo(id) (123) ("abc"); // [123, "abc"]
 
 The caret symbol at the beginning of the annotation denotes the higher-rank part of the type. I intentionally obfuscated the annotation to draw the attention to the type variable names. Even though `a` in the first and the second parameter seem to be the same, both are distinct type variables. The instantiation of the first variable with a specific type does not affect the second one and vice versa.
 
-Higher-rank types are astonishingly limiting, because they enforce the provision of fully polymorphic functions that behave uniformly for every type instance:
+Higher-rank types are astonishingly limiting, because they impose on the caller to supply a fully polymorphic function, which behaves uniformly for every type instance:
 
 ```javascript
 const length = fun(o => o.length, "{length: Number | r} => Number");
 foo(length); // type error
 ```
 
-`length` does not behave uniformly for every type instance. As a matter of fact it only behaves as intended for values of type `{length: Number | r}`. If we can only pass fully polymorphic functions to a higher-rank type than we are quite limited in what we are able to do, because we know absolutely nothing about their types and what values they are inhabited with.
+`length` breaches this contract, becuse it does not behave uniformly for every type instance. As a matter of fact it only behaves as intended for values of type `{length: Number | r}`. If we can only pass fully polymorphic functions to a higher-rank type than these functions are quite limited in what they are able to do, because they know absolutely nothing about their arguments and what values they possibly might contain.
 
-You might wonder what this limitation is good for. It actually makes higher-rank types quite expressive, as you will see in the next sections.
+Surprisingly this very limitation turns out to be very helpful to express a couple of fundamental functional idioms as you will see in the following setions.
 
 ### Algebraic Data types
 
-Algebraic data types are crucial to scriptum and are therefore dealt with in their own major section of this introduction. I provide a brief preview at this point, since they rely on higher-rank types. With ADTs you can define a type that acts like `null` in imperative languages, for instance:
+Algebraic data types are a means to construct complex, composite data types that go beyond hierarchic product types. Since ADTs are covered in their own major section here is only a brief preview to demonstrate the expressivness of higher-rank types. The following ADT encodes a type that acts similar to `null` in imperative languages, only more reliable:
 
 ```javascript
 const Option = type("(^r. r => (a => r) => r) => Option<a>");
@@ -529,20 +530,18 @@ const None = Option(none => some => none);
 
 const repeat = fun(s => n => s.repeat(n), "String => Number => String")
 
-const x = Some(3), // Option<Number>
-  y = None; // Option<a>
+const x = Some(3),
+  y = None;
 
 x.run("?") (repeat("*")); // "***"
 y.run("?") (repeat("*")); // "?"
 ```
 
-When a value of type `Option` is created by the `Some` value constructor the type parameter `a` is known by the caller. The result type `r`, however, is only determined by the continuations `"?"` and `repeat("*")`. In order to defer the instantiation of `r` with a specific type it is encoded as a rank-2 type.
-
-TODO
+When `Some` creates a value of type `Option<a>`, the specific type of `a` is already determined, but the resolution of the type `r` of the result value is is deferred until the ADT is actually consumed.
 
 ### Value-level type classes
 
-Type classes are a type system feature that became popular by Haskell. scriptum encodes them entirely on the value level, i.e. solely with functions and values. Higher-rank types make this possible. Here is the monad type class together with its `Option` instance:
+Type classes are a type system feature that became popular by Haskell. scriptum defines them entirely on the value level, i.e. solely with functions and values using higher-rank types. Here is the monad type class together with its `Option` instance:
 
 ```javascript
 const Monad = type(`
@@ -557,7 +556,7 @@ const optChain = fun(
   mx => fm => mx.run(mx) (fm),
   "Option<a> => (a => Option<a>) => Option<b>");
 
-const MonadOpt = Monad({of: Some, chain: optChain});
+const MonadOpt = Monad({of: Some, chain: optChain}); // Monad<Option>
 
 const safeInc = fun(x => Some(x + 1), "Number => Number),
   id = fun(x => x, "a => a");
@@ -569,7 +568,7 @@ x.run(0) (id); // 4
 y.run(0) (id); // 0
 ```
 
-TODO
+A type class knows upfront which type constructor it is instantiated from, but it does only know a single thing about the involved type parameters, namely how many there at least are. This is possible, because the type parameters are denoted as higher-rank.
 
 #### Mix and match type class operations
 
@@ -581,7 +580,7 @@ TODO
 
 ### Sum types
 
-### Creating nullary constructors
+### Nullary constructors
 
 ## Recursive Types
 
