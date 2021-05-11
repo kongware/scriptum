@@ -388,29 +388,22 @@ Types are encoded as first class `String`s in scriptum, i.e. you can just concat
 
 scriptum avoids subtype polymorphism, because I do not want to mix the functional paradigm with the idea of class hierarchies. If you feel the need to rely on classes, Typescript is probably a more suitable alternative.
 
-## `Array` Type
-
-## Non-empty `Array` Type
-
-## `Tuple` Type
-
 ## Built-in Primitives
 
-### `BigInt`
+scriptum does support the following primitives, which are all created by type constants (nullary constructors):
 
-### `Boolean`
+* `BigInt`
+* `Boolean`
+* `Number`
+* `null`
+* `String`
+* `Symbol`
 
-### `Number`
-
-### `null`
-
-### `String`
-
-### `Symbol`
+We have already used them in examples throughout this introduciton, hence I spare another one.
 
 ### `undefined`/`NaN`/`Infinity`
 
-Although `undefined` denotes a type error, Javascript silently accepts it. scriptum addresses this questionable design decision by throwing an error when a function returns a an undefined value. `undefined` arguments are legitimate though, because they allow for the necessary flexibility:
+Although `undefined` clearly indicates a type error, Javascript silently accepts such values. scriptum addresses this questionable design decision by throwing an error when a function returns a an undefined value. `undefined` arguments are legitimate though, because they allow the necessary flexibility:
 
 ```javascript
 const prop = fun(o => k => o[k], "{name: String, age: Number} => String => a"),
@@ -426,9 +419,47 @@ lazyExp(); // 6 (A)
 
 Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 
-`NaN` and `Infinity` are treated as type errors just like `undefined`.
+For the time being `NaN` and `Infinity` are treated as type errors just like `undefined`. This is most likely to change.
 
 ## Built-in Exotic Object Types
+
+### `Array`
+
+Arrays must be homogeneous in their element type, as soon as they are passed to a function:
+
+```javascript
+const arrAppend = fun(
+  xs => ys => xs.concat(ys),
+  "[a] => [a] => [a]");
+  
+const xs = [1, 2],
+  ys = [3, 4],
+  zs = [5, "6"];
+
+arrAppend(xs) (ys) [ANNO]; // [Number]
+arrAppend(xs) (zs); // type error
+```
+
+Please note that `[a]` denotes Javasript's imperative `Array` type, not a single linked list most functional programmers are familiar with. scriptum also includes a traditional `List` type, which is encoded as an algebraic data type.
+
+#### `NEArray`
+
+The non-empty array has the same traits as normal arrays, except for the non-empty constraint and a slightly different notation:
+
+```javascript
+const neaAppend = fun(
+  xs => ys => xs.concat(ys),
+  "[1a] => [1a] => [1a]");
+  
+const xs = new NEArray.fromArr([1, 2]),
+  ys = NEArray.fromArr([3, 4]),
+  zs = NEArray.fromArr([]);
+
+neaAppend(xs) (ys) [ANNO]; // [1Number]
+neaAppend(xs) (zs); // type error
+```
+
+The digit `1` indicates that `NEArray`s must at least include one value. Please note that it is possible to create empty `NEArray`s, because otherwise we could not apply the native Array methods. As soon as you apply such an illtyped value to a function an error is raised. It is a necessary tradeoff.
 
 ### `Date`
 
@@ -443,6 +474,23 @@ Please note that `lazyExp()` implicitly passes `undefined` (see line `A`).
 ### `RegExp`
 
 ### `Set`
+
+### `Tuple` Type
+
+Tuples are defined as a subclass of `Array` and are not extensible:
+
+```javascript
+const tupMap = fun(
+  f => ([x, y, z]) => new Tuple(x, y, f(z)),
+  "(c => d) => [a, b, c] => [a, b, d]");
+
+const toUC = fun(s => s.toUpperCase(), "String => String"),
+  r = tupMap(toUC) (new Tuple(123, true, "abc")); // [123, true, "ABC"]
+  
+r[ANNO]; // [Number, Boolean, String]
+```
+
+Tuples must at least comprise 2 fields, because `[a]` denotes an `Array`. There might be a switch to Javascript's new native tuple type, provided it offers the required flexibility.
 
 ### Typed arrays
 
