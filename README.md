@@ -572,7 +572,34 @@ A type class knows upfront which type constructor it is instantiated from, but i
 
 #### Mix and match type class operations
 
-### Explicit type equalaties
+#### Type class hierarchies
+
+### Explicit type equalaty hints
+
+Let us revisit the initial example of the higher-rank types section. There is an issue I have kept secret so far:
+
+```javacript
+const foo = fun(
+  f => x => y => new Tuple(f(x), f(y)),
+  "(^a. a => a) => b => c => [b, c]");
+  
+const id = fun(x => x, "a => a");
+
+foo(id) (123) ("abc"); // [123, "abc"]
+```
+
+As I have already mentioned the type validator only checks applications, not definition. Consequently, it cannot infer which type variable of the function argument `(a => a)` needs to be unified with. Is it `a ~ b` or `a ~ c` or both? From the term it is obvious that both unifications are necessary and that is what we have to tell the validator through explicit type equality hints:
+
+```javacript
+const foo = fun(
+  f => x => y => new Tuple(f(x), f(y)),
+  "(^a. a => a) => b => c => [b, c]",
+  "a ~ b, a ~ c");
+```
+
+Please note that the tilde symbol denotes type equaltiy and that the LHS always has to be a higher-rank type.
+
+I do not have enough experience yet to assess the implications of this shortcoming. Both algebraic data types and type classes seem not to be affected in principle. Nevertheless, it should be possible to automatically predict some of these cases, if a type variable is completely disconnected from the rest of the annotation and issue a warning.
 
 ## Algebraic Data Types
 
