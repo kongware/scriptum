@@ -56,13 +56,13 @@ If you have a more complex type you can add newlines and indentations to render 
 
 ```javascript
 `{
-   foo: String => Number,Â·
-   bar: Map<String, Number>,Â·
+   foo: String => Number,·
+   bar: Map<String, Number>,·
    baz: [String, Number]
  }`
 ```
 
-Please note that all spaces/tabs and newlines are erased automatically. Use the `Â·` symbol to denote a protected space.
+Please note that all spaces/tabs and newlines are erased automatically. Use the `·` symbol to denote a protected space.
 
 ## Associate Types with Functions
 
