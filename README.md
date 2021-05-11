@@ -444,7 +444,7 @@ Please note that `[a]` denotes Javasript's imperative `Array` type, not a single
 
 #### `NEArray`
 
-The non-empty array has the same traits as normal arrays, except for the non-empty constraint and a slightly different notation:
+The non-empty array is a subclass of `Array` and has the same traits, except for the non-empty constraint and a slightly different notation:
 
 ```javascript
 const neaAppend = fun(
@@ -477,7 +477,7 @@ The digit `1` indicates that `NEArray`s must at least include one value. Please 
 
 ### `Tuple` Type
 
-Tuples are defined as a subclass of `Array` and are not extensible:
+Tuples are a subclass of `Array` and are not extensible:
 
 ```javascript
 const tupMap = fun(
