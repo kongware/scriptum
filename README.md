@@ -463,17 +463,29 @@ The digit `1` indicates that `NEArray`s must at least include one value. Please 
 
 ### `Date`
 
+TODO
+
 ### `Error`
+
+TODO
 
 ### `Generator`/`Iterator`
 
+TODO
+
 ### `Map`
+
 
 ### `Promise`
 
+TODO
+
 ### `RegExp`
 
+TODO
+
 ### `Set`
+
 
 ### `Tuple` Type
 
@@ -494,11 +506,19 @@ Tuples must at least comprise 2 fields, because `[a]` denotes an `Array`. There 
 
 ### Typed arrays
 
+TODO
+
 ### `WeakMap`
+
+TODO
 
 ### `WeakRef`
 
+TODO
+
 ### `WeakSet`
+
+TODO
 
 ## Higher-order Generics
 
@@ -585,7 +605,7 @@ x.run("?") (repeat("*")); // "***"
 y.run("?") (repeat("*")); // "?"
 ```
 
-When `Some` creates a value of type `Option<a>`, the specific type of `a` is already determined, but the resolution of the type `r` of the result value is is deferred until the ADT is actually consumed.
+We need the `type` operator to associate a higher-rank type with an ADT. When `Some` creates a value of type `Option<a>`, the specific type of `a` is already determined, but the resolution of the type `r` of the result value is is deferred until the ADT is actually consumed.
 
 ### Value-level type classes
 
@@ -616,11 +636,42 @@ x.run(0) (id); // 4
 y.run(0) (id); // 0
 ```
 
-A type class knows upfront which type constructor it is instantiated from, but it does only know a single thing about the involved type parameters, namely how many there at least are. This is possible, because the type parameters are denoted as higher-rank.
+We again need the `type` operator to associate a higher-rank type with a type class. A type class knows upfront which type constructor it is instantiated from, but it does only know a single thing about the involved type parameters, namely how many there at least are. This is possible, because the type parameters are denoted as higher-rank.
+
+#### Partially applied type constructors
+
+Type classes expect a certain number of type parameters. If a type constructor expects less it cannot become an instance. However, if it has more parameters the type class assumes a partially applied type constructor, whose remaining type parameters meet the requirement. Consequently, such a type constructor can only be an instance of a type class with its rightmost parameters:
+
+```javascript
+const Functor = type(`(^a, b. {map: ((a => b) => f<a> => f<b>)}) => Functor<f>`);
+
+// function instance
+
+const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+const FunctorFun = Functor({map: comp}); // Functor<(a =>)> (A)
+
+const safeInc = fun(x => Some(x + 1), "Number => Number),
+  id = fun(x => x, "a => a");
+
+const x = MonadOpt.chain(Some(3)) (safeInc),
+  y = MonadOpt.chain(None) (safeInc);
+
+x.run(0) (id); // 4
+y.run(0) (id); // 0
+```
+
+Line `A` indicates that the function instance of the `Functor` type class is a functor in the result type, not in the argument type `a`.
 
 #### Mix and match type class operations
 
+TODO
+
 #### Type class hierarchies
+
+TODO
 
 ### Explicit type equalaty hints
 
