@@ -9,8 +9,6 @@
                                        88                                                 
                                        88                                                 
                                    
-**[Status: work in progress]**
-
 # Gradual Typed Functional Programming with Javascript
 
 scriptum consists of two parts:
@@ -19,6 +17,14 @@ scriptum consists of two parts:
 * a typed standard library
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
+
+## Status
+
+Unstable (v0.1.0)
+
+This type validator is way out of my league, that is to say I barely managed to implement it. The implementation is therefore neither bug free nor DRY or performant.
+
+If you find a bug, please don't hesitate to file an issue. Thank you!
 
 ## Runtime Type Validator
 
@@ -612,7 +618,7 @@ We need the `type` operator to associate a higher-rank type with an ADT. When `S
 Type classes are a type system feature that became popular by Haskell. scriptum defines them entirely on the value level, i.e. solely with functions and values using higher-rank types. Here is the monad type class together with its `Option` instance:
 
 ```javascript
-const Monad = type(`
+const Monad = typeClass(`
   (^a, b. {
     of: (a => m<a>),·
     chain: (m<a> => (a => m<a>) => m<b>)
@@ -636,14 +642,14 @@ x.run(0) (id); // 4
 y.run(0) (id); // 0
 ```
 
-We again need the `type` operator to associate a higher-rank type with a type class. A type class knows upfront which type constructor it is instantiated from, but it does only know a single thing about the involved type parameters, namely how many there at least are. This is possible, because the type parameters are denoted as higher-rank.
+We need the `typeClass` operator to associate a higher-rank type with a type class. A type class knows upfront which type constructor it is instantiated from, but it does only know a single thing about the involved type parameters, namely how many there at least are. This is possible, because the type parameters are denoted as higher-rank.
 
 #### Partially applied type constructors
 
 Type classes expect a certain number of type parameters. If a type constructor expects less it cannot become an instance. However, if it has more parameters the type class assumes a partially applied type constructor, whose remaining type parameters meet the requirement. Consequently, such a type constructor can only be an instance of a type class with its rightmost parameters:
 
 ```javascript
-const Functor = type(`(^a, b. {map: ((a => b) => f<a> => f<b>)}) => Functor<f>`);
+const Functor = typeClass(`(^a, b. {map: ((a => b) => f<a> => f<b>)}) => Functor<f>`);
 
 // function instance
 
@@ -672,33 +678,6 @@ TODO
 #### Type class hierarchies
 
 TODO
-
-### Explicit type equalaty hints
-
-Let us revisit the initial example of the higher-rank types section. There is an issue I have kept secret so far:
-
-```javascript
-const foo = fun(
-  f => x => y => new Tuple(f(x), f(y)),
-  "(^a. a => a) => b => c => [b, c]");
-  
-const id = fun(x => x, "a => a");
-
-foo(id) (123) ("abc"); // [123, "abc"]
-```
-
-As I have already mentioned the type validator only checks applications, not definition. Consequently, it cannot infer which type variable of the function argument `(a => a)` needs to be unified with. Is it `a ~ b` or `a ~ c` or both? From the term it is obvious that both unifications are necessary and that is what we have to tell the validator through explicit type equality hints:
-
-```javascript
-const foo = fun(
-  f => x => y => new Tuple(f(x), f(y)),
-  "(^a. a => a) => b => c => [b, c]",
-  "a ~ b, a ~ c");
-```
-
-Please note that the tilde symbol denotes type equaltiy and that the LHS always has to be a higher-rank type.
-
-I do not have enough experience yet to assess the implications of this shortcoming. Both algebraic data types and type classes seem not to be affected in principle. Nevertheless, it should be possible to automatically predict some of these cases, if a type variable is completely disconnected from the rest of the annotation and issue a warning.
 
 ## Algebraic Data Types
 
