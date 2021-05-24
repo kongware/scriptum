@@ -1,7 +1,7 @@
 {
   "name": "scriptum",
-  "version": "1.0.0",
-  "description": "scriptum - a no-frills functional programming library and an online course based on it",
+  "version": "0.1.0",
+  "description": "An extended Hindley-Milner type validator and a functional library based on it",
   "main": "index.js",
   "scripts": {
   },
