@@ -26,6 +26,8 @@ This type validator is way out of my league, that is to say I barely managed to 
 
 If you find a bug, please don't hesitate to file an issue. Thank you!
 
+For the next couple of months the type validator will gradually become more stable and the functional library more extensive.
+
 ## Runtime Type Validator
 
 Usually the type system is designed first and the rest of the language around it. However, with Javascript we are stuck with an untyped language. Adding a type system with hindsight is a Sisyphean task as you can observe with Typescript.
