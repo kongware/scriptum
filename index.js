@@ -12,5 +12,5697 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 */
 
 
-/* Please note that the implementation of the type validator is completed. Currently I refactor, bugfix and test the code.
-I will publish it on Github within the next two weeks. */
+/******************************************************************************
+*******************************************************************************
+**************************[ CROSS-CUTTING CONCERNS ]***************************
+*******************************************************************************
+******************************************************************************/
+
+/***[ Constants ]*************************************************************/
+
+const CHECK = true; // type validator flag
+const PREFIX = "$_"; // avoids property name clashes
+
+export const ADT = PREFIX + "adt";
+export const ANNO = PREFIX + "anno";
+const TOP_LEVEL_SCOPE = ".0/0";
+const MAX_COLONS = 80; // limit length of error messages
+const MAX_TUPLE = 4;
+const NOT_FOUND = -1;
+const SAFE_SPACE = "·"; // use within type indentations
+const TAG = Symbol.toStringTag;
+const UNWRAP = PREFIX + "unwrap"; // access to the untyped function
+
+/***[ Variables ]*************************************************************/
+
+const adtDict = new Map(); // ADT register (name and arity)
+
+const nativeDict = new Map([ // native register (name and arity)
+  ["Map", 2],
+  ["Set", 1]]);
+
+/***[ Combinators ]***********************************************************/
+
+const cat = (...lines) => lines.join("");
+
+const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => {
+  if (lamIndex === null)
+    lamIndex = "";
+
+  else
+    lamIndex = `in lambda #${lamIndex + 1}\n`;
+
+  if (argIndex === null)
+    argIndex = "";
+
+  else
+    argIndex = `in argument #${argIndex + 1}\n`;
+
+  if (argAnnos === null)
+      argAnnos = "";
+
+  else if (argAnnos.length === 0)
+    argAnnos = "original arg: ()\n";
+
+  else
+    argAnnos = `original arg: ${argAnnos.join(", ")}\n`;
+
+  if (instantiations.size > 0) {
+    instantiations = "\n" + Array.from(instantiations)
+      .map(([k, v]) => `${k} ~ ${serializeAst(v.value)}`).join("\n");
+  }
+
+  else instantiations = "";
+
+  return cat(
+    lamIndex,
+    argIndex,
+    `original fun: ${funAnno}\n`,
+    argAnnos,
+    instantiations + "\n");
+};
+
+/******************************************************************************
+*******************************************************************************
+*********************************[ SUBTYPES ]**********************************
+*******************************************************************************
+******************************************************************************/
+
+/***[ Argument Types ]********************************************************/
+
+// nullary functions (no arguments)
+
+class Arg0 extends Array {
+  constructor() {super(0)}
+
+  get [Symbol.toStringTag] () {
+    return "Arg0";
+  }
+}
+
+// unary functions
+
+class Arg1 extends Array {
+  constructor(x) {
+    super(1);
+    this[0] = x;
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Arg1";
+  }
+}
+
+// variadic functions (dynamic argument length)
+
+class Argv extends Array {
+  constructor(x) {
+    super(1);
+    this[0] = x;
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Argv";
+  }
+}
+
+// n-ary functions (multi-agrument)
+
+class Args extends Array {
+  constructor(n) {
+    super(n);
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Args";
+  }
+
+  static fromArr(xs) {
+    const ys = new Args(xs.length).fill(null);
+    xs.forEach((x, i) => ys[i] = x);
+    return ys;
+  }
+}
+
+// n-ary functions (multi-agrument) with a variadic one as last argument
+
+class Argsv extends Array {
+  constructor(n) {
+    super(n);
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Argsv";
+  }
+
+  static fromArr(xs) {
+    const ys = new Argsv(xs.length).fill(null);
+    xs.forEach((x, i) => ys[i] = x);
+    return ys;
+  }
+}
+
+/***[ Non-Empty Array ]*******************************************************/
+
+/* The constructor allows creating empty non-empty arrays, because otherwise we
+could not use the built-in Array methods. */
+
+export class NEArray extends Array {
+  constructor(n) {
+    super(n);
+  }
+
+  get [Symbol.toStringTag] () {
+    return "NEArray";
+  }
+
+  static fromArr(xs) {
+    const ys = new NEArray(xs.length).fill(null);
+    xs.forEach((x, i) => ys[i] = x);
+    return ys;
+  }
+}
+
+/***[ Tuple ]*****************************************************************/
+
+/* There is a superordinate tuple constructor for all tuple types only limited
+by the lower and upper bound. Each tuple type carries a size property to
+determine the specific tuple type. Tuple values are subtypes of arrays but are
+sealed. */
+
+export class Tuple extends Array {
+  constructor(...xs) {
+    if (xs.length < 2)
+      throw new TypeError(cat(
+        "invalid Tuple\n",
+        "must contain at least 2 fields\n",
+        JSON.stringify(xs).slice(0, MAX_COLONS),
+        "\n"));
+
+    else if (xs.length > MAX_TUPLE)
+      throw new TypeError(cat(
+        "invalid Tuple\n",
+        `must contain at most ${MAX_TUPLE} fields\n`,
+        JSON.stringify(xs).slice(0, MAX_COLONS),
+        "\n"));
+
+    else {
+      super(xs.length);
+
+      xs.forEach((x, i) => {
+        this[i] = x;
+      });
+
+      Object.seal(this);
+    }
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Tuple";
+  }
+}
+
+/******************************************************************************
+*******************************************************************************
+************************************[ AST ]************************************
+*******************************************************************************
+******************************************************************************/
+
+// algebraic data types
+
+const Adt = (cons, body) =>
+  ({[Symbol.toStringTag]: Adt.name, cons, body});
+
+const Arr = body =>
+  ({[Symbol.toStringTag]: Arr.name, body});
+
+/* During substitution it matters in which position a function argument is
+supposed to be substituted. If it is in a codomain position, i.e. in the result
+type of a function, the function argument is substituted without additional
+parenthesis, whereas in domain position parenthesis are required. `Codomain` is
+a constructor that internally denotes a substitution in codomain position. */
+
+const Codomain = (...body) =>
+  ({[Symbol.toStringTag]: Codomain.name, body});
+
+/* `Forall` is lexically characterized by round parenthesis. Its usage is
+ambiguous. On the one hand it denotes top-level or nested quantifiers and on
+the other hand it groups function subterms of a given annotation. In the
+latter case the quantifiers has no bound type variables. */
+
+const Forall = (btvs, scope, body) =>
+  ({[Symbol.toStringTag]: Forall.name, btvs, scope, body});
+
+const Fun = (lambdas, result) =>
+  ({[Symbol.toStringTag]: Fun.name, body: {lambdas, result}});
+
+// Javascript's native exotic object types (e.g. Map, Set)
+
+const Native = (cons, body) =>
+  ({[Symbol.toStringTag]: Native.name, cons, body});
+
+// non-empty array
+
+const Nea = body =>
+  ({[Symbol.toStringTag]: Nea.name, body});
+
+/* Objects implicitly create a self reference to enable method chaining. */
+
+const Obj = (cons, props, row, body) => {
+  const o = {[Symbol.toStringTag]: Obj.name, cons, props, row, body};
+  o.this = o;
+  return o;
+}
+
+/* `Partial` is used to denote not consumed type parameters of a
+partially applied type constructor. */
+
+const Partial = ({[Symbol.toStringTag]: "Partial"});
+
+// `RowType` and `RowVar` encode row polymorphism 
+
+const RowType = body =>
+  ({[Symbol.toStringTag]: RowType.name, body});
+
+const RowVar = name =>
+  ({[Symbol.toStringTag]: RowVar.name, name});
+
+// `Obj` self refecrence to allow method chaining
+
+const This = (nesting, o) => {
+  o[TAG] = This.name;
+  o.nesting = nesting;
+  return o;
+};
+
+// tuples
+
+const Tup = (size, body) =>
+  ({[Symbol.toStringTag]: Tup.name, size, body});
+
+// type constant
+
+const Tconst = name =>
+  ({[Symbol.toStringTag]: Tconst.name, name});
+
+/***[ Type Variables ]********************************************************/
+
+const BoundTV = (name, scope, position, body) =>
+  ({[Symbol.toStringTag]: BoundTV.name, name, scope, position, body});
+
+const MetaTV = (name, scope, position, iteration, body) => // a.k.a. flexible type variable
+  ({[Symbol.toStringTag]: MetaTV.name, name, scope, position, iteration, body});
+
+const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem constant
+  ({[Symbol.toStringTag]: RigidTV.name, name, scope, position, iteration, body});
+
+/******************************************************************************
+********************************[ COMBINATORS ]********************************
+******************************************************************************/
+
+// determines the arity of the passed type constructor
+
+const determineArity = ast => {
+  switch (ast[TAG]) {
+    case "Fun": {
+      switch (ast.body.lambdas[0] [TAG]) {
+        case "Arg0": return 1;
+        case "Arg1": return 2;
+        case "Args": return ast.body.lambdas[0].length + 1;
+        default: return 0; // Argv/Argsv are excluded
+      }
+    }
+
+    default: {
+      if ("body" in ast) {
+        if ("length" in ast.body)
+          return ast.body.length;
+
+        else
+          return 1;
+      }
+
+      else
+        return 0;
+    }
+  }
+};
+
+/* If a `Forall` sub-AST is extracted from an annotation, the quantifier doesn't
+hold any bound type variables, because at this position the `Forall` serves mere
+as a grouping. Hence the contained bound type variables must be retrieved. */
+
+const adjustForall = ref => {
+  const nestedScopes = new Set(),
+    btvs = new Set();
+
+  if (ref[TAG] !== "Forall")
+    throw new TypeError(
+      "internal error: extract AST expects a top level scope");
+
+  else {
+    const ast_ = mapAst(ast => {
+      switch (ast[TAG]) {
+        case "BoundTV": {
+          if (ast.scope === TOP_LEVEL_SCOPE) {
+            btvs.add(ast.name);
+            return ast;
+          }
+
+          else if (nestedScopes.has(ast.scope))
+            return ast;
+
+          else {
+            btvs.add(ast.name);
+
+            return BoundTV(
+              ast.name,
+              TOP_LEVEL_SCOPE,
+              ast.position,
+              ast.body);
+          }
+        }
+
+        case "Forall": {
+          if (ast.scope !== ref.scope
+            && ast.scope !== TOP_LEVEL_SCOPE)
+              nestedScopes.add(ast.scope);
+
+          return ast;
+        }
+
+        default: return ast;
+      }
+    }) (ref.body);
+
+    return Forall(
+      btvs,
+      TOP_LEVEL_SCOPE,
+      ast_);
+  }
+};
+
+const isTV = ast => {
+  switch (ast[TAG]) {
+    case "BoundTV":
+    case "MetaTV":
+    case "RigidTV": return true;
+    default: return false;
+  }
+};
+
+const mapAst = f => {
+  const go = ast => {
+    switch (ast[TAG]) {
+      case "Adt": return f(
+        Adt(
+          ast.cons,
+          ast.body.map(go)));
+
+      case "Arg0": return new Arg0();
+      case "Arg1": return new Arg1(go(ast[0]));
+      case "Args": return Args.fromArr(ast.map(go));
+      case "Argsv": return Argsv.fromArr(ast.map(go));
+      case "Argv": return new Argv(go(ast[0]));
+      case "Arr": return f(Arr(go(ast.body)));
+
+      case "BoundTV":
+        return f(
+          BoundTV(
+            ast.name,
+            ast.scope,
+            ast.position,
+            ast.body.map(go)));
+
+      case "Forall":
+        return f(
+          Forall(
+            ast.btvs,
+            ast.scope,        
+            go(ast.body)));
+
+      case "Fun":
+        return f(
+          Fun(
+            ast.body.lambdas.map(go),
+            go(ast.body.result)));
+      
+      case "MetaTV":
+        return f(
+          MetaTV(
+            ast.name,
+            ast.scope,
+            ast.position,
+            ast.iteration,
+            ast.body.map(go)));
+
+      case "Native": return f(
+        Native(
+          ast.cons,
+          ast.body.map(go)));
+
+      case "Nea": return f(Nea(go(ast.body)));
+      
+      case "Obj": return f(
+        Obj(
+          ast.cons,
+          ast.props,
+          ast.row,
+          ast.body.map(({k, v}) => ({k, v: go(v)}))));
+
+      case "Partial": return f(Partial);
+
+      case "RigidTV":
+        return f(
+          RigidTV(
+            ast.name,
+            ast.scope,
+            ast.position,
+            ast.iteration,
+            ast.body.map(go)));
+
+      case "Tconst": return f(Tconst(ast.name));
+      
+      case "This": {
+        if (ast.nesting === 0)
+          return f(This(ast.nesting, {body: go(ast.body)}));
+
+        else return ast;
+      }
+
+      case "Tup": return f(Tup(
+        ast.size,
+        ast.body.map(go)));
+
+      default: throw new TypeError(
+        "internal error: unknown value constructor at mapAst");
+    }
+  };
+
+  return go;
+};
+
+/* When an AST is regeneralized or extratced from a larger annotation there may
+occur redundant `Forall` subterms that need to be pruned from the tree. */
+
+const pruneForalls = ast => {
+  switch (ast[TAG]) {
+    case "Adt": return Adt(ast.cons, ast.body.map(pruneForalls));
+    case "Arg0": return new Arg0();
+    case "Arg1": return new Arg1(pruneForalls(ast[0]));
+    case "Args": return Args.fromArr(ast.map(pruneForalls));
+    case "Argsv": return Argsv.fromArr(ast.map(pruneForalls));
+    case "Argv": return new Argv(pruneForalls(ast[0]));
+    case "Arr": return Arr(pruneForalls(ast.body));
+    case "BoundTV": return BoundTV(ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
+
+    case "Forall": {
+      let hasForall = false,
+        hasTV = false,
+        r = false;
+
+      if (ast.body[TAG] === "Fun")
+        r = true;
+
+      else r = reduceAst((acc, ast_) => {
+        switch (ast_[TAG]) {
+          case "Forall": {
+            hasForall = true;
+            return acc;
+          }
+
+          case "MetaTV":
+          case "RigitTV": {
+            hasTV = true;
+
+            return hasForall
+              ? acc
+              : true;
+          }
+
+          default: return acc;
+        }
+      }, false) (ast.body);
+
+      return r
+        ? Forall(
+            ast.btvs,
+            ast.scope,        
+            pruneForalls(ast.body))
+        : pruneForalls(ast.body);
+    }
+
+    case "Fun": return Fun(ast.body.lambdas.map(pruneForalls), pruneForalls(ast.body.result));
+    case "MetaTV": return MetaTV( ast.name, ast.scope, ast.position, ast.iteration, ast.body.map(pruneForalls));
+    case "Native": return Native(ast.cons, ast.body.map(pruneForalls));
+    case "Nea": return Nea(pruneForalls(ast.body));
+    case "Obj": return Obj(ast.cons, ast.props, ast.row, ast.body.map(({k, v}) => ({k, v: pruneForalls(v)})));
+    case "Partial": return Partial;
+    case "RigidTV": return RigidTV(ast.name, ast.scope, ast.position, ast.iteration, ast.body.map(pruneForalls));
+    case "Tconst": return Tconst(ast.name);
+
+    case "This": {
+      if (ast.nesting === 0)
+        return This(ast.nesting, {body: pruneForalls(ast.body)});
+
+      else return ast;
+    }
+
+    case "Tup": return Tup(ast.size, ast.body.map(pruneForalls));
+    
+    default: throw new TypeError(
+      "internal error: unknown value constructor at pruneForalls");
+  }
+};
+
+const reduceAst = (f, init) => {
+  const go = (acc, ast) => {
+    switch (ast[TAG]) {
+      case "Adt": return f(ast.body.reduce((acc_, field) =>
+        go(acc_, field), acc), ast);
+
+      case "Arg0": return acc;
+      
+      case "Arg1":
+      case "Argv": return go(acc, ast[0]);
+      
+      case "Args":
+      case "Argsv": return ast.reduce(
+        (acc_, arg) => go(acc_, arg), acc);
+      
+      case "Arr": return f(go(acc, ast.body), ast);
+      
+      case "BoundTV":
+        return ast.body.length === 0
+          ? f(acc, ast)
+          : f(ast.body.reduce(
+              (acc_, field) => go(acc_, field), acc), ast);
+      
+      case "Forall": return f(go(acc, ast.body), ast);
+      
+      case "Fun": {
+        acc = ast.body.lambdas.reduce((acc_, lambda) =>
+          go(acc_, lambda), acc);
+
+        return f(go(acc, ast.body.result), ast);
+      }
+      
+      case "MetaTV":
+        return ast.body.length === 0
+          ? f(acc, ast)
+          : f(ast.body.reduce(
+              (acc_, field) => go(acc_, field), acc), ast);
+
+      case "Native": return f(ast.body.reduce((acc_, field) =>
+        go(acc_, field), acc), ast);
+
+      case "Nea": return f(go(acc, ast.body), ast);
+      
+      case "Obj": return f(ast.body.reduce((acc_, {k, v}) =>
+        go(acc_, v), acc), ast);
+
+      case "Partial": return f(acc, ast);
+      case "RowType": return f(go(acc, ast.body), ast);
+      case "RowVar": return f(acc, ast);
+
+      case "RigidTV":
+        return ast.body.length === 0
+          ? f(acc, ast)
+          : f(ast.body.reduce(
+              (acc_, field) => go(acc_, field), acc), ast);
+      
+      case "Tconst": return f(acc, ast);
+
+      case "This": {
+        if (ast.nesting === 0)
+          return f(go(acc, ast.body), ast);
+
+        else return acc;
+      }
+      
+      case "Tup": return f(ast.body.reduce((acc_, field) =>
+        go(acc_, field), acc), ast);
+
+      default: throw new TypeError(
+        "internal error: unknown value constructor at reduceAst");
+    }
+  };
+
+  return ast => go(init, ast);
+};
+
+/* Removes the leftmost formal parameter of a function type after a function
+application. */
+
+const remConsumedParams = (ast) => {
+  if (ast.body.body.lambdas.length === 1) {
+    if (requireForall(ast.body.body.result))
+      return Forall(new Set(), TOP_LEVEL_SCOPE, ast.body.body.result);
+      
+    else return ast.body.body.result;
+  }
+
+  else
+    return Forall(
+      ast.btvs,
+      TOP_LEVEL_SCOPE,
+      Fun(
+        ast.body.body.lambdas.slice(1),
+        ast.body.body.result));
+};
+
+// checks if a passed AST requires a top-level quantifier
+
+const requireForall = ast => {
+  if (ast[TAG] === "Forall")
+    return false;
+
+  else {
+    return reduceAst((acc, ast_) => {
+      if (ast_[TAG] === "MetaTV"
+        || ast_[TAG] === "RigidTV") {
+          return true;
+      }
+
+      else return acc;
+    }, false) (ast); 
+  }
+};
+
+const scopeEq = (scope1, scope2) => {
+  const scope1_ = scope1.split(/\./)
+    .slice(0, -1)
+    .join(".");
+
+  const scope2_ = scope2.split(/\./)
+    .slice(0, -1)
+    .join(".");
+
+  return scope1_ === scope2_;
+};
+
+const scopeLte = (scope1, scope2) => {
+  const scope1_ = scope1.split(/\./)
+    .slice(0, -1)
+    .join(".");
+
+  const scope2_ = scope2.split(/\./)
+    .slice(0, -1)
+    .join(".");
+
+  return scope2_.search(scope1_) === 0;
+};
+
+/******************************************************************************
+*******************************************************************************
+**********************************[ PARSING ]**********************************
+*******************************************************************************
+******************************************************************************/
+
+const parseAnno = anno => {
+  const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
+
+    /* The `position` argument denotes whether a function argument is in domain
+    or codomain position. If such an argument is substituted the grouping 
+    parenthesis are omitted for the latter.
+
+    The `context` argument is used to prevent impredicative polymorphism,
+    which is only allowed on the LHS of the function type.
+
+    The `thisAnno` and `nesting` arguments are required to handle `this*`
+    annotations. The former holds the entire object annotation `this*` refers
+    to and the latter prevents the parser to get stuck in an infinite loop
+    while parsing `this*`. */
+
+    /* Uses __ as an internal placeholder for not consumed type parameters of
+    partially applied type constructors. Here are the possible forms of
+    partially applied type constructors:
+
+    Function: (=>) / (String =>) / (, =>) / (String, =>) / (,, =>) / (String,, =>)
+    Array/NEArray: [] / [1]
+    Tuple: [,] / [String,] / [,,] / [String,,]
+    Object: {foo:} / {foo:, bar:} / {foo: String, bar:}
+
+    Tcons: t<> / t<,> / t<String,> / t<, String> / t<,,> / t<String,,> / t<, String,>
+
+    Native: Map / Map<String> / Map<, String>
+    Adt: Either / Either<String> / Either<, String>
+    
+    For Natives and ADTs the type constructor arity is known, i.e. it need not
+    to be maintained by the notation. */
+
+    let rx;
+
+    // Fun
+
+    if (remNestings(cs).search(new RegExp("( |^)=>( |$)", "")) !== NOT_FOUND) {
+
+      // take partially applied Fun constrcutors into account
+      
+      if (cs.search(/^=|>$/) !== NOT_FOUND)
+        cs = cs.replace(/^=>/, "__ =>")
+          .replace(/=>$/, "=> __");
+            
+      const init = splitByScheme(/ => /, 4, remNestings(cs)) (cs), // argument types
+        last = init.pop(); // result type
+
+      // checks for variadic arguments in the result
+
+      if (last.search(/^\.\./) !== NOT_FOUND)
+        throw new SyntaxError(cat(
+          "malformed type annotation\n",
+          `illegal variadic argument "${cs}"\n`,
+          "at the result type\n",
+          `in "${anno}"\n`));
+
+      return Fun(
+        init.map((ds, i) => {
+          
+          // no-argument
+
+          if (ds === "_")
+            return new Arg0();
+
+          else {
+
+            // take partially applied multi-argument lists into account
+
+            if (ds.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
+              ds = ds.replace(/^,/, "__,")
+                .replace(/,,/g, ", __, __")
+                .replace(/,$/, ", __");
+
+            const args = splitByScheme(/, /, 2, remNestings(ds)) (ds);
+
+            // single-argument
+
+            if (args.length === 1) {
+
+              // regular-argument
+
+              if (args[0].search(/^\.\./) === NOT_FOUND)
+                return new Arg1(go(args[0], i, 0, scope, "", context + "/Function", thisAnno, nesting));
+
+              // variadic-argument
+
+              else
+                return new Argv(go(args[0].slice(2), i, 0, scope, "", context + "/Function", thisAnno, nesting));
+            }
+
+            // multi-argument
+
+            else {
+              args.forEach((arg, i) => {
+                if (arg.search(/\.\./) !== NOT_FOUND && i < args.length - 1)
+                  throw new SyntaxError(cat(
+                    "malformed type annotation\n",
+                    `illegal variadic argument "${cs}"\n`,
+                    `at lambda #${lamIx + 1} argument #${i + 1}\n`,
+                    `in "${anno}"\n`));
+              });
+
+              // regular multi-argument
+
+              if (args[args.length - 1].search(/\.\./) === NOT_FOUND)
+                return Args.fromArr(
+                  args.map((arg, j) => go(arg, i, j, scope, "", context + "/Function", thisAnno, nesting)));
+
+              // multi-argument with trailing variadic one
+
+              else return Argsv.fromArr(
+                args.map((arg, j) => 
+                  j === args.length - 1
+                    ? go(arg.slice(2), i, j, scope, "", context + "/Function", thisAnno, nesting)
+                    : go(arg, i, j, scope, "", context + "/Function", thisAnno, nesting)));
+            }
+          }
+        }),
+        go(last, 0, 0, scope, "codomain", context + "/Function", thisAnno, nesting));
+    }
+
+    // ADT
+
+    else if (Array.from(adtDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+      if (cs.search(/</) === NOT_FOUND)
+        return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
+
+      else {
+        rx = cs.match(new RegExp("^(?<cons>[A-Z][a-z0-9]*)<(?<fields>.+)>$", ""));
+
+        // take partially applied ADT constructors into account
+
+        if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
+          rx.groups.fields = rx.groups.fields
+            .replace(/^,/, "__,")
+            .replace(/,,/g, ", __, __")
+            .replace(/,$/, ", __");
+
+        const fields = splitByScheme(
+          /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
+
+        if (fields.length > adtDict.get(rx.groups.cons))
+          throw new SyntaxError(cat(
+            "malformed type annotation\n",
+            `type constructor arity mismatch\n`,
+            `defined type parameters: ${adtDict.get(rx.groups.cons)}\n`,
+            `received type arguments: ${fields.length}\n`,
+            `in "${anno}"\n`));
+
+        const fields_ = fields.length < adtDict.get(rx.groups.cons)
+          ? fields.concat(
+              Array(adtDict.get(rx.groups.cons) - fields.length).fill("__"))
+          : fields;
+
+        return Adt(
+          rx.groups.cons,
+          fields_.map(field =>
+            go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
+      }
+    }
+
+    // array like
+
+    else if (rx = cs.match(new RegExp("^\\[(?:(?<nea>1))?(?<body>.*)\\]$", ""))) {
+
+      // take partially applied Array/NEArray/Tuple constructors into account
+
+      if (rx.groups.body === "")
+        rx.groups.body = "__";
+
+      else if (rx.groups.body.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
+        rx.groups.body = rx.groups.body
+          .replace(/^,/, "__,")
+          .replace(/,,/g, ", __, __")
+          .replace(/,$/, ", __");
+
+      const scheme = remNestings(rx.groups.body);
+
+      if (scheme.search(/,/) === NOT_FOUND) {
+
+        // Arr
+
+        if (rx.groups.nea === undefined)
+          return Arr(go(rx.groups.body, lamIx, argIx, scope, "", context + "/Array", thisAnno, nesting));
+
+        // Nea
+
+        else
+          return Nea(go(rx.groups.body, lamIx, argIx, scope, "", context + "/NEArray", thisAnno, nesting));
+      }
+
+      // Tup
+
+      else {
+        const fields = splitByScheme(/, /, 2, scheme) (rx.groups.body);
+
+        return Tup(
+          fields.length,
+          fields.map(field => go(field, lamIx, argIx, scope, "", context + "/Tuple", thisAnno, nesting)));
+      }
+    }
+
+    // BoundTV
+
+    else if (rx = cs.match(new RegExp("^(?<name>[a-z]+)$", ""))) {
+      if (rntvs.has(rx.groups.name + scope))
+        return BoundTV(
+          rx.groups.name, scope, position, []);
+
+      else {
+        r1tvs.add(rx.groups.name);
+
+        return BoundTV(
+          rx.groups.name, TOP_LEVEL_SCOPE, position, []);
+      }
+    }
+
+    // Forall
+
+    else if (rx = cs.match(new RegExp("^\\((?:\\^(?<quant>[^\\.]+)\\. )?(?<body>.+)\\)$", ""))) {
+
+      /* Round parenthesis have an ambiguous lexical meaning. At the top level
+      they denote an implicit quantifiers, i.e. bound variables are not listed
+      exolicitly. At a nested level their meaning depends on the position within
+      the surrounding type. If they are on the LHS of a function type, they
+      denote a higher-rank type. Otherwise they lexically group a function
+      type to distinguish them from their lexical environment. Explicit
+      quantifiers carry a caret symbol followed by a list of type variable names
+      bound to the distinct scope of this quantifier. */
+
+      // lexical grouping
+
+      if (rx.groups.quant === undefined)
+        return Forall(
+          new Set(),
+          TOP_LEVEL_SCOPE,
+          go(rx.groups.body, 0, 0, scope, "", context, thisAnno, nesting));
+
+      // explicit rank-n quantifier
+
+      else {
+
+        // impredicative polymorphism
+
+        if (context.replace(/\/Function/g, "") !== "")
+          throw new SyntaxError(cat(
+            "malformed type annotation\n",
+            "impredicative polymorphic type found\n",
+            `nested quantifiers must only occur on the LHS of "=>"\n`,
+            `but "${cs}" is defined under:\n`,
+            `${context.slice(1)}\n`,
+            "impredicative polymorphism is not allowed yet\n",
+            `in "${anno}"\n`));
+
+        else {
+          const nestedScope = `${scope}.${lamIx}/${argIx}`,
+            rntvs_ = new Set(rx.groups.quant.split(", "));
+
+          rntvs_.forEach(rntv_ =>
+            rntvs.add(rntv_ + nestedScope));
+
+          return Forall(
+            rntvs_,
+            nestedScope,
+            go(rx.groups.body, 0, 0, nestedScope, "", context, thisAnno, nesting));
+        }
+      }
+    }
+
+    // Native
+
+    else if (Array.from(nativeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+      if (cs.search(/</) === NOT_FOUND)
+        return Native(cs, Array(nativeDict.get(cs)).fill(Partial));
+
+      else {
+        rx = cs.match(new RegExp("^(?<cons>[A-Z][a-z0-9]*)<(?<fields>.+)>$", ""));
+
+        // take partially applied Native constructors into account
+
+        if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
+          rx.groups.fields = rx.groups.fields
+            .replace(/^,/, "__,")
+            .replace(/,,/g, ", __, __")
+            .replace(/,$/, ", __");
+
+        const fields = splitByScheme(
+          /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
+
+        if (fields.length > nativeDict.get(rx.groups.cons))
+          throw new SyntaxError(cat(
+            "malformed type annotation\n",
+            `type constructor arity mismatch\n`,
+            `defined type parameters: ${nativeDict.get(rx.groups.cons)}\n`,
+            `received type arguments: ${fields.length}\n`,
+            `in "${anno}"\n`));
+
+        const fields_ = fields.length < nativeDict.get(rx.groups.cons)
+          ? fields.concat(
+              Array(nativeDict.get(rx.groups.cons) - fields.length).fill("__"))
+          : fields;
+
+        return Native(
+          rx.groups.cons,
+          fields_.map(field =>
+            go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
+      }
+    }
+
+    // Obj
+
+    else if (cs.search(new RegExp("^(?:[A-Z][a-z]* )?\\{"), "") !== NOT_FOUND) {
+      const cons = (cs.match(new RegExp("^[A-Z][a-z]*\\b", "")) || [null]) [0],
+        cs_ = cons === null ? cs : cs.slice(cons.length + 1);
+
+      // take partially applied Objects constructors into account
+
+      if (cs_.search(new RegExp(":(?=,|$)", "")) !== NOT_FOUND)
+        cs_ = cs_.replace(new RegExp(":,", "g"), ": __,")
+          .replace(new RegExp(":$", "g"), ": __");
+
+      const props = splitByScheme(
+        /, /, 2, remNestings(cs_.slice(1, -1))) (cs_.slice(1, -1));
+
+      if (props[0] === "") // empty {} | Foo {}
+        return Obj(cons, [], null, []);
+
+      else if (props[0].search(new RegExp("^ \\| [a-z][a-z0-9]*$")) === 0) // empty { | row} or Foo { | row}
+        return Obj(
+          cons,
+          [],
+          RowVar(props[0].match(new RegExp("[a-z][a-z0-9]*$")) [0]),
+          []);
+
+      else { // non-empty {foo: a} or Foo {foo: a} or {foo: a | row} or Foo {foo: a | row}
+        let row = null
+
+        if (remNestings(props[props.length - 1]).search(/ \| /) !== NOT_FOUND) {
+          const [prop, row_] = splitByScheme(
+            / \| /, 3, remNestings(props[props.length - 1])) (props[props.length - 1]);
+
+          row = row_;
+          props[props.length - 1] = prop;
+        }
+
+        return Obj(
+          cons,
+          props.map(s => s.match(new RegExp("^([a-z][a-z0-9]*):", "i"), "") [1]),
+          row === null ? null : RowVar(row),
+          props.map(s => ({
+            k: s.match(new RegExp("^([a-z][a-z0-9]*):", "i"), "") [1],
+            v: go(s.replace(new RegExp("[a-z][a-z0-9]*: ", "i"), ""), lamIx, argIx, scope, "", context + (cons ? `/${cons}` : "/Object"), cs, nesting)
+          })));
+      }
+    }
+
+    // Partial
+
+    else if (rx = cs.match(/^__$/))
+      return Partial;
+
+    // Tcons
+
+    else if (rx = cs.match(new RegExp("^(?<name>[a-z]+)<(?<fields>.*)>$", ""))) {
+      
+      /* A type constructor represents a higher-kinded type and hence makes kind
+      checking necessary. Internally they are encoded as a bound TV with a body
+      including an arbitrarily number of fields. */
+
+      // take partially applied Tcons constructors into account
+
+      if (rx.groups.fields === "")
+        rx.groups.fields = "__";
+
+      else if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
+        rx.groups.fields = rx.groups.fields
+          .replace(/^,/, "__,")
+          .replace(/,,/g, ", __, __")
+          .replace(/,$/, ", __");
+
+      const fields = splitByScheme(
+        /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
+      
+      if (rntvs.has(rx.groups.name + scope))
+        return BoundTV(
+          rx.groups.name,
+          scope,
+          position,
+          fields.map(field =>
+            go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
+
+      else {
+        r1tvs.add(rx.groups.name);
+
+        return BoundTV(
+          rx.groups.name,
+          TOP_LEVEL_SCOPE,
+          position,
+          fields.map(field =>
+            go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
+      }
+    }
+
+    // Tconst
+
+    else if (rx = cs.match(new RegExp("^[A-Z][a-z]*$")))
+      return Tconst(cs);
+
+    // this*
+
+    else if (rx = cs.search(/this\*/) !== NOT_FOUND) {
+      if (thisAnno === null)
+        throw new SyntaxError(cat(
+          "malformed type annotation\n",
+          `"this*" must refer to an object but no one found\n`,
+          anno === cs ? "" : `in "${anno}"\n`));
+
+      return This(nesting, {
+        get body() {
+          const thisAst = go(thisAnno, lamIx, argIx, scope, "", context, thisAnno, nesting + 1);
+          delete this.body;
+          return this.body = thisAst;
+        }
+      });
+    }
+
+    // TypeError
+
+    else
+      throw new SyntaxError(cat(
+        "malformed type annotation\n",
+        `unexpected token "${cs}"\n`,
+        anno === cs ? "" : `in "${anno}"\n`));
+  };
+
+  const r1tvs = new Set(),
+    rntvs = new Set();
+  
+  let initial = true;
+
+  verifyAnno(anno);
+
+  if (anno[0] === "(" && anno[anno.length - 1] === ")")
+    anno = anno.slice(1, -1);
+
+  const ast = go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0);
+
+  if (r1tvs.size > 0)
+    return Forall(r1tvs, TOP_LEVEL_SCOPE, ast);
+
+  else if (ast[TAG] === "Fun")
+    return Forall(new Set(), TOP_LEVEL_SCOPE, ast);
+
+  else return ast;
+};
+
+// verifies the provied annotation against the base syntactical rules
+
+const verifyAnno = s => {
+  const topLevel = remNestings(s);
+
+  // ensures balanced bracket nesting
+
+  if (topLevel.replace(/=>/g, "").search(new RegExp("[(\\[{<>}\\])]", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      "bracket mismatch\n",
+      "redundant/missing: ",
+      `${Array.from(new Set(topLevel
+        .replace(/=>/g, "")
+        .match(new RegExp("[(\\[{<>}\\])]", "")) [0].split("")))}\n`,
+      `in "${s}"\n`));
+
+  // prevents invalid chars
+
+  else if (s.search(new RegExp("[^a-z0-9(){}\\[\\]<>=:,_\\| \\.\\^\\*]", "i")) !== NOT_FOUND) {
+    const invalidChars = s.replace(new RegExp("[a-z(){}\\[\\]<>=:,_1\\| \\.\\^]", "gi"), "");
+
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      "illegal characters\n",
+      `namely: ${invalidChars}\n`,
+      `in "${s}"\n`));
+  }
+
+  // prevents explicit top-level quantifiers
+
+  else if (s.search(/^\(\^/) !== NOT_FOUND
+    && s.search(/\)$/) !== NOT_FOUND)
+      throw new SyntaxError(cat(
+        "malformed type annotation\n",
+        "top-level type must be implicitly quantified\n",
+        `but "${s.match(new RegExp("(?<=^\\()\\^[a-z]+\\.", "")) [0]}" found\n`,
+        `in "${s}"\n`));
+
+  // prevents redundant spaces
+
+  else if (s.search(new RegExp("  |^ | $", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant " "\n`,
+      `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  else if (s.replace(new RegExp(" => |, |\\. |: | \\| |[a-z] {", "g"), "").search(/ /) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant " "\n`,
+      `next to "`,
+      s.replace(new RegExp(" => |, |\\. |: | \\| ", "g"), "")
+        .match(new RegExp(".{0,5} .{0,5}", "")) [0],
+      `"\nin "${s}"\n`));
+
+  // prevents redundant round parenthesis
+
+  else if (s.search(new RegExp("\\)\\)", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant "()"\n`,
+      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of 0-9
+
+  else if (s.replace(new RegExp("[A-Z][a-z0-9]+\\b|[A-Za-z][A-Za-z0-9]+:|\\[1", "g"), "").search(/\d/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of digits\n`,
+      "only allowed within property and type constant names\n",
+      "names must not start with a digit\n",
+      `in "${s}"\n`));
+
+  // checks for valid use of =
+
+  else if (s.replace(new RegExp("[ (]=>[ )]", "g"), "").search("-") !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "=" or "=>"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of :
+  
+  else if (s.replace(new RegExp("[A-Za-z][A-Za-z0-9]*:[ ,}]", "g"), "").search(":") !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of ":"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of _/__
+
+  else if (s.replace(new RegExp("\\b_ =>|\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "_"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of |
+
+  else if (s.replace(new RegExp(" \\| ", "g"), "").search(/\|/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "|"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of ^
+
+  else if (s.replace(new RegExp("\\(\\^[a-z]", "g"), "").search(/\^/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "^"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of ^
+
+  else if (s.replace(new RegExp("\\(\\^[a-z]", "g"), "").search(/\^/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "^"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of *
+
+  else if (s.replace(/\bthis\*/g, "").search(/\*/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "*" or "this*"\n`,
+      `in "${s}"\n`));
+
+  // prevents malformed explicit quantifier
+
+  else if (s.replace(new RegExp("\\(\\^(?:[a-z]+, )*[a-z]+\\. ", "g"), "").search(/\^/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      "invalid explicit quantifier\n",
+      "expected form: (^a, b. a => b)\n",
+      `in "${s}"\n`));
+
+  // prevents malformed enumeration
+
+  else if (s.search(new RegExp("[a-z_],[a-z_]", "i")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid comma separated enumeration\n`,
+      "expected form: a, b or Name, Name\n",
+      `in "${s}"\n`));
+
+  // prevents malformed variadic arguments
+
+  else if (s.replace(new RegExp("\\.\\.\\[", "g"), "").search(/\.\./) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of ".."\n`,
+      "expected form: ..[Name]\n",
+      `in "${s}"\n`));
+
+  // prevents malformed variadic arguments
+
+  else if (s.search(/\.\.\./) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "..."\n`,
+      "expected form: ..[Name]\n",
+      `in "${s}"\n`));
+
+  return s;
+};
+
+/***[ Combinators ]***********************************************************/
+
+/* Since I use regular expresssions (don't judge me) to parse annotations
+frequently only the current lecixal level must be parsed. `remNestings` removes
+nested subterms, so that they don't interfere with the current parsing process. */
+
+const remNestings = s => {
+  let cs = s, ds;
+
+  do {
+    ds = cs;
+    cs = cs.replace(new RegExp("\\([^(){}\\[\\]<]*\\)", ""), s => "_".repeat(s.length)); // Fun
+    cs = cs.replace(new RegExp("(?:[A-Z][a-z]* )?{[^(){}\\[\\]<>]*}", ""), s => "_".repeat(s.length)); // Obj
+    cs = cs.replace(new RegExp("\\[[^(){}\\[\\]<>]*\\]", ""), s => "_".repeat(s.length)); // Arr + Nea + Tup
+    cs = cs.replace(new RegExp("[A-Z][a-z]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Adt + Native
+    cs = cs.replace(new RegExp("\\b[a-z]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
+  } while (ds !== cs);
+
+  if (cs.search(new RegExp("[(){}\\[\\]]", "")) !== NOT_FOUND
+    && cs.search(/ => /) !== NOT_FOUND)
+      throw new SyntaxError(cat(
+        "malformed type annotation\n",
+        `missing "()"\n`,
+        `next to: "${s.match(new RegExp(".{1,5} => .{1,5}", "")) [0]}"\n`,
+        `in "${s}"\n`));
+
+  return cs;
+};
+
+/* Take one level of an annotation and splits it at each position where a
+subterm is found. */
+
+const splitByScheme = (rx, delimLen, ref) => cs => {
+  const xs = ref.split(rx), ys = [];
+  let len = 0;
+
+  xs.forEach((s, i) => {
+    ys.push(cs.slice(len, len + s.length));
+    len = len + delimLen + s.length;
+  });
+
+  return ys;
+};
+
+/******************************************************************************
+*******************************************************************************
+*******************************[ SERIALIZATION ]*******************************
+*******************************************************************************
+******************************************************************************/
+
+// opposite of `parseAnno`
+
+const serializeAst = initialAst => {
+  const go = ast => {
+    switch (ast[TAG]) {
+      case "Adt": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/ ?__/g, "")
+          .replace(/,+$/, "");
+
+        return cat(
+          ast.cons,
+          body === ""
+            ? ""
+            : `<${body}>`);
+      }
+
+      case "Arr": return ast.body[TAG] === "Partial"
+        ? `[]`
+        : `[${go(ast.body)}]`;
+      
+      case "BoundTV":
+      case "MetaTV":
+      case "RigidTV": {
+
+        if (ast.body.length === 0)
+          return ast.name;
+
+        // Tcons (higher-kinded)
+
+        else  {
+          const body = ast.body.map(go).join(", ")
+            .replace(/ ?__/g, "");
+
+          return cat(ast.name, `<${body}>`);
+        }
+      }
+
+      case "Forall": {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return cat(
+            "(",
+            go(ast.body),
+            ")");
+
+        else return cat(
+          "(^",
+          Array.from(ast.btvs).join(", "),
+          ". ",
+          go(ast.body),
+          ")");
+      }
+
+      case "Fun": {
+        const domain = ast.body.lambdas.map(args => {
+          switch (args[TAG]) {
+            case "Arg0": return "_";
+            case "Arg1": return go(args[0]);
+            case "Args": return args.map(go).join(", ");
+            
+            case "Argsv": return args.map((arg, i) =>
+              i === args.length - 1
+                ? `..${go(arg)}`
+                : go(arg))
+                  .join(", ");
+            
+            case "Argv": return `..${go(args[0])}`;
+
+            default:
+              throw new TypeError(
+                "internal error: illegal argument list");
+          }
+        }).join(" => ");
+
+        const codomain = go(ast.body.result);
+
+        return `${domain} => ${codomain}`
+          .replace(/ ?__/g, "")
+          .replace(/^ =>|=> $/, "=>");
+      }
+      
+      case "Native": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/ ?__/g, "")
+          .replace(/,+$/, "");
+
+        return cat(
+          ast.cons,
+          body === ""
+            ? ""
+            : `<${body}>`);
+      }
+
+      case "Nea": return ast.body[TAG] === "Partial"
+        ? `[1]`
+        : `[1${go(ast.body)}]`;
+
+      case "Obj": {
+        const props = ast.body.map(({k, v}) =>
+          v[TAG] === "Partial"
+            ? {k} : {k, v});
+
+        const row = ast.row === null ? ""
+          : ast.row[TAG] === "RowVar" ? " | " + ast.row.name
+          : ", " + ast.row.body.map(({k, v}) =>
+              `${k}: ${go(v)}`).join(", ");
+
+        return cat(
+          ast.cons === null ? "" : `${ast.cons} `,
+          "{",
+          props.map(({k, v}) =>
+            v === undefined
+              ? `${k}:`
+              : `${k}: ${go(v)}`).join(", "),
+          row,
+          "}");
+      }
+
+      case "Partial": return "__";
+      
+      case "RowType": return ast.body.map(
+        ({k, v}) => `${k}: ${go(v)}`).join(", ");
+      
+      case "RowVar": return ast.name;
+      case "This": return "this*";
+
+      case "Tup": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/ ?__/g, "");
+
+        return cat(`[${body}]`);
+      }
+
+      case "Tconst": return ast.name;
+
+      default:
+        throw new TypeError(
+          "internal error: unknown value constructor at serializeAst");
+    }
+  };
+
+  const s = go(initialAst);
+
+  return s[0] === "(" && s[s.length - 1] === ")"
+    ? s.slice(1, -1)
+    : s;
+};
+
+/******************************************************************************
+*******************************************************************************
+*******************************[ INTROSPECTION ]*******************************
+*******************************************************************************
+******************************************************************************/
+
+export const introspectFlat = x => {
+  const type = Object.prototype.toString.call(x).slice(8, -1);
+
+  switch (type) {
+    case "Date": {
+      if (x.getTime() === Number.NaN)
+        return "Undefined";
+
+      else return type;
+    }
+
+    case "Number": {
+      if (x === Number.NaN)
+        return "Undefined";
+
+      else if (x === Number.POSITIVE_INFINITY || x === Number.NEGATIVE_INFINITY)
+        return "Undefined";
+
+      else if (x < Number.MIN_SAFE_INTEGER || x > Number.MAX_SAFE_INTEGER)
+        return "Undefined";
+
+      else return type;
+    }
+
+    case "Object": {
+      if (Symbol.toStringTag in x && x[Symbol.toStringTag] !== "Object")
+        return x[Symbol.toStringTag];
+
+      else if ("constructor" in x && x.constructor.name !== "Object")
+        return x.constructor.name;
+
+      else return type;
+    }
+
+    default: return type;
+  }
+};
+
+export const introspectDeep = x => {
+  const type = introspectFlat(x);
+
+  switch (type) {
+    case "Array": {
+      const ts = new Set();
+      x.forEach(y => ts.add(introspectDeep(y)));
+
+      if (ts.size === 0)
+        return "[a]";
+
+      else if (ts.size > 1)
+        throw new TypeError(cat(
+          "invalid Array: must be homogeneous\n",
+          JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
+          "\n"));
+
+      return `[${Array.from(ts) [0]}]`;
+    }
+
+    case "Function": {
+      if (ANNO in x) {
+        if (x[ANNO] [0] !== "(" || x[ANNO] [x[ANNO].length - 1] !== ")")
+          return `(${x[ANNO]})`;
+
+        else return x[ANNO];
+      }
+     
+      else return type; // Funtion type constant
+    }
+
+    case "Map": {
+      const ts = new Map();
+
+      for (let [k, v] of x)
+        ts.set(introspectDeep(k), introspectDeep(v));
+
+      if (ts.size === 0)
+        return "Map<a, b>";
+
+      else if (ts.size > 1)
+        throw new TypeError(cat(
+          "invalid Map: must be homogeneous\n",
+          introspectr(x).slice(0, MAX_COLONS),
+          "\n"));
+
+      return `Map<${Array.from(ts) [0].join(", ")}>`;
+    }
+
+    case "NEArray": {
+      const ts = new Set();
+      x.forEach(y => ts.add(introspectDeep(y)));
+
+      if (ts.size === 0
+        || ts.size === 1 && ts.has("Undefined"))
+          throw new TypeError(cat(
+            "invalid NEArray\n",
+            "must contain at least a single element\n"));
+
+      else if (ts.size > 1)
+        throw new TypeError(cat(
+          "invalid NEArray\n",
+          "must be homogeneous\n"));
+
+      return `[1${Array.from(ts) [0]}]`;
+    } 
+
+    case "Set": {
+      const ts = new Set();
+
+      for (let v of x)
+        ts.add(introspectDeep(v));
+
+      if (ts.size === 0)
+        return "Set<a>";
+
+      else if (ts.size > 1)
+        throw new TypeError(cat(
+          "invalid Set: must be homogeneous\n",
+          JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
+          "\n"));
+
+      return `Set<${Array.from(ts) [0]}>`;
+    }
+
+    case "Tuple": {
+      const ts = [];
+      x.forEach(y => ts.push(introspectDeep(y)));
+      return `[${Array.from(ts).join(", ")}]`;
+    }
+
+    default: {
+
+      // ADT or Object
+
+      if (x !== null && typeof x === "object" || typeof x === "function") {
+
+        // ADT
+
+        if (ADT in x) return x[ADT];
+
+        // Object
+
+        else {
+            const ts = new Map();
+
+            const cons = TAG in x
+              ? `${x[TAG]} ` : "";
+
+            for (let k in x)
+              ts.set(k, introspectDeep(x[k]));
+
+            return `${cons}{${Array.from(ts).map(([k, v]) => k + ": " + v).join(", ")}}`;
+        }
+      }
+
+      // Tconst
+
+      else return type;
+    }
+  }
+};
+
+/******************************************************************************
+*******************************************************************************
+***********************************[ ADTs ]************************************
+*******************************************************************************
+******************************************************************************/
+
+// declare Scott encoded algebraic data types with build-in pattern matching
+
+export const type = adtAnno => {
+
+  // bypass the type validator
+
+  if (CHECK === false) {
+    return x => {
+      if (typeof x === "function") // ADT
+        return x => ({run: x});
+
+      else return x; // type class
+    };
+  }
+
+  // run the type validator
+
+  else {
+    
+    // strip newlines and indentations
+
+    adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+
+    // parse the type wrapper and split it into name and arity
+
+    const wrapperAnno = splitByScheme(
+      / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
+
+    const tcons = wrapperAnno.match(/[^<]+/) [0];
+
+    const arity = splitByScheme(
+      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+
+    // check for name clashes with previously registered ADTs
+
+    if (adtDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with another ADT found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // check for name clashes with native types
+
+    else if (nativeDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with native type found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // register ADT as name-arity pair
+
+    else adtDict.set(tcons, arity);
+
+    // parse ADT and wrapper AST and get the continuation AST
+
+    const adtAst = parseAnno(adtAnno),
+      contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
+      wrapperAst = parseAnno(wrapperAnno);
+
+    // serialize continuation AST
+
+    const contAnno = serializeAst(contAst);
+
+    /* Verify that all rank-1 type variables of the domain occur in the codomain
+    of the value constructor:
+
+    (^r. (a => r) => (b => r) => r) => Either<a, b>
+          ^           ^                       ^  ^ */
+
+    if (Array.from(adtAst.btvs).join("") !== Array.from(wrapperAst.btvs).join(""))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "type parameter(s) not in scope\n",
+        `namely: ${[...adtAst.btvs].filter(r1tv => !wrapperAst.btvs.has(r1tv)).join(", ")}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // return the ADT value constructor -- untypedCont => {run: typedCont}
+
+    return Object.assign(k => { // Scott encoded continuations
+      
+      // unify with the optional annotation but discard the result
+
+      if (ANNO in k)
+        unifyTypes(
+          contAst,
+          parseAnno(k[ANNO]),
+          0,
+          0,
+          0,
+          0,
+          new Map(),
+          contAnno,
+          k[ANNO],
+          adtAnno,
+          []);
+
+      // clone the function object (not the function itself)
+
+      const k_ = k.bind(null);
+
+      // set/update the annotation property
+
+      k_[ANNO] = contAnno;
+
+      // return the ADT
+
+      return {
+        [TAG]: tcons,
+        [ADT]: wrapperAnno,
+        run: fun(k_, contAnno)
+      };
+    }, {[ANNO]: adtAnno});
+  }
+};
+
+/******************************************************************************
+*******************************[ TYPE CLASSES ]********************************
+******************************************************************************/
+
+/* Declare type classes purely at the value level. They are encoded as
+dictionaries comprising the operations of the respective type class. From the
+constructor perspective value-level type classes share a lot of traits with
+ADTs, hence the type validator treats them as such. */
+
+export const typeClass = tcAnno => {
+
+  // bypass the type validator
+
+  if (CHECK === false)
+    return o => o;
+
+  // run the type validator
+
+  else {
+    
+    // strip newlines and indentations
+
+    tcAnno = tcAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+
+    // parse the type wrapper and split it into name and arity
+
+    const wrapperAnno = splitByScheme(
+      / => /, 4, remNestings(tcAnno)) (tcAnno) [1];
+
+    const tcons = wrapperAnno.match(/[^<]+/) [0];
+
+    const arity = splitByScheme(
+      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+
+    // check for name clashes with previously registered ADTs
+
+    if (adtDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal type class\n",
+        "name collision with an ADT found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${tcAnno}"\n`));
+
+    // check for name clashes with native types
+
+    else if (nativeDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal type class\n",
+        "name collision with native type found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${tcAnno}"\n`));
+
+    // register type class as name-arity pair
+
+    else adtDict.set(tcons, arity);
+
+    // parse ADT and wrapper AST and get the continuation AST
+
+    const tcAst = parseAnno(tcAnno),
+      dictAst = adjustForall(tcAst.body.body.lambdas[0] [0]),
+      wrapperAst = parseAnno(wrapperAnno);
+
+    // serialize continuation AST
+
+    const dictAnno = serializeAst(dictAst);
+
+    /* Verify that all rank-1 type variables of the domain occur in the codomain
+    of the function type:
+
+    (^a, b. {of: (a => m<a>), chain: (m<a> => (a => m<a>) => m<b>)}) => Monad<m>
+                       ^              ^             ^        ^                ^ */
+
+    if (Array.from(tcAst.btvs).join("") !== Array.from(wrapperAst.btvs).join(""))
+      throw new TypeError(cat(
+        "illegal type class\n",
+        "type constructor not in scope\n",
+        `namely: ${[...tcAst.btvs].filter(r1tv => !wrapperAst.btvs.has(r1tv)).join(", ")}\n`,
+        `while declaring "${tcAnno}"\n`));
+
+    // return the type class constructor -- {untypedProps} => {typedProps}
+
+    return Object.assign(dict => {
+
+      // collect properties each from the type dict and the passed object
+
+      const props = dictAst.body.body.reduce(
+        (acc, {k, v}) => acc.set(k, adjustForall(v)), new Map());
+
+      const props_ = Object.keys(dict);
+
+      // make an overall exhaustiveness check
+
+      if (props.size !== props_.length)
+        throw new TypeError(cat(
+          "illegal type class\n",
+          "operation/property mismatch\n",
+          `expected: ${Array.from(props)
+            .map(([v, k]) => k)
+            .join(", ")}\n`,
+          `received: ${props_.join(", ")}\n`,
+          `while declaring "${tcAnno}"\n`));
+
+      else {
+
+        // make instantiations in this scope available
+
+        let instantiations;
+
+        // create the type class object
+
+        const dict_ = props_.reduce((acc, k) => {
+
+          // make an exhaustiveness check at the property level
+
+          if (!props.has(k))
+            throw new TypeError(cat(
+              "illegal type class\n",
+              "operation/property mismatch\n",
+              `expected: ${Array.from(props)
+                .map(([v, k]) => k)
+                .join(", ")}\n`,
+              `received: ${props_.join(", ")}\n`,
+              `while declaring "${tcAnno}"\n`));
+
+          // type the current function property
+
+          else if (typeof dict[k] === "function") {
+            instantiations = unifyTypes(
+              props.get(k),
+              parseAnno(dict[k] [ANNO]),
+              0,
+              0,
+              0,
+              0,
+              new Map(),
+              serializeAst(props.get(k)),
+              dict[k] [ANNO],
+              tcAnno,
+              []);
+
+            const contAnno = serializeAst(
+              regeneralize(
+                pruneForalls(
+                  substitute(
+                    specializeLHS(
+                      TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast,
+                      instantiations))));
+
+            acc[k] = fun(dict[k], contAnno);
+            return acc;
+          }
+
+          // or leave it unchanged
+
+          else {
+            acc[k] = dict[k];
+            return acc;
+          }
+        }, {[TAG]: tcons});
+
+        const wrapperAnno_ = serializeAst(
+          regeneralize(
+            pruneForalls(
+              substitute(
+                specializeLHS(
+                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                  instantiations))));
+
+        dict_[ADT] = wrapperAnno_;
+        return dict_;
+      }
+    }, {[ANNO]: tcAnno});
+  }
+};
+
+/******************************************************************************
+*******************************************************************************
+******************************[ TYPE VALIDATION ]******************************
+*******************************************************************************
+******************************************************************************/
+
+/* The type checker only considers applications, not definition. It only
+attempts to unify the formal parameter of a function type with a provided
+argument type, but it does not infer types from given terms. */
+
+export const fun = (f, funAnno) => {
+  const go = (g, lamIndex, funAst, funAnno) => Object.assign((...args) => {
+    
+    let instantiations = new Map(),
+      tvid = 0; // id to create unique type variable names
+
+    // take variadic arguments into account
+
+    switch (funAst.body.body.lambdas[0] [TAG]) {
+      case "Argv": {
+        args = [args];
+        break;
+      }
+
+      case "Argsv": {
+        args = args
+          .slice(0, funAst.body.body.lambdas[0].length - 1)
+          .concat([args.slice(funAst.body.body.lambdas[0].length - 1)]);
+
+        break;
+      }
+    }
+
+    // introspect arguments recursively
+    
+    const argAnnos = args.map(arg => introspectDeep(arg));
+
+    // check arity
+
+    if (funAst.body.body.lambdas[0].length !== args.length) {
+      if (funAst.body.body.lambdas[0] [TAG] === "Argv"
+        || funAst.body.body.lambdas[0] [TAG] === "Argsv")
+          throw new TypeError(cat(
+            "arity mismatch\n",
+            `expected: at least ${funAst.body.body.lambdas[0].length - 1} argument(s)\n`,
+            `received: ${args.length - 1} argument(s)\n`,
+            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+      
+      else throw new TypeError(cat(
+        "arity mismatch\n",
+        `expected: ${funAst.body.body.lambdas[0].length} argument(s)\n`,
+        `received: ${args.length} argument(s)\n`,
+        extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+    }
+
+    /* Prior to unification the function type has to be dequantified. During
+    this process bount TVs are instantiated with fresh meta TVs. As opposed to
+    subsequent dequantifications there is no alpha renaming taking place. This
+    ensures that the unified annotation only deviates as little as possible
+    from the original user-defined one. */
+
+    funAst = mapAst(ast => {
+      if (ast[TAG] === "Forall")
+        return ast.scope === TOP_LEVEL_SCOPE
+          ? Forall(new Set(), ast.scope, ast.body)
+          : ast;
+
+      else if (ast[TAG] === "BoundTV")
+        return ast.scope === TOP_LEVEL_SCOPE
+          ? MetaTV(ast.name, ast.scope, ast.position, 0, ast.body)
+          : ast;
+
+      else return ast;
+    }) (funAst);
+
+    /* Attempt to type validate the application of `fun` with `arg` by unifying
+    `fun`'s first formal parameter with `arg`. Since this is a higher-rank type
+    validator, subsumption is necessary in order to unify deeply nested
+    quantifiers. The subsumption judgement for type application has the form
+    `arg <: param` (`arg` is at least as polymorphic as `param`). The order
+    flips for each nesting due to the usual co- and contravariant phenomena of
+    the function type. */
+
+    instantiations = argAnnos.reduce(
+      (instantiations, argAnno, argIndex) =>
+        unifyTypes(
+          funAst.body.body.lambdas[0] [TAG] === "Arg0"
+            ? Tconst("Undefined")
+            : funAst.body.body.lambdas[0] [argIndex],
+          parseAnno(argAnno),
+          lamIndex,
+          argIndex,
+          1,
+          tvid,
+          instantiations,
+          funAst.body.body.lambdas[0] [TAG] === "Arg0"
+            ? "Undefined"
+            : serializeAst(funAst.body.body.lambdas[0] [argIndex]),
+          argAnno,
+          funAnno,
+          argAnnos), instantiations);
+
+    /* Since type equality is transitive, the type validator takes it into
+    account:
+
+    `a ~ b`
+    `a ~ c`
+    `b ~ c` */
+
+    const transProp = new Map();
+
+    instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {
+      const valueAnno = serializeAst(valueAst);
+
+      // skip transitivity check for `Partial` types
+
+      if (keyAst[TAG] === "Partial"
+        || valueAst[TAG] === "Partial") return null;
+     
+      else if (transProp.has(valueAnno)) {
+        const targetAst = transProp.get(valueAnno);
+
+        instantiations.set(serializeAst(keyAst), {
+          key: keyAst,
+          value: targetAst,
+          substitutor: ast => ast[TAG] === keyAst[TAG]
+            && ast.name === keyAst.name
+              ? targetAst
+              : ast});
+      }
+
+      else transProp.set(valueAnno, keyAst);
+    });
+
+    /* After unification the consumed type parameter must be stripped off and
+    all relevant instantiations must be substituted in the remaining type.
+    Regeneralizing restores the bound TVs, provided there are still some left. */
+
+    const unifiedAst =
+      regeneralize(
+        pruneForalls(
+          substitute(
+            remConsumedParams(funAst),
+            instantiations)));
+
+    // take variadic arguments into account
+
+    switch (funAst.body.body.lambdas[0] [TAG]) {
+      case "Argv": {
+        args = args[0];
+        break;
+      }
+
+      case "Argsv": {
+        args = args.slice(0, -1).concat(args[args.length - 1]);
+        break;
+      }
+    }
+
+    // actually apply `fun` with `arg` on the term level
+
+    let r = g(...args);
+
+    // ensure that applications on the term level never return `undefined`
+
+    if (r === undefined)
+      throw new TypeError(cat(
+        "illegal result type\n",
+        "namely: undefined\n",
+        `runtime immediately terminated\n`,
+        extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+
+    // take algebraic data types into account
+
+    else if (r && typeof r === "object" && ADT in r) {
+
+      // parse the annotations of the ADT components
+
+      const wrapperAst = parseAnno(r[ADT]),
+        contAst = parseAnno(r.run[ANNO]);
+
+      // unify the wrapper with the unified AST
+
+      const instantiations_ = unifyTypes(
+        wrapperAst,
+        unifiedAst,
+        0,
+        0,
+        0,
+        0,
+        new Map(),
+        r[ADT],
+        serializeAst(unifiedAst),
+        funAnno,
+        []);
+
+      // update the continuation annotation
+
+      const contAnno = serializeAst(
+        regeneralize(
+          pruneForalls(
+            substitute(
+              specializeLHS(
+                TOP_LEVEL_SCOPE, 0, 1) (contAst).ast,
+                instantiations_))));
+
+      // update the wrapper annotation
+
+      const wrapperAnno = serializeAst(
+        regeneralize(
+          pruneForalls(
+            substitute(
+              specializeLHS(
+                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                instantiations_))));
+
+      // type the Scott encoded ADT continuation and the wrapper
+
+      r.run = fun(r.run[UNWRAP], contAnno);
+      r[ADT] = wrapperAnno;
+    }
+
+    /* If the resulting AST is a function type or a function type constant, the
+    type validator is still in process of collecting more arguments. Please note
+    that due to return type abstraction a function may collect more arguments
+    than was initially specified. */
+
+    if (unifiedAst[TAG] === "Forall"
+      && unifiedAst.body[TAG] === "Fun") {
+        if (introspectFlat(r) === "Function")
+          return Object.assign(
+            go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst)),
+            {[UNWRAP]: r});
+
+        else
+          throw new TypeError(cat(
+            `result type mismatch in parameter #${lamIndex + 1}\n`,
+            `expected: ${serializeAst(unifiedAst)}\n`,
+            `received: ${introspectFlat(r)}\n`,
+            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+    }
+
+    /* An AST representing a non-functional type indicates that the type
+    validator has completed the collection of arguments and next has to handle
+    the result type. If the latter is an ADT, result type unification can be
+    skipped, because ADTs have already been unified. */
+
+    else if (r && typeof r === "object" && ADT in r)
+      return r;
+
+    // result type unification
+
+    else {
+      const resultAnno = introspectDeep(r);
+
+      unifyTypes(
+        unifiedAst,
+        parseAnno(resultAnno),
+        0,
+        0,
+        0,
+        tvid,
+        instantiations,
+        serializeAst(funAst.body.body.result),
+        resultAnno,
+        funAnno,
+        argAnnos);
+
+      // return the untyped final result
+
+      return r;
+    }
+  }, {[ANNO]: serializeAst(funAst)}); // attach dynamic type annotation
+
+  /********************
+   * MAIN ENTRY POINT *
+   ********************/
+
+  // bypass type validator
+
+  if (CHECK === false) return f;
+
+  // throw an error on untyped function
+
+  else if (funAnno === undefined)
+    throw new TypeError(cat(
+      "type validator expects a typed lambdas\n",
+      "but the following untyped function received: \n",
+      f.toString()));
+
+  // run the validator
+
+  else {
+
+    // strip newlines and indentations
+
+    funAnno = funAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+
+    // ensure a top-level function type
+
+    if (remNestings(funAnno[0] === "(" && funAnno[funAnno.length - 1] === ")"
+      ? funAnno.slice(1, -1)
+      : funAnno).search(/ => /) === NOT_FOUND) {
+        throw new TypeError(cat(
+          "top-level type must be a function\n",
+          "received the following type though:\n",
+          `${funAnno}\n`));
+    }
+
+    else {
+
+      // parse the main function annotation
+
+      const funAst = parseAnno(funAnno);
+
+      // return the typed function
+
+      return Object.assign(
+        go(f, 0, funAst, funAnno),
+        {get [UNWRAP] () {return f}});
+    }
+  }
+};
+
+/******************************************************************************
+**************************[ UNIFICATION/SUBSUMPTION ]**************************
+******************************************************************************/
+
+const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
+
+  /* Unifies two possibly higher-kinded types using subsumption. Interestingly,
+  we don't need kinds and kind unification respecitvely but can solely rely on
+  arities and abstraction over arities in case of generic type constructors. */
+
+  /* Subsumption is required to instantiate bound TVs within deeply nested
+  quantifiers. It comes along with the usual covariance subtype order in the
+  codomain but also with contravariance order in the domain. For variance
+  to kick in both the LHS and RHS must be function types. */
+
+  /* Although strictly speaking subsumption is only necessary to look into
+  explicit forall quantifiers, this algorithm also uses it for regular,
+  rank-1 function types. */
+
+  /* The subsumption judgement defines the scope that emerges by applying a
+  function to an argument type. It has the form `arg <: param`, which reads
+  "arg is at least as polymorphic as param". `param` is just the first formal
+  parameter of the function type. */
+
+  /* If fun and arg include function parameter and arguments respectively, the
+  subsumption judgement flips for each evaluation of parameters/arguments. This
+  is due to the contravariant property of the function domain. */
+
+  if (iteration % 2 === 0) {
+    if (paramAst[TAG] === "Forall" && paramAst.btvs.size > 0)
+      ({ast: paramAst, tvid} = specializeLHS(paramAst.scope, iteration, tvid + 1) (paramAst));
+
+    if (argAst[TAG] === "Forall" && argAst.btvs.size > 0)
+      ({ast: argAst, tvid} = specializeRHS(argAst.scope, iteration, tvid + 1) (argAst));
+  }
+
+  else {
+    if (argAst[TAG] === "Forall" && argAst.btvs.size > 0)
+      ({ast: argAst, tvid} = specializeLHS(argAst.scope, iteration, tvid + 1) (argAst));
+
+    if (paramAst[TAG] === "Forall" && paramAst.btvs.size > 0)
+      ({ast: paramAst, tvid} = specializeRHS(paramAst.scope, iteration, tvid + 1) (paramAst));
+  }
+
+  /* TVs can represent higher-kinded types, therefore their arity must be
+  unified as well. If we assume that type constructors are generative and
+  injective, the following instantiation rules apply:
+  
+  ~ = type equality
+  !~ = type inequality
+
+  f<a> ~ g<b, c, d>
+  f<a, b, c> ~ g<d>
+  F<a> !~ g<b, c, d>
+  F<a, b, c> ~ g<d>
+  f<a> ~ G<b, c, d>
+  f<a, b, c> !~ G<d>
+  F<a> !~ G<b, c, d>
+  F<a, b, c> !~ G<d> */
+
+  /* Substitution should go from arg to param type whenever possible. This way
+  the unified type has as little deviations as possible from fun's original
+  annotation.  However, this only works for instantiations of two meta or two
+  rigid TVs. If both meta and rigid TVs are involved, the latter must always be
+  substituted by the former. */
+
+  switch (paramAst[TAG]) {
+    case "Adt": {
+      switch (argAst[TAG]) {
+        case "Adt": {// Adt<a, b> ~ Adt<c, d>
+          if (paramAst.cons !== argAst.cons) {
+            throw new TypeError(cat(
+              "type constructor mismatch\n",
+              `expected: ${paramAst.cons}\n`,
+              `received: ${argAst.cons}\n`,
+              "while unifying\n",
+              `${paramAnno}\n`,
+              `${argAnno}\n`,
+              extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+          }
+
+          else {
+            return paramAst.body.reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+        }
+
+        case "BoundTV": // Adt<a, b> ~ bound c
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // Adt<a, b> ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": {// Adt<a, b> ~ u<c> | u<c, d>
+          if (argAst.body.length === 0) // Adt<a, b> ~ c
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length <= paramAst.body.length) { // Adt<a, b> ~ u<c> | u<c, d>
+            instantiations = instantiate( // Adt | Adt<a> ~ u
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                Array(argAst.body.length).fill(Partial)),
+              paramAst.body.length === argAst.body.length
+                ? Adt(paramAst.cons, Array(paramAst.body.length).fill(Partial))
+                : Adt(
+                    paramAst.cons,
+                    paramAst.body.slice(0, paramAst.body.length - argAst.body.length)
+                      .concat(Array(argAst.body.length).fill(Partial))),
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name)
+                    return refAst.body.length === toAst.body.length
+                      ? Adt(toAst.cons, refAst.body)
+                      : Adt(
+                          toAst.cons,
+                          toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                            .concat(refAst.body));
+
+                else return refAst
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+
+          else // Adt<a, b> ~ u<c, d, e>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Partial": // Adt<a, b> ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // Adt<a, b> ~ composite type except Adt<a, b>
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Arr": {
+      switch (argAst[TAG]) {
+        case "Arr": // [a] ~ [b]
+          return unifyTypes(
+            paramAst.body,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "BoundTV": // [a] ~ bound b
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // [a] ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+        
+        case "MetaTV":
+        case "RigidTV": {
+          if (argAst.body.length === 0) // [a] ~ b
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length === 1) { // [a] ~ u<b>
+            instantiations = instantiate( // u ~ []
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                [Partial]),
+              Arr(Partial),
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? Arr(refAst.body[0])
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return unifyTypes(
+              paramAst.body,
+              argAst.body[0],
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+          }
+
+          else // [a] ~ u<b, c>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Partial": // [a] ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // [a] ~ composite type except [b]
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "BoundTV":
+      throw new TypeError(
+        "internal error: unexpected bound type variable");
+
+    case "Forall": {
+      switch (argAst[TAG]) {
+        case "Forall": // forall ~ forall
+          return unifyTypes(
+            paramAst.body,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // forall ~ any type except forall
+          return unifyTypes(
+            paramAst.body,
+            argAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }      
+    }
+
+    case "Fun": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // (a => b) ~ bound c
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // (a => b) ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "Fun": { // (a => b) ~ (c => d)
+
+          /* The function type is contravariant in its argument and covariant in
+          its result type. For the application of function composition with
+          itself this means:
+
+          comp :: (b => c) => (a => b) => a => c
+          goal: comp(comp)
+          
+          (b1 => c1) => (a1 => b1) => a1 => c1 <: b => c
+          b <: b1 => c1 // contravariant 
+          (a1 => b1) => a1 => c1 <: c // covariant
+
+          The result type can either by the remainder of the curried function
+          sequence or the actual result. */
+
+          // contravariant subsumption
+
+          if (paramAst.body.lambdas[0] [TAG] !== argAst.body.lambdas[0] [TAG]
+            || paramAst.body.lambdas[0].length !== argAst.body.lambdas[0].length)
+              throw new TypeError(cat(
+                "arity mismatch\n",
+                "cannot match argument list\n",
+                `expected: ("${paramAst.body.lambdas.map(serializeAst).join(", ")}")\n`,
+                `received: ("${argAst.body.lambdas.map(serializeAst).join(", ")}")\n`,
+                "while unifying\n",
+                `${paramAnno}\n`,
+                `${argAnno}\n`,
+                extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+          switch (paramAst.body.lambdas[0] [TAG]) {
+            case "Arg0": break; // thunk
+            
+            case "Arg1": // single argument
+            case "Argv": { // variadic argument
+              instantiations = unifyTypes(
+                paramAst.body.lambdas[0] [0],
+                argAst.body.lambdas[0] [0],
+                lamIndex,
+                argIndex,
+                iteration + 1,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+
+              break;
+            }
+            
+            case "Args": // multi argument
+            case "Argsv": { // multi argument with a trailing variadic argument
+              instantiations = paramAst.body.lambdas[0].reduce((acc, arg, i) =>
+                unifyTypes(
+                  paramAst.body.lambdas[0] [i],
+                  argAst.body.lambdas[0] [i],
+                  lamIndex,
+                  argIndex,
+                  iteration + 1,
+                  tvid,
+                  instantiations,
+                  paramAnno,
+                  argAnno,
+                  funAnno,
+                  argAnnos), instantiations);
+
+              break;
+            }
+
+            default:
+              throw new TypeError(
+                "internal error: unknown argument list constructor");
+          }
+
+          // covariant subsumption
+
+          if (paramAst.body.lambdas.length === 1) {
+            if (argAst.body.lambdas.length === 1) { // (a => b) ~ (c => d)
+              let paramResult, argResult;
+
+              if (!isTV(paramAst.body.result) && isTV(argAst.body.result)) {
+                argResult = paramAst.body.result;
+                paramResult = argAst.body.result;
+              }
+
+              else {
+                paramResult = paramAst.body.result;
+                argResult = argAst.body.result;
+              }
+
+              return unifyTypes(
+                paramResult,
+                argResult,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+
+            else { // (a => b) ~ (c => d => e)
+              const argAst_ = Fun(
+                argAst.body.lambdas.slice(1),
+                argAst.body.result);
+
+              return unifyTypes(
+                paramAst.body.result,
+                argAst_,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+          }
+
+          else {
+            if (argAst.body.lambdas.length === 1) { // (a => b => c) ~ (d => e)
+              const paramAst_ = Fun(
+                paramAst.body.lambdas.slice(1),
+                paramAst.body.result);
+
+              return unifyTypes(
+                paramAst_,
+                argAst.body.result,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+
+            else { // (a => b => c) ~ (d => e => f)
+              const paramAst_ = Fun(
+                paramAst.body.lambdas.slice(1),
+                paramAst.body.result);
+
+              const argAst_ = Fun(
+                argAst.body.lambdas.slice(1),
+                argAst.body.result);
+
+              return unifyTypes(
+                paramAst_,
+                argAst_,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+          }
+        }
+
+        case "MetaTV":
+        case "RigidTV": { // zyx
+          if (argAst.body.length === 0) // (a => b) ~ c
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name)
+                    return refAst.position === "codomain"
+                      ? Codomain(...toAst.body.lambdas, toAst.body.result)
+                      : Forall(new Set(), TOP_LEVEL_SCOPE, toAst);
+
+                else return refAst;
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else {
+            const arityDiff = determineArity(paramAst) - argAst.body.length;
+
+            if (arityDiff === 0) { // (_ => b) ~ u<c> | (a => b) ~ u<c, d> | (a, b => c) ~ u<d, e, f>
+
+              // unify domain
+
+              switch (paramAst.body.lambdas[0] [TAG]) {
+                case "Arg0": {
+                  instantiations = instantiate( // (=>) ~ u
+                    (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      argAst.name,
+                      argAst.scope,
+                      argAst.position,
+                      argAst.iteration,
+                      [Partial]),
+                    Fun([new Arg0()], Partial),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          return Forall(
+                            new Set(),
+                            TOP_LEVEL_SCOPE,
+                            Fun([
+                              new Arg0()],
+                              mapAst(refAst_ => {
+                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                    refAst_.name,
+                                    refAst_.scope,
+                                    "codomain",
+                                    refAst_.iteration,
+                                    refAst_.body);
+                                
+                                else return refAst_;
+                              }) (refAst.body[0])));
+                      }
+                      
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  break;
+                }
+
+                case "Arg1": {
+                  instantiations = instantiate( // (=>) ~ u
+                    (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      argAst.name,
+                      argAst.scope,
+                      argAst.position,
+                      argAst.iteration,
+                      [Partial, Partial]),
+                    Fun([new Arg1(Partial)], Partial),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          return Forall(
+                            new Set(),
+                            TOP_LEVEL_SCOPE,
+                            Fun([
+                              new Arg1(refAst.body[0])],
+                              mapAst(refAst_ => {
+                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                    refAst_.name,
+                                    refAst_.scope,
+                                    "codomain",
+                                    refAst_.iteration,
+                                    refAst_.body);
+                                
+                                else return refAst_;
+                              }) (refAst.body[1])));
+                      }
+                      
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  instantiations = unifyTypes(
+                    paramAst.body.lambdas[0] [0],
+                    argAst.body[0],
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  break;
+                }
+
+                case "Args": {
+                  instantiations = instantiate( // (=>) ~ u
+                    (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      argAst.name,
+                      argAst.scope,
+                      argAst.position,
+                      argAst.iteration,
+                      Array(argAst.body.length).fill(Partial)),
+                    Fun([
+                      Args.fromArr(Array(paramAst.body.lambdas[0].length).fill(Partial))],
+                      Partial),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          return Forall(
+                            new Set(),
+                            TOP_LEVEL_SCOPE,
+                            Fun([
+                              Args.fromArr(refAst.body.slice(0, -1))],
+                              mapAst(refAst_ => {
+                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                    refAst_.name,
+                                    refAst_.scope,
+                                    "codomain",
+                                    refAst_.iteration,
+                                    refAst_.body);
+                                
+                                else return refAst_;
+                              }) (refAst.body[refAst.body.length - 1])));
+                      }
+                      
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  instantiations = paramAst.body.lambdas[0].reduce((acc, ast, i) =>
+                    unifyTypes(
+                      ast,
+                      argAst.body[i],
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos), instantiations);
+
+                  break;
+                }
+
+                default: // Argv/Argsv are excluded
+                  unificationError(
+                    serializeAst(paramAst),
+                    serializeAst(argAst),
+                    lamIndex,
+                    argIndex,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+              }
+            }
+
+            else if (arityDiff < 0) // (_ => b) ~ u<c, d> | (a => b) ~ u<c, d, e> | (a, b => c) ~ u<d, e, f, g>
+              unificationError(
+                serializeAst(paramAst),
+                serializeAst(argAst),
+                lamIndex,
+                argIndex,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+
+            else { // (a => b) ~ u<c> | (a, b => c) ~ u<d, e>
+
+              // unify domain
+              
+              switch (paramAst.body.lambdas[0] [TAG]) {
+                case "Arg0": throw new TypeError(
+                  "internal error: unexpected thunk");
+
+                case "Arg1": {
+                  instantiations = instantiate( // (a => ) ~ u
+                    (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      argAst.name,
+                      argAst.scope,
+                      argAst.position,
+                      argAst.iteration,
+                      [Partial]),
+                    Fun([paramAst.body.lambdas[0]], Partial),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          return Forall(
+                            new Set(),
+                            TOP_LEVEL_SCOPE,
+                            Fun([
+                              toAst.body.lambdas[0]],
+                              mapAst(refAst_ => {
+                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                    refAst_.name,
+                                    refAst_.scope,
+                                    "codomain",
+                                    refAst_.iteration,
+                                    refAst_.body);
+                                
+                                else return refAst_;
+                              }) (refAst.body[0])));
+                      }
+                       
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  break;
+                }
+
+                case "Args": {
+                  instantiations = instantiate( // (a, b =>) ~ u
+                    (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      argAst.name,
+                      argAst.scope,
+                      argAst.position,
+                      argAst.iteration,
+                      Array(argAst.body.length).fill(Partial)),
+                    Fun([
+                      paramAst.body.lambdas[0]
+                        .slice(0, arityDiff)
+                        .concat(Array(argAst.body.length - 1).fill(Partial))],
+                      Partial),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          return Forall(
+                            new Set(),
+                            TOP_LEVEL_SCOPE,
+                            Fun([
+                              toAst.body.lambdas[0]
+                                .slice(0, arityDiff)
+                                .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                              mapAst(refAst_ => {
+                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                    refAst_.name,
+                                    refAst_.scope,
+                                    "codomain",
+                                    refAst_.iteration,
+                                    refAst_.body);
+                                
+                                else return refAst_;
+                              }) (refAst.body[refAst.body.length - 1])));
+                      }
+
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  instantiations = paramAst.body.lambdas[0]
+                    .slice(arityDiff)
+                    .reduce((acc, ast, i) =>
+                      unifyTypes(
+                        ast,
+                        argAst.body[i],
+                        lamIndex,
+                        argIndex,
+                        iteration,
+                        tvid,
+                        instantiations,
+                        paramAnno,
+                        argAnno,
+                        funAnno,
+                        argAnnos), instantiations);
+
+                  break;
+                }
+
+                default: // Argv/Argsv are excluded
+                  unificationError(
+                    serializeAst(paramAst),
+                    serializeAst(argAst),
+                    lamIndex,
+                    argIndex,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+              }
+            }
+
+            // unify codomain
+
+            if (paramAst.body.lambdas.length === 1) {
+              return unifyTypes(
+                paramAst.body.result,
+                argAst.body[argAst.body.length - 1],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+
+            else {
+              const paramAst_ = Fun(
+                paramAst.body.lambdas.slice(1),
+                paramAst.body.result);
+
+              return unifyTypes(
+                paramAst_,
+                argAst.body[argAst.body.length - 1],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+          }
+        }
+
+        case "Partial": // (a => b) ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // (a => b) ~ composite type except (c => d)
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "MetaTV":
+    case "RigidTV": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // a ~ bound b
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall":
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": { // xyz
+
+          /* Generic type constructors can abstract over arity, hence the latter
+          has to be taken into account. */
+
+          if (paramAst.body.length === 0 && argAst.body.length === 0) { // a ~ b
+            if (paramAst.name === argAst.name) // a ~ a
+              return instantiations;
+
+            else return instantiate( // a ~ b
+              paramAst,
+              argAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+          }
+
+          else if (paramAst.body.length === 0) { // a ~ u<b>
+            return instantiate(
+              paramAst,
+              argAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+          }
+
+          else if (argAst.body.length === 0) { // t<a> ~ b
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+          }
+
+          const arityDiff = paramAst.body.length - argAst.body.length;
+          
+          if (arityDiff === 0) { // t<a, b> ~ u<c, d>
+            if (paramAst.name === argAst.name) { // t ~ t
+              // noop
+            }
+
+            else { // t ~ u
+              instantiations = instantiate(
+                (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                  paramAst.name,
+                  paramAst.scope,
+                  paramAst.position,
+                  paramAst.iteration,
+                  Array(paramAst.body.length).fill(Partial)),
+                (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                  argAst.name,
+                  argAst.scope,
+                  argAst.position,
+                  argAst.iteration,
+                  Array(argAst.body.length).fill(Partial)),
+                (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name
+                    ? (toAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                        toAst.name,
+                        toAst.scope,
+                        toAst.position,
+                        toAst.iteration,
+                        refAst.body)
+                    : refAst,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+
+            return paramAst.body.reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+          
+          else if (arityDiff < 0) { // t<a, b> ~ u<c, d, e, f>
+            const fields = argAst.body.slice(arityDiff);
+
+            instantiations = instantiate( // t ~ u<c, d>
+              (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                paramAst.name,
+                paramAst.scope,
+                paramAst.position,
+                paramAst.iteration,
+                Array(paramAst.body.length).fill(Partial)),
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                argAst.body.slice(0, argAst.body.length - paramAst.body.length)
+                  .concat(Array(paramAst.body.length).fill(Partial))),
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? (toAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      toAst.name,
+                      toAst.scope,
+                      toAst.position,
+                      toAst.iteration,
+                      refAst.body.slice(arityDiff))
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return fields.reduce((acc, field, i) =>
+              unifyTypes(
+                paramAst.body[i],
+                field,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+
+          else if (arityDiff > 0) { // t<a, b, c, d> ~ u<e, f>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+          }
+        }
+
+        case "Partial": // a | t<a> ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: { // xyz
+          if (paramAst.body.length === 0) { // a ~ composite type
+            if (argAst[TAG] === "Fun") { // a ~ (b => c)
+              return instantiate(
+                paramAst,
+                argAst,
+                (refAst, fromAst, toAst) => {
+                  if (refAst[TAG] === fromAst[TAG]
+                    && refAst.name === fromAst.name)
+                      return refAst.position === "codomain"
+                        ? Codomain(...toAst.body.lambdas, toAst.body.result)
+                        : Forall(new Set(), TOP_LEVEL_SCOPE, toAst);
+                  
+                  else return refAst;
+                },
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos);
+            }
+
+            else return instantiate( // a ~ composite type
+              paramAst,
+              argAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+          }
+
+          else {
+            const argArity = determineArity(argAst);
+            
+            if (paramAst.body.length > argArity)
+              throw new TypeError(cat(
+                "type constructor arity mismatch\n",
+                `expected: ${serializeAst(paramAst)}\n`,
+                `received: ${serializeAst(argAst)}\n`,
+                "while unifying\n",
+                `${paramAnno}\n`,
+                `${argAnno}\n`,
+                extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+            else {
+              switch (argAst[TAG]) {
+                case "Adt": { // t<a> | t<a, b> ~ Adt<c, d>
+                  if (paramAst.body.length === 0) // a ~ Adt<b, c>
+                    return instantiate(
+                      paramAst,
+                      argAst,
+                      (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name
+                          ? toAst
+                          : refAst,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+
+                  else if (paramAst.body.length <= argArity) { // t<a> | t<a, b> ~ Adt<c, d>
+                    instantiations = instantiate( // t ~ Adt | Adt<b>
+                      (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                        paramAst.name,
+                        paramAst.scope,
+                        paramAst.position,
+                        paramAst.iteration,
+                        Array(paramAst.body.length).fill(Partial)),
+                      argArity === paramAst.body.length
+                        ? Adt(argAst.cons, Array(argArity).fill(Partial))
+                        : Adt(
+                            argAst.cons,
+                            argAst.body.slice(0, argArity - paramAst.body.length)
+                              .concat(Array(paramAst.body.length).fill(Partial))),
+                      (refAst, fromAst, toAst) => {
+                        if (refAst[TAG] === fromAst[TAG]
+                          && refAst.name === fromAst.name) {
+                            if (refAst.body.length === 0)
+                              return toAst;
+
+                            else if (refAst.body.length < toAst.body.length)
+                              return Adt(
+                                toAst.cons,
+                                toAst.body.slice(0, -refAst.body.length)
+                                  .concat(refAst.body));
+
+                            else return Adt(
+                              toAst.cons,
+                              refAst.body);
+                        }
+
+                        else return refAst;
+                      },
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+
+                    return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
+                      unifyTypes(
+                        field,
+                        paramAst.body[i],
+                        lamIndex,
+                        argIndex,
+                        iteration,
+                        tvid,
+                        instantiations,
+                        paramAnno,
+                        argAnno,
+                        funAnno,
+                        argAnnos), instantiations);
+                  }
+
+                  else // t<a, b, c> ~ Adt<d, e>
+                    unificationError(
+                      serializeAst(argAst),
+                      serializeAst(paramAst),
+                      lamIndex,
+                      argIndex,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+                }
+
+                case "Arr":
+                case "Nea": { // t<a> ~ [b] | [1b]
+                  instantiations = instantiate( // t ~ [] | [1]
+                    (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      paramAst.name,
+                      paramAst.scope,
+                      paramAst.position,
+                      paramAst.iteration,
+                      [Partial]),
+                    (argAst[TAG] === "Arr" ? Arr : Nea) (Partial),
+                    (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                      && refAst.name === fromAst.name
+                        ? (toAst[TAG] === "Arr" ? Arr : Nea) (refAst.body[0])
+                        : refAst,
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  return unifyTypes(
+                    paramAst.body[0],
+                    argAst.body,
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+                }
+
+                case "Fun": { // zyx
+                  const arityDiff = argArity - paramAst.body.length;
+
+                  if (arityDiff === 0) { // t<a> ~ (_ => b) | t<a, b> ~ (c => d) | t<a, b, c> ~ (d, e => f)
+
+                    // unify domain
+            
+                    switch (argAst.body.lambdas[0] [TAG]) {
+                      case "Arg0": {
+                        instantiations = instantiate( // t ~ (=>)
+                          (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                            paramAst.name,
+                            paramAst.scope,
+                            paramAst.position,
+                            paramAst.iteration,
+                            [Partial]),
+                          Fun([new Arg0()], Partial),
+                          (refAst, fromAst, toAst) => {
+                            if (refAst[TAG] === fromAst[TAG]
+                              && refAst.name === fromAst.name) {
+                                return Forall(
+                                  new Set(),
+                                  TOP_LEVEL_SCOPE, Fun([
+                                    new Arg0()],
+                                    mapAst(refAst_ => {
+                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                          refAst_.name,
+                                          refAst_.scope,
+                                          "codomain",
+                                          refAst_.iteration,
+                                          refAst_.body);
+                                      
+                                      else return refAst_;
+                                    }) (refAst.body[0])));
+                            }
+
+                            else return refAst;
+                          },
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        break;
+                      }
+
+                      case "Arg1": {
+                        instantiations = instantiate( // t ~ (=>)
+                          (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                            paramAst.name,
+                            paramAst.scope,
+                            paramAst.position,
+                            paramAst.iteration,
+                            [Partial, Partial]),
+                          Fun([new Arg1(Partial)], Partial),
+                          (refAst, fromAst, toAst) => {
+                            if (refAst[TAG] === fromAst[TAG]
+                              && refAst.name === fromAst.name) {
+                                return Forall(
+                                  new Set(),
+                                  TOP_LEVEL_SCOPE,
+                                  Fun([
+                                    new Arg1(refAst.body[0])],
+                                    mapAst(refAst_ => {
+                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                          refAst_.name,
+                                          refAst_.scope,
+                                          "codomain",
+                                          refAst_.iteration,
+                                          refAst_.body);
+                                      
+                                      else return refAst_;
+                                    }) (refAst.body[1])));
+                            }
+
+                            else return refAst;
+                          },
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        instantiations = unifyTypes(
+                          paramAst.body[0],
+                          argAst.body.lambdas[0] [0],
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        break;
+                      }
+
+                      case "Args": {
+                        instantiations = instantiate( // t ~ (=>)
+                          (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                            paramAst.name,
+                            paramAst.scope,
+                            paramAst.position,
+                            paramAst.iteration,
+                            Array(paramAst.body.length).fill(Partial)),
+                          Fun([
+                            Args.fromArr(Array(argAst.body.lambdas[0].length).fill(Partial))],
+                            Partial),
+                          (refAst, fromAst, toAst) => {
+                            if (refAst[TAG] === fromAst[TAG]
+                              && refAst.name === fromAst.name) {
+                                return Forall(
+                                  new Set(),
+                                  TOP_LEVEL_SCOPE,
+                                  Fun([
+                                    Args.fromArr(refAst.body.slice(0, -1))],
+                                    mapAst(refAst_ => {
+                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                          refAst_.name,
+                                          refAst_.scope,
+                                          "codomain",
+                                          refAst_.iteration,
+                                          refAst_.body);
+                                      
+                                      else return refAst_;
+                                    }) (refAst.body[refAst.body.length - 1])));
+                            }
+                            
+                            else return refAst;
+                          },
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        instantiations = argAst.body.lambdas[0].reduce((acc, ast, i) =>
+                          unifyTypes(
+                            paramAst.body[i],
+                            ast,
+                            lamIndex,
+                            argIndex,
+                            iteration,
+                            tvid,
+                            instantiations,
+                            paramAnno,
+                            argAnno,
+                            funAnno,
+                            argAnnos), instantiations);
+
+                        break;
+                      }
+
+                      default: // Argv/Argsv are excluded
+                        unificationError(
+                          serializeAst(paramAst),
+                          serializeAst(argAst),
+                          lamIndex,
+                          argIndex,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+                    }
+                  }
+
+                  else if (arityDiff < 0) // t<a, b> ~ (_ => c) | t<a, b, c> ~ (d => e) | t<a, b, c, d> ~ (e, f => g)
+                    unificationError(
+                      serializeAst(paramAst),
+                      serializeAst(argAst),
+                      lamIndex,
+                      argIndex,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+
+                  else { // t<a> ~ (b => c) | t<a, b> ~ (c, d => e)
+
+                    // unify domain
+            
+                    switch (argAst.body.lambdas[0] [TAG]) {
+                      case "Arg0": throw new TypeError(
+                        "internal error: unexpected thunk");
+
+                      case "Arg1": {
+                        instantiations = instantiate( // t ~ (b => )
+                          (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                            paramAst.name,
+                            paramAst.scope,
+                            paramAst.position,
+                            paramAst.iteration,
+                            [Partial]),
+                          Fun([argAst.body.lambdas[0]], Partial),
+                          (refAst, fromAst, toAst) => {
+                            if (refAst[TAG] === fromAst[TAG]
+                              && refAst.name === fromAst.name) {
+                                return Forall(
+                                  new Set(),
+                                  TOP_LEVEL_SCOPE,
+                                  Fun([
+                                    toAst.body.lambdas[0]],
+                                    mapAst(refAst_ => {
+                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                          refAst_.name,
+                                          refAst_.scope,
+                                          "codomain",
+                                          refAst_.iteration,
+                                          refAst_.body);
+                                      
+                                      else return refAst_;
+                                    }) (refAst.body[0])));
+                            }
+
+                            else return refAst;
+                          },
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        break;
+                      }
+
+                      case "Args": {
+                        instantiations = instantiate( // t ~ (b, c =>)
+                          (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                            paramAst.name,
+                            paramAst.scope,
+                            paramAst.position,
+                            paramAst.iteration,
+                            Array(paramAst.body.length).fill(Partial)),
+                          Fun([
+                            argAst.body.lambdas[0]
+                              .slice(0, arityDiff)
+                              .concat(Array(paramAst.body.length - 1).fill(Partial))],
+                            Partial),
+                          (refAst, fromAst, toAst) => {
+                            if (refAst[TAG] === fromAst[TAG]
+                              && refAst.name === fromAst.name) {
+                                return Forall(
+                                  new Set(),
+                                  TOP_LEVEL_SCOPE,
+                                  Fun([
+                                    toAst.body.lambdas[0]
+                                      .slice(0, arityDiff)
+                                      .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                                    mapAst(refAst_ => {
+                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
+                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                          refAst_.name,
+                                          refAst_.scope,
+                                          "codomain",
+                                          refAst_.iteration,
+                                          refAst_.body);
+                                      
+                                      else return refAst_;
+                                    }) (refAst.body[refAst.body.length - 1])));
+                            }
+
+                            else return refAst;
+                          },
+                          lamIndex,
+                          argIndex,
+                          iteration,
+                          tvid,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+
+                        instantiations = argAst.body.lambdas[0]
+                          .slice(arityDiff)
+                          .reduce((acc, ast, i) =>
+                            unifyTypes(
+                              paramAst.body[i],
+                              ast,
+                              lamIndex,
+                              argIndex,
+                              iteration,
+                              tvid,
+                              instantiations,
+                              paramAnno,
+                              argAnno,
+                              funAnno,
+                              argAnnos), instantiations);
+
+                        break;
+                      }
+
+                      default: // Argv/Argsv are excluded
+                        unificationError(
+                          serializeAst(paramAst),
+                          serializeAst(argAst),
+                          lamIndex,
+                          argIndex,
+                          instantiations,
+                          paramAnno,
+                          argAnno,
+                          funAnno,
+                          argAnnos);
+                    }
+                  }
+
+                  // unify codomain
+
+                  if (argAst.body.lambdas.length === 1) {
+                    return unifyTypes(
+                      paramAst.body[paramAst.body.length - 1],
+                      argAst.body.result,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+                  }
+
+                  else {
+                    const argAst_ = Fun(
+                      argAst.body.lambdas.slice(1),
+                      argAst.body.result);
+
+                    return unifyTypes(
+                      paramAst.body[paramAst.body.length - 1],
+                      argAst_,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos);
+                  }
+                }
+
+                case "Native": { // t<a> | t<a, b> ~ Set<c, d>
+                  instantiations = instantiate( // t ~ Set | Set<c>
+                    (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      paramAst.name,
+                      paramAst.scope,
+                      paramAst.position,
+                      paramAst.iteration,
+                      Array(paramAst.body.length).fill(Partial)),
+                    argArity === paramAst.body.length
+                      ? Native(argAst.cons, Array(argArity).fill(Partial))
+                      : Native(
+                          argAst.cons,
+                          argAst.body.slice(0, argArity - paramAst.body.length)
+                            .concat(Array(paramAst.body.length).fill(Partial))),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name)
+                          return refAst.body.length === toAst.body.length
+                            ? Native(toAst.cons, refAst.body)
+                            : Native(
+                                toAst.cons,
+                                toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                                  .concat(refAst.body));
+                        
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
+                    unifyTypes(
+                      paramAst.body[i],
+                      field,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos), instantiations);
+                }
+
+                case "Obj": { // t<a> | t<a, b> ~ {foo: b, bar: c}
+                  instantiations = instantiate( // t ~ {foo:, bar:} | {foo: b, bar:}
+                    (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      paramAst.name,
+                      paramAst.scope,
+                      paramAst.position,
+                      paramAst.iteration,
+                      Array(paramAst.body.length).fill(Partial)),
+                    argArity === paramAst.body.length
+                      ? Obj(
+                          argAst.cons,
+                          argAst.props,
+                          argAst.row,
+                          Array(argArity)
+                            .fill(Partial)
+                            .map((field, i) => ({k: argAst.props[i], v: field})))
+                      : Obj(
+                          argAst.cons,
+                          argAst.props,
+                          argAst.row,
+                          argAst.body.slice(0, argArity - paramAst.body.length)
+                            .concat(Array(paramAst.body.length)
+                              .fill(Partial)
+                              .map((field, i) => ({k: argAst.props[i], v: field})))),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name) {
+                          if (refAst.body.length === toAst.body.length)
+                            return Obj(
+                              toAst.cons,
+                              toAst.props,
+                              toAst.row,
+                              refAst.body.map((field, i) =>
+                                ({k: toAst.props[i], v: field})));
+
+                           else return Obj(
+                              toAst.cons,
+                              toAst.props,
+                              toAst.row,
+                              toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                                .concat(refAst.body.map((field, i) =>
+                                  ({k: toAst.props[i + toAst.body.length - refAst.body.length], v: field}))));
+                        }
+                        
+                        else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
+                    unifyTypes(
+                      paramAst.body[i],
+                      field.v,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos), instantiations);
+                }
+
+                case "Tup": { // t<a> | t<a, b> ~ [c, d] | [c, d, e]
+                  instantiations = instantiate( // t ~ [,] | [c,]
+                    (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                      paramAst.name,
+                      paramAst.scope,
+                      paramAst.position,
+                      paramAst.iteration,
+                      Array(paramAst.body.length).fill(Partial)),
+                    argArity === paramAst.body.length
+                      ? Tup(argArity, Array(argArity).fill(Partial))
+                      : Tup(
+                          argArity,
+                          argAst.body.slice(0, argArity - paramAst.body.length)
+                            .concat(Array(paramAst.body.length).fill(Partial))),
+                    (refAst, fromAst, toAst) => {
+                      if (refAst[TAG] === fromAst[TAG]
+                        && refAst.name === fromAst.name)
+                          return refAst.body.length === toAst.body.length
+                            ? Tup(toAst.body.length, refAst.body)
+                            : Tup(
+                                toAst.body.length,
+                                toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                                  .concat(refAst.body));
+                      
+                      else return refAst;
+                    },
+                    lamIndex,
+                    argIndex,
+                    iteration,
+                    tvid,
+                    instantiations,
+                    paramAnno,
+                    argAnno,
+                    funAnno,
+                    argAnnos);
+
+                  return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
+                    unifyTypes(
+                      paramAst.body[i],
+                      field,
+                      lamIndex,
+                      argIndex,
+                      iteration,
+                      tvid,
+                      instantiations,
+                      paramAnno,
+                      argAnno,
+                      funAnno,
+                      argAnnos), instantiations);
+                }
+
+                default:
+                  throw new TypeError(
+                    "internal error: unknown value constructor at unifyTypes");
+              }
+            }
+          }
+        }
+      }
+    }
+
+    case "Native": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // Map<a, b> ~ bound c
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // Map<a, b> ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": {
+          if (argAst.body.length === 0) // Map<a, b> ~ c
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length <= paramAst.body.length) { // Map<a, b> ~ u<c> | u<c, d>
+            instantiations = instantiate( // Map | Map<a> ~ u
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                Array(argAst.body.length).fill(Partial)),
+              paramAst.body.length === argAst.body.length
+                ? Native(paramAst.cons, Array(paramAst.body.length).fill(Partial))
+                : Native(
+                    paramAst.cons,
+                    paramAst.body.slice(0, paramAst.body.length - argAst.body.length)
+                      .concat(Array(argAst.body.length).fill(Partial))),
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name)
+                    return refAst.body.length === toAst.body.length
+                      ? Native(toAst.cons, refAst.body)
+                      : Native(
+                          toAst.cons,
+                          toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                            .concat(refAst.body));
+
+                else return refAst;
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+
+          else // Map<a, b> ~ u<c, d, e>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Native": { // Map<a, b> ~ Set<c, d>
+          if (paramAst.cons !== argAst.cons) {
+            throw new TypeError(cat(
+              "type constructor mismatch\n",
+              `expected: ${paramAst.cons}\n`,
+              `received: ${argAst.cons}\n`,
+              "while unifying\n",
+              `${paramAnno}\n`,
+              `${argAnno}\n`,
+              extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+          }
+
+          else {
+            return paramAst.body.reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+        }
+
+        case "Partial": // Map<a, b> ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // Map<a, b> ~ composite type except U<b>
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Nea": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // [1a] ~ bound b
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // [1a] ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": { // [1a] ~ b
+          if (argAst.body.length === 0) // [1a] ~ b
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length === 1) { // [1a] ~ u<b>
+            instantiations = instantiate( // [1] ~ u
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                [Partial]),
+              Nea(Partial),
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? Nea(refAst.body[0])
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return unifyTypes(
+              paramAst.body,
+              argAst.body[0],
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+          }
+
+          else // [1a] ~ u<b, c>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Nea": // [1a] ~ [1b]
+          return unifyTypes(
+            paramAst.body,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+        
+        case "Partial": // [1a] ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // [1a] ~ composite type except [1b]
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Obj": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // {foo: a, bar: b} ~ bound c
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // {foo: a, bar: b} ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": {
+          if (argAst.body.length === 0) // {foo: a, bar: b} ~ c
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length <= paramAst.body.length) { // {foo: a, bar: b} ~ u<c> | u<c, d>
+            instantiations = instantiate( // {foo:, bar:} | {foo: a, bar:} ~ u
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                Array(argAst.body.length).fill(Partial)),
+              paramAst.body.length === argAst.body.length
+                ? Obj(
+                    paramAst.cons,
+                    paramAst.props,
+                    paramAst.row,
+                    Array(paramAst.body.length)
+                      .fill(Partial)
+                      .map((field, i) => ({k: paramAst.props[i], v: field})))
+                : Obj(
+                    paramAst.cons,
+                    paramAst.props,
+                    paramAst.row,
+                    paramAst.body.slice(0, paramAst.body.length - argAst.body.length)
+                      .concat(Array(argAst.body.length)
+                        .fill(Partial)
+                        .map((field, i) => ({k: paramAst.props[i], v: field})))),
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name) {
+                    if (refAst.body.length === toAst.body.length)
+                      return Obj(
+                        toAst.cons,
+                        toAst.props,
+                        toAst.row,
+                        refAst.body.map((field, i) =>
+                          ({k: toAst.props[i], v: field})));
+
+                    else return Obj(
+                      toAst.cons,
+                      toAst.props,
+                      toAst.row,
+                      toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                        .concat(refAst.body.map((field, i) =>
+                          ({k: toAst.props[i + toAst.body.length - refAst.body.length], v: field}))));
+                }
+
+                else return refAst;
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i].v,
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+
+          else // {foo: a, bar: b} ~ u<c, d, e>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Obj": { // {foo: a, bar: b} ~ {foo: c, bar: d}
+
+          /* Objects are treated as an unordered map of key-value pairs. */
+
+          // {foo: a, bar: b | x} ~ {foo: c | y} -- FAILS (arg row is ignored)
+          // {foo: a | x} ~ {foo: c, bar: d | y} -- OK with x ~ bar: d (y remain unresolved)
+          // {foo: a, bar: b | x} ~ {foo: c, bar: d | y} -- OK with x ~ "" (y remain unresolved)
+
+          // {foo: a, bar: b | x} ~ {foo: c} -- FAILS
+          // {foo: a | x} ~ {foo: c, bar: d} -- OK with x ~ bar: d
+          // {foo: a, bar: b | x} ~ {foo: c, bar: d} -- OK with x ~ ""
+
+          // {foo: a, bar: b} ~ {foo: c | y} -- FAILS (arg row is ignored)
+          // {foo: a} ~ {foo: c, bar: d | y} -- FAILS
+          // {foo: a, bar: b} ~ {foo: c, bar: d | y} -- OK (arg row is ignored)
+
+          if ((paramAst.cons !== null || argAst.cons !== null)
+            && paramAst.cons !== argAst.cons) {
+              throw new TypeError(cat(
+                "type constructor mismatch\n",
+                `expected: ${paramAst.cons}\n`,
+                `received: ${argAst.cons}\n`,
+                "while unifying\n",
+                `${paramAnno}\n`,
+                `${argAnno}\n`,
+                extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+          }
+
+          else if (paramAst.row !== null) { // {foo: a | x} ~ {foo: b, bar: c}
+            const paramMap = new Map([
+              ...paramAst.body.map(({k, v}) => [k, v])]);
+
+            const argMap = new Map([
+              ...argAst.body.map(({k, v}) => [k, v])]);
+
+            const diffMap = argAst.body.reduce((acc, {k, v}) =>
+              paramMap.has(k)
+                ? acc : acc.set(k, v), new Map());
+
+            const rowType = [];
+
+            diffMap.forEach((v, k) => {
+              rowType.push({k, v});
+            });
+
+            paramMap.forEach((v, k) => {
+              if (!argMap.has(k))
+                throw new TypeError(cat(
+                  "structural type mismatch\n",
+                  `required property "${k}" is missing\n`,
+                  "while unifying\n",
+                  `${paramAnno}\n`,
+                  `${argAnno}\n`,
+                  extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+            });
+
+            instantiations = paramAst.body.reduce((acc, {k, v}, i) => {
+              return unifyTypes(
+                v,
+                argMap.get(k),
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos)
+            }, instantiations);
+
+            return instantiate(
+              paramAst.row,
+              RowType(rowType),
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === "Obj"
+                && refAst.row !== null
+                && refAst.row.name === fromAst.name
+                && fromAst[TAG] === "RowVar") {
+                  return Obj(
+                    refAst.cons,
+                    refAst.props.concat(
+                      toAst.body.map(({k, v}) => k)),
+                    argAst.row,
+                    refAst.body.concat(toAst.body))
+                }
+                
+                else return refAst;
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+          }
+
+          else if (paramAst.body.length !== argAst.body.length) { // {foo: a, bar: b} ~ {foo: c} | {foo: c, bar: d, baz: e}
+            throw new TypeError(cat(
+              "structural type mismatch\n",
+              `expected: ${serializeAst(paramAst)}\n`,
+              `received: ${serializeAst(argAst)}\n`,
+              "while unifying\n",
+              `${paramAnno}\n`,
+              `${argAnno}\n`,
+              extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+          }
+
+          else { // {foo: a, bar: b} ~ {foo: c, bar: d}
+            const argMap = new Map([
+              ...argAst.body.map(({k, v}) => [k, v])]);
+
+            return paramAst.body.reduce((acc, {k, v}, i) => {
+              if (!argMap.has(k))
+                throw new TypeError(cat(
+                  "structural type mismatch\n",
+                  `expected property: ${k}\n`,
+                  `received property: ${argAst.body[i].k}\n`,
+                  "while unifying\n",
+                  `${paramAnno}\n`,
+                  `${argAnno}\n`,
+                  extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+              else
+                return unifyTypes(
+                  v,
+                  argMap.get(k),
+                  lamIndex,
+                  argIndex,
+                  iteration,
+                  tvid,
+                  instantiations,
+                  paramAnno,
+                  argAnno,
+                  funAnno,
+                  argAnnos)
+            }, instantiations);
+          }
+        }
+        
+        case "Partial": // {foo: a, bar: b} ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "This": { // {foo: a, bar: b} ~ this*
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+        }
+
+        default: // {foo: a, bar: b} ~ composite type except {}
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Partial": {
+      switch (argAst[TAG]) {
+        case "Partial": return instantiations; // __ ~ __
+
+        case "Tconst": // __ ~ U
+          return instantiate(
+            paramAst,
+            argAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        default: // __ ~ any other type expect Partial
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Tconst": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // T ~ bound b
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // T ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": {
+          if (argAst.body.length === 0) // T ~ b
+            return instantiate(
+              paramAst,
+              argAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else // T ~ u<b>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Partial": // T ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "Tconst": { // T ~ U
+          if (paramAst.name === argAst.name)
+            return instantiations;
+
+          else
+            unificationError(
+              paramAst.name,
+              argAst.name,
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        default: // T ~ composite type except U
+          unificationError(
+            paramAst.name,
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "This": {
+      switch (argAst[TAG]) {
+        case "Obj": { // this* ~ {foo: b, bar: c}
+          return unifyTypes(
+            paramAst.body,
+            argAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+        }
+
+        case "This": // this* ~ this*
+          return instantiations;
+
+        default:
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    case "Tup": {
+      switch (argAst[TAG]) {
+        case "BoundTV": // [a, b] ~ bound c
+          throw new TypeError(
+            "internal error: unexpected bound type variable");
+
+        case "Forall": // [a, b] ~ forall
+          return unifyTypes(
+            paramAst,
+            argAst.body,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "MetaTV":
+        case "RigidTV": {
+          if (argAst.body.length === 0) // [a, b] ~ c
+            return instantiate(
+              argAst,
+              paramAst,
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+          else if (argAst.body.length <= paramAst.body.length) { // [a, b] ~ u<c> | u<c, d>
+            instantiations = instantiate( // [,] | [a,] ~ u
+              (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                argAst.name,
+                argAst.scope,
+                argAst.position,
+                argAst.iteration,
+                Array(argAst.body.length).fill(Partial)),
+              paramAst.body.length === argAst.body.length
+                ? Tup(paramAst.body.length, Array(paramAst.body.length).fill(Partial))
+                : Tup(
+                    paramAst.body.length,
+                    paramAst.body.slice(0, paramAst.body.length - argAst.body.length)
+                      .concat(Array(argAst.body.length).fill(Partial))),
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name)
+                    return refAst.body.length === toAst.body.length
+                      ? Tup(toAst.body.length, refAst.body)
+                      : Tup(
+                          toAst.body.length,
+                          toAst.body.slice(0, toAst.body.length - refAst.body.length)
+                            .concat(refAst.body));
+
+                else return refAst;
+              },
+              lamIndex,
+              argIndex,
+              iteration,
+              tvid,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+
+            return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+          }
+
+          else // [a, b] ~ u<c, d, e>
+            unificationError(
+              serializeAst(paramAst),
+              serializeAst(argAst),
+              lamIndex,
+              argIndex,
+              instantiations,
+              paramAnno,
+              argAnno,
+              funAnno,
+              argAnnos);
+        }
+
+        case "Partial": // [a, b] ~ __
+          return instantiate(
+            argAst,
+            paramAst,
+            (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+              && refAst.name === fromAst.name
+                ? toAst
+                : refAst,
+            lamIndex,
+            argIndex,
+            iteration,
+            tvid,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+
+        case "Tup": { // [a, b] ~ [c, d]
+          if (paramAst.body.length !== argAst.body.length)
+            throw new TypeError(cat(
+              "Tuple mismatch",
+              `expected: ${serializeAst(paramAst)}\n`,
+              `received: ${serializeAst(argAst)}\n`,
+              "while unifying\n",
+              `${paramAnno}\n`,
+              `${argAnno}\n`,
+              extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+          else
+            return paramAst.body.reduce((acc, field, i) =>
+              unifyTypes(
+                field,
+                argAst.body[i],
+                lamIndex,
+                argIndex,
+                iteration,
+                tvid,
+                instantiations,
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos), instantiations);
+        }
+
+        default: // [a, b] ~ composite type except [c, d]
+          unificationError(
+            serializeAst(paramAst),
+            serializeAst(argAst),
+            lamIndex,
+            argIndex,
+            instantiations,
+            paramAnno,
+            argAnno,
+            funAnno,
+            argAnnos);
+      }
+    }
+
+    default: throw new TypeError(
+      "internal error: unknown type");
+  }
+};
+
+/***[ Combinators ]***********************************************************/
+
+const unificationError = (paramAnno_, argAnno_, lamIndex, argIndex, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
+  throw new TypeError(cat(
+    "type mismatch\n",
+    "cannot unify the following types:\n",
+    `${paramAnno_}\n`,
+    `${argAnno_}\n`,
+    paramAnno !== paramAnno_ && argAnno !== argAnno_
+      ? cat(
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`)
+      : "",
+    extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+};
+
+/******************************************************************************
+*******************************************************************************
+*******************************[ INSTANTIATION ]*******************************
+*******************************************************************************
+******************************************************************************/
+
+const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
+
+  // skip instantiation checks for row variables
+
+  if (key[TAG] === "RowVar")
+    return instantiations.set(serializeAst(key), {key, value, substitutor});
+
+  /* Rigid TVs which are nested on the LHS of a function type must only be
+  instantiated with themselves or with meta TVs of the same scope. The latter
+  holds if the meta TV is introduced at the same time or later during the
+  unificiation process.*/
+
+  if (key[TAG] === "RigidTV" && key.scope.split(".").length > 2) { // RTV ~ ?
+    if (value[TAG] === "MetaTV" && key.iteration > value.iteration) // RTV ~ MTV
+      throw new TypeError(cat(
+        `cannot instantiate rigid "${key.name}" with "${value.name}"\n`,
+        `"${key.name}" would escape its scope\n`,
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`,
+        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+    else if (value[TAG] === "RigidTV" && key.name !== value.name) // RTV ~ RTV
+      throw new TypeError(cat(
+        `cannot instantiate rigid "${key.name}" with rigid "${value.name}"\n`,
+        `"${key.name}" can only be instantiated with itself or a meta type variable in scope\n`,
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`,
+        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+    else if (value[TAG] !== "MetaTV" && value[TAG] !== "RigidTV") // RTV ~ composite type
+      throw new TypeError(cat(
+        `cannot instantiate rigid "${key.name}" with "${serializeAst(value)}"\n`,
+        `"${key.name}" can only be instantiated with itself or a meta type variable in scope\n`,
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`,
+        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+  }
+
+  else { // MTV ~ ?
+    if (value[TAG] === "RigidTV"
+      && value.scope.split(".").length > 2
+      && key.iteration < value.iteration) // MTV ~ RTV
+        throw new TypeError(cat(
+          `cannot instantiate "${key.name}" with rigid "${value.name}"\n`,
+          `"${value.name}" would escape its scope\n`,
+          "while unifying\n",
+          `${paramAnno}\n`,
+          `${argAnno}\n`,
+          extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+    reduceAst((acc, value_) => { // MTV ~ composite type including possible RTVs
+      if (value_[TAG] === "RigidTV"
+        && value_.scope.split(".").length > 2
+        && key.iteration < value_.iteration)
+          throw new TypeError(cat(
+            `cannot instantiate "${key.name}" with rigid "${value_.name}"\n`,
+            `contained in "${serializeAst(value)}"\n`,
+            `"${value_.name}" would escape its scope\n`,
+            "while unifying\n",
+            `${paramAnno}\n`,
+            `${argAnno}\n`,
+            extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+    }, null) (value);
+  }
+
+  /* Meta TVs must not occur within a composite type they are meant to be
+  instantiated with, because this would yield an infinite type. */
+
+  if (reduceAst((acc, value_) => {
+    if (value_[TAG] === key[TAG]
+      && value_.name === key.name)
+        return true;
+
+    else return acc;
+  }, false) (value))
+    throw new TypeError(cat(
+      `cannot instantiate "${key.name}" with\n`,
+      `${serializeAst(value)}\n`,
+      `"${key.name}" is contained in the latter, which yields an infinite type\n`,
+      "while unifying\n",
+      `${paramAnno}\n`,
+      `${argAnno}\n`,
+      extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+  /* This rule also holds if a meta TV is instantiated with another meta TV
+  which in turn is instantiated with a composite type and the first meta TV
+  occurs in this very composite type, phew! */
+
+  if (isTV(value) && instantiations.has(value.name)) {
+    const value_ = instantiations.get(value.name).value;
+
+    if ("body" in value_ && value_.body.length > 0) {
+      if (reduceAst((acc, value__) => {
+        if (value__[TAG] === key[TAG]
+          && value__.name === key.name)
+            return true;
+
+        else return acc;
+      }, false) (value_))
+        throw new TypeError(cat(
+          "\n",
+          `cannot instantiate "${key.name}" with "${value.name}"\n`,
+          "because the latter is instantiated with\n",
+          `${serializeAst(value_)}\n`,
+          `and in turn contains "${key.name}", which yields an infinite type\n`,
+          "while unifying\n",
+          `${paramAnno}\n`,
+          `${argAnno}\n`,
+          extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+    }
+  }
+
+  /* If the meta TV is already instantiated with a composite type, both
+  instantiations must unify. */
+
+  if (instantiations.has(key.name)) {
+    try {
+      return unifyTypes(
+        instantiations.get(key.name).value,
+        value,
+        lamIndex,
+        argIndex,
+        iteration,
+        tvid,
+        instantiations,
+        paramAnno,
+        argAnno,
+        funAnno,
+        argAnnos);
+    }
+
+    catch(_) {
+      throw new TypeError(cat(
+        `cannot instantiate "${key.name}" with "${serializeAst(value)}"\n`,
+        `"${key.name}" is already instantiated with the incompatible type `,
+        `"${serializeAst(instantiations.get(key.name).value)}"\n`,
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`,
+        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+    }
+  }
+
+  return instantiations.set(serializeAst(key), {key, value, substitutor});
+};
+
+/******************************************************************************
+*******************************************************************************
+*******************************[ SUBSTITUTION ]********************************
+*******************************************************************************
+******************************************************************************/
+
+// substitute type variables with their instantiated, specific types
+
+const substitute = (ast, instantiations) => {
+  let anno = serializeAst(ast), anno_;
+
+  /* Iteratively performs substitution until the result type doesn't deviate
+  from the original annotation anymore. */
+
+  do {
+    let codomainRefs = [];
+    anno_ = anno;
+
+    instantiations.forEach(({key, value, substitutor}) => {
+      ast = mapAst(ast_ => {
+        ast_ = substitutor(ast_, key, value);
+
+        /* Function substitutes in codomain position should be transparent to
+        the caller and thus must be dealt with within the loop. */
+
+        if (ast_[TAG] === "Codomain") {
+
+          /* After the function type is reduced in the course of the application
+          the result can be a bare Codomain type, which must be reconverted to
+          its original function type. */
+
+          ast_ = Fun(
+            ast_.body.slice(0, -1),
+            ast_.body[ast_.body.length - 1]);
+
+          return ast_;
+        }
+
+        else if (ast_[TAG] === "Fun") {
+
+          /* Collect reference of Codomain types within the AST in order to
+          transform them afterwards. Since this alters the shape of the AST,
+          the transformation must take place after the tree is traversed. */
+
+          if (ast_.body.result[TAG] === "Codomain")
+            codomainRefs.push(ast_);
+
+          return ast_;
+        }
+
+        else return ast_;
+      }) (ast);
+
+      /* Merges substitution functions in codomain position with its surrounding
+      function. */
+
+      codomainRefs.forEach(ref => {
+        ref.body.lambdas.push(...ref.body.result.body.slice(0, -1));
+        ref.body.result = ref.body.result.body[ref.body.result.body.length - 1];
+      });
+
+      codomainRefs = [];
+    });
+
+    anno = serializeAst(ast);
+  } while (anno !== anno_);
+
+  return ast;
+};
+
+/******************************************************************************
+*******************************************************************************
+**********************[ SPECIALIZATION/REGENERALIZATION ]**********************
+*******************************************************************************
+******************************************************************************/
+
+/* Specialization is the process of instantiating bound TVs with fresh meta or
+rigid ones by giving them a new unique name without altering their scopes (alpha
+renaming). This effectively removes the affected quantifier. Specialization is
+only possible with the outermost quantifier. In order to do it with nested
+quantifiers subsumption is necessary. Whether bound TVs becomemeta or rigid
+depends on the side of the equation they are located in during subsumption. */
+
+const specializeLHS = (scope, iteration, tvid) => {
+  const mapAst_ = mapAst(ast => {
+    if (ast[TAG] === "Forall")
+      return ast.scope === scope
+        ? Forall(new Set(), ast.scope, ast.body)
+        : ast;
+
+    else if (ast[TAG] === "BoundTV")
+      return scopeLte(ast.scope, scope)
+        ? MetaTV(ast.name + tvid, ast.scope, ast.position, iteration, ast.body)
+        : ast;
+
+    else return ast;
+  });
+
+  return ast => ({ast: mapAst_(ast), tvid});
+};
+
+const specializeRHS = (scope, iteration, tvid) => {
+  const mapAst_ = mapAst(ast => {
+    if (ast[TAG] === "Forall")
+      return ast.scope === scope
+        ? Forall(new Set(), ast.scope, ast.body)
+        : ast;
+
+    else if (ast[TAG] === "BoundTV")
+      return scopeLte(ast.scope, scope)
+        ? RigidTV(ast.name + tvid, ast.scope, ast.position, iteration, ast.body)
+        : ast;
+
+    else return ast;
+  });
+
+  return ast => ({ast: mapAst_(ast), tvid});
+};
+
+// reverse the specialization process
+
+const regeneralize = ast => {
+  let reservedNames,
+    charCode = 97;
+
+  const newNames = new Map(),
+    btvs = new Set(),
+    rvs = new Set();
+
+  reservedNames = reduceAst((acc, ast_) => {
+    if (ast_[TAG] === "MetaTV"
+      || ast_[TAG] === "RigidTV"
+      || ast_[TAG] === "RowVar") {
+        if (ast_.name.search(/\d$/) === NOT_FOUND)
+          return acc.add(ast_.name);
+
+        else return acc;
+    }
+
+    else return acc;
+  }, new Set()) (ast);
+
+  ast = mapAst(ast_ => {
+    switch (ast_[TAG]) {
+      case  "MetaTV":
+      case "RigidTV": {
+        if (ast_.name.search(/\d$/) !== NOT_FOUND) {
+          if (newNames.has(ast_.name)) {
+            btvs.add(newNames.get(ast_.name));
+
+            return BoundTV(
+              newNames.get(ast_.name), ast_.scope, ast_.position, ast_.body);
+          }
+
+          else {
+            let name = ast_.name.match(new RegExp("^([a-z]+)\\d+$", "")) [1];
+
+            if (reservedNames.has(name)) {
+              do {
+                name = String.fromCharCode(charCode++);
+              } while (reservedNames.has(name));
+            }
+
+            reservedNames.add(name);
+            newNames.set(ast_.name, name);
+            btvs.add(name);
+
+            return BoundTV(
+              name, ast_.scope, ast_.position, ast_.body);
+          }
+        }
+
+        else {
+          btvs.add(ast_.name);
+
+          return BoundTV(
+            ast_.name, ast_.scope, ast_.position, ast_.body);
+        }
+      }
+
+      default: return ast_;
+    }
+  }) (ast);
+
+  if (btvs.size > 0)
+    return Forall(
+      btvs,
+      TOP_LEVEL_SCOPE,
+      ast[TAG] === "Forall" ? ast.body : ast);
+
+  else return ast;
+};
+
+/******************************************************************************
+*******************************************************************************
+************************************[ LIB ]************************************
+*******************************************************************************
+******************************************************************************/
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed function expected\n",
+        "while applying\n",
+        `_let(${args.map(introspectDeep).join(", ")})\n`));
+
+    else return f(...args);
+  }};
+};
+
+export const eff = fun(
+  f => x => (f(x), x),
+  "(a => discard) => a => a");
+
+export const arrClone = fun(
+  xs => xs.concat(),
+  "[a] => [a]");
+
+export const arrPush = fun(
+  x => xs => (xs.push(x), xs),
+  "a => [a] => [a]");
+
+export const Mutable = clone => ref => {
+  return _let({}, ref).in(fun((o, ref) => {
+    const anno = introspectDeep(ref);
+    let mutated = false;
+
+    o.consume = fun(() => {
+      if (mutated) {
+        delete o.consume;
+        delete o.update;
+        o.consume = fun(() => ref, "_ => t<a>");
+
+        o.update = _ => {
+          throw new TypeError(
+            "illegal in-place update of consumed data structure");
+        };
+      }
+
+      return ref;
+    }, `_ => ${anno}`);
+
+    o.update = fun(k => {
+      if (!mutated) {
+        ref = clone(ref); // copy once on first write
+        mutated = true;
+      }
+
+      k(ref); // use the effect but discard the result
+      return o;
+    }, `(${anno} => ${anno}) => Mutable {consume: (_ => ${anno}), update: ((${anno} => t<a>) => this*)}`);
+
+    return (o[TAG] = "Mutable", o);
+  }, "{}, t<a> => Mutable {consume: (_ => t<a>), update: ((t<a> => t<a>) => this*)}"));
+};
