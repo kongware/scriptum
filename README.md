@@ -390,7 +390,11 @@ Please note that `r` and `a` from the above example might resemble each other bu
 
 ### Object type concatenation
 
-Types are encoded as first class `String`s in scriptum, i.e. you can just concatenate them with Javascript's `String` and `Array` methods. This is helpful to keep your type definitions DRY.
+TODO
+
+### Method Chaining through Self-References
+
+TODO
 
 ### Subtyping
 
