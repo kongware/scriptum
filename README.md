@@ -176,7 +176,7 @@ Unlike in Javascript variadic arguments must be homogeneous in their type, becau
 Thunks, or nullary functions are important in an eagerly evaluated language like Javascript, because it provides a means to prevent evaluation until needed:
 
 ```javascript
-const lazyAdd = fun(x => y => () => x + y, "Number => Number => _ => Number");
+const lazyAdd = fun(x => y => () => x + y, "Number => Number => () => Number");
 
 const thunk = lazyAdd(2) (3);
 thunk(); // 5
@@ -421,7 +421,7 @@ Although `undefined` clearly indicates a type error, Javascript silently accepts
 const prop = fun(o => k => o[k], "{name: String, age: Number} => String => a"),
   o = {name: "Binoche", age: 57};
 
-const lazyExp = fun(() => 2 * 3, "_ => Number");
+const lazyExp = fun(() => 2 * 3, "() => Number");
 
 prop(o) ("name"); // "Binoche"
 prop(o) ("foo"); // type error
