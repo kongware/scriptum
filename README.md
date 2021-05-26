@@ -38,5 +38,5 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] safe mutations without sharing
 - [ ] persistent data structures
 - [ ] stack-safe sync/async recursion
-- [ ] expressions in weak head normal form
+- [ ] weak head normal form
 - [ ] effect handling and composition
