@@ -780,7 +780,7 @@ const parseAnno = anno => {
           
           // no-argument
 
-          if (ds === "_")
+          if (ds === "()")
             return new Arg0();
 
           else {
@@ -1267,9 +1267,9 @@ const verifyAnno = s => {
       `invalid use of ":"\n`,
       `in "${s}"\n`));
 
-  // checks for valid use of _/__
+  // checks for valid use of __
 
-  else if (s.replace(new RegExp("\\b_ =>|\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
+  else if (s.replace(new RegExp("\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `invalid use of "_"\n`,
@@ -1305,6 +1305,14 @@ const verifyAnno = s => {
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `invalid use of "*" or "this*"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of ()
+
+  else if (s.replace(new RegExp("\\(\\) =>", "g"), "").search(/\(\)/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "()"\n`,
       `in "${s}"\n`));
 
   // prevents malformed explicit quantifier
@@ -1452,7 +1460,7 @@ const serializeAst = initialAst => {
       case "Fun": {
         const domain = ast.body.lambdas.map(args => {
           switch (args[TAG]) {
-            case "Arg0": return "_";
+            case "Arg0": return "()";
             case "Arg1": return go(args[0]);
             case "Args": return args.map(go).join(", ");
             
@@ -2960,7 +2968,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           else {
             const arityDiff = determineArity(paramAst) - argAst.body.length;
 
-            if (arityDiff === 0) { // (_ => b) ~ u<c> | (a => b) ~ u<c, d> | (a, b => c) ~ u<d, e, f>
+            if (arityDiff === 0) { // (() => b) ~ u<c> | (a => b) ~ u<c, d> | (a, b => c) ~ u<d, e, f>
 
               // unify domain
 
@@ -3143,7 +3151,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               }
             }
 
-            else if (arityDiff < 0) // (_ => b) ~ u<c, d> | (a => b) ~ u<c, d, e> | (a, b => c) ~ u<d, e, f, g>
+            else if (arityDiff < 0) // (() => b) ~ u<c, d> | (a => b) ~ u<c, d, e> | (a, b => c) ~ u<d, e, f, g>
               unificationError(
                 serializeAst(paramAst),
                 serializeAst(argAst),
@@ -3775,7 +3783,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 case "Fun": { // zyx
                   const arityDiff = argArity - paramAst.body.length;
 
-                  if (arityDiff === 0) { // t<a> ~ (_ => b) | t<a, b> ~ (c => d) | t<a, b, c> ~ (d, e => f)
+                  if (arityDiff === 0) { // t<a> ~ (() => b) | t<a, b> ~ (c => d) | t<a, b, c> ~ (d, e => f)
 
                     // unify domain
             
@@ -3957,7 +3965,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     }
                   }
 
-                  else if (arityDiff < 0) // t<a, b> ~ (_ => c) | t<a, b, c> ~ (d => e) | t<a, b, c, d> ~ (e, f => g)
+                  else if (arityDiff < 0) // t<a, b> ~ (() => c) | t<a, b, c> ~ (d => e) | t<a, b, c, d> ~ (e, f => g)
                     unificationError(
                       serializeAst(paramAst),
                       serializeAst(argAst),
@@ -5649,6 +5657,16 @@ const regeneralize = ast => {
 *******************************************************************************
 ******************************************************************************/
 
+
+// GOALS
+
+// * stack-safe sync/async recursion
+// * persitent data structures based on red-black trees
+// * expressions in weak head normal form
+// * mutations w/o sharing
+// * effect composition with transformers
+
+
 export const _let = (...args) => {
   return {in: f => {
     if (CHECK && !(ANNO in f))
@@ -5675,14 +5693,14 @@ export const arrPush = fun(
 
 export const Mutable = clone => ref => {
   return _let({}, ref).in(fun((o, ref) => {
-    const anno = introspectDeep(ref);
+    const anno = CHECK ? introspectDeep(ref) : "";
     let mutated = false;
 
     o.consume = fun(() => {
       if (mutated) {
         delete o.consume;
         delete o.update;
-        o.consume = fun(() => ref, "_ => t<a>");
+        o.consume = fun(() => ref, `() => ${anno}`);
 
         o.update = _ => {
           throw new TypeError(
@@ -5691,7 +5709,7 @@ export const Mutable = clone => ref => {
       }
 
       return ref;
-    }, `_ => ${anno}`);
+    }, `() => ${anno}`);
 
     o.update = fun(k => {
       if (!mutated) {
@@ -5701,8 +5719,16 @@ export const Mutable = clone => ref => {
 
       k(ref); // use the effect but discard the result
       return o;
-    }, `(${anno} => ${anno}) => Mutable {consume: (_ => ${anno}), update: ((${anno} => t<a>) => this*)}`);
+    }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => t<a>) => this*)}`);
 
     return (o[TAG] = "Mutable", o);
-  }, "{}, t<a> => Mutable {consume: (_ => t<a>), update: ((t<a> => t<a>) => this*)}"));
+  }, "{}, t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}"));
 };
+
+export const add = fun(
+  x => y => x + y,
+  "Number => Number => Number");
+
+export const arrForEach = fun(
+  f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
+  "(a => b) => [a] => [b]");
