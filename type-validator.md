@@ -1,4 +1,12 @@
-# Introduction
+# Runtime Type Validator
+
+Usually the type system is designed first and the rest of the language around it. However, with Javascript we are stuck with an untyped language. Adding a type system with hindsight is a Sisyphean task as you can observe with Typescript.
+
+scriptum partially bypasses this problem by implementing only a part of a traditional type checker: It checks applications but no definitions, i.e. there is no automatic inference from terms to types but terms have to be annotated explicitly.
+
+Explicit annotations sounds laborious. How can we reduce them? If we validate types at runtime we can resort to Javascript's introspection means. This at least frees us from explicitly typing non-functional terms. Furthermore, if we have access to an extensive typed functional library, we only have to annotate our own combinators. This is what scriptum offers.
+
+The type validator is based on the Hindley-Milner type system extended by higher-kinded/rank types and row polymorphism. Do not be scared by the type theory lingo. This introduction explains these concepts in Layman's terms together with practical examples.
 
 ## Type Representation
 
