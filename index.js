@@ -18,10 +18,13 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 *******************************************************************************
 ******************************************************************************/
 
+
 /***[ Constants ]*************************************************************/
+
 
 const CHECK = true; // type validator flag
 const PREFIX = "$_"; // avoids property name clashes
+
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -33,17 +36,23 @@ const SAFE_SPACE = "·"; // use within type indentations
 const TAG = Symbol.toStringTag;
 const UNWRAP = PREFIX + "unwrap"; // access to the untyped function
 
+
 /***[ Variables ]*************************************************************/
 
+
 const adtDict = new Map(); // ADT register (name and arity)
+
 
 const nativeDict = new Map([ // native register (name and arity)
   ["Map", 2],
   ["Set", 1]]);
 
+
 /***[ Combinators ]***********************************************************/
 
+
 const cat = (...lines) => lines.join("");
+
 
 const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => {
   if (lamIndex === null)
@@ -82,13 +91,16 @@ const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => 
     instantiations + "\n");
 };
 
+
 /******************************************************************************
 *******************************************************************************
 *********************************[ SUBTYPES ]**********************************
 *******************************************************************************
 ******************************************************************************/
 
+
 /***[ Argument Types ]********************************************************/
+
 
 // nullary functions (no arguments)
 
@@ -99,6 +111,7 @@ class Arg0 extends Array {
     return "Arg0";
   }
 }
+
 
 // unary functions
 
@@ -113,6 +126,7 @@ class Arg1 extends Array {
   }
 }
 
+
 // variadic functions (dynamic argument length)
 
 class Argv extends Array {
@@ -125,6 +139,7 @@ class Argv extends Array {
     return "Argv";
   }
 }
+
 
 // n-ary functions (multi-agrument)
 
@@ -144,6 +159,7 @@ class Args extends Array {
   }
 }
 
+
 // n-ary functions (multi-agrument) with a variadic one as last argument
 
 class Argsv extends Array {
@@ -162,7 +178,9 @@ class Argsv extends Array {
   }
 }
 
+
 /***[ Non-Empty Array ]*******************************************************/
+
 
 /* The constructor allows creating empty non-empty arrays, because otherwise we
 could not use the built-in Array methods. */
@@ -183,7 +201,9 @@ export class NEArray extends Array {
   }
 }
 
+
 /***[ Tuple ]*****************************************************************/
+
 
 /* There is a superordinate tuple constructor for all tuple types only limited
 by the lower and upper bound. Each tuple type carries a size property to
@@ -222,19 +242,23 @@ export class Tuple extends Array {
   }
 }
 
+
 /******************************************************************************
 *******************************************************************************
 ************************************[ AST ]************************************
 *******************************************************************************
 ******************************************************************************/
 
+
 // algebraic data types
 
 const Adt = (cons, body) =>
   ({[Symbol.toStringTag]: Adt.name, cons, body});
 
+
 const Arr = body =>
   ({[Symbol.toStringTag]: Arr.name, body});
+
 
 /* During substitution it matters in which position a function argument is
 supposed to be substituted. If it is in a codomain position, i.e. in the result
@@ -245,6 +269,7 @@ a constructor that internally denotes a substitution in codomain position. */
 const Codomain = (...body) =>
   ({[Symbol.toStringTag]: Codomain.name, body});
 
+
 /* `Forall` is lexically characterized by round parenthesis. Its usage is
 ambiguous. On the one hand it denotes top-level or nested quantifiers and on
 the other hand it groups function subterms of a given annotation. In the
@@ -253,18 +278,22 @@ latter case the quantifiers has no bound type variables. */
 const Forall = (btvs, scope, body) =>
   ({[Symbol.toStringTag]: Forall.name, btvs, scope, body});
 
+
 const Fun = (lambdas, result) =>
   ({[Symbol.toStringTag]: Fun.name, body: {lambdas, result}});
+
 
 // Javascript's native exotic object types (e.g. Map, Set)
 
 const Native = (cons, body) =>
   ({[Symbol.toStringTag]: Native.name, cons, body});
 
+
 // non-empty array
 
 const Nea = body =>
   ({[Symbol.toStringTag]: Nea.name, body});
+
 
 /* Objects implicitly create a self reference to enable method chaining. */
 
@@ -274,18 +303,22 @@ const Obj = (cons, props, row, body) => {
   return o;
 }
 
+
 /* `Partial` is used to denote not consumed type parameters of a
 partially applied type constructor. */
 
 const Partial = ({[Symbol.toStringTag]: "Partial"});
+
 
 // `RowType` and `RowVar` encode row polymorphism 
 
 const RowType = body =>
   ({[Symbol.toStringTag]: RowType.name, body});
 
+
 const RowVar = name =>
   ({[Symbol.toStringTag]: RowVar.name, name});
+
 
 // `Obj` self refecrence to allow method chaining
 
@@ -295,30 +328,38 @@ const This = (nesting, o) => {
   return o;
 };
 
+
 // tuples
 
 const Tup = (size, body) =>
   ({[Symbol.toStringTag]: Tup.name, size, body});
+
 
 // type constant
 
 const Tconst = name =>
   ({[Symbol.toStringTag]: Tconst.name, name});
 
+
 /***[ Type Variables ]********************************************************/
+
 
 const BoundTV = (name, scope, position, body) =>
   ({[Symbol.toStringTag]: BoundTV.name, name, scope, position, body});
 
+
 const MetaTV = (name, scope, position, iteration, body) => // a.k.a. flexible type variable
   ({[Symbol.toStringTag]: MetaTV.name, name, scope, position, iteration, body});
+
 
 const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem constant
   ({[Symbol.toStringTag]: RigidTV.name, name, scope, position, iteration, body});
 
+
 /******************************************************************************
 ********************************[ COMBINATORS ]********************************
 ******************************************************************************/
+
 
 // determines the arity of the passed type constructor
 
@@ -347,6 +388,7 @@ const determineArity = ast => {
     }
   }
 };
+
 
 /* If a `Forall` sub-AST is extracted from an annotation, the quantifier doesn't
 hold any bound type variables, because at this position the `Forall` serves mere
@@ -402,6 +444,7 @@ const adjustForall = ref => {
   }
 };
 
+
 const isTV = ast => {
   switch (ast[TAG]) {
     case "BoundTV":
@@ -410,6 +453,7 @@ const isTV = ast => {
     default: return false;
   }
 };
+
 
 const mapAst = f => {
   const go = ast => {
@@ -502,6 +546,7 @@ const mapAst = f => {
   return go;
 };
 
+
 /* When an AST is regeneralized or extratced from a larger annotation there may
 occur redundant `Forall` subterms that need to be pruned from the tree. */
 
@@ -574,6 +619,7 @@ const pruneForalls = ast => {
       "internal error: unknown value constructor at pruneForalls");
   }
 };
+
 
 const reduceAst = (f, init) => {
   const go = (acc, ast) => {
@@ -651,6 +697,7 @@ const reduceAst = (f, init) => {
   return ast => go(init, ast);
 };
 
+
 /* Removes the leftmost formal parameter of a function type after a function
 application. */
 
@@ -671,6 +718,7 @@ const remConsumedParams = (ast) => {
         ast.body.body.result));
 };
 
+
 // checks if a passed AST requires a top-level quantifier
 
 const requireForall = ast => {
@@ -689,6 +737,7 @@ const requireForall = ast => {
   }
 };
 
+
 const scopeEq = (scope1, scope2) => {
   const scope1_ = scope1.split(/\./)
     .slice(0, -1)
@@ -700,6 +749,7 @@ const scopeEq = (scope1, scope2) => {
 
   return scope1_ === scope2_;
 };
+
 
 const scopeLte = (scope1, scope2) => {
   const scope1_ = scope1.split(/\./)
@@ -713,11 +763,13 @@ const scopeLte = (scope1, scope2) => {
   return scope2_.search(scope1_) === 0;
 };
 
+
 /******************************************************************************
 *******************************************************************************
 **********************************[ PARSING ]**********************************
 *******************************************************************************
 ******************************************************************************/
+
 
 const parseAnno = anno => {
   const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
@@ -1175,6 +1227,7 @@ const parseAnno = anno => {
   else return ast;
 };
 
+
 // verifies the provied annotation against the base syntactical rules
 
 const verifyAnno = s => {
@@ -1354,7 +1407,9 @@ const verifyAnno = s => {
   return s;
 };
 
+
 /***[ Combinators ]***********************************************************/
+
 
 /* Since I use regular expresssions (don't judge me) to parse annotations
 frequently only the current lecixal level must be parsed. `remNestings` removes
@@ -1383,6 +1438,7 @@ const remNestings = s => {
   return cs;
 };
 
+
 /* Take one level of an annotation and splits it at each position where a
 subterm is found. */
 
@@ -1398,11 +1454,13 @@ const splitByScheme = (rx, delimLen, ref) => cs => {
   return ys;
 };
 
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ SERIALIZATION ]*******************************
 *******************************************************************************
 ******************************************************************************/
+
 
 // opposite of `parseAnno`
 
@@ -1552,11 +1610,13 @@ const serializeAst = initialAst => {
     : s;
 };
 
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ INTROSPECTION ]*******************************
 *******************************************************************************
 ******************************************************************************/
+
 
 export const introspectFlat = x => {
   const type = Object.prototype.toString.call(x).slice(8, -1);
@@ -1595,6 +1655,7 @@ export const introspectFlat = x => {
     default: return type;
   }
 };
+
 
 export const introspectDeep = x => {
   const type = introspectFlat(x);
@@ -1719,11 +1780,13 @@ export const introspectDeep = x => {
   }
 };
 
+
 /******************************************************************************
 *******************************************************************************
 ***********************************[ ADTs ]************************************
 *******************************************************************************
 ******************************************************************************/
+
 
 // declare Scott encoded algebraic data types with build-in pattern matching
 
@@ -1844,9 +1907,11 @@ export const type = adtAnno => {
   }
 };
 
+
 /******************************************************************************
 *******************************[ TYPE CLASSES ]********************************
 ******************************************************************************/
+
 
 /* Declare type classes purely at the value level. They are encoded as
 dictionaries comprising the operations of the respective type class. From the
@@ -2021,15 +2086,18 @@ export const typeClass = tcAnno => {
   }
 };
 
+
 /******************************************************************************
 *******************************************************************************
 ******************************[ TYPE VALIDATION ]******************************
 *******************************************************************************
 ******************************************************************************/
 
+
 /* The type checker only considers applications, not definition. It only
 attempts to unify the formal parameter of a function type with a provided
 argument type, but it does not infer types from given terms. */
+
 
 export const fun = (f, funAnno) => {
   const go = (g, lamIndex, funAst, funAnno) => Object.assign((...args) => {
@@ -2346,9 +2414,11 @@ export const fun = (f, funAnno) => {
   }
 };
 
+
 /******************************************************************************
 **************************[ UNIFICATION/SUBSUMPTION ]**************************
 ******************************************************************************/
+
 
 const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
 
@@ -5286,7 +5356,9 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
   }
 };
 
+
 /***[ Combinators ]***********************************************************/
+
 
 const unificationError = (paramAnno_, argAnno_, lamIndex, argIndex, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
   throw new TypeError(cat(
@@ -5303,11 +5375,13 @@ const unificationError = (paramAnno_, argAnno_, lamIndex, argIndex, instantiatio
     extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
 };
 
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ INSTANTIATION ]*******************************
 *******************************************************************************
 ******************************************************************************/
+
 
 const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
 
@@ -5458,11 +5532,13 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
   return instantiations.set(serializeAst(key), {key, value, substitutor});
 };
 
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ SUBSTITUTION ]********************************
 *******************************************************************************
 ******************************************************************************/
+
 
 // substitute type variables with their instantiated, specific types
 
@@ -5528,11 +5604,13 @@ const substitute = (ast, instantiations) => {
   return ast;
 };
 
+
 /******************************************************************************
 *******************************************************************************
 **********************[ SPECIALIZATION/REGENERALIZATION ]**********************
 *******************************************************************************
 ******************************************************************************/
+
 
 /* Specialization is the process of instantiating bound TVs with fresh meta or
 rigid ones by giving them a new unique name without altering their scopes (alpha
@@ -5559,6 +5637,7 @@ const specializeLHS = (scope, iteration, tvid) => {
   return ast => ({ast: mapAst_(ast), tvid});
 };
 
+
 const specializeRHS = (scope, iteration, tvid) => {
   const mapAst_ = mapAst(ast => {
     if (ast[TAG] === "Forall")
@@ -5576,6 +5655,7 @@ const specializeRHS = (scope, iteration, tvid) => {
 
   return ast => ({ast: mapAst_(ast), tvid});
 };
+
 
 // reverse the specialization process
 
@@ -5651,45 +5731,211 @@ const regeneralize = ast => {
   else return ast;
 };
 
+
 /******************************************************************************
 *******************************************************************************
-************************************[ LIB ]************************************
+******************************[ LAZY EVALUATION ]******************************
 *******************************************************************************
 ******************************************************************************/
 
 
-// GOALS
-
-// * stack-safe sync/async recursion
-// * persitent data structures based on red-black trees
-// * expressions in weak head normal form
-// * mutations w/o sharing
-// * effect composition with transformers
+/* Thunks are arbitrary unevaluated expressions that are evaluated when needed.
+As opposed to Javascript thunks like `() => expr` scriptum uses implicit thunks,
+i.e. you don't have to care whether they are evaluated or not. Thunks enable
+proper lazy evaluation in Javascript. */
 
 
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed function expected\n",
-        "while applying\n",
-        `_let(${args.map(introspectDeep).join(", ")})\n`));
+/***[ Constants ]*************************************************************/
 
-    else return f(...args);
-  }};
+
+const EVAL = PREFIX + "eval";
+
+
+const NULL = PREFIX + "null";
+
+
+const THUNK = PREFIX + "thunk";
+
+
+/***[ API ]*******************************************************************/
+
+
+// enforce lazy evaluation
+
+export const lazy = f => x =>
+  thunk(() => f(x));
+
+
+// strictly evaluate a single thunk
+
+export const strict = thunk =>
+  thunk && thunk[THUNK] === true
+    ? thunk[EVAL]
+    : thunk;
+
+
+// strictly evaluate a thunk recursively
+
+export const strictRec = thunk => {
+  while (thunk && thunk[THUNK] === true)
+    thunk = thunk[EVAL];
+
+  return thunk;
 };
 
-export const eff = fun(
-  f => x => (f(x), x),
-  "(a => discard) => a => a");
 
-export const arrClone = fun(
-  xs => xs.concat(),
-  "[a] => [a]");
+// creates thunk in weak head normal form
 
-export const arrPush = fun(
-  x => xs => (xs.push(x), xs),
-  "a => [a] => [a]");
+export const thunk = thunk => {
+  if (ANNO in thunk)
+    return new Proxy(thunk, new ThunkProxy());
+
+  else throw new TypeError(
+    "typed thunk expected");
+};
+
+
+/***[ Implementation ]********************************************************/
+
+
+class ThunkProxy {
+  constructor() {
+    this.memo = NULL;
+  }
+
+  apply(g, that, args) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return this.memo(...args);
+  }
+
+  get(g, k) {
+
+    // prevent evaluation for thunk introspection
+    
+    if (k === THUNK)
+      return true;
+
+    // evaluate thunk only once
+
+    else if (this.memo === NULL) {
+      this.memo = g();
+      
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    // trigger evaluation
+
+    if (k === EVAL)
+      return this.memo;
+
+    else if (k === "valueOf")
+      return () => this.memo.valueOf();
+
+    else if (k === "toString")
+      return () => this.memo.toString();
+
+    // enforce array spreading
+    
+    else if (k === Symbol.isConcatSpreadable
+      && Array.isArray(this.memo))
+        return true;
+
+    else if (k === Symbol.toStringTag)
+      return Object.prototype.toString.call(this.memo).slice(8, -1);
+
+    // bind in case of a method
+
+    if (typeof this.memo[k] === "function")
+      return this.memo[k].bind(this.memo);
+
+    else return this.memo[k];
+  }
+
+  getOwnPropertyDescriptor(g, k) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+      
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return Reflect.getOwnPropertyDescriptor(this.memo, k);
+  }
+
+  has(g, k) {
+
+    // prevent evaluation for thunk introspection
+
+    if (k === THUNK)
+      return true;
+
+    // evaluate thunk only once
+
+    else if (this.memo === NULL) {
+      this.memo = g();
+
+    // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return k in this.memo;
+  }
+
+  ownKeys(g) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return Object.keys(this.memo);
+  }
+}
+
+
+/******************************************************************************
+*******************************************************************************
+************************[ PERSISTENT DATA STRUCTURES ]*************************
+*******************************************************************************
+******************************************************************************/
+
+
+// based on left-leaning red-black trees
+
+
+/******************************************************************************
+*******************************************************************************
+***************************[ SAFE IN-PLACE UPDATES ]***************************
+*******************************************************************************
+******************************************************************************/
+
 
 export const Mutable = clone => ref => {
   return _let({}, ref).in(fun((o, ref) => {
@@ -5725,9 +5971,61 @@ export const Mutable = clone => ref => {
   }, "{}, t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}"));
 };
 
+
+/******************************************************************************
+*******************************************************************************
+************************************[ LIB ]************************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+******************************[ LOCAL BINDINGS ]*******************************
+******************************************************************************/
+
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed function expected\n",
+        "while applying\n",
+        `_let(${args.map(introspectDeep).join(", ")})\n`));
+
+    else return f(...args);
+  }};
+};
+
+
+/******************************************************************************
+**********************************[ EFFECTS ]**********************************
+******************************************************************************/
+
+
+export const eff = fun(
+  f => x => (f(x), x),
+  "(a => discard) => a => a");
+
+
+/******************************************************************************
+***********************************[ ARRAY ]***********************************
+******************************************************************************/
+
+
+export const arrClone = fun(
+  xs => xs.concat(),
+  "[a] => [a]");
+
+
+export const arrPush = fun(
+  x => xs => (xs.push(x), xs),
+  "a => [a] => [a]");
+
+
 export const add = fun(
   x => y => x + y,
   "Number => Number => Number");
+
 
 export const arrForEach = fun(
   f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
