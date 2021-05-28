@@ -35,8 +35,9 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] type safety
 - [x] algebraic data types
 - [x] value level type classes
-- [x] safe mutations without sharing
+- [ ] lazy evaluation with thunks
 - [ ] persistent data structures
+- [x] safe mutations without sharing
 - [ ] stack-safe sync/async recursion
-- [ ] weak head normal form
 - [ ] effect handling and composition
+- [ ] software transactional memory
