@@ -22,7 +22,7 @@ Just like Typescript scriptum enables gradual typing in Javascript but with a ra
 
 Unstable (v0.1.0)
 
-This type validator is out of my league, that is to say I barely managed to finish it. The implementation is therefore neither bug free nor DRY or performant.
+This type validator is out of my league, that is to say I barely managed to finish it. The implementation is therefore neither bug free nor DRY nor performant.
 
 If you come across a bug, please don't hesitate to file an issue. Thank you!
 
@@ -37,7 +37,7 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] value level type classes
 - [x] lazy evaluation with thunks
 - [ ] persistent data structures
-- [x] safe mutations without sharing
+- [x] safe in-place updates
 - [ ] stack-safe sync/async recursion
 - [ ] effect handling and composition
 - [ ] software transactional memory
