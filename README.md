@@ -40,4 +40,5 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] safe in-place updates
 - [ ] stack-safe sync/async recursion
 - [ ] effect handling and composition
-- [ ] software transactional memory
+- [ ] concurrency (STM)
+- [ ] strong eventual consistency (CRDTs)
