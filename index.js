@@ -5937,39 +5937,42 @@ class ThunkProxy {
 ******************************************************************************/
 
 
-export const Mutable = clone => ref => {
-  return _let({}, ref).in(fun((o, ref) => {
+export const Mutable = fun(
+  clone => ref => {
     const anno = CHECK ? introspectDeep(ref) : "";
-    let mutated = false;
 
-    o.consume = fun(() => {
-      if (mutated) {
-        delete o.consume;
-        delete o.update;
-        o.consume = fun(() => ref, `() => ${anno}`);
+    return _let({}, ref).in(fun((o, ref) => {
+      let mutated = false;
 
-        o.update = _ => {
-          throw new TypeError(
-            "illegal in-place update of consumed data structure");
-        };
-      }
+      o.consume = fun(() => {
+        if (mutated) {
+          delete o.consume;
+          delete o.update;
+          o.consume = fun(() => ref, `() => ${anno}`);
 
-      return ref;
-    }, `() => ${anno}`);
+          o.update = _ => {
+            throw new TypeError(
+              "illegal in-place update of consumed data structure");
+          };
+        }
 
-    o.update = fun(k => {
-      if (!mutated) {
-        ref = clone(ref); // copy once on first write
-        mutated = true;
-      }
+        return ref;
+      }, `() => ${anno}`);
 
-      k(ref); // use the effect but discard the result
-      return o;
-    }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => t<a>) => this*)}`);
+      o.update = fun(k => {
+        if (!mutated) {
+          ref = clone(ref); // copy once on first write
+          mutated = true;
+        }
 
-    return (o[TAG] = "Mutable", o);
-  }, "{}, t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}"));
-};
+        k(ref); // use the effect but discard the result
+        return o;
+      }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`);
+
+      return (o[TAG] = "Mutable", o);
+    }, `{}, ${anno} => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`));
+  },
+  "(t<a> => t<a>) => t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}");
 
 
 /******************************************************************************
