@@ -771,7 +771,7 @@ const scopeLte = (scope1, scope2) => {
 ******************************************************************************/
 
 
-const parseAnno = anno => {
+export const parseAnno = anno => { // TODO: remove export
   const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
@@ -1276,7 +1276,7 @@ const verifyAnno = s => {
       `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
       `in "${s}"\n`));
 
-  else if (s.replace(new RegExp(" => |, |\\. |: | \\| |[a-z] {", "g"), "").search(/ /) !== NOT_FOUND)
+  else if (s.replace(new RegExp(" => | =>|=> |, |\\. |: | \\| |[a-z] {", "g"), "").search(/ /) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `redundant " "\n`,
@@ -1464,7 +1464,7 @@ const splitByScheme = (rx, delimLen, ref) => cs => {
 
 // opposite of `parseAnno`
 
-const serializeAst = initialAst => {
+export const serializeAst = initialAst => { // TODO: remove export
   const go = ast => {
     switch (ast[TAG]) {
       case "Adt": {
@@ -1580,7 +1580,7 @@ const serializeAst = initialAst => {
           "}");
       }
 
-      case "Partial": return "__";
+      case "Partial": return "";
       
       case "RowType": return ast.body.map(
         ({k, v}) => `${k}: ${go(v)}`).join(", ");
@@ -6023,11 +6023,6 @@ export const arrClone = fun(
 export const arrPush = fun(
   x => xs => (xs.push(x), xs),
   "a => [a] => [a]");
-
-
-export const add = fun(
-  x => y => x + y,
-  "Number => Number => Number");
 
 
 export const arrForEach = fun(
