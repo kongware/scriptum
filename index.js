@@ -668,7 +668,10 @@ const reduceAst = (f, init) => {
         go(acc_, v), acc), ast);
 
       case "Partial": return f(acc, ast);
-      case "RowType": return f(go(acc, ast.body), ast);
+      
+      case "RowType": return f(ast.body.reduce((acc_, {k, v}) =>
+        go(acc_, v), acc), ast);
+
       case "RowVar": return f(acc, ast);
 
       case "RigidTV":
@@ -771,7 +774,7 @@ const scopeLte = (scope1, scope2) => {
 ******************************************************************************/
 
 
-export const parseAnno = anno => { // TODO: remove export
+const parseAnno = anno => {
   const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
@@ -1464,7 +1467,7 @@ const splitByScheme = (rx, delimLen, ref) => cs => {
 
 // opposite of `parseAnno`
 
-export const serializeAst = initialAst => { // TODO: remove export
+const serializeAst = initialAst => {
   const go = ast => {
     switch (ast[TAG]) {
       case "Adt": {
@@ -1580,7 +1583,7 @@ export const serializeAst = initialAst => { // TODO: remove export
           "}");
       }
 
-      case "Partial": return "";
+      case "Partial": return "__";
       
       case "RowType": return ast.body.map(
         ({k, v}) => `${k}: ${go(v)}`).join(", ");
@@ -2221,6 +2224,50 @@ export const fun = (f, funAnno) => {
       }
 
       else transProp.set(valueAnno, keyAst);
+    });
+
+    /* TVs must not occur within a composite type they are meant to be
+    instantiated with, because this would yield an infinite type. This rule
+    also applies if such an occurrence is only indirectly, established by
+    another instantiation. */
+
+    const occurrences = new Set();
+
+    instantiations.forEach(({key: keyAst, value: valueAst}) => {
+      const lhs = reduceAst((acc, ast) => {
+        switch (ast[TAG]) {
+          case "MetaTV":
+          case "RigidTV":
+            return acc.concat(ast.name);
+
+          default: return acc;
+        }
+      }, []) (keyAst);
+
+      const rhs = reduceAst((acc, ast) => {
+        switch (ast[TAG]) {
+          case "MetaTV":
+          case "RigidTV":
+            return acc.concat(ast.name);
+
+          default: return acc;
+        }
+      }, []) (valueAst);
+
+      lhs.reduce((acc, x) => rhs.reduce((acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
+    });
+
+    occurrences.forEach(occurrence => {
+      const [lhs, rhs] = occurrence.split(/\//);
+
+      if (occurrences.has(`${rhs}/${lhs}`))
+        throw new TypeError(cat(
+          "occurs check failed\n",
+          `"${lhs}" and "${rhs}" both occur\n`,
+          "on the LHS and RHS of instantiations\n",
+          "and thus yield an infinite type\n",
+          "while unifying\n",
+          extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
     });
 
     /* After unification the consumed type parameter must be stripped off and
@@ -5449,53 +5496,6 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
             `${argAnno}\n`,
             extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
     }, null) (value);
-  }
-
-  /* Meta TVs must not occur within a composite type they are meant to be
-  instantiated with, because this would yield an infinite type. */
-
-  if (reduceAst((acc, value_) => {
-    if (value_[TAG] === key[TAG]
-      && value_.name === key.name)
-        return true;
-
-    else return acc;
-  }, false) (value))
-    throw new TypeError(cat(
-      `cannot instantiate "${key.name}" with\n`,
-      `${serializeAst(value)}\n`,
-      `"${key.name}" is contained in the latter, which yields an infinite type\n`,
-      "while unifying\n",
-      `${paramAnno}\n`,
-      `${argAnno}\n`,
-      extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
-
-  /* This rule also holds if a meta TV is instantiated with another meta TV
-  which in turn is instantiated with a composite type and the first meta TV
-  occurs in this very composite type, phew! */
-
-  if (isTV(value) && instantiations.has(value.name)) {
-    const value_ = instantiations.get(value.name).value;
-
-    if ("body" in value_ && value_.body.length > 0) {
-      if (reduceAst((acc, value__) => {
-        if (value__[TAG] === key[TAG]
-          && value__.name === key.name)
-            return true;
-
-        else return acc;
-      }, false) (value_))
-        throw new TypeError(cat(
-          "\n",
-          `cannot instantiate "${key.name}" with "${value.name}"\n`,
-          "because the latter is instantiated with\n",
-          `${serializeAst(value_)}\n`,
-          `and in turn contains "${key.name}", which yields an infinite type\n`,
-          "while unifying\n",
-          `${paramAnno}\n`,
-          `${argAnno}\n`,
-          extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
-    }
   }
 
   /* If the meta TV is already instantiated with a composite type, both
