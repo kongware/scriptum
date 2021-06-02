@@ -57,7 +57,16 @@ const adtDict = new Map(); // ADT register (name and arity)
 
 const nativeDict = new Map([ // native register (name and arity)
   ["Map", 2],
-  ["Set", 1]]);
+  ["Set", 1],
+  ["Vector", 1]]);
+
+
+export const registerNative = (s, arity) => {
+  if (CHECK)
+    nativeDict.set(s, arity);
+
+  else return null;
+};
 
 
 /***[ Combinators ]***********************************************************/
@@ -307,7 +316,7 @@ const Nea = body =>
   ({[Symbol.toStringTag]: Nea.name, body});
 
 
-/* Objects implicitly create a self reference to enable method chaining. */
+// Objects implicitly create a self reference to enable method chaining.
 
 const Obj = (cons, props, row, body) => {
   const o = {[Symbol.toStringTag]: Obj.name, cons, props, row, body};
@@ -1762,6 +1771,9 @@ export const introspectDeep = x => {
       x.forEach(y => ts.push(introspectDeep(y)));
       return `[${Array.from(ts).join(", ")}]`;
     }
+
+    case "Vector":
+      return `Vector<${introspectDeep(x.v)}>`;
 
     default: {
 
@@ -5951,6 +5963,12 @@ class ThunkProxy {
 ******************************************************************************/
 
 
+/* Mutations are a side effect and not harmful per se, but only if the effect
+is shared at different places in your code. The `Mutable` data type prevents
+sharing by encapsulating the mutable value with functions. In-place updates
+and consumption of the effectful result is restricted by the API the data type
+provides. */
+
 export const Mutable = fun(
   clone => ref => {
     const anno = CHECK ? introspectDeep(ref) : "";
@@ -5987,7 +6005,6 @@ export const Mutable = fun(
     }, `{}, ${anno} => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`));
   },
   "(t<a> => t<a>) => t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}");
-
 
 
 /******************************************************************************
@@ -6704,3 +6721,17 @@ export const arrPush = fun(
 export const arrForEach = fun(
   f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
   "(a => b) => [a] => [b]");
+
+
+/******************************************************************************
+**********************************[ VECTOR ]***********************************
+******************************************************************************/
+
+
+export const Vector = fun(
+  x => {
+    const v = singleton(0, x);
+    v[TAG] = "Vector";
+    return v;
+  },
+  "a => Vector<a>");
