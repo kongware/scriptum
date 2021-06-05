@@ -73,13 +73,11 @@ By the way, in most cases you can tell from the type error message if there is a
 
 ## Performance Impact and Memory Footprint
 
-The type validator proceeds in an on-demand mode. All you need to do is to switch the `CHECK` flag:
+Goal is to completely erase the type validator logic through a rather simple parsing step within the build process, so that there is no performance impact or memory footprint at all. For the time being, however, the type validator operates in an on-demand mode. All you need to do for activation and deactivation respectively is to un-/set the `CHECK` flag:
 
 ```javascript
 const CHECK = true;
 ```
-
-In a common setting it is active during development stage and deactivated as soon as the code is operational. Performance penalty and memory footprint of the deactivated validator are negligible.
 
 ## Function Type
 
