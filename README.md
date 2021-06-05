@@ -18,6 +18,8 @@ scriptum consists of two parts:
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
+Currently working on: stack-safe async recursion (▓▓░░░░░░░░ done)
+
 ## Status
 
 Unstable (v0.1.0)
