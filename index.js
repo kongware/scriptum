@@ -103,7 +103,7 @@ const nativeIntrospection = new Map([
       return "Vector<a>";
 
     else
-      return `Vector<${introspectDeep(x.tree.v)}>`;
+      return `Vector<${introspectDeep(x.data.v)}>`;
   }]]);
 
 
@@ -6810,17 +6810,29 @@ export const eff = fun(
 ******************************************************************************/
 
 
-export const arrClone = fun(
+export const Array_ = {}; // namespace
+
+
+/***[ Clonable ]**************************************************************/
+
+
+Array_.clone = fun(
   xs => xs.concat(),
   "[a] => [a]");
 
 
-export const arrPush = fun(
+/***[ Construction ]**********************************************************/
+
+
+Array_.push = fun(
   x => xs => (xs.push(x), xs),
   "a => [a] => [a]");
 
 
-export const arrForEach = fun(
+/***[ Looping ]***************************************************************/
+
+
+Array_.forEach = fun(
   f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
   "(a => b) => [a] => [b]");
 
@@ -6830,8 +6842,49 @@ export const arrForEach = fun(
 ******************************************************************************/
 
 
-export const Vector = ({
+// internal constructor
+
+const Vector_ = (data, length, offset) => ({
   [TAG]: "Vector",
-  tree: Leaf,
-  length: 0
-});
+  data,
+  length,
+  offset
+})
+
+
+// public constructor and namespace
+
+export const Vector = Vector_(Leaf, 0, 0);
+
+
+/***[ Construction ]**********************************************************/
+
+
+// consing at the beginning of a `Vector`
+
+Vector.cons = fun(
+  x => v => {
+    const offset = v.length === 0 ? 0 : v.offset - 1,
+      data = set(v.data, offset, x, Vector.compare);
+
+    return Vector_(data, v.length + 1, offset);
+  },
+  "a => Vector<a> => Vector<a>");
+
+
+// consing at the end of a `Vector`
+
+Vector.snoc = fun(
+  x => v => {
+    const data = set(v.data, v.length + v.offset, x, Vector.compare);
+    return Vector_(data, v.length + 1, v.offset);
+  },
+  "a => Vector<a> => Vector<a>");
+
+
+/***[ Order ]*****************************************************************/
+
+
+Vector.compare = fun(
+  (m, n) => m < n ? LT : m === n ? EQ : GT,
+  "Number, Number => Number");
