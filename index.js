@@ -55,17 +55,69 @@ const NOT_FOUND = -1;
 const adtDict = new Map(); // ADT register (name and arity)
 
 
-const nativeDict = new Map([ // native register (name and arity)
+const nativeDict = new Map([ // Native register (name and arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-export const registerNative = (s, arity) => {
-  if (CHECK)
-    nativeDict.set(s, arity);
+const nativeIntrospection = new Map([
+  ["Map", x => {
+    const ts = new Map();
 
-  else return null;
+    for (let [k, v] of x)
+      ts.set(introspectDeep(k), introspectDeep(v));
+
+    if (ts.size === 0)
+      return "Map<a, b>";
+
+    else if (ts.size > 1)
+      throw new TypeError(cat(
+        "invalid Map: must be homogeneous\n",
+        introspectr(x).slice(0, MAX_COLONS),
+        "\n"));
+
+    return `Map<${Array.from(ts) [0].join(", ")}>`;
+  }],
+
+  ["Set", x => {
+    const ts = new Set();
+
+    for (let v of x)
+      ts.add(introspectDeep(v));
+
+    if (ts.size === 0)
+      return "Set<a>";
+
+    else if (ts.size > 1)
+      throw new TypeError(cat(
+        "invalid Set: must be homogeneous\n",
+        JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
+        "\n"));
+
+    return `Set<${Array.from(ts) [0]}>`;
+  }],
+
+  ["Vector", x => {
+    if (x.length === 0)
+      return "Vector<a>";
+
+    else
+      return `Vector<${introspectDeep(x.tree.v)}>`;
+  }]]);
+
+
+const tconstDict = new Set([ // Tconst register
+  "Char",
+  "Integer",
+  "Natural"]);
+
+
+export const registerNative = (name, arity, contract) => {
+  if (CHECK) {
+    nativeDict.set(name, arity);
+    nativeIntrospection.set(name, contract);
+  }
 };
 
 
@@ -216,7 +268,13 @@ export class NEArray extends Array {
   }
 
   static fromArr(xs) {
-    const ys = new NEArray(xs.length).fill(null);
+    const ys = new NEArray(xs.length);
+    xs.forEach((x, i) => ys[i] = x);
+    return ys;
+  }
+
+  static rest(...xs) {
+    const ys = new NEArray(xs.length);
     xs.forEach((x, i) => ys[i] = x);
     return ys;
   }
@@ -1712,24 +1770,6 @@ export const introspectDeep = x => {
       else return type; // Funtion type constant
     }
 
-    case "Map": {
-      const ts = new Map();
-
-      for (let [k, v] of x)
-        ts.set(introspectDeep(k), introspectDeep(v));
-
-      if (ts.size === 0)
-        return "Map<a, b>";
-
-      else if (ts.size > 1)
-        throw new TypeError(cat(
-          "invalid Map: must be homogeneous\n",
-          introspectr(x).slice(0, MAX_COLONS),
-          "\n"));
-
-      return `Map<${Array.from(ts) [0].join(", ")}>`;
-    }
-
     case "NEArray": {
       const ts = new Set();
       x.forEach(y => ts.add(introspectDeep(y)));
@@ -1748,38 +1788,28 @@ export const introspectDeep = x => {
       return `[1${Array.from(ts) [0]}]`;
     } 
 
-    case "Set": {
-      const ts = new Set();
-
-      for (let v of x)
-        ts.add(introspectDeep(v));
-
-      if (ts.size === 0)
-        return "Set<a>";
-
-      else if (ts.size > 1)
-        throw new TypeError(cat(
-          "invalid Set: must be homogeneous\n",
-          JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
-          "\n"));
-
-      return `Set<${Array.from(ts) [0]}>`;
-    }
-
     case "Tuple": {
       const ts = [];
       x.forEach(y => ts.push(introspectDeep(y)));
       return `[${Array.from(ts).join(", ")}]`;
     }
 
-    case "Vector":
-      return `Vector<${introspectDeep(x.v)}>`;
-
     default: {
+
+      // object-based Tconst
+
+      if (tconstDict.has(type))
+        return type;
+
+      // Native
+
+      else if (nativeDict.has(type))
+        return nativeIntrospection.get(type) (x);
+
 
       // ADT or Object
 
-      if (x !== null && typeof x === "object" || typeof x === "function") {
+      else if (x !== null && typeof x === "object" || typeof x === "function") {
 
         // ADT
 
@@ -1800,7 +1830,7 @@ export const introspectDeep = x => {
         }
       }
 
-      // Tconst
+      // primitive Tconst
 
       else return type;
     }
@@ -6728,10 +6758,8 @@ export const arrForEach = fun(
 ******************************************************************************/
 
 
-export const Vector = fun(
-  x => {
-    const v = singleton(0, x);
-    v[TAG] = "Vector";
-    return v;
-  },
-  "a => Vector<a>");
+export const Vector = ({
+  [TAG]: "Vector",
+  tree: Leaf,
+  length: 0
+});
