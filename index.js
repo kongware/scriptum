@@ -6857,6 +6857,15 @@ const Vector_ = (data, length, offset) => ({
 export const Vector = Vector_(Leaf, 0, 0);
 
 
+/***[ Accessors ]*************************************************************/
+
+
+Vector.get = fun(
+  i => v =>
+    get(v.data, i + v.offset, Vector.compare),
+  "Number => Vector<a> => a");
+
+
 /***[ Construction ]**********************************************************/
 
 
@@ -6888,3 +6897,12 @@ Vector.snoc = fun(
 Vector.compare = fun(
   (m, n) => m < n ? LT : m === n ? EQ : GT,
   "Number, Number => Number");
+
+
+/***[ Searching ]*************************************************************/
+
+
+Vector.elem = fun(
+  i => v =>
+    has(v.data, i + v.offset, Vector.compare),
+  "Number => Vector<a> => Boolean");
