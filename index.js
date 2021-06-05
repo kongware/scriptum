@@ -113,10 +113,10 @@ const tconstDict = new Set([ // Tconst register
   "Natural"]);
 
 
-export const registerNative = (name, arity, contract) => {
+export const registerNative = (name, arity, introspect) => {
   if (CHECK) {
     nativeDict.set(name, arity);
-    nativeIntrospection.set(name, contract);
+    nativeIntrospection.set(name, introspect);
   }
 };
 
@@ -250,6 +250,78 @@ class Argsv extends Array {
     return ys;
   }
 }
+
+
+/***[ Char ]******************************************************************/
+
+
+export const Char = s => {
+  if (CHECK) {
+    if (typeof s !== "string" || s.size !== 1)
+      throw new TypeError(cat(
+        "type mismatch\n",
+        "expected: a single character String\n",
+        `received: ${introspectDeep(s)}\n`,
+        "while constructing a Char\n"));
+
+    else return {
+      [TAG]: "Char",
+      value: s,
+      valueOf: () => s,
+      toString: () => s
+    }
+  }
+
+  else return n;
+};
+
+
+/***[ Natural ]***************************************************************/
+
+
+export const Nat = n => {
+  if (CHECK) {
+    if (typeof n !== "number" || n % 1 !== 0 || n < 0)
+      throw new TypeError(cat(
+        "type mismatch\n",
+        "expected: a positive integer-like Number\n",
+        `received: ${introspectDeep(n)}\n`,
+        "while constructing a Natural\n"));
+
+    else return {
+      [TAG]: "Natural",
+      value: n,
+      valueOf: () => n,
+      toString: () => String(n)
+    }
+  }
+
+  else return n;
+};
+
+
+/***[ Integer ]***************************************************************/
+
+
+export const Int = n => {
+  if (CHECK) {
+    if (typeof n !== "number" || n % 1 !== 0)
+      throw new TypeError(cat(
+        "type mismatch\n",
+        "expected: an integer-like Number\n",
+        `received: ${introspectDeep(n)}\n`,
+        "while constructing an Integer\n"));
+
+    else return {
+      [TAG]: "Integer",
+      value: n,
+      valueOf: () => n,
+      toString: () => String(n)
+    }
+  }
+
+  else return n;
+};
 
 
 /***[ Non-Empty Array ]*******************************************************/
