@@ -345,7 +345,7 @@ export class NEArray extends Array {
     return ys;
   }
 
-  static rest(...xs) {
+  static fromRest(...xs) {
     const ys = new NEArray(xs.length);
     xs.forEach((x, i) => ys[i] = x);
     return ys;
@@ -362,26 +362,26 @@ determine the specific tuple type. Tuple values are subtypes of arrays but are
 sealed. */
 
 export class Tuple extends Array {
-  constructor(...xs) {
-    if (xs.length < 2)
+  constructor(...args) {
+    if (args.length < 2)
       throw new TypeError(cat(
         "invalid Tuple\n",
         "must contain at least 2 fields\n",
-        JSON.stringify(xs).slice(0, MAX_COLONS),
+        JSON.stringify(args).slice(0, MAX_COLONS),
         "\n"));
 
-    else if (xs.length > MAX_TUPLE)
+    else if (args.length > MAX_TUPLE)
       throw new TypeError(cat(
         "invalid Tuple\n",
         `must contain at most ${MAX_TUPLE} fields\n`,
-        JSON.stringify(xs).slice(0, MAX_COLONS),
+        JSON.stringify(args).slice(0, MAX_COLONS),
         "\n"));
 
     else {
-      super(xs.length);
+      super(args.length);
 
-      xs.forEach((x, i) => {
-        this[i] = x;
+      args.forEach((arg, i) => {
+        this[i] = arg;
       });
 
       Object.seal(this);
@@ -1330,7 +1330,7 @@ const parseAnno = anno => {
 
     // Tconst
 
-    else if (rx = cs.match(new RegExp("^[A-Z][a-z]*$")))
+    else if (rx = cs.match(new RegExp("^[A-Z][A-Za-z]*$")))
       return Tconst(cs);
 
     // this*
@@ -5494,7 +5494,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
         case "Tup": { // [a, b] ~ [c, d]
           if (paramAst.body.length !== argAst.body.length)
             throw new TypeError(cat(
-              "Tuple mismatch",
+              "Tuple mismatch\n",
               `expected: ${serializeAst(paramAst)}\n`,
               `received: ${serializeAst(argAst)}\n`,
               "while unifying\n",
@@ -6779,6 +6779,77 @@ const diff = (t1, t2, cmp) => {
 
 /******************************************************************************
 *******************************************************************************
+*******************************[ STACK SAFETY ]********************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+****************************[ DEFUNCTIONALIZATION ]****************************
+******************************************************************************/
+
+
+/* Defunctionalizes deferred nested function call trees to avoid stack overflows
+during eventual evaluation. */
+
+
+export const defunc = o => {
+  while (o.tag === "Call")
+    o = o.f(o.value);
+
+  return o.tag === "Return"
+    ? o.value
+    : _throw(new TypeError("unknown trampoline tag"));
+};
+
+
+/***[ Tags ]******************************************************************/
+
+
+export const Call = f => value =>
+  ({tag: "Call", f, value});
+
+
+export const Call_ = (f, value) =>
+  ({tag: "Call", f, value});
+
+
+export const Return = value =>
+  ({tag: "Return", value});
+
+
+/******************************************************************************
+******************************[ TAIL RECURSION ]*******************************
+******************************************************************************/
+
+
+/* ES6 ships with tail call optimization but no major browser vendor has
+implemented them yet and probably never will. Therefore we need a trampoline
+to eliminate the tail call. */
+
+
+export const tailRec = f => x => {
+  let o = f(x);
+
+  while (o.tag === "Loop")
+    o = f(o.value);
+
+  return o.tag === "Base"
+    ? o.value
+    : _throw(new TypeError("unknown trampoline tag"));
+};
+
+
+/***[ Tags ]******************************************************************/
+
+
+export const base = value => ({tag: "Base", value});
+
+export const loop = value => ({tag: "Loop", value});
+
+
+/******************************************************************************
+*******************************************************************************
 ************************************[ LIB ]************************************
 *******************************************************************************
 ******************************************************************************/
@@ -6810,6 +6881,11 @@ export const _let = (...args) => {
 export const eff = fun(
   f => x => (f(x), x),
   "(a => discard) => a => a");
+
+
+export const _throw = e => {
+  throw e;
+};
 
 
 /******************************************************************************
