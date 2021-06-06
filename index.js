@@ -1387,16 +1387,13 @@ const parseAnno = anno => {
 const verifyAnno = s => {
   const topLevel = remNestings(s);
 
-  // ensures balanced bracket nesting
+  // ensures balanced bracket nesting + wrapped function arguments
 
   if (topLevel.replace(/=>/g, "").search(new RegExp("[(\\[{<>}\\])]", "")) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       "bracket mismatch\n",
-      "redundant/missing: ",
-      `${Array.from(new Set(topLevel
-        .replace(/=>/g, "")
-        .match(new RegExp("[(\\[{<>}\\])]", "")) [0].split("")))}\n`,
+      `${showBracketMismatch(topLevel)}\n`,
       `in "${s}"\n`));
 
   // prevents invalid chars
@@ -1566,7 +1563,7 @@ const verifyAnno = s => {
 
 
 /* Since I use regular expresssions (don't judge me) to parse annotations
-frequently only the current lecixal level must be parsed. `remNestings` removes
+frequently only the current lexical level must be parsed. `remNestings` removes
 nested subterms, so that they don't interfere with the current parsing process. */
 
 const remNestings = s => {
@@ -1581,15 +1578,24 @@ const remNestings = s => {
     cs = cs.replace(new RegExp("\\b[a-z]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
   } while (ds !== cs);
 
-  if (cs.search(new RegExp("[(){}\\[\\]]", "")) !== NOT_FOUND
-    && cs.search(/ => /) !== NOT_FOUND)
-      throw new SyntaxError(cat(
-        "malformed type annotation\n",
-        `missing "()"\n`,
-        `next to: "${s.match(new RegExp(".{1,5} => .{1,5}", "")) [0]}"\n`,
-        `in "${s}"\n`));
-
   return cs;
+};
+
+
+const showBracketMismatch = s => {
+  if ((s.match(/\{|\}/g) || []).length % 2 !== 0)
+    return `missing/redundant: "{" or "}"`;
+
+  else if ((s.replace(/=>/g, "").match(/<|>/g) || []).length % 2 !== 0)
+    return `missing/redundant: "<" or ">"`;
+
+  else if ((s.match(/\(|\)/g) || []).length % 2 !== 0)
+    return `missing/redundant: "(" or ")"`;
+
+  else if ((s.match(/\[|\]/g) || []).length % 2 !== 0)
+    return `missing/redundant: "[" or "]"`;
+
+  else return `missing "()" around function argument`;
 };
 
 
@@ -5647,8 +5653,9 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
 
     catch(_) {
       throw new TypeError(cat(
-        `cannot instantiate "${key.name}" with "${serializeAst(value)}"\n`,
-        `"${key.name}" is already instantiated with the incompatible type `,
+        "cannot instantiate\n",
+        `"${key.name}" with "${serializeAst(value)}"\n`,
+        "because the former is already instantiated with\n",
         `"${serializeAst(instantiations.get(key.name).value)}"\n`,
         "while unifying\n",
         `${paramAnno}\n`,
