@@ -1,3 +1,21 @@
+[Editor's note: This readme is under construction]
+
+# TODO
+
+### Gradual Typing
+
+* Gradual typing can be achieved by passing typed functions to untyped ones
+* While the other way around is generally not possible you can at least type function arguments with the opaque `Function` type instead of using the more detailed function arrow types like `a => b`
+* It seems to be promising for some computations to only type the shell, whereas the core remains untyped
+  * e.g. with trampolines the iterative function is typed whereas the trampline itself is untyped
+  * e.g. with typed immutable vectors the underlying LLRB-tree is untyped
+
+### Custom Tconst and Native types
+
+* What are their purposes?
+* How to design and register such types?
+* Why not use ADTs in the first place?
+
 # Runtime Type Validator
 
 Usually the type system is designed first and the rest of the language around it. However, with Javascript we are stuck with an untyped language. Adding a type system with hindsight is a Sisyphean task as you can observe with Typescript.
