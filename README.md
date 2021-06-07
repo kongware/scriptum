@@ -18,8 +18,6 @@ scriptum consists of two parts:
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
-Currently working on: stack-safe async recursion (▓▓░░░░░░░░ done)
-
 ## Status
 
 Unstable (v0.1.0)
@@ -29,6 +27,8 @@ The type validator has grown organically over the last month. Its implementation
 If you come across a bug, please don't hesitate to file an issue. Thank you!
 
 For the next couple of months the type validator will gradually become more stable and the functional library more extensive. Bear with me!
+
+Currently working on: stack-safe async recursion (▓▓▓▓▓░░░░░ done)
 
 ## Goals
 
