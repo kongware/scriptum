@@ -1952,6 +1952,16 @@ export const type = adtAnno => {
     const wrapperAnno = splitByScheme(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
 
+    // ensure valid codomain
+
+    if (wrapperAnno.search(new RegExp("^[A-Z][a-z0-9]*<.*>$", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "codomain must be a type constructor parameterized\n",
+        "with all rank-1 type variables of the domain\n",
+        `but "${wrapperAnno}" received\n`,
+        `while declaring "${adtAnno}"\n`));
+
     const tcons = wrapperAnno.match(/[^<]+/) [0];
 
     const arity = splitByScheme(
@@ -1986,6 +1996,18 @@ export const type = adtAnno => {
       contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
       wrapperAst = parseAnno(wrapperAnno);
 
+    // ensure valid domain
+
+    if (contAst[TAG] === "Forall"
+      && contAst.body[TAG] === "Fun"
+      && contAst.body.body.lambdas[0] [0].btvs.size === 0)
+        throw new TypeError(cat(
+          "invalid algebraic data type declaration\n",
+          "domain must be a function argument\n",
+          "that receives another rank-2 function argument\n",
+          `but "${serializeAst(contAst)}" received\n`,
+          `while declaring "${adtAnno}"\n`));
+
     // serialize continuation AST
 
     const contAnno = serializeAst(contAst);
@@ -1996,12 +2018,23 @@ export const type = adtAnno => {
     (^r. (a => r) => (b => r) => r) => Either<a, b>
           ^           ^                       ^  ^ */
 
-    if (Array.from(adtAst.btvs).join("") !== Array.from(wrapperAst.btvs).join(""))
-      throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "type parameter(s) not in scope\n",
-        `namely: ${[...adtAst.btvs].filter(r1tv => !wrapperAst.btvs.has(r1tv)).join(", ")}\n`,
-        `while declaring "${adtAnno}"\n`));
+    if (Array.from(wrapperAst.btvs).reduce((acc, btv) =>
+      acc || !contAst.btvs.has(btv), false)) {
+        throw new TypeError(cat(
+          "illegal algebraic data type\n",
+          "type parameter(s) not in scope\n",
+          `namely: ${[...wrapperAst.btvs].filter(r1tv => !contAst.btvs.has(r1tv)).join(", ")}\n`,
+          `while declaring "${adtAnno}"\n`));
+    }
+
+    else if (adtAnno.match(new RegExp("(?<=\\^)[a-z]+", "g")).reduce((acc, btv) =>
+      acc || wrapperAst.btvs.has(btv), false)) {
+        throw new TypeError(cat(
+          "illegal algebraic data type\n",
+          "type parameter(s) not in scope\n",
+          `namely: ${adtAnno.match(new RegExp("(?<=\\^)[a-z]+", "g")).join(", ")}\n`,
+          `while declaring "${adtAnno}"\n`));
+    }
 
     // return the ADT value constructor -- untypedCont => {run: typedCont}
 
