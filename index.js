@@ -596,6 +596,17 @@ const adjustForall = ref => {
 };
 
 
+const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
+  switch (ast_[TAG]) {
+    case "BoundTV":
+      return ast_.scope
+        .match(/\./g).length === rank || acc
+
+    default: return acc;
+  }
+}, false) (ast);
+
+
 const isTV = ast => {
   switch (ast[TAG]) {
     case "BoundTV":
@@ -1998,15 +2009,13 @@ export const type = adtAnno => {
 
     // ensure valid domain
 
-    if (contAst[TAG] === "Forall"
-      && contAst.body[TAG] === "Fun"
-      && contAst.body.body.lambdas[0] [0].btvs.size === 0)
-        throw new TypeError(cat(
-          "invalid algebraic data type declaration\n",
-          "domain must be a function argument\n",
-          "that receives another rank-2 function argument\n",
-          `but "${serializeAst(contAst)}" received\n`,
-          `while declaring "${adtAnno}"\n`));
+    if (!hasRank(adtAst.body.body.lambdas[0] [0], 2))
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "domain must be a function argument\n",
+        "that receives another rank-2 function argument\n",
+        `but "${serializeAst(contAst)}" received\n`,
+        `while declaring "${adtAnno}"\n`));
 
     // serialize continuation AST
 
@@ -6889,39 +6898,6 @@ export const loop = value => ({tag: "Loop", value});
 
 
 /******************************************************************************
-******************************[ LOCAL BINDINGS ]*******************************
-******************************************************************************/
-
-
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed function expected\n",
-        "while applying\n",
-        `_let(${args.map(introspectDeep).join(", ")})\n`));
-
-    else return f(...args);
-  }};
-};
-
-
-/******************************************************************************
-**********************************[ EFFECTS ]**********************************
-******************************************************************************/
-
-
-export const eff = fun(
-  f => x => (f(x), x),
-  "(a => discard) => a => a");
-
-
-export const _throw = e => {
-  throw e;
-};
-
-
-/******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
 
@@ -6951,6 +6927,47 @@ Array_.push = fun(
 Array_.forEach = fun(
   f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
   "(a => b) => [a] => [b]");
+
+
+/******************************************************************************
+*********************************[ CATEGORY ]**********************************
+******************************************************************************/
+
+
+export const id = fun(x => x, "a => a");
+
+
+/******************************************************************************
+**********************************[ EFFECTS ]**********************************
+******************************************************************************/
+
+
+export const eff = fun(
+  f => x => (f(x), x),
+  "(a => discard) => a => a");
+
+
+export const _throw = e => {
+  throw e;
+};
+
+
+/******************************************************************************
+******************************[ LOCAL BINDINGS ]*******************************
+******************************************************************************/
+
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed function expected\n",
+        "while applying\n",
+        `_let(${args.map(introspectDeep).join(", ")})\n`));
+
+    else return f(...args);
+  }};
+};
 
 
 /******************************************************************************
