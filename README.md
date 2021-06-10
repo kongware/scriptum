@@ -28,7 +28,7 @@ If you come across a bug, please don't hesitate to file an issue. Thank you!
 
 For the next couple of months the type validator will gradually become more stable and the functional library more extensive. Bear with me!
 
-Currently working on: stack-safe async recursion (▓▓▓▓▓░░░░░ done)
+Currently working on: stack-safe async recursion (▓▓▓▓▓▓▓▓▓░ done)
 
 ## Goals
 
