@@ -14,7 +14,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 /******************************************************************************
 *******************************************************************************
-**************************[ CROSS-CUTTING CONCERNS ]***************************
+*******************************[ CROSS-CUTTING ]*******************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -30,8 +30,14 @@ const CHECK = true; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
+
 const MAX_COLONS = 80; // limit length of error messages
 const MAX_TUPLE = 4;
+
+// probability of deferring computation to next micro task
+
+const MICROTASK_TRESHOLD = 0.01;
+
 const SAFE_SPACE = "·"; // use within type indentations
 const TOP_LEVEL_SCOPE = ".0/0";
 const UNWRAP = PREFIX + "unwrap"; // access to the untyped function
@@ -5911,255 +5917,6 @@ const regeneralize = ast => {
 
 /******************************************************************************
 *******************************************************************************
-******************************[ LAZY EVALUATION ]******************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* Thunks are arbitrary unevaluated expressions that are evaluated when needed.
-As opposed to Javascript thunks like `() => expr` scriptum uses implicit thunks,
-i.e. you don't have to care whether they are evaluated or not. Thunks enable
-proper lazy evaluation in Javascript. */
-
-
-/***[ Constants ]*************************************************************/
-
-
-const EVAL = PREFIX + "eval";
-
-
-const NULL = PREFIX + "null";
-
-
-const THUNK = PREFIX + "thunk";
-
-
-/***[ API ]*******************************************************************/
-
-
-// enforce lazy evaluation
-
-export const lazy = f => x =>
-  thunk(() => f(x));
-
-
-// strictly evaluate a single thunk
-
-export const strict = thunk =>
-  thunk && thunk[THUNK] === true
-    ? thunk[EVAL]
-    : thunk;
-
-
-// strictly evaluate a thunk recursively
-
-export const strictRec = thunk => {
-  while (thunk && thunk[THUNK] === true)
-    thunk = thunk[EVAL];
-
-  return thunk;
-};
-
-
-// creates thunk in weak head normal form
-
-export const thunk = thunk => {
-  if (ANNO in thunk)
-    return new Proxy(thunk, new ThunkProxy());
-
-  else throw new TypeError(
-    "typed thunk expected");
-};
-
-
-/***[ Implementation ]********************************************************/
-
-
-class ThunkProxy {
-  constructor() {
-    this.memo = NULL;
-  }
-
-  apply(g, that, args) {
-
-    // evaluate thunk only once
-
-    if (this.memo === NULL) {
-      this.memo = g();
-
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return this.memo(...args);
-  }
-
-  get(g, k) {
-
-    // prevent evaluation for thunk introspection
-    
-    if (k === THUNK)
-      return true;
-
-    // evaluate thunk only once
-
-    else if (this.memo === NULL) {
-      this.memo = g();
-      
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    // trigger evaluation
-
-    if (k === EVAL)
-      return this.memo;
-
-    else if (k === "valueOf")
-      return () => this.memo.valueOf();
-
-    else if (k === "toString")
-      return () => this.memo.toString();
-
-    // enforce array spreading
-    
-    else if (k === Symbol.isConcatSpreadable
-      && Array.isArray(this.memo))
-        return true;
-
-    else if (k === Symbol.toStringTag)
-      return Object.prototype.toString.call(this.memo).slice(8, -1);
-
-    // bind in case of a method
-
-    if (typeof this.memo[k] === "function")
-      return this.memo[k].bind(this.memo);
-
-    else return this.memo[k];
-  }
-
-  getOwnPropertyDescriptor(g, k) {
-
-    // evaluate thunk only once
-
-    if (this.memo === NULL) {
-      this.memo = g();
-      
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return Reflect.getOwnPropertyDescriptor(this.memo, k);
-  }
-
-  has(g, k) {
-
-    // prevent evaluation for thunk introspection
-
-    if (k === THUNK)
-      return true;
-
-    // evaluate thunk only once
-
-    else if (this.memo === NULL) {
-      this.memo = g();
-
-    // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return k in this.memo;
-  }
-
-  ownKeys(g) {
-
-    // evaluate thunk only once
-
-    if (this.memo === NULL) {
-      this.memo = g();
-
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return Object.keys(this.memo);
-  }
-}
-
-
-/******************************************************************************
-*******************************************************************************
-************************[ PERSISTENT DATA STRUCTURES ]*************************
-*******************************************************************************
-******************************************************************************/
-
-
-// based on left-leaning red-black trees
-
-
-/******************************************************************************
-*******************************************************************************
-***************************[ SAFE IN-PLACE UPDATES ]***************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* Mutations are a side effect and not harmful per se, but only if the effect
-is shared at different places in your code. The `Mutable` data type prevents
-sharing by encapsulating the mutable value with functions. In-place updates
-and consumption of the effectful result is restricted by the API the data type
-provides. */
-
-export const Mutable = fun(
-  clone => ref => {
-    const anno = CHECK ? introspectDeep(ref) : "";
-
-    return _let({}, ref).in(fun((o, ref) => {
-      let mutated = false;
-
-      o.consume = fun(() => {
-        if (mutated) {
-          delete o.consume;
-          delete o.update;
-          o.consume = fun(() => ref, `() => ${anno}`);
-
-          o.update = _ => {
-            throw new TypeError(
-              "illegal in-place update of consumed data structure");
-          };
-        }
-
-        return ref;
-      }, `() => ${anno}`);
-
-      o.update = fun(k => {
-        if (!mutated) {
-          ref = clone(ref); // copy once on first write
-          mutated = true;
-        }
-
-        k(ref); // use the effect but discard the result
-        return o;
-      }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`);
-
-      return (o[TAG] = "Mutable", o);
-    }, `{}, ${anno} => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`));
-  },
-  "(t<a> => t<a>) => t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}");
-
-
-/******************************************************************************
-*******************************************************************************
 ************************[ PERSISTENT DATA STRUCTURES ]*************************
 *******************************************************************************
 ******************************************************************************/
@@ -6821,7 +6578,246 @@ const diff = (t1, t2, cmp) => {
 
 /******************************************************************************
 *******************************************************************************
-*******************************[ STACK SAFETY ]********************************
+***************************[ SAFE IN-PLACE UPDATES ]***************************
+*******************************************************************************
+******************************************************************************/
+
+
+/* Mutations are a side effect and not harmful per se, but only if the effect
+is shared at different places in your code. The `Mutable` data type prevents
+sharing by encapsulating the mutable value with functions. In-place updates
+and consumption of the effectful result is restricted by the API the data type
+provides. */
+
+export const Mutable = fun(
+  clone => ref => {
+    const anno = CHECK ? introspectDeep(ref) : "";
+
+    return _let({}, ref).in(fun((o, ref) => {
+      let mutated = false;
+
+      o.consume = fun(() => {
+        if (mutated) {
+          delete o.consume;
+          delete o.update;
+          o.consume = fun(() => ref, `() => ${anno}`);
+
+          o.update = _ => {
+            throw new TypeError(
+              "illegal in-place update of consumed data structure");
+          };
+        }
+
+        return ref;
+      }, `() => ${anno}`);
+
+      o.update = fun(k => {
+        if (!mutated) {
+          ref = clone(ref); // copy once on first write
+          mutated = true;
+        }
+
+        k(ref); // use the effect but discard the result
+        return o;
+      }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`);
+
+      return (o[TAG] = "Mutable", o);
+    }, `{}, ${anno} => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`));
+  },
+  "(t<a> => t<a>) => t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}");
+
+
+/******************************************************************************
+*******************************************************************************
+******************************[ LAZY EVALUATION ]******************************
+*******************************************************************************
+******************************************************************************/
+
+
+/* Thunks are arbitrary unevaluated expressions that are evaluated when needed.
+As opposed to Javascript thunks like `() => expr` scriptum uses implicit thunks,
+i.e. you don't have to care whether they are evaluated or not. Thunks enable
+proper lazy evaluation in Javascript. */
+
+
+/***[ Constants ]*************************************************************/
+
+
+const EVAL = PREFIX + "eval";
+
+
+const NULL = PREFIX + "null";
+
+
+const THUNK = PREFIX + "thunk";
+
+
+/***[ API ]*******************************************************************/
+
+
+// enforce lazy evaluation
+
+export const lazy = f => x =>
+  thunk(() => f(x));
+
+
+// strictly evaluate a single thunk
+
+export const strict = thunk =>
+  thunk && thunk[THUNK] === true
+    ? thunk[EVAL]
+    : thunk;
+
+
+// strictly evaluate a thunk recursively
+
+export const strictRec = thunk => {
+  while (thunk && thunk[THUNK] === true)
+    thunk = thunk[EVAL];
+
+  return thunk;
+};
+
+
+// creates thunk in weak head normal form
+
+export const thunk = thunk => {
+  if (ANNO in thunk)
+    return new Proxy(thunk, new ThunkProxy());
+
+  else throw new TypeError(
+    "typed thunk expected");
+};
+
+
+/***[ Implementation ]********************************************************/
+
+
+class ThunkProxy {
+  constructor() {
+    this.memo = NULL;
+  }
+
+  apply(g, that, args) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return this.memo(...args);
+  }
+
+  get(g, k) {
+
+    // prevent evaluation for thunk introspection
+    
+    if (k === THUNK)
+      return true;
+
+    // evaluate thunk only once
+
+    else if (this.memo === NULL) {
+      this.memo = g();
+      
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    // trigger evaluation
+
+    if (k === EVAL)
+      return this.memo;
+
+    else if (k === "valueOf")
+      return () => this.memo.valueOf();
+
+    else if (k === "toString")
+      return () => this.memo.toString();
+
+    // enforce array spreading
+    
+    else if (k === Symbol.isConcatSpreadable
+      && Array.isArray(this.memo))
+        return true;
+
+    else if (k === Symbol.toStringTag)
+      return Object.prototype.toString.call(this.memo).slice(8, -1);
+
+    // bind in case of a method
+
+    if (typeof this.memo[k] === "function")
+      return this.memo[k].bind(this.memo);
+
+    else return this.memo[k];
+  }
+
+  getOwnPropertyDescriptor(g, k) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+      
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return Reflect.getOwnPropertyDescriptor(this.memo, k);
+  }
+
+  has(g, k) {
+
+    // prevent evaluation for thunk introspection
+
+    if (k === THUNK)
+      return true;
+
+    // evaluate thunk only once
+
+    else if (this.memo === NULL) {
+      this.memo = g();
+
+    // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return k in this.memo;
+  }
+
+  ownKeys(g) {
+
+    // evaluate thunk only once
+
+    if (this.memo === NULL) {
+      this.memo = g();
+
+      // evaluate thunk recursively
+
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    return Object.keys(this.memo);
+  }
+}
+
+
+/******************************************************************************
+*******************************************************************************
+****************************[ STACK SAFETY (SYNC) ]****************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -6887,7 +6883,21 @@ export const tailRec = f => x => {
 
 export const base = value => ({tag: "Base", value});
 
+
 export const loop = value => ({tag: "Loop", value});
+
+
+/******************************************************************************
+*******************************************************************************
+***************************[ STACK SAFETY (ASYNC) ]****************************
+*******************************************************************************
+******************************************************************************/
+
+
+// see @LIB/Serial
+
+
+// see @LIB/Parallel
 
 
 /******************************************************************************
@@ -6895,6 +6905,48 @@ export const loop = value => ({tag: "Loop", value});
 ************************************[ LIB ]************************************
 *******************************************************************************
 ******************************************************************************/
+
+
+/******************************************************************************
+*******************************[ TYPE AGNOSTIC ]*******************************
+******************************************************************************/
+
+
+/***[ Effects ]***************************************************************/
+
+
+export const eff = fun(
+  f => x => (f(x), x),
+  "(a => discard) => a => a");
+
+
+export const _throw = e => {
+  throw e;
+};
+
+
+/***[ Local Bindings ]********************************************************/
+
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed function expected\n",
+        "while applying\n",
+        `_let(${args.map(introspectDeep).join(", ")})\n`));
+
+    else return f(...args);
+  }};
+};
+
+
+/******************************************************************************
+*********************************[ FUNCTION ]**********************************
+******************************************************************************/
+
+
+export const id = fun(x => x, "a => a");
 
 
 /******************************************************************************
@@ -6930,44 +6982,73 @@ Array_.forEach = fun(
 
 
 /******************************************************************************
-*********************************[ CATEGORY ]**********************************
+***********************************[ CONT ]************************************
 ******************************************************************************/
 
 
-export const id = fun(x => x, "a => a");
+/* `Cont` is the pure version of `Serial`, i.e. there is no micro task deferring.
+It facilitates continuation passing style and can be used with both synchronous
+and asynchronous computations. Please be aware that `Cont` is not stack safe for
+large nested function call trees. */
+
+
+const Cont_ = type("((^r. (a => r) => r) => s) => Cont<s, a>");
+
+
+export const Cont = fun(
+  k => Cont_(cont => k(cont)),
+  "((^r. (a => r) => r) => s) => Cont<s, a>");
 
 
 /******************************************************************************
-**********************************[ EFFECTS ]**********************************
+*********************************[ PARALLEL ]**********************************
 ******************************************************************************/
 
 
-export const eff = fun(
-  f => x => (f(x), x),
-  "(a => discard) => a => a");
+/* Like `Serial` but is executed in parallel. Please note that `Parallel`
+doesn't implement monad, because they require order. */
 
 
-export const _throw = e => {
-  throw e;
-};
+const Parallel_ = type("((^r. (a => r) => r) => s) => Parallel<s, a>");
+
+
+export const Parallel = fun(
+  k => {
+    const r = Parallel_(parallel => k(parallel));
+    
+    if (Math.random() < MICROTASK_TRESHOLD)
+      r.run = queueMicrotask(() => r.run); // defer evaluation to next micro task
+
+    return r;
+  },
+  "((^r. (a => r) => r) => s) => Parallel<s, a>");
 
 
 /******************************************************************************
-******************************[ LOCAL BINDINGS ]*******************************
+**********************************[ SERIAL ]***********************************
 ******************************************************************************/
 
 
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed function expected\n",
-        "while applying\n",
-        `_let(${args.map(introspectDeep).join(", ")})\n`));
+/* `Serial` provides stack-safe asynchronous computations, which are executed
+serially. It creates a lazy CPS composition that itself is either executed
+synchronuously within the same micro task or asynchronously in a subsequent one.
+The actual behavior depends on a PRNG and cannot be determined upfront. You can
+pass both synchronous and asynchronous functions to the CPS composition. */
 
-    else return f(...args);
-  }};
-};
+
+const Serial_ = type("((^r. (a => r) => r) => s) => Serial<s, a>");
+
+
+export const Serial = fun(
+  k => {
+    const r = Serial_(serial => k(serial));
+    
+    if (Math.random() < MICROTASK_TRESHOLD)
+      r.run = queueMicrotask(() => r.run); // defer evaluation to next micro task
+
+    return r;
+  },
+  "((^r. (a => r) => r) => s) => Serial<s, a>");
 
 
 /******************************************************************************
