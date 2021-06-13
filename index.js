@@ -2605,8 +2605,7 @@ export const fun = (f, funAnno) => {
   else if (funAnno === undefined)
     throw new TypeError(cat(
       "type validator expects a typed lambdas\n",
-      "but the following untyped function received: \n",
-      f.toString()));
+      `but "${f.toString()}" received\n`));
 
   // run the validator
 
@@ -5922,10 +5921,10 @@ const regeneralize = ast => {
 ******************************************************************************/
 
 
-/* scriptum offers a couple of purely functional, fully persistent data
-structures based on a left-leaning red/black tree. The tree itself is not typed,
-because this way we gain flexibility in some use cases without hampering type
-safety. However, this might change in the future if practice shows otherwise. */
+/* scriptum comprises a balanced tree implementation based on a left-leaning
+red/black tree, which is itself untyped to gain flexibility for some use cases.
+It is strongly encouraged to fully type the persistent data structures based
+upon it, so that type saftey is not hampered. */
 
 
 /***[ Constants ]*************************************************************/
@@ -6639,7 +6638,8 @@ export const Mutable = fun(
 /* Thunks are arbitrary unevaluated expressions that are evaluated when needed.
 As opposed to Javascript thunks like `() => expr` scriptum uses implicit thunks,
 i.e. you don't have to care whether they are evaluated or not. Thunks enable
-proper lazy evaluation in Javascript. */
+proper lazy evaluation in Javascript. Thunks are untyped but you are strongly
+encouraged to only use typed lambdas inside. */
 
 
 /***[ Constants ]*************************************************************/
@@ -6824,55 +6824,14 @@ class ThunkProxy {
 ******************************************************************************/
 
 
-/* Trampolines themselves are not typed in scriptum but only the functions
-utilizing them, because this way we gain flexibility in some use cases without
-hampering type safety. However, this might change in the future if practice
-shows otherwise. */
+/* Trampolines themselves are untyped to provide additional flexibility in some
+use cases without hampering type safety. They ensure that the provided function
+argument is typed, though. */
 
 
 /* Please note that using direct recursion is not the recommanded approach. For
 every appropriate type there is an associated fold, which should be used
 instead. Folds are an abstraction, whereas recursion is a primitive. */
-
-
-/******************************************************************************
-****************************[ DEFUNCTIONALIZATION ]****************************
-******************************************************************************/
-
-
-/* Avoids building up nested deferred function call trees that exhaust the stack
-during their final evaluation. Please not that usually this term is used to
-describe the process of transforming higher-order into first-order functions. In
-this case it just means to defer the function application by storing function
-and argument in a record for later invocation. */
-
-
-export const Defunc = {}; // namespace
-
-
-Defunc.loop = o => { // trampoline
-  while (o.tag === "Call")
-    o = o.f(o.x);
-
-  return o.tag === "Return"
-    ? o.x
-    : _throw(new TypeError("invalid trampoline tag"));
-};
-
-
-/***[ Tags ]******************************************************************/
-
-
-Defunc.call = f => x =>
-  ({tag: "Call", f, x});
-
-
-Defunc.call_ = (f, x) =>
-  ({tag: "Call", f, x});
-
-
-Defunc.return = x =>
-  ({tag: "Return", x});
 
 
 /******************************************************************************
@@ -6929,8 +6888,14 @@ MonadRec.chain = mx => fm =>
 /***[ Tags ]******************************************************************/
 
 
-MonadRec.iterate = x => f =>
-  ({tag: "Iterate", f, x});
+MonadRec.iterate = x => f => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
+
+  else {tag: "Iterate", f, x};
+}
 
 
 MonadRec.return = x =>
@@ -6956,15 +6921,22 @@ to eliminate the tail call. */
 export const TailRec = {}; // namespace
 
 
-TailRec.loop = f => x => {
-  let o = f(x);
+TailRec.loop = f => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
 
-  while (o.tag === "Iterate")
-    o = f(o.x);
+  else return x => {
+    let o = f(x);
 
-  return o.tag === "Return"
-    ? o.x
-    : _throw(new TypeError("invalid trampoline tag"));
+    while (o.tag === "Iterate")
+      o = f(o.x);
+
+    return o.tag === "Return"
+      ? o.x
+      : _throw(new TypeError("invalid trampoline tag"));
+  };
 };
 
 
@@ -7018,6 +6990,11 @@ export const _throw = e => {
 /***[ Local Bindings ]********************************************************/
 
 
+/* `_let` needs to be untyped, because it relies on an heterogenuous array
+holding the arguments. It ensures that the passed function argument is typed,
+though. */
+
+
 export const _let = (...args) => {
   return {in: f => {
     if (CHECK && !(ANNO in f))
@@ -7034,6 +7011,74 @@ export const _let = (...args) => {
 /******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
+
+
+export const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+
+// compose in the second argument
+
+export const comp2nd = fun(
+  f => g => x => y => f(x) (g(y)),
+  "(a -> b -> c) -> (d -> b) -> a -> d -> c");
+
+
+// compose a binary function
+
+export const compBin = fun(
+  f => g => x => y => f(g(x) (y)),
+  "(a -> b) -> (c -> d -> a) -> c -> d -> b");
+
+
+/* There seems to exist no way to type a variadic composition function, at least
+not with the means of the type validator. As a result I fall back to the rest
+parameter and function overloading to achieve the desired behavior. */
+
+
+export const compn = (...fs) => x => {
+  switch (fs.length) {
+    case 2: return fun(
+      fs[0] (fs[1] (x)),
+      "(b => c) => (a => b) => a => c");
+
+    case 3: return fun(
+      fs[0] (fs[1] (fs[2] (x))),
+      "(c => d) => (b => c) => (a => b) => a => d");
+
+    case 4: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (x)))),
+      "(d => e) => (c => d) => (b => c) => (a => b) => a => e");
+
+    case 5: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (x))))),
+      "(e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => f");
+
+    case 6: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (x)))))),
+      "(f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => g");
+
+    case 7: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (x))))))),
+      "(g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => h");
+
+    case 8: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (fs[7] (x)))))))),
+      "(h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => i");
+
+    case 9: return fun(
+      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (fs[7] (fs[8] (x))))))))),
+      "(i => j) => (h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => j");
+  }
+};
+
+
+// transform two inputs and combine the results
+
+export const compOn = fun(
+  f => g => x => y => f(g(x)) (g(y)),
+  "(b => b => c) => (a => b) => a => a => c");
 
 
 export const id = fun(x => x, "a => a");
@@ -7088,6 +7133,26 @@ const Cont_ = type("((^r. (a => r) => r) => s) => Cont<s, a>");
 export const Cont = fun(
   k => Cont_(cont => k(cont)),
   "((^r. (a => r) => r) => s) => Cont<s, a>");
+
+
+/******************************************************************************
+**********************************[ OBJECT ]***********************************
+******************************************************************************/
+
+
+/* Implicitly provides an empty object along with a reference on it to enable
+local mutations on it. `this` itself is untyped but ensures that the passed
+lambda is. */
+
+
+export const thisify = f => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
+
+  else return f({});
+};
 
 
 /******************************************************************************
