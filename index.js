@@ -5923,7 +5923,9 @@ const regeneralize = ast => {
 
 
 /* scriptum offers a couple of purely functional, fully persistent data
-structures based on a left-leaning red/black tree. */
+structures based on a left-leaning red/black tree. The tree itself is not typed,
+because this way we gain flexibility in some use cases without hampering type
+safety. However, this might change in the future if practice shows otherwise. */
 
 
 /***[ Constants ]*************************************************************/
@@ -6822,38 +6824,123 @@ class ThunkProxy {
 ******************************************************************************/
 
 
+/* Trampolines themselves are not typed in scriptum but only the functions
+utilizing them, because this way we gain flexibility in some use cases without
+hampering type safety. However, this might change in the future if practice
+shows otherwise. */
+
+
+/* Please note that using direct recursion is not the recommanded approach. For
+every appropriate type there is an associated fold, which should be used
+instead. Folds are an abstraction, whereas recursion is a primitive. */
+
+
 /******************************************************************************
 ****************************[ DEFUNCTIONALIZATION ]****************************
 ******************************************************************************/
 
 
-/* Defunctionalizes deferred nested function call trees to avoid stack overflows
-during eventual evaluation. */
+/* Avoids building up nested deferred function call trees that exhaust the stack
+during their final evaluation. Please not that usually this term is used to
+describe the process of transforming higher-order into first-order functions. In
+this case it just means to defer the function application by storing function
+and argument in a record for later invocation. */
 
 
-export const defunc = o => {
+export const Defunc = {}; // namespace
+
+
+Defunc.loop = o => { // trampoline
   while (o.tag === "Call")
-    o = o.f(o.value);
+    o = o.f(o.x);
 
   return o.tag === "Return"
-    ? o.value
-    : _throw(new TypeError("unknown trampoline tag"));
+    ? o.x
+    : _throw(new TypeError("invalid trampoline tag"));
 };
 
 
 /***[ Tags ]******************************************************************/
 
 
-export const Call = f => value =>
-  ({tag: "Call", f, value});
+Defunc.call = f => x =>
+  ({tag: "Call", f, x});
 
 
-export const Call_ = (f, value) =>
-  ({tag: "Call", f, value});
+Defunc.call_ = (f, x) =>
+  ({tag: "Call", f, x});
 
 
-export const Return = value =>
-  ({tag: "Return", value});
+Defunc.return = x =>
+  ({tag: "Return", x});
+
+
+/******************************************************************************
+*****************************[ MONADIC RECURSION ]*****************************
+******************************************************************************/
+
+
+/* Monad recursion enables stack-safe monadic recursive functions. The downside
+is that you can only compose this stack safety with other effects if the
+trampoline monad is the outermost one in the transformer. */
+
+
+export const MonadRec = {}; // namespace
+
+
+MonadRec.loop = o => { // trampoline
+  while (o.tag === "Iterate")
+    o = o.f(o.x);
+
+  return o.tag === "Return"
+    ? o.x
+    : _throw(new TypeError("invalid trampoline tag"));
+};
+
+
+/***[ Applicative ]***********************************************************/
+
+
+MonadRec.ap = tf => tx =>
+  MonadRec.chain(tf) (f =>
+    MonadRec.chain(tx) (x =>
+      MonadRec.of(f(x))));
+
+
+// MonadRec.of @Derived
+
+
+/***[ Functor ]***************************************************************/
+
+
+MonadRec.map = f => tx =>
+  MonadRec.chain(tx) (x => MonadRed.of(f(x)));
+
+
+/***[ Monad ]*****************************************************************/
+
+
+MonadRec.chain = mx => fm =>
+  mx.tag === "Iterate" ? Iterate(mx.x) (y => MonadRec.chain(mx.f(y)) (fm))
+    : mx.tag === "Return" ? fm(mx.x)
+    : _throw(new TypeError("invalid trampoline tag"));
+
+
+/***[ Tags ]******************************************************************/
+
+
+MonadRec.iterate = x => f =>
+  ({tag: "Iterate", f, x});
+
+
+MonadRec.return = x =>
+  ({tag: "Return", x});
+
+
+/***[ Derived ]***************************************************************/
+
+
+MonadRec.of = MonadRec.return;
 
 
 /******************************************************************************
@@ -6866,25 +6953,28 @@ implemented them yet and probably never will. Therefore we need a trampoline
 to eliminate the tail call. */
 
 
-export const tailRec = f => x => {
+export const TailRec = {}; // namespace
+
+
+TailRec.loop = f => x => {
   let o = f(x);
 
-  while (o.tag === "Loop")
-    o = f(o.value);
+  while (o.tag === "Iterate")
+    o = f(o.x);
 
-  return o.tag === "Base"
-    ? o.value
-    : _throw(new TypeError("unknown trampoline tag"));
+  return o.tag === "Return"
+    ? o.x
+    : _throw(new TypeError("invalid trampoline tag"));
 };
 
 
 /***[ Tags ]******************************************************************/
 
 
-export const base = value => ({tag: "Base", value});
+TailRec.iterate = x => ({tag: "Iterate", x});
 
 
-export const loop = value => ({tag: "Loop", value});
+TailRec.return = x => ({tag: "Return", x});
 
 
 /******************************************************************************
@@ -6988,7 +7078,7 @@ Array_.forEach = fun(
 
 /* `Cont` is the pure version of `Serial`, i.e. there is no micro task deferring.
 It facilitates continuation passing style and can be used with both synchronous
-and asynchronous computations. Please be aware that `Cont` is not stack safe for
+and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
 
