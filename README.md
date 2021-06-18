@@ -20,7 +20,7 @@ Just like Typescript scriptum enables gradual typing in Javascript but with a ra
 
 ## Status
 
-Unstable (v0.1.0)
+Unstable (v0.2.0)
 
 The type validator has grown organically over the last month. Its implementation is therefore neither bug free nor DRY nor performant.
 
