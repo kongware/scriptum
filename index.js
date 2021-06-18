@@ -909,29 +909,26 @@ const requireForall = ast => {
 };
 
 
-const scopeEq = (scope1, scope2) => {
-  const scope1_ = scope1.split(/\./)
-    .slice(0, -1)
-    .join(".");
+// returns true if the first scope contains the second one
 
-  const scope2_ = scope2.split(/\./)
-    .slice(0, -1)
-    .join(".");
+const isParentScope = (parent, child) => {
+  const diff = child.match(/\./g).length - parent.match(/\./g).length;
 
-  return scope1_ === scope2_;
-};
+  if (diff < 0)
+    return false;
 
+  else if (diff > 0)
+    return child.search(parent) === 0;
 
-const scopeLte = (scope1, scope2) => {
-  const scope1_ = scope1.split(/\./)
-    .slice(0, -1)
-    .join(".");
+  else {
 
-  const scope2_ = scope2.split(/\./)
-    .slice(0, -1)
-    .join(".");
+    // truncate current lam/arg index
 
-  return scope2_.search(scope1_) === 0;
+    const parent_ = parent.replace(/[^.]+$/, ""),
+      child_ = child.replace(/[^.]+$/, "");
+
+    return child_.search(parent_) === 0;
+  }
 };
 
 
@@ -1060,7 +1057,7 @@ const parseAnno = anno => {
             }
           }
         }),
-        go(last, 0, 0, scope, "codomain", context + "/Function", thisAnno, nesting));
+        go(last, -1, -1, scope, "codomain", context + "/Function", thisAnno, nesting));
     }
 
     // ADT
@@ -1070,7 +1067,7 @@ const parseAnno = anno => {
         return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
 
       else {
-        rx = cs.match(new RegExp("^(?<cons>[A-Z][a-z0-9]*)<(?<fields>.+)>$", ""));
+        rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
         // take partially applied ADT constructors into account
 
@@ -1146,7 +1143,7 @@ const parseAnno = anno => {
 
     // BoundTV
 
-    else if (rx = cs.match(new RegExp("^(?<name>[a-z]+)$", ""))) {
+    else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)$", ""))) {
       if (rntvs.has(rx.groups.name + scope))
         return BoundTV(
           rx.groups.name, scope, position, []);
@@ -1218,7 +1215,7 @@ const parseAnno = anno => {
         return Native(cs, Array(nativeDict.get(cs)).fill(Partial));
 
       else {
-        rx = cs.match(new RegExp("^(?<cons>[A-Z][a-z0-9]*)<(?<fields>.+)>$", ""));
+        rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
         // take partially applied Native constructors into account
 
@@ -1253,8 +1250,8 @@ const parseAnno = anno => {
 
     // Obj
 
-    else if (cs.search(new RegExp("^(?:[A-Z][a-z]* )?\\{"), "") !== NOT_FOUND) {
-      const cons = (cs.match(new RegExp("^[A-Z][a-z]*\\b", "")) || [null]) [0],
+    else if (cs.search(new RegExp("^(?:[A-Z][A-Za-z0-9]* )?\\{"), "") !== NOT_FOUND) {
+      const cons = (cs.match(new RegExp("^[A-Z][A-Za-z0-9]*\\b", "")) || [null]) [0],
         cs_ = cons === null ? cs : cs.slice(cons.length + 1);
 
       // take partially applied Objects constructors into account
@@ -1269,12 +1266,13 @@ const parseAnno = anno => {
       if (props[0] === "") // empty {} | Foo {}
         return Obj(cons, [], null, []);
 
-      else if (props[0].search(new RegExp("^ \\| [a-z][a-z0-9]*$")) === 0) // empty { | row} or Foo { | row}
-        return Obj(
-          cons,
-          [],
-          RowVar(props[0].match(new RegExp("[a-z][a-z0-9]*$")) [0]),
-          []);
+      else if (props[0].search(new RegExp(
+        "^ \\| [a-z][A-Za-z0-9]*$", "")) === 0) // empty { | row} or Foo { | row}
+          return Obj(
+            cons,
+            [],
+            RowVar(props[0].match(new RegExp("(?<= \\| )[a-z][A-Za-z0-9]*$", "")) [0]),
+            []);
 
       else { // non-empty {foo: a} or Foo {foo: a} or {foo: a | row} or Foo {foo: a | row}
         let row = null
@@ -1293,7 +1291,7 @@ const parseAnno = anno => {
           row === null ? null : RowVar(row),
           props.map(s => ({
             k: s.match(new RegExp("^([a-z][a-z0-9]*):", "i"), "") [1],
-            v: go(s.replace(new RegExp("[a-z][a-z0-9]*: ", "i"), ""), lamIx, argIx, scope, "", context + (cons ? `/${cons}` : "/Object"), cs, nesting)
+            v: go(s.replace(new RegExp("^[a-z][a-z0-9]*: ", "i"), ""), lamIx, argIx, scope, "", context + (cons ? `/${cons}` : "/Object"), cs, nesting)
           })));
       }
     }
@@ -1305,7 +1303,7 @@ const parseAnno = anno => {
 
     // Tcons
 
-    else if (rx = cs.match(new RegExp("^(?<name>[a-z]+)<(?<fields>.*)>$", ""))) {
+    else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)<(?<fields>.*)>$", ""))) {
       
       /* A type constructor represents a higher-kinded type and hence makes kind
       checking necessary. Internally they are encoded as a bound TV with a body
@@ -1347,7 +1345,7 @@ const parseAnno = anno => {
 
     // Tconst
 
-    else if (rx = cs.match(new RegExp("^[A-Z][A-Za-z]*$")))
+    else if (rx = cs.match(new RegExp("^[A-Z][A-Za-z0-9]*$")))
       return Tconst(cs);
 
     // this*
@@ -1413,6 +1411,15 @@ const verifyAnno = s => {
       `${showBracketMismatch(topLevel)}\n`,
       `in "${s}"\n`));
 
+  // prevents redundant round parenthesis
+
+  else if (s.search(new RegExp("\\)\\)", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant "()"\n`,
+      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
   // prevents invalid chars
 
   else if (s.search(new RegExp("[^a-z0-9(){}\\[\\]<>=:,_\\| \\.\\^\\*]", "i")) !== NOT_FOUND) {
@@ -1425,107 +1432,47 @@ const verifyAnno = s => {
       `in "${s}"\n`));
   }
 
-  // prevents explicit top-level quantifiers
-
-  else if (s.search(/^\(\^/) !== NOT_FOUND
-    && s.search(/\)$/) !== NOT_FOUND)
-      throw new SyntaxError(cat(
-        "malformed type annotation\n",
-        "top-level type must be implicitly quantified\n",
-        `but "${s.match(new RegExp("(?<=^\\()\\^[a-z]+\\.", "")) [0]}" found\n`,
-        `in "${s}"\n`));
-
-  // prevents redundant spaces
-
-  else if (s.search(new RegExp("  |^ | $", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant " "\n`,
-      `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
-  else if (s.replace(new RegExp(" => | =>|=> |, |\\. |: | \\| |[a-z] {", "g"), "").search(/ /) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant " "\n`,
-      `next to "`,
-      s.replace(new RegExp(" => |, |\\. |: | \\| ", "g"), "")
-        .match(new RegExp(".{0,5} .{0,5}", "")) [0],
-      `"\nin "${s}"\n`));
-
-  // prevents redundant round parenthesis
-
-  else if (s.search(new RegExp("\\)\\)", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant "()"\n`,
-      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of 0-9
-
-  else if (s.replace(new RegExp("[A-Z][a-z0-9]+\\b|[A-Za-z][A-Za-z0-9]+:|\\[1", "g"), "").search(/\d/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of digits\n`,
-      "only allowed within property and type constant names\n",
-      "names must not start with a digit\n",
-      `in "${s}"\n`));
-
-  // checks for valid use of =
-
-  else if (s.replace(new RegExp("[ (]=>[ )]", "g"), "").search("-") !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "=" or "=>"\n`,
-      `in "${s}"\n`));
-
   // checks for valid use of :
   
-  else if (s.replace(new RegExp("[A-Za-z][A-Za-z0-9]*:[ ,}]", "g"), "").search(":") !== NOT_FOUND)
+  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*:[ ,}]", "gi"), "").search(":") !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `invalid use of ":"\n`,
       `in "${s}"\n`));
 
-  // checks for valid use of __
+  // checks for invalid use of =
+  
+  else if (s.search(new RegExp("=(?!>)", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "=>"\n`,
+      `missing trailing ">"\n`,
+      `in "${s}"\n`));
 
-  else if (s.replace(new RegExp("\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
+  // checks for invalid use of >
+  
+  else if (s.search(new RegExp(" >", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of ">"\n`,
+      `missing preceding "="\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of =>
+
+  else if (s.replace(new RegExp("[ (]=>[ )]", "g"), "").search("=>") !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "=>"\n`,
+      "function arrow must be surrounded by a space\n",
+      `in "${s}"\n`));
+
+  // checks for valid use of _
+
+  else if (s.replace(new RegExp("\\b_\\b", "g"), "").search(/_/) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `invalid use of "_"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of |
-
-  else if (s.replace(new RegExp(" \\| ", "g"), "").search(/\|/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "|"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of ^
-
-  else if (s.replace(new RegExp("\\(\\^[a-z]", "g"), "").search(/\^/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "^"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of ^
-
-  else if (s.replace(new RegExp("\\(\\^[a-z]", "g"), "").search(/\^/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "^"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of *
-
-  else if (s.replace(/\bthis\*/g, "").search(/\*/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "*" or "this*"\n`,
       `in "${s}"\n`));
 
   // checks for valid use of ()
@@ -1536,22 +1483,65 @@ const verifyAnno = s => {
       `invalid use of "()"\n`,
       `in "${s}"\n`));
 
+  // checks for valid use of 0-9
+
+  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*\\b|\\[1", "gi"), "").search(/\d/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of digits\n`,
+      "names must not start with a digit\n",
+      `in "${s}"\n`));
+
+  // prevents redundant spaces
+
+  else if (s.search(new RegExp("  |^ | $", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant " "\n`,
+      `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // checks for valid use of *this
+
+  else if (s.replace(/\bthis\*/g, "").search(/\*/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of "this*"\n`,
+      `in "${s}"\n`));
+
+  // prevents explicit top-level quantifiers
+
+  else if (s.search(/^\(\^/) !== NOT_FOUND
+    && s.search(/\)$/) !== NOT_FOUND)
+      throw new SyntaxError(cat(
+        "malformed type annotation\n",
+        "top-level type must be implicitly quantified\n",
+        `but "${s.match(new RegExp("(?<=^\\()\\^[^.]+\\.", "")) [0]}" found\n`,
+        `in "${s}"\n`));
+
   // prevents malformed explicit quantifier
 
-  else if (s.replace(new RegExp("\\(\\^(?:[a-z]+, )*[a-z]+\\. ", "g"), "").search(/\^/) !== NOT_FOUND)
+  else if (s.search(new RegExp("\\(\\^[^.]* \\.", "")) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       "invalid explicit quantifier\n",
-      "expected form: (^a, b. a => b)\n",
+      "expected scheme: ^a, b, c.\n",
+      `in "${s}"\n`));
+
+  else if (s.replace(new RegExp("\\(\\^[a-z][^.]*\\. ", "g"), "").search(/\^/) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      "invalid explicit quantifier\n",
+      "expected scheme: ^a, b, c.\n",
       `in "${s}"\n`));
 
   // prevents malformed enumeration
 
-  else if (s.search(new RegExp("[a-z_],[a-z_]", "i")) !== NOT_FOUND)
+  else if (s.search(new RegExp(" ,|,[^ ,]", "i")) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
-      `invalid comma separated enumeration\n`,
-      "expected form: a, b or Name, Name\n",
+      "invalid enumeration\n",
+      "expected scheme: a, b, c\n",
       `in "${s}"\n`));
 
   // prevents malformed variadic arguments
@@ -1589,10 +1579,10 @@ const remNestings = s => {
   do {
     ds = cs;
     cs = cs.replace(new RegExp("\\([^(){}\\[\\]<]*\\)", ""), s => "_".repeat(s.length)); // Fun
-    cs = cs.replace(new RegExp("(?:[A-Z][a-z]* )?{[^(){}\\[\\]<>]*}", ""), s => "_".repeat(s.length)); // Obj
+    cs = cs.replace(new RegExp("(?:[A-Z][A-Za-z0-9]* )?{[^(){}\\[\\]<>]*}", ""), s => "_".repeat(s.length)); // Obj
     cs = cs.replace(new RegExp("\\[[^(){}\\[\\]<>]*\\]", ""), s => "_".repeat(s.length)); // Arr + Nea + Tup
-    cs = cs.replace(new RegExp("[A-Z][a-z]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Adt + Native
-    cs = cs.replace(new RegExp("\\b[a-z]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
+    cs = cs.replace(new RegExp("[A-Z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Adt + Native
+    cs = cs.replace(new RegExp("\\b[a-z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
   } while (ds !== cs);
 
   return cs;
@@ -1971,7 +1961,7 @@ export const type = adtAnno => {
 
     // ensure valid codomain
 
-    if (wrapperAnno.search(new RegExp("^[A-Z][a-z0-9]*<.*>$", "")) === NOT_FOUND)
+    if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
         "codomain must be a type constructor parameterized\n",
@@ -2042,13 +2032,16 @@ export const type = adtAnno => {
           `while declaring "${adtAnno}"\n`));
     }
 
-    else if (adtAnno.match(new RegExp("(?<=\\^)[a-z]+", "g")).reduce((acc, btv) =>
-      acc || wrapperAst.btvs.has(btv), false)) {
-        throw new TypeError(cat(
-          "illegal algebraic data type\n",
-          "type parameter(s) not in scope\n",
-          `namely: ${adtAnno.match(new RegExp("(?<=\\^)[a-z]+", "g")).join(", ")}\n`,
-          `while declaring "${adtAnno}"\n`));
+    else if (adtAnno.match(new RegExp(
+      "(?<=\\(\\^)[^.](?=\\.)", "g")) [0]
+        .split(", ")
+        .reduce((acc, btv) =>
+          acc || wrapperAst.btvs.has(btv), false)) {
+            throw new TypeError(cat(
+              "illegal algebraic data type\n",
+              "type parameter(s) not in scope\n",
+              `namely: ${btv}\n`,
+              `while declaring "${adtAnno}"\n`));
     }
 
     // return the ADT value constructor -- untypedCont => {run: typedCont}
@@ -2239,7 +2232,7 @@ export const typeClass = tcAnno => {
                 pruneForalls(
                   substitute(
                     specializeLHS(
-                      TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast,
+                      TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast, // TODO: change tvid to ""?
                       instantiations))));
 
             acc[k] = fun(dict[k], contAnno);
@@ -2259,7 +2252,7 @@ export const typeClass = tcAnno => {
             pruneForalls(
               substitute(
                 specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
                   instantiations))));
 
         dict_[ADT] = wrapperAnno_;
@@ -2281,11 +2274,10 @@ export const typeClass = tcAnno => {
 attempts to unify the formal parameter of a function type with a provided
 argument type, but it does not infer types from given terms. */
 
-
 export const fun = (f, funAnno) => {
   const go = (g, lamIndex, funAst, funAnno) => Object.assign((...args) => {
     
-    let instantiations = new Map(),
+    const instantiations = new Map(),
       tvid = 0; // id to create unique type variable names
 
     // take variadic arguments into account
@@ -2332,20 +2324,8 @@ export const fun = (f, funAnno) => {
     subsequent dequantifications there is no alpha renaming taking place. This
     ensures that the unified annotation only deviates as little as possible
     from the original user-defined one. */
-
-    funAst = mapAst(ast => {
-      if (ast[TAG] === "Forall")
-        return ast.scope === TOP_LEVEL_SCOPE
-          ? Forall(new Set(), ast.scope, ast.body)
-          : ast;
-
-      else if (ast[TAG] === "BoundTV")
-        return ast.scope === TOP_LEVEL_SCOPE
-          ? MetaTV(ast.name, ast.scope, ast.position, 0, ast.body)
-          : ast;
-
-      else return ast;
-    }) (funAst);
+    
+    ({ast: funAst, tvid} = specializeLHS(funAst.scope, 0, "") (funAst));
 
     /* Attempt to type validate the application of `fun` with `arg` by unifying
     `fun`'s first formal parameter with `arg`. Since this is a higher-rank type
@@ -2521,7 +2501,7 @@ export const fun = (f, funAnno) => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (contAst).ast,
+                TOP_LEVEL_SCOPE, 0, 1) (contAst).ast, // TODO: change tvid to ""?
                 instantiations_))));
 
       // update the wrapper annotation
@@ -2531,7 +2511,7 @@ export const fun = (f, funAnno) => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
                 instantiations_))));
 
       // type the Scott encoded ADT continuation and the wrapper
@@ -2600,12 +2580,19 @@ export const fun = (f, funAnno) => {
 
   if (CHECK === false) return f;
 
+  // throw an error on already typed function
+
+  else if (ANNO in f)
+    throw new TypeError(cat(
+      "type validator expects an untyped lambda\n",
+      `but "${f[ANNO]}" received\n`));
+
   // throw an error on untyped function
 
   else if (funAnno === undefined)
     throw new TypeError(cat(
-      "type validator expects a typed lambdas\n",
-      `but "${f.toString()}" received\n`));
+      "type validator expects an untyped lambda\n",
+      "along with an associated type annotation\n"));
 
   // run the validator
 
@@ -5798,115 +5785,155 @@ const substitute = (ast, instantiations) => {
 rigid ones by giving them a new unique name without altering their scopes (alpha
 renaming). This effectively removes the affected quantifier. Specialization is
 only possible with the outermost quantifier. In order to do it with nested
-quantifiers subsumption is necessary. Whether bound TVs becomemeta or rigid
+quantifiers subsumption is necessary. Whether bound TVs become meta or rigid
 depends on the side of the equation they are located in during subsumption. */
 
-const specializeLHS = (scope, iteration, tvid) => {
-  const mapAst_ = mapAst(ast => {
-    if (ast[TAG] === "Forall")
-      return ast.scope === scope
-        ? Forall(new Set(), ast.scope, ast.body)
-        : ast;
+const specialize = Cons => (scope, iteration, tvid) => {
+  const alphaRenamings = new Map(),
+    uniqNames = new Set();
+  
+  let charCode = 97; // ASCII a
 
-    else if (ast[TAG] === "BoundTV")
-      return scopeLte(ast.scope, scope)
-        ? MetaTV(ast.name + tvid, ast.scope, ast.position, iteration, ast.body)
-        : ast;
+  const mapAst_ = mapAst(ast => {
+    if (ast[TAG] === "Forall") {
+
+      // replace quantifier with mere grouping
+
+      if (ast.scope === scope)
+        return Forall(new Set(), ast.scope, ast.body);
+
+      // leave higher-rank quantifier untouched
+
+      else return ast;
+    }
+
+    else if (ast[TAG] === "BoundTV") {
+
+      // current scope is a parent of the reference scope
+
+      if (isParentScope(ast.scope, scope)) {
+
+        // truncate current lam/arg index
+        
+        const scope_ = ast.scope.replace(/[^.]+$/, "");
+
+        let name;
+        
+        // original name is already alpha-renamed
+
+        if (alphaRenamings.has(`${scope_}/${ast.name}`))
+          name = alphaRenamings.get(`${scope_}/${ast.name}`);
+
+        else {
+
+          // remove trailing digits
+          
+          name = ast.name.replace(/\d+$/, "");
+
+          // name collision
+
+          if (uniqNames.has(name + tvid)) {
+
+            // determine next unused letter
+
+            do {
+              if (charCode > 122)
+                throw new TypeError(
+                  "internal error: type variable name upper bound exceeded");
+
+              else name = String.fromCharCode(charCode++);
+            } while (uniqNames.has(name + tvid));
+
+            name += tvid;
+            alphaRenamings.set(`${scope_}/${ast.name}`, name);
+            uniqNames.add(name);
+          }
+
+          // no name collision
+
+          else {
+            name += tvid;
+            alphaRenamings.set(`${scope_}/${ast.name}`, name);
+            uniqNames.add(name);
+          }
+        }
+
+        return Cons(
+          name, ast.scope, ast.position, iteration, ast.body);
+      }
+
+      // current scope is not connected with the reference scope
+
+      else return ast;
+    }
+
+    // neither `Scope` nor `BoundTV`
 
     else return ast;
   });
 
-  return ast => ({ast: mapAst_(ast), tvid});
+  return ast => ({ast: mapAst_(ast), tvid: tvid === "" ? 0 : tvid});
 };
 
 
-const specializeRHS = (scope, iteration, tvid) => {
-  const mapAst_ = mapAst(ast => {
-    if (ast[TAG] === "Forall")
-      return ast.scope === scope
-        ? Forall(new Set(), ast.scope, ast.body)
-        : ast;
+const specializeLHS = specialize(MetaTV);
 
-    else if (ast[TAG] === "BoundTV")
-      return scopeLte(ast.scope, scope)
-        ? RigidTV(ast.name + tvid, ast.scope, ast.position, iteration, ast.body)
-        : ast;
 
-    else return ast;
-  });
-
-  return ast => ({ast: mapAst_(ast), tvid});
-};
+const specializeRHS = specialize(RigidTV);
 
 
 // reverse the specialization process
 
 const regeneralize = ast => {
-  let reservedNames,
-    charCode = 97;
+  const alphaRenamings = new Map(),
+    uniqNames = new Set();
 
-  const newNames = new Map(),
-    btvs = new Set(),
-    rvs = new Set();
-
-  reservedNames = reduceAst((acc, ast_) => {
-    if (ast_[TAG] === "MetaTV"
-      || ast_[TAG] === "RigidTV"
-      || ast_[TAG] === "RowVar") {
-        if (ast_.name.search(/\d$/) === NOT_FOUND)
-          return acc.add(ast_.name);
-
-        else return acc;
-    }
-
-    else return acc;
-  }, new Set()) (ast);
+  let charCode = 97;
 
   ast = mapAst(ast_ => {
     switch (ast_[TAG]) {
       case  "MetaTV":
       case "RigidTV": {
-        if (ast_.name.search(/\d$/) !== NOT_FOUND) {
-          if (newNames.has(ast_.name)) {
-            btvs.add(newNames.get(ast_.name));
 
-            return BoundTV(
-              newNames.get(ast_.name), ast_.scope, ast_.position, ast_.body);
-          }
+        // original name is already restored
 
-          else {
-            let name = ast_.name.match(new RegExp("^([a-z]+)\\d+$", "")) [1];
-
-            if (reservedNames.has(name)) {
-              do {
-                name = String.fromCharCode(charCode++);
-              } while (reservedNames.has(name));
-            }
-
-            reservedNames.add(name);
-            newNames.set(ast_.name, name);
-            btvs.add(name);
-
-            return BoundTV(
-              name, ast_.scope, ast_.position, ast_.body);
-          }
-        }
-
-        else {
-          btvs.add(ast_.name);
-
+        if (alphaRenamings.has(ast_.name))
           return BoundTV(
-            ast_.name, ast_.scope, ast_.position, ast_.body);
+            alphaRenamings.get(ast_.name), ast_.scope, ast_.position, ast_.body);
+
+        // remove trailing digits
+
+        let name = ast_.name.replace(/\d+$/, "");
+
+        // name collision
+
+        if (uniqNames.has(name)) {
+
+          // find next unused letter
+
+          do {
+            if (charCode > 122)
+              throw new TypeError(
+                "internal error: type variable name upper bound exceeded");
+
+            name = String.fromCharCode(charCode++);
+          } while (uniqNames.has(name));
         }
+
+        alphaRenamings.set(ast_.name, name);
+        uniqNames.add(name);
+
+        return BoundTV(
+          name, ast_.scope, ast_.position, ast_.body);
       }
 
       default: return ast_;
     }
   }) (ast);
 
-  if (btvs.size > 0)
+  if (uniqNames.size > 0)
     return Forall(
-      btvs,
+      uniqNames,
       TOP_LEVEL_SCOPE,
       ast[TAG] === "Forall" ? ast.body : ast);
 
@@ -6828,7 +6855,6 @@ class ThunkProxy {
 use cases without hampering type safety. They ensure that the provided function
 argument is typed, though. */
 
-
 /* Please note that using direct recursion is not the recommanded approach. For
 every appropriate type there is an associated fold, which should be used
 instead. Folds are an abstraction, whereas recursion is a primitive. */
@@ -6842,7 +6868,6 @@ instead. Folds are an abstraction, whereas recursion is a primitive. */
 /* Monad recursion enables stack-safe monadic recursive functions. The downside
 is that you can only compose this stack safety with other effects if the
 trampoline monad is the outermost one in the transformer. */
-
 
 export const MonadRec = {}; // namespace
 
@@ -6916,7 +6941,6 @@ MonadRec.of = MonadRec.return;
 /* ES6 ships with tail call optimization but no major browser vendor has
 implemented them yet and probably never will. Therefore we need a trampoline
 to eliminate the tail call. */
-
 
 export const TailRec = {}; // namespace
 
@@ -6994,14 +7018,12 @@ export const _throw = e => {
 holding the arguments. It ensures that the passed function argument is typed,
 though. */
 
-
 export const _let = (...args) => {
   return {in: f => {
     if (CHECK && !(ANNO in f))
       throw new TypeError(cat(
-        "typed function expected\n",
-        "while applying\n",
-        `_let(${args.map(introspectDeep).join(", ")})\n`));
+        "typed lambda expected\n",
+        `but "${f.toString()}" received\n`));
 
     else return f(...args);
   }};
@@ -7013,29 +7035,23 @@ export const _let = (...args) => {
 ******************************************************************************/
 
 
-export const comp = fun(
-  f => g => x => f(g(x)),
-  "(b => c) => (a => b) => a => c");
-
-
 // compose in the second argument
 
 export const comp2nd = fun(
   f => g => x => y => f(x) (g(y)),
-  "(a -> b -> c) -> (d -> b) -> a -> d -> c");
+  "(a => b => c) => (d => b) => a => d => c");
 
 
 // compose a binary function
 
 export const compBin = fun(
   f => g => x => y => f(g(x) (y)),
-  "(a -> b) -> (c -> d -> a) -> c -> d -> b");
+  "(a => b) => (c => d => a) => c => d => b");
 
 
 /* There seems to exist no way to type a variadic composition function, at least
 not with the means of the type validator. As a result I fall back to the rest
 parameter and function overloading to achieve the desired behavior. */
-
 
 export const compn = (...fs) => x => {
   switch (fs.length) {
@@ -7081,7 +7097,88 @@ export const compOn = fun(
   "(b => b => c) => (a => b) => a => a => c");
 
 
+export const _const = fun(
+  x => _ => x,
+  "a => discard => a");
+
+
+export const flip = fun(
+  f => y => x => f(x) (y),
+  "(a => b => c) => b => a => c");
+
+
+export const partial = (f, ...args) => (..._args) => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
+
+  else return f(...args, ..._args);
+};
+
+
+/***[ Category ]**************************************************************/
+
+
+export const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+
 export const id = fun(x => x, "a => a");
+
+
+/***[ Currying ]**************************************************************/
+
+
+export const curry = fun(
+  f => x => y => f(x, y),
+  "(a, b => c) => a => b => c");
+
+
+export const curry3 = fun(
+  f => x => y => z => f(x, y, z),
+  "(a, b, c => d) => a => b => c => d");
+
+
+export const curry4 = fun(
+  f => w => x => y => z => f(w, x, y, z),
+  "(a, b, c, d => e) => a => b => c => d => e");
+
+
+export const curry5 = fun(
+  f => v => w => x => y => z => f(v, w, x, y, z),
+  "(a, b, c, d, e => f) => a => b => c => d => e => f");
+
+
+export const curry6 = fun(
+  f => u => v => w => x => y => z => f(u, v, w, x, y, z),
+  "(a, b, c, d, e, f => g) => a => b => c => d => e => f => g");
+
+
+export const uncurry = fun(
+  f => (x, y) => f(x) (y),
+  "(a => b => c) => a, b => c");
+
+
+export const uncurry3 = fun(
+  f => (x, y, z) => f(x) (y) (z),
+  "(a => b => c => d) => a, b, c => d");
+
+
+export const uncurry4 = fun(
+  f => (w, x, y, z) => f(w) (x) (y) (z),
+  "(a => b => c => d => e) => a, b, c, d => e");
+
+
+export const uncurry5 = fun(
+  f => (v, w, x, y, z) => f(v) (w) (x) (y) (z),
+  "(a => b => c => d => e => f) => a, b, c, d, e => f");
+
+
+export const uncurry6 = fun(
+  f => (u, v, w, x, y, z) => f(u) (v) (w) (x) (y) (z),
+  "(a => b => c => d => e => f => g) => a, b, c, d, e, f => g");
 
 
 /******************************************************************************
@@ -7126,7 +7223,6 @@ It facilitates continuation passing style and can be used with both synchronous
 and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
-
 const Cont_ = type("((^r. (a => r) => r) => s) => Cont<s, a>");
 
 
@@ -7143,7 +7239,6 @@ export const Cont = fun(
 /* Implicitly provides an empty object along with a reference on it to enable
 local mutations on it. `this` itself is untyped but ensures that the passed
 lambda is. */
-
 
 export const thisify = f => {
   if (CHECK && !(ANNO in f))
@@ -7162,7 +7257,6 @@ export const thisify = f => {
 
 /* Like `Serial` but is executed in parallel. Please note that `Parallel`
 doesn't implement monad, because they require order. */
-
 
 const Parallel_ = type("((^r. (a => r) => r) => s) => Parallel<s, a>");
 
@@ -7189,7 +7283,6 @@ serially. It creates a lazy CPS composition that itself is either executed
 synchronuously within the same micro task or asynchronously in a subsequent one.
 The actual behavior depends on a PRNG and cannot be determined upfront. You can
 pass both synchronous and asynchronous functions to the CPS composition. */
-
 
 const Serial_ = type("((^r. (a => r) => r) => s) => Serial<s, a>");
 
