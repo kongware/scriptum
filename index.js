@@ -2277,7 +2277,7 @@ argument type, but it does not infer types from given terms. */
 export const fun = (f, funAnno) => {
   const go = (g, lamIndex, funAst, funAnno) => Object.assign((...args) => {
     
-    const instantiations = new Map(),
+    let instantiations = new Map(),
       tvid = 0; // id to create unique type variable names
 
     // take variadic arguments into account
@@ -2579,13 +2579,6 @@ export const fun = (f, funAnno) => {
   // bypass type validator
 
   if (CHECK === false) return f;
-
-  // throw an error on already typed function
-
-  else if (ANNO in f)
-    throw new TypeError(cat(
-      "type validator expects an untyped lambda\n",
-      `but "${f[ANNO]}" received\n`));
 
   // throw an error on untyped function
 
