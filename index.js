@@ -6694,16 +6694,6 @@ export const strict = thunk =>
     : thunk;
 
 
-// strictly evaluate a thunk recursively
-
-export const strictRec = thunk => {
-  while (thunk && thunk[THUNK] === true)
-    thunk = thunk[EVAL];
-
-  return thunk;
-};
-
-
 // creates thunk in weak head normal form
 
 export const thunk = thunk => {
@@ -6739,7 +6729,7 @@ class ThunkProxy {
     }
   }
 
-  apply(g, that, args) {debugger;
+  apply(g, that, args) {
 
     // evaluate thunk only once
 
@@ -6749,7 +6739,7 @@ class ThunkProxy {
     return this.memo(...args);
   }
 
-  get(g, k) {debugger;
+  get(g, k) {
 
     // don't evaluate thunk
     
@@ -6761,21 +6751,28 @@ class ThunkProxy {
     else if (k === ANNO)
       return this[ANNO];
 
-    // evaluate thunk only once
+    // evaluate thunk but only once
 
     else if (this.memo === NULL)
       this.memo = g();
 
-    // trigger evaluation
+    // return the once evaluated result
 
     if (k === EVAL)
       return this.memo;
 
-    else if (k === "valueOf")
-      return () => this.memo.valueOf();
+    // forward to-primitive conversion of the evaluated result
 
-    else if (k === "toString")
-      return () => this.memo.toString();
+    else if (k === Symbol.toPrimitive)
+      return hint =>
+        hint === "string"
+          ? this.memo.toString()
+          : this.memo.valueOf();
+
+    // forward string-tag representation of the evaluated result
+
+    else if (k === Symbol.toStringTag)
+      return Object.prototype.toString.call(this.memo).slice(8, -1);
 
     // enforce array spreading
     
@@ -6783,10 +6780,13 @@ class ThunkProxy {
       && Array.isArray(this.memo))
         return true;
 
-    else if (k === Symbol.toStringTag)
-      return Object.prototype.toString.call(this.memo).slice(8, -1);
+    else if (k === "valueOf")
+      return () => this.memo.valueOf();
 
-    // bind in case of a method
+    else if (k === "toString")
+      return () => this.memo.toString();
+
+    // method binding
 
     if (typeof this.memo[k] === "function")
       return this.memo[k].bind(this.memo);
@@ -6804,7 +6804,7 @@ class ThunkProxy {
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
-  has(g, k) {debugger;
+  has(g, k) {
 
     // don't evaluate thunk
 
@@ -6816,7 +6816,7 @@ class ThunkProxy {
     else if (CHECK && k === ANNO)
       return true;
 
-    // evaluate thunk only once
+    // evaluate thunk but only once
 
     else if (this.memo === NULL)
       this.memo = g();
@@ -6855,6 +6855,22 @@ argument is typed, though. */
 /* Please note that using direct recursion is not the recommanded approach. For
 every appropriate type there is an associated fold, which should be used
 instead. Folds are an abstraction, whereas recursion is a primitive. */
+
+
+/******************************************************************************
+*****************************[ STRICT RECURSION ]******************************
+******************************************************************************/
+
+
+/* `strictRec` enforec the evaluation of huge nested implicit thunks in a stack-
+safe manner. */
+
+export const strictRec = thunk => {
+  while (thunk && thunk[THUNK] === true)
+    thunk = thunk[EVAL];
+
+  return thunk;
+};
 
 
 /******************************************************************************
