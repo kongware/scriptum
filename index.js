@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = true; // type validator flag
+const CHECK = false; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -278,7 +278,7 @@ export const Char = s => {
     }
   }
 
-  else return n;
+  else return s;
 };
 
 
@@ -1891,6 +1891,10 @@ export const introspectDeep = x => {
       else if (nativeDict.has(type))
         return nativeIntrospection.get(type) (x);
 
+      // Thunk
+
+      else if (x !== null && x[THUNK])
+        return x[ANNO];
 
       // ADT or Object
 
@@ -1936,14 +1940,8 @@ export const type = adtAnno => {
 
   // bypass the type validator
 
-  if (CHECK === false) {
-    return x => {
-      if (typeof x === "function") // ADT
-        return x => ({run: x});
-
-      else return x; // type class
-    };
-  }
+  if (CHECK === false)
+    return k => ({run: k});
 
   // run the type validator
 
@@ -2461,7 +2459,7 @@ export const fun = (f, funAnno) => {
 
     let r = g(...args);
 
-    // ensure that applications on the term level never return `undefined`
+    // ensure that applications on the term level never returns `undefined`
 
     if (r === undefined)
       throw new TypeError(cat(
@@ -2584,8 +2582,9 @@ export const fun = (f, funAnno) => {
 
   else if (funAnno === undefined)
     throw new TypeError(cat(
+      "missing type annotation\n",
       "type validator expects an untyped lambda\n",
-      "along with an associated type annotation\n"));
+      "along with an associated annotation\n"));
 
   // run the validator
 
@@ -2621,6 +2620,10 @@ export const fun = (f, funAnno) => {
     }
   }
 };
+
+
+export const anno = (x, valAnno) =>
+  (x[ANNO] = valAnno, x);
 
 
 /******************************************************************************
@@ -6704,55 +6707,64 @@ export const strictRec = thunk => {
 // creates thunk in weak head normal form
 
 export const thunk = thunk => {
-  if (ANNO in thunk)
-    return new Proxy(thunk, new ThunkProxy());
+  if (CHECK) {
+    if (ANNO in thunk)
+      return new Proxy(thunk, new ThunkProxy(thunk[ANNO]));
 
-  else throw new TypeError(
-    "typed thunk expected");
-};
+    else throw new TypeError(
+      "typed thunk expected");
+  }
+
+  else return new Proxy(thunk, new ThunkProxy());
+  };
 
 
 /***[ Implementation ]********************************************************/
 
 
 class ThunkProxy {
-  constructor() {
-    this.memo = NULL;
+  constructor(anno) {
+    this.memo = NULL
+
+    if (CHECK) {
+
+      // thunks are opaque hence hide them at the type level
+
+      if (anno.search(/\(\) => /) === 0)
+        this[ANNO] = anno.replace(/\(\) => /, "");
+
+      else throw new TypeError(cat(
+        "thunk expected\n",
+        `but "${anno}" received`));
+    }
   }
 
-  apply(g, that, args) {
+  apply(g, that, args) {debugger;
 
     // evaluate thunk only once
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL)
       this.memo = g();
-
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
 
     return this.memo(...args);
   }
 
-  get(g, k) {
+  get(g, k) {debugger;
 
-    // prevent evaluation for thunk introspection
+    // don't evaluate thunk
     
     if (k === THUNK)
       return true;
 
+    // don't evaluate thunk
+
+    else if (k === ANNO)
+      return this[ANNO];
+
     // evaluate thunk only once
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL)
       this.memo = g();
-      
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
 
     // trigger evaluation
 
@@ -6786,51 +6798,43 @@ class ThunkProxy {
 
     // evaluate thunk only once
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL)
       this.memo = g();
-      
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
 
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
-  has(g, k) {
+  has(g, k) {debugger;
 
-    // prevent evaluation for thunk introspection
+    // don't evaluate thunk
 
     if (k === THUNK)
       return true;
 
+    // don't evaluate thunk
+
+    else if (CHECK && k === ANNO)
+      return true;
+
     // evaluate thunk only once
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL)
       this.memo = g();
 
-    // evaluate thunk recursively
+    if(this.memo
+      && (typeof this.memo === "object" || typeof this.memo === "function")
+      && k in this.memo)
+        return true;
 
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return k in this.memo;
+    else return false;
   }
 
   ownKeys(g) {
 
     // evaluate thunk only once
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL)
       this.memo = g();
-
-      // evaluate thunk recursively
-
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
 
     return Object.keys(this.memo);
   }
@@ -7004,6 +7008,16 @@ export const _throw = e => {
 };
 
 
+export const throwOn = fun(
+  p => e => msg => x => {
+    if (p(x))
+      throw new e(msg);
+    
+    else return x;
+  },
+  "(a => Boolean) => Function => String => a => discard");
+
+
 /***[ Local Bindings ]********************************************************/
 
 
@@ -7042,9 +7056,334 @@ export const compBin = fun(
   "(a => b) => (c => d => a) => c => d => b");
 
 
-/* There seems to exist no way to type a variadic composition function, at least
-not with the means of the type validator. As a result I fall back to the rest
-parameter and function overloading to achieve the desired behavior. */
+// transform two inputs and combine the results
+
+export const compOn = fun(
+  f => g => x => y => f(g(x)) (g(y)),
+  "(b => b => c) => (a => b) => a => a => c");
+
+
+export const _const = fun(
+  x => _ => x,
+  "a => discard => a");
+
+
+export const flip = fun(
+  f => y => x => f(x) (y),
+  "(a => b => c) => b => a => c");
+
+
+export const partial = (f, ...args) => (..._args) => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
+
+  else return f(...args, ..._args);
+};
+
+
+/***[ Applicator ]************************************************************/
+
+
+export const app = fun(
+  f => x => f(x),
+  "(a => b) => a => b");
+
+
+export const app_ = fun(
+  x => f => f(x),
+  "a => (a => b) => b");
+
+
+// partially apply right argument
+
+export const appr = fun(
+  (f, y) => x => f(x) (y),
+  "(a => b => c), b => a => c");
+
+
+export const infix = fun(
+  (x, f, y) => f(x) (y),
+  "a, (a => b => c), b => c");
+
+
+export const infix2 = fun(
+  (x, f, y, g, z) => g(f(x) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d => e");
+
+
+export const infix2_ = fun(
+  (x, f, y, g, z) => g(x) (f(y) (z)),
+  "a, (a => b => c), b, (c => d => e), d => e");
+
+
+export const infix3 = fun(
+  (w, f, x, g, y, h, z) => h(g(f(w) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
+
+
+export const infix3_ = fun(
+  (w, f, x, g, y, h, z) => h(w) (g(x) (f(y) (z))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
+
+
+export const infix4 = fun(
+  (v, f, w, g, x, h, y, i, z) => i(h(g(f(v) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
+
+
+export const infix4_ = fun(
+  (v, f, w, g, x, h, y, i, z) => i(v) (h(w) (g(x) (f(y) (z)))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
+
+
+export const infix5 = fun(
+  (u, f, v, g, w, h, x, i, y, j, z) => j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
+
+
+export const infix5_ = fun(
+  (u, f, v, g, w, h, x, i, y, j, z) => j(u) (i(v) (h(w) (g(x) (f(y) (z))))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
+
+
+export const infix6 = fun(
+  (t, f, u, g, v, h, w, i, x, j, y, k, z) => k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
+
+
+export const infix6_ = fun(
+  (t, f, u, g, v, h, w, i, x, j, y, k, z) => k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z)))))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
+
+
+export const infix7 = fun(
+  (s, f, t, g, u, h, v, i, w, j, x, k, y, l, z) => l(k(j(i(h(g(f(s) (t)) (u)) (v)) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
+
+
+export const infix7_ = fun(
+  (s, f, t, g, u, h, v, i, w, j, x, k, y, l, z) => l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z))))))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
+
+
+export const infix8 = fun(
+  (r, f, s, g, t, h, u, i, v, j, w, k, x, l, y, m, z) => m(l(k(j(i(h(g(f(r) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
+
+
+export const infix8_ = fun(
+  (r, f, s, g, t, h, u, i, v, j, w, k, x, l, y, m, z) => m(r) (l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z)))))))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
+
+
+export const infix9 = fun(
+  (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) => n(m(l(k(j(i(h(g(f(q) (r)) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
+
+
+export const infix9_ = fun(
+  (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) => n(q) (m(r) (l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z))))))))),
+  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
+
+
+// mimic overloaded infix operations (left associative)
+
+export const infixn = (...args) => {
+  switch (args.length) {
+    case 5: return fun(
+      args[3] (args[1] (args[0]) (args[2])) (args[4]),
+      "a, (a => b => c), b, (c => d => e), d => e");
+
+    case 7: return fun(
+      args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
+
+    case 9: return fun(
+      args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
+
+    case 11: return fun(
+      args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
+
+    case 13: return fun(
+      args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
+
+    case 15: return fun(
+      args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
+
+    case 17: return fun(
+      args[15] (args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14])) (args[16]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
+
+    case 19: return fun(
+      args[17] (args[15] (args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14])) (args[16])) (args[18]),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
+  }
+};
+
+
+// mimic overloaded infix operations (right associative)
+
+export const infixn_ = (...args) => {
+  switch (args.length) {
+    case 5: return fun(
+      args[3] (args[0]) (args[1] (args[2]) (args[4])),
+      "a, (a => b => c), b, (c => d => e), d => e");
+
+    case 7: return fun(
+      args[5] (args[0]) (args[3] (args[2]) (args[1] (args[4]) (args[6]))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
+
+    case 9: return fun(
+      args[7] (args[0]) (args[5] (args[2]) (args[3] (args[4]) (args[1] (args[6]) (args[8])))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
+
+    case 11: return fun(
+      args[9] (args[0]) (args[7] (args[2]) (args[5] (args[4]) (args[3] (args[6]) (args[1] (args[8]) (args[10]))))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
+
+    case 13: return fun(
+      args[11] (args[0]) (args[9] (args[2]) (args[7] (args[4]) (args[5] (args[6]) (args[3] (args[8]) (args[1] (args[10]) (args[12])))))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
+
+    case 15: return fun(
+      args[13] (args[0]) (args[11] (args[2]) (args[9] (args[4]) (args[7] (args[6]) (args[5] (args[8]) (args[3] (args[10]) (args[1] (args[12]) (args[14]))))))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
+
+    case 17: return fun(
+      args[15] (args[0]) (args[13] (args[2]) (args[11] (args[4]) (args[9] (args[6]) (args[7] (args[8]) (args[5] (args[10]) (args[3] (args[12]) (args[1] (args[14]) (args[16])))))))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
+
+    case 19: return fun(
+      args[17] (args[0]) (args[15] (args[2]) (args[13] (args[4]) (args[11] (args[6]) (args[9] (args[8]) (args[7] (args[10]) (args[5] (args[12]) (args[3] (args[14]) (args[1] (args[16]) (args[18]))))))))),
+      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
+  }
+};
+
+
+/***[ Anonymous Recursion ]***************************************************/
+
+
+export const fix = fun(
+  f => x => f(fix(f)) (x),
+  "((a => b) => a => b) => a => b");
+
+
+export const fix_ = fun(
+  f => f(thunk(fun(() => fix_(f), "() => a => a"))),
+  "(a => a) => a");
+
+
+/***[ Arithmetic Operators ]**************************************************/
+
+
+export const add = fun(
+  x => y => x + y,
+  "Number => Number => Number");
+
+
+export const div = fun(
+  x => y => x / y,
+  "Number => Number => Number");
+
+
+export const exp = fun(
+  base => exp => base ** exp,
+  "Number => Number => Number");
+
+
+export const mod = fun(
+  x => y => x % y,
+  "Number => Number => Number");
+
+
+export const mul = fun(
+  x => y => x * y,
+  "Number => Number => Number");
+
+
+export const neg = fun(
+  x => -x,
+  "Number => Number");
+
+
+export const sub = fun(
+  x => y => x - y,
+  "Number => Number => Number");
+
+
+/***[ Bitwise Operators ]*****************************************************/
+
+
+export const bitAnd = fun(
+  x => y => x & y,
+  "Number => Number => Number");
+
+
+export const bitNot = fun(
+  x => ~x,
+  "Number => Number");
+
+
+export const bitOr = fun(
+  x => y => x | y,
+  "Number => Number => Number");
+
+
+export const bitXor = fun(
+  x => y => x ^ y,
+  "Number => Number => Number");
+
+
+/***[ Category ]**************************************************************/
+
+
+export const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+
+export const comp3 = fun(
+  f => g => h => x => f(g(h(x))),
+  "(c => d) => (b => c) => (a => b) => a => d");
+
+
+export const comp4 = fun(
+  f => g => h => i => x => f(g(h(i(x)))),
+  "(d => e) => (c => d) => (b => c) => (a => b) => a => e");
+
+
+export const comp5 = fun(
+  f => g => h => i => j => x => f(g(h(i(j(x))))),
+  "(e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => f");
+
+
+export const comp6 = fun(
+  f => g => h => i => j => k => x => f(g(h(i(j(k(x)))))),
+  "(f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => g");
+
+
+export const comp7 = fun(
+  f => g => h => i => j => k => l => x => f(g(h(i(j(k(l(x))))))),
+  "(g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => h");
+
+
+export const comp8 = fun(
+  f => g => h => i => j => k => l => m => x => f(g(h(i(j(k(l(m(x)))))))),
+  "(h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => i");
+
+
+export const comp9 = fun(
+  f => g => h => i => j => k => l => m => n => x => f(g(h(i(j(k(l(m(n(x))))))))),
+  "(i => j) => (h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => j");
+
+
+// mimic overloaded composition function
 
 export const compn = (...fs) => x => {
   switch (fs.length) {
@@ -7083,42 +7422,20 @@ export const compn = (...fs) => x => {
 };
 
 
-// transform two inputs and combine the results
-
-export const compOn = fun(
-  f => g => x => y => f(g(x)) (g(y)),
-  "(b => b => c) => (a => b) => a => a => c");
-
-
-export const _const = fun(
-  x => _ => x,
-  "a => discard => a");
-
-
-export const flip = fun(
-  f => y => x => f(x) (y),
-  "(a => b => c) => b => a => c");
-
-
-export const partial = (f, ...args) => (..._args) => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else return f(...args, ..._args);
-};
-
-
-/***[ Category ]**************************************************************/
-
-
-export const comp = fun(
-  f => g => x => f(g(x)),
-  "(b => c) => (a => b) => a => c");
-
-
 export const id = fun(x => x, "a => a");
+
+
+/***[ Conditional Operator ]**************************************************/
+
+
+/* While Javascript's conditional operator is a first class expression it is
+not lazy. `cond` defers evaluation, because it is a curried function and
+furthermore is lazy in its first argument, i.e. we can pass an expensive
+computation and only have to evaluate it if all arguments are provided. */
+
+export const cond = fun(
+  expr => x => y => strict(expr) ? x : y,
+  "a => b => b => b");
 
 
 /***[ Currying ]**************************************************************/
@@ -7172,6 +7489,136 @@ export const uncurry5 = fun(
 export const uncurry6 = fun(
   f => (u, v, w, x, y, z) => f(u) (v) (w) (x) (y) (z),
   "(a => b => c => d => e => f => g) => a, b, c, d, e, f => g");
+
+
+/***[ Debugging ]*************************************************************/
+
+
+export const debug = f => (...args) => {
+  debugger;
+  return f(...args);
+};
+
+
+export const debugIf = p => f => (...args) => {
+  if (p(...args)) debugger;
+  return f(...args);
+};
+
+
+export const log = (...args) =>
+  (console.log(...args), args[0]);
+
+
+export const taggedLog = tag => (...args) =>
+  (console.log(tag, ...args), args[0]);
+
+
+export const trace = x =>
+  (x => console.log(JSON.stringify(x) || x.toString()), x);
+
+
+/***[ Equality ]**************************************************************/
+
+
+export const eq = fun(
+  x => y => x === y,
+  "a => a => Boolean");
+
+
+export const neq = fun(
+  x => y => x !== y,
+  "a => a => Boolean");
+
+
+/***[ Logical Operators ]*****************************************************/
+
+
+export const and_ = fun(
+  x => y => !!(x && y),
+  "a => a => Boolean");
+
+
+export const andf_ = fun(
+  f => x => y => f(x) && f(y),
+  "(a => b) => a => a => Boolean");
+
+
+export const imply = fun(
+  x => y => !!(!x || y),
+  "a => a => Boolean");
+
+
+export const not = fun(
+  x => !x,
+  "a => Boolean");
+
+
+export const notf = fun(
+  f => x => !f(x),
+  "(a => b) => a => Boolean");
+
+
+export const or_ = fun(
+  x => y => !!(x || y),
+  "a => a => Boolean");
+
+
+export const orf_ = fun(
+  f => x => y => f(x) || f(y),
+  "(a => b) => a => a => Boolean");
+
+
+export const xor = fun(
+  x => y => !!((x ? 1 : 0) ^ (y ? 1 : 0)),
+  "a => a => Boolean");
+
+
+/***[ Relational Operators ]**************************************************/
+
+
+export const gt = fun(
+  x => y => x > y,
+  "a => a => Boolean");
+
+
+export const gte = fun(
+  x => y => x >= y,
+  "a => a => Boolean");
+
+
+export const lt = fun(
+  x => y => x < y,
+  "a => a => Boolean");
+
+
+
+export const lte = fun(
+  x => y => x <= y,
+  "a => a => Boolean");
+
+
+/***[ Short Circuiting ]******************************************************/
+
+
+export const and = fun(
+  x => y => x && y,
+  "a => a => a");
+
+
+export const andf = fun(
+  f => x => y => f(x) && f(y),
+  "(a => b) => a => a => b");
+
+
+export const or = fun(
+  x => y => x || y,
+  "a => a => a");
+
+
+export const orf = fun(
+  f => x => y => f(x) || f(y),
+  "(a => b) => a => a => b");
 
 
 /******************************************************************************
