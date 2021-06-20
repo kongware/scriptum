@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = false; // type validator flag
+const CHECK = true; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -6696,13 +6696,13 @@ export const strict = thunk =>
 
 // creates thunk in weak head normal form
 
-export const thunk = thunk => {
+export const thunk = (thunk, anno) => {
   if (CHECK) {
-    if (ANNO in thunk)
-      return new Proxy(thunk, new ThunkProxy(thunk[ANNO]));
+    if (anno)
+      return new Proxy(thunk, new ThunkProxy(anno));
 
     else throw new TypeError(
-      "typed thunk expected");
+      "missing type annotation");
   }
 
   else return new Proxy(thunk, new ThunkProxy());
@@ -6751,6 +6751,11 @@ class ThunkProxy {
     else if (k === ANNO)
       return this[ANNO];
 
+    // don't evaluate thunk
+
+    else if (k === Symbol.toStringTag)
+      return "Function";
+
     // evaluate thunk but only once
 
     else if (this.memo === NULL)
@@ -6768,11 +6773,6 @@ class ThunkProxy {
         hint === "string"
           ? this.memo.toString()
           : this.memo.valueOf();
-
-    // forward string-tag representation of the evaluated result
-
-    else if (k === Symbol.toStringTag)
-      return Object.prototype.toString.call(this.memo).slice(8, -1);
 
     // enforce array spreading
     
@@ -7291,7 +7291,7 @@ export const fix = fun(
 
 
 export const fix_ = fun(
-  f => f(thunk(fun(() => fix_(f), "() => a => a"))),
+  f => f(thunk(() => fix_(f), "() => a => a")),
   "(a => a) => a");
 
 
