@@ -547,9 +547,8 @@ const determineArity = ast => {
 };
 
 
-/* If a `Forall` sub-AST is extracted from an annotation, the quantifier doesn't
-hold any bound type variables, because at this position the `Forall` serves mere
-as a grouping. Hence the contained bound type variables must be retrieved. */
+/* If a `Forall` AST is extracted from an annotation, its possibly bound TVs
+be retrieved, because the quantifier isn't implicit anymore. */
 
 const adjustForall = ref => {
   const nestedScopes = new Set(),
@@ -557,7 +556,7 @@ const adjustForall = ref => {
 
   if (ref[TAG] !== "Forall")
     throw new TypeError(
-      "internal error: extract AST expects a top level scope");
+      "internal error: adjustForall expects a Forall as outer element");
 
   else {
     const ast_ = mapAst(ast => {
@@ -2171,7 +2170,7 @@ export const typeClass = tcAnno => {
       // collect properties each from the type dict and the passed object
 
       const props = dictAst.body.body.reduce(
-        (acc, {k, v}) => acc.set(k, adjustForall(v)), new Map());
+        (acc, {k, v}) => acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : v), new Map());
 
       const props_ = Object.keys(dict);
 
@@ -7054,6 +7053,20 @@ export const _let = (...args) => {
 
 
 /******************************************************************************
+*******************************[ TYPE CLASSES ]********************************
+******************************************************************************/
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const Monoid = typeClass(`({
+  empty: m,·
+  append: (m => m => m)}) => Monoid<m>
+`);
+
+
+/******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
 
@@ -7685,6 +7698,70 @@ const Cont_ = type("((^r. (a => r) => r) => s) => Cont<s, a>");
 export const Cont = fun(
   k => Cont_(cont => k(cont)),
   "((^r. (a => r) => r) => s) => Cont<s, a>");
+
+
+/******************************************************************************
+***********************************[ LIST ]************************************
+******************************************************************************/
+
+
+export const List = type("(^r. r => (a => List<a> => r) => r) => List<a>");
+
+
+List.Cons = fun(
+  x => xs => List(nil => cons => cons(x) (xs)),
+  "a => List<a> => List<a>");
+
+
+List.Nil = List(nil => cons => nil);
+
+
+/***[ Monoid ]****************************************************************/
+
+
+List.empty = List.Nil;
+
+
+List.append = fun(
+  xs => ys => function go(acc) {
+    return acc.run(ys) (fun(
+      x => xs_ =>
+        List.Cons(x) (thunk(
+          () => go(xs_),
+          "() => List<a>")),
+      "a => List<a> => List<a>"));
+  } (xs),
+  "List<a> => List<a> => List<a>");
+
+
+List.Monoid = Monoid({empty: List.empty, append: List.append});
+
+
+/******************************************************************************
+*********************************[ DIFFLIST ]**********************************
+******************************************************************************/
+
+
+// like a regular list but with an efficient concat operation
+
+export const DiffList = type("(^r. (List<a> => List<a> => r) => r) => DiffList<a>");
+
+
+DiffList.Cons = fun(
+  f => DiffList(cons => cons(f)),
+  "(List<a> => List<a>) => DiffList<a>");
+
+
+DiffList.append = fun(
+  f => g => DiffList(xs => f(g(xs))),
+  "DiffList<a> => DiffList<a> => DiffList<a>");
+
+
+DiffList.empty = DiffList(
+  xs => DiffList.append(Nil) (xs));
+
+
+DiffList.Monoid = Monoid({empty: DiffList.empty, append: DiffList.append});
 
 
 /******************************************************************************
