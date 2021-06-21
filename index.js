@@ -7719,9 +7719,6 @@ List.Nil = List(nil => cons => nil);
 /***[ Monoid ]****************************************************************/
 
 
-List.empty = List.Nil;
-
-
 List.append = fun(
   xs => ys => function go(acc) {
     return acc.run(ys) (fun(
@@ -7732,6 +7729,9 @@ List.append = fun(
       "a => List<a> => List<a>"));
   } (xs),
   "List<a> => List<a> => List<a>");
+
+
+List.empty = List.Nil;
 
 
 List.Monoid = Monoid({empty: List.empty, append: List.append});
@@ -7758,7 +7758,7 @@ DiffList.append = fun(
 
 
 DiffList.empty = DiffList(
-  xs => DiffList.append(Nil) (xs));
+  xs => DiffList.append(List.Nil) (xs));
 
 
 DiffList.Monoid = Monoid({empty: DiffList.empty, append: DiffList.append});
