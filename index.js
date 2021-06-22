@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = false; // type validator flag
+const CHECK = true; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -1939,7 +1939,7 @@ export const type = adtAnno => {
 
   // bypass the type validator
 
-  if (CHECK === true)
+  if (CHECK === false)
     return k => ({run: k});
 
   // run the type validator
@@ -7895,4 +7895,3 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
-  
