@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = true; // type validator flag
+const CHECK = false; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -1939,7 +1939,7 @@ export const type = adtAnno => {
 
   // bypass the type validator
 
-  if (CHECK === false)
+  if (CHECK === true)
     return k => ({run: k});
 
   // run the type validator
@@ -6687,10 +6687,8 @@ export const lazy = f => x =>
 
 // strictly evaluate a single thunk
 
-export const strict = thunk =>
-  thunk && thunk[THUNK] === true
-    ? thunk[EVAL]
-    : thunk;
+export const strict = x =>
+  x && x[THUNK] ? x[EVAL] : x;
 
 
 // creates thunk in weak head normal form
@@ -6717,7 +6715,7 @@ class ThunkProxy {
 
     if (CHECK) {
 
-      // thunks are opaque hence hide them at the type level
+      // thunks are opaque types
 
       if (anno.search(/\(\) => /) === 0)
         this[ANNO] = anno.replace(/\(\) => /, "");
@@ -6740,17 +6738,17 @@ class ThunkProxy {
 
   get(g, k) {
 
-    // don't evaluate thunk
+    // prevent evaluation
     
     if (k === THUNK)
       return true;
 
-    // don't evaluate thunk
+    // prevent evaluation
 
     else if (k === ANNO)
       return this[ANNO];
 
-    // don't evaluate thunk
+    // prevent evaluation
 
     else if (k === Symbol.toStringTag)
       return "Function";
@@ -6765,22 +6763,18 @@ class ThunkProxy {
     if (k === EVAL)
       return this.memo;
 
-    // forward to-primitive conversion of the evaluated result
-
-    else if (k === Symbol.toPrimitive)
-      return hint =>
-        hint === "string"
-          ? this.memo.toString()
-          : this.memo.valueOf();
-
     // enforce array spreading
     
     else if (k === Symbol.isConcatSpreadable
       && Array.isArray(this.memo))
         return true;
 
+    // forward valueOf
+
     else if (k === "valueOf")
       return () => this.memo.valueOf();
+
+    // forward toString
 
     else if (k === "toString")
       return () => this.memo.toString();
@@ -6805,12 +6799,12 @@ class ThunkProxy {
 
   has(g, k) {
 
-    // don't evaluate thunk
+    // prevent evaluation
 
     if (k === THUNK)
       return true;
 
-    // don't evaluate thunk
+    // prevent evaluation
 
     else if (CHECK && k === ANNO)
       return true;
@@ -6830,7 +6824,7 @@ class ThunkProxy {
 
   ownKeys(g) {
 
-    // evaluate thunk only once
+    // prevent evaluation
 
     if (this.memo === NULL)
       this.memo = g();
@@ -6864,11 +6858,11 @@ instead. Folds are an abstraction, whereas recursion is a primitive. */
 /* `strictRec` enforec the evaluation of huge nested implicit thunks in a stack-
 safe manner. */
 
-export const strictRec = thunk => {
-  while (thunk && thunk[THUNK] === true)
-    thunk = thunk[EVAL];
+export const strictRec = x => {
+  while (x && x[THUNK])
+    x = x[EVAL];
 
-  return thunk;
+  return x;
 };
 
 
@@ -7748,12 +7742,12 @@ export const DiffList = type("(^r. (List<a> => List<a> => r) => r) => DiffList<a
 
 
 DiffList.Cons = fun(
-  f => DiffList(cons => cons(f)),
+  f => DiffList(cons => f(cons)),
   "(List<a> => List<a>) => DiffList<a>");
 
 
 DiffList.append = fun(
-  f => g => DiffList(xs => f(g(xs))),
+  f => g => DiffList(xs => f.run(g.run(xs))),
   "DiffList<a> => DiffList<a> => DiffList<a>");
 
 
@@ -7901,3 +7895,4 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
+  
