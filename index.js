@@ -5286,8 +5286,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
         case "RigidTV": {
           if (argAst.body.length === 0) // T ~ b
             return instantiate(
-              paramAst,
               argAst,
+              paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
                 && refAst.name === fromAst.name
                   ? toAst
@@ -7732,30 +7732,30 @@ List.Monoid = Monoid({empty: List.empty, append: List.append});
 
 
 /******************************************************************************
-*********************************[ DIFFLIST ]**********************************
+***********************************[ DLIST ]***********************************
 ******************************************************************************/
 
 
 // like a regular list but with an efficient concat operation
 
-export const DiffList = type("(^r. (List<a> => List<a> => r) => r) => DiffList<a>");
+export const DList = type("(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
 
 
-DiffList.Cons = fun(
-  f => DiffList(cons => f(cons)),
-  "(List<a> => List<a>) => DiffList<a>");
+DList.Cons = fun(
+  f => DList(cons => cons(f)),
+  "(List<a> => List<a>) => DList<a>");
 
 
-DiffList.append = fun(
-  f => g => DiffList(xs => f.run(g.run(xs))),
-  "DiffList<a> => DiffList<a> => DiffList<a>");
+DList.append = fun(
+  f => g => DList(xs => f.run(g.run(xs))),
+  "DList<a> => DList<a> => DList<a>");
 
 
-DiffList.empty = DiffList(
-  xs => DiffList.append(List.Nil) (xs));
+DList.empty = DList(
+  xs => DList.append(List.Nil) (xs));
 
 
-DiffList.Monoid = Monoid({empty: DiffList.empty, append: DiffList.append});
+DList.Monoid = Monoid({empty: DList.empty, append: DList.append});
 
 
 /******************************************************************************
