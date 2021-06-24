@@ -28,8 +28,6 @@ If you come across a bug, please don't hesitate to file an issue. Thank you!
 
 For the next couple of months the type validator will gradually become more stable and the functional library more extensive. Bear with me!
 
-Currently working on: stack-safe async recursion (▓▓▓▓▓▓▓▓▓░ done)
-
 ## Goals
 
 In order to reconcile the functional paradigm with Javascript the following main aspects need to be addressed:
@@ -40,7 +38,7 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] lazy evaluation with thunks
 - [x] persistent data structures
 - [x] safe in-place updates
-- [ ] stack-safe sync/async recursion
+- [x] stack-safe sync/async recursion
 - [ ] effect handling and composition
 - [ ] concurrency (STM)
 - [ ] strong eventual consistency (CRDTs)
