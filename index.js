@@ -14,7 +14,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 /******************************************************************************
 *******************************************************************************
-*******************************[ CROSS-CUTTING ]*******************************
+**********************************[ GLOBAL ]***********************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -7000,6 +7000,21 @@ TailRec.return = x => ({tag: "Return", x});
 
 
 /******************************************************************************
+**************************[ CROSS-CUTTING CONCERNS ]***************************
+******************************************************************************/
+
+
+export const lazyProp = (o, prop, f) =>
+  Object.defineProperty(
+    o,
+    prop, {
+      get: f,
+      configurable: true,
+      enumerable: true
+    });
+
+
+/******************************************************************************
 *******************************[ TYPE AGNOSTIC ]*******************************
 ******************************************************************************/
 
@@ -7051,13 +7066,21 @@ export const _let = (...args) => {
 ******************************************************************************/
 
 
+/***[ Semigroup ]*************************************************************/
+
+
+const Semigroup = typeClass(`({
+  append: (m => m => m)
+}) => Semigroup<m>`);
+
+
 /***[ Monoid ]****************************************************************/
 
 
 const Monoid = typeClass(`({
   empty: m,·
-  append: (m => m => m)}) => Monoid<m>
-`);
+  append: (m => m => m)
+}) => Monoid<m>`);
 
 
 /******************************************************************************
@@ -7713,6 +7736,22 @@ List.Nil = List(nil => cons => nil);
 /***[ Monoid ]****************************************************************/
 
 
+List.empty = List.Nil;
+
+
+lazyProp(List, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = {
+    append: List.append,
+    empty: List.empty
+  }
+});
+
+
+/***[ Semigroup ]*************************************************************/
+
+
 List.append = fun(
   xs => ys => function go(acc) {
     return acc.run(ys) (fun(
@@ -7725,10 +7764,7 @@ List.append = fun(
   "List<a> => List<a> => List<a>");
 
 
-List.empty = List.Nil;
-
-
-List.Monoid = Monoid({empty: List.empty, append: List.append});
+List.Semigroup = Semigroup({append: List.append});
 
 
 /******************************************************************************
@@ -7738,12 +7774,34 @@ List.Monoid = Monoid({empty: List.empty, append: List.append});
 
 // like a regular list but with an efficient concat operation
 
-export const DList = type("(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
+export const DList = type(
+  "(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
 
 
 DList.Cons = fun(
   f => DList(dlist => dlist(f)),
   "(List<a> => List<a>) => DList<a>");
+
+
+/***[ Monoid ]****************************************************************/
+
+
+DList.empty = DList.Cons(fun(
+  xs => List.append(List.Nil) (xs),
+  "List<a> => List<a>"));
+
+
+lazyProp(DList, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = {
+    append: DList.append,
+    empty: DList.empty
+  }
+});
+
+
+/***[ Semigroup ]*************************************************************/
 
 
 DList.append = fun(
@@ -7757,12 +7815,7 @@ DList.append = fun(
   "DList<a> => DList<a> => DList<a>");
 
 
-DList.empty = DList.Cons(fun(
-  xs => List.append(List.Nil) (xs),
-  "List<a> => List<a>"));
-
-
-DList.Monoid = Monoid({empty: DList.empty, append: DList.append});
+DList.Semigroup = Semigroup({append: DList.append});
 
 
 /******************************************************************************
