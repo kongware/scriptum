@@ -7742,17 +7742,24 @@ export const DList = type("(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
 
 
 DList.Cons = fun(
-  f => DList(cons => cons(f)),
+  f => DList(dlist => dlist(f)),
   "(List<a> => List<a>) => DList<a>");
 
 
 DList.append = fun(
-  f => g => DList(xs => f.run(g.run(xs))),
+  f => g => DList.Cons(fun(
+    xs => f.run(fun(
+      dlist => dlist(g.run(fun(
+        dlist_ => dlist_(xs),
+        "(List<a> => List<a>) => List<a>"))),
+      "(List<a> => List<a>) => List<a>")),
+    "List<a> => List<a>")),
   "DList<a> => DList<a> => DList<a>");
 
 
-DList.empty = DList(
-  xs => DList.append(List.Nil) (xs));
+DList.empty = DList.Cons(fun(
+  xs => List.append(List.Nil) (xs),
+  "List<a> => List<a>"));
 
 
 DList.Monoid = Monoid({empty: DList.empty, append: DList.append});
