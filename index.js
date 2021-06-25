@@ -2081,6 +2081,9 @@ export const type = adtAnno => {
 };
 
 
+export const type1 = 
+
+
 /******************************************************************************
 *******************************[ TYPE CLASSES ]********************************
 ******************************************************************************/
@@ -2166,6 +2169,14 @@ export const typeClass = tcAnno => {
     // return the type class constructor -- {untypedProps} => {typedProps}
 
     return Object.assign(dict => {
+      Object.entries(dict).forEach(([k, v]) => {
+        if (v === undefined)
+          throw new TypeError(cat(
+            "illegal type class\n",
+            `property "${k}" is defined\n`,
+            "but its implementation is missing\n",
+            `while declaring "${tcAnno}"\n`));
+      });
 
       // collect properties each from the type dict and the passed object
 
@@ -2181,7 +2192,7 @@ export const typeClass = tcAnno => {
           "illegal type class\n",
           "operation/property mismatch\n",
           `expected: ${Array.from(props)
-            .map(([v, k]) => k)
+            .map(([k, v]) => k)
             .join(", ")}\n`,
           `received: ${props_.join(", ")}\n`,
           `while declaring "${tcAnno}"\n`));
@@ -7736,20 +7747,29 @@ List.Nil = List(nil => cons => nil);
 /***[ Monoid ]****************************************************************/
 
 
-List.empty = List.Nil;
-
-
 lazyProp(List, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = {
+  return this.Monoid = Monoid({
     append: List.append,
     empty: List.empty
-  }
+  })
 });
 
 
+List.empty = List.Nil;
+
+
 /***[ Semigroup ]*************************************************************/
+
+
+lazyProp(List, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup({
+    append: List.append
+  })
+});
 
 
 List.append = fun(
@@ -7764,15 +7784,12 @@ List.append = fun(
   "List<a> => List<a> => List<a>");
 
 
-List.Semigroup = Semigroup({append: List.append});
-
-
 /******************************************************************************
 ***********************************[ DLIST ]***********************************
 ******************************************************************************/
 
 
-// like a regular list but with an efficient concat operation
+// like a regular list but with efficient concat/snoc operations
 
 export const DList = type(
   "(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
@@ -7786,11 +7803,6 @@ DList.Cons = fun(
 /***[ Monoid ]****************************************************************/
 
 
-DList.empty = DList.Cons(fun(
-  xs => List.append(List.Nil) (xs),
-  "List<a> => List<a>"));
-
-
 lazyProp(DList, "Monoid", function() {
   delete this.Monoid;
   
@@ -7801,7 +7813,21 @@ lazyProp(DList, "Monoid", function() {
 });
 
 
+DList.empty = DList.Cons(fun(
+  xs => List.append(List.Nil) (xs),
+  "List<a> => List<a>"));
+
+
 /***[ Semigroup ]*************************************************************/
+
+
+lazyProp(DList, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = {
+    append: DList.append
+  }
+});
 
 
 DList.append = fun(
@@ -7813,9 +7839,6 @@ DList.append = fun(
       "(List<a> => List<a>) => List<a>")),
     "List<a> => List<a>")),
   "DList<a> => DList<a> => DList<a>");
-
-
-DList.Semigroup = Semigroup({append: DList.append});
 
 
 /******************************************************************************
