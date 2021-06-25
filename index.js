@@ -55,23 +55,23 @@ const GT = 1;
 const NOT_FOUND = -1;
 
 
-/***[ Variables ]*************************************************************/
+/***[ Type Dictionaries ]*****************************************************/
 
 
 const adtDict = new Map(); // ADT register (name and arity)
 
 
-const nativeDict = new Map([ // Native register (name and arity)
+const customTypeDict = new Map([ // Native register (name and arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-const nativeIntrospection = new Map([
-  ["Map", x => {
+const customTypeIntrospection = new Map([
+  ["Map", m => {
     const ts = new Map();
 
-    for (let [k, v] of x)
+    for (let [k, v] of m)
       ts.set(introspectDeep(k), introspectDeep(v));
 
     if (ts.size === 0)
@@ -80,16 +80,16 @@ const nativeIntrospection = new Map([
     else if (ts.size > 1)
       throw new TypeError(cat(
         "invalid Map: must be homogeneous\n",
-        introspectr(x).slice(0, MAX_COLONS),
+        JSON.stringify(Array.from(m)).slice(0, MAX_COLONS),
         "\n"));
 
     return `Map<${Array.from(ts) [0].join(", ")}>`;
   }],
 
-  ["Set", x => {
+  ["Set", s => {
     const ts = new Set();
 
-    for (let v of x)
+    for (let v of s)
       ts.add(introspectDeep(v));
 
     if (ts.size === 0)
@@ -98,31 +98,91 @@ const nativeIntrospection = new Map([
     else if (ts.size > 1)
       throw new TypeError(cat(
         "invalid Set: must be homogeneous\n",
-        JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
+        JSON.stringify(Array.from(s)).slice(0, MAX_COLONS),
         "\n"));
 
     return `Set<${Array.from(ts) [0]}>`;
   }],
 
-  ["Vector", x => {
-    if (x.length === 0)
+  ["Vector", o => {
+    if (o.length === 0)
       return "Vector<a>";
 
     else
-      return `Vector<${introspectDeep(x.data.v)}>`;
+      return `Vector<${introspectDeep(o.data.v)}>`;
   }]]);
 
 
-const tconstDict = new Set([ // Tconst register
+export const registerCustomType = (name, arity, introspect) => {
+  if (CHECK) {
+
+    // check for name clashes with native types
+
+    if (customTypeDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with another custom type found\n",
+        `namely: ${name}\n`,
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+    
+    // check for name clashes with type constants
+
+    else if (typeConstDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with another custom type found\n",
+        `namely: ${name}\n`,
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+
+    // check for name clashes with ADTs
+
+    else if (adtDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with an algebraic data type found\n",
+        `namely: ${name}\n`,
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+
+    customTypeDict.set(name, arity);
+    customTypeIntrospection.set(name, introspect);
+  }
+};
+
+
+const typeConstDict = new Set([ // Tconst register
   "Char",
   "Integer",
   "Natural"]);
 
 
-export const registerNative = (name, arity, introspect) => {
+export const registerTypeConst = name => {
   if (CHECK) {
-    nativeDict.set(name, arity);
-    nativeIntrospection.set(name, introspect);
+
+    // check for name clashes with native types
+
+    if (customTypeDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with another custom type found\n",
+        `namely: ${name}\n`));
+    
+    // check for name clashes with type constants
+
+    else if (typeConstDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with another custom type found\n",
+        `namely: ${name}\n`));
+
+    // check for name clashes with ADTs
+
+    else if (adtDict.has(name))
+      throw new TypeError(cat(
+        "illegal custom data type\n",
+        "name collision with an algebraic data type found\n",
+        `namely: ${name}\n`));
+
+    typeConstDict.add(name);
   }
 };
 
@@ -1209,9 +1269,9 @@ const parseAnno = anno => {
 
     // Native
 
-    else if (Array.from(nativeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+    else if (Array.from(customTypeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
       if (cs.search(/</) === NOT_FOUND)
-        return Native(cs, Array(nativeDict.get(cs)).fill(Partial));
+        return Native(cs, Array(customTypeDict.get(cs)).fill(Partial));
 
       else {
         rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
@@ -1227,17 +1287,17 @@ const parseAnno = anno => {
         const fields = splitByScheme(
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
-        if (fields.length > nativeDict.get(rx.groups.cons))
+        if (fields.length > customTypeDict.get(rx.groups.cons))
           throw new SyntaxError(cat(
             "malformed type annotation\n",
             `type constructor arity mismatch\n`,
-            `defined type parameters: ${nativeDict.get(rx.groups.cons)}\n`,
+            `defined type parameters: ${customTypeDict.get(rx.groups.cons)}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
-        const fields_ = fields.length < nativeDict.get(rx.groups.cons)
+        const fields_ = fields.length < customTypeDict.get(rx.groups.cons)
           ? fields.concat(
-              Array(nativeDict.get(rx.groups.cons) - fields.length).fill("__"))
+              Array(customTypeDict.get(rx.groups.cons) - fields.length).fill("__"))
           : fields;
 
         return Native(
@@ -1882,13 +1942,13 @@ export const introspectDeep = x => {
 
       // object-based Tconst
 
-      if (tconstDict.has(type))
+      if (typeConstDict.has(type))
         return type;
 
-      // Native
+      // custom type
 
-      else if (nativeDict.has(type))
-        return nativeIntrospection.get(type) (x);
+      else if (customTypeDict.has(type))
+        return customTypeIntrospection.get(type) (x);
 
       // Thunk
 
@@ -1983,10 +2043,19 @@ export const type = adtAnno => {
 
     // check for name clashes with native types
 
-    else if (nativeDict.has(tcons))
+    else if (customTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with native type found\n",
+        "name collision with custom type found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // check for name clashes with type constants
+
+    else if (typeConstDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with custom type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2081,7 +2150,16 @@ export const type = adtAnno => {
 };
 
 
-export const type1 = 
+export const type1 = (name, arity) =>
+  registerCustomType(name, arity, xs => {
+    const ys = xs.map(x => introspectDeep(x.data.v));
+
+    const zs = Array(arity)
+      .fill("")
+      .map((_, i) => i + 97);
+
+    return `${name}<${ys.concat(zs).slice(0, arity)}>`;
+  });
 
 
 /******************************************************************************
@@ -2126,18 +2204,27 @@ export const typeClass = tcAnno => {
     if (adtDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with an ADT found\n",
+        "name collision with an algebraic data type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${tcAnno}"\n`));
 
     // check for name clashes with native types
 
-    else if (nativeDict.has(tcons))
+    else if (customTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with native type found\n",
+        "name collision with custom type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${tcAnno}"\n`));
+
+    // check for name clashes with type constants
+
+    else if (typeConstDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal type class\n",
+        "name collision with custom type found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
 
     // register type class as name-arity pair
 
