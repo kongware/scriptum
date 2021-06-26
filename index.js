@@ -61,13 +61,13 @@ const NOT_FOUND = -1;
 const adtDict = new Map(); // ADT register (name and arity)
 
 
-const customTypeDict = new Map([ // Native register (name and arity)
+const imperativeTypeDict = new Map([ // Native register (name and arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-const customTypeIntrospection = new Map([
+const imperativeTypeIntrospection = new Map([
   ["Map", m => {
     const ts = new Map();
 
@@ -118,10 +118,10 @@ export const registerCustomType = (name, arity, introspect) => {
 
     // check for name clashes with native types
 
-    if (customTypeDict.has(name))
+    if (imperativeTypeDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
-        "name collision with another custom type found\n",
+        "illegal imperative data type\n",
+        "name collision with another imperative type found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
     
@@ -129,8 +129,8 @@ export const registerCustomType = (name, arity, introspect) => {
 
     else if (typeConstDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
-        "name collision with another custom type found\n",
+        "illegal imperative data type\n",
+        "name collision with a type constant found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
 
@@ -138,13 +138,13 @@ export const registerCustomType = (name, arity, introspect) => {
 
     else if (adtDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
+        "illegal imperative data type\n",
         "name collision with an algebraic data type found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
 
-    customTypeDict.set(name, arity);
-    customTypeIntrospection.set(name, introspect);
+    imperativeTypeDict.set(name, arity);
+    imperativeTypeIntrospection.set(name, introspect);
   }
 };
 
@@ -160,25 +160,25 @@ export const registerTypeConst = name => {
 
     // check for name clashes with native types
 
-    if (customTypeDict.has(name))
+    if (imperativeTypeDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
-        "name collision with another custom type found\n",
+        "illegal imperative data type\n",
+        "name collision with another imperative type found\n",
         `namely: ${name}\n`));
     
     // check for name clashes with type constants
 
     else if (typeConstDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
-        "name collision with another custom type found\n",
+        "illegal imperative data type\n",
+        "name collision with a type constant found\n",
         `namely: ${name}\n`));
 
     // check for name clashes with ADTs
 
     else if (adtDict.has(name))
       throw new TypeError(cat(
-        "illegal custom data type\n",
+        "illegal imperative data type\n",
         "name collision with an algebraic data type found\n",
         `namely: ${name}\n`));
 
@@ -1269,9 +1269,9 @@ const parseAnno = anno => {
 
     // Native
 
-    else if (Array.from(customTypeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+    else if (Array.from(imperativeTypeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
       if (cs.search(/</) === NOT_FOUND)
-        return Native(cs, Array(customTypeDict.get(cs)).fill(Partial));
+        return Native(cs, Array(imperativeTypeDict.get(cs)).fill(Partial));
 
       else {
         rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
@@ -1287,17 +1287,17 @@ const parseAnno = anno => {
         const fields = splitByScheme(
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
-        if (fields.length > customTypeDict.get(rx.groups.cons))
+        if (fields.length > imperativeTypeDict.get(rx.groups.cons))
           throw new SyntaxError(cat(
             "malformed type annotation\n",
             `type constructor arity mismatch\n`,
-            `defined type parameters: ${customTypeDict.get(rx.groups.cons)}\n`,
+            `defined type parameters: ${imperativeTypeDict.get(rx.groups.cons)}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
-        const fields_ = fields.length < customTypeDict.get(rx.groups.cons)
+        const fields_ = fields.length < imperativeTypeDict.get(rx.groups.cons)
           ? fields.concat(
-              Array(customTypeDict.get(rx.groups.cons) - fields.length).fill("__"))
+              Array(imperativeTypeDict.get(rx.groups.cons) - fields.length).fill("__"))
           : fields;
 
         return Native(
@@ -1940,15 +1940,15 @@ export const introspectDeep = x => {
 
     default: {
 
-      // object-based Tconst
+      // object-based type constant
 
       if (typeConstDict.has(type))
         return type;
 
-      // custom type
+      // imperative type
 
-      else if (customTypeDict.has(type))
-        return customTypeIntrospection.get(type) (x);
+      else if (imperativeTypeDict.has(type))
+        return imperativeTypeIntrospection.get(type) (x);
 
       // Thunk
 
@@ -1993,7 +1993,8 @@ export const introspectDeep = x => {
 ******************************************************************************/
 
 
-// declare Scott encoded algebraic data types with build-in pattern matching
+/* `type` is used for declaring Scott encoded ADTs with several constructors
+using CPS, because it entails pattern matching including exhaustiveness checks. */
 
 export const type = adtAnno => {
 
@@ -2011,20 +2012,28 @@ export const type = adtAnno => {
     adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
       .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    // parse the type wrapper and split it into name and arity
+    // parse the type wrapper
 
     const wrapperAnno = splitByScheme(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
 
-    // ensure valid codomain
-
-    if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+    if (wrapperAnno === undefined)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "codomain must be a type constructor parameterized\n",
-        "with all rank-1 type variables of the domain\n",
+        "Scott encoding expects a top-level function type\n",
+        `while declaring "${adtAnno}"\n`));
+
+    // ensure valid codomain
+
+    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "Scott encoding expects a parameterized type constructor\n",
+        "in its codomain\n",
         `but "${wrapperAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
+
+    // determine name and arity of the type wrapper
 
     const tcons = wrapperAnno.match(/[^<]+/) [0];
 
@@ -2043,10 +2052,10 @@ export const type = adtAnno => {
 
     // check for name clashes with native types
 
-    else if (customTypeDict.has(tcons))
+    else if (imperativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with custom type found\n",
+        "name collision with imperative type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2055,7 +2064,7 @@ export const type = adtAnno => {
     else if (typeConstDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with custom type found\n",
+        "name collision with type constant found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2063,7 +2072,7 @@ export const type = adtAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT and wrapper AST and get the continuation AST
+    // parse ADT, continuation and wrapper AST
 
     const adtAst = parseAnno(adtAnno),
       contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
@@ -2074,9 +2083,9 @@ export const type = adtAnno => {
     if (!hasRank(adtAst.body.body.lambdas[0] [0], 2))
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "domain must be a function argument\n",
-        "that receives another rank-2 function argument\n",
-        `but "${serializeAst(contAst)}" received\n`,
+        "Scott encoding expects a rank-2 function type\n",
+        "in its domain\n",
+        `but "${serializeAst(adtAst.body.body.lambdas[0] [0])}" received\n`,
         `while declaring "${adtAnno}"\n`));
 
     // serialize continuation AST
@@ -2087,30 +2096,43 @@ export const type = adtAnno => {
     of the value constructor:
 
     (^r. (a => r) => (b => r) => r) => Either<a, b>
-          ^           ^                       ^  ^ */
+          ^           ^                       ^^^^
+    ((a => r) => r => Cont<a, r>)
+      ^    ^     ^         ^^^^ */
 
-    if (Array.from(wrapperAst.btvs).reduce((acc, btv) =>
-      acc || !contAst.btvs.has(btv), false)) {
+    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (adtAst.body.body.lambdas[0] [0]));
+
+    const rank1Co = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (wrapperAst));
+
+    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
+      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
+
+    if (outOfScope.length > 0)
         throw new TypeError(cat(
-          "illegal algebraic data type\n",
+          "illegal algebraic data type declaration\n",
           "type parameter(s) not in scope\n",
-          `namely: ${[...wrapperAst.btvs].filter(r1tv => !contAst.btvs.has(r1tv)).join(", ")}\n`,
+          `namely: ${outOfScope.join(", ")}\n`,
           `while declaring "${adtAnno}"\n`));
-    }
 
-    else if (adtAnno.match(new RegExp(
-      "(?<=\\(\\^)[^.](?=\\.)", "g")) [0]
-        .split(", ")
-        .reduce((acc, btv) =>
-          acc || wrapperAst.btvs.has(btv), false)) {
-            throw new TypeError(cat(
-              "illegal algebraic data type\n",
-              "type parameter(s) not in scope\n",
-              `namely: ${btv}\n`,
-              `while declaring "${adtAnno}"\n`));
-    }
-
-    // return the ADT value constructor -- untypedCont => {run: typedCont}
+    // return the ADT value constructor
 
     return Object.assign(k => { // Scott encoded continuations
       
@@ -2150,16 +2172,174 @@ export const type = adtAnno => {
 };
 
 
-export const type1 = (name, arity) =>
-  registerCustomType(name, arity, xs => {
-    const ys = xs.map(x => introspectDeep(x.data.v));
+/* `type1` is used to declare single constructor ADTs. Such ADTs don't need
+pattern matching and thus no higher-rank types. We can drop the CPS encoding
+to gain simplified types. */
 
-    const zs = Array(arity)
-      .fill("")
-      .map((_, i) => i + 97);
+export const type1 = adtAnno => {
 
-    return `${name}<${ys.concat(zs).slice(0, arity)}>`;
-  });
+  // bypass the type validator
+
+  if (CHECK === false)
+    return k => ({run: k});
+
+  // run the type validator
+
+  else {
+    
+    // strip newlines and indentations
+
+    adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+
+    // parse the type wrapper
+
+    const wrapperAnno = splitByScheme(
+      / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
+
+    if (wrapperAnno === undefined)
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "Single constructor ADT expects a top-level function type\n",
+        `while declaring "${adtAnno}"\n`));
+
+    // ensure valid codomain
+
+    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "Single constructor ADT expects a parameterized type constructor\n",
+        "in its codomain\n",
+        `but "${wrapperAnno}" received\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // determine name and arity of the type wrapper
+
+    const tcons = wrapperAnno.match(/[^<]+/) [0];
+
+    const arity = splitByScheme(
+      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+
+    // check for name clashes with previously registered ADTs
+
+    if (adtDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with another ADT found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // check for name clashes with native types
+
+    else if (imperativeTypeDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with imperative type found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // check for name clashes with type constants
+
+    else if (typeConstDict.has(tcons))
+      throw new TypeError(cat(
+        "illegal algebraic data type\n",
+        "name collision with type constant found\n",
+        `namely: ${tcons}\n`,
+        `while declaring "${adtAnno}"\n`));
+
+    // register ADT as name-arity pair
+
+    else adtDict.set(tcons, arity);
+
+    // parse ADT continuation and wrapper AST
+
+    const adtAst = parseAnno(adtAnno),
+      contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
+      wrapperAst = parseAnno(wrapperAnno);
+
+    // serialize continuation AST
+
+    const contAnno = serializeAst(contAst);
+
+    /* Verify that all rank-1 type variables of the domain occur in the codomain
+    of the value constructor:
+
+    (^r. (a => r) => (b => r) => r) => Either<a, b>
+          ^           ^                       ^^^^
+    ((a => r) => r => Cont<a, r>)
+      ^    ^     ^         ^^^^ */
+
+    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (adtAst.body.body.lambdas[0] [0]));
+
+    const rank1Co = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (wrapperAst));
+
+    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
+      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
+
+    if (outOfScope.length > 0)
+        throw new TypeError(cat(
+          "illegal algebraic data type declaration\n",
+          "type parameter(s) not in scope\n",
+          `namely: ${outOfScope.join(", ")}\n`,
+          `while declaring "${adtAnno}"\n`));
+
+    // return the ADT value constructor
+
+    return Object.assign(k => { // Scott encoded continuations
+      
+      // unify with the optional annotation but discard the result
+
+      if (ANNO in k)
+        unifyTypes(
+          contAst,
+          parseAnno(k[ANNO]),
+          0,
+          0,
+          0,
+          0,
+          new Map(),
+          contAnno,
+          k[ANNO],
+          adtAnno,
+          []);
+
+      // clone the function object (not the function itself)
+
+      const k_ = k.bind(null);
+
+      // set/update the annotation property
+
+      k_[ANNO] = contAnno;
+
+      // return the ADT
+
+      return {
+        [TAG]: tcons,
+        [ADT]: wrapperAnno,
+        run: fun(k_, contAnno)
+      };
+    }, {[ANNO]: adtAnno});
+  }
+};
 
 
 /******************************************************************************
@@ -2210,10 +2390,10 @@ export const typeClass = tcAnno => {
 
     // check for name clashes with native types
 
-    else if (customTypeDict.has(tcons))
+    else if (imperativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with custom type found\n",
+        "name collision with imperative type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${tcAnno}"\n`));
 
@@ -2222,7 +2402,7 @@ export const typeClass = tcAnno => {
     else if (typeConstDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with custom type found\n",
+        "name collision with type constant found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -7807,12 +7987,12 @@ It facilitates continuation passing style and can be used with both synchronous
 and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
-const Cont_ = type("((^r. (a => r) => r) => s) => Cont<s, a>");
+const Cont_ = type1("((a => r) => r) => Cont<r, a>");
 
 
 export const Cont = fun(
-  k => Cont_(cont => k(cont)),
-  "((^r. (a => r) => r) => s) => Cont<s, a>");
+  k => Cont_(k),
+  "((a => r) => r) => Cont<r, a>");
 
 
 /******************************************************************************
