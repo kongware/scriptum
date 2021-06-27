@@ -2136,38 +2136,23 @@ export const type = adtAnno => {
 
     // return the ADT value constructor
 
-    return Object.assign(k => { // Scott encoded continuations
+    return Object.assign(k => { // untyped Scott encoded continuations
       
-      // unify with the optional annotation but discard the result
+      // check if untyped
 
       if (ANNO in k)
-        unifyTypes(
-          contAst,
-          parseAnno(k[ANNO]),
-          0,
-          0,
-          0,
-          0,
-          new Map(),
-          contAnno,
-          k[ANNO],
-          adtAnno,
-          []);
-
-      // clone the function object (not the function itself)
-
-      const k_ = k.bind(null);
-
-      // set/update the annotation property
-
-      //k_[ANNO] = ANNO in k ? k[ANNO] : contAnno;
+        throw new TypeError(cat(
+          "invalid algebraic data type usage\n",
+          "untyped Scott encoded continuation expected\n",
+          `but "${k[ANNO]}" received\n`,
+          `while applying "${adtAnno}"\n`));
 
       // return the ADT
 
-      return {
+      else return {
         [TAG]: tcons,
         [ADT]: wrapperAnno,
-        run: fun(k_, contAnno)
+        run: fun(k, contAnno)
       };
     }, {[ANNO]: adtAnno});
   }
@@ -2256,15 +2241,15 @@ export const type1 = adtAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT and wrapper AST and extract the continuation AST
+    // parse ADT and wrapper AST and extract the original AST
 
     const adtAst = parseAnno(adtAnno),
-      contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
+      originalAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
       wrapperAst = parseAnno(wrapperAnno);
 
-    // serialize continuation AST
+    // serialize original AST
 
-    const contAnno = serializeAst(contAst);
+    const originalAnno = serializeAst(originalAst);
 
     /* Verify that all rank-1 type variables of the domain occur in the codomain
     of the value constructor:
@@ -2308,38 +2293,36 @@ export const type1 = adtAnno => {
 
     // return the ADT value constructor
 
-    return Object.assign(k => { // Scott encoded continuations
-      
-      // unify with the optional annotation but discard the result
+    return Object.assign(x => {
+      const argAnno = introspectDeep(x);
 
-      if (ANNO in k)
-        unifyTypes(
-          contAst,
-          parseAnno(k[ANNO]),
-          0,
-          0,
-          0,
-          0,
-          new Map(),
-          contAnno,
-          k[ANNO],
-          adtAnno,
-          []);
+      const instantiations = unifyTypes(
+        originalAst,
+        parseAnno(argAnno),
+        0,
+        0,
+        0,
+        0,
+        new Map(),
+        originalAnno,
+        argAnno,
+        adtAnno,
+        []);
 
-      // clone the function object (not the function itself)
-
-      const k_ = k.bind(null);
-
-      // set/update the annotation property
-
-      //k_[ANNO] = ANNO in k ? k[ANNO] : contAnno;
+      const wrapperAnno_ = serializeAst(
+        regeneralize(
+          pruneForalls(
+            substitute(
+              specializeLHS(
+                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
+                instantiations))));
 
       // return the ADT
 
       return {
         [TAG]: tcons,
-        [ADT]: wrapperAnno,
-        run: fun(k_, contAnno)
+        [ADT]: wrapperAnno_,
+        run: x // TODO: what happens if x isn't a function?
       };
     }, {[ANNO]: adtAnno});
   }
@@ -2491,7 +2474,7 @@ export const typeClass = tcAnno => {
 
     if (outOfScope.length > 0)
         throw new TypeError(cat(
-          "illegal algebraic data type declaration\n",
+          "illegal type class declaration\n",
           "type parameter(s) not in scope\n",
           `namely: ${outOfScope.join(", ")}\n`,
           `while declaring "${tcAnno}"\n`));
@@ -2519,7 +2502,7 @@ export const typeClass = tcAnno => {
 
       if (props.size !== props_.length)
         throw new TypeError(cat(
-          "illegal type class\n",
+          "illegal type class usage\n",
           "operation/property mismatch\n",
           `expected: ${Array.from(props)
             .map(([k, v]) => k)
@@ -8271,14 +8254,3 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
-
-
-/*
-
-TODO:
-
-* cross-check adtDict, imperativeTypeDict and typeConstDict for name clashes
-* implement cross-check at ADT, Native and Tconst
-* recognize type constructor/type variable patterns at unexpected-token-error
-
-*/
