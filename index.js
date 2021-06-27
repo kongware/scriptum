@@ -2017,6 +2017,8 @@ export const type = adtAnno => {
     const wrapperAnno = splitByScheme(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
 
+    // ensures top-level function type
+
     if (wrapperAnno === undefined)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
@@ -2055,7 +2057,7 @@ export const type = adtAnno => {
     else if (imperativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with imperative type found\n",
+        "name collision with an imperative type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2064,7 +2066,7 @@ export const type = adtAnno => {
     else if (typeConstDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with type constant found\n",
+        "name collision with a type constant found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2072,7 +2074,7 @@ export const type = adtAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT, continuation and wrapper AST
+    // parse ADT and wrapper AST and extract the continuation AST
 
     const adtAst = parseAnno(adtAnno),
       contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
@@ -2158,7 +2160,7 @@ export const type = adtAnno => {
 
       // set/update the annotation property
 
-      k_[ANNO] = contAnno;
+      //k_[ANNO] = ANNO in k ? k[ANNO] : contAnno;
 
       // return the ADT
 
@@ -2196,6 +2198,8 @@ export const type1 = adtAnno => {
 
     const wrapperAnno = splitByScheme(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
+
+    // ensures top-level function type
 
     if (wrapperAnno === undefined)
       throw new TypeError(cat(
@@ -2235,7 +2239,7 @@ export const type1 = adtAnno => {
     else if (imperativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with imperative type found\n",
+        "name collision with an imperative type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2244,7 +2248,7 @@ export const type1 = adtAnno => {
     else if (typeConstDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with type constant found\n",
+        "name collision with a type constant found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2252,7 +2256,7 @@ export const type1 = adtAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT continuation and wrapper AST
+    // parse ADT and wrapper AST and extract the continuation AST
 
     const adtAst = parseAnno(adtAnno),
       contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
@@ -2328,7 +2332,7 @@ export const type1 = adtAnno => {
 
       // set/update the annotation property
 
-      k_[ANNO] = contAnno;
+      //k_[ANNO] = ANNO in k ? k[ANNO] : contAnno;
 
       // return the ADT
 
@@ -2368,10 +2372,30 @@ export const typeClass = tcAnno => {
     tcAnno = tcAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
       .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    // parse the type wrapper and split it into name and arity
+    // parse the type wrapper
 
     const wrapperAnno = splitByScheme(
       / => /, 4, remNestings(tcAnno)) (tcAnno) [1];
+
+    // ensures top-level function type
+
+    if (wrapperAnno === undefined)
+      throw new TypeError(cat(
+        "invalid type class declaration\n",
+        "value-level encoding expects a top-level function type\n",
+        `while declaring "${tcAnno}"\n`));
+
+    // ensure valid codomain
+
+    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid type class declaration\n",
+        "value-level encoding expects a parameterized type constructor\n",
+        "in its codomain\n",
+        `but "${wrapperAnno}" received\n`,
+        `while declaring "${tcAnno}"\n`));
+
+    // determine name and arity of the type wrapper
 
     const tcons = wrapperAnno.match(/[^<]+/) [0];
 
@@ -2393,7 +2417,7 @@ export const typeClass = tcAnno => {
     else if (imperativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with imperative type found\n",
+        "name collision with an imperative type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${tcAnno}"\n`));
 
@@ -2402,7 +2426,7 @@ export const typeClass = tcAnno => {
     else if (typeConstDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with type constant found\n",
+        "name collision with a type constant found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2410,13 +2434,24 @@ export const typeClass = tcAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT and wrapper AST and get the continuation AST
+    // parse type class and dictionary AST and extract the continuation AST
 
     const tcAst = parseAnno(tcAnno),
       dictAst = adjustForall(tcAst.body.body.lambdas[0] [0]),
       wrapperAst = parseAnno(wrapperAnno);
 
-    // serialize continuation AST
+    // ensure valid domain
+
+    if (tcAst.body.body.lambdas[0] [0].body[TAG] !== "Obj"
+      || tcAst.body.body.lambdas[0] [0].body.body.length === 0)
+        throw new TypeError(cat(
+          "invalid type class declaration\n",
+          "value-level encoding expects a type dictionary\n",
+          "with at least a single property in its domain\n",
+          `but "${serializeAst(tcAst.body.body.lambdas[0] [0])}" received\n`,
+          `while declaring "${tcAnno}"\n`));
+
+    // serialize type dictionary AST
 
     const dictAnno = serializeAst(dictAst);
 
@@ -2424,14 +2459,42 @@ export const typeClass = tcAnno => {
     of the function type:
 
     (^a, b. {of: (a => m<a>), chain: (m<a> => (a => m<a>) => m<b>)}) => Monad<m>
-                       ^              ^             ^        ^                ^ */
+                       ^              ^             ^        ^                ^
 
-    if (Array.from(tcAst.btvs).join("") !== Array.from(wrapperAst.btvs).join(""))
-      throw new TypeError(cat(
-        "illegal type class\n",
-        "type constructor not in scope\n",
-        `namely: ${[...tcAst.btvs].filter(r1tv => !wrapperAst.btvs.has(r1tv)).join(", ")}\n`,
-        `while declaring "${tcAnno}"\n`));
+    ({empty: m, append: (m => m => m)}) => Monoid<m>
+             ^           ^    ^    ^              ^ */
+
+    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (tcAst.body.body.lambdas[0] [0]));
+
+    const rank1Co = Array.from(reduceAst((rank1, ast) => {
+      if (ast[TAG] === "BoundTV") {
+        if (ast.scope === TOP_LEVEL_SCOPE)
+          return rank1.add(ast.name);
+
+        else return rank1;
+      }
+
+      else return rank1;
+    }, new Set()) (wrapperAst));
+
+    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
+      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
+
+    if (outOfScope.length > 0)
+        throw new TypeError(cat(
+          "illegal algebraic data type declaration\n",
+          "type parameter(s) not in scope\n",
+          `namely: ${outOfScope.join(", ")}\n`,
+          `while declaring "${tcAnno}"\n`));
 
     // return the type class constructor -- {untypedProps} => {typedProps}
 
@@ -8058,12 +8121,7 @@ List.append = fun(
 
 // like a regular list but with efficient concat/snoc operations
 
-export const DList = type(
-  "(^r. ((List<a> => List<a>) => r) => r) => DList<a>");
-
-
-DList.Cons = fun(
-  f => DList(dlist => dlist(f)),
+export const DList = type1(
   "(List<a> => List<a>) => DList<a>");
 
 
@@ -8080,9 +8138,7 @@ lazyProp(DList, "Monoid", function() {
 });
 
 
-DList.empty = DList.Cons(fun(
-  xs => List.append(List.Nil) (xs),
-  "List<a> => List<a>"));
+DList.empty = DList(id);
 
 
 /***[ Semigroup ]*************************************************************/
@@ -8098,13 +8154,7 @@ lazyProp(DList, "Semigroup", function() {
 
 
 DList.append = fun(
-  f => g => DList.Cons(fun(
-    xs => f.run(fun(
-      dlist => dlist(g.run(fun(
-        dlist_ => dlist_(xs),
-        "(List<a> => List<a>) => List<a>"))),
-      "(List<a> => List<a>) => List<a>")),
-    "List<a> => List<a>")),
+  xs => ys => DList(comp(xs.run) (ys.run)),
   "DList<a> => DList<a> => DList<a>");
 
 
@@ -8135,19 +8185,7 @@ export const thisify = f => {
 /* Like `Serial` but is executed in parallel. Please note that `Parallel`
 doesn't implement monad, because they require order. */
 
-const Parallel_ = type("((^r. (a => r) => r) => s) => Parallel<s, a>");
-
-
-export const Parallel = fun(
-  k => {
-    const r = Parallel_(parallel => k(parallel));
-    
-    if (Math.random() < MICROTASK_TRESHOLD)
-      r.run = queueMicrotask(() => r.run); // defer evaluation to next micro task
-
-    return r;
-  },
-  "((^r. (a => r) => r) => s) => Parallel<s, a>");
+export const Parallel = type1("((a => r) => r) => Parallel<r, a>");
 
 
 /******************************************************************************
@@ -8161,19 +8199,7 @@ synchronuously within the same micro task or asynchronously in a subsequent one.
 The actual behavior depends on a PRNG and cannot be determined upfront. You can
 pass both synchronous and asynchronous functions to the CPS composition. */
 
-const Serial_ = type("((^r. (a => r) => r) => s) => Serial<s, a>");
-
-
-export const Serial = fun(
-  k => {
-    const r = Serial_(serial => k(serial));
-    
-    if (Math.random() < MICROTASK_TRESHOLD)
-      r.run = queueMicrotask(() => r.run); // defer evaluation to next micro task
-
-    return r;
-  },
-  "((^r. (a => r) => r) => s) => Serial<s, a>");
+export const Serial = type1("((a => r) => r) => Serial<r, a>");
 
 
 /******************************************************************************
@@ -8245,3 +8271,14 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
+
+
+/*
+
+TODO:
+
+* cross-check adtDict, imperativeTypeDict and typeConstDict for name clashes
+* implement cross-check at ADT, Native and Tconst
+* recognize type constructor/type variable patterns at unexpected-token-error
+
+*/
