@@ -2620,7 +2620,76 @@ export const fun = (f, funAnno) => {
 
     // introspect arguments recursively
     
-    const argAnnos = args.map(arg => introspectDeep(arg));
+    const argAnnos = args.map(arg => introspectDeep(arg)),
+      argAsts = argAnnos.map(parseAnno);
+
+    // resolve name clashes
+
+    if (argAnnos.length > 1) {
+      const nameMap = new Map();
+      let charCode = 97;
+
+      const nameSets = argAnnos.map((argAnno, i) => {
+        const argAst = argAsts[i];
+
+        if (argAst[TAG] === "Forall"
+          && argAst.btvs.size > 0)
+            return argAst.btvs;
+
+        else return new Set();
+      });
+
+      const {nameMappings} = nameSets.slice(1).reduce(({consumedNames, nameMappings}, nameSet, i) => {
+        nameSet.forEach(name => {
+          if (consumedNames.has(name)) {
+            let name_;
+
+            do {
+              name_ = String.fromCharCode(charCode++)
+            } while (consumedNames.has(name_));
+
+            consumedNames.add(name_);
+            nameMappings.set(`${i + 1}/${name}`, name_);
+            return {consumedNames, nameMappings};
+          }
+
+          else {
+            consumedNames.add(name);
+            return {consumedNames, nameMappings};
+          }
+        });
+
+        return {consumedNames, nameMappings};
+      }, {consumedNames: new Set(nameSets[0]), nameMappings: new Map()});
+
+      argAsts.slice(1).forEach((argAst, i) => {
+        argAsts[i + 1] = mapAst(ast => {
+          if (ast[TAG] === "Forall"
+            && ast.scope === TOP_LEVEL_SCOPE
+            && ast.btvs.size > 0) {
+              ast.btvs.forEach(btv => {
+                if (nameMappings.has(`${i + 1}/${btv}`)) {
+                  ast.btvs.delete(btv);
+                  ast.btvs.add(nameMappings.get(`${i + 1}/${btv}`));
+                }
+              });
+
+              return ast;
+          }
+
+          else if (ast[TAG] === "BoundTV"
+            && ast.scope === TOP_LEVEL_SCOPE
+            && nameMappings.has(`${i + 1}/${ast.name}`)) {
+              ast.name = nameMappings.get(`${i + 1}/${ast.name}`);
+              return ast;
+          }
+
+          else return ast;
+        }) (argAst);
+
+        argAnnos[i + 1] = serializeAst(argAsts[i + 1]);
+      });
+    }
 
     // check arity
 
@@ -2737,7 +2806,8 @@ export const fun = (f, funAnno) => {
         }
       }, []) (valueAst);
 
-      lhs.reduce((acc, x) => rhs.reduce((acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
+      lhs.reduce((acc, x) => rhs.reduce(
+        (acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
     });
 
     occurrences.forEach(occurrence => {
@@ -8108,6 +8178,11 @@ export const DList = type1(
   "(List<a> => List<a>) => DList<a>");
 
 
+DList.run = fun(
+  f => xs => f.run(xs),
+  "DList<a> => List<a> => List<a>");
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -8139,6 +8214,19 @@ lazyProp(DList, "Semigroup", function() {
 DList.append = fun(
   xs => ys => DList(comp(xs.run) (ys.run)),
   "DList<a> => DList<a> => DList<a>");
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+// List<a> => DList<a>
+
+DList.fromList = comp(DList) (List.append);
+
+
+// DList<a> => List<a>
+
+DList.toList = comp(app_(List.Nil)) (DList.run);
 
 
 /******************************************************************************
