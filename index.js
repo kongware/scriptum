@@ -2813,14 +2813,24 @@ export const fun = (f, funAnno) => {
     occurrences.forEach(occurrence => {
       const [lhs, rhs] = occurrence.split(/\//);
 
-      if (occurrences.has(`${rhs}/${lhs}`))
-        throw new TypeError(cat(
+      if (occurrences.has(`${rhs}/${lhs}`)) {
+        if (rhs === lhs)
+          throw new TypeError(cat(
+            "occurs check failed\n",
+            `"${lhs}" occurs during instantiation\n`,
+            "on the LHS and RHS respecitvely\n",
+            "and thus yields an infinite type\n",
+            "while unifying\n",
+            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+
+        else throw new TypeError(cat(
           "occurs check failed\n",
-          `"${lhs}" and "${rhs}" both occur\n`,
-          "on the LHS and RHS of instantiations\n",
+          `"${lhs}" and "${rhs}" occur during instantiation\n`,
+          "on the LHS and RHS respecitvely\n",
           "and thus yield an infinite type\n",
           "while unifying\n",
           extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+      }
     });
 
     /* After unification the consumed type parameter must be stripped off and
@@ -8179,7 +8189,7 @@ export const DList = type1(
 
 
 DList.run = fun(
-  f => xs => f.run(xs),
+  f => f.run,
   "DList<a> => List<a> => List<a>");
 
 
@@ -8219,9 +8229,26 @@ DList.append = fun(
 /***[ Misc. ]*****************************************************************/
 
 
+// a => DList<a> => DList<a>
+
+DList.cons = x => xs =>
+  DList(comp(List.Cons(x)) (DList.run(xs)));
+
+
+// a => DList<a> => DList<a>
+
+DList.snoc = x => xs =>
+  DList(comp(DList.run(xs)) (List.Cons(x)));
+
+
 // List<a> => DList<a>
 
 DList.fromList = comp(DList) (List.append);
+
+
+// a => DList<a>
+
+DList.singleton = comp(DList) (List.Cons);
 
 
 // DList<a> => List<a>
