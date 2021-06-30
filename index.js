@@ -7451,9 +7451,11 @@ const Semigroup = typeClass(`({
 /***[ Dependent ]*************************************************************/
 
 
-export const Foldable = typeClass(`(^a, b. {
+export const Foldable = typeClass(`(^a, b, m. {
   foldl: (b => a => b) => b => t<a> => b,·
-  foldr: (a => b => b) => b => t<a> => b
+  foldr: (a => b => b) => b => t<a> => b,·
+  foldMapl: Monoid<m> => (a => m) => t<a> => m,·
+  foldMapr: Monoid<m> => (a => m) => t<a> => m
 }) => Foldable<t>`);
 
 
@@ -7478,6 +7480,12 @@ export const Foldable = typeClass(`(^a, b. {
 ******************************************************************************/
 
 
+/*export const foldr = fun(
+  Foldable => f => acc => tx =>
+    Endo.run(Foldable.foldMapr(Endo.Monoid) (comp(Endo) (f)) (tx)) (acc),
+  "Foldable<t> => (a => b => b) => b => t<a> => b");*/
+
+
 // based on a left-associative fold
 
 export const foldMapl = fun(
@@ -7497,45 +7505,7 @@ export const foldMapr = fun(
 ******************************************************************************/
 
 
-// compose in the second argument
-
-export const comp2nd = fun(
-  f => g => x => y => f(x) (g(y)),
-  "(a => b => c) => (d => b) => a => d => c");
-
-
-// compose a binary function
-
-export const compBin = fun(
-  f => g => x => y => f(g(x) (y)),
-  "(a => b) => (c => d => a) => c => d => b");
-
-
-// transform two inputs and combine the results
-
-export const compOn = fun(
-  f => g => x => y => f(g(x)) (g(y)),
-  "(b => b => c) => (a => b) => a => a => c");
-
-
-export const _const = fun(
-  x => _ => x,
-  "a => discard => a");
-
-
-export const flip = fun(
-  f => y => x => f(x) (y),
-  "(a => b => c) => b => a => c");
-
-
-export const partial = (f, ...args) => (..._args) => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else return f(...args, ..._args);
-};
+export const _Function = {}; // namespace
 
 
 /***[ Applicator ]************************************************************/
@@ -7556,6 +7526,11 @@ export const app_ = fun(
 export const appr = fun(
   (f, y) => x => f(x) (y),
   "(a => b => c), b => a => c");
+
+
+export const flip = fun(
+  f => y => x => f(x) (y),
+  "(a => b => c) => b => a => c");
 
 
 export const infix = fun(
@@ -7880,6 +7855,30 @@ export const compn = (...fs) => x => {
 export const id = fun(x => x, "a => a");
 
 
+/***[ Composition ]***********************************************************/
+
+
+// compose in the second argument
+
+export const comp2nd = fun(
+  f => g => x => y => f(x) (g(y)),
+  "(a => b => c) => (d => b) => a => d => c");
+
+
+// compose a binary function
+
+export const compBin = fun(
+  f => g => x => y => f(g(x) (y)),
+  "(a => b) => (c => d => a) => c => d => b");
+
+
+// transform two inputs and combine the results
+
+export const compOn = fun(
+  f => g => x => y => f(g(x)) (g(y)),
+  "(b => b => c) => (a => b) => a => a => c");
+
+
 /***[ Conditional Operator ]**************************************************/
 
 
@@ -7891,6 +7890,14 @@ computation and only have to evaluate it if all arguments are provided. */
 export const cond = fun(
   expr => x => y => strict(expr) ? x : y,
   "a => b => b => b");
+
+
+/***[ Constant ]**************************************************************/
+
+
+export const _const = fun(
+  x => _ => x,
+  "a => discard => a");
 
 
 /***[ Currying ]**************************************************************/
@@ -8071,6 +8078,27 @@ export const xor = fun(
   "a => a => Boolean");
 
 
+/***[ Monoid ]****************************************************************/
+
+
+_Function.empty = fun(
+  Monoid => _ => Monoid.empty,
+  "Monoid<b> => a => b");
+
+
+/***[ Partial Application ]***************************************************/
+
+
+export const partial = (f, ...args) => (..._args) => {
+  if (CHECK && !(ANNO in f))
+    throw new TypeError(cat(
+      "typed lambda expected\n",
+      `but "${f.toString()}" received\n`));
+
+  else return f(...args, ..._args);
+};
+
+
 /***[ Relational Operators ]**************************************************/
 
 
@@ -8093,6 +8121,14 @@ export const lt = fun(
 export const lte = fun(
   x => y => x <= y,
   "a => a => Boolean");
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+_Function.append = fun(
+  Semigroup => f => g => x => Semigroup.append(f(x)) (g(x)),
+  "Semigroup<b> => (a => b) => (a => b) => a => b");
 
 
 /***[ Short Circuiting ]******************************************************/
@@ -8123,13 +8159,13 @@ export const orf = fun(
 ******************************************************************************/
 
 
-export const Array_ = {}; // namespace
+export const _Array = {}; // namespace
 
 
 /***[ Clonable ]**************************************************************/
 
 
-Array_.clone = fun(
+_Array.clone = fun(
   xs => xs.concat(),
   "[a] => [a]");
 
@@ -8137,7 +8173,7 @@ Array_.clone = fun(
 /***[ Construction ]**********************************************************/
 
 
-Array_.push = fun(
+_Array.push = fun(
   x => xs => (xs.push(x), xs),
   "a => [a] => [a]");
 
@@ -8145,7 +8181,7 @@ Array_.push = fun(
 /***[ Looping ]***************************************************************/
 
 
-Array_.forEach = fun(
+_Array.forEach = fun(
   f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
   "(a => b) => [a] => [b]");
 
@@ -8161,6 +8197,53 @@ and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
 export const Cont = type1("((a => r) => r) => Cont<r, a>");
+
+
+/******************************************************************************
+***********************************[ ENDO ]************************************
+******************************************************************************/
+
+
+export const Endo = type1("(a => a) => Endo<a>");
+
+
+Endo.run = fun(
+  tx => x => tx.run(x),
+  "Endo<a> => a => a");
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Endo, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid({
+    append: Endo.empty
+  });
+});
+
+
+// Endo<a>
+
+Endo.empty = Endo(id);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Endo, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup({
+    append: Endo.append
+  });
+});
+
+
+Endo.append = fun(
+  f => g => x => f(g(x)),
+  "(a => a) => (a => a) => a => a");
 
 
 /******************************************************************************
@@ -8187,7 +8270,9 @@ lazyProp(List, "Foldable", function() {
   
   return this.Foldable = Foldable({
     foldl: List.foldl,
-    foldr: List.foldr
+    foldr: List.foldr,
+    foldMapl: List.foldMapl,
+    foldMapr: List.foldMapr
   });
 });
 
