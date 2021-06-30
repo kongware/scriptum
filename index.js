@@ -1637,11 +1637,13 @@ const remNestings = s => {
 
   do {
     ds = cs;
-    cs = cs.replace(new RegExp("\\([^(){}\\[\\]<]*\\)", ""), s => "_".repeat(s.length)); // Fun
+    cs = cs.replace(/=>/g, "=="); // mask function arrow
+    cs = cs.replace(new RegExp("\\([^(){}\\[\\]<>]*\\)", ""), s => "_".repeat(s.length)); // Fun
     cs = cs.replace(new RegExp("(?:[A-Z][A-Za-z0-9]* )?{[^(){}\\[\\]<>]*}", ""), s => "_".repeat(s.length)); // Obj
     cs = cs.replace(new RegExp("\\[[^(){}\\[\\]<>]*\\]", ""), s => "_".repeat(s.length)); // Arr + Nea + Tup
     cs = cs.replace(new RegExp("[A-Z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Adt + Native
     cs = cs.replace(new RegExp("\\b[a-z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
+    cs = cs.replace(/==/g, "=>"); // unmask function arrow
   } while (ds !== cs);
 
   return cs;
@@ -1988,7 +1990,7 @@ export const introspectDeep = x => {
 
 /******************************************************************************
 *******************************************************************************
-***********************************[ ADTs ]************************************
+****************************[ ALGEBRAIC DATA TYPE ]****************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -2330,7 +2332,7 @@ export const type1 = adtAnno => {
 
 
 /******************************************************************************
-*******************************[ TYPE CLASSES ]********************************
+********************************[ TYPE CLASS ]*********************************
 ******************************************************************************/
 
 
@@ -2536,7 +2538,7 @@ export const typeClass = tcAnno => {
 
           else if (typeof dict[k] === "function") {
             instantiations = unifyTypes(
-              props.get(k),
+              specializeLHS(TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast, // TODO: change tvid to ""?
               parseAnno(dict[k] [ANNO]),
               0,
               0,
@@ -7419,55 +7421,23 @@ export const lazyProp = (o, prop, f) =>
 
 
 /******************************************************************************
-*******************************[ TYPE AGNOSTIC ]*******************************
-******************************************************************************/
-
-
-/***[ Effects ]***************************************************************/
-
-
-export const eff = fun(
-  f => x => (f(x), x),
-  "(a => discard) => a => a");
-
-
-export const _throw = e => {
-  throw e;
-};
-
-
-export const throwOn = fun(
-  p => e => msg => x => {
-    if (p(x))
-      throw new e(msg);
-    
-    else return x;
-  },
-  "(a => Boolean) => Function => String => a => discard");
-
-
-/***[ Local Bindings ]********************************************************/
-
-
-/* `_let` needs to be untyped, because it relies on an heterogenuous array
-holding the arguments. It ensures that the passed function argument is typed,
-though. */
-
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed lambda expected\n",
-        `but "${f.toString()}" received\n`));
-
-    else return f(...args);
-  }};
-};
-
-
-/******************************************************************************
 *******************************[ TYPE CLASSES ]********************************
 ******************************************************************************/
+
+
+/***[ Foldable ]**************************************************************/
+
+
+// @Dependent
+
+
+/***[ Monoid ]****************************************************************/
+
+
+const Monoid = typeClass(`({
+  empty: m,·
+  append: (m => m => m)
+}) => Monoid<m>`);
 
 
 /***[ Semigroup ]*************************************************************/
@@ -7478,13 +7448,48 @@ const Semigroup = typeClass(`({
 }) => Semigroup<m>`);
 
 
-/***[ Monoid ]****************************************************************/
+/***[ Dependent ]*************************************************************/
 
 
-const Monoid = typeClass(`({
-  empty: m,·
-  append: (m => m => m)
-}) => Monoid<m>`);
+export const Foldable = typeClass(`(^a, b. {
+  foldl: (b => a => b) => b => t<a> => b,·
+  foldr: (a => b => b) => b => t<a> => b
+}) => Foldable<t>`);
+
+
+/*const Foldable = typeClass(`(^a, m. {
+  fold: ,·
+  foldMapl: Monoid<m> => (a => m) => t<a> => m,·
+  foldMapr: ,·
+  foldl: ,·
+  foldr: ,·
+  toList: ,·
+  isEmpty: ,·
+  len: ,·
+  hasElem: ,·
+  max: ,·
+  min: ,·
+  sum: ,·
+  prod: ,·
+}) => Foldable<t>`);*/
+
+/******************************************************************************
+***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
+******************************************************************************/
+
+
+// based on a left-associative fold
+
+export const foldMapl = fun(
+  ({foldl}, {append, empty}) => f => foldl(comp2nd(append) (f)) (empty),
+  "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
+
+
+// based on a lazy right-associative fold
+
+export const foldMapr = fun(
+  ({foldr}, {append, empty}) => f => foldr(comp(append) (f)) (empty),
+  "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
 
 
 /******************************************************************************
@@ -7981,6 +7986,48 @@ export const neq = fun(
   "a => a => Boolean");
 
 
+/***[ Impure ]****************************************************************/
+
+
+export const eff = fun(
+  f => x => (f(x), x),
+  "(a => discard) => a => a");
+
+
+export const _throw = e => {
+  throw e;
+};
+
+
+export const throwOn = fun(
+  p => e => msg => x => {
+    if (p(x))
+      throw new e(msg);
+    
+    else return x;
+  },
+  "(a => Boolean) => Function => String => a => discard");
+
+
+/***[ Local Bindings ]********************************************************/
+
+
+/* `_let` needs to be untyped, because it relies on an heterogenuous array
+holding the arguments. It ensures that the passed function argument is typed,
+though. */
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed lambda expected\n",
+        `but "${f.toString()}" received\n`));
+
+    else return f(...args);
+  }};
+};
+
+
 /***[ Logical Operators ]*****************************************************/
 
 
@@ -8113,12 +8160,7 @@ It facilitates continuation passing style and can be used with both synchronous
 and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
-const Cont_ = type1("((a => r) => r) => Cont<r, a>");
-
-
-export const Cont = fun(
-  k => Cont_(k),
-  "((a => r) => r) => Cont<r, a>");
+export const Cont = type1("((a => r) => r) => Cont<r, a>");
 
 
 /******************************************************************************
@@ -8137,6 +8179,48 @@ List.Cons = fun(
 List.Nil = List(nil => cons => nil);
 
 
+/***[ Foldable ]**************************************************************/
+
+
+lazyProp(List, "Foldable", function() {
+  delete this.Foldable;
+  
+  return this.Foldable = Foldable({
+    foldl: List.foldl,
+    foldr: List.foldr
+  });
+});
+
+
+List.foldl = fun(
+  f => function go(acc) {
+    return xs => xs.run(acc) (fun(
+      x => ys => go(f(acc) (x)) (ys),
+      "a => List<a> => b"));
+  },
+  "(b => a => b) => b => List<a> => b");
+
+
+List.foldMapl = fun(
+  Monoid => foldMapl(List.Foldable, Monoid),
+  "Monoid<m> => (a => m) => List<a> => m");
+
+
+List.foldMapr = fun(
+  Monoid => foldMapr(List.Foldable, Monoid),
+  "Monoid<m> => (a => m) => List<a> => m");
+
+
+List.foldr = fun(
+  f => acc => function go(xs) {
+    return xs.run(acc) (fun(
+      x => ys =>
+        f(x) (thunk(() => go(ys), "() => b")),
+      "a => List<a> => b"));
+  },
+  "(a => b => b) => b => List<a> => b");
+
+
 /***[ Monoid ]****************************************************************/
 
 
@@ -8146,7 +8230,7 @@ lazyProp(List, "Monoid", function() {
   return this.Monoid = Monoid({
     append: List.append,
     empty: List.empty
-  })
+  });
 });
 
 
@@ -8161,24 +8245,22 @@ lazyProp(List, "Semigroup", function() {
   
   return this.Semigroup = Semigroup({
     append: List.append
-  })
+  });
 });
 
 
 List.append = fun(
   xs => ys => function go(acc) {
     return acc.run(ys) (fun(
-      x => xs_ =>
-        List.Cons(x) (thunk(
-          () => go(xs_),
-          "() => List<a>")),
+      x => zs => List.Cons(x)
+        (thunk(() => go(zs), "() => List<a>")),
       "a => List<a> => List<a>"));
   } (xs),
   "List<a> => List<a> => List<a>");
 
 
 /******************************************************************************
-***********************************[ DLIST ]***********************************
+*******************************[ LIST -> DLIST ]*******************************
 ******************************************************************************/
 
 
@@ -8191,6 +8273,39 @@ export const DList = type1(
 DList.run = fun(
   f => f.run,
   "DList<a> => List<a> => List<a>");
+
+
+/***[ Construction ]**********************************************************/
+
+
+// a => DList<a> => DList<a>
+
+DList.cons = x => xs =>
+  DList(comp(List.Cons(x)) (DList.run(xs)));
+
+
+// a => DList<a> => DList<a>
+
+DList.snoc = x => xs =>
+  DList(comp(DList.run(xs)) (List.Cons(x)));
+
+
+// a => DList<a>
+
+DList.singleton = comp(DList) (List.Cons);
+
+
+/***[ Conversion ]************************************************************/
+
+
+// List<a> => DList<a>
+
+DList.fromList = comp(DList) (List.append);
+
+
+// DList<a> => List<a>
+
+DList.toList = comp(app_(List.Nil)) (DList.run);
 
 
 /***[ Monoid ]****************************************************************/
@@ -8226,36 +8341,6 @@ DList.append = fun(
   "DList<a> => DList<a> => DList<a>");
 
 
-/***[ Misc. ]*****************************************************************/
-
-
-// a => DList<a> => DList<a>
-
-DList.cons = x => xs =>
-  DList(comp(List.Cons(x)) (DList.run(xs)));
-
-
-// a => DList<a> => DList<a>
-
-DList.snoc = x => xs =>
-  DList(comp(DList.run(xs)) (List.Cons(x)));
-
-
-// List<a> => DList<a>
-
-DList.fromList = comp(DList) (List.append);
-
-
-// a => DList<a>
-
-DList.singleton = comp(DList) (List.Cons);
-
-
-// DList<a> => List<a>
-
-DList.toList = comp(app_(List.Nil)) (DList.run);
-
-
 /******************************************************************************
 **********************************[ OBJECT ]***********************************
 ******************************************************************************/
@@ -8273,6 +8358,26 @@ export const thisify = f => {
 
   else return f({});
 };
+
+
+/******************************************************************************
+**********************************[ OPTION ]***********************************
+******************************************************************************/
+
+
+// type of expressions that may not yield a result
+
+export const Option = type("(^r. r => (a => r) => r) => Option<a>");
+
+
+Option.Some = fun(
+  x => Option(none => some => some(x)),
+  "a => Option<a>");
+
+
+// Option<a>
+
+Option.None = Option(none => some => none);
 
 
 /******************************************************************************
