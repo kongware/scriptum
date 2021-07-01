@@ -4308,10 +4308,29 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             else return instantiate( // a ~ composite type
               paramAst,
               argAst,
-              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
-                && refAst.name === fromAst.name
-                  ? toAst
-                  : refAst,
+              (refAst, fromAst, toAst) => {
+                if (refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name) {
+                    if ("body" in toAst
+                      && Array.isArray(toAst.body)
+                      && toAst.body.some(ast => ast[TAG] === "Partial")) {
+                        const partialBody = toAst.body.filter(ast => ast[TAG] === "Partial");
+
+                        if (partialBody.length !== refAst.body.length) // TODO: defensive programming, revisit
+                          throw new TypeError(
+                            "internal error: unexpected arity mismatch of partially applied type constructor");
+                        
+                        const body_ = toAst.body.slice(0, -partialBody.length)
+                          .concat(refAst.body);
+
+                        return (toAst.body = body_, toAst);
+                    }
+
+                    else return toAst;
+                }
+
+                else return refAst;
+              },
               lamIndex,
               argIndex,
               iteration,
@@ -7480,10 +7499,10 @@ export const Foldable = typeClass(`(^a, b, m. {
 ******************************************************************************/
 
 
-/*export const foldr = fun(
+export const foldr = fun(
   Foldable => f => acc => tx =>
-    Endo.run(Foldable.foldMapr(Endo.Monoid) (comp(Endo) (f)) (tx)) (acc),
-  "Foldable<t> => (a => b => b) => b => t<a> => b");*/
+    Foldable.foldMapr(Endo.Monoid) (f) (tx) (acc),
+  "Foldable<t> => (a => b => b) => b => t<a> => b");
 
 
 // based on a left-associative fold
@@ -8219,7 +8238,8 @@ lazyProp(Endo, "Monoid", function() {
   delete this.Monoid;
   
   return this.Monoid = Monoid({
-    append: Endo.empty
+    append: Endo.append,
+    empty: Endo.empty
   });
 });
 
