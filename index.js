@@ -1013,8 +1013,8 @@ const parseAnno = anno => {
     to and the latter prevents the parser to get stuck in an infinite loop
     while parsing `this*`. */
 
-    /* Uses __ as an internal placeholder for not consumed type parameters of
-    partially applied type constructors. Here are the possible forms of
+    /* Uses __ as an internal placeholder for not yet consumed type parameters
+    of partially applied type constructors. Here are the possible forms of
     partially applied type constructors:
 
     Function: (=>) / (String =>) / (, =>) / (String, =>) / (,, =>) / (String,, =>)
@@ -1140,7 +1140,7 @@ const parseAnno = anno => {
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
         if (fields.length > adtDict.get(rx.groups.cons))
-          throw new SyntaxError(cat(
+          throw new TypeError(cat(
             "malformed type annotation\n",
             `type constructor arity mismatch\n`,
             `defined type parameters: ${adtDict.get(rx.groups.cons)}\n`,
@@ -1243,7 +1243,7 @@ const parseAnno = anno => {
         // impredicative polymorphism
 
         if (context.replace(/\/Function/g, "") !== "")
-          throw new SyntaxError(cat(
+          throw new TypeError(cat(
             "malformed type annotation\n",
             "impredicative polymorphic type found\n",
             `nested quantifiers must only occur on the LHS of "=>"\n`,
@@ -1288,9 +1288,9 @@ const parseAnno = anno => {
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
         if (fields.length > imperativeTypeDict.get(rx.groups.cons))
-          throw new SyntaxError(cat(
+          throw new TypeError(cat(
             "malformed type annotation\n",
-            `type constructor arity mismatch\n`,
+            "type constructor arity mismatch\n",
             `defined type parameters: ${imperativeTypeDict.get(rx.groups.cons)}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
@@ -1382,15 +1382,28 @@ const parseAnno = anno => {
       const fields = splitByScheme(
         /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
       
-      if (rntvs.has(rx.groups.name + scope))
+      if (tconsArity.has(`${scope}/${rx.groups.name}`)) {
+        if (tconsArity.get(`${scope}/${rx.groups.name}`) !== fields.length)
+          throw new TypeError(cat(
+            "malformed type annotation\n",
+            "ambiguous type constructor arity\n",
+            `"${rx.groups.name}" has arity ${tconsArity.get(`${scope}/${rx.groups.name}`)} and ${fields.length} respectively\n`,
+            `in "${anno}"\n`));
+      }
+
+      if (rntvs.has(rx.groups.name + scope)) {
+        tconsArity.set(`${scope}/${rx.groups.name}`, fields.length);
+
         return BoundTV(
           rx.groups.name,
           scope,
           position,
           fields.map(field =>
             go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
+      }
 
       else {
+        tconsArity.set(`${TOP_LEVEL_SCOPE}/${rx.groups.name}`, fields.length);
         r1tvs.add(rx.groups.name);
 
         return BoundTV(
@@ -1411,9 +1424,9 @@ const parseAnno = anno => {
 
     else if (rx = cs.search(/this\*/) !== NOT_FOUND) {
       if (thisAnno === null)
-        throw new SyntaxError(cat(
+        throw new TypeError(cat(
           "malformed type annotation\n",
-          `"this*" must refer to an object but no one found\n`,
+          `"this*" must refer to an object but no one in scope\n`,
           anno === cs ? "" : `in "${anno}"\n`));
 
       return This(nesting, {
@@ -1434,17 +1447,39 @@ const parseAnno = anno => {
         anno === cs ? "" : `in "${anno}"\n`));
   };
 
-  const r1tvs = new Set(),
+  const tconsArity = new Map(),
+    r1tvs = new Set(),
     rntvs = new Set();
-  
-  let initial = true;
+
+  // verify annotation syntax
 
   verifyAnno(anno);
+
+  // remove redundant parenthesis
 
   if (anno[0] === "(" && anno[anno.length - 1] === ")")
     anno = anno.slice(1, -1);
 
-  const ast = go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0);
+  /* Type class declarations have the form `TypeClass<t>`, from which the arity
+  of `t` is not apparent. Since `t`'s arity is specified in the rest of the
+  annotation, we can recover it for all occurrances in hindsight. */
+
+  const ast = mapAst(ast_ => {
+    if (ast_[TAG] === "BoundTV"
+      && ast_.body.length === 0
+      && tconsArity.has(`${ast_.scope}/${ast_.name}`)) {
+        return BoundTV(
+          ast_.name,
+          ast_.scope,
+          ast_.position,
+          Array(tconsArity.get(`${ast_.scope}/${ast_.name}`))
+            .fill(Partial));
+    }
+
+    else return ast_;
+  }) (go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0));
+
+  // wrap ast in a quantifier, if necessary
 
   if (r1tvs.size > 0)
     return Forall(r1tvs, TOP_LEVEL_SCOPE, ast);
@@ -1477,6 +1512,15 @@ const verifyAnno = s => {
       "malformed type annotation\n",
       `redundant "()"\n`,
       `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // prevents redundant pointed parenthesis
+
+  else if (s.search(new RegExp("<>", "")) !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `redundant "<>"\n`,
+      `next to "${s.match(new RegExp(".{0,5}<>.{0,5}", "")) [0]}"\n`,
       `in "${s}"\n`));
 
   // prevents invalid chars
@@ -1528,7 +1572,7 @@ const verifyAnno = s => {
 
   // checks for valid use of _
 
-  else if (s.replace(new RegExp("\\b_\\b", "g"), "").search(/_/) !== NOT_FOUND)
+  else if (s.replace(new RegExp("\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
     throw new SyntaxError(cat(
       "malformed type annotation\n",
       `invalid use of "_"\n`,
@@ -1592,15 +1636,6 @@ const verifyAnno = s => {
       "malformed type annotation\n",
       "invalid explicit quantifier\n",
       "expected scheme: ^a, b, c.\n",
-      `in "${s}"\n`));
-
-  // prevents malformed enumeration
-
-  else if (s.search(new RegExp(" ,|,[^ ,]", "i")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      "invalid enumeration\n",
-      "expected scheme: a, b, c\n",
       `in "${s}"\n`));
 
   // prevents malformed variadic arguments
@@ -1724,7 +1759,9 @@ const serializeAst = initialAst => {
           const body = ast.body.map(go).join(", ")
             .replace(/ ?__/g, "");
 
-          return cat(ast.name, `<${body}>`);
+          return cat(
+            ast.name,
+            body.length ? `<${body}>` : "");
         }
       }
 
@@ -4308,29 +4345,10 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             else return instantiate( // a ~ composite type
               paramAst,
               argAst,
-              (refAst, fromAst, toAst) => {
-                if (refAst[TAG] === fromAst[TAG]
-                  && refAst.name === fromAst.name) {
-                    if ("body" in toAst
-                      && Array.isArray(toAst.body)
-                      && toAst.body.some(ast => ast[TAG] === "Partial")) {
-                        const partialBody = toAst.body.filter(ast => ast[TAG] === "Partial");
-
-                        if (partialBody.length !== refAst.body.length) // TODO: defensive programming, revisit
-                          throw new TypeError(
-                            "internal error: unexpected arity mismatch of partially applied type constructor");
-                        
-                        const body_ = toAst.body.slice(0, -partialBody.length)
-                          .concat(refAst.body);
-
-                        return (toAst.body = body_, toAst);
-                    }
-
-                    else return toAst;
-                }
-
-                else return refAst;
-              },
+              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                && refAst.name === fromAst.name
+                  ? toAst
+                  : refAst,
               lamIndex,
               argIndex,
               iteration,
@@ -8220,6 +8238,24 @@ and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
 export const Cont = type1("((a => r) => r) => Cont<r, a>");
+
+
+/******************************************************************************
+**********************************[ EITHER ]***********************************
+******************************************************************************/
+
+
+export const Either = type("(^r. (a => r) => (b => r) => r) => Either<a, b>");
+
+
+Either.Left = fun(
+  x => Either(left => right => left(x)),
+  "a => Either<a, b>");
+
+
+Either.Right = fun(
+  x => Either(left => right => right(x)),
+  "b => Either<a, b>");
 
 
 /******************************************************************************
