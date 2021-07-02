@@ -7499,12 +7499,6 @@ export const Foldable = typeClass(`(^a, b, m. {
 ******************************************************************************/
 
 
-export const foldr = fun(
-  Foldable => f => acc => tx =>
-    Foldable.foldMapr(Endo.Monoid) (f) (tx) (acc),
-  "Foldable<t> => (a => b => b) => b => t<a> => b");
-
-
 // based on a left-associative fold
 
 export const foldMapl = fun(
@@ -7744,6 +7738,16 @@ export const div = fun(
 export const exp = fun(
   base => exp => base ** exp,
   "Number => Number => Number");
+
+
+export const dec = fun(
+  x => x - 1,
+  "Number => Number");
+
+
+export const inc = fun(
+  x => x + 1,
+  "Number => Number");
 
 
 export const mod = fun(
@@ -8483,6 +8487,42 @@ Option.Some = fun(
 // Option<a>
 
 Option.None = Option(none => some => none);
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Option, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = {
+    append: Option.append,
+    empty: Option.empty
+  }
+});
+
+
+Option.empty = Option.None;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Option, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = {
+    append: Option.append
+  }
+});
+
+
+Option.append = fun(
+  ({append}) => tx => ty =>
+    tx.run(ty)
+      (x => ty.run(tx)
+        (y => Option.Some(append(x) (y)))),
+  "Semigroup<a> => Option<a> => Option<a> => Option<a>");
 
 
 /******************************************************************************
