@@ -231,6 +231,16 @@ const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => 
 };
 
 
+const ordinalNum = n => {
+  switch (n) {
+    case 1: return "1st";
+    case 2: return "2nd";
+    case 3: return "3rd";
+    default: return `${n}th`;
+  }
+};
+
+
 /******************************************************************************
 *******************************************************************************
 *********************************[ SUBTYPES ]**********************************
@@ -578,6 +588,15 @@ const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem con
 ******************************************************************************/
 
 
+const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
+  if (ast[TAG] === "BoundTV"
+    && ast.scope === scope)
+      return acc.add(ast.name);
+
+  else return acc;
+}, new Set());
+
+
 // determines the arity of the passed type constructor
 
 const determineArity = ast => {
@@ -607,8 +626,42 @@ const determineArity = ast => {
 };
 
 
-/* If a `Forall` AST is extracted from an annotation, its possibly bound TVs
-be retrieved, because the quantifier isn't implicit anymore. */
+/* If an sub-AST is extracted from an annotation, it might require a grouping
+or even a `Forall` quantifier. */
+
+const adjustAst = ast => {
+  const hasForall = ast[TAG] === "Forall",
+    isExplicit = hasForall && ast.btvs.size > 0;
+
+  if (hasForall && isExplicit)
+    return Forall(
+      ast.btvs,
+      TOP_LEVEL_SCOPE,
+      ast);
+
+  else if (hasForall)
+    return Forall(
+      retrieveBoundTVs(ast.scope),
+      TOP_LEVEL_SCOPE,
+      ast);
+
+  else {
+    const btvs = retrieveBoundTVs(ast.scope) (ast);
+
+    if (btvs.size > 0
+      || ast[TAG] === "Fun")
+        return Forall(
+          btvs,
+          TOP_LEVEL_SCOPE,
+          ast);
+
+    else return ast;
+  }
+};
+
+
+/* If a `Forall` AST is extracted from an annotation, the bound TVs it might
+contain must be retrieved, because the quantifier isn't implicit anymore. */
 
 const adjustForall = ref => {
   const nestedScopes = new Set(),
@@ -933,9 +986,21 @@ application. */
 
 const remConsumedParams = (ast) => {
   if (ast.body.body.lambdas.length === 1) {
-    if (requireForall(ast.body.body.result))
+    if (ast[TAG] === "Forall")
+      return ast.body.body.result;
+
+    const hasTV = reduceAst((acc, ast_) => {
+      if (ast_[TAG] === "MetaTV"
+        || ast_[TAG] === "RigidTV") {
+          return true;
+      }
+
+      else return acc;
+    }, false) (ast)
+
+    if (hasTV)
       return Forall(new Set(), TOP_LEVEL_SCOPE, ast.body.body.result);
-      
+
     else return ast.body.body.result;
   }
 
@@ -946,25 +1011,6 @@ const remConsumedParams = (ast) => {
       Fun(
         ast.body.body.lambdas.slice(1),
         ast.body.body.result));
-};
-
-
-// checks if a passed AST requires a top-level quantifier
-
-const requireForall = ast => {
-  if (ast[TAG] === "Forall")
-    return false;
-
-  else {
-    return reduceAst((acc, ast_) => {
-      if (ast_[TAG] === "MetaTV"
-        || ast_[TAG] === "RigidTV") {
-          return true;
-      }
-
-      else return acc;
-    }, false) (ast); 
-  }
 };
 
 
@@ -2353,7 +2399,7 @@ export const type1 = adtAnno => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
+                TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
                 instantiations))));
 
       // return the ADT
@@ -2378,7 +2424,7 @@ dictionaries comprising the operations of the respective type class. From the
 constructor perspective value-level type classes share a lot of traits with
 ADTs, hence the type validator treats them as such. */
 
-export const typeClass = tcAnno => {
+export const typeClass = (...superClasses) => tcAnno => {
 
   // bypass the type validator
 
@@ -2520,69 +2566,71 @@ export const typeClass = tcAnno => {
 
     // return the type class constructor -- {untypedProps} => {typedProps}
 
-    return Object.assign(dict => {
+    return (...superDicts) => Object.assign(dict => {
       Object.entries(dict).forEach(([k, v]) => {
         if (v === undefined)
           throw new TypeError(cat(
-            "illegal type class\n",
-            `property "${k}" is defined\n`,
-            "but its implementation is missing\n",
-            `while declaring "${tcAnno}"\n`));
+            "illegal type class instance\n",
+            `${tcons} instance is missing an implementation\n`,
+            `for property "${k}"\n`,
+            `while applying "${tcAnno}"\n`));
       });
 
-      // collect properties each from the type dict and the passed object
+      // collect properties each from the type dict and the passed object(s)
 
-      const props = dictAst.body.body.reduce(
-        (acc, {k, v}) => acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : v), new Map());
+      const typeLevelProps = dictAst.body.body.reduce((acc, {k, v}) =>
+        acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : adjustAst(v)), new Map());
 
-      const props_ = Object.keys(dict);
+      const valueLevelProps = Object.keys(dict);
 
-      // make an overall exhaustiveness check
+      // ensure the property number at type and value level match
 
-      if (props.size !== props_.length)
+      if (typeLevelProps.size !== valueLevelProps.length)
         throw new TypeError(cat(
-          "illegal type class usage\n",
-          "operation/property mismatch\n",
-          `expected: ${Array.from(props)
+          "illegal type class instance\n",
+          "exhaustiveness check failed\n",
+          `expected: ${Array.from(typeLevelProps)
             .map(([k, v]) => k)
             .join(", ")}\n`,
-          `received: ${props_.join(", ")}\n`,
-          `while declaring "${tcAnno}"\n`));
+          `received: ${valueLevelProps.join(", ")}\n`,
+          `while applying "${tcAnno}"\n`));
 
       else {
 
         // make instantiations in this scope available
 
-        let instantiations;
+        let instantiations = new Map();
 
         // create the type class object
 
-        const dict_ = props_.reduce((acc, k) => {
+        const dict_ = valueLevelProps.reduce((acc, k) => {
 
-          // make an exhaustiveness check at the property level
+          /* Conduct an exhaustiveness check but assumes that the passed
+          superclass dictionaries are valid and thus exhaustive type classes. */
 
-          if (!props.has(k))
+          if (!typeLevelProps.has(k))
             throw new TypeError(cat(
-              "illegal type class\n",
-              "operation/property mismatch\n",
-              `expected: ${Array.from(props)
-                .map(([v, k]) => k)
+              "illegal type class instance\n",
+              "exhaustiveness check failed\n",
+              `expected: ${Array.from(typeLevelProps)
+                .map(([k, v]) => k)
                 .join(", ")}\n`,
-              `received: ${props_.join(", ")}\n`,
-              `while declaring "${tcAnno}"\n`));
+              `received: ${Array.from(valueLevelProps)
+                .join(", ")}\n`,
+              `while applying "${tcAnno}"\n`));
 
           // type the current function property
 
           else if (typeof dict[k] === "function") {
             instantiations = unifyTypes(
-              specializeLHS(TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast, // TODO: change tvid to ""?
+              typeLevelProps.get(k),
               parseAnno(dict[k] [ANNO]),
               0,
               0,
               0,
               0,
-              new Map(),
-              serializeAst(props.get(k)),
+              instantiations,
+              serializeAst(typeLevelProps.get(k)),
               dict[k] [ANNO],
               tcAnno,
               []);
@@ -2592,7 +2640,7 @@ export const typeClass = tcAnno => {
                 pruneForalls(
                   substitute(
                     specializeLHS(
-                      TOP_LEVEL_SCOPE, 0, 1) (props.get(k)).ast, // TODO: change tvid to ""?
+                      TOP_LEVEL_SCOPE, 0, "") (typeLevelProps.get(k)).ast,
                       instantiations))));
 
             acc[k] = fun(dict[k], contAnno);
@@ -2602,17 +2650,66 @@ export const typeClass = tcAnno => {
           // or leave it unchanged
 
           else {
+            instantiations = unifyTypes(
+              typeLevelProps.get(k),
+              parseAnno(introspectDeep(dict[k])),
+              0,
+              0,
+              0,
+              0,
+              instantiations,
+              serializeAst(typeLevelProps.get(k)),
+              dict[k] [ANNO],
+              tcAnno,
+              []);
+
             acc[k] = dict[k];
             return acc;
           }
         }, {[TAG]: tcons});
+
+        // add superclass properties
+
+        superDicts.forEach((superDict, i) => {
+
+          // ensure superclass dict is an ADT
+
+          if (!(ADT in superDict)
+            || Object.keys(superDict).length === 0)
+              throw new TypeError(cat(
+                "illegal type class instance\n",
+                "expects typed dictionary as superclass\n",
+                `but the ${ordinalNum(i + 1)} passed superclass does not meet this criterion\n`,
+                `while applying "${tcAnno}"\n`));
+
+          else {
+
+            Object.entries(superDict).forEach(([k, v]) => {
+
+              // rule out identical properties
+
+              if (k in dict)
+                throw new TypeError(cat(
+                  "illegal type class instance\n",
+                  "property name clash detected\n",
+                  `"${k}" is already defined\n`,
+                  "in the type class to be instantiated\n",
+                  `but the ${ordinalNum(i + 1)} passed superclass tries to override it\n`,
+                  `while applying "${tcAnno}"\n`));
+
+              // add property to new type class
+
+              else dict_[k] = v;
+            });
+          }
+        });
 
         const wrapperAnno_ = serializeAst(
           regeneralize(
             pruneForalls(
               substitute(
                 specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
+                  TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
                   instantiations))));
 
         dict_[ADT] = wrapperAnno_;
@@ -2941,7 +3038,7 @@ export const fun = (f, funAnno) => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (contAst).ast, // TODO: change tvid to ""?
+                TOP_LEVEL_SCOPE, 0, "") (contAst).ast,
                 instantiations_))));
 
       // update the wrapper annotation
@@ -2951,7 +3048,7 @@ export const fun = (f, funAnno) => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast, // TODO: change tvid to ""?
+                TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
                 instantiations_))));
 
       // type the Scott encoded ADT continuation and the wrapper
@@ -7468,27 +7565,26 @@ export const lazyProp = (o, prop, f) =>
 // @Dependent
 
 
-/***[ Monoid ]****************************************************************/
-
-
-const Monoid = typeClass(`({
-  empty: m,·
-  append: (m => m => m)
-}) => Monoid<m>`);
-
-
 /***[ Semigroup ]*************************************************************/
 
 
-const Semigroup = typeClass(`({
-  append: (m => m => m)
-}) => Semigroup<m>`);
+const Semigroup = typeClass() (`({
+  append: (a => a => a)
+}) => Semigroup<a>`);
+
+
+/***[ Semigroup -> Monoid ]***************************************************/
+
+
+const Monoid = typeClass(Semigroup) (`({
+  empty: m
+}) => Monoid<m>`);
 
 
 /***[ Dependent ]*************************************************************/
 
 
-export const Foldable = typeClass(`(^a, b, m. {
+export const Foldable = typeClass() (`(^a, b, m. {
   foldl: (b => a => b) => b => t<a> => b,·
   foldr: (a => b => b) => b => t<a> => b,·
   foldMapl: Monoid<m> => (a => m) => t<a> => m,·
@@ -8122,8 +8218,18 @@ export const xor = fun(
 /***[ Monoid ]****************************************************************/
 
 
+lazyProp(_Function, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(_Function.Semigroup) ({
+    empty: _Function.empty
+  });
+});
+
+
+
 _Function.empty = fun(
-  Monoid => _ => Monoid.empty,
+  Monoid => _ => Monoid.empty, // TODO: maybe change to `({empty})`
   "Monoid<b> => a => b");
 
 
@@ -8167,8 +8273,17 @@ export const lte = fun(
 /***[ Semigroup ]*************************************************************/
 
 
+lazyProp(_Function, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: _Function.append
+  });
+});
+
+
 _Function.append = fun(
-  Semigroup => f => g => x => Semigroup.append(f(x)) (g(x)),
+  Semigroup => f => g => x => Semigroup.append(f(x)) (g(x)), // TODO: maybe change to `({append})`
   "Semigroup<b> => (a => b) => (a => b) => a => b");
 
 
@@ -8277,8 +8392,7 @@ Endo.run = fun(
 lazyProp(Endo, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid({
-    append: Endo.append,
+  return this.Monoid = Monoid(Endo.Semigroup) ({
     empty: Endo.empty
   });
 });
@@ -8295,15 +8409,17 @@ Endo.empty = Endo(id);
 lazyProp(Endo, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup({
+  return this.Semigroup = Semigroup() ({
     append: Endo.append
   });
 });
 
 
 Endo.append = fun(
-  f => g => x => f(g(x)),
-  "(a => a) => (a => a) => a => a");
+  f => g => Endo(fun(
+    x => f.run(g.run(x)),
+    "a => a")),
+  "Endo<a> => Endo<a> => Endo<a>");
 
 
 /******************************************************************************
@@ -8328,7 +8444,7 @@ List.Nil = List(nil => cons => nil);
 lazyProp(List, "Foldable", function() {
   delete this.Foldable;
   
-  return this.Foldable = Foldable({
+  return this.Foldable = Foldable() ({
     foldl: List.foldl,
     foldr: List.foldr,
     foldMapl: List.foldMapl,
@@ -8372,8 +8488,7 @@ List.foldr = fun(
 lazyProp(List, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid({
-    append: List.append,
+  return this.Monoid = Monoid(List.Semigroup) ({
     empty: List.empty
   });
 });
@@ -8388,7 +8503,7 @@ List.empty = List.Nil;
 lazyProp(List, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup({
+  return this.Semigroup = Semigroup() ({
     append: List.append
   });
 });
@@ -8459,10 +8574,9 @@ DList.toList = comp(app_(List.Nil)) (DList.run);
 lazyProp(DList, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = {
-    append: DList.append,
+  return this.Monoid = Monoid(DList.Semigroup) ({
     empty: DList.empty
-  }
+  });
 });
 
 
@@ -8475,9 +8589,9 @@ DList.empty = DList(id);
 lazyProp(DList, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = {
+  return this.Semigroup = Semigroup() ({
     append: DList.append
-  }
+  });
 });
 
 
@@ -8531,10 +8645,9 @@ Option.None = Option(none => some => none);
 lazyProp(Option, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = {
-    append: Option.append,
+  return this.Monoid = Monoid(Option.Semigroup) ({
     empty: Option.empty
-  }
+  });
 });
 
 
@@ -8547,9 +8660,9 @@ Option.empty = Option.None;
 lazyProp(Option, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = {
+  return this.Semigroup = Semigroup() ({
     append: Option.append
-  }
+  });
 });
 
 
