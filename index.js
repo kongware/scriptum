@@ -58,16 +58,16 @@ const NOT_FOUND = -1;
 /***[ Type Dictionaries ]*****************************************************/
 
 
-const adtDict = new Map(); // ADT register (name and arity)
+const adtDict = new Map(), // ADT dict (name + arity)
+  tcDict = new Set(); // type class dict
 
-
-const imperativeTypeDict = new Map([ // Native register (name and arity)
+const imperativeTypeDict = new Map([ // imperative types dict (name + arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-const imperativeTypeIntrospection = new Map([
+const imperativeIntrospection = new Map([
   ["Map", m => {
     const ts = new Map();
 
@@ -113,7 +113,7 @@ const imperativeTypeIntrospection = new Map([
   }]]);
 
 
-export const registerCustomType = (name, arity, introspect) => {
+export const registerImperativeType = (name, arity, introspect) => {
   if (CHECK) {
 
     // check for name clashes with native types
@@ -144,7 +144,7 @@ export const registerCustomType = (name, arity, introspect) => {
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
 
     imperativeTypeDict.set(name, arity);
-    imperativeTypeIntrospection.set(name, introspect);
+    imperativeIntrospection.set(name, introspect);
   }
 };
 
@@ -2033,7 +2033,7 @@ export const introspectDeep = x => {
       // imperative type
 
       else if (imperativeTypeDict.has(type))
-        return imperativeTypeIntrospection.get(type) (x);
+        return imperativeIntrospection.get(type) (x);
 
       // Thunk
 
@@ -2399,7 +2399,7 @@ export const type1 = adtAnno => {
           pruneForalls(
             substitute(
               specializeLHS(
-                TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
+                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
                 instantiations))));
 
       // return the ADT
@@ -2500,7 +2500,10 @@ export const typeClass = (...superClasses) => tcAnno => {
 
     // register type class as name-arity pair
 
-    else adtDict.set(tcons, arity);
+    else {
+      adtDict.set(tcons, arity);
+      tcDict.add(tcons);
+    }
 
     // parse type class and dictionary AST and extract the continuation AST
 
@@ -2640,7 +2643,7 @@ export const typeClass = (...superClasses) => tcAnno => {
                 pruneForalls(
                   substitute(
                     specializeLHS(
-                      TOP_LEVEL_SCOPE, 0, "") (typeLevelProps.get(k)).ast,
+                      TOP_LEVEL_SCOPE, 0, 1) (typeLevelProps.get(k)).ast,
                       instantiations))));
 
             acc[k] = fun(dict[k], contAnno);
@@ -2709,7 +2712,7 @@ export const typeClass = (...superClasses) => tcAnno => {
             pruneForalls(
               substitute(
                 specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
+                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
                   instantiations))));
 
         dict_[ADT] = wrapperAnno_;
@@ -3007,54 +3010,78 @@ export const fun = (f, funAnno) => {
         `runtime immediately terminated\n`,
         extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
 
-    // take algebraic data types into account
+    // take algebraic data types and type classes into account
 
     else if (r && typeof r === "object" && ADT in r) {
 
-      // parse the annotations of the ADT components
+      // type class
 
-      const wrapperAst = parseAnno(r[ADT]),
-        contAst = parseAnno(r.run[ANNO]);
+      if (tcDict.has(r[TAG])) {
+        unifyTypes(
+          parseAnno(r[ADT]),
+          unifiedAst,
+          0,
+          0,
+          0,
+          0,
+          new Map(),
+          r[ADT],
+          serializeAst(unifiedAst),
+          funAnno,
+          []);
+      }
 
-      // unify the wrapper with the unified AST
+      // algebraic data type
 
-      const instantiations_ = unifyTypes(
-        wrapperAst,
-        unifiedAst,
-        0,
-        0,
-        0,
-        0,
-        new Map(),
-        r[ADT],
-        serializeAst(unifiedAst),
-        funAnno,
-        []);
+      else {
 
-      // update the continuation annotation
+        // parse the annotations of the ADT components
 
-      const contAnno = serializeAst(
-        regeneralize(
-          pruneForalls(
-            substitute(
-              specializeLHS(
-                TOP_LEVEL_SCOPE, 0, "") (contAst).ast,
-                instantiations_))));
+        const wrapperAst = parseAnno(r[ADT]),
+          contAst = parseAnno(r.run[ANNO]);
 
-      // update the wrapper annotation
+        // unify the wrapper with the unified AST
 
-      const wrapperAnno = serializeAst(
-        regeneralize(
-          pruneForalls(
-            substitute(
-              specializeLHS(
-                TOP_LEVEL_SCOPE, 0, "") (wrapperAst).ast,
-                instantiations_))));
+        const instantiations_ = unifyTypes(
+          wrapperAst,
+          unifiedAst,
+          0,
+          0,
+          0,
+          0,
+          new Map(),
+          r[ADT],
+          serializeAst(unifiedAst),
+          funAnno,
+          []);
 
-      // type the Scott encoded ADT continuation and the wrapper
+        // update the continuation annotation
 
-      r.run = fun(r.run[UNWRAP], contAnno);
-      r[ADT] = wrapperAnno;
+        const contAnno = serializeAst(
+          regeneralize(
+            pruneForalls(
+              substitute(
+                specializeLHS(
+                  TOP_LEVEL_SCOPE, 0, 1) (contAst).ast,
+                  instantiations_))));
+
+        // update the wrapper annotation
+
+        const wrapperAnno = serializeAst(
+          regeneralize(
+            pruneForalls(
+              substitute(
+                specializeLHS(
+                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                  instantiations_))));
+
+        // type the Scott encoded ADT continuation and the wrapper
+
+        r.run = fun(r.run[UNWRAP], contAnno);
+        r[ADT] = wrapperAnno;
+      }
+
+      return r;
     }
 
     /* If the resulting AST is a function type or a function type constant, the
@@ -3076,14 +3103,6 @@ export const fun = (f, funAnno) => {
             `received: ${introspectFlat(r)}\n`,
             extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
     }
-
-    /* An AST representing a non-functional type indicates that the type
-    validator has completed the collection of arguments and next has to handle
-    the result type. If the latter is an ADT, result type unification can be
-    skipped, because ADTs have already been unified. */
-
-    else if (r && typeof r === "object" && ADT in r)
-      return r;
 
     // result type unification
 
@@ -8221,11 +8240,12 @@ export const xor = fun(
 lazyProp(_Function, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid(_Function.Semigroup) ({
-    empty: _Function.empty
-  });
+  return this.Monoid = fun(
+    Monoid_ => Monoid(_Function.Semigroup) ({ // Bug: we need to pass `Semigroup_` as well, but we should restore it from `Monoid_`
+      empty: _Function.empty(Monoid_)
+    }),
+    "Monoid<b> => Monoid<(a => b)>");
 });
-
 
 
 _Function.empty = fun(
@@ -8276,9 +8296,11 @@ export const lte = fun(
 lazyProp(_Function, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
-    append: _Function.append
-  });
+  return this.Semigroup = fun(
+    Semigroup_ => Semigroup() ({
+      append: _Function.append(Semigroup_)
+    }),
+    "Semigroup<b> => Semigroup<a => b>");
 });
 
 
@@ -8617,6 +8639,44 @@ export const thisify = f => {
 
   else return f({});
 };
+
+
+/******************************************************************************
+**********************************[ NUMBER ]***********************************
+******************************************************************************/
+
+
+export const _Number = {}; // namespace
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(_Number, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(_Number.Semigroup) ({
+    empty: _Number.empty
+  });
+});
+
+
+_Number.empty = 1;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(_Number, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: _Number.append
+  });
+});
+
+
+_Number.append = add;
 
 
 /******************************************************************************
