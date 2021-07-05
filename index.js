@@ -8711,11 +8711,15 @@ Option.None = Option(none => some => none);
 lazyProp(Option, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid(Option.Semigroup) ({
-    empty: Option.empty
-  });
+  return this.Monoid = fun(
+    Monoid_ => Monoid(Option.Semigroup(Monoid_.Semigroup)) ({
+      empty: Option.empty
+    }),
+    "Monoid<a> => Monoid<Option<a>>");
 });
 
+
+// Option<a>
 
 Option.empty = Option.None;
 
@@ -8726,9 +8730,11 @@ Option.empty = Option.None;
 lazyProp(Option, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
-    append: Option.append
-  });
+  return this.Semigroup = fun(
+    Semigroup_ => Semigroup() ({
+      append: Option.append(Semigroup_)
+    }),
+    "Semigroup<a> => Semigroup<Option<a>>");
 });
 
 
