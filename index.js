@@ -2704,8 +2704,14 @@ export const typeClass = (...superClasses) => tcAnno => {
 
               else dict_[k] = v;
             });
+
+            // attach super type classes on current type class object
+
+            dict_[superDict[TAG]] = superDict;
           }
         });
+
+        // update the type wrapper
 
         const wrapperAnno_ = serializeAst(
           regeneralize(
@@ -8241,7 +8247,7 @@ lazyProp(_Function, "Monoid", function() {
   delete this.Monoid;
   
   return this.Monoid = fun(
-    Monoid_ => Monoid(_Function.Semigroup) ({ // Bug: we need to pass `Semigroup_` as well, but we should restore it from `Monoid_`
+    Monoid_ => Monoid(_Function.Semigroup(Monoid_.Semigroup)) ({
       empty: _Function.empty(Monoid_)
     }),
     "Monoid<b> => Monoid<(a => b)>");
@@ -8249,7 +8255,7 @@ lazyProp(_Function, "Monoid", function() {
 
 
 _Function.empty = fun(
-  Monoid => _ => Monoid.empty, // TODO: maybe change to `({empty})`
+  ({empty}) => _ => empty,
   "Monoid<b> => a => b");
 
 
@@ -8305,7 +8311,7 @@ lazyProp(_Function, "Semigroup", function() {
 
 
 _Function.append = fun(
-  Semigroup => f => g => x => Semigroup.append(f(x)) (g(x)), // TODO: maybe change to `({append})`
+  ({append}) => f => g => x => append(f(x)) (g(x)),
   "Semigroup<b> => (a => b) => (a => b) => a => b");
 
 
