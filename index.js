@@ -8712,10 +8712,10 @@ lazyProp(Option, "Monoid", function() {
   delete this.Monoid;
   
   return this.Monoid = fun(
-    Monoid_ => Monoid(Option.Semigroup(Monoid_.Semigroup)) ({
+    Semigroup => Monoid(Option.Semigroup(Semigroup)) ({
       empty: Option.empty
     }),
-    "Monoid<a> => Monoid<Option<a>>");
+    "Semigroup<a> => Monoid<Option<a>>");
 });
 
 
@@ -8740,9 +8740,11 @@ lazyProp(Option, "Semigroup", function() {
 
 Option.append = fun(
   ({append}) => tx => ty =>
-    tx.run(ty)
-      (x => ty.run(tx)
-        (y => Option.Some(append(x) (y)))),
+    tx.run(ty) (fun(
+      x => ty.run(tx) (fun(
+        y => Option.Some(append(x) (y)),
+        "a => Option<a>")),
+      "a => Option<a>")),
   "Semigroup<a> => Option<a> => Option<a> => Option<a>");
 
 
