@@ -1051,8 +1051,10 @@ const parseAnno = anno => {
     or codomain position. If such an argument is substituted the grouping 
     parenthesis are omitted for the latter.
 
-    The `context` argument is used to prevent impredicative polymorphism,
-    which is only allowed on the LHS of the function type.
+    The `context` argument is used to prevent both, impredicative polymorphism
+    and function types without a surrounding quantifer/grouping. The former is
+    only allowed on the LHS of the function type. The latter is necessary to
+    keep the language syntax simple.
 
     The `thisAnno` and `nesting` arguments are required to handle `this*`
     annotations. The former holds the entire object annotation `this*` refers
@@ -1081,6 +1083,16 @@ const parseAnno = anno => {
     // Fun
 
     if (remNestings(cs).search(new RegExp("( |^)=>( |$)", "")) !== NOT_FOUND) {
+
+      // check whether this is the initial invocation or a `Forall` context
+
+      if (context !== "" && context.split(/\//).slice(-1) [0] !== "Forall")
+        throw new SyntaxError(cat(
+          "malformed type annotation\n",
+          `function type must be inside a quantifier\n`,
+          `but found "${cs}"\n`,
+          `inside context "${context.split(/\//).slice(-1) [0]}"\n`,
+          `in "${anno}"\n`));
 
       // take partially applied Fun constrcutors into account
       
@@ -1280,7 +1292,7 @@ const parseAnno = anno => {
         return Forall(
           new Set(),
           TOP_LEVEL_SCOPE,
-          go(rx.groups.body, 0, 0, scope, "", context, thisAnno, nesting));
+          go(rx.groups.body, 0, 0, scope, "", context + "/Forall", thisAnno, nesting));
 
       // explicit rank-n quantifier
 
@@ -1288,14 +1300,13 @@ const parseAnno = anno => {
 
         // impredicative polymorphism
 
-        if (context.replace(/\/Function/g, "") !== "")
+        if (context.replace(new RegExp("(?:/Forall)?/Function", "g"), "") !== "")
           throw new TypeError(cat(
             "malformed type annotation\n",
-            "impredicative polymorphic type found\n",
-            `nested quantifiers must only occur on the LHS of "=>"\n`,
-            `but "${cs}" is defined under:\n`,
-            `${context.slice(1)}\n`,
-            "impredicative polymorphism is not allowed yet\n",
+            "impredicative polymorphic type detected\n",
+            `nested quantifiers must only occur on the LHS of "=>" but\n`,
+            `${cs}\n`,
+            `is defined inside context: ${context.split(/\//).slice(-1) [0]}\n`,
             `in "${anno}"\n`));
 
         else {
@@ -1308,7 +1319,7 @@ const parseAnno = anno => {
           return Forall(
             rntvs_,
             nestedScope,
-            go(rx.groups.body, 0, 0, nestedScope, "", context, thisAnno, nesting));
+            go(rx.groups.body, 0, 0, nestedScope, "", context + "/Forall", thisAnno, nesting));
         }
       }
     }
@@ -2099,20 +2110,28 @@ export const type = adtAnno => {
 
     // parse the type wrapper
 
-    const wrapperAnno = splitByScheme(
-      / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
+    const [domain, wrapperAnno] = splitByScheme(
+      / => /, 4, remNestings(adtAnno)) (adtAnno);
 
     // ensures top-level function type
 
-    if (wrapperAnno === undefined)
+    if (domain === undefined)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
         "Scott encoding expects a top-level function type\n",
         `while declaring "${adtAnno}"\n`));
 
-    // ensure valid codomain
+    // verify valid domain
 
-    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+    else if (domain.search(new RegExp("^\\(\\^[a-z][A-Za-z0-9]*\\.", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid algebraic data type declaration\n",
+        "Scott encoding expects a rank-2 function type as its argument\n",
+        `while declaring "${adtAnno}"\n`));
+
+    // verify valid codomain
+
+    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
         "Scott encoding expects a parameterized type constructor\n",
@@ -2681,12 +2700,12 @@ export const typeClass = (...superClasses) => tcAnno => {
             || Object.keys(superDict).length === 0)
               throw new TypeError(cat(
                 "illegal type class instance\n",
-                "expects typed dictionary as superclass\n",
-                `but the ${ordinalNum(i + 1)} passed superclass does not meet this criterion\n`,
+                "expects typed dictionaries as superclasses\n",
+                `but received: ${introspectDeep(superDict)}\n`,
+                `as the ${ordinalNum(i + 1)} passed argument\n`,
                 `while applying "${tcAnno}"\n`));
 
           else {
-
             Object.entries(superDict).forEach(([k, v]) => {
 
               // rule out identical properties
@@ -3186,7 +3205,7 @@ export const fun = (f, funAnno) => {
 };
 
 
-export const anno = (x, valAnno) =>
+export const anno = (x, valAnno) => // TODO: check if obsolete
   (x[ANNO] = valAnno, x);
 
 
@@ -7610,10 +7629,10 @@ const Monoid = typeClass(Semigroup) (`({
 
 
 export const Foldable = typeClass() (`(^a, b, m. {
-  foldl: (b => a => b) => b => t<a> => b,·
-  foldr: (a => b => b) => b => t<a> => b,·
-  foldMapl: Monoid<m> => (a => m) => t<a> => m,·
-  foldMapr: Monoid<m> => (a => m) => t<a> => m
+  foldl: ((b => a => b) => b => t<a> => b),·
+  foldr: ((a => b => b) => b => t<a> => b),·
+  foldMapl: (Monoid<m> => (a => m) => t<a> => m),·
+  foldMapr: (Monoid<m> => (a => m) => t<a> => m)
 }) => Foldable<t>`);
 
 
@@ -7638,16 +7657,16 @@ export const Foldable = typeClass() (`(^a, b, m. {
 ******************************************************************************/
 
 
-// based on a left-associative fold
+// based on an eager left-associative fold
 
-export const foldMapl = fun(
+export const foldMap = fun(
   ({foldl}, {append, empty}) => f => foldl(comp2nd(append) (f)) (empty),
   "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
 
 
 // based on a lazy right-associative fold
 
-export const foldMapr = fun(
+export const foldMap_ = fun(
   ({foldr}, {append, empty}) => f => foldr(comp(append) (f)) (empty),
   "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
 
@@ -8306,7 +8325,7 @@ lazyProp(_Function, "Semigroup", function() {
     Semigroup_ => Semigroup() ({
       append: _Function.append(Semigroup_)
     }),
-    "Semigroup<b> => Semigroup<a => b>");
+    "Semigroup<b> => Semigroup<(a => b)>");
 });
 
 
@@ -8371,6 +8390,25 @@ _Array.forEach = fun(
 
 
 /******************************************************************************
+********************************[ COMPARATOR ]*********************************
+******************************************************************************/
+
+
+// Comparator is compatible with Javascript's sorting protocoll
+
+export const Comparator = type("(^r. {lt: r, eq: r, gt: r} => r) => Comparator");
+
+
+Comparator.LT = Object.assign(Comparator(({lt}) => lt), {valueOf: () => -1});
+
+
+Comparator.EQ = Object.assign(Comparator(({eq}) => eq), {valueOf: () => 0});
+
+
+Comparator.GT = Object.assign(Comparator(({gt}) => gt), {valueOf: () => 1});
+
+
+/******************************************************************************
 ***********************************[ CONT ]************************************
 ******************************************************************************/
 
@@ -8388,7 +8426,8 @@ export const Cont = type1("((a => r) => r) => Cont<r, a>");
 ******************************************************************************/
 
 
-export const Either = type("(^r. (a => r) => (b => r) => r) => Either<a, b>");
+export const Either = type(
+  "(^r. {left: (a => r), right: (b => r)} => r) => Either<a, b>");
 
 
 Either.Left = fun(
@@ -8455,15 +8494,16 @@ Endo.append = fun(
 ******************************************************************************/
 
 
-export const List = type("(^r. r => (a => List<a> => r) => r) => List<a>");
+export const List = type(
+  "(^r. {nil: r, cons: (a => List<a> => r)} => r) => List<a>");
 
 
 List.Cons = fun(
-  x => xs => List(nil => cons => cons(x) (xs)),
+  x => xs => List(({cons}) => cons(x) (xs)),
   "a => List<a> => List<a>");
 
 
-List.Nil = List(nil => cons => nil);
+List.Nil = List(({nil}) => nil);
 
 
 /***[ Foldable ]**************************************************************/
@@ -8483,9 +8523,12 @@ lazyProp(List, "Foldable", function() {
 
 List.foldl = fun(
   f => function go(acc) {
-    return xs => xs.run(acc) (fun(
-      x => ys => go(f(acc) (x)) (ys),
-      "a => List<a> => b"));
+    return xs => xs.run({
+      nil: acc,
+      cons: fun(
+        x => ys => go(f(acc) (x)) (ys),
+        "a => List<a> => b")
+    });
   },
   "(b => a => b) => b => List<a> => b");
 
@@ -8502,10 +8545,12 @@ List.foldMapr = fun(
 
 List.foldr = fun(
   f => acc => function go(xs) {
-    return xs.run(acc) (fun(
-      x => ys =>
-        f(x) (thunk(() => go(ys), "() => b")),
-      "a => List<a> => b"));
+    return xs.run({
+      nil: acc,
+      cons: fun(
+        x => ys => f(x) (thunk(() => go(ys), "() => b")),
+        "a => List<a> => b")
+    });
   },
   "(a => b => b) => b => List<a> => b");
 
@@ -8539,10 +8584,13 @@ lazyProp(List, "Semigroup", function() {
 
 List.append = fun(
   xs => ys => function go(acc) {
-    return acc.run(ys) (fun(
-      x => zs => List.Cons(x)
-        (thunk(() => go(zs), "() => List<a>")),
-      "a => List<a> => List<a>"));
+    return acc.run({
+      nil: ys,
+      cons: fun(
+        x => zs => List.Cons(x)
+          (thunk(() => go(zs), "() => List<a>")),
+        "a => List<a> => List<a>")
+    });
   } (xs),
   "List<a> => List<a> => List<a>");
 
@@ -8648,61 +8696,23 @@ export const thisify = f => {
 
 
 /******************************************************************************
-**********************************[ NUMBER ]***********************************
-******************************************************************************/
-
-
-export const _Number = {}; // namespace
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(_Number, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(_Number.Semigroup) ({
-    empty: _Number.empty
-  });
-});
-
-
-_Number.empty = 1;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(_Number, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup() ({
-    append: _Number.append
-  });
-});
-
-
-_Number.append = add;
-
-
-/******************************************************************************
 **********************************[ OPTION ]***********************************
 ******************************************************************************/
 
 
 // type of expressions that may not yield a result
 
-export const Option = type("(^r. r => (a => r) => r) => Option<a>");
+export const Option = type("(^r. {none: r, some: (a => r)} => r) => Option<a>");
 
 
 Option.Some = fun(
-  x => Option(none => some => some(x)),
+  x => Option(({some}) => some(x)),
   "a => Option<a>");
 
 
 // Option<a>
 
-Option.None = Option(none => some => none);
+Option.None = Option(({none}) => none);
 
 
 /***[ Monoid ]****************************************************************/
@@ -8740,11 +8750,17 @@ lazyProp(Option, "Semigroup", function() {
 
 Option.append = fun(
   ({append}) => tx => ty =>
-    tx.run(ty) (fun(
-      x => ty.run(tx) (fun(
-        y => Option.Some(append(x) (y)),
-        "a => Option<a>")),
-      "a => Option<a>")),
+  tx.run({
+    none: ty,
+    some: fun(
+      x => ty.run({
+        none: tx,
+        some: fun(
+          y => Option.Some(x + y),
+          "a => Option<a>")
+      }),
+      "a => Option<a>")
+  }),
   "Semigroup<a> => Option<a> => Option<a> => Option<a>");
 
 
@@ -8760,6 +8776,44 @@ export const Parallel = type1("((a => r) => r) => Parallel<r, a>");
 
 
 /******************************************************************************
+***********************************[ PROD ]************************************
+******************************************************************************/
+
+
+export const Prod = {}; // namespace
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Prod, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(Prod.Semigroup) ({
+    empty: Prod.empty
+  });
+});
+
+
+Prod.empty = 1;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Prod, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Prod.append
+  });
+});
+
+
+Prod.append = mul;
+
+
+/******************************************************************************
 **********************************[ SERIAL ]***********************************
 ******************************************************************************/
 
@@ -8771,6 +8825,44 @@ The actual behavior depends on a PRNG and cannot be determined upfront. You can
 pass both synchronous and asynchronous functions to the CPS composition. */
 
 export const Serial = type1("((a => r) => r) => Serial<r, a>");
+
+
+/******************************************************************************
+************************************[ SUM ]************************************
+******************************************************************************/
+
+
+export const Sum = {}; // namespace
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Sum, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(Sum.Semigroup) ({
+    empty: Sum.empty
+  });
+});
+
+
+Sum.empty = 0;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Sum, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Sum.append
+  });
+});
+
+
+Sum.append = add;
 
 
 /******************************************************************************
