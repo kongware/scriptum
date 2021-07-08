@@ -3042,8 +3042,10 @@ export const fun = (f, funAnno) => {
       // type class
 
       if (tcDict.has(r[TAG])) {
-        unifyTypes(
-          parseAnno(r[ADT]),
+        const wrapperAst = parseAnno(r[ADT]);
+
+        const instantiations_ = unifyTypes(
+          wrapperAst,
           unifiedAst,
           0,
           0,
@@ -3054,6 +3056,16 @@ export const fun = (f, funAnno) => {
           serializeAst(unifiedAst),
           funAnno,
           []);
+
+        const wrapperAnno = serializeAst(
+          regeneralize(
+            pruneForalls(
+              substitute(
+                specializeLHS(
+                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                  instantiations_))));
+
+        r[ADT] = wrapperAnno;
       }
 
       // algebraic data type
@@ -8750,18 +8762,18 @@ lazyProp(Option, "Semigroup", function() {
 
 Option.append = fun(
   ({append}) => tx => ty =>
-  tx.run({
-    none: ty,
-    some: fun(
-      x => ty.run({
-        none: tx,
-        some: fun(
-          y => Option.Some(x + y),
-          "a => Option<a>")
-      }),
-      "a => Option<a>")
-  }),
-  "Semigroup<a> => Option<a> => Option<a> => Option<a>");
+    tx.run({
+      none: ty,
+      some: fun(
+        x => ty.run({
+          none: tx,
+          some: fun(
+            y => Option.Some(x + y),
+            "a => Option<a>")
+        }),
+        "a => Option<a>")
+    }),
+    "Semigroup<a> => Option<a> => Option<a> => Option<a>");
 
 
 /******************************************************************************
