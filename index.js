@@ -7655,6 +7655,43 @@ const Bounded = typeClass() (`({
 }) => Bounded<a>`);
 
 
+/***[ Enum ]******************************************************************/
+
+
+// TODO: Solve the circular dependency between TCs and ADTs
+
+/*const Enum = typeClass() (`({
+  succ: (a => Option<a>),·
+  pred: (a => Option<a>),·
+  succeeds: (a => a => Boolean),·
+  fromEnum: (a => Option<Number>),·
+  toEnum: (Number => Option<a>)
+}) => Enum<a>`);*/
+
+
+/***[ Equality :: Order ]*****************************************************/
+
+
+const Equality = typeClass() (`({
+  eq: (a => a => Boolean),·
+  neq: (a => a => Boolean)
+}) => Equality<a>`);
+
+
+/***[ Equality :: Order ]*****************************************************/
+
+
+const Order = typeClass(Equality) (`({
+  compare: (a => a => Comparator),·
+  lt: (a => a => Boolean),·
+  lte: (a => a => Boolean),·
+  gt: (a => a => Boolean),·
+  gte: (a => a => Boolean),·
+  minBound: (a => a => a),·
+  maxBound: (a => a => a)
+}) => Order<a>`);
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -7669,7 +7706,7 @@ const Semigroup = typeClass() (`({
 }) => Semigroup<a>`);
 
 
-/***[ Semigroup -> Monoid ]***************************************************/
+/***[ Semigroup :: Monoid ]***************************************************/
 
 
 const Monoid = typeClass(Semigroup) (`({
@@ -7703,6 +7740,7 @@ export const Foldable = typeClass() (`(^a, b, m. {
   sum: ,·
   prod: ,·
 }) => Foldable<t>`);*/
+
 
 /******************************************************************************
 ***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
