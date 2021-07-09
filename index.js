@@ -8567,6 +8567,21 @@ Bool.lte = fun(
 export const All = type1("Boolean => All");
 
 
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(All, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid() ({
+    empty: All.empty
+  });
+});
+
+
+All.empty = true;
+
+
 /***[ Semigroup ]*************************************************************/
 
 
@@ -8582,6 +8597,48 @@ lazyProp(All, "Semigroup", function() {
 All.append = fun(
   tx => ty => All(tx.run && ty.run),
   "All => All => All");
+
+
+/******************************************************************************
+******************************[ BOOLEAN :: ANY ]*******************************
+******************************************************************************/
+
+
+// constructor + namespace
+
+export const Any = type1("Boolean => Any");
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Any, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid() ({
+    empty: Any.empty
+  });
+});
+
+
+Any.empty = false;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Any, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Any.append
+  });
+});
+
+
+Any.append = fun(
+  tx => ty => Any(tx.run || ty.run),
+  "Any => Any => Any");
 
 
 /******************************************************************************
@@ -8951,7 +9008,9 @@ export const bitXor = fun(
 ******************************************************************************/
 
 
-export const Prod = {}; // namespace
+// constructor + namespace
+
+export const Prod = type1("Number => Prod");
 
 
 /***[ Monoid ]****************************************************************/
@@ -8966,7 +9025,7 @@ lazyProp(Prod, "Monoid", function() {
 });
 
 
-Prod.empty = 1;
+Prod.empty = Prod(1);
 
 
 /***[ Semigroup ]*************************************************************/
@@ -8989,7 +9048,9 @@ Prod.append = mul;
 ******************************************************************************/
 
 
-export const Sum = {}; // namespace
+// constructor + namespace
+
+export const Sum = type1("Number => Sum");
 
 
 /***[ Monoid ]****************************************************************/
@@ -9004,7 +9065,7 @@ lazyProp(Sum, "Monoid", function() {
 });
 
 
-Sum.empty = 0;
+Sum.empty = Sum(0);
 
 
 /***[ Semigroup ]*************************************************************/
