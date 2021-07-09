@@ -714,6 +714,16 @@ const adjustForall = ref => {
 };
 
 
+const getTVs = scope => reduceAst((acc, ast) => {
+  if (ast[TAG] === "BoundTV" && isParentScope(scope, ast.scope)
+    || ast[TAG] === "MetaTV" && isParentScope(scope, ast.scope)
+    || ast[TAG] === "RigidTV" && isParentScope(scope, ast.scope))
+      return acc.add(ast.name);
+
+  else return acc;
+}, new Set());
+
+
 const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
   switch (ast_[TAG]) {
     case "BoundTV":
@@ -723,6 +733,39 @@ const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
     default: return acc;
   }
 }, false) (ast);
+
+
+const hasTV = scope => reduceAst((acc, ast) => {
+  if (ast[TAG] === "BoundTV" && isParentScope(scope, ast.scope)
+    || ast[TAG] === "MetaTV" && isParentScope(scope, ast.scope)
+    || ast[TAG] === "RigidTV" && isParentScope(scope, ast.scope))
+      return true;
+
+  else return acc;
+}, false);
+
+
+// returns true if the first scope contains the second one
+
+const isParentScope = (parent, child) => {
+  const diff = child.match(/\./g).length - parent.match(/\./g).length;
+
+  if (diff < 0)
+    return false;
+
+  else if (diff > 0)
+    return child.search(parent) === 0;
+
+  else {
+
+    // truncate current lam/arg index
+
+    const parent_ = parent.replace(/[^.]+$/, ""),
+      child_ = child.replace(/[^.]+$/, "");
+
+    return child_.search(parent_) === 0;
+  }
+};
 
 
 const isTV = ast => {
@@ -989,16 +1032,7 @@ const remConsumedParams = (ast) => {
     if (ast[TAG] === "Forall")
       return ast.body.body.result;
 
-    const hasTV = reduceAst((acc, ast_) => {
-      if (ast_[TAG] === "MetaTV"
-        || ast_[TAG] === "RigidTV") {
-          return true;
-      }
-
-      else return acc;
-    }, false) (ast)
-
-    if (hasTV)
+    else if (hasTV(TOP_LEVEL_SCOPE) (ast))
       return Forall(new Set(), TOP_LEVEL_SCOPE, ast.body.body.result);
 
     else return ast.body.body.result;
@@ -1011,29 +1045,6 @@ const remConsumedParams = (ast) => {
       Fun(
         ast.body.body.lambdas.slice(1),
         ast.body.body.result));
-};
-
-
-// returns true if the first scope contains the second one
-
-const isParentScope = (parent, child) => {
-  const diff = child.match(/\./g).length - parent.match(/\./g).length;
-
-  if (diff < 0)
-    return false;
-
-  else if (diff > 0)
-    return child.search(parent) === 0;
-
-  else {
-
-    // truncate current lam/arg index
-
-    const parent_ = parent.replace(/[^.]+$/, ""),
-      child_ = child.replace(/[^.]+$/, "");
-
-    return child_.search(parent_) === 0;
-  }
 };
 
 
@@ -1974,6 +1985,12 @@ export const introspectFlat = x => {
       else return type;
     }
 
+    case "Undefined":
+      throw new TypeError(cat(
+        "illegal type introspection\n",
+        "namely: undefined\n",
+        `runtime immediately terminated\n`));
+
     default: return type;
   }
 };
@@ -2033,6 +2050,12 @@ export const introspectDeep = x => {
       x.forEach(y => ts.push(introspectDeep(y)));
       return `[${Array.from(ts).join(", ")}]`;
     }
+
+    case "Undefined":
+      throw new TypeError(cat(
+        "illegal type introspection\n",
+        "namely: undefined\n",
+        `runtime immediately terminated\n`));
 
     default: {
 
@@ -2134,7 +2157,7 @@ export const type = adtAnno => {
     else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "Scott encoding expects a parameterized type constructor\n",
+        "Scott encoding expects a type constructor\n",
         "in its codomain\n",
         `but "${wrapperAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
@@ -2293,15 +2316,15 @@ export const type1 = adtAnno => {
     if (wrapperAnno === undefined)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "Single constructor ADT expects a top-level function type\n",
+        "single constructor ADT expects a top-level function type\n",
         `while declaring "${adtAnno}"\n`));
 
     // ensure valid codomain
 
-    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "Single constructor ADT expects a parameterized type constructor\n",
+        "single constructor ADT expects a type constructor\n",
         "in its codomain\n",
         `but "${wrapperAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
@@ -2310,9 +2333,11 @@ export const type1 = adtAnno => {
 
     const tcons = wrapperAnno.match(/[^<]+/) [0];
 
-    const arity = splitByScheme(
-      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
-        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+    const arity = wrapperAnno !== tcons
+      ? splitByScheme(
+          /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+            (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
+      : 0;
 
     // check for name clashes with previously registered ADTs
 
@@ -2347,13 +2372,26 @@ export const type1 = adtAnno => {
 
     // parse ADT and wrapper AST and extract the original AST
 
-    const adtAst = parseAnno(adtAnno),
-      originalAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
-      wrapperAst = parseAnno(wrapperAnno);
+    const adtAst = parseAnno(adtAnno);
+
+    let domainAst;
+
+    if (adtAst.body.body.lambdas[0] [0] [TAG] === "Forall")
+        domainAst = adjustForall(adtAst.body.body.lambdas[0] [0]);
+
+    else if (hasTV(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]))
+      domainAst = Forall(
+        getTVs(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]),
+        TOP_LEVEL_SCOPE,
+        adtAst.body.body.lambdas[0] [0]);
+    
+    else domainAst = adtAst.body.body.lambdas[0] [0];
+      
+    const wrapperAst = parseAnno(wrapperAnno);
 
     // serialize original AST
 
-    const originalAnno = serializeAst(originalAst);
+    const domainAnno = serializeAst(domainAst);
 
     /* Verify that all rank-1 type variables of the domain occur in the codomain
     of the value constructor:
@@ -2401,14 +2439,14 @@ export const type1 = adtAnno => {
       const argAnno = introspectDeep(x);
 
       const instantiations = unifyTypes(
-        originalAst,
+        domainAst,
         parseAnno(argAnno),
         0,
         0,
         0,
         0,
         new Map(),
-        originalAnno,
+        domainAnno,
         argAnno,
         adtAnno,
         []);
@@ -3075,7 +3113,9 @@ export const fun = (f, funAnno) => {
         // parse the annotations of the ADT components
 
         const wrapperAst = parseAnno(r[ADT]),
-          contAst = parseAnno(r.run[ANNO]);
+          domainAst = r && r[ANNO]
+            ? parseAnno(r.run[ANNO])
+            : parseAnno(introspectDeep(r));
 
         // unify the wrapper with the unified AST
 
@@ -3092,14 +3132,14 @@ export const fun = (f, funAnno) => {
           funAnno,
           []);
 
-        // update the continuation annotation
+        // update the domain annotation
 
-        const contAnno = serializeAst(
+        const domainAnno = serializeAst(
           regeneralize(
             pruneForalls(
               substitute(
                 specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (contAst).ast,
+                  TOP_LEVEL_SCOPE, 0, 1) (domainAst).ast,
                   instantiations_))));
 
         // update the wrapper annotation
@@ -3112,9 +3152,12 @@ export const fun = (f, funAnno) => {
                   TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
                   instantiations_))));
 
-        // type the Scott encoded ADT continuation and the wrapper
+        // type the Scott encoded ADT domain and the wrapper
 
-        r.run = fun(r.run[UNWRAP], contAnno);
+        if (domainAst[TAG] === "Forall"
+          && domainAst.body[TAG] === "Fun")
+            r.run = fun(r.run[UNWRAP], domainAnno);          
+
         r[ADT] = wrapperAnno;
       }
 
@@ -3215,10 +3258,6 @@ export const fun = (f, funAnno) => {
     }
   }
 };
-
-
-export const anno = (x, valAnno) => // TODO: check if obsolete
-  (x[ANNO] = valAnno, x);
 
 
 /******************************************************************************
@@ -7202,11 +7241,11 @@ const diff = (t1, t2, cmp) => {
 ******************************************************************************/
 
 
-/* Mutations are a side effect and not harmful per se, but only if the effect
-is shared at different places in your code. The `Mutable` data type prevents
-sharing by encapsulating the mutable value with functions. In-place updates
-and consumption of the effectful result is restricted by the API the data type
-provides. */
+/* `Mutable` is an imperative data type that allows in-place updates by encap-
+sulating the mutable data inside its data structure. Such mutations can be con-
+sidered safe, because `Mutable` prevents you from sharing the effect. The type
+enables first class in-place upades but is not composable. */
+
 
 export const Mutable = fun(
   clone => ref => {
@@ -7215,11 +7254,9 @@ export const Mutable = fun(
     return _let({}, ref).in(fun((o, ref) => {
       let mutated = false;
 
-      o.consume = fun(() => {
+      o.consume = thunk(() => {
         if (mutated) {
-          delete o.consume;
           delete o.update;
-          o.consume = fun(() => ref, `() => ${anno}`);
 
           o.update = _ => {
             throw new TypeError(
@@ -7238,12 +7275,12 @@ export const Mutable = fun(
 
         k(ref); // use the effect but discard the result
         return o;
-      }, `(${anno} => ${anno}) => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`);
+      }, `(${anno} => ${anno}) => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`);
 
       return (o[TAG] = "Mutable", o);
-    }, `{}, ${anno} => Mutable {consume: (() => ${anno}), update: ((${anno} => ${anno}) => this*)}`));
+    }, `{}, ${anno} => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`));
   },
-  "(t<a> => t<a>) => t<a> => Mutable {consume: (() => t<a>), update: ((t<a> => t<a>) => this*)}");
+  "(t<a> => t<a>) => t<a> => Mutable {consume: t<a>, update: ((t<a> => t<a>) => this*)}");
 
 
 /******************************************************************************
@@ -7275,19 +7312,13 @@ const THUNK = PREFIX + "thunk";
 /***[ API ]*******************************************************************/
 
 
-// enforce lazy evaluation
-
-export const lazy = f => x =>
-  thunk(() => f(x));
-
-
-// strictly evaluate a single thunk
+// strictly evaluate a thunk non-recursively
 
 export const strict = x =>
   x && x[THUNK] ? x[EVAL] : x;
 
 
-// creates thunk in weak head normal form
+// creates an annotated thunk
 
 export const thunk = (thunk, anno) => {
   if (CHECK) {
@@ -7615,6 +7646,15 @@ export const lazyProp = (o, prop, f) =>
 ******************************************************************************/
 
 
+/***[ Bounded ]***************************************************************/
+
+
+const Bounded = typeClass() (`({
+  minBound: a,·
+  maxBound: a
+}) => Bounded<a>`);
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -7688,7 +7728,7 @@ export const foldMap_ = fun(
 ******************************************************************************/
 
 
-export const _Function = {}; // namespace
+export const F = {}; // namespace
 
 
 /***[ Applicator ]************************************************************/
@@ -7892,77 +7932,6 @@ export const fix_ = fun(
   "(a => a) => a");
 
 
-/***[ Arithmetic Operators ]**************************************************/
-
-
-export const add = fun(
-  x => y => x + y,
-  "Number => Number => Number");
-
-
-export const div = fun(
-  x => y => x / y,
-  "Number => Number => Number");
-
-
-export const exp = fun(
-  base => exp => base ** exp,
-  "Number => Number => Number");
-
-
-export const dec = fun(
-  x => x - 1,
-  "Number => Number");
-
-
-export const inc = fun(
-  x => x + 1,
-  "Number => Number");
-
-
-export const mod = fun(
-  x => y => x % y,
-  "Number => Number => Number");
-
-
-export const mul = fun(
-  x => y => x * y,
-  "Number => Number => Number");
-
-
-export const neg = fun(
-  x => -x,
-  "Number => Number");
-
-
-export const sub = fun(
-  x => y => x - y,
-  "Number => Number => Number");
-
-
-/***[ Bitwise Operators ]*****************************************************/
-
-
-export const bitAnd = fun(
-  x => y => x & y,
-  "Number => Number => Number");
-
-
-export const bitNot = fun(
-  x => ~x,
-  "Number => Number");
-
-
-export const bitOr = fun(
-  x => y => x | y,
-  "Number => Number => Number");
-
-
-export const bitXor = fun(
-  x => y => x ^ y,
-  "Number => Number => Number");
-
-
 /***[ Category ]**************************************************************/
 
 
@@ -8081,8 +8050,8 @@ furthermore is lazy in its first argument, i.e. we can pass an expensive
 computation and only have to evaluate it if all arguments are provided. */
 
 export const cond = fun(
-  expr => x => y => strict(expr) ? x : y,
-  "a => b => b => b");
+  x => y => thunk => strict(thunk) ? x : y,
+  "a => a => b => a");
 
 
 /***[ Constant ]**************************************************************/
@@ -8231,13 +8200,13 @@ export const _let = (...args) => {
 /***[ Logical Operators ]*****************************************************/
 
 
-export const and_ = fun(
+export const and = fun(
   x => y => !!(x && y),
   "a => a => Boolean");
 
 
-export const andf_ = fun(
-  f => x => y => f(x) && f(y),
+export const andf = fun(
+  f => x => y => !!(f(x) && f(y)),
   "(a => b) => a => a => Boolean");
 
 
@@ -8256,36 +8225,36 @@ export const notf = fun(
   "(a => b) => a => Boolean");
 
 
-export const or_ = fun(
+export const or = fun(
   x => y => !!(x || y),
   "a => a => Boolean");
 
 
-export const orf_ = fun(
-  f => x => y => f(x) || f(y),
+export const orf = fun(
+  f => x => y => !!(f(x) || f(y)),
   "(a => b) => a => a => Boolean");
 
 
 export const xor = fun(
-  x => y => !!((x ? 1 : 0) ^ (y ? 1 : 0)),
+  x => y => !!(!x ^ !y),
   "a => a => Boolean");
 
 
 /***[ Monoid ]****************************************************************/
 
 
-lazyProp(_Function, "Monoid", function() {
+lazyProp(F, "Monoid", function() {
   delete this.Monoid;
   
   return this.Monoid = fun(
-    Monoid_ => Monoid(_Function.Semigroup(Monoid_.Semigroup)) ({
-      empty: _Function.empty(Monoid_)
+    Monoid_ => Monoid(F.Semigroup(Monoid_.Semigroup)) ({
+      empty: F.empty(Monoid_)
     }),
     "Monoid<b> => Monoid<(a => b)>");
 });
 
 
-_Function.empty = fun(
+F.empty = fun(
   ({empty}) => _ => empty,
   "Monoid<b> => a => b");
 
@@ -8330,18 +8299,18 @@ export const lte = fun(
 /***[ Semigroup ]*************************************************************/
 
 
-lazyProp(_Function, "Semigroup", function() {
+lazyProp(F, "Semigroup", function() {
   delete this.Semigroup;
   
   return this.Semigroup = fun(
     Semigroup_ => Semigroup() ({
-      append: _Function.append(Semigroup_)
+      append: F.append(Semigroup_)
     }),
     "Semigroup<b> => Semigroup<(a => b)>");
 });
 
 
-_Function.append = fun(
+F.append = fun(
   ({append}) => f => g => x => append(f(x)) (g(x)),
   "Semigroup<b> => (a => b) => (a => b) => a => b");
 
@@ -8349,111 +8318,28 @@ _Function.append = fun(
 /***[ Short Circuiting ]******************************************************/
 
 
-export const and = fun(
+export const and_ = fun(
   x => y => x && y,
   "a => a => a");
 
 
-export const andf = fun(
+export const andf_ = fun(
   f => x => y => f(x) && f(y),
   "(a => b) => a => a => b");
 
 
-export const or = fun(
+export const or_ = fun(
   x => y => x || y,
   "a => a => a");
 
 
-export const orf = fun(
+export const orf_ = fun(
   f => x => y => f(x) || f(y),
   "(a => b) => a => a => b");
 
 
 /******************************************************************************
-***********************************[ ARRAY ]***********************************
-******************************************************************************/
-
-
-export const _Array = {}; // namespace
-
-
-/***[ Clonable ]**************************************************************/
-
-
-_Array.clone = fun(
-  xs => xs.concat(),
-  "[a] => [a]");
-
-
-/***[ Construction ]**********************************************************/
-
-
-_Array.push = fun(
-  x => xs => (xs.push(x), xs),
-  "a => [a] => [a]");
-
-
-/***[ Looping ]***************************************************************/
-
-
-_Array.forEach = fun(
-  f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
-  "(a => b) => [a] => [b]");
-
-
-/******************************************************************************
-********************************[ COMPARATOR ]*********************************
-******************************************************************************/
-
-
-// Comparator is compatible with Javascript's sorting protocoll
-
-export const Comparator = type("(^r. {lt: r, eq: r, gt: r} => r) => Comparator");
-
-
-Comparator.LT = Object.assign(Comparator(({lt}) => lt), {valueOf: () => -1});
-
-
-Comparator.EQ = Object.assign(Comparator(({eq}) => eq), {valueOf: () => 0});
-
-
-Comparator.GT = Object.assign(Comparator(({gt}) => gt), {valueOf: () => 1});
-
-
-/******************************************************************************
-***********************************[ CONT ]************************************
-******************************************************************************/
-
-
-/* `Cont` is the pure version of `Serial`, i.e. there is no micro task deferring.
-It facilitates continuation passing style and can be used with both synchronous
-and asynchronous computations. Please be aware that `Cont` is not stack-safe for
-large nested function call trees. */
-
-export const Cont = type1("((a => r) => r) => Cont<r, a>");
-
-
-/******************************************************************************
-**********************************[ EITHER ]***********************************
-******************************************************************************/
-
-
-export const Either = type(
-  "(^r. {left: (a => r), right: (b => r)} => r) => Either<a, b>");
-
-
-Either.Left = fun(
-  x => Either(left => right => left(x)),
-  "a => Either<a, b>");
-
-
-Either.Right = fun(
-  x => Either(left => right => right(x)),
-  "b => Either<a, b>");
-
-
-/******************************************************************************
-***********************************[ ENDO ]************************************
+*****************************[ FUNCTION >> ENDO ]******************************
 ******************************************************************************/
 
 
@@ -8499,6 +8385,299 @@ Endo.append = fun(
     x => f.run(g.run(x)),
     "a => a")),
   "Endo<a> => Endo<a> => Endo<a>");
+
+
+/******************************************************************************
+***********************************[ ARRAY ]***********************************
+******************************************************************************/
+
+
+/* Array is designed as a mutable data type and treated as such. */
+
+
+export const A = {}; // namespace
+
+
+/***[ Clonable ]**************************************************************/
+
+
+A.clone = fun(
+  xs => xs.concat(),
+  "[a] => [a]");
+
+
+/***[ Construction ]**********************************************************/
+
+
+A.push = fun(
+  x => xs => (xs.push(x), xs),
+  "a => [a] => [a]");
+
+
+/***[ Looping ]***************************************************************/
+
+
+A.forEach = fun(
+  f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
+  "(a => b) => [a] => [b]");
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(A, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid() ({
+    empty: A.empty
+  });
+});
+
+
+// [a]
+
+A.empty = [];
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(A, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: A.append
+  });
+});
+
+
+A.append = fun(
+  xs => ys => (xs.push.apply(xs, ys), xs),
+  "[a] => [a] => [a]");
+
+
+/* There is an additional `prepend` operation on the `Array` type, because the
+latter is mutable and thus this operation is frequently needed along with the
+`Mutable` type. */
+
+A.prepend = fun(
+  ys => xs => (xs.push.apply(xs, ys), xs),
+  "[a] => [a] => [a]");
+
+
+/******************************************************************************
+**********************************[ BOOLEAN ]**********************************
+******************************************************************************/
+
+
+export const Bool = {}; // namespace
+
+
+/***[ Bounded ]***************************************************************/
+
+
+lazyProp(Bool, "Bounded", function() {
+  delete this.Bounded;
+  
+  return this.Bounded = Bounded() ({
+    minBound: Bool.minBound,
+    maxBound: Bool.maxBound
+  });
+});
+
+
+Bool.minBound = false;
+
+
+Bool.maxBound = true;
+
+
+/***[ Equality ]**************************************************************/
+
+
+Bool.eq = fun(
+  x => y => x === y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.neq = fun(
+  x => y => x !== y,
+  "Boolean => Boolean => Boolean");
+
+
+/***[ Logical Operators ]*****************************************************/
+
+
+Bool.and = fun(
+  x => y => x && y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.imply = fun(
+  x => y => !x || y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.not = fun(
+  x => !x,
+  "Boolean => Boolean");
+
+
+Bool.or = fun(
+  x => y => x || y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.xor = fun(
+  x => y => x !== y,
+  "Boolean => Boolean => Boolean");
+
+
+/***[ Relational Operators ]**************************************************/
+
+
+Bool.gt = fun(
+  x => y => x > y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.gte = fun(
+  x => y => x >= y,
+  "Boolean => Boolean => Boolean");
+
+
+Bool.lt = fun(
+  x => y => x < y,
+  "Boolean => Boolean => Boolean");
+
+
+
+Bool.lte = fun(
+  x => y => x <= y,
+  "Boolean => Boolean => Boolean");
+
+
+/******************************************************************************
+******************************[ BOOLEAN :: ALL ]*******************************
+******************************************************************************/
+
+
+// constructor + namespace
+
+export const All = type1("Boolean => All");
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(All, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: All.append
+  });
+});
+
+
+All.append = fun(
+  tx => ty => All(tx.run && ty.run),
+  "All => All => All");
+
+
+/******************************************************************************
+********************************[ COMPARATOR ]*********************************
+******************************************************************************/
+
+
+/* `Comparator` is compatible with Javascript's sorting protocoll. */
+
+
+// type constructor + namespace
+
+export const Comparator = type(
+  "(^r. {lt: r, eq: r, gt: r} => r) => Comparator");
+
+
+// value constructors
+
+Comparator.LT = Object.assign(Comparator(({lt}) => lt), {valueOf: () => -1});
+
+
+Comparator.EQ = Object.assign(Comparator(({eq}) => eq), {valueOf: () => 0});
+
+
+Comparator.GT = Object.assign(Comparator(({gt}) => gt), {valueOf: () => 1});
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Comparator, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(Comparator.Semigroup) ({
+    empty: Comparator.empty
+  });
+});
+
+
+// Comparator
+
+Comparator.empty = Comparator.EQ;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Comparator, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Comparator.append
+  });
+});
+
+
+Comparator.append = fun(
+  tx => ty =>
+    tx.run({
+      lt: tx,
+      eq: ty,
+      gt: tx
+    }),
+  "Comparator => Comparator => Comparator");
+
+
+/******************************************************************************
+***********************************[ CONT ]************************************
+******************************************************************************/
+
+
+/* `Cont` is the pure version of `Serial`, i.e. there is no micro task deferring.
+It facilitates continuation passing style and can be used with both synchronous
+and asynchronous computations. Please be aware that `Cont` is not stack-safe for
+large nested function call trees. */
+
+export const Cont = type1("((a => r) => r) => Cont<r, a>");
+
+
+/******************************************************************************
+**********************************[ EITHER ]***********************************
+******************************************************************************/
+
+
+export const Either = type(
+  "(^r. {left: (a => r), right: (b => r)} => r) => Either<a, b>");
+
+
+Either.Left = fun(
+  x => Either(left => right => left(x)),
+  "a => Either<a, b>");
+
+
+Either.Right = fun(
+  x => Either(left => right => right(x)),
+  "b => Either<a, b>");
 
 
 /******************************************************************************
@@ -8608,7 +8787,7 @@ List.append = fun(
 
 
 /******************************************************************************
-*******************************[ LIST -> DLIST ]*******************************
+*******************************[ LIST :: DLIST ]*******************************
 ******************************************************************************/
 
 
@@ -8686,6 +8865,161 @@ lazyProp(DList, "Semigroup", function() {
 DList.append = fun(
   xs => ys => DList(comp(xs.run) (ys.run)),
   "DList<a> => DList<a> => DList<a>");
+
+
+/******************************************************************************
+**********************************[ NUMBER ]***********************************
+******************************************************************************/
+
+
+export const Num = {}; // namespace
+
+
+/***[ Arithmetic Operators ]**************************************************/
+
+
+export const add = fun(
+  x => y => x + y,
+  "Number => Number => Number");
+
+
+export const div = fun(
+  x => y => x / y,
+  "Number => Number => Number");
+
+
+export const exp = fun(
+  base => exp => base ** exp,
+  "Number => Number => Number");
+
+
+export const dec = fun(
+  x => x - 1,
+  "Number => Number");
+
+
+export const inc = fun(
+  x => x + 1,
+  "Number => Number");
+
+
+export const mod = fun(
+  x => y => x % y,
+  "Number => Number => Number");
+
+
+export const mul = fun(
+  x => y => x * y,
+  "Number => Number => Number");
+
+
+export const neg = fun(
+  x => -x,
+  "Number => Number");
+
+
+export const sub = fun(
+  x => y => x - y,
+  "Number => Number => Number");
+
+
+/***[ Bitwise Operators ]*****************************************************/
+
+
+export const bitAnd = fun(
+  x => y => x & y,
+  "Number => Number => Number");
+
+
+export const bitNot = fun(
+  x => ~x,
+  "Number => Number");
+
+
+export const bitOr = fun(
+  x => y => x | y,
+  "Number => Number => Number");
+
+
+export const bitXor = fun(
+  x => y => x ^ y,
+  "Number => Number => Number");
+
+
+/******************************************************************************
+******************************[ NUMBER :: PROD ]*******************************
+******************************************************************************/
+
+
+export const Prod = {}; // namespace
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Prod, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(Prod.Semigroup) ({
+    empty: Prod.empty
+  });
+});
+
+
+Prod.empty = 1;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Prod, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Prod.append
+  });
+});
+
+
+Prod.append = mul;
+
+
+/******************************************************************************
+*******************************[ NUMBER :: SUM ]*******************************
+******************************************************************************/
+
+
+export const Sum = {}; // namespace
+
+
+/***[ Monoid ]****************************************************************/
+
+
+lazyProp(Sum, "Monoid", function() {
+  delete this.Monoid;
+  
+  return this.Monoid = Monoid(Sum.Semigroup) ({
+    empty: Sum.empty
+  });
+});
+
+
+Sum.empty = 0;
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+lazyProp(Sum, "Semigroup", function() {
+  delete this.Semigroup;
+  
+  return this.Semigroup = Semigroup() ({
+    append: Sum.append
+  });
+});
+
+
+Sum.append = add;
 
 
 /******************************************************************************
@@ -8788,44 +9122,6 @@ export const Parallel = type1("((a => r) => r) => Parallel<r, a>");
 
 
 /******************************************************************************
-***********************************[ PROD ]************************************
-******************************************************************************/
-
-
-export const Prod = {}; // namespace
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Prod, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Prod.Semigroup) ({
-    empty: Prod.empty
-  });
-});
-
-
-Prod.empty = 1;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Prod, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup() ({
-    append: Prod.append
-  });
-});
-
-
-Prod.append = mul;
-
-
-/******************************************************************************
 **********************************[ SERIAL ]***********************************
 ******************************************************************************/
 
@@ -8837,44 +9133,6 @@ The actual behavior depends on a PRNG and cannot be determined upfront. You can
 pass both synchronous and asynchronous functions to the CPS composition. */
 
 export const Serial = type1("((a => r) => r) => Serial<r, a>");
-
-
-/******************************************************************************
-************************************[ SUM ]************************************
-******************************************************************************/
-
-
-export const Sum = {}; // namespace
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Sum, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Sum.Semigroup) ({
-    empty: Sum.empty
-  });
-});
-
-
-Sum.empty = 0;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Sum, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup() ({
-    append: Sum.append
-  });
-});
-
-
-Sum.append = add;
 
 
 /******************************************************************************
