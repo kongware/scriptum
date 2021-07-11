@@ -41,4 +41,5 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] stack-safe sync/async recursion
 - [ ] effect handling and composition
 - [ ] concurrency (STM)
+- [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] strong eventual consistency (CRDTs)
