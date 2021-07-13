@@ -58,10 +58,10 @@ const NOT_FOUND = -1;
 /***[ Type Dictionaries ]*****************************************************/
 
 
-const adtDict = new Map(), // ADT dict (name + arity)
-  tcDict = new Set(); // type class dict
+const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
+  tcDict = new Map(); // type class dict (k: tcons, v: tparam + ops)
 
-const imperativeTypeDict = new Map([ // imperative types dict (name + arity)
+const imperativeTypeDict = new Map([ // imperative types dict (k: tcons, v: arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
@@ -626,40 +626,6 @@ const determineArity = ast => {
 };
 
 
-/* If an sub-AST is extracted from an annotation, it might require a grouping
-or even a `Forall` quantifier. */
-
-const adjustAst = ast => {
-  const hasForall = ast[TAG] === "Forall",
-    isExplicit = hasForall && ast.btvs.size > 0;
-
-  if (hasForall && isExplicit)
-    return Forall(
-      ast.btvs,
-      TOP_LEVEL_SCOPE,
-      ast);
-
-  else if (hasForall)
-    return Forall(
-      retrieveBoundTVs(ast.scope),
-      TOP_LEVEL_SCOPE,
-      ast);
-
-  else {
-    const btvs = retrieveBoundTVs(ast.scope) (ast);
-
-    if (btvs.size > 0
-      || ast[TAG] === "Fun")
-        return Forall(
-          btvs,
-          TOP_LEVEL_SCOPE,
-          ast);
-
-    else return ast;
-  }
-};
-
-
 /* If a `Forall` AST is extracted from an annotation, the bound TVs it might
 contain must be retrieved, because the quantifier isn't implicit anymore. */
 
@@ -712,16 +678,6 @@ const adjustForall = ref => {
       ast_);
   }
 };
-
-
-const getTVs = scope => reduceAst((acc, ast) => {
-  if (ast[TAG] === "BoundTV" && isParentScope(scope, ast.scope)
-    || ast[TAG] === "MetaTV" && isParentScope(scope, ast.scope)
-    || ast[TAG] === "RigidTV" && isParentScope(scope, ast.scope))
-      return acc.add(ast.name);
-
-  else return acc;
-}, new Set());
 
 
 const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
@@ -940,6 +896,39 @@ const pruneForalls = ast => {
     
     default: throw new TypeError(
       "internal error: unknown value constructor at pruneForalls");
+  }
+};
+
+
+/* If an sub-AST is extracted from an annotation, it might require `Forall`
+either as grouping or as a quantifier. */
+
+const quantifyAst = ast => {
+  const hasForall = ast[TAG] === "Forall";
+
+  if (hasForall && ast.btvs.size > 0)
+    return Forall(
+      ast.btvs,
+      TOP_LEVEL_SCOPE,
+      ast);
+
+  else if (hasForall)
+    return Forall(
+      retrieveBoundTVs(ast.scope) (ast),
+      TOP_LEVEL_SCOPE,
+      ast);
+
+  else {
+    const btvs = retrieveBoundTVs(ast.scope) (ast);
+
+    if (btvs.size > 0
+      || ast[TAG] === "Fun")
+        return Forall(
+          btvs,
+          TOP_LEVEL_SCOPE,
+          ast);
+
+    else return ast;
   }
 };
 
@@ -2381,7 +2370,7 @@ export const type1 = adtAnno => {
 
     else if (hasTV(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]))
       domainAst = Forall(
-        getTVs(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]),
+        retrieveBoundTVs(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]),
         TOP_LEVEL_SCOPE,
         adtAst.body.body.lambdas[0] [0]);
     
@@ -2464,7 +2453,7 @@ export const type1 = adtAnno => {
       return {
         [TAG]: tcons,
         [ADT]: wrapperAnno_,
-        run: x // TODO: what happens if x isn't a function?
+        run: x
       };
     }, {[ANNO]: adtAnno});
   }
@@ -2476,12 +2465,20 @@ export const type1 = adtAnno => {
 ******************************************************************************/
 
 
-/* Declare type classes purely at the value level. They are encoded as
-dictionaries comprising the operations of the respective type class. From the
-constructor perspective value-level type classes share a lot of traits with
-ADTs, hence the type validator treats them as such. */
+/*
 
-export const typeClass = (...superClasses) => tcAnno => {
+export const Chain = typeClass (`Apply<m> => (^a, b. {
+  chain: (m<a> => (a => m<b>) => m<b>),·
+  chainr: ((a => m<b>) => m<a> => m<b>)
+}) => Chain<m>`);
+
+*/
+
+/* Declare type classes purely at the value level. They are encoded as dicts
+including the operations of the respective type class. They resemble ADTs
+quite a lot, hence the also rely on ADTs. */
+
+export const typeClass = tcAnno => {
 
   // bypass the type validator
 
@@ -2497,36 +2494,101 @@ export const typeClass = (...superClasses) => tcAnno => {
     tcAnno = tcAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
       .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    // parse the type wrapper
+    // determine type class components
 
-    const wrapperAnno = splitByScheme(
-      / => /, 4, remNestings(tcAnno)) (tcAnno) [1];
+    const tcCompos = splitByScheme(
+      / => /, 4, remNestings(tcAnno)) (tcAnno);
 
-    // ensures top-level function type
+    // determine superclass dependencies
 
-    if (wrapperAnno === undefined)
+    const superClasses = [];
+
+    if (tcCompos.length < 2)
       throw new TypeError(cat(
         "invalid type class declaration\n",
-        "value-level encoding expects a top-level function type\n",
+        "value-level type classes expect a top-level function type\n",
+        "where the codomain contains the type dictionary\n",
+        "and the codomain contains the type wrapper\n",
         `while declaring "${tcAnno}"\n`));
 
-    // ensure valid codomain
-
-    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+    else if (tcCompos.length > 3)
       throw new TypeError(cat(
         "invalid type class declaration\n",
-        "value-level encoding expects a parameterized type constructor\n",
+        "malformed type class dependencies\n",
+        "superclasses must be listed\n",
+        "in a single multi-argument parameter\n",
+        `while declaring "${tcAnno}"\n`));
+
+    else if (tcCompos.length === 3) {
+
+      // validate superclasses dependencies
+
+      if (tcCompos[0].search(new RegExp(
+        "^(?:[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>, )*[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>$", "")) === NOT_FOUND)
+          throw new TypeError(cat(
+            "invalid type class declaration\n",
+            "malformed type class dependencies\n",
+            "comma separated list of superclasses expected\n",
+            `but "${tcCompos[0]}" received\n`,
+            `while declaring "${tcAnno}"\n`));
+
+      // parse superclass dependencies and retrieve their components
+
+      tcCompos[0].split(", ")
+        .forEach((superClass, i) => {
+          const tcons = superClass.replace(/<.+>$/, ""),
+            tparamTo = superClass.split(/</) [1].slice(0, -1);
+
+          if (!tcDict.has(tcons))
+            throw new TypeError(cat(
+              "invalid type class declaration\n",
+              "malformed type class dependencies\n",
+              "list of declared type classes expected\n",
+              `but unknown "${tcons}" received\n`,
+              `while declaring "${tcAnno}"\n`));
+
+          else {
+
+            // retrieve superclass components from global type class dictionary
+
+            const {tparam, tdictAnno} = tcDict.get(tcons);
+
+            /* Store type constructor, the type parameter and the dictionary
+            annotation. The type parameter is stored in two versions: The first
+            one represents the type parameter used in the original type class
+            annotation. The second one is the type parameter used in the super
+            class dependency. If both differ, they must be unified before being
+            added to the current type class. */
+
+            superClasses[i] = {
+              tcons,
+              tparamFrom: tparam,
+              tparamTo,
+              tdictAnno
+            };
+          }
+        });
+    }
+
+    const tcOffset = tcCompos.length === 3 ? 1 : 0;
+
+    // verify type wrapper
+
+    const wrapperAnno = tcCompos[1 + tcOffset];
+
+    if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+      throw new TypeError(cat(
+        "invalid type class declaration\n",
+        "value-level type class expects a type constructor\n",
+        "parameterized by exaclty one type parameter\n",
         "in its codomain\n",
         `but "${wrapperAnno}" received\n`,
         `while declaring "${tcAnno}"\n`));
 
     // determine name and arity of the type wrapper
 
-    const tcons = wrapperAnno.match(/[^<]+/) [0];
-
-    const arity = splitByScheme(
-      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
-        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+    const tcons = wrapperAnno.replace(/<[^>]+>$/, ""),
+      tparam = wrapperAnno.match(/<([^>]+)>$/) [1];
 
     // check for name clashes with previously registered ADTs
 
@@ -2553,35 +2615,28 @@ export const typeClass = (...superClasses) => tcAnno => {
         "illegal type class\n",
         "name collision with a type constant found\n",
         `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+        `while declaring "${tcAnno}"\n`));
 
     // register type class as name-arity pair
 
-    else {
-      adtDict.set(tcons, arity);
-      tcDict.add(tcons);
-    }
+    else
+      adtDict.set(tcons, 1);
 
-    // parse type class and dictionary AST and extract the continuation AST
+    // parse type class and type dict
 
     const tcAst = parseAnno(tcAnno),
-      dictAst = adjustForall(tcAst.body.body.lambdas[0] [0]),
-      wrapperAst = parseAnno(wrapperAnno);
+      tdictAst = adjustForall(tcAst.body.body.lambdas[0 + tcOffset] [0]),
+      wrapperAst = parseAnno(wrapperAnno),
+      reservedOps = new Set(tdictAst.body.body.map(({k}) => k));
 
-    // ensure valid domain
+    // verify type dict
 
-    if (tcAst.body.body.lambdas[0] [0].body[TAG] !== "Obj"
-      || tcAst.body.body.lambdas[0] [0].body.body.length === 0)
-        throw new TypeError(cat(
-          "invalid type class declaration\n",
-          "value-level encoding expects a type dictionary\n",
-          "with at least a single property in its domain\n",
-          `but "${serializeAst(tcAst.body.body.lambdas[0] [0])}" received\n`,
-          `while declaring "${tcAnno}"\n`));
-
-    // serialize type dictionary AST
-
-    const dictAnno = serializeAst(dictAst);
+    if (!("body" in tdictAst) || tdictAst.body[TAG] !== "Obj")
+      throw new TypeError(cat(
+        "invalid type class declaration\n",
+        "value-level encoding expects a type dictionary\n",
+        `but "${serializeAst(tcAst.body.body.lambdas[0] [0])}" received\n`,
+        `while declaring "${tcAnno}"\n`));
 
     /* Verify that all rank-1 type variables of the domain occur in the codomain
     of the function type:
@@ -2603,7 +2658,7 @@ export const typeClass = (...superClasses) => tcAnno => {
       else return rank1;
     }, new Set()) (tcAst.body.body.lambdas[0] [0]));
 
-    const rank1Co = Array.from(reduceAst((rank1, ast) => {
+    const rank1CoDom = Array.from(reduceAst((rank1, ast) => {
       if (ast[TAG] === "BoundTV") {
         if (ast.scope === TOP_LEVEL_SCOPE)
           return rank1.add(ast.name);
@@ -2614,8 +2669,8 @@ export const typeClass = (...superClasses) => tcAnno => {
       else return rank1;
     }, new Set()) (wrapperAst));
 
-    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
-      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
+    const outOfScope = rank1Dom.filter(btv => !rank1CoDom.includes(btv))
+      .concat(rank1CoDom.filter(btv => !rank1Dom.includes(btv)));
 
     if (outOfScope.length > 0)
         throw new TypeError(cat(
@@ -2624,22 +2679,104 @@ export const typeClass = (...superClasses) => tcAnno => {
           `namely: ${outOfScope.join(", ")}\n`,
           `while declaring "${tcAnno}"\n`));
 
-    // return the type class constructor -- {untypedProps} => {typedProps}
+    // extend current type dict by superclass operations
 
-    return (...superDicts) => Object.assign(dict => {
-      Object.entries(dict).forEach(([k, v]) => {
-        if (v === undefined)
-          throw new TypeError(cat(
-            "illegal type class instance\n",
-            `${tcons} instance is missing an implementation\n`,
-            `for property "${k}"\n`,
-            `while applying "${tcAnno}"\n`));
+    superClasses.forEach(({tcons: tcons_, tparamFrom, tparamTo, tdictAnno}) => {
+      let tdictAst_ = parseAnno(tdictAnno);
+
+      // alpha renaming of the type class type parameter
+
+      if (tparamFrom !== tparamTo) {
+
+        // retrieve used rank-1 TV names
+
+        const btvs_ = retrieveBoundTVs(TOP_LEVEL_SCOPE) (tdictAst_);
+
+        // resolve name ambiguities
+
+        let name = tparamTo;
+
+        if (btvs_.has(name)) {
+          let charCode = 97;
+
+          do {
+            name = String.fromCharCode(charCode++)
+          } while (btvs_.has(name));
+        }
+
+        // alpha renaming
+
+        tdictAst_ = mapAst(ast => {
+          if (ast[TAG] === "BoundTV"
+            && ast.scope === TOP_LEVEL_SCOPE
+            && ast.name === tparamFrom) {
+              ast.name = name;
+              return ast;
+          }
+
+          else if (ast[TAG] === "Forall"
+            && ast.scope === TOP_LEVEL_SCOPE
+            && ast.btvs.has(tparamFrom)) {
+              ast.btvs.delete(tparamFrom);
+              ast.btvs.add(name);
+              return ast;
+          }
+
+          else return ast;
+        }) (tdictAst_);
+      }
+
+      // attach superclass operations to current dict
+
+      let btvs = new Set();
+
+      tdictAst_.body.body.forEach(({k, v}) => {
+
+        btvs = new Set([...btvs, ...retrieveBoundTVs(TOP_LEVEL_SCOPE) (v)]);
+
+        // uniqueness check
+
+        if (reservedOps.has(k))
+          /*throw new TypeError(cat(
+            "illegal type class declaration\n",
+            "subclass tries to override an operation from one of its superclasses\n",
+            `namely: ${k}\n`,
+            `while declaring "${tcAnno}"\n`));*/
+          return null; // TODO: investigate
+
+        else {
+
+          // prevent superclasses from overriding each other
+
+          reservedOps.add(k);
+          
+          // attach operation to current type dict
+
+          tdictAst.body.body.push({k, v});
+        }
       });
 
-      // collect properties each from the type dict and the passed object(s)
+      // adjust the outer quantifier
 
-      const typeLevelProps = dictAst.body.body.reduce((acc, {k, v}) =>
-        acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : adjustAst(v)), new Map());
+      tdictAst.btvs = btvs;
+    });
+
+    // register current type dictionary
+
+    tcDict.set(tcons, {tparam, tdictAnno: serializeAst(tdictAst)});
+
+
+
+    // return the type class constructor `{untypedDict} => {typedDict}`
+
+
+
+    return (...superDicts) => Object.assign(dict => {
+
+      // collect properties each from the type class and the passed dictionaries
+
+      const typeLevelProps = tdictAst.body.body.reduce((acc, {k, v}) =>
+        acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : quantifyAst(v)), new Map());
 
       const valueLevelProps = Object.keys(dict);
 
@@ -2661,12 +2798,11 @@ export const typeClass = (...superClasses) => tcAnno => {
 
         let instantiations = new Map();
 
-        // create the type class object
+        // unify the type dictionary
 
         const dict_ = valueLevelProps.reduce((acc, k) => {
 
-          /* Conduct an exhaustiveness check but assumes that the passed
-          superclass dictionaries are valid and thus exhaustive type classes. */
+          // exhaustiveness check
 
           if (!typeLevelProps.has(k))
             throw new TypeError(cat(
@@ -7649,75 +7785,53 @@ export const lazyProp = (o, prop, f) =>
 /***[ Bounded ]***************************************************************/
 
 
-const Bounded = typeClass() (`({
-  minBound: a,·
-  maxBound: a
+export const Bounded = typeClass(`({
+  min: a,·
+  max: a
 }) => Bounded<a>`);
+
+
+/***[ Category ]**************************************************************/
+
+
+export const Category = typeClass(`(^a, b, c. {
+  comp: (t<b, c> => t<a, b> => t<a, c>),·
+  id: t<a, a>
+}) => Category<t>`);
+
+
+/***[ Clonable ]**************************************************************/
+
+
+export const Clonable = typeClass(`(^a. {
+  clone: (t<a> => t<a>)
+}) => Clonable<t>`);
+
+
+/***[ Contravaraint ]*********************************************************/
+
+
+export const Contravaraint = typeClass(`(^a, b. {
+  cmap: ((b => a) => f<a> => f<b>)
+}) => Contravaraint<f>`);
 
 
 /***[ Enum ]******************************************************************/
 
 
-// TODO: Solve the circular dependency between TCs and ADTs
-
-/*const Enum = typeClass() (`({
+let Enum = Option => typeClass(`({
   succ: (a => Option<a>),·
   pred: (a => Option<a>),·
   succeeds: (a => a => Boolean),·
   fromEnum: (a => Option<Number>),·
   toEnum: (Number => Option<a>)
-}) => Enum<a>`);*/
-
-
-/***[ Equality :: Order ]*****************************************************/
-
-
-const Equality = typeClass() (`({
-  eq: (a => a => Boolean),·
-  neq: (a => a => Boolean)
-}) => Equality<a>`);
-
-
-/***[ Equality :: Order ]*****************************************************/
-
-
-const Order = typeClass(Equality) (`({
-  compare: (a => a => Comparator),·
-  lt: (a => a => Boolean),·
-  lte: (a => a => Boolean),·
-  gt: (a => a => Boolean),·
-  gte: (a => a => Boolean),·
-  minBound: (a => a => a),·
-  maxBound: (a => a => a)
-}) => Order<a>`);
+}) => Enum<a>`);
 
 
 /***[ Foldable ]**************************************************************/
 
 
-// @Dependent
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-const Semigroup = typeClass() (`({
-  append: (a => a => a)
-}) => Semigroup<a>`);
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-const Monoid = typeClass(Semigroup) (`({
-  empty: m
-}) => Monoid<m>`);
-
-
-/***[ Dependent ]*************************************************************/
-
-
-export const Foldable = typeClass() (`(^a, b, m. {
+let Foldable = Monoid => typeClass(`(^m, a, b. {
   foldl: ((b => a => b) => b => t<a> => b),·
   foldr: ((a => b => b) => b => t<a> => b),·
   foldMapl: (Monoid<m> => (a => m) => t<a> => m),·
@@ -7742,6 +7856,145 @@ export const Foldable = typeClass() (`(^a, b, m. {
 }) => Foldable<t>`);*/
 
 
+/***[ Functor ]***************************************************************/
+
+
+export const Functor = typeClass(`(^a, b. {
+  map: ((a => b) => f<a> => f<b>)
+}) => Functor<f>`);
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+export const Apply = typeClass(`Functor<f> => (^a, b. {
+  apply: (f<(a => b)> => f<a> => f<b>),·
+  appEff1: (f<a> => f<b> => f<a>),·
+  appEff2: (f<a> => f<b> => f<b>)
+}) => Apply<f>`);
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+export const Applicative = typeClass(`Apply<f> => (^a. {
+  of: (a => f<a>)
+}) => Applicative<f>`);
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+export const Chain = typeClass(`Apply<m> => (^a, b. {
+  chain: (m<a> => (a => m<b>) => m<b>),·
+  chainr: ((a => m<b>) => m<a> => m<b>)
+}) => Chain<m>`);
+
+
+/***[ Chain :: Monad ]********************************************************/
+
+
+/*export const Monad = typeClass(Chain) (`(^a. {
+  of: (a => m<a>)
+}) => Monad<m>`);*/
+
+
+/***[ Chain :: Monad :: MonadPlus ]****************************************************/
+
+
+/***[ Chain :: Monad :: MonadZero ]****************************************************/
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+export const Alt = typeClass(`Functor<f> => (^a. {
+  alt: (f<a> => f<a> => f<a>)
+}) => Alt<f>`);
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+export const Plus = typeClass(`Alt<f> => (^a. {
+  empty: f<a>
+}) => Plus<f>`);
+
+
+/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
+
+
+
+/***[ Functor :: Filterable ]*************************************************/
+
+
+let Filterable = (Option, Either) => typeClass(`Functor<f> => (^a, b, l, r. {
+  filter: ((a => Booelan) => f<a> => f<a>),·
+  filterMap: ((a => Option<b>) => f<a> => f<b>),·
+  partition: ((a => Boolean) => f<a> => {false: f<a>, true: f<a>}),·
+  partitionMap: ((a => Either<l, r>) => f<a> => {left: f<l>, right: f<r>})
+}) => Filterable<f>`);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+export const Semigroup = typeClass(`({
+  append: (a => a => a)
+}) => Semigroup<a>`);
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+export const Monoid = typeClass(`Semigroup<a> => ({
+  empty: a
+}) => Monoid<a>`);
+
+
+/***[ Setoid ]****************************************************************/
+
+
+export const Setoid = typeClass(`({
+  eq: (a => a => Boolean),·
+  neq: (a => a => Boolean)
+}) => Setoid<a>`);
+
+
+/***[ Setoid :: Order ]*******************************************************/
+
+
+export const Order = typeClass(`Setoid<a> => ({
+  compare: (a => a => Comparator),·
+  lt: (a => a => Boolean),·
+  lte: (a => a => Boolean),·
+  gt: (a => a => Boolean),·
+  gte: (a => a => Boolean),·
+  minBound: (a => a => a),·
+  maxBound: (a => a => a)
+}) => Order<a>`);
+
+
+/***[ Traversable ]***********************************************************/
+
+
+let Traversable = Foldable => typeClass(`Foldable<t>, Functor<t>, Applicative<f> => (^a, b, f. {
+  mapA: (Applicative<f> => (a => f<b>) => t<a> => f<t<b>>),·
+  seqA: (Applicative<f> => t<f<a>> => f<t<a>>)
+}) => Traversable<t>`);
+
+
+/***[ Dependent ]*************************************************************/
+
+
+Foldable = Foldable(Monoid);
+export {Foldable};
+
+
+Traversable = Traversable(Foldable);
+export {Traversable};
+
+
 /******************************************************************************
 ***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
 ******************************************************************************/
@@ -7759,6 +8012,11 @@ export const foldMap = fun(
 export const foldMap_ = fun(
   ({foldr}, {append, empty}) => f => foldr(comp(append) (f)) (empty),
   "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
+
+
+export const mapEff = fun(
+  ({map}) => x => map(_ => x),
+  "Functor<f> => a => f<b> => f<a>");
 
 
 /******************************************************************************
@@ -8452,6 +8710,23 @@ A.push = fun(
   "a => [a] => [a]");
 
 
+/***[ Functor ]***************************************************************/
+
+
+lazyProp(A, "Functor", function() {
+  delete this.Functor;
+  
+  return this.Functor = Functor() ({
+    map: A.map
+  });
+});
+
+
+A.map = fun(
+  f => xs => xs.map(x => f(x)),
+  "(a => b) => [a] => [b]");
+
+
 /***[ Looping ]***************************************************************/
 
 
@@ -8518,8 +8793,8 @@ lazyProp(Bool, "Bounded", function() {
   delete this.Bounded;
   
   return this.Bounded = Bounded() ({
-    minBound: Bool.minBound,
-    maxBound: Bool.maxBound
+    min: Bool.minBound,
+    max: Bool.maxBound
   });
 });
 
@@ -9303,3 +9578,16 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
+
+
+/******************************************************************************
+*********************************[ DEPENDENT ]*********************************
+******************************************************************************/
+
+
+Enum = Enum(Option);
+export {Enum};
+
+
+Filterable = Filterable(Option, Either);
+export {Filterable};
