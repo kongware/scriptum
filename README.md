@@ -20,7 +20,9 @@ Just like Typescript scriptum enables gradual typing in Javascript but with a ra
 
 ## Status
 
-**Unstable (v0.2.0) - there is currently a huge bug in the type class implementation**
+Unstable (v0.2.0)
+
+**NOTE: Type classes were missing unification in the presence of superclasses. For the same reason type classes without members but with superclass relations couldn't be declared. Both issues are fixed now but there are still some follow-up bugs. I reckon to fix them in the next 24h. **
 
 The type validator has grown organically over the last month. Its implementation is therefore neither bug free nor DRY nor performant.
 
