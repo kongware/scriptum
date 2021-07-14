@@ -1,6 +1,6 @@
 {
   "name": "scriptum",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An extended Hindley-Milner type validator and a functional library based on it",
   "main": "index.js",
   "scripts": {
