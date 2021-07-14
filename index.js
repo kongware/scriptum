@@ -1517,8 +1517,8 @@ const parseAnno = anno => {
   if (anno[0] === "(" && anno[anno.length - 1] === ")")
     anno = anno.slice(1, -1);
 
-  /* Type class declarations have the form `TypeClass<t>`, from which the arity
-  of `t` is not apparent. Since `t`'s arity is specified in the rest of the
+  /* Type class declarations have the form `TypeClass<t>`, which the arity of
+  `t` is not apparent from. Since `t`'s arity is specified in the rest of the
   annotation, we can recover it for all occurrances in hindsight. */
 
   const ast = mapAst(ast_ => {
@@ -2465,15 +2465,6 @@ export const type1 = adtAnno => {
 ******************************************************************************/
 
 
-/*
-
-export const Chain = typeClass (`Apply<m> => (^a, b. {
-  chain: (m<a> => (a => m<b>) => m<b>),·
-  chainr: ((a => m<b>) => m<a> => m<b>)
-}) => Chain<m>`);
-
-*/
-
 /* Declare type classes purely at the value level. They are encoded as dicts
 including the operations of the respective type class. They resemble ADTs
 quite a lot, hence the also rely on ADTs. */
@@ -2483,7 +2474,11 @@ export const typeClass = tcAnno => {
   // bypass the type validator
 
   if (CHECK === false)
-    return o => o;
+    return (...os) => o => {
+      o = Object.assign({}, o); // clone
+      os.forEach(p => o = Object.assign(o, p));
+      return o;
+    }
 
   // run the type validator
 
@@ -2629,6 +2624,10 @@ export const typeClass = tcAnno => {
       wrapperAst = parseAnno(wrapperAnno),
       reservedOps = new Set(tdictAst.body.body.map(({k}) => k));
 
+    // recover arity of the type constructor
+
+    wrapperAst.body.body[0].body.push(Partial);
+
     // verify type dict
 
     if (!("body" in tdictAst) || tdictAst.body[TAG] !== "Obj")
@@ -2734,22 +2733,18 @@ export const typeClass = tcAnno => {
 
         btvs = new Set([...btvs, ...retrieveBoundTVs(TOP_LEVEL_SCOPE) (v)]);
 
-        // uniqueness check
+        /* Check that a superclass doesn't override properties of the current
+        type class. Superclasses might share properties, though. */
 
         if (reservedOps.has(k))
-          /*throw new TypeError(cat(
+          throw new TypeError(cat(
             "illegal type class declaration\n",
-            "subclass tries to override an operation from one of its superclasses\n",
+            "subclass tries to override a property of one of its superclasses\n",
             `namely: ${k}\n`,
-            `while declaring "${tcAnno}"\n`));*/
-          return null; // TODO: investigate
+            `while declaring "${tcAnno}"\n`));
 
         else {
 
-          // prevent superclasses from overriding each other
-
-          reservedOps.add(k);
-          
           // attach operation to current type dict
 
           tdictAst.body.body.push({k, v});
@@ -2765,13 +2760,46 @@ export const typeClass = tcAnno => {
 
     tcDict.set(tcons, {tparam, tdictAnno: serializeAst(tdictAst)});
 
-
-
-    // return the type class constructor `{untypedDict} => {typedDict}`
-
-
+    /* Return a function that excepts zero, one or several super dictionaries
+    and unifies the operations of the current type dictionary and the super
+    optional dictionaries with these of the resolved type class:
+    `{specialicedTypeDict} => {unifiedTypedDict}` */
 
     return (...superDicts) => Object.assign(dict => {
+      dict = Object.assign({}, dict); // clone
+
+      // add super dictionary properties to the current one
+
+      superDicts.forEach((superDict, i) => {
+
+        // ensure superclass dict is an ADT
+
+        if (!(ADT in superDict)
+          || Object.keys(superDict).length === 0)
+            throw new TypeError(cat(
+              "illegal type class instance\n",
+              "expects typed dictionaries as superclasses\n",
+              `but received: ${introspectDeep(superDict)}\n`,
+              `as the ${ordinalNum(i + 1)} passed argument\n`,
+              `while applying "${tcAnno}"\n`));
+
+        else {
+          Object.entries(superDict).forEach(([k, v]) => {
+
+            // skip identical properties from different superclasses
+
+            if (k in dict) return null;
+
+            // skip symbolic properties
+
+            else if (k === ANNO || k === ADT || k === TAG) return null;
+    
+            // add property to new type class
+
+            else dict[k] = v;
+          });
+        }
+      });
 
       // collect properties each from the type class and the passed dictionaries
 
@@ -2793,14 +2821,11 @@ export const typeClass = tcAnno => {
           `while applying "${tcAnno}"\n`));
 
       else {
-
-        // make instantiations in this scope available
-
         let instantiations = new Map();
 
-        // unify the type dictionary
+        // unify type class and type dictionary
 
-        const dict_ = valueLevelProps.reduce((acc, k) => {
+        valueLevelProps.forEach(k => {
 
           // exhaustiveness check
 
@@ -2817,92 +2842,21 @@ export const typeClass = tcAnno => {
 
           // type the current function property
 
-          else if (typeof dict[k] === "function") {
-            instantiations = unifyTypes(
-              typeLevelProps.get(k),
-              parseAnno(dict[k] [ANNO]),
-              0,
-              0,
-              0,
-              0,
-              instantiations,
-              serializeAst(typeLevelProps.get(k)),
-              dict[k] [ANNO],
-              tcAnno,
-              []);
-
-            const contAnno = serializeAst(
-              regeneralize(
-                pruneForalls(
-                  substitute(
-                    specializeLHS(
-                      TOP_LEVEL_SCOPE, 0, 1) (typeLevelProps.get(k)).ast,
-                      instantiations))));
-
-            acc[k] = fun(dict[k], contAnno);
-            return acc;
-          }
-
-          // or leave it unchanged
-
-          else {
-            instantiations = unifyTypes(
-              typeLevelProps.get(k),
-              parseAnno(introspectDeep(dict[k])),
-              0,
-              0,
-              0,
-              0,
-              instantiations,
-              serializeAst(typeLevelProps.get(k)),
-              dict[k] [ANNO],
-              tcAnno,
-              []);
-
-            acc[k] = dict[k];
-            return acc;
-          }
+          instantiations = unifyTypes(
+            typeLevelProps.get(k),
+            typeof dict[k] === "function"
+              ? parseAnno(dict[k] [ANNO])
+              : parseAnno(introspectDeep(dict[k])),
+            0,
+            0,
+            0,
+            0,
+            instantiations,
+            serializeAst(typeLevelProps.get(k)),
+            dict[k] [ANNO],
+            tcAnno,
+            []);
         }, {[TAG]: tcons});
-
-        // add superclass properties
-
-        superDicts.forEach((superDict, i) => {
-
-          // ensure superclass dict is an ADT
-
-          if (!(ADT in superDict)
-            || Object.keys(superDict).length === 0)
-              throw new TypeError(cat(
-                "illegal type class instance\n",
-                "expects typed dictionaries as superclasses\n",
-                `but received: ${introspectDeep(superDict)}\n`,
-                `as the ${ordinalNum(i + 1)} passed argument\n`,
-                `while applying "${tcAnno}"\n`));
-
-          else {
-            Object.entries(superDict).forEach(([k, v]) => {
-
-              // rule out identical properties
-
-              if (k in dict)
-                throw new TypeError(cat(
-                  "illegal type class instance\n",
-                  "property name clash detected\n",
-                  `"${k}" is already defined\n`,
-                  "in the type class to be instantiated\n",
-                  `but the ${ordinalNum(i + 1)} passed superclass tries to override it\n`,
-                  `while applying "${tcAnno}"\n`));
-
-              // add property to new type class
-
-              else dict_[k] = v;
-            });
-
-            // attach super type classes on current type class object
-
-            dict_[superDict[TAG]] = superDict;
-          }
-        });
 
         // update the type wrapper
 
@@ -2914,8 +2868,8 @@ export const typeClass = tcAnno => {
                   TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
                   instantiations))));
 
-        dict_[ADT] = wrapperAnno_;
-        return dict_;
+        dict[ADT] = wrapperAnno_;
+        return dict;
       }
     }, {[ANNO]: tcAnno});
   }
@@ -7782,12 +7736,17 @@ export const lazyProp = (o, prop, f) =>
 ******************************************************************************/
 
 
+/* Only type classes with a single type parameter are supported. Superclass
+dependencies are listed in alphabetical order. Type class properties must be
+unique across classes, due to subclass/superclass relations. */
+
+
 /***[ Bounded ]***************************************************************/
 
 
 export const Bounded = typeClass(`({
-  min: a,·
-  max: a
+  bottom: a,·
+  top: a
 }) => Bounded<a>`);
 
 
@@ -7868,9 +7827,7 @@ export const Functor = typeClass(`(^a, b. {
 
 
 export const Apply = typeClass(`Functor<f> => (^a, b. {
-  apply: (f<(a => b)> => f<a> => f<b>),·
-  appEff1: (f<a> => f<b> => f<a>),·
-  appEff2: (f<a> => f<b> => f<b>)
+  apply: (f<(a => b)> => f<a> => f<b>)
 }) => Apply<f>`);
 
 
@@ -7894,15 +7851,15 @@ export const Chain = typeClass(`Apply<m> => (^a, b. {
 /***[ Chain :: Monad ]********************************************************/
 
 
-/*export const Monad = typeClass(Chain) (`(^a. {
-  of: (a => m<a>)
-}) => Monad<m>`);*/
+export const Monad = typeClass(
+  `Applicative<m>, Chain<m> => ({}) => Monad<m>`);
 
 
-/***[ Chain :: Monad :: MonadPlus ]****************************************************/
+/***[ Chain :: Monad :: MonadPlus ]*******************************************/
 
 
-/***[ Chain :: Monad :: MonadZero ]****************************************************/
+let MonadPlus = Alternative => typeClass(
+  `Alternative<m>, Monad<m> => ({}) => MonadPlus<m>`);
 
 
 /***[ Functor :: Alt ]********************************************************/
@@ -7917,12 +7874,31 @@ export const Alt = typeClass(`Functor<f> => (^a. {
 
 
 export const Plus = typeClass(`Alt<f> => (^a. {
-  empty: f<a>
+  zero: f<a>
 }) => Plus<f>`);
 
 
 /***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
 
+
+export const Alternative = typeClass(
+  `Applicative<a>, Plus<a> => ({}) => Alternative<a>`);
+
+
+/***[ Functor :: Extend ]*****************************************************/
+
+
+export const Extend = typeClass(`Functor<w> => (^a, b. {
+  extend: ((w<a> => b) => w<a> => w<b>)
+}) => Extend<w>`);
+
+
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+export const Comonad = typeClass(`Extend<w> => (^a. {
+  extract: (w<a> => a)
+}) => Comonad<w>`);
 
 
 /***[ Functor :: Filterable ]*************************************************/
@@ -7989,6 +7965,10 @@ let Traversable = Foldable => typeClass(`Foldable<t>, Functor<t>, Applicative<f>
 
 Foldable = Foldable(Monoid);
 export {Foldable};
+
+
+MonadPlus = MonadPlus(Alternative);
+export {MonadPlus};
 
 
 Traversable = Traversable(Foldable);
@@ -8692,6 +8672,34 @@ Endo.append = fun(
 
 
 export const A = {}; // namespace
+
+
+/***[ Apply ]****************************************************************/
+
+
+lazyProp(A, "Apply", function() {
+  delete this.Apply;
+  
+  return this.Apply = Apply(A.Functor) ({
+    apply: A.apply
+  });
+});
+
+
+A.apply = fun(
+  fs => xs => function go(acc, i) {
+    if (i === fs.length)
+      return acc;
+
+    else return go(A.append(acc) (A.map(fs[i]) (xs)), i + 1);
+  } ([], 0),
+  "[(a => b)] => [a] => [b]");
+
+
+/***[ Applicative ]***********************************************************/
+
+
+A.of = fun(x => [x], "a => [a]");
 
 
 /***[ Clonable ]**************************************************************/
@@ -9476,7 +9484,7 @@ Option.append = fun(
         x => ty.run({
           none: tx,
           some: fun(
-            y => Option.Some(x + y),
+            y => Option.Some(append(x) (y)),
             "a => Option<a>")
         }),
         "a => Option<a>")
