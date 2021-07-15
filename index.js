@@ -2799,6 +2799,14 @@ export const typeClass = tcAnno => {
             else dict[k] = v;
           });
         }
+
+        /* Make each super dictionary available via a non-enumerable property
+        of the current type dictionary. */
+
+        Object.defineProperty(
+          dict,
+          superDict[TAG],
+          {value: superDict, configurable: true, writable: true});
       });
 
       // collect properties each from the type class and the passed dictionaries
@@ -2856,7 +2864,7 @@ export const typeClass = tcAnno => {
             dict[k] [ANNO],
             tcAnno,
             []);
-        }, {[TAG]: tcons});
+        });
 
         // update the type wrapper
 
@@ -2869,6 +2877,7 @@ export const typeClass = tcAnno => {
                   instantiations))));
 
         dict[ADT] = wrapperAnno_;
+        dict[TAG] = tcons;
         return dict;
       }
     }, {[ANNO]: tcAnno});
@@ -3203,9 +3212,9 @@ export const fun = (f, funAnno) => {
         // parse the annotations of the ADT components
 
         const wrapperAst = parseAnno(r[ADT]),
-          domainAst = r && r[ANNO]
+          domainAst = r.run && r.run[ANNO]
             ? parseAnno(r.run[ANNO])
-            : parseAnno(introspectDeep(r));
+            : parseAnno(introspectDeep(r.run));
 
         // unify the wrapper with the unified AST
 
@@ -3246,7 +3255,7 @@ export const fun = (f, funAnno) => {
 
         if (domainAst[TAG] === "Forall"
           && domainAst.body[TAG] === "Fun")
-            r.run = fun(r.run[UNWRAP], domainAnno);          
+            r.run = fun(r.run[UNWRAP], domainAnno);
 
         r[ADT] = wrapperAnno;
       }
@@ -7792,27 +7801,8 @@ let Enum = Option => typeClass(`({
 
 let Foldable = Monoid => typeClass(`(^m, a, b. {
   foldl: ((b => a => b) => b => t<a> => b),·
-  foldr: ((a => b => b) => b => t<a> => b),·
-  foldMapl: (Monoid<m> => (a => m) => t<a> => m),·
-  foldMapr: (Monoid<m> => (a => m) => t<a> => m)
+  foldr: ((a => b => b) => b => t<a> => b)
 }) => Foldable<t>`);
-
-
-/*const Foldable = typeClass(`(^a, m. {
-  fold: ,·
-  foldMapl: Monoid<m> => (a => m) => t<a> => m,·
-  foldMapr: ,·
-  foldl: ,·
-  foldr: ,·
-  toList: ,·
-  isEmpty: ,·
-  len: ,·
-  hasElem: ,·
-  max: ,·
-  min: ,·
-  sum: ,·
-  prod: ,·
-}) => Foldable<t>`);*/
 
 
 /***[ Functor ]***************************************************************/
@@ -7843,8 +7833,7 @@ export const Applicative = typeClass(`Apply<f> => (^a. {
 
 
 export const Chain = typeClass(`Apply<m> => (^a, b. {
-  chain: (m<a> => (a => m<b>) => m<b>),·
-  chainr: ((a => m<b>) => m<a> => m<b>)
+  chain: (m<a> => (a => m<b>) => m<b>)
 }) => Chain<m>`);
 
 
@@ -7946,8 +7935,8 @@ export const Order = typeClass(`Setoid<a> => ({
   lte: (a => a => Boolean),·
   gt: (a => a => Boolean),·
   gte: (a => a => Boolean),·
-  minBound: (a => a => a),·
-  maxBound: (a => a => a)
+  min: (a => a => a),·
+  max: (a => a => a)
 }) => Order<a>`);
 
 
@@ -7955,8 +7944,8 @@ export const Order = typeClass(`Setoid<a> => ({
 
 
 let Traversable = Foldable => typeClass(`Foldable<t>, Functor<t>, Applicative<f> => (^a, b, f. {
-  mapA: (Applicative<f> => (a => f<b>) => t<a> => f<t<b>>),·
-  seqA: (Applicative<f> => t<f<a>> => f<t<a>>)
+  mapA: ((a => f<b>) => t<a> => f<t<b>>),·
+  seqA: (t<f<a>> => f<t<a>>)
 }) => Traversable<t>`);
 
 
@@ -7980,6 +7969,18 @@ export {Traversable};
 ******************************************************************************/
 
 
+export const appEff1 = fun(
+  Apply => tx => ty =>
+    Apply.apply(Apply.map(_const) (tx)) (ty),
+  "Apply<f> => f<a> => f<b> => f<a>");
+
+
+export const appEff2 = fun(
+  Apply => tx => ty =>
+    Apply.apply(mapEff(Apply.Functor) (id) (tx)) (ty),
+  "Apply<f> => f<a> => f<b> => f<b>");
+
+
 // based on an eager left-associative fold
 
 export const foldMap = fun(
@@ -7995,7 +7996,7 @@ export const foldMap_ = fun(
 
 
 export const mapEff = fun(
-  ({map}) => x => map(_ => x),
+  Functor => x => Functor.map(fun(_ => x, "a => b")),
   "Functor<f> => a => f<b> => f<a>");
 
 
@@ -8668,7 +8669,10 @@ Endo.append = fun(
 ******************************************************************************/
 
 
-/* Array is designed as a mutable data type and treated as such. */
+/* Array is designed as a mutable data type and treated as such. Use immutable
+`List` for an efficient `cons` operation. Use immutable `DList` for efficient
+`append` and `snoc` operations. Use `Vector` for efficient lookups or set and
+modify operations. */
 
 
 export const A = {}; // namespace
@@ -8687,19 +8691,43 @@ lazyProp(A, "Apply", function() {
 
 
 A.apply = fun(
-  fs => xs => function go(acc, i) {
-    if (i === fs.length)
-      return acc;
-
-    else return go(A.append(acc) (A.map(fs[i]) (xs)), i + 1);
-  } ([], 0),
+  fs => xs =>
+    A.foldl(fun(
+      acc => f => A.append(acc) (A.map(f) (xs)),
+      "[b] => (a => b) => [b]")) ([]) (fs),
   "[(a => b)] => [a] => [b]");
 
 
 /***[ Applicative ]***********************************************************/
 
 
+lazyProp(A, "Applicative", function() {
+  delete this.Applicative;
+  
+  return this.Applicative = Applicative(A.Apply) ({
+    of: A.of
+  });
+});
+
+
 A.of = fun(x => [x], "a => [a]");
+
+
+/***[ Chain ]*****************************************************************/
+
+
+lazyProp(A, "Chain", function() {
+  delete this.Chain;
+  
+  return this.Chain = Chain(A.Apply) ({
+    chain: A.chain
+  });
+});
+
+
+A.chain = fun(
+  xs => fm => xs.flatMap(x => fm(x)),
+  "[a] => (a => [b]) => [b]");
 
 
 /***[ Clonable ]**************************************************************/
@@ -8716,6 +8744,59 @@ A.clone = fun(
 A.push = fun(
   x => xs => (xs.push(x), xs),
   "a => [a] => [a]");
+
+
+/***[ Foldable ]**************************************************************/
+
+
+/* The left associative fold for arrays is implemented as a loop to ensure
+stack safety. */
+
+A.foldl = fun(
+  f => init => xs => {
+    let acc = init;
+
+    for (let i = 0; i < xs.length; i++)
+      acc = f(acc) (xs[i]);
+
+    return acc;
+  },
+  "(b => a => b) => b => [a] => b");
+
+
+/* The left associative fold based on local continuations allows for short
+circuiting of imperative array processing. */
+
+lazyProp(A, "foldk", function() {
+  delete this.foldk;
+  
+  return this.foldk = fun(
+    f => init => xs => {
+      let acc = init;
+
+      for (let i = 0; i < xs.length; i++)
+        acc = f(acc) (xs[i]).run(id);
+
+      return acc;
+    },
+    "(b => a => Cont<b, b>) => b => [a] => b");
+});
+
+
+/* The right associative fold for arrays is implemented as a loop and thus has
+eager semantics, because arrays are an imperative data type, which is
+incompatible with laziness. */
+
+A.foldr = fun(
+  f => init => xs => {
+    let acc = init;
+
+    for (let i = xs.length - 1; i >= 0; i--)
+      acc = f(xs[i]) (acc);
+
+    return acc;
+  },
+  "(a => b => b) => b => [a] => b");
 
 
 /***[ Functor ]***************************************************************/
@@ -8743,13 +8824,22 @@ A.forEach = fun(
   "(a => b) => [a] => [b]");
 
 
+/***[ Monad ]*****************************************************************/
+
+
+lazyProp(A, "Monad", function() {
+  delete this.Monad;
+  return this.Monad = Monad(A.Applicative, A.Chain) ({});
+});
+
+
 /***[ Monoid ]****************************************************************/
 
 
 lazyProp(A, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid() ({
+  return this.Monoid = Monoid(A.Semigroup) ({
     empty: A.empty
   });
 });
@@ -9083,9 +9173,7 @@ lazyProp(List, "Foldable", function() {
   
   return this.Foldable = Foldable() ({
     foldl: List.foldl,
-    foldr: List.foldr,
-    foldMapl: List.foldMapl,
-    foldMapr: List.foldMapr
+    foldr: List.foldr
   });
 });
 
@@ -9102,13 +9190,13 @@ List.foldl = fun(
   "(b => a => b) => b => List<a> => b");
 
 
-List.foldMapl = fun(
-  Monoid => foldMapl(List.Foldable, Monoid),
+List.foldMap = fun(
+  Monoid => foldMap(List.Foldable, Monoid),
   "Monoid<m> => (a => m) => List<a> => m");
 
 
-List.foldMapr = fun(
-  Monoid => foldMapr(List.Foldable, Monoid),
+List.foldMap_ = fun(
+  Monoid => foldMap_(List.Foldable, Monoid),
   "Monoid<m> => (a => m) => List<a> => m");
 
 
@@ -9361,7 +9449,9 @@ lazyProp(Prod, "Semigroup", function() {
 });
 
 
-Prod.append = mul;
+Prod.append = fun(
+  tx => ty => Prod(tx.run * ty.run),
+  "Prod => Prod => Prod");
 
 
 /******************************************************************************
@@ -9401,7 +9491,9 @@ lazyProp(Sum, "Semigroup", function() {
 });
 
 
-Sum.append = add;
+Sum.append = fun(
+  tx => ty => Sum(tx.run + ty.run),
+  "Sum => Sum => Sum");
 
 
 /******************************************************************************
