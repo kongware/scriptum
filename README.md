@@ -18,7 +18,7 @@ scriptum consists of two parts:
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
-Runtime type checking is expensive and only useful within the development stage. For this reason the type validator can be turned off in production to minimize a performance penalty. However, it is planned for version 2.0.0 to introduce a build step that completely erases the type validator syntax from the code base and thus avoiding a performance penalty altogether.
+Runtime type checking is expensive and only useful within the development stage. For this reason the type validator can be turned off in production to minimize a performance penalty. However, it is planned for version 2.0.0 to introduce a build step that completely erases the type validator syntax from the code base and thus avoids a performance penalty altogether.
 
 ## Status
 
