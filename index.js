@@ -1592,6 +1592,20 @@ const verifyAnno = s => {
       `in "${s}"\n`));
   }
 
+  // checks for valid use of " "
+
+  else if (s.replace(/ => /g, "")
+    .replace(/, /g, "")
+    .replace(/: /g, "")
+    .replace(/ \| /g, "")
+    .replace(new RegExp("[a-z0-9]\\. ", "gi"), "")
+    .replace(new RegExp("[a-z0-9] \\{", "gi"), "")
+    .search(" ") !== NOT_FOUND)
+    throw new SyntaxError(cat(
+      "malformed type annotation\n",
+      `invalid use of " "\n`,
+      `in "${s}"\n`));
+
   // checks for valid use of :
   
   else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*:[ ,}]", "gi"), "").search(":") !== NOT_FOUND)
