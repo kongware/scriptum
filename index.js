@@ -77,13 +77,36 @@ const imperativeIntrospection = new Map([
     if (ts.size === 0)
       return "Map<a, b>";
 
-    else if (ts.size > 1)
-      throw new TypeError(cat(
-        "invalid Map: must be homogeneous\n",
-        JSON.stringify(Array.from(m)).slice(0, MAX_COLONS),
-        "\n"));
+    else if (ts.size > 1) {
+      const tk = [],
+        tv = [];
 
-    return `Map<${Array.from(ts) [0].join(", ")}>`;
+      ts.forEach((v, k) => {
+        if (k.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          tk.push(k);
+
+        if (v.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          tv.push(v);
+      })
+
+      if (tk.length > 1)
+        throw new TypeError(cat(
+          "invalid Map\n",
+          "must contain homogeneous keys and values\n",
+          `but the following keys received:`,
+          `${tk.join(", ")}\n`));
+
+      else if (tv.length > 1)
+        throw new TypeError(cat(
+          "invalid Map\n",
+          "must contain homogeneous keys and values\n",
+          `but the following values received:`,
+          `${tv.join(", ")}\n`));
+
+      else return `Map<${tk[0]}, ${tv[0]}>`;
+    }
+
+    else return `Map<${Array.from(ts) [0].join(", ")}>`;
   }],
 
   ["Set", s => {
@@ -95,13 +118,25 @@ const imperativeIntrospection = new Map([
     if (ts.size === 0)
       return "Set<a>";
 
-    else if (ts.size > 1)
-      throw new TypeError(cat(
-        "invalid Set: must be homogeneous\n",
-        JSON.stringify(Array.from(s)).slice(0, MAX_COLONS),
-        "\n"));
+    else if (ts.size > 1) {
+      const ts_ = []
 
-    return `Set<${Array.from(ts) [0]}>`;
+      ts.forEach(t => {
+        if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          ts_.push(t);
+      })
+
+      if (ts_.length > 1)
+        throw new TypeError(cat(
+          "invalid Set\n",
+          "must contain homogeneous keys\n",
+          `but "${ts_.join(", ")}" received`,
+          "\n"));
+
+      else return `Set<${ts_[0]}>`;
+    }
+
+    else return `Set<${Array.from(ts) [0]}>`;
   }],
 
   ["Vector", o => {
@@ -2010,13 +2045,25 @@ export const introspectDeep = x => {
       if (ts.size === 0)
         return "[a]";
 
-      else if (ts.size > 1)
-        throw new TypeError(cat(
-          "invalid Array: must be homogeneous\n",
-          JSON.stringify(x).slice(0, MAX_COLONS).replace("null", "Undefined"),
-          "\n"));
+      else if (ts.size > 1) {
+        const ts_ = []
 
-      return `[${Array.from(ts) [0]}]`;
+        ts.forEach(t => {
+          if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+            ts_.push(t);
+        })
+
+        if (ts_.length > 1)
+          throw new TypeError(cat(
+            "invalid Array\n",
+            "must contain homogeneous elements\n",
+            `but "${ts_.join(", ")}" received`,
+            "\n"));
+
+        else return `[${ts_[0]}]`;
+      }
+
+      else return `[${Array.from(ts) [0]}]`;
     }
 
     case "Function": {
@@ -2040,12 +2087,25 @@ export const introspectDeep = x => {
             "invalid NEArray\n",
             "must contain at least a single element\n"));
 
-      else if (ts.size > 1)
-        throw new TypeError(cat(
-          "invalid NEArray\n",
-          "must be homogeneous\n"));
+      else if (ts.size > 1) {
+        const ts_ = []
 
-      return `[1${Array.from(ts) [0]}]`;
+        ts.forEach(t => {
+          if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+            ts_.push(t);
+        })
+
+        if (ts_.length > 1)
+          throw new TypeError(cat(
+            "invalid NEArray\n",
+            "must contain homogeneous elements\n",
+            `but "${ts_.join(", ")}" received`,
+            "\n"));
+
+        else return `[1${ts_[0]}]`;
+      }
+
+      else return `[1${Array.from(ts) [0]}]`;
     } 
 
     case "Tuple": {
@@ -3132,16 +3192,16 @@ export const fun = (f, funAnno) => {
         if (rhs === lhs)
           throw new TypeError(cat(
             "occurs check failed\n",
-            `"${lhs}" occurs during instantiation\n`,
-            "on the LHS and RHS respecitvely\n",
+            `"${lhs}" occurs on the LHS and RHS respecitvely\n`,
+            "during instantiation\n",
             "and thus yields an infinite type\n",
             "while unifying\n",
             extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
 
         else throw new TypeError(cat(
           "occurs check failed\n",
-          `"${lhs}" and "${rhs}" occur during instantiation\n`,
-          "on the LHS and RHS respecitvely\n",
+          `"${lhs}" and "${rhs}" occur on the LHS and RHS respecitvely\n`,
+          "during instantiation\n",
           "and thus yield an infinite type\n",
           "while unifying\n",
           extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
@@ -7764,6 +7824,14 @@ dependencies are listed in alphabetical order. Type class properties must be
 unique across classes, due to subclass/superclass relations. */
 
 
+/***[ Bifunctor ]*************************************************************/
+
+
+export const Bifunctor = typeClass(`(^a, b, c, d. {
+  bimap: ((a => b) => (c => d) => f<a, c> => f<b, d>)
+}) => Bifunctor<f>`);
+
+
 /***[ Bounded ]***************************************************************/
 
 
@@ -7771,15 +7839,6 @@ export const Bounded = typeClass(`({
   bottom: a,·
   top: a
 }) => Bounded<a>`);
-
-
-/***[ Category ]**************************************************************/
-
-
-export const Category = typeClass(`(^a, b, c. {
-  comp: (t<b, c> => t<a, b> => t<a, c>),·
-  id: t<a, a>
-}) => Category<t>`);
 
 
 /***[ Clonable ]**************************************************************/
@@ -7803,10 +7862,7 @@ export const Contravaraint = typeClass(`(^a, b. {
 
 let Enum = Option => typeClass(`({
   succ: (a => Option<a>),·
-  pred: (a => Option<a>),·
-  succeeds: (a => a => Boolean),·
-  fromEnum: (a => Option<Number>),·
-  toEnum: (Number => Option<a>)
+  pred: (a => Option<a>)
 }) => Enum<a>`);
 
 
@@ -7825,6 +7881,29 @@ let Foldable = Monoid => typeClass(`(^m, a, b. {
 export const Functor = typeClass(`(^a, b. {
   map: ((a => b) => f<a> => f<b>)
 }) => Functor<f>`);
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+export const Alt = typeClass(`Functor<f> => (^a. {
+  alt: (f<a> => f<a> => f<a>)
+}) => Alt<f>`);
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+export const Plus = typeClass(`Alt<f> => (^a. {
+  neutral: f<a>
+}) => Plus<f>`);
+
+
+/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
+
+
+let Alternative = Applicative => typeClass(
+  `Applicative<a>, Plus<a> => ({}) => Alternative<a>`);
 
 
 /***[ Functor :: Apply ]******************************************************/
@@ -7851,41 +7930,18 @@ export const Chain = typeClass(`Apply<m> => (^a, b. {
 }) => Chain<m>`);
 
 
-/***[ Chain :: Monad ]********************************************************/
+/***[ Functor :: Apply :: Chain :: Monad ]************************************/
 
 
 export const Monad = typeClass(
   `Applicative<m>, Chain<m> => ({}) => Monad<m>`);
 
 
-/***[ Chain :: Monad :: MonadPlus ]*******************************************/
+/***[ Functor :: Apply :: Chain :: Monad :: MonadPlus ]***********************/
 
 
 let MonadPlus = Alternative => typeClass(
   `Alternative<m>, Monad<m> => ({}) => MonadPlus<m>`);
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-export const Alt = typeClass(`Functor<f> => (^a. {
-  alt: (f<a> => f<a> => f<a>)
-}) => Alt<f>`);
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-export const Plus = typeClass(`Alt<f> => (^a. {
-  zero: f<a>
-}) => Plus<f>`);
-
-
-/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
-
-
-export const Alternative = typeClass(
-  `Applicative<a>, Plus<a> => ({}) => Alternative<a>`);
 
 
 /***[ Functor :: Extend ]*****************************************************/
@@ -7915,6 +7971,14 @@ let Filterable = (Option, Either) => typeClass(`Functor<f> => (^a, b, l, r. {
 }) => Filterable<f>`);
 
 
+/***[ Profunctor ]************************************************************/
+
+
+export const Profunctor = typeClass(`(^a, b, c, d. {
+  dimap: ((a => b) => (c => d) => p<b, c> => p<a, d>)
+}) => Profunctor<p>`);
+
+
 /***[ Semigroup ]*************************************************************/
 
 
@@ -7931,6 +7995,66 @@ export const Monoid = typeClass(`Semigroup<a> => ({
 }) => Monoid<a>`);
 
 
+/***[ Semigroupoid ]**********************************************************/
+
+
+export const Semigroupoid = typeClass(`(^a, b, c. {
+  comp: (t<b, c> => t<a, b> => t<a, c>)
+}) => Semigroupoid<t>`);
+
+
+/***[ Semigroupoid :: Category ]**********************************************/
+
+
+export const Category = typeClass(`Semigroupoid<t> => (^a, b, c. {
+  id: t<a, a>
+}) => Category<t>`);
+
+
+/***[ Semiring ]**************************************************************/
+
+
+export const Semiring = typeClass(`({
+  add: (a => a => a),·
+  zero: a,·
+  mul: (a => a => a),·
+  one: a
+}) => Semiring<a>`);
+
+
+/***[ Semiring :: Ring ]******************************************************/
+
+
+export const Ring = typeClass(`Semiring<a> => ({
+  sub: (a => a => a)
+}) => Ring<a>`);
+
+
+/***[ Semiring :: Ring :: DivisionRig ]***************************************/
+
+
+export const DivisionRing = typeClass(`Ring<a> => ({
+  recip: (a => a)
+}) => DivisionRing<a>`);
+
+
+/***[ Semiring :: Ring :: EuclideanRing ]*************************************/
+
+
+export const EuclideanRing = typeClass(`Ring<a> => ({
+  degree: (a => Integer),·
+  div: (a => a => a),·
+  mod: (a => a => a)
+}) => EuclideanRing<a>`);
+
+
+/***[ Semiring :: Ring :: EuclideanRing :: Field ]****************************/
+
+
+export const Field = typeClass(
+  `EuclideanRing<a>, DivisionRing<a> => ({}) => Field<a>`);
+
+
 /***[ Setoid ]****************************************************************/
 
 
@@ -7944,13 +8068,7 @@ export const Setoid = typeClass(`({
 
 
 export const Order = typeClass(`Setoid<a> => ({
-  compare: (a => a => Comparator),·
-  lt: (a => a => Boolean),·
-  lte: (a => a => Boolean),·
-  gt: (a => a => Boolean),·
-  gte: (a => a => Boolean),·
-  min: (a => a => a),·
-  max: (a => a => a)
+  compare: (a => a => Comparator)
 }) => Order<a>`);
 
 
@@ -7964,6 +8082,10 @@ let Traversable = Foldable => typeClass(`Foldable<t>, Functor<t>, Applicative<f>
 
 
 /***[ Dependent ]*************************************************************/
+
+
+Alternative = Alternative(Applicative);
+export {Alternative};
 
 
 Foldable = Foldable(Monoid);
@@ -8813,6 +8935,30 @@ A.foldr = fun(
   "(a => b => b) => b => [a] => b");
 
 
+/***[ Folds ]*****************************************************************/
+
+
+A.cata = A.foldr;
+
+
+/* Due to `Array`'s imperative nature its paramorphism is very inefficient and
+not capable of handling infinite corecursion. It is only supplied for the sake
+of completeness. */
+
+A.para = fun(
+  f => init => xs => {
+    const tail = xs;
+    let acc = init;
+
+    for (let i = xs.length - 1; i >= 0; i--) {
+      acc = f(xs[i]) (tail.slice(xs.length - i)) (acc);
+    }
+
+    return acc;
+  },
+  "(a => [a] => b => b) => b => [a] => b");
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -8888,6 +9034,95 @@ latter is mutable and thus this operation is frequently needed along with the
 A.prepend = fun(
   ys => xs => (xs.push.apply(xs, ys), xs),
   "[a] => [a] => [a]");
+
+
+/***[ Unfoldable ]************************************************************/
+
+
+/* Due to `Array`'s imperative nature its anamorphism is very inefficient and
+not capable of handling infinite corecursion. It is only supplied for the sake
+of completeness. */
+
+lazyProp(A, "unfoldr", function() {
+  delete this.unfoldr;
+  
+  return this.unfoldr = fun(
+    f => init => {
+      let acc = [],
+        state = init,
+        next;
+
+      do {
+        next = false;
+
+        acc = f(state).run({
+          none: acc,
+          some: fun(
+            ([x, state_]) => {
+              state = state_;
+              next = true;
+              return acc.concat([x]);
+            },
+            "[a, b] => [a]")
+        });
+      } while (next);
+
+      return acc;
+    },
+    "(b => Option<[a, b]>) => b => [a]");
+});
+
+
+/***[ Unfolds ]***************************************************************/
+
+
+lazyProp(A, "ana", function() {
+  delete this.ana;
+  return this.ana = A.unfoldr;
+});
+
+
+/* Due to `Array`'s imperative nature its apomorphism is very inefficient and
+not capable of handling infinite corecursion. It is only supplied for the sake
+of completeness. */
+
+lazyProp(A, "apo", function() {
+  delete this.apo;
+
+  return this.apo = fun(
+    f => init => {
+      let acc = [],
+        state = init,
+        next;
+
+      do {
+        next = false;
+
+        acc = f(state).run({
+          none: acc,
+          some: fun(
+            ([x, tx]) =>
+              tx.run({
+                left: fun(
+                  acc_ => acc_.concat([x]),
+                  "[a] => [a]"),
+
+                right: fun(
+                  state_ => {
+                    state = state_;
+                    next = true;
+                    return acc.concat([x]);
+                  },
+                  "b => [a]")
+              }),
+            "[a, Either<[a], b>] => [a]")
+        });
+      } while (next);
+
+      return acc;
+    },
+    "(b => Option<[a, Either<[a], b>]>) => b => [a]");
+});
 
 
 /******************************************************************************
@@ -9153,12 +9388,12 @@ export const Either = type(
 
 
 Either.Left = fun(
-  x => Either(left => right => left(x)),
+  x => Either(({left, right}) => left(x)),
   "a => Either<a, b>");
 
 
 Either.Right = fun(
-  x => Either(left => right => right(x)),
+  x => Either(({left, right}) => right(x)),
   "b => Either<a, b>");
 
 
