@@ -9104,7 +9104,7 @@ lazyProp(A, "apo", function() {
             ([x, tx]) =>
               tx.run({
                 left: fun(
-                  acc_ => acc_.concat([x]),
+                  xs => acc.concat(xs),
                   "[a] => [a]"),
 
                 right: fun(
