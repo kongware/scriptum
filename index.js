@@ -3368,8 +3368,8 @@ export const fun = (f, funAnno) => {
         0,
         0,
         0,
-        tvid,
-        instantiations,
+        0,
+        new Map(),
         serializeAst(funAst.body.body.result),
         resultAnno,
         funAnno,
@@ -6525,6 +6525,13 @@ const substitute = (ast, instantiations) => {
     anno_ = anno;
 
     instantiations.forEach(({key, value, substitutor}) => {
+      if ((key[TAG] === "MetaTV" || key[TAG] === "RigitTV")
+        && (value[TAG] === "MetaTV" || value[TAG] === "RigitTV")
+        && key.position === "codomain"
+        && value.position === "")
+          value.position = key.position;
+
+
       ast = mapAst(ast_ => {
         ast_ = substitutor(ast_, key, value);
 
@@ -8882,6 +8889,11 @@ A.push = fun(
   "a => [a] => [a]");
 
 
+A.unshift = fun(
+  x => xs => (xs.unshift(x), xs),
+  "a => [a] => [a]");
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -8900,8 +8912,8 @@ A.foldl = fun(
   "(b => a => b) => b => [a] => b");
 
 
-/* The left associative fold based on local continuations allows for short
-circuiting of imperative array processing. */
+/* Special right associative fold provides short circuiting in an eagerly
+evaluated language. */
 
 lazyProp(A, "foldk", function() {
   delete this.foldk;
@@ -8910,18 +8922,18 @@ lazyProp(A, "foldk", function() {
     f => init => xs => {
       let acc = init;
 
-      for (let i = 0; i < xs.length; i++)
-        acc = f(acc) (xs[i]).run(id);
+      for (let i = xs.length - 1; i >= 0; i--)
+        acc = f(xs[i]) (acc).run(id);
 
       return acc;
     },
-    "(b => a => Cont<b, b>) => b => [a] => b");
+    "(a => b => Cont<b, b>) => b => [a] => b");
 });
 
 
-/* The right associative fold for arrays is implemented as a loop and thus has
-eager semantics, because arrays are an imperative data type, which is
-incompatible with laziness. */
+/* The right associative fold for arrays is implemented as a loop to ensure
+stack safety. Lazyness only makes sense for a purely functional and thus
+recursive data structure. */
 
 A.foldr = fun(
   f => init => xs => {
@@ -9604,7 +9616,7 @@ export const div = fun(
 
 
 export const exp = fun(
-  base => exp => base ** exp,
+  exp => base => base ** exp,
   "Number => Number => Number");
 
 
