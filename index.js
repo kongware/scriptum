@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = true; // type validator flag
+const CHECK = false; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -374,16 +374,14 @@ export const Char = s => {
         "expected: a single character String\n",
         `received: ${introspectDeep(s)}\n`,
         "while constructing a Char\n"));
-
-    else return {
-      [TAG]: "Char",
-      value: s,
-      valueOf: () => s,
-      toString: () => s
-    }
   }
 
-  else return s;
+  return {
+    [TAG]: "Char",
+    value: s,
+    valueOf: () => s,
+    toString: () => s
+  }
 };
 
 
@@ -398,16 +396,14 @@ export const Nat = n => {
         "expected: a positive integer-like Number\n",
         `received: ${introspectDeep(n)}\n`,
         "while constructing a Natural\n"));
-
-    else return {
-      [TAG]: "Natural",
-      value: n,
-      valueOf: () => n,
-      toString: () => String(n)
-    }
   }
 
-  else return n;
+  return {
+    [TAG]: "Natural",
+    value: n,
+    valueOf: () => n,
+    toString: () => String(n)
+  };
 };
 
 
@@ -422,16 +418,14 @@ export const Int = n => {
         "expected: an integer-like Number\n",
         `received: ${introspectDeep(n)}\n`,
         "while constructing an Integer\n"));
-
-    else return {
-      [TAG]: "Integer",
-      value: n,
-      valueOf: () => n,
-      toString: () => String(n)
-    }
   }
 
-  else return n;
+  return {
+    [TAG]: "Integer",
+    value: n,
+    valueOf: () => n,
+    toString: () => String(n)
+  }
 };
 
 
@@ -8922,8 +8916,9 @@ lazyProp(A, "foldk", function() {
     f => init => xs => {
       let acc = init;
 
-      for (let i = xs.length - 1; i >= 0; i--)
+      for (let i = xs.length - 1; i >= 0; i--) {console.log("loop!");
         acc = f(xs[i]) (acc).run(id);
+      }
 
       return acc;
     },
@@ -9868,6 +9863,62 @@ The actual behavior depends on a PRNG and cannot be determined upfront. You can
 pass both synchronous and asynchronous functions to the CPS composition. */
 
 export const Serial = type1("((a => r) => r) => Serial<r, a>");
+
+
+/******************************************************************************
+********************************[ TRANSDUCER ]*********************************
+******************************************************************************/
+
+
+/* In order to simplify the use of function composition and for performance
+reasons the raw transducer type is used rather than the `Transducer<a, b>`
+wrapper. Each transducer is implemented in two variants: A normal one and one
+with short circuiting through local continuations. Short circuiting renders
+transducers with early break semantics more efficient at the expance of the
+others, which have to go through some extra function calls. */
+
+
+export const filter = fun(
+  p => cons => x =>
+    p(x) ? cons(x) : id,
+  "(a => Boolean) => (a => r => r) => a => r => r");
+
+
+export const filterk = fun(
+  p => cons => x => acc => Cont(fun(
+    k => p(x) ? cons(x) (acc).run(k) : k(acc),
+    "(a => r) => r")),
+  "(a => Boolean) => (a => r => Cont<r, r>) => a => r => Cont<r, r>");
+
+
+export const map = fun(
+  f => cons => x => cons(f(x)),
+  "(a => b) => (b => r => r) => a => r => r");
+
+
+export const mapk = fun(
+  f => cons => x => acc => Cont(fun(
+    k => cons(f(x)) (acc).run(k),
+    "(a => r) => r")),
+  "(a => b) => (b => r => Cont<r, r>) => a => r => Cont<r, r>");
+
+
+export const take = fun(
+  n => cons => function (m) {
+    return fun(
+      x => n <= m ? id : (m++, cons(x)),
+      "a => r");
+  } (0),
+  "Number => (a => r => r) => a => r => r");
+
+
+export const takek = fun(
+  n => cons => function (m) {
+    return x => acc => Cont(fun(
+      k => n <= m ? acc : (m++, cons(x) (acc).run(k)),
+      "(a => r) => r"));
+  } (0),
+  "Number => (a => r => Cont<r, r>) => a => r => Cont<r, r>");
 
 
 /******************************************************************************
