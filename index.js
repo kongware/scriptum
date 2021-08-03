@@ -26,7 +26,7 @@ const PREFIX = "$_"; // avoids property name clashes
 
 // validator related
 
-const CHECK = false; // type validator flag
+const CHECK = true; // type validator flag
 
 export const ADT = PREFIX + "adt";
 export const ANNO = PREFIX + "anno";
@@ -7529,10 +7529,14 @@ class ThunkProxy {
 
   apply(g, that, args) {
 
-    // evaluate thunk only once
+    // deeply evaluate thunk once
 
-    if (this.memo === NULL)
+    if (this.memo === NULL) {
       this.memo = g();
+
+      while (this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
 
     return this.memo(...args);
   }
@@ -7554,12 +7558,16 @@ class ThunkProxy {
     else if (k === Symbol.toStringTag)
       return "Function";
 
-    // evaluate thunk but only once
+    // deeply evaluate thunk once
 
-    else if (this.memo === NULL)
+    else if (this.memo === NULL) {
       this.memo = g();
 
-    // return the once evaluated result
+      while (this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
+
+    // return the memoized result
 
     if (k === EVAL)
       return this.memo;
@@ -7570,30 +7578,25 @@ class ThunkProxy {
       && Array.isArray(this.memo))
         return true;
 
-    // forward valueOf
+    // method binding without triggering evaluation
 
-    else if (k === "valueOf")
-      return () => this.memo.valueOf();
-
-    // forward toString
-
-    else if (k === "toString")
-      return () => this.memo.toString();
-
-    // method binding
-
-    if (typeof this.memo[k] === "function")
-      return this.memo[k].bind(this.memo);
+    else if (typeof this.memo[k] === "function"
+      && this.memo[k] [THUNK] !== true)
+        return this.memo[k].bind(this.memo);
 
     else return this.memo[k];
   }
 
   getOwnPropertyDescriptor(g, k) {
 
-    // evaluate thunk only once
+    // deeply evaluate thunk once
 
-    if (this.memo === NULL)
+    if (this.memo === NULL) {
       this.memo = g();
+
+      while (this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
 
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
@@ -7610,25 +7613,28 @@ class ThunkProxy {
     else if (CHECK && k === ANNO)
       return true;
 
-    // evaluate thunk but only once
+    // deeply evaluate thunk once
 
-    else if (this.memo === NULL)
+    else if (this.memo === NULL) {
       this.memo = g();
 
-    if(this.memo
-      && (typeof this.memo === "object" || typeof this.memo === "function")
-      && k in this.memo)
-        return true;
+      while (this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
 
-    else return false;
+    return k in this.memo;
   }
 
   ownKeys(g) {
 
-    // prevent evaluation
+    // deeply evaluate thunk once
 
-    if (this.memo === NULL)
+    if (this.memo === NULL) {
       this.memo = g();
+
+      while (this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+    }
 
     return Object.keys(this.memo);
   }
@@ -7643,12 +7649,8 @@ class ThunkProxy {
 
 
 /* Trampolines themselves are untyped to provide additional flexibility in some
-use cases without hampering type safety. They ensure that the provided function
-argument is typed, though. */
-
-/* Please note that using direct recursion is not the recommanded approach. For
-every appropriate type there is an associated fold, which should be used
-instead. Folds are an abstraction, whereas recursion is a primitive. */
+use cases. Howeverm, they ensure that the provided function argument is typed
+to maintain type safety. */
 
 
 /******************************************************************************
@@ -7660,7 +7662,7 @@ instead. Folds are an abstraction, whereas recursion is a primitive. */
 safe manner. */
 
 export const strictRec = x => {
-  while (x && x[THUNK])
+  while (x && x[THUNK] === true)
     x = x[EVAL];
 
   return x;
@@ -8906,36 +8908,34 @@ A.foldl = fun(
   "(b => a => b) => b => [a] => b");
 
 
-/* Special right associative fold provides short circuiting in an eagerly
-evaluated language. */
+// like `A.foldr` but with short circuiting
 
 lazyProp(A, "foldk", function() {
   delete this.foldk;
   
   return this.foldk = fun(
-    f => init => xs => {
-      let acc = init;
-
-      for (let i = xs.length - 1; i >= 0; i--) {console.log("loop!");
-        acc = f(xs[i]) (acc).run(id);
-      }
-
-      return acc;
-    },
-    "(a => b => Cont<b, b>) => b => [a] => b");
+    f => init => xs => function go(acc, i) {
+      return i >= xs.length
+        ? acc
+        : f(acc) (xs[i]).run(fun(acc_ => go(acc_, i + 1), "b => b"));
+    } (init, 0),
+    "(b => a => Cont<b, b>) => b => [a] => b");
 });
 
 
-/* The right associative fold for arrays is implemented as a loop to ensure
-stack safety. Lazyness only makes sense for a purely functional and thus
-recursive data structure. */
+/* Since array is an imperative data type the right associative fold is
+implemented as an eager loop to ensure stack safety. */
 
 A.foldr = fun(
   f => init => xs => {
+    const stack = [];
     let acc = init;
 
-    for (let i = xs.length - 1; i >= 0; i--)
-      acc = f(xs[i]) (acc);
+    for (let i = 0; i < xs.length; i++)
+      stack.push(f(xs[i]));
+
+    for (let i = stack.length - 1; i >= 0; i--)
+      acc = stack[i] (acc);
 
     return acc;
   },
