@@ -8919,13 +8919,16 @@ A.foldl = fun(
   "(b => a => b) => b => [a] => b");
 
 
-// like `A.foldr` but with short circuiting
+/* `A.foldk` is like `A.foldr` but with the ability to short circuit. The fold
+isn't type safe on its own but the continuation can contain a thunk rendering
+the whole computation lazy. `strictRec` can than be used to run through the
+iterations without exhausting the stack. */
 
 lazyProp(A, "foldk", function() {
   delete this.foldk;
   
   return this.foldk = fun(
-    f => init => xs => function go(acc, i) {
+    f => init => xs => function go(acc, i) {console.log("hit");
       return i >= xs.length
         ? acc
         : f(acc) (xs[i]).run(fun(acc_ => go(acc_, i + 1), "b => b"));
@@ -9881,12 +9884,12 @@ export const Serial = type1("((a => r) => r) => Serial<r, a>");
 ******************************************************************************/
 
 
-/* In order to simplify the use of function composition and for performance
-reasons the raw transducer type is used rather than the `Transducer<a, b>`
-wrapper. Each transducer is implemented in two variants: A normal one and one
-with short circuiting through local continuations. Short circuiting renders
-transducers with early break semantics more efficient at the expance of the
-others, which have to go through some extra function calls. */
+/* In order to simplify composing transducers and for performance reasons the
+raw type is used rather than the `Transducer<a, b>` wrapper. Each transducer is
+implemented in two variants: A normal one and one with short circuit semantics
+using local continuations. While the former is more efficient for computations
+that run to completion, the latter is more efficient in connection with early
+breaks. */
 
 
 export const filter = fun(
@@ -9896,10 +9899,10 @@ export const filter = fun(
 
 
 export const filterk = fun(
-  p => cons => x => acc => Cont(fun(
-    k => p(x) ? cons(x) (acc).run(k) : k(acc),
+  p => cons => acc => x => Cont(fun(
+    k => p(x) ? cons(acc) (x).run(k) : k(acc),
     "(a => r) => r")),
-  "(a => Boolean) => (a => r => Cont<r, r>) => a => r => Cont<r, r>");
+  "(a => Boolean) => (r => a => Cont<r, r>) => r => a => Cont<r, r>");
 
 
 export const map = fun(
@@ -9908,10 +9911,10 @@ export const map = fun(
 
 
 export const mapk = fun(
-  f => cons => x => acc => Cont(fun(
-    k => cons(f(x)) (acc).run(k),
-    "(a => r) => r")),
-  "(a => b) => (b => r => Cont<r, r>) => a => r => Cont<r, r>");
+  f => cons => acc => x => Cont(fun(
+    k => cons(acc) (f(x)).run(k),
+    "(b => r) => r")),
+  "(a => b) => (r => b => Cont<r, r>) => r => a => Cont<r, r>");
 
 
 export const take = fun(
@@ -9925,11 +9928,11 @@ export const take = fun(
 
 export const takek = fun(
   n => cons => function (m) {
-    return x => acc => Cont(fun(
-      k => n <= m ? acc : (m++, cons(x) (acc).run(k)),
+    return acc => x => Cont(fun(
+      k => n <= m ? acc : (m++, cons(acc) (x).run(k)),
       "(a => r) => r"));
   } (0),
-  "Number => (a => r => Cont<r, r>) => a => r => Cont<r, r>");
+  "Number => (r => a => Cont<r, r>) => r => a => Cont<r, r>");
 
 
 /******************************************************************************
