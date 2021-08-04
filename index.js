@@ -7529,7 +7529,7 @@ class ThunkProxy {
 
   apply(g, that, args) {
 
-    // deeply evaluate thunk once
+    // evaluate to WHNF
 
     if (this.memo === NULL) {
       this.memo = g();
@@ -7558,13 +7558,24 @@ class ThunkProxy {
     else if (k === Symbol.toStringTag)
       return "Function";
 
-    // deeply evaluate thunk once
+    // evaluate once
 
     else if (this.memo === NULL) {
-      this.memo = g();
+  
+      // shallowly evaluate
 
-      while (this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
+      if (k === EVAL
+        && this.memo === NULL)
+          this.memo = g();
+
+      // evaluate to WHNF
+
+      else {
+        this.memo = g();
+
+        while (this.memo[THUNK] === true)
+          this.memo = this.memo[EVAL];
+      }
     }
 
     // return the memoized result
@@ -7589,7 +7600,7 @@ class ThunkProxy {
 
   getOwnPropertyDescriptor(g, k) {
 
-    // deeply evaluate thunk once
+    // evaluate to WHNF
 
     if (this.memo === NULL) {
       this.memo = g();
@@ -7613,7 +7624,7 @@ class ThunkProxy {
     else if (CHECK && k === ANNO)
       return true;
 
-    // deeply evaluate thunk once
+    // evaluate to WHNF
 
     else if (this.memo === NULL) {
       this.memo = g();
@@ -7627,7 +7638,7 @@ class ThunkProxy {
 
   ownKeys(g) {
 
-    // deeply evaluate thunk once
+    // evaluate to WHNF
 
     if (this.memo === NULL) {
       this.memo = g();
