@@ -617,44 +617,6 @@ const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem con
 ******************************************************************************/
 
 
-const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
-  if (ast[TAG] === "BoundTV"
-    && ast.scope === scope)
-      return acc.add(ast.name);
-
-  else return acc;
-}, new Set());
-
-
-// determines the arity of the passed type constructor
-
-const determineArity = ast => {
-  switch (ast[TAG]) {
-    case "Fun": {
-      switch (ast.body.lambdas[0] [TAG]) {
-        case "Arg0": return 1;
-        case "Arg1": return 2;
-        case "Args": return ast.body.lambdas[0].length + 1;
-        default: return 0; // Argv/Argsv are excluded
-      }
-    }
-
-    default: {
-      if ("body" in ast) {
-        if ("length" in ast.body)
-          return ast.body.length;
-
-        else
-          return 1;
-      }
-
-      else
-        return 0;
-    }
-  }
-};
-
-
 /* If a `Forall` AST is extracted from an annotation, the bound TVs it might
 contain must be retrieved, because the quantifier isn't implicit anymore. */
 
@@ -709,6 +671,35 @@ const adjustForall = ref => {
 };
 
 
+// determines the arity of the passed type constructor
+
+const determineArity = ast => {
+  switch (ast[TAG]) {
+    case "Fun": {
+      switch (ast.body.lambdas[0] [TAG]) {
+        case "Arg0": return 1;
+        case "Arg1": return 2;
+        case "Args": return ast.body.lambdas[0].length + 1;
+        default: return 0; // Argv/Argsv are excluded
+      }
+    }
+
+    default: {
+      if ("body" in ast) {
+        if ("length" in ast.body)
+          return ast.body.length;
+
+        else
+          return 1;
+      }
+
+      else
+        return 0;
+    }
+  }
+};
+
+
 const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
   switch (ast_[TAG]) {
     case "BoundTV":
@@ -728,6 +719,20 @@ const hasTV = scope => reduceAst((acc, ast) => {
 
   else return acc;
 }, false);
+
+
+const isHigherRank = (rntvs, currScope, refName) => {
+  for (let locator of rntvs) {
+    const scope = locator.replace(new RegExp("/[a-z][a-zA-Z0-9]*$", ""), ""),
+      name = locator.match(new RegExp("(?<=/)[a-z][a-zA-Z0-9]*$", "")) [0];
+
+    if (name === refName
+      && isParentScope(scope, currScope))
+        return true;
+  }
+
+  return false;
+};
 
 
 // returns true if the first scope contains the second one
@@ -1066,6 +1071,15 @@ const remConsumedParams = (ast) => {
 };
 
 
+const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
+  if (ast[TAG] === "BoundTV"
+    && ast.scope === scope)
+      return acc.add(ast.name);
+
+  else return acc;
+}, new Set());
+
+
 /******************************************************************************
 *******************************************************************************
 **********************************[ PARSING ]**********************************
@@ -1290,9 +1304,10 @@ const parseAnno = anno => {
     // BoundTV
 
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)$", ""))) {
-      if (rntvs.has(rx.groups.name + scope))
-        return BoundTV(
-          rx.groups.name, scope, position, []);
+      if (rntvs.has(`${scope}/${rx.groups.name}`)
+        || isHigherRank(rntvs, scope, rx.groups.name))
+          return BoundTV(
+            rx.groups.name, scope, position, []);
 
       else {
         r1tvs.add(rx.groups.name);
@@ -1343,7 +1358,7 @@ const parseAnno = anno => {
             rntvs_ = new Set(rx.groups.quant.split(", "));
 
           rntvs_.forEach(rntv_ =>
-            rntvs.add(rntv_ + nestedScope));
+            rntvs.add(`${nestedScope}/${rntv_}`));
 
           return Forall(
             rntvs_,
@@ -1477,15 +1492,16 @@ const parseAnno = anno => {
             `in "${anno}"\n`));
       }
 
-      if (rntvs.has(rx.groups.name + scope)) {
-        tconsArity.set(`${scope}/${rx.groups.name}`, fields.length);
+      if (rntvs.has(`${scope}/${rx.groups.name}`)
+        || isHigherRank(rntvs, scope, rx.groups.name)) {
+          tconsArity.set(`${scope}/${rx.groups.name}`, fields.length);
 
-        return BoundTV(
-          rx.groups.name,
-          scope,
-          position,
-          fields.map(field =>
-            go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
+          return BoundTV(
+            rx.groups.name,
+            scope,
+            position,
+            fields.map(field =>
+              go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
       }
 
       else {
@@ -2352,7 +2368,7 @@ export const type1 = adtAnno => {
   // bypass the type validator
 
   if (CHECK === false)
-    return k => ({run: k});
+    return x => ({run: x});
 
   // run the type validator
 
@@ -2363,37 +2379,38 @@ export const type1 = adtAnno => {
     adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
       .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    // parse the type wrapper
+    /* Parse the codomain of the ADT annotation. Since `type1` annotations
+    always have single function argument the codomain is always at index 1. */
 
-    const wrapperAnno = splitByScheme(
+    const codomainAnno = splitByScheme(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
 
     // ensures top-level function type
 
-    if (wrapperAnno === undefined)
+    if (codomainAnno === undefined)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "single constructor ADT expects a top-level function type\n",
+        "type1 declarations require a top-level function type\n",
+        "with exactly a single function parameter\n",
         `while declaring "${adtAnno}"\n`));
 
     // ensure valid codomain
 
-    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
+    else if (codomainAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "single constructor ADT expects a type constructor\n",
-        "in its codomain\n",
-        `but "${wrapperAnno}" received\n`,
+        "type1 declarations require a type constructor in their codomain\n",
+        `but "${codomainAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
 
-    // determine name and arity of the type wrapper
+    // determine name and arity of the type abstraction
 
-    const tcons = wrapperAnno.match(/[^<]+/) [0];
+    const tcons = codomainAnno.match(/[^<]+/) [0];
 
-    const arity = wrapperAnno !== tcons
+    const arity = codomainAnno !== tcons
       ? splitByScheme(
-          /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
-            (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
+          /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+            (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
       : 0;
 
     // check for name clashes with previously registered ADTs
@@ -2427,9 +2444,12 @@ export const type1 = adtAnno => {
 
     else adtDict.set(tcons, arity);
 
-    // parse ADT and wrapper AST and extract the original AST
+    // parse ADT annotation/codomain
 
-    const adtAst = parseAnno(adtAnno);
+    const adtAst = parseAnno(adtAnno),
+      codomainAst = parseAnno(codomainAnno);
+
+    // extract ADT domain
 
     let domainAst;
 
@@ -2443,10 +2463,8 @@ export const type1 = adtAnno => {
         adtAst.body.body.lambdas[0] [0]);
     
     else domainAst = adtAst.body.body.lambdas[0] [0];
-      
-    const wrapperAst = parseAnno(wrapperAnno);
 
-    // serialize original AST
+    // serialize ADT domain AST
 
     const domainAnno = serializeAst(domainAst);
 
@@ -2456,7 +2474,10 @@ export const type1 = adtAnno => {
     (^r. (a => r) => (b => r) => r) => Either<a, b>
           ^           ^                       ^^^^
     ((a => r) => r => Cont<a, r>)
-      ^    ^     ^         ^^^^ */
+      ^    ^     ^         ^^^^
+
+    scriptum doesn't allow existential type variables within data constructors
+    for the time being. */
 
     const rank1Dom = Array.from(reduceAst((rank1, ast) => {
       if (ast[TAG] === "BoundTV") {
@@ -2478,7 +2499,7 @@ export const type1 = adtAnno => {
       }
 
       else return rank1;
-    }, new Set()) (wrapperAst));
+    }, new Set()) (codomainAst));
 
     const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
       .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
@@ -2493,10 +2514,18 @@ export const type1 = adtAnno => {
     // return the ADT value constructor
 
     return Object.assign(x => {
+
+      // retrieve the type of the passed argument
+
       const argAnno = introspectDeep(x);
 
-      const instantiations = unifyTypes(
-        domainAst,
+      // specialize ADT domain/codomain
+
+      const domainAst_ = specializeLHS(domainAst.scope, 0, "") (domainAst).ast,
+        codomainAst_ = specializeLHS(codomainAst.scope, 0, "") (codomainAst).ast;
+
+      let instantiations = unifyTypes(
+        domainAst_,
         parseAnno(argAnno),
         0,
         0,
@@ -2508,19 +2537,16 @@ export const type1 = adtAnno => {
         adtAnno,
         []);
 
-      const wrapperAnno_ = serializeAst(
+      const codomainAnno_ = serializeAst(
         regeneralize(
           pruneForalls(
-            substitute(
-              specializeLHS(
-                TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                instantiations))));
+            substitute(codomainAst_, instantiations))));
 
       // return the ADT
 
       return {
         [TAG]: tcons,
-        [ADT]: wrapperAnno_,
+        [ADT]: codomainAnno_,
         run: x
       };
     }, {[ANNO]: adtAnno});
@@ -8928,7 +8954,7 @@ lazyProp(A, "foldk", function() {
   delete this.foldk;
   
   return this.foldk = fun(
-    f => init => xs => function go(acc, i) {console.log("hit");
+    f => init => xs => function go(acc, i) {
       return i >= xs.length
         ? acc
         : f(acc) (xs[i]).run(fun(acc_ => go(acc_, i + 1), "b => b"));
@@ -9397,6 +9423,13 @@ and asynchronous computations. Please be aware that `Cont` is not stack-safe for
 large nested function call trees. */
 
 export const Cont = type1("((a => r) => r) => Cont<r, a>");
+
+
+export const liftk2 = fun(
+  f => x => y => Cont(fun(
+    k => k(f(x) (y)),
+    "(c => r) => r")),
+  "(a => b => c) => a => b => Cont<r, c>");
 
 
 /******************************************************************************
@@ -10004,6 +10037,48 @@ Vector.elem = fun(
   i => v =>
     has(v.data, i + v.offset, Vector.compare),
   "Number => Vector<a> => Boolean");
+
+
+/******************************************************************************
+**********************************[ YONEDA ]***********************************
+******************************************************************************/
+
+
+export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
+
+
+/***[ De-/Construction ]******************************************************/
+
+
+Yoneda.lift = fun(
+  ({map}) => tx => Yoneda(fun(
+    f => map(f) (tx),
+    "(a => b) => f<b>")),
+  "Functor<f> => f<a> => Yoneda<f, a>");
+
+
+Yoneda.lower = fun(
+  tx => tx.run(id),
+  "Yoneda<f, a> => f<a>");
+
+
+/***[ Functor ]***************************************************************/
+
+
+lazyProp(Yoneda, "Functor", function() {
+  delete this.Functor;
+  
+  return this.Functor = Functor() ({
+    map: Yoneda.map
+  });
+});
+
+
+Yoneda.map = fun(
+  f => tx => Yoneda(fun(
+    g => tx.run(comp(g) (f)),
+    "(a => b) => f<b>")),
+  "(a => b) => Yoneda<f, a> => Yoneda<f, b>");
 
 
 /******************************************************************************
