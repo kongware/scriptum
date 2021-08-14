@@ -68,14 +68,14 @@ const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
 
 
 const nativeIntrospection = new Map([
-  ["Map", m => {
+  ["Map", (m, state) => {
     const ts = new Map();
 
     for (let [k, v] of m)
       ts.set(introspectDeep(k), introspectDeep(v));
 
     if (ts.size === 0)
-      return "Map<a, b>";
+      return `Map<${String.fromCharCode(state.tvid++)}, ${String.fromCharCode(state.tvid++)}>`;
 
     else if (ts.size > 1) {
       const tk = [],
@@ -109,14 +109,14 @@ const nativeIntrospection = new Map([
     else return `Map<${Array.from(ts) [0].join(", ")}>`;
   }],
 
-  ["Set", s => {
+  ["Set", (s, state) => {
     const ts = new Set();
 
     for (let v of s)
       ts.add(introspectDeep(v));
 
     if (ts.size === 0)
-      return "Set<a>";
+      return `Set<${String.fromCharCode(state.tvid++)}>`;
 
     else if (ts.size > 1) {
       const ts_ = []
@@ -139,7 +139,7 @@ const nativeIntrospection = new Map([
     else return `Set<${Array.from(ts) [0]}>`;
   }],
 
-  ["Vector", o => {
+  ["Vector", (o, state) => {
     if (o.length === 0)
       return "Vector<a>";
 
@@ -1600,15 +1600,6 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
     // Tcons (polymorphic type constructor)
 
-    /*
-      * allow partially applied type constructors only in type parameter position
-      * f a b c -> t (f) -> x -- OKAY
-      * f a b -> t (f a) -> x -- OKAY
-      * f a b -> t (f a b) -> x -- OKAY
-      * f a b -> t (f a b c) -> x -- kind error
-      * f a -> t f -> t a -- infinite kind error
-    */
-
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)<(?<fields>.*)>$", ""))) {
       
       /* If a polymorphic TC is used as a type parameter and not yet applied or
@@ -2242,7 +2233,7 @@ const serializeAst = initialAst => {
 ******************************************************************************/
 
 
-export const introspectFlat = x => {
+/* VERSION: 0.4.0 */ export const introspectFlat = x => {
   const type = Object.prototype.toString.call(x).slice(8, -1);
 
   switch (type) {
@@ -2287,137 +2278,156 @@ export const introspectFlat = x => {
 };
 
 
-export const introspectDeep = x => {
-  const type = introspectFlat(x);
+/* VERSION: 0.4.0 */ export const introspectDeep = x_ => {
+  const go = x => {
 
-  switch (type) {
-    case "Array": {
-      const ts = new Set();
-      x.forEach(y => ts.add(introspectDeep(y)));
+    // retrieve the native Javascript type
 
-      if (ts.size === 0)
-        return "[a]";
+    const type = introspectFlat(x);
 
-      else if (ts.size > 1) {
-        const ts_ = []
+    switch (type) {
+      case "Array": {
+        const ts = new Set();
+        x.forEach(y => ts.add(go(y)));
 
-        ts.forEach(t => {
-          if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-            ts_.push(t);
-        })
+        if (ts.size === 0)
+          return `[${String.fromCharCode(state.tvid++)}]`;
 
-        if (ts_.length > 1)
-          throw new TypeError(cat(
-            "invalid Array\n",
-            "must contain homogeneous elements\n",
-            `but "${ts_.join(", ")}" received`,
-            "\n"));
+        else if (ts.size > 1) {
+          const ts_ = []
 
-        else return `[${ts_[0]}]`;
-      }
+          ts.forEach(t => {
+            if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+              ts_.push(t);
+          })
 
-      else return `[${Array.from(ts) [0]}]`;
-    }
+          if (ts_.length > 1)
+            throw new TypeError(cat(
+              "invalid Array\n",
+              "must contain homogeneous elements\n",
+              `but "${ts_.join(", ")}" received`,
+              "\n"));
 
-    case "Function": {
-      if (ANNO in x) {
-        if (x[ANNO] [0] !== "(" || x[ANNO] [x[ANNO].length - 1] !== ")")
-          return `(${x[ANNO]})`;
-
-        else return x[ANNO];
-      }
-     
-      else return type; // Funtion type constant
-    }
-
-    case "NEArray": {
-      const ts = new Set();
-      x.forEach(y => ts.add(introspectDeep(y)));
-
-      if (ts.size === 0
-        || ts.size === 1 && ts.has("Undefined"))
-          throw new TypeError(cat(
-            "invalid NEArray\n",
-            "must contain at least a single element\n"));
-
-      else if (ts.size > 1) {
-        const ts_ = []
-
-        ts.forEach(t => {
-          if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-            ts_.push(t);
-        })
-
-        if (ts_.length > 1)
-          throw new TypeError(cat(
-            "invalid NEArray\n",
-            "must contain homogeneous elements\n",
-            `but "${ts_.join(", ")}" received`,
-            "\n"));
-
-        else return `[1${ts_[0]}]`;
-      }
-
-      else return `[1${Array.from(ts) [0]}]`;
-    } 
-
-    case "Tuple": {
-      const ts = [];
-      x.forEach(y => ts.push(introspectDeep(y)));
-      return `[${Array.from(ts).join(", ")}]`;
-    }
-
-    case "Undefined":
-      throw new TypeError(cat(
-        "illegal type introspection\n",
-        "namely: undefined\n",
-        `runtime immediately terminated\n`));
-
-    default: {
-
-      // object-based type constant
-
-      if (typeConstDict.has(type))
-        return type;
-
-      // native type
-
-      else if (nativeTypeDict.has(type))
-        return nativeIntrospection.get(type) (x);
-
-      // Thunk
-
-      else if (x !== null && x[THUNK])
-        return x[ANNO];
-
-      // ADT or Object
-
-      else if (x !== null && typeof x === "object" || typeof x === "function") {
-
-        // ADT
-
-        if (ADT in x) return x[ADT];
-
-        // Object
-
-        else {
-            const ts = new Map();
-
-            const cons = TAG in x
-              ? `${x[TAG]} ` : "";
-
-            for (let k in x)
-              ts.set(k, introspectDeep(x[k]));
-
-            return `${cons}{${Array.from(ts).map(([k, v]) => k + ": " + v).join(", ")}}`;
+          else return `[${ts_[0]}]`;
         }
+
+        else return `[${Array.from(ts) [0]}]`;
       }
 
-      // primitive Tconst
+      case "Function": {
 
-      else return type;
+        /* Functions are an opaque type, therefore they need an explicit user
+        defined type annotation. The top-level quantifier is implicit but can
+        still be provided by the user. Both forms must be taken into account. */
+
+        if (ANNO in x) {
+          if (x[ANNO] [0] !== "(" || x[ANNO] [x[ANNO].length - 1] !== ")")
+            return `(${x[ANNO]})`;
+
+          else return x[ANNO];
+        }
+       
+        /* If a function is untyped, the introspection returns a native Javascript
+        `Function` constant. This behavior gives rise to type holes or untyped
+        sections in the type validator. If this is a feature or a design mistake
+        isn't clear yet. */
+
+        else return type;
+      }
+
+      case "NEArray": {
+        const ts = new Set();
+        x.forEach(y => ts.add(go(y)));
+
+        if (ts.size === 0
+          || ts.size === 1 && ts.has("Undefined"))
+            throw new TypeError(cat(
+              "invalid NEArray\n",
+              "must contain at least a single element\n"));
+
+        else if (ts.size > 1) {
+          const ts_ = []
+
+          ts.forEach(t => {
+            if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+              ts_.push(t);
+          })
+
+          if (ts_.length > 1)
+            throw new TypeError(cat(
+              "invalid NEArray\n",
+              "must contain homogeneous elements\n",
+              `but "${ts_.join(", ")}" received`,
+              "\n"));
+
+          else return `[1${ts_[0]}]`;
+        }
+
+        else return `[1${Array.from(ts) [0]}]`;
+      } 
+
+      case "Tuple": {
+        const ts = [];
+        x.forEach(y => ts.push(go(y)));
+        return `[${Array.from(ts).join(", ")}]`;
+      }
+
+      case "Undefined":
+        throw new TypeError(cat(
+          `value of type "Undefined" received\n`,
+          "not a joke - this is actually possible in Javascript\n",
+          "runtime immediately terminated\n"));
+
+      default: {
+
+        // object-based type constant (e.g. `Integer` or `Char`)
+
+        if (typeConstDict.has(type))
+          return type;
+
+        // native type
+
+        else if (nativeTypeDict.has(type))
+          return nativeIntrospection.get(type) (x, state);
+
+        // Thunk (lookup doesn't trigger thunk evaluation)
+
+        else if (x !== null && x[THUNK])
+          return x[ANNO];
+
+        // ADT or Object
+
+        else if (x !== null && typeof x === "object" || typeof x === "function") {
+
+          // ADT
+
+          if (ADT in x) return x[ADT];
+
+          // Object
+
+          else {
+              const ts = new Map();
+
+              const cons = TAG in x
+                ? `${x[TAG]} ` : "";
+
+              for (let k in x)
+                ts.set(k, go(x[k]));
+
+              return `${cons}{${Array.from(ts).map(([k, v]) => k + ": " + v).join(", ")}}`;
+          }
+        }
+
+        // Tconst
+
+        else return type;
+      }
     }
-  }
+  };
+
+  let state = {tvid: 97};
+
+  return go(x_);
 };
 
 
@@ -3229,420 +3239,439 @@ export const typeClass = tcAnno => {
 ******************************************************************************/
 
 
-/* The type checker only considers applications, not definition. It only
+/* `fun` is one of the major operations of the type validator API. It only
+conducts type validation of applications, not definition. It only
 attempts to unify the formal parameter of a function type with a provided
 argument type, but it does not infer types from given terms. */
 
-export const fun = (f, funAnno) => {
-  const go = (g, lamIndex, funAst, funAnno) => Object.assign((...args) => {
-    
-    let instantiations = new Map(),
-      tvid = 0; // id to create unique type variable names
+/* VERSION: 0.4.0 */ export const fun = (f, funAnno) => {
+  const go = (g, lamIndex, funAst, funAnno) => {
+    const getArgs = (...args) => {
 
-    // take variadic arguments into account
+      // store mappings `TV => type` or `TV => TV`
 
-    switch (funAst.body.body.lambdas[0] [TAG]) {
-      case "Argv": {
-        args = [args];
-        break;
+      let instantiations = new Map();
+
+      // create unique numbers for alpha renaming
+
+      let tvid = 0;
+
+      // take variadic arguments into account
+
+      switch (funAst.body.body.lambdas[0] [TAG]) {
+        case "Argv": {
+          args = [args];
+          break;
+        }
+
+        case "Argsv": {
+          args = args
+            .slice(0, funAst.body.body.lambdas[0].length - 1)
+            .concat([args.slice(funAst.body.body.lambdas[0].length - 1)]);
+
+          break;
+        }
       }
 
-      case "Argsv": {
-        args = args
-          .slice(0, funAst.body.body.lambdas[0].length - 1)
-          .concat([args.slice(funAst.body.body.lambdas[0].length - 1)]);
+      // introspect arguments
 
-        break;
-      }
-    }
+      const argAnnos = args.map(arg => introspectDeep(arg));
 
-    // introspect arguments recursively
-    
-    const argAnnos = args.map(arg => introspectDeep(arg)),
-      argAsts = argAnnos.map(parseAnno);
+      // parse main function annotation
 
-    // resolve name clashes
+      const argAsts = argAnnos.map(parseAnno);
 
-    if (argAnnos.length > 1) {
-      const nameMap = new Map();
-      let charCode = 97;
+      // resolve name clashes
 
-      const nameSets = argAnnos.map((argAnno, i) => {
-        const argAst = argAsts[i];
+      if (argAnnos.length > 1) {
+        const nameMap = new Map();
+        let charCode = 97;
 
-        if (argAst[TAG] === "Forall"
-          && argAst.btvs.size > 0)
-            return argAst.btvs;
+        const nameSets = argAnnos.map((argAnno, i) => {
+          const argAst = argAsts[i];
 
-        else return new Set();
-      });
+          if (argAst[TAG] === "Forall"
+            && argAst.btvs.size > 0)
+              return argAst.btvs;
 
-      const {nameMappings} = nameSets.slice(1).reduce(({consumedNames, nameMappings}, nameSet, i) => {
-        nameSet.forEach(name => {
-          if (consumedNames.has(name)) {
-            let name_;
-
-            do {
-              name_ = String.fromCharCode(charCode++)
-            } while (consumedNames.has(name_));
-
-            consumedNames.add(name_);
-            nameMappings.set(`${i + 1}/${name}`, name_);
-            return {consumedNames, nameMappings};
-          }
-
-          else {
-            consumedNames.add(name);
-            return {consumedNames, nameMappings};
-          }
+          else return new Set();
         });
 
-        return {consumedNames, nameMappings};
-      }, {consumedNames: new Set(nameSets[0]), nameMappings: new Map()});
+        const {nameMappings} = nameSets.slice(1).reduce(({consumedNames, nameMappings}, nameSet, i) => {
+          nameSet.forEach(name => {
+            if (consumedNames.has(name)) {
+              let name_;
 
-      argAsts.slice(1).forEach((argAst, i) => {
-        argAsts[i + 1] = mapAst(ast => {
-          if (ast[TAG] === "Forall"
-            && ast.scope === TOP_LEVEL_SCOPE
-            && ast.btvs.size > 0) {
-              ast.btvs.forEach(btv => {
-                if (nameMappings.has(`${i + 1}/${btv}`)) {
-                  ast.btvs.delete(btv);
-                  ast.btvs.add(nameMappings.get(`${i + 1}/${btv}`));
-                }
-              });
+              do {
+                name_ = String.fromCharCode(charCode++)
+              } while (consumedNames.has(name_));
 
-              return ast;
-          }
+              consumedNames.add(name_);
+              nameMappings.set(`${i + 1}/${name}`, name_);
+              return {consumedNames, nameMappings};
+            }
 
-          else if (ast[TAG] === "BoundTV"
-            && ast.scope === TOP_LEVEL_SCOPE
-            && nameMappings.has(`${i + 1}/${ast.name}`)) {
-              ast.name = nameMappings.get(`${i + 1}/${ast.name}`);
-              return ast;
-          }
+            else {
+              consumedNames.add(name);
+              return {consumedNames, nameMappings};
+            }
+          });
 
-          else return ast;
-        }) (argAst);
+          return {consumedNames, nameMappings};
+        }, {consumedNames: new Set(nameSets[0]), nameMappings: new Map()});
 
-        argAnnos[i + 1] = serializeAst(argAsts[i + 1]);
-      });
-    }
+        argAsts.slice(1).forEach((argAst, i) => {
+          argAsts[i + 1] = mapAst(ast => {
+            if (ast[TAG] === "Forall"
+              && ast.scope === TOP_LEVEL_SCOPE
+              && ast.btvs.size > 0) {
+                ast.btvs.forEach(btv => {
+                  if (nameMappings.has(`${i + 1}/${btv}`)) {
+                    ast.btvs.delete(btv);
+                    ast.btvs.add(nameMappings.get(`${i + 1}/${btv}`));
+                  }
+                });
 
-    // check arity
+                return ast;
+            }
 
-    if (funAst.body.body.lambdas[0].length !== args.length) {
-      if (funAst.body.body.lambdas[0] [TAG] === "Argv"
-        || funAst.body.body.lambdas[0] [TAG] === "Argsv")
-          throw new TypeError(cat(
-            "arity mismatch\n",
-            `expected: at least ${funAst.body.body.lambdas[0].length - 1} argument(s)\n`,
-            `received: ${args.length - 1} argument(s)\n`,
-            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-      
-      else throw new TypeError(cat(
-        "arity mismatch\n",
-        `expected: ${funAst.body.body.lambdas[0].length} argument(s)\n`,
-        `received: ${args.length} argument(s)\n`,
-        extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-    }
+            else if (ast[TAG] === "BoundTV"
+              && ast.scope === TOP_LEVEL_SCOPE
+              && nameMappings.has(`${i + 1}/${ast.name}`)) {
+                ast.name = nameMappings.get(`${i + 1}/${ast.name}`);
+                return ast;
+            }
 
-    /* Prior to unification the function type has to be dequantified. During
-    this process bount TVs are instantiated with fresh meta TVs. As opposed to
-    subsequent dequantifications there is no alpha renaming taking place. This
-    ensures that the unified annotation only deviates as little as possible
-    from the original user-defined one. */
-    
-    ({ast: funAst, tvid} = specializeLHS(funAst.scope, 0, "") (funAst));
+            else return ast;
+          }) (argAst);
 
-    /* Attempt to type validate the application of `fun` with `arg` by unifying
-    `fun`'s first formal parameter with `arg`. Since this is a higher-rank type
-    validator, subsumption is necessary in order to unify deeply nested
-    quantifiers. The subsumption judgement for type application has the form
-    `arg <: param` (`arg` is at least as polymorphic as `param`). The order
-    flips for each nesting due to the usual co- and contravariant phenomena of
-    the function type. */
-
-    instantiations = argAnnos.reduce(
-      (instantiations, argAnno, argIndex) =>
-        unifyTypes(
-          funAst.body.body.lambdas[0] [TAG] === "Arg0"
-            ? Tconst("Undefined")
-            : funAst.body.body.lambdas[0] [argIndex],
-          parseAnno(argAnno),
-          lamIndex,
-          argIndex,
-          1,
-          tvid,
-          instantiations,
-          funAst.body.body.lambdas[0] [TAG] === "Arg0"
-            ? "Undefined"
-            : serializeAst(funAst.body.body.lambdas[0] [argIndex]),
-          argAnno,
-          funAnno,
-          argAnnos), instantiations);
-
-    /* Since type equality is transitive, the type validator takes it into
-    account:
-
-    `a ~ b`
-    `a ~ c`
-    `b ~ c` */
-
-    const transProp = new Map();
-
-    instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {
-      const valueAnno = serializeAst(valueAst);
-
-      // skip transitivity check for `Partial` types
-
-      if (keyAst[TAG] === "Partial"
-        || valueAst[TAG] === "Partial") return null;
-     
-      else if (transProp.has(valueAnno)) {
-        const targetAst = transProp.get(valueAnno);
-
-        instantiations.set(serializeAst(keyAst), {
-          key: keyAst,
-          value: targetAst,
-          substitutor: ast => ast[TAG] === keyAst[TAG]
-            && ast.name === keyAst.name
-              ? targetAst
-              : ast});
+          argAnnos[i + 1] = serializeAst(argAsts[i + 1]);
+        });
       }
 
-      else transProp.set(valueAnno, keyAst);
-    });
+      // check arity
 
-    /* TVs must not occur within a composite type they are meant to be
-    instantiated with, because this would yield an infinite type. This rule
-    also applies if such an occurrence is only indirectly, established by
-    another instantiation. */
-
-    const occurrences = new Set();
-
-    instantiations.forEach(({key: keyAst, value: valueAst}) => {
-      const lhs = reduceAst((acc, ast) => {
-        switch (ast[TAG]) {
-          case "BoundTV":
-          case "MetaTV":
-          case "RigidTV":
-            return acc.concat(ast.name);
-
-          default: return acc;
-        }
-      }, []) (keyAst);
-
-      const rhs = reduceAst((acc, ast) => {
-        switch (ast[TAG]) {
-          case "BoundTV":
-          case "MetaTV":
-          case "RigidTV":
-            return acc.concat(ast.name);
-
-          default: return acc;
-        }
-      }, []) (valueAst);
-
-      lhs.reduce((acc, x) => rhs.reduce(
-        (acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
-    });
-
-    occurrences.forEach(occurrence => {
-      const [lhs, rhs] = occurrence.split(/\//);
-
-      if (occurrences.has(`${rhs}/${lhs}`)) {
-        if (rhs === lhs)
-          throw new TypeError(cat(
-            "occurs check failed\n",
-            `"${lhs}" occurs on the LHS and RHS respecitvely\n`,
-            "during instantiation\n",
-            "and thus yields an infinite type\n",
-            "while unifying\n",
-            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-
+      if (funAst.body.body.lambdas[0].length !== args.length) {
+        if (funAst.body.body.lambdas[0] [TAG] === "Argv"
+          || funAst.body.body.lambdas[0] [TAG] === "Argsv")
+            throw new TypeError(cat(
+              "arity mismatch\n",
+              `expected: at least ${funAst.body.body.lambdas[0].length - 1} argument(s)\n`,
+              `received: ${args.length - 1} argument(s)\n`,
+              extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+        
         else throw new TypeError(cat(
-          "occurs check failed\n",
-          `"${lhs}" and "${rhs}" occur on the LHS and RHS respecitvely\n`,
-          "during instantiation\n",
-          "and thus yield an infinite type\n",
-          "while unifying\n",
+          "arity mismatch\n",
+          `expected: ${funAst.body.body.lambdas[0].length} argument(s)\n`,
+          `received: ${args.length} argument(s)\n`,
           extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
       }
-    });
 
-    /* After unification the consumed type parameter must be stripped off and
-    all relevant instantiations must be substituted in the remaining type.
-    Regeneralizing restores the bound TVs, provided there are still some left. */
+      /* Prior to unification the function type has to be dequantified. During
+      this process bount TVs are instantiated with fresh meta TVs. As opposed to
+      subsequent dequantifications there is no alpha renaming taking place. This
+      ensures that the unified annotation only deviates as little as possible
+      from the original user-defined one. */
+      
+      ({ast: funAst, tvid} = specializeLHS(funAst.scope, 0, "") (funAst));
 
-    const unifiedAst =
-      regeneralize(
-        pruneForalls(
-          substitute(
-            remConsumedParams(funAst),
-            instantiations)));
+      /* Attempt to type validate the application of `fun` with `arg` by unifying
+      `fun`'s first formal parameter with `arg`. Since this is a higher-rank type
+      validator, subsumption is necessary in order to unify deeply nested
+      quantifiers. The subsumption judgement for type application has the form
+      `arg <: param` (`arg` is at least as polymorphic as `param`). The order
+      flips for each nesting due to the usual co- and contravariant phenomena of
+      the function type. */
 
-    // take variadic arguments into account
+      instantiations = argAnnos.reduce(
+        (instantiations, argAnno, argIndex) =>
+          unifyTypes(
+            funAst.body.body.lambdas[0] [TAG] === "Arg0"
+              ? Tconst("Undefined")
+              : funAst.body.body.lambdas[0] [argIndex],
+            parseAnno(argAnno),
+            lamIndex,
+            argIndex,
+            1,
+            tvid,
+            instantiations,
+            funAst.body.body.lambdas[0] [TAG] === "Arg0"
+              ? "Undefined"
+              : serializeAst(funAst.body.body.lambdas[0] [argIndex]),
+            argAnno,
+            funAnno,
+            argAnnos), instantiations);
 
-    switch (funAst.body.body.lambdas[0] [TAG]) {
-      case "Argv": {
-        args = args[0];
-        break;
+      /* Since type equality is transitive, the type validator takes it into
+      account:
+
+      `a ~ b`
+      `a ~ c`
+      `b ~ c` */
+
+      const transProp = new Map();
+
+      instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {
+        const valueAnno = serializeAst(valueAst);
+
+        // skip transitivity check for `Partial` types
+
+        if (keyAst[TAG] === "Partial"
+          || valueAst[TAG] === "Partial") return null;
+       
+        else if (transProp.has(valueAnno)) {
+          const targetAst = transProp.get(valueAnno);
+
+          instantiations.set(serializeAst(keyAst), {
+            key: keyAst,
+            value: targetAst,
+            substitutor: ast => ast[TAG] === keyAst[TAG]
+              && ast.name === keyAst.name
+                ? targetAst
+                : ast});
+        }
+
+        else transProp.set(valueAnno, keyAst);
+      });
+
+      /* TVs must not occur within a composite type they are meant to be
+      instantiated with, because this would yield an infinite type. This rule
+      also applies if such an occurrence is only indirectly, established by
+      another instantiation. */
+
+      const occurrences = new Set();
+
+      instantiations.forEach(({key: keyAst, value: valueAst}) => {
+        const lhs = reduceAst((acc, ast) => {
+          switch (ast[TAG]) {
+            case "BoundTV":
+            case "MetaTV":
+            case "RigidTV":
+              return acc.concat(ast.name);
+
+            default: return acc;
+          }
+        }, []) (keyAst);
+
+        const rhs = reduceAst((acc, ast) => {
+          switch (ast[TAG]) {
+            case "BoundTV":
+            case "MetaTV":
+            case "RigidTV":
+              return acc.concat(ast.name);
+
+            default: return acc;
+          }
+        }, []) (valueAst);
+
+        lhs.reduce((acc, x) => rhs.reduce(
+          (acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
+      });
+
+      occurrences.forEach(occurrence => {
+        const [lhs, rhs] = occurrence.split(/\//);
+
+        if (occurrences.has(`${rhs}/${lhs}`)) {
+          if (rhs === lhs)
+            throw new TypeError(cat(
+              "occurs check failed\n",
+              `"${lhs}" occurs on the LHS and RHS respecitvely\n`,
+              "during instantiation\n",
+              "and thus yields an infinite type\n",
+              "while unifying\n",
+              extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+
+          else throw new TypeError(cat(
+            "occurs check failed\n",
+            `"${lhs}" and "${rhs}" occur on the LHS and RHS respecitvely\n`,
+            "during instantiation\n",
+            "and thus yield an infinite type\n",
+            "while unifying\n",
+            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+        }
+      });
+
+      /* After unification the consumed type parameter must be stripped off and
+      all relevant instantiations must be substituted in the remaining type.
+      Regeneralizing restores the bound TVs, provided there are still some left. */
+
+      const unifiedAst =
+        regeneralize(
+          pruneForalls(
+            substitute(
+              remConsumedParams(funAst),
+              instantiations)));
+
+      // take variadic arguments into account
+
+      switch (funAst.body.body.lambdas[0] [TAG]) {
+        case "Argv": {
+          args = args[0];
+          break;
+        }
+
+        case "Argsv": {
+          args = args.slice(0, -1).concat(args[args.length - 1]);
+          break;
+        }
       }
 
-      case "Argsv": {
-        args = args.slice(0, -1).concat(args[args.length - 1]);
-        break;
+      // actually apply `fun` with `arg` on the term level
+
+      let r = g(...args);
+
+      // ensure that applications on the term level never returns `undefined`
+
+      if (r === undefined)
+        throw new TypeError(cat(
+          "illegal result type\n",
+          "namely: undefined\n",
+          `runtime immediately terminated\n`,
+          extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+
+      // take algebraic data types and type classes into account
+
+      else if (r && typeof r === "object" && ADT in r) {
+
+        // type class
+
+        if (tcDict.has(r[TAG])) {
+          const wrapperAst = parseAnno(r[ADT]);
+
+          const instantiations_ = unifyTypes(
+            wrapperAst,
+            unifiedAst,
+            0,
+            0,
+            0,
+            0,
+            new Map(),
+            r[ADT],
+            serializeAst(unifiedAst),
+            funAnno,
+            []);
+
+          const wrapperAnno = serializeAst(
+            regeneralize(
+              pruneForalls(
+                substitute(
+                  specializeLHS(
+                    TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                    instantiations_))));
+
+          r[ADT] = wrapperAnno;
+        }
+
+        // algebraic data type
+
+        else {
+
+          // parse the annotations of the ADT components
+
+          const wrapperAst = parseAnno(r[ADT]),
+            domainAst = r.run && r.run[ANNO]
+              ? parseAnno(r.run[ANNO])
+              : parseAnno(introspectDeep(r.run));
+
+          // unify the wrapper with the unified AST
+
+          const instantiations_ = unifyTypes(
+            wrapperAst,
+            unifiedAst,
+            0,
+            0,
+            0,
+            0,
+            new Map(),
+            r[ADT],
+            serializeAst(unifiedAst),
+            funAnno,
+            []);
+
+          // update the domain annotation
+
+          const domainAnno = serializeAst(
+            regeneralize(
+              pruneForalls(
+                substitute(
+                  specializeLHS(
+                    TOP_LEVEL_SCOPE, 0, 1) (domainAst).ast,
+                    instantiations_))));
+
+          // update the wrapper annotation
+
+          const wrapperAnno = serializeAst(
+            regeneralize(
+              pruneForalls(
+                substitute(
+                  specializeLHS(
+                    TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
+                    instantiations_))));
+
+          // type the Scott encoded ADT domain and the wrapper
+
+          if (domainAst[TAG] === "Forall"
+            && domainAst.body[TAG] === "Fun")
+              r.run = fun(r.run[UNWRAP], domainAnno);
+
+          r[ADT] = wrapperAnno;
+        }
+
+        return r;
       }
-    }
 
-    // actually apply `fun` with `arg` on the term level
+      /* If the resulting AST is a function type or a function type constant, the
+      type validator is still in process of collecting more arguments. Please note
+      that due to return type abstraction a function may collect more arguments
+      than was initially specified. */
 
-    let r = g(...args);
+      if (unifiedAst[TAG] === "Forall"
+        && unifiedAst.body[TAG] === "Fun") {
+          if (introspectFlat(r) === "Function")
+            return Object.assign(
+              go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst)),
+              {[UNWRAP]: r});
 
-    // ensure that applications on the term level never returns `undefined`
-
-    if (r === undefined)
-      throw new TypeError(cat(
-        "illegal result type\n",
-        "namely: undefined\n",
-        `runtime immediately terminated\n`,
-        extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-
-    // take algebraic data types and type classes into account
-
-    else if (r && typeof r === "object" && ADT in r) {
-
-      // type class
-
-      if (tcDict.has(r[TAG])) {
-        const wrapperAst = parseAnno(r[ADT]);
-
-        const instantiations_ = unifyTypes(
-          wrapperAst,
-          unifiedAst,
-          0,
-          0,
-          0,
-          0,
-          new Map(),
-          r[ADT],
-          serializeAst(unifiedAst),
-          funAnno,
-          []);
-
-        const wrapperAnno = serializeAst(
-          regeneralize(
-            pruneForalls(
-              substitute(
-                specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                  instantiations_))));
-
-        r[ADT] = wrapperAnno;
+          else
+            throw new TypeError(cat(
+              `result type mismatch in parameter #${lamIndex + 1}\n`,
+              `expected: ${serializeAst(unifiedAst)}\n`,
+              `received: ${introspectFlat(r)}\n`,
+              extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
       }
 
-      // algebraic data type
+      // result type unification
 
       else {
+        const resultAnno = introspectDeep(r);
 
-        // parse the annotations of the ADT components
-
-        const wrapperAst = parseAnno(r[ADT]),
-          domainAst = r.run && r.run[ANNO]
-            ? parseAnno(r.run[ANNO])
-            : parseAnno(introspectDeep(r.run));
-
-        // unify the wrapper with the unified AST
-
-        const instantiations_ = unifyTypes(
-          wrapperAst,
+        unifyTypes(
           unifiedAst,
+          parseAnno(resultAnno),
           0,
           0,
           0,
           0,
           new Map(),
-          r[ADT],
-          serializeAst(unifiedAst),
+          serializeAst(funAst.body.body.result),
+          resultAnno,
           funAnno,
-          []);
+          argAnnos);
 
-        // update the domain annotation
+        // return the untyped final result
 
-        const domainAnno = serializeAst(
-          regeneralize(
-            pruneForalls(
-              substitute(
-                specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (domainAst).ast,
-                  instantiations_))));
-
-        // update the wrapper annotation
-
-        const wrapperAnno = serializeAst(
-          regeneralize(
-            pruneForalls(
-              substitute(
-                specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                  instantiations_))));
-
-        // type the Scott encoded ADT domain and the wrapper
-
-        if (domainAst[TAG] === "Forall"
-          && domainAst.body[TAG] === "Fun")
-            r.run = fun(r.run[UNWRAP], domainAnno);
-
-        r[ADT] = wrapperAnno;
+        return r;
       }
+    };
 
-      return r;
-    }
+    // attach processed type annotation
 
-    /* If the resulting AST is a function type or a function type constant, the
-    type validator is still in process of collecting more arguments. Please note
-    that due to return type abstraction a function may collect more arguments
-    than was initially specified. */
+    getArgs[ANNO] = serializeAst(funAst);
+    
+    // return the typed function that awaits further arguments
 
-    if (unifiedAst[TAG] === "Forall"
-      && unifiedAst.body[TAG] === "Fun") {
-        if (introspectFlat(r) === "Function")
-          return Object.assign(
-            go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst)),
-            {[UNWRAP]: r});
-
-        else
-          throw new TypeError(cat(
-            `result type mismatch in parameter #${lamIndex + 1}\n`,
-            `expected: ${serializeAst(unifiedAst)}\n`,
-            `received: ${introspectFlat(r)}\n`,
-            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-    }
-
-    // result type unification
-
-    else {
-      const resultAnno = introspectDeep(r);
-
-      unifyTypes(
-        unifiedAst,
-        parseAnno(resultAnno),
-        0,
-        0,
-        0,
-        0,
-        new Map(),
-        serializeAst(funAst.body.body.result),
-        resultAnno,
-        funAnno,
-        argAnnos);
-
-      // return the untyped final result
-
-      return r;
-    }
-  }, {[ANNO]: serializeAst(funAst)}); // attach dynamic type annotation
+    return getArgs;
+  };
 
   /********************
    * MAIN ENTRY POINT *
@@ -3657,27 +3686,29 @@ export const fun = (f, funAnno) => {
   else if (funAnno === undefined)
     throw new TypeError(cat(
       "missing type annotation\n",
-      "type validator expects an untyped lambda\n",
-      "along with an associated annotation\n"));
+      "type validator expects an annotated lambda\n",
+      "but untyped lambda received\n"));
 
   // run the validator
 
   else {
 
-    // strip newlines and indentations
+    /* scriptum supports indetations and newlines to render type annotations
+    more readable. These optional characters must be removed before type
+    validation. */
 
     funAnno = funAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
       .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    // ensure a top-level function type
+    /* The `fun` operation can only type lambdas, i.e. the top-level type must
+    be a function type. */
 
     if (remNestings(funAnno[0] === "(" && funAnno[funAnno.length - 1] === ")"
       ? funAnno.slice(1, -1)
       : funAnno).search(/ => /) === NOT_FOUND) {
         throw new TypeError(cat(
           "top-level type must be a function\n",
-          "received the following type though:\n",
-          `${funAnno}\n`));
+          `but ${funAnno} received\n`));
     }
 
     else {
@@ -3688,8 +3719,12 @@ export const fun = (f, funAnno) => {
 
       // return the typed function
 
+      const typedLambda = go(f, 0, funAst, funAnno);
+
+      // attach the original function
+
       return Object.assign(
-        go(f, 0, funAst, funAnno),
+        typedLambda,
         {get [UNWRAP] () {return f}});
     }
   }
