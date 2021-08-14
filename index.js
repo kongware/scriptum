@@ -61,13 +61,13 @@ const NOT_FOUND = -1;
 const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
   tcDict = new Map(); // type class dict (k: tcons, v: tparam + ops)
 
-const imperativeTypeDict = new Map([ // imperative types dict (k: tcons, v: arity)
+const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-const imperativeIntrospection = new Map([
+const nativeIntrospection = new Map([
   ["Map", m => {
     const ts = new Map();
 
@@ -148,15 +148,15 @@ const imperativeIntrospection = new Map([
   }]]);
 
 
-export const registerImperativeType = (name, arity, introspect) => {
+export const registerNativeType = (name, arity, introspect) => {
   if (CHECK) {
 
     // check for name clashes with native types
 
-    if (imperativeTypeDict.has(name))
+    if (nativeTypeDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
-        "name collision with another imperative type found\n",
+        "illegal native data type\n",
+        "name collision with another native type found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
     
@@ -164,7 +164,7 @@ export const registerImperativeType = (name, arity, introspect) => {
 
     else if (typeConstDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
+        "illegal native data type\n",
         "name collision with a type constant found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
@@ -173,13 +173,13 @@ export const registerImperativeType = (name, arity, introspect) => {
 
     else if (adtDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
+        "illegal native data type\n",
         "name collision with an algebraic data type found\n",
         `namely: ${name}\n`,
         `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
 
-    imperativeTypeDict.set(name, arity);
-    imperativeIntrospection.set(name, introspect);
+    nativeTypeDict.set(name, arity);
+    nativeIntrospection.set(name, introspect);
   }
 };
 
@@ -195,25 +195,25 @@ export const registerTypeConst = name => {
 
     // check for name clashes with native types
 
-    if (imperativeTypeDict.has(name))
+    if (nativeTypeDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
-        "name collision with another imperative type found\n",
+        "illegal type constant\n",
+        "name collision with another native type found\n",
         `namely: ${name}\n`));
     
     // check for name clashes with type constants
 
     else if (typeConstDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
-        "name collision with a type constant found\n",
+        "illegal type constant\n",
+        "name collision with another type constant found\n",
         `namely: ${name}\n`));
 
     // check for name clashes with ADTs
 
     else if (adtDict.has(name))
       throw new TypeError(cat(
-        "illegal imperative data type\n",
+        "illegal type constant\n",
         "name collision with an algebraic data type found\n",
         `namely: ${name}\n`));
 
@@ -721,41 +721,25 @@ const hasTV = scope => reduceAst((acc, ast) => {
 }, false);
 
 
-const isHigherRank = (rntvs, currScope, refName) => {
-  for (let locator of rntvs) {
-    const scope = locator.replace(new RegExp("/[a-z][a-zA-Z0-9]*$", ""), ""),
-      name = locator.match(new RegExp("(?<=/)[a-z][a-zA-Z0-9]*$", "")) [0];
 
-    if (name === refName
-      && isParentScope(scope, currScope))
-        return true;
-  }
+/* Determine whether the first scope is a parent or the same as the second one. */
 
-  return false;
-};
+/* VERSION: 0.4.0 */ const isParentScope = (parentScope, childScope) => {
 
+  /* A single nested scope, for instance, may have the serialized string form
+  ".0/0.0/0". The digit before the slash denotes the index of the curried
+  function sequence and the following one the index of the parameter, because
+  multi-parameter functions are possible in scriptum. Now if we try to
+  determine if two scopes are the same, the last pair
+  of digits must be ignored, i.e. ".0/0.0/0" is the same scope as ".0/0.1/2"
+  and vice versa. */
 
-// returns true if the first scope contains the second one
+  const parentScope_ = parentScope.replace(new RegExp("[^.]+$", ""), ""),
+    childScope_ = childScope.replace(new RegExp("[^.]+$", ""), "");
 
-const isParentScope = (parent, child) => {
-  const diff = child.match(/\./g).length - parent.match(/\./g).length;
-
-  if (diff < 0)
-    return false;
-
-  else if (diff > 0)
-    return child.search(parent) === 0;
-
-  else {
-
-    // truncate current lam/arg index
-
-    const parent_ = parent.replace(/[^.]+$/, ""),
-      child_ = child.replace(/[^.]+$/, "");
-
-    return child_.search(parent_) === 0;
-  }
-};
+  return childScope.split(/\./).length >= parentScope.split(/\./).length
+    && childScope_.search(parentScope_) === 0;
+}
 
 
 const isTV = ast => {
@@ -1087,12 +1071,12 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 ******************************************************************************/
 
 
-const parseAnno = anno => {
+/* VERSION: 0.4.0 */ const parseAnno = anno => {
   const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
-    or codomain position. If such an argument is substituted the grouping 
-    parenthesis are omitted for the latter.
+    or codomain position. Depending on this value a function type is wrapped in
+    parenthesis (domain) or not (codomain) during substitution.
 
     The `context` argument is used to prevent both, impredicative polymorphism
     and function types without a surrounding quantifer/grouping. The former is
@@ -1104,58 +1088,89 @@ const parseAnno = anno => {
     to and the latter prevents the parser to get stuck in an infinite loop
     while parsing `this*`. */
 
-    /* Uses __ as an internal placeholder for not yet consumed type parameters
-    of partially applied type constructors. Here are the possible forms of
-    partially applied type constructors:
+    /* Annotation might contain type constructors whose type parameters are not
+    fully specified. While for some types the arity is well-known and fixed
+    (`Adt`, `Native`, Array, NEArray), others must use appropiate syntax to
+    maintain their arity (e.g. `Function`, Tuple`). The following
+    manifestations are possible:
 
-    Function: (=>) / (String =>) / (, =>) / (String, =>) / (,, =>) / (String,, =>)
-    Array/NEArray: [] / [1]
-    Tuple: [,] / [String,] / [,,] / [String,,]
-    Object: {foo:} / {foo:, bar:} / {foo: String, bar:}
+    Adt: Either / Either<foo> / Either<foo, bar>
+    Array/NEArray: [] / [1] / [foo] / [1foo]
+    Function: (=>) / (foo =>) / (, =>) / (foo, =>) / (,, =>) / (foo,, =>) / (foo, bar, =>)
+    Native: Map / Map<foo> / Map<foo, bar>
+    Object: /
+    Tcons t<foo, bar>: t / t<foo> / t<foo, bar>
+    Tuple: [,] / [foo,] / [,,] / [foo,,] / [foo, bar,]
 
-    Tcons: t<> / t<,> / t<String,> / t<, String> / t<,,> / t<String,,> / t<, String,>
+    All types constrcutors must be applied from left to right, that is to say
+    `[, Bar]` is invalid. Objects are unordered and thus are incompatible with
+    partial application.
 
-    Native: Map / Map<String> / Map<, String>
-    Adt: Either / Either<String> / Either<, String>
-    
-    For Natives and ADTs the type constructor arity is known, i.e. it need not
-    to be maintained by the notation. */
+    Partially specified type constructors are represented with the `__` constant.
+    During serialization `__` is replaced with the empty string which leads to the
+    above syntax forms depending on the type at hand. */
 
+    const simplifiedType = remNestings(cs);
     let rx;
 
     // Fun
 
-    if (remNestings(cs).search(new RegExp("( |^)=>( |$)", "")) !== NOT_FOUND) {
+    if (simplifiedType.search(new RegExp("( |^)=>( |$)", "")) !== NOT_FOUND) {
 
-      // check whether this is the initial invocation or a `Forall` context
+      /* Every function type must be wrapped in parenthesis except for top-level
+      functions, because at the top-level parenthesis are implicit. */
 
       if (context !== "" && context.split(/\//).slice(-1) [0] !== "Forall")
-        throw new SyntaxError(cat(
+        throw new TypeError(cat(
           "malformed type annotation\n",
-          `function type must be inside a quantifier\n`,
+          `function type must be wrapped in "()"\n`,
           `but found "${cs}"\n`,
           `inside context "${context.split(/\//).slice(-1) [0]}"\n`,
           `in "${anno}"\n`));
 
-      // take partially applied Fun constrcutors into account
+      // check for invalid partially applied constructors
       
-      if (cs.search(/^=|>$/) !== NOT_FOUND)
+      else if (cs.search(/^=>./) !== NOT_FOUND) 
+        throw new TypeError(cat(
+          "malformed type annotation\n",
+          "invalid partially applied type constructor\n",
+          "partially application goes from left to right\n",
+          `but "${cs}" received\n`,
+          `in "${anno}"\n`));
+
+      // check if the type constructor is not yet applied
+
+      else if (cs.search(/^=>$/) !== NOT_FOUND)
+        return Fun([Partial], Partial);
+
+      /* If the type constructor is partially applied or not applied at all the
+      missing type parameters must be denoted with "__" to simplify the parsing.
+      "__" is just an interim representation only use dinternally by `parseAnno`. */
+
+      else if (cs.search(/^=|>$/) !== NOT_FOUND)
         cs = cs.replace(/^=>/, "__ =>")
           .replace(/=>$/, "=> __");
             
-      const init = splitByScheme(/ => /, 4, remNestings(cs)) (cs), // argument types
-        last = init.pop(); // result type
+      // split argument type(s) from rsult type
+
+      const init = splitByPattern(/ => /, 4, remNestings(cs)) (cs),
+        last = init.pop();
 
       // checks for variadic arguments in the result
 
       if (last.search(/^\.\./) !== NOT_FOUND)
-        throw new SyntaxError(cat(
+        throw new TypeError(cat(
           "malformed type annotation\n",
-          `illegal variadic argument "${cs}"\n`,
+          `illegal variadic syntax "${cs}"\n`,
           "at the result type\n",
           `in "${anno}"\n`));
 
+      // create the AST element
+
       return Fun(
+
+        // map over the arguments
+
         init.map((ds, i) => {
           
           // no-argument
@@ -1165,49 +1180,57 @@ const parseAnno = anno => {
 
           else {
 
-            // take partially applied multi-argument lists into account
+            // simplify syntax by removing nested structures
 
-            if (ds.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
-              ds = ds.replace(/^,/, "__,")
-                .replace(/,,/g, ", __, __")
-                .replace(/,$/, ", __");
+            const args = splitByPattern(/, /, 2, remNestings(ds)) (ds);
 
-            const args = splitByScheme(/, /, 2, remNestings(ds)) (ds);
-
-            // single-argument
+            // single parameter
 
             if (args.length === 1) {
 
-              // regular-argument
+              // normal parameter
 
               if (args[0].search(/^\.\./) === NOT_FOUND)
                 return new Arg1(go(args[0], i, 0, scope, "", context + "/Function", thisAnno, nesting));
 
-              // variadic-argument
+              // variadic parameter
 
               else
                 return new Argv(go(args[0].slice(2), i, 0, scope, "", context + "/Function", thisAnno, nesting));
             }
 
-            // multi-argument
+            // multi parameter
 
             else {
+
+              // rule out partially applied multi parameter type constructors
+
+              if (ds.search(new RegExp("^,|, =>|,,", "")) !== NOT_FOUND)
+                throw new TypeError(cat(
+                  "malformed type annotation\n",
+                  "invalid partially applied type constructor\n",
+                  "multi-parameter functions must not be partially applied\n",
+                  `but "${ds}" received\n`,
+                  `in "${anno}"\n`));
+
+              // rule out invalid variadic parameters
+
               args.forEach((arg, i) => {
                 if (arg.search(/\.\./) !== NOT_FOUND && i < args.length - 1)
-                  throw new SyntaxError(cat(
+                  throw new TypeError(cat(
                     "malformed type annotation\n",
                     `illegal variadic argument "${cs}"\n`,
                     `at lambda #${lamIx + 1} argument #${i + 1}\n`,
                     `in "${anno}"\n`));
               });
 
-              // regular multi-argument
+              // regular multi parameter
 
               if (args[args.length - 1].search(/\.\./) === NOT_FOUND)
                 return Args.fromArr(
                   args.map((arg, j) => go(arg, i, j, scope, "", context + "/Function", thisAnno, nesting)));
 
-              // multi-argument with trailing variadic one
+              // multi parameter with trailing variadic one
 
               else return Argsv.fromArr(
                 args.map((arg, j) => 
@@ -1217,19 +1240,30 @@ const parseAnno = anno => {
             }
           }
         }),
+
+        // parse the result type
+
         go(last, -1, -1, scope, "codomain", context + "/Function", thisAnno, nesting));
     }
 
     // ADT
 
-    else if (Array.from(adtDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+    else if (adtDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
+
+      /* Check if the ADT is not yet applied or has no type parameters at all.
+      Since ADT type constructor arity is hold in a map, we can restore it in
+      place. */
+
       if (cs.search(/</) === NOT_FOUND)
         return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
 
       else {
+
+        // parse the type constructor components
+
         rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
-        // take partially applied ADT constructors into account
+        // denote missing type parameters with "__"
 
         if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
           rx.groups.fields = rx.groups.fields
@@ -1237,8 +1271,12 @@ const parseAnno = anno => {
             .replace(/,,/g, ", __, __")
             .replace(/,$/, ", __");
 
-        const fields = splitByScheme(
+        // split type parameters
+
+        const fields = splitByPattern(
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
+
+        // check if parameter number corresponds with the stored arity
 
         if (fields.length > adtDict.get(rx.groups.cons))
           throw new TypeError(cat(
@@ -1248,14 +1286,29 @@ const parseAnno = anno => {
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
-        const fields_ = fields.length < adtDict.get(rx.groups.cons)
-          ? fields.concat(
-              Array(adtDict.get(rx.groups.cons) - fields.length).fill("__"))
-          : fields;
+        // check for invalid partially applied type parameters
+        
+        fields.reduce((acc, field) => {
+          if (field === "__") {
+            if (acc)
+              throw new TypeError(cat(
+                "malformed type annotation\n",
+                "invalid partially applied type constructor\n",
+                "partially application goes from left to right\n",
+                `but "${cs}" received\n`,
+                `in "${anno}"\n`));
+
+            else return acc;
+          }
+
+          else return true;
+        }, false);
+
+        // create the AST element
 
         return Adt(
           rx.groups.cons,
-          fields_.map(field =>
+          fields.map(field =>
             go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
       }
     }
@@ -1264,10 +1317,12 @@ const parseAnno = anno => {
 
     else if (rx = cs.match(new RegExp("^\\[(?:(?<nea>1))?(?<body>.*)\\]$", ""))) {
 
-      // take partially applied Array/NEArray/Tuple constructors into account
+      // denote missing Array/NEArray type parameter with "__"
 
       if (rx.groups.body === "")
         rx.groups.body = "__";
+
+      // denote missing Tuple type parameter with "__"
 
       else if (rx.groups.body.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
         rx.groups.body = rx.groups.body
@@ -1275,7 +1330,11 @@ const parseAnno = anno => {
           .replace(/,,/g, ", __, __")
           .replace(/,$/, ", __");
 
+      // simplify type
+
       const scheme = remNestings(rx.groups.body);
+
+      // determine more specific type
 
       if (scheme.search(/,/) === NOT_FOUND) {
 
@@ -1293,7 +1352,30 @@ const parseAnno = anno => {
       // Tup
 
       else {
-        const fields = splitByScheme(/, /, 2, scheme) (rx.groups.body);
+
+        // split type parameters
+
+        const fields = splitByPattern(/, /, 2, scheme) (rx.groups.body);
+
+        // check for invalid partially applied type parameters
+
+        fields.reduce((acc, field) => {
+          if (field === "__") {
+            if (acc)
+              throw new TypeError(cat(
+                "malformed type annotation\n",
+                "invalid partially applied type constructor\n",
+                "partially application goes from left to right\n",
+                `but "${cs}" received\n`,
+                `in "${anno}"\n`));
+
+            else return acc;
+          }
+
+          else return true;
+        }, false);
+
+        // create AST element
 
         return Tup(
           fields.length,
@@ -1304,33 +1386,47 @@ const parseAnno = anno => {
     // BoundTV
 
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)$", ""))) {
-      if (rntvs.has(`${scope}/${rx.groups.name}`)
-        || isHigherRank(rntvs, scope, rx.groups.name))
-          return BoundTV(
-            rx.groups.name, scope, position, []);
+      let selectedScope = "";
 
-      else {
-        r1tvs.add(rx.groups.name);
+      /* Since scriptum supports higher-rank types we must resolve the scope of
+      each TV from its syntactical position within the annotation. */
 
-        return BoundTV(
-          rx.groups.name, TOP_LEVEL_SCOPE, position, []);
+      for (const locator of rntvs) {
+        const [scope_, name] = locator.split(/:/);
+
+        if (name === rx.groups.name
+          && isParentScope(scope_, scope)
+          && scope_.length > selectedScope)
+            selectedScope = scope_;
       }
+
+      // fall back to top-level scope
+
+      if (selectedScope === "") {
+        selectedScope = TOP_LEVEL_SCOPE;
+
+        // register rank-1 TV
+
+        r1tvs.add(rx.groups.name);
+      }
+
+      // create the bound TV
+
+      return BoundTV(
+        rx.groups.name, selectedScope, position, []);
     }
 
     // Forall
 
     else if (rx = cs.match(new RegExp("^\\((?:\\^(?<quant>[^\\.]+)\\. )?(?<body>.+)\\)$", ""))) {
 
-      /* Round parenthesis have an ambiguous lexical meaning. At the top level
-      they denote an implicit quantifiers, i.e. bound variables are not listed
-      exolicitly. At a nested level their meaning depends on the position within
-      the surrounding type. If they are on the LHS of a function type, they
-      denote a higher-rank type. Otherwise they lexically group a function
-      type to distinguish them from their lexical environment. Explicit
-      quantifiers carry a caret symbol followed by a list of type variable names
-      bound to the distinct scope of this quantifier. */
+      /* `Forall` constants are triggered by the parser as soon as it comes
+      across round parenthesis, which have an ambiguous syntactical meaning. On
+      the one hand they are used to denote nested, higher-rank quantifiers at
+      the left side of a function type. On the other hand they denote a simple
+      grouping to simplify parsing function types. */
 
-      // lexical grouping
+      // syntactical grouping
 
       if (rx.groups.quant === undefined)
         return Forall(
@@ -1348,36 +1444,44 @@ const parseAnno = anno => {
           throw new TypeError(cat(
             "malformed type annotation\n",
             "impredicative polymorphic type detected\n",
-            `nested quantifiers must only occur on the LHS of "=>" but\n`,
-            `${cs}\n`,
-            `is defined inside context: ${context.split(/\//).slice(-1) [0]}\n`,
+            `higher-rank quantifiers must only occur on the LHS of "=>"\n`,
+            `but received "${cs}"\n`,
+            `inside context: ${context.split(/\//).slice(-1) [0]}\n`,
             `in "${anno}"\n`));
 
         else {
-          const nestedScope = `${scope}.${lamIx}/${argIx}`,
+          const scope_ = `${scope}.${lamIx}/${argIx}`,
             rntvs_ = new Set(rx.groups.quant.split(", "));
 
           rntvs_.forEach(rntv_ =>
-            rntvs.add(`${nestedScope}/${rntv_}`));
+            rntvs.add(`${scope_}:${rntv_}`));
 
           return Forall(
             rntvs_,
-            nestedScope,
-            go(rx.groups.body, 0, 0, nestedScope, "", context + "/Forall", thisAnno, nesting));
+            scope_,
+            go(rx.groups.body, 0, 0, scope_, "", context + "/Forall", thisAnno, nesting));
         }
       }
     }
 
     // Native
 
-    else if (Array.from(imperativeTypeDict).some(([cons]) => cs.search(new RegExp(`^${cons}\\b`, "")) === 0)) {
+    else if (nativeTypeDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
+
+      /* Check if the native type is not yet applied or has no type parameters
+      at all. Since native type constructor arity is hold in a map, we can
+      restore it in place. */
+
       if (cs.search(/</) === NOT_FOUND)
-        return Native(cs, Array(imperativeTypeDict.get(cs)).fill(Partial));
+        return Native(cs, Array(nativeTypeDict.get(cs)).fill(Partial));
 
       else {
+
+        // parse the type constructor components
+
         rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
-        // take partially applied Native constructors into account
+        // denote missing type parameters with "__"
 
         if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
           rx.groups.fields = rx.groups.fields
@@ -1385,25 +1489,44 @@ const parseAnno = anno => {
             .replace(/,,/g, ", __, __")
             .replace(/,$/, ", __");
 
-        const fields = splitByScheme(
+        // split type parameters
+
+        const fields = splitByPattern(
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
-        if (fields.length > imperativeTypeDict.get(rx.groups.cons))
+        // check if parameter number corresponds with the stored arity
+
+        if (fields.length > nativeTypeDict.get(rx.groups.cons))
           throw new TypeError(cat(
             "malformed type annotation\n",
             "type constructor arity mismatch\n",
-            `defined type parameters: ${imperativeTypeDict.get(rx.groups.cons)}\n`,
+            `defined type parameters: ${nativeTypeDict.get(rx.groups.cons)}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
-        const fields_ = fields.length < imperativeTypeDict.get(rx.groups.cons)
-          ? fields.concat(
-              Array(imperativeTypeDict.get(rx.groups.cons) - fields.length).fill("__"))
-          : fields;
+        // check for invalid partially applied type parameters
+        
+        fields.reduce((acc, field) => {
+          if (field === "__") {
+            if (acc)
+              throw new TypeError(cat(
+                "malformed type annotation\n",
+                "invalid partially applied type constructor\n",
+                "partially application goes from left to right\n",
+                `but "${cs}" received\n`,
+                `in "${anno}"\n`));
+
+            else return acc;
+          }
+
+          else return true;
+        }, false);
+
+        // create the AST element
 
         return Native(
           rx.groups.cons,
-          fields_.map(field =>
+          fields.map(field =>
             go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
       }
     }
@@ -1411,39 +1534,53 @@ const parseAnno = anno => {
     // Obj
 
     else if (cs.search(new RegExp("^(?:[A-Z][A-Za-z0-9]* )?\\{"), "") !== NOT_FOUND) {
+
+      // parse the optional constructor
+
       const cons = (cs.match(new RegExp("^[A-Z][A-Za-z0-9]*\\b", "")) || [null]) [0],
-        cs_ = cons === null ? cs : cs.slice(cons.length + 1);
+        ds = cons === null ? cs : cs.slice(cons.length + 1);
 
-      // take partially applied Objects constructors into account
+      // split properties
 
-      if (cs_.search(new RegExp(":(?=,|$)", "")) !== NOT_FOUND)
-        cs_ = cs_.replace(new RegExp(":,", "g"), ": __,")
-          .replace(new RegExp(":$", "g"), ": __");
+      const props = splitByPattern(
+        /, /, 2, remNestings(ds.slice(1, -1))) (ds.slice(1, -1));
 
-      const props = splitByScheme(
-        /, /, 2, remNestings(cs_.slice(1, -1))) (cs_.slice(1, -1));
+      // is it an empty object?
 
       if (props[0] === "") // empty {} | Foo {}
         return Obj(cons, [], null, []);
 
-      else if (props[0].search(new RegExp(
-        "^ \\| [a-z][A-Za-z0-9]*$", "")) === 0) // empty { | row} or Foo { | row}
-          return Obj(
-            cons,
-            [],
-            RowVar(props[0].match(new RegExp("(?<= \\| )[a-z][A-Za-z0-9]*$", "")) [0]),
-            []);
+      // or an empty object with row variable?
 
-      else { // non-empty {foo: a} or Foo {foo: a} or {foo: a | row} or Foo {foo: a | row}
+      else if (props[0].search(new RegExp("^ \\| [a-z][A-Za-z0-9]*$", "")) === 0) // empty { | row} or Foo { | row}
+        return Obj(
+          cons,
+          [],
+          RowVar(props[0].match(new RegExp("(?<= \\| )[a-z][A-Za-z0-9]*$", "")) [0]),
+          []);
+
+      // or a regular object including fixed properties
+
+      else {
+
+        // initialize optional row variable
+
         let row = null
 
+        // does it include a row variable?
+
         if (remNestings(props[props.length - 1]).search(/ \| /) !== NOT_FOUND) {
-          const [prop, row_] = splitByScheme(
+
+          // split row variable
+
+          const [prop, row_] = splitByPattern(
             / \| /, 3, remNestings(props[props.length - 1])) (props[props.length - 1]);
 
           row = row_;
           props[props.length - 1] = prop;
         }
+
+        // create AST element
 
         return Obj(
           cons,
@@ -1461,60 +1598,86 @@ const parseAnno = anno => {
     else if (rx = cs.match(/^__$/))
       return Partial;
 
-    // Tcons
+    // Tcons (polymorphic type constructor)
+
+    /*
+      * allow partially applied type constructors only in type parameter position
+      * f a b c -> t (f) -> x -- OKAY
+      * f a b -> t (f a) -> x -- OKAY
+      * f a b -> t (f a b) -> x -- OKAY
+      * f a b -> t (f a b c) -> x -- kind error
+      * f a -> t f -> t a -- infinite kind error
+    */
 
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)<(?<fields>.*)>$", ""))) {
       
-      /* A type constructor represents a higher-kinded type and hence makes kind
-      checking necessary. Internally they are encoded as a bound TV with a body
-      including an arbitrarily number of fields. */
+      /* If a polymorphic TC is used as a type parameter and not yet applied or
+      only partially applied as in `Monad<m>`, for instance, its arity cannot
+      be determined in place. For this reason "__" is not necessary to denote
+      missing type parameters, but such a type constructor is treated as a
+      normal, general TV without a specific arity. The latter is redetermined
+      in the course of the process. Partially applied type constructors can
+      only be in type parameter position. */
 
-      // take partially applied Tcons constructors into account
+      // split type parameters
 
-      if (rx.groups.fields === "")
-        rx.groups.fields = "__";
-
-      else if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
-        rx.groups.fields = rx.groups.fields
-          .replace(/^,/, "__,")
-          .replace(/,,/g, ", __, __")
-          .replace(/,$/, ", __");
-
-      const fields = splitByScheme(
+      const fields = splitByPattern(
         /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
       
-      if (tconsArity.has(`${scope}/${rx.groups.name}`)) {
-        if (tconsArity.get(`${scope}/${rx.groups.name}`) !== fields.length)
-          throw new TypeError(cat(
-            "malformed type annotation\n",
-            "ambiguous type constructor arity\n",
-            `"${rx.groups.name}" has arity ${tconsArity.get(`${scope}/${rx.groups.name}`)} and ${fields.length} respectively\n`,
-            `in "${anno}"\n`));
+      let selectedScope = "";
+
+      /* Since scriptum supports higher-rank types we must resolve the scope of
+      each TC from its syntactical position within the annotation. */
+
+      for (const locator of rntvs) {
+        const [scope_, name] = locator.split(/:/);
+
+        if (name === rx.groups.name
+          && isParentScope(scope_, scope)
+          && scope_.length > selectedScope)
+            selectedScope = scope_;
       }
 
-      if (rntvs.has(`${scope}/${rx.groups.name}`)
-        || isHigherRank(rntvs, scope, rx.groups.name)) {
-          tconsArity.set(`${scope}/${rx.groups.name}`, fields.length);
+      // fall back to top-level scope
 
-          return BoundTV(
-            rx.groups.name,
-            scope,
-            position,
-            fields.map(field =>
-              go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
-      }
+      if (selectedScope === "") {
+        selectedScope = TOP_LEVEL_SCOPE;
 
-      else {
-        tconsArity.set(`${TOP_LEVEL_SCOPE}/${rx.groups.name}`, fields.length);
+        // register rank-1 TV
+
         r1tvs.add(rx.groups.name);
-
-        return BoundTV(
-          rx.groups.name,
-          TOP_LEVEL_SCOPE,
-          position,
-          fields.map(field =>
-            go(field, lamIx, argIx, scope, "", context + "/Constructor", thisAnno, nesting)));
       }
+
+      /* Register the arity of the current TC. If a registered arity already
+      exists, replace it provided the newly determined arity is higher then the
+      registered one. Only the maximal arity of a TC matters, because all other
+      occurrences of this TC can be considered as partially applied. */
+
+      if (!tvArity.has(`${selectedScope}:${rx.groups.name}`)
+        || tvArity.get(`${selectedScope}:${rx.groups.name}`) < fields.length)
+          tvArity.set(`${selectedScope}:${rx.groups.name}`, fields.length);
+
+      /* In some cases we can determine the arity of a optionally partially
+      applied polymorphic TC by looking up in the arity map. This obvisouly
+      only works if the fully applied TC of the same name occurs first in the
+      type annotation. Since this is not guaranteed a subsequent traversal of
+      the finally cretaed AST to recover the right arity for all partially
+      applied TCs is necessary. */
+
+      else if (tvArity.get(`${selectedScope}:${rx.groups.name}`) > fields.length) {
+        fields.push(
+          ...Array(tvArity.get(`${selectedScope}:${rx.groups.name}`) - fields.length)
+            .fill("__"));
+      }
+
+      // create the higher-kinded bound TV
+
+      return BoundTV(
+        rx.groups.name,
+        selectedScope,
+        position,
+        fields.map(field =>
+          go(field, lamIx, argIx, scope, "", context + `/${rx.groups.name}<..>`, thisAnno, nesting)));
     }
 
     // Tconst
@@ -1543,233 +1706,310 @@ const parseAnno = anno => {
     // TypeError
 
     else
-      throw new SyntaxError(cat(
+      throw new TypeError(cat(
         "malformed type annotation\n",
         `unexpected token "${cs}"\n`,
         anno === cs ? "" : `in "${anno}"\n`));
   };
 
-  const tconsArity = new Map(),
+  const tvArity = new Map(),
     r1tvs = new Set(),
     rntvs = new Set();
 
-  // verify annotation syntax
+  // verify basic syntax rules of passed annotation
 
   verifyAnno(anno);
 
-  // remove redundant parenthesis
+  // remove redundant parenthesis at the topmost level
 
   if (anno[0] === "(" && anno[anno.length - 1] === ")")
     anno = anno.slice(1, -1);
 
-  /* Type class declarations have the form `TypeClass<t>`, which the arity of
-  `t` is not apparent from. Since `t`'s arity is specified in the rest of the
-  annotation, we can recover it for all occurrances in hindsight. */
+  // parse the annotation
 
-  const ast = mapAst(ast_ => {
-    if (ast_[TAG] === "BoundTV"
-      && ast_.body.length === 0
-      && tconsArity.has(`${ast_.scope}/${ast_.name}`)) {
-        return BoundTV(
-          ast_.name,
-          ast_.scope,
-          ast_.position,
-          Array(tconsArity.get(`${ast_.scope}/${ast_.name}`))
-            .fill(Partial));
+  const ast = go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0);
+
+  /* It is not always evident in advance what arity a TV has, because as type
+  parameters they can be passed partially applied. We have to traverse the AST
+  one more time to finally determine the arity of each TV. For performance
+  reasons this should be carried out in the first traversal, but I leave it as
+  is for the time being. */
+
+  const ast_ = mapAst(ast__ => {
+    if (ast__[TAG] === "BoundTV"
+      && ast__.body.length === 0) {
+        const selected = {arity: 0, scope: ""};
+
+        /* The locator identifies a type variable within the AST unambiguously.
+        It has the scheme ".0/0.0/0:name", where occurrences of "." denotes the
+        rank and `0/0` the respective index of the curried function sequence
+        and the respective index of the parameter in a multi-parameter function
+        respectively. "name" is the name of the TV, which can be ambiguous on
+        its own. */
+
+        for (let [locator, arity] of tvArity) {
+          const [scope, name] = locator.split(/:/);
+
+          /* The last predicate of the if statement is necessary, because we
+          want to retrieve the parent scope with the least distance to the
+          current one. */
+
+          if (name === ast__.name
+            && isParentScope(scope, ast__.scope)
+            && scope.length > selected.scope.length) {
+              selected.arity = arity;
+              selected.scope = scope;
+          }
+        }
+
+        if (selected.arity === 0)
+          return ast__;
+
+        else
+          return BoundTV(
+            ast__.name,
+            ast__.scope,
+            ast__.position,
+            Array(selected.arity).fill(Partial));
     }
 
-    else return ast_;
-  }) (go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0));
+    else return ast__;
+  }) (ast);
 
-  // wrap ast in a quantifier, if necessary
+  // if the AST includes type variables we need a quantifier
 
   if (r1tvs.size > 0)
-    return Forall(r1tvs, TOP_LEVEL_SCOPE, ast);
+    return Forall(r1tvs, TOP_LEVEL_SCOPE, ast_);
 
-  else if (ast[TAG] === "Fun")
-    return Forall(new Set(), TOP_LEVEL_SCOPE, ast);
+  /* If the topmost level of the AST is a function type, we need a grouping,
+  which is just an empty quantifier. Please recall that function types always
+  needs to be surrounded by round parenthesis to keep the syntax simple. */
 
-  else return ast;
+  else if (ast_[TAG] === "Fun")
+    return Forall(new Set(), TOP_LEVEL_SCOPE, ast_);
+
+  else return ast_;
 };
 
 
-// verifies the provied annotation against the base syntactical rules
+// verifies the provided annotation using basic syntactical rules
 
-const verifyAnno = s => {
-  const topLevel = remNestings(s);
+/* VERSION: 0.4.0 */ const verifyAnno = s => {
+  const scheme = remNestings(s);
 
-  // ensures balanced bracket nesting + wrapped function arguments
+  // prevent invalid chars
 
-  if (topLevel.replace(/=>/g, "").search(new RegExp("[(\\[{<>}\\])]", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      "bracket mismatch\n",
-      `${showBracketMismatch(topLevel)}\n`,
-      `in "${s}"\n`));
+  if (s.search(new RegExp("[^a-z0-9(){}\\[\\]<>=:,\\| \\.\\^\\*]", "i")) !== NOT_FOUND) {
+    const invalidChars = s.replace(new RegExp("[a-z(){}\\[\\]<>=:,1\\| \\.\\^]", "gi"), "");
 
-  // prevents redundant round parenthesis
-
-  else if (s.search(new RegExp("\\)\\)", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant "()"\n`,
-      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
-  // prevents redundant pointed parenthesis
-
-  else if (s.search(new RegExp("<>", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant "<>"\n`,
-      `next to "${s.match(new RegExp(".{0,5}<>.{0,5}", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
-  // prevents invalid chars
-
-  else if (s.search(new RegExp("[^a-z0-9(){}\\[\\]<>=:,_\\| \\.\\^\\*]", "i")) !== NOT_FOUND) {
-    const invalidChars = s.replace(new RegExp("[a-z(){}\\[\\]<>=:,_1\\| \\.\\^]", "gi"), "");
-
-    throw new SyntaxError(cat(
+    throw new TypeError(cat(
       "malformed type annotation\n",
       "illegal characters\n",
       `namely: ${invalidChars}\n`,
       `in "${s}"\n`));
   }
 
-  // checks for valid use of " "
+  // rule out Haskell style function types
+
+  else if (s.search(/->/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `"=>" denotes function types\n`,
+      `but Haskell's "->" received\n`,
+      `in "${s}"\n`));
+
+  // ensure balanced bracket nesting
+
+  else if (scheme.replace(/=>/g, "").search(new RegExp("[(\\[{<>}\\])]", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      "bracket mismatch\n",
+      `${showBracketMismatch(scheme)}\n`,
+      `in "${s}"\n`));
+
+  // prevent redundant round parenthesis
+
+  else if (s.search(/\)\)/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `redundant "(..)"\n`,
+      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // prevent redundant pointed parenthesis
+
+  else if (s.search(/<>/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `redundant "<>"\n`,
+      `next to "${s.match(new RegExp(".{0,5}<>.{0,5}", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // check for valid use of =>
+
+  else if (s.replace(new RegExp("(?: |\\()=>( |\\))", "g"), "").search("=>") !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "=>"\n`,
+      "allowed syntactical forms:\n",
+      "(foo => bar)\n",
+      "(foo =>)\n",
+      "(=>)\n",
+      `in "${s}"\n`));
+
+  // check for invalid use of =
+  
+  else if (s.search(new RegExp("=(?!>)", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "="\n`,
+      `must only be used in "=>"\n`,
+      `in "${s}"\n`));
+
+  // check for invalid use of ,
+  
+  else if (s.search(new RegExp(",[^, \\]]", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of ","\n`,
+      "must only be used to enumerate names:\n",
+      "foo, bar, baz\n",
+      "or to denote partially applied type constructors:\n",
+      "(, =>)\n",
+      "[,,]\n",
+      `in "${s}"\n`));
+
+  // check for invalid use of ^
+  
+  else if (s.search(new RegExp("(?<!\\()\\^[a-z]", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "^"\n`,
+      "must only be used in quantifiers:\n",
+      "(^foo. foo => bar)\n",
+      `in "${s}"\n`));
+
+  // check for valid use of .
+
+  else if (s.replace(new RegExp("[a-zA-Z0-9]\\. ", "g"), "").search(/\./) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "."\n`,
+      "must only be used in quantifiers:\n",
+      "(^foo. foo => bar)\n",
+      `in "${s}"\n`));
+
+  // check for invalid use of <
+  
+  else if (s.search(new RegExp("(?<![a-zA-Z0-9])<", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "<"\n`,
+      "must only be used in type constructors:\n",
+      "foo<bar>\n",
+      `in "${s}"\n`));
+
+  // check for valid use of :
+  
+  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*: ", "gi"), "").search(":") !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of ":"\n`,
+      "must only be used in objects:\n",
+      "{foo: bar}\n",
+      `in "${s}"\n`));
+
+  // check for valid use of |
+
+  else if (s.replace(new RegExp(/ \| [a-z]/g), "").search(/\|/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "|"\n`,
+      "must only be used in objects to separate the row variable:\n",
+      "{foo: bar | row}\n",
+      `in "${s}"\n`));
+
+  // check for valid use of ()
+
+  else if (s.replace(new RegExp("\\(\\) =>", "g"), "").search(/\(\)/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "()"\n`,
+      "must only be used for thunks:\n",
+      "() => foo\n",
+      `in "${s}"\n`));
+
+  // check for valid use of 0-9
+
+  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*\\b|\\[1", "gi"), "").search(/\d/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      "invalid use of digits\n",
+      "names must not start with a digit\n",
+      `in "${s}"\n`));
+
+  // prevent redundant spaces
+
+  else if (s.search(new RegExp("  |^ | $", "")) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `redundant " "\n`,
+      `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
+      `in "${s}"\n`));
+
+  // check for valid use of *this
+
+  else if (s.replace(new RegExp("\\bthis\\*", "g"), "").search(/\*/) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "*"\n`,
+      "must only be used to denote self referencing:\n",
+      "{foo: (bar => this*)}\n",
+      `in "${s}"\n`));
+
+  // prevent explicit top-level quantifiers
+
+  else if (s.search(/^\(\^/) !== NOT_FOUND
+    && s.search(/\)$/) !== NOT_FOUND)
+      throw new TypeError(cat(
+        "malformed type annotation\n",
+        "top-level type must be implicitly quantified\n",
+        `but "${s.match(new RegExp("(?<=^\\()\\^[^.]+\\.", "")) [0]}" received\n`,
+        `in "${s}"\n`));
+
+  // prevent malformed variadic arguments
+
+  else if (s.replace(new RegExp("\\.\\.\\[", "g"), "").search(/\.\./) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of ".."\n`,
+      "must only be used in variadic arguments:\n",
+      "..[Foo]\n",
+      `in "${s}"\n`));
+
+  // prevent malformed variadic arguments
+
+  else if (s.search(/\.\.\./) !== NOT_FOUND)
+    throw new TypeError(cat(
+      "malformed type annotation\n",
+      `invalid use of "..."\n`,
+      "variadic arguments expect only two dots:\n",
+      "..[Foo]\n",
+      `in "${s}"\n`));
+
+  // check for valid use of " "
 
   else if (s.replace(/ => /g, "")
+    .replace(/ =>/g, "")
     .replace(/, /g, "")
     .replace(/: /g, "")
     .replace(/ \| /g, "")
     .replace(new RegExp("[a-z0-9]\\. ", "gi"), "")
     .replace(new RegExp("[a-z0-9] \\{", "gi"), "")
     .search(" ") !== NOT_FOUND)
-    throw new SyntaxError(cat(
+    throw new TypeError(cat(
       "malformed type annotation\n",
-      `invalid use of " "\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of :
-  
-  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*:[ ,}]", "gi"), "").search(":") !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of ":"\n`,
-      `in "${s}"\n`));
-
-  // checks for invalid use of =
-  
-  else if (s.search(new RegExp("=(?!>)", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "=>"\n`,
-      `missing trailing ">"\n`,
-      `in "${s}"\n`));
-
-  // checks for invalid use of >
-  
-  else if (s.search(new RegExp(" >", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of ">"\n`,
-      `missing preceding "="\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of =>
-
-  else if (s.replace(new RegExp("[ (]=>[ )]", "g"), "").search("=>") !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "=>"\n`,
-      "function arrow must be surrounded by a space\n",
-      `in "${s}"\n`));
-
-  // checks for valid use of _
-
-  else if (s.replace(new RegExp("\\b__\\b", "g"), "").search(/_/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "_"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of ()
-
-  else if (s.replace(new RegExp("\\(\\) =>", "g"), "").search(/\(\)/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "()"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of 0-9
-
-  else if (s.replace(new RegExp("\\b[a-z][a-z0-9]*\\b|\\[1", "gi"), "").search(/\d/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of digits\n`,
-      "names must not start with a digit\n",
-      `in "${s}"\n`));
-
-  // prevents redundant spaces
-
-  else if (s.search(new RegExp("  |^ | $", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `redundant " "\n`,
-      `next to "${s.match(new RegExp(".{0,5}(?:  |^ | $).{0,5}", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
-  // checks for valid use of *this
-
-  else if (s.replace(/\bthis\*/g, "").search(/\*/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "this*"\n`,
-      `in "${s}"\n`));
-
-  // prevents explicit top-level quantifiers
-
-  else if (s.search(/^\(\^/) !== NOT_FOUND
-    && s.search(/\)$/) !== NOT_FOUND)
-      throw new SyntaxError(cat(
-        "malformed type annotation\n",
-        "top-level type must be implicitly quantified\n",
-        `but "${s.match(new RegExp("(?<=^\\()\\^[^.]+\\.", "")) [0]}" found\n`,
-        `in "${s}"\n`));
-
-  // prevents malformed explicit quantifier
-
-  else if (s.search(new RegExp("\\(\\^[^.]* \\.", "")) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      "invalid explicit quantifier\n",
-      "expected scheme: ^a, b, c.\n",
-      `in "${s}"\n`));
-
-  else if (s.replace(new RegExp("\\(\\^[a-z][^.]*\\. ", "g"), "").search(/\^/) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      "invalid explicit quantifier\n",
-      "expected scheme: ^a, b, c.\n",
-      `in "${s}"\n`));
-
-  // prevents malformed variadic arguments
-
-  else if (s.replace(new RegExp("\\.\\.\\[", "g"), "").search(/\.\./) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of ".."\n`,
-      "expected form: ..[Name]\n",
-      `in "${s}"\n`));
-
-  // prevents malformed variadic arguments
-
-  else if (s.search(/\.\.\./) !== NOT_FOUND)
-    throw new SyntaxError(cat(
-      "malformed type annotation\n",
-      `invalid use of "..."\n`,
-      "expected form: ..[Name]\n",
+      `unexpected use of " "\n`,
       `in "${s}"\n`));
 
   return s;
@@ -1779,22 +2019,22 @@ const verifyAnno = s => {
 /***[ Combinators ]***********************************************************/
 
 
-/* Since I use regular expresssions (don't judge me) to parse annotations
-frequently only the current lexical level must be parsed. `remNestings` removes
-nested subterms, so that they don't interfere with the current parsing process. */
+/* Remove nested pairs of parenthesis to simplify parsing through regular
+expressions. This is the reason why functions must always be nested in round
+parenthesis, even though the syntax doesn't require them to be unambiguous. */
 
-const remNestings = s => {
-  let cs = s, ds;
+/* VERSION: v0.4.0 */const remNestings = cs => {
+  let ds;
 
   do {
     ds = cs;
-    cs = cs.replace(/=>/g, "=="); // mask function arrow
+    cs = cs.replace(/=>/g, "=="); // mask function arrows
     cs = cs.replace(new RegExp("\\([^(){}\\[\\]<>]*\\)", ""), s => "_".repeat(s.length)); // Fun
     cs = cs.replace(new RegExp("(?:[A-Z][A-Za-z0-9]* )?{[^(){}\\[\\]<>]*}", ""), s => "_".repeat(s.length)); // Obj
     cs = cs.replace(new RegExp("\\[[^(){}\\[\\]<>]*\\]", ""), s => "_".repeat(s.length)); // Arr + Nea + Tup
     cs = cs.replace(new RegExp("[A-Z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Adt + Native
     cs = cs.replace(new RegExp("\\b[a-z][A-Za-z0-9]*<[^(){}\\[\\]<>]*>", ""), s => "_".repeat(s.length)); // Tcons
-    cs = cs.replace(/==/g, "=>"); // unmask function arrow
+    cs = cs.replace(/==/g, "=>"); // unmask function arrows
   } while (ds !== cs);
 
   return cs;
@@ -1821,7 +2061,7 @@ const showBracketMismatch = s => {
 /* Take one level of an annotation and splits it at each position where a
 subterm is found. */
 
-const splitByScheme = (rx, delimLen, ref) => cs => {
+const splitByPattern = (rx, delimLen, ref) => cs => {
   const xs = ref.split(rx), ys = [];
   let len = 0;
 
@@ -1832,6 +2072,9 @@ const splitByScheme = (rx, delimLen, ref) => cs => {
 
   return ys;
 };
+
+
+debugger; const foo =parseAnno("f<a, b, c> => t<f<a>> => t<f<a, b>> => Number");
 
 
 /******************************************************************************
@@ -2137,10 +2380,10 @@ export const introspectDeep = x => {
       if (typeConstDict.has(type))
         return type;
 
-      // imperative type
+      // native type
 
-      else if (imperativeTypeDict.has(type))
-        return imperativeIntrospection.get(type) (x);
+      else if (nativeTypeDict.has(type))
+        return nativeIntrospection.get(type) (x);
 
       // Thunk
 
@@ -2206,7 +2449,7 @@ export const type = adtAnno => {
 
     // parse the type wrapper
 
-    const [domain, wrapperAnno] = splitByScheme(
+    const [domain, wrapperAnno] = splitByPattern(
       / => /, 4, remNestings(adtAnno)) (adtAnno);
 
     // ensures top-level function type
@@ -2239,7 +2482,7 @@ export const type = adtAnno => {
 
     const tcons = wrapperAnno.match(/[^<]+/) [0];
 
-    const arity = splitByScheme(
+    const arity = splitByPattern(
       /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
         (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
 
@@ -2254,10 +2497,10 @@ export const type = adtAnno => {
 
     // check for name clashes with native types
 
-    else if (imperativeTypeDict.has(tcons))
+    else if (nativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with an imperative type found\n",
+        "name collision with a native type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2382,7 +2625,7 @@ export const type1 = adtAnno => {
     /* Parse the codomain of the ADT annotation. Since `type1` annotations
     always have single function argument the codomain is always at index 1. */
 
-    const codomainAnno = splitByScheme(
+    const codomainAnno = splitByPattern(
       / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
 
     // ensures top-level function type
@@ -2408,7 +2651,7 @@ export const type1 = adtAnno => {
     const tcons = codomainAnno.match(/[^<]+/) [0];
 
     const arity = codomainAnno !== tcons
-      ? splitByScheme(
+      ? splitByPattern(
           /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
             (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
       : 0;
@@ -2424,10 +2667,10 @@ export const type1 = adtAnno => {
 
     // check for name clashes with native types
 
-    else if (imperativeTypeDict.has(tcons))
+    else if (nativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal algebraic data type\n",
-        "name collision with an imperative type found\n",
+        "name collision with a native type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${adtAnno}"\n`));
 
@@ -2585,7 +2828,7 @@ export const typeClass = tcAnno => {
 
     // determine type class components
 
-    const tcCompos = splitByScheme(
+    const tcCompos = splitByPattern(
       / => /, 4, remNestings(tcAnno)) (tcAnno);
 
     // determine superclass dependencies
@@ -2690,10 +2933,10 @@ export const typeClass = tcAnno => {
 
     // check for name clashes with native types
 
-    else if (imperativeTypeDict.has(tcons))
+    else if (nativeTypeDict.has(tcons))
       throw new TypeError(cat(
         "illegal type class\n",
-        "name collision with an imperative type found\n",
+        "name collision with a native type found\n",
         `namely: ${tcons}\n`,
         `while declaring "${tcAnno}"\n`));
 
@@ -10042,6 +10285,25 @@ Vector.elem = fun(
 /******************************************************************************
 **********************************[ YONEDA ]***********************************
 ******************************************************************************/
+
+
+const Coyoneda_ = type1("(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
+
+
+export const Coyoneda = fun(f => tx => Coyoneda_(fun(
+  k => k(f) (tx),
+  "((b => a) => f<b> => r) => r")),
+  "(b => a) => f<b> => Coyoneda<f, a>");
+
+
+Coyoneda.lift = Coyoneda(id);
+
+
+Coyoneda.lower = fun(
+  ({map}) => tx => tx.run(fun(
+    f => ty => map(f) (ty),
+    "(b => a) => f<b> => f<a>")),
+  "Functor<f> => Coyoneda<f, a> => f<b>");
 
 
 export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
