@@ -54,28 +54,30 @@ const GT = 1;
 
 const NOT_FOUND = -1;
 
+const letterA = 97;
 
 /***[ Type Dictionaries ]*****************************************************/
 
 
-const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
+/* VERSION: 0.4.0 */ const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
   tcDict = new Map(); // type class dict (k: tcons, v: tparam + ops)
 
-const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
+
+/* VERSION: 0.4.0 */ const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
   ["Map", 2],
   ["Set", 1],
   ["Vector", 1]]);
 
 
-const nativeIntrospection = new Map([
-  ["Map", (m, state) => {
+/* VERSION: 0.4.0 */ const nativeIntrospection = new Map([
+  ["Map", (m, state, introspectDeep_) => {
     const ts = new Map();
 
     for (let [k, v] of m)
-      ts.set(introspectDeep(k), introspectDeep(v));
+      ts.set(introspectDeep_(k), introspectDeep_(v));
 
     if (ts.size === 0)
-      return `Map<${String.fromCharCode(state.tvid++)}, ${String.fromCharCode(state.tvid++)}>`;
+      return `Map<${String.fromCharCode(state.charCode++)}, ${String.fromCharCode(state.charCode++)}>`;
 
     else if (ts.size > 1) {
       const tk = [],
@@ -93,14 +95,14 @@ const nativeIntrospection = new Map([
         throw new TypeError(cat(
           "invalid Map\n",
           "must contain homogeneous keys and values\n",
-          `but the following keys received:`,
+          "but the following keys received:",
           `${tk.join(", ")}\n`));
 
       else if (tv.length > 1)
         throw new TypeError(cat(
           "invalid Map\n",
           "must contain homogeneous keys and values\n",
-          `but the following values received:`,
+          "but the following values received:",
           `${tv.join(", ")}\n`));
 
       else return `Map<${tk[0]}, ${tv[0]}>`;
@@ -109,14 +111,14 @@ const nativeIntrospection = new Map([
     else return `Map<${Array.from(ts) [0].join(", ")}>`;
   }],
 
-  ["Set", (s, state) => {
+  ["Set", (s, state, introspectDeep_) => {
     const ts = new Set();
 
     for (let v of s)
-      ts.add(introspectDeep(v));
+      ts.add(introspectDeep_(v));
 
     if (ts.size === 0)
-      return `Set<${String.fromCharCode(state.tvid++)}>`;
+      return `Set<${String.fromCharCode(state.charCode++)}>`;
 
     else if (ts.size > 1) {
       const ts_ = []
@@ -130,8 +132,8 @@ const nativeIntrospection = new Map([
         throw new TypeError(cat(
           "invalid Set\n",
           "must contain homogeneous keys\n",
-          `but "${ts_.join(", ")}" received`,
-          "\n"));
+          "but the following values received:",
+          `${ts_.join(", ")}\n`));
 
       else return `Set<${ts_[0]}>`;
     }
@@ -139,12 +141,12 @@ const nativeIntrospection = new Map([
     else return `Set<${Array.from(ts) [0]}>`;
   }],
 
-  ["Vector", (o, state) => {
+  ["Vector", (o, state, introspectDeep_) => {
     if (o.length === 0)
       return "Vector<a>";
 
     else
-      return `Vector<${introspectDeep(o.data.v)}>`;
+      return `Vector<${introspectDeep_(o.data.v)}>`;
   }]]);
 
 
@@ -158,7 +160,7 @@ export const registerNativeType = (name, arity, introspect) => {
         "illegal native data type\n",
         "name collision with another native type found\n",
         `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
     
     // check for name clashes with type constants
 
@@ -167,7 +169,7 @@ export const registerNativeType = (name, arity, introspect) => {
         "illegal native data type\n",
         "name collision with a type constant found\n",
         `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
 
     // check for name clashes with ADTs
 
@@ -176,7 +178,7 @@ export const registerNativeType = (name, arity, introspect) => {
         "illegal native data type\n",
         "name collision with an algebraic data type found\n",
         `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + 97).join(", ")}>"\n`));
+        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
 
     nativeTypeDict.set(name, arity);
     nativeIntrospection.set(name, introspect);
@@ -372,7 +374,7 @@ export const Char = s => {
       throw new TypeError(cat(
         "type mismatch\n",
         "expected: a single character String\n",
-        `received: ${introspectDeep(s)}\n`,
+        `received: ${introspectDeep({charCode: letterA}) (s)}\n`,
         "while constructing a Char\n"));
   }
 
@@ -394,7 +396,7 @@ export const Nat = n => {
       throw new TypeError(cat(
         "type mismatch\n",
         "expected: a positive integer-like Number\n",
-        `received: ${introspectDeep(n)}\n`,
+        `received: ${introspectDeep({charCode: letterA}) (n)}\n`,
         "while constructing a Natural\n"));
   }
 
@@ -416,7 +418,7 @@ export const Int = n => {
       throw new TypeError(cat(
         "type mismatch\n",
         "expected: an integer-like Number\n",
-        `received: ${introspectDeep(n)}\n`,
+        `received: ${introspectDeep({charCode: letterA}) (n)}\n`,
         "while constructing an Integer\n"));
   }
 
@@ -742,7 +744,7 @@ const hasTV = scope => reduceAst((acc, ast) => {
 }
 
 
-const isTV = ast => {
+/* VERSION: 0.4.0 */ const isTV = ast => {
   switch (ast[TAG]) {
     case "BoundTV":
     case "MetaTV":
@@ -2065,9 +2067,6 @@ const splitByPattern = (rx, delimLen, ref) => cs => {
 };
 
 
-debugger; const foo =parseAnno("f<a, b, c> => t<f<a>> => t<f<a, b>> => Number");
-
-
 /******************************************************************************
 *******************************************************************************
 *******************************[ SERIALIZATION ]*******************************
@@ -2267,6 +2266,10 @@ const serializeAst = initialAst => {
       else return type;
     }
 
+    /* `Undefined` usually immediately leads to runtime termination unless it
+    is a function argument, because nullary functions implicitly pass
+    `Undefined`. */
+
     case "Undefined":
       throw new TypeError(cat(
         "illegal type introspection\n",
@@ -2278,12 +2281,19 @@ const serializeAst = initialAst => {
 };
 
 
-/* VERSION: 0.4.0 */ export const introspectDeep = x_ => {
+/* `introspectDeep` is an imperative stateful function. It creates a closure
+that holds some state and can pass this closure to other functions to share
+this state. The type validator relies on vanilla Javascript and thus needs to
+fall back to elusive side effects every now and then. */
+
+/* VERSION: 0.4.0 */ export const introspectDeep = state => {
   const go = x => {
 
     // retrieve the native Javascript type
 
     const type = introspectFlat(x);
+
+    // inspect the value recursively
 
     switch (type) {
       case "Array": {
@@ -2291,7 +2301,7 @@ const serializeAst = initialAst => {
         x.forEach(y => ts.add(go(y)));
 
         if (ts.size === 0)
-          return `[${String.fromCharCode(state.tvid++)}]`;
+          return `[${String.fromCharCode(state.charCode++)}]`;
 
         else if (ts.size > 1) {
           const ts_ = []
@@ -2372,10 +2382,13 @@ const serializeAst = initialAst => {
         return `[${Array.from(ts).join(", ")}]`;
       }
 
+      /* `Undefined` usually immediately leads to runtime termination unless it
+      is a function argument, because nullary functions implicitly pass
+      `Undefined`. */
+
       case "Undefined":
         throw new TypeError(cat(
           `value of type "Undefined" received\n`,
-          "not a joke - this is actually possible in Javascript\n",
           "runtime immediately terminated\n"));
 
       default: {
@@ -2385,10 +2398,13 @@ const serializeAst = initialAst => {
         if (typeConstDict.has(type))
           return type;
 
-        // native type
+        /* Native types are imperative Javascript types, i.e. they are not
+        algebraic. They comprise both built-in and custom types. It must be
+        defined for every native type how introspection works. Since such
+        introspection might introduce further TVs, it must be stateful as well. */
 
         else if (nativeTypeDict.has(type))
-          return nativeIntrospection.get(type) (x, state);
+          return nativeIntrospection.get(type) (x, state, go);
 
         // Thunk (lookup doesn't trigger thunk evaluation)
 
@@ -2425,9 +2441,7 @@ const serializeAst = initialAst => {
     }
   };
 
-  let state = {tvid: 97};
-
-  return go(x_);
+  return go;
 };
 
 
@@ -2770,7 +2784,7 @@ export const type1 = adtAnno => {
 
       // retrieve the type of the passed argument
 
-      const argAnno = introspectDeep(x);
+      const argAnno = introspectDeep({charCode: letterA}) (x);
 
       // specialize ADT domain/codomain
 
@@ -3043,7 +3057,7 @@ export const typeClass = tcAnno => {
         let name = tparamTo;
 
         if (btvs_.has(name)) {
-          let charCode = 97;
+          let charCode = letterA;
 
           do {
             name = String.fromCharCode(charCode++)
@@ -3126,7 +3140,7 @@ export const typeClass = tcAnno => {
             throw new TypeError(cat(
               "illegal type class instance\n",
               "expects typed dictionaries as superclasses\n",
-              `but received: ${introspectDeep(superDict)}\n`,
+              `but received: ${introspectDeep({charCode: letterA}) (superDict)}\n`,
               `as the ${ordinalNum(i + 1)} passed argument\n`,
               `while applying "${tcAnno}"\n`));
 
@@ -3201,7 +3215,7 @@ export const typeClass = tcAnno => {
             typeLevelProps.get(k),
             typeof dict[k] === "function"
               ? parseAnno(dict[k] [ANNO])
-              : parseAnno(introspectDeep(dict[k])),
+              : parseAnno(introspectDeep({charCode: letterA}) (dict[k])),
             0,
             0,
             0,
@@ -3275,81 +3289,14 @@ argument type, but it does not infer types from given terms. */
 
       // introspect arguments
 
-      const argAnnos = args.map(arg => introspectDeep(arg));
+      const introspectDeep_ = introspectDeep({charCode: letterA}),
+        argAnnos = args.map(arg => introspectDeep_(arg));
 
       // parse main function annotation
 
       const argAsts = argAnnos.map(parseAnno);
 
-      // resolve name clashes
-
-      if (argAnnos.length > 1) {
-        const nameMap = new Map();
-        let charCode = 97;
-
-        const nameSets = argAnnos.map((argAnno, i) => {
-          const argAst = argAsts[i];
-
-          if (argAst[TAG] === "Forall"
-            && argAst.btvs.size > 0)
-              return argAst.btvs;
-
-          else return new Set();
-        });
-
-        const {nameMappings} = nameSets.slice(1).reduce(({consumedNames, nameMappings}, nameSet, i) => {
-          nameSet.forEach(name => {
-            if (consumedNames.has(name)) {
-              let name_;
-
-              do {
-                name_ = String.fromCharCode(charCode++)
-              } while (consumedNames.has(name_));
-
-              consumedNames.add(name_);
-              nameMappings.set(`${i + 1}/${name}`, name_);
-              return {consumedNames, nameMappings};
-            }
-
-            else {
-              consumedNames.add(name);
-              return {consumedNames, nameMappings};
-            }
-          });
-
-          return {consumedNames, nameMappings};
-        }, {consumedNames: new Set(nameSets[0]), nameMappings: new Map()});
-
-        argAsts.slice(1).forEach((argAst, i) => {
-          argAsts[i + 1] = mapAst(ast => {
-            if (ast[TAG] === "Forall"
-              && ast.scope === TOP_LEVEL_SCOPE
-              && ast.btvs.size > 0) {
-                ast.btvs.forEach(btv => {
-                  if (nameMappings.has(`${i + 1}/${btv}`)) {
-                    ast.btvs.delete(btv);
-                    ast.btvs.add(nameMappings.get(`${i + 1}/${btv}`));
-                  }
-                });
-
-                return ast;
-            }
-
-            else if (ast[TAG] === "BoundTV"
-              && ast.scope === TOP_LEVEL_SCOPE
-              && nameMappings.has(`${i + 1}/${ast.name}`)) {
-                ast.name = nameMappings.get(`${i + 1}/${ast.name}`);
-                return ast;
-            }
-
-            else return ast;
-          }) (argAst);
-
-          argAnnos[i + 1] = serializeAst(argAsts[i + 1]);
-        });
-      }
-
-      // check arity
+      // check function arity (multi-argument/variadic functions are supported)
 
       if (funAst.body.body.lambdas[0].length !== args.length) {
         if (funAst.body.body.lambdas[0] [TAG] === "Argv"
@@ -3402,19 +3349,26 @@ argument type, but it does not infer types from given terms. */
             funAnno,
             argAnnos), instantiations);
 
-      /* Since type equality is transitive, the type validator takes it into
-      account:
+      /* The type validator must consider transitivity of type equality:
 
-      `a ~ b`
-      `a ~ c`
-      `b ~ c` */
+      a ~ b
+      a ~ c
+      b ~ c
+
+      TODO:
+
+      a ~ [b]
+      a ~ [c]
+      b ~ c
+      
+      */
 
       const transProp = new Map();
 
-      instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {
+      instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {debugger;
         const valueAnno = serializeAst(valueAst);
 
-        // skip transitivity check for `Partial` types
+        // skip transitivity check for `Partial`
 
         if (keyAst[TAG] === "Partial"
           || valueAst[TAG] === "Partial") return null;
@@ -3571,7 +3525,7 @@ argument type, but it does not infer types from given terms. */
           const wrapperAst = parseAnno(r[ADT]),
             domainAst = r.run && r.run[ANNO]
               ? parseAnno(r.run[ANNO])
-              : parseAnno(introspectDeep(r.run));
+              : parseAnno(introspectDeep({charCode: letterA}) (r.run));
 
           // unify the wrapper with the unified AST
 
@@ -3643,7 +3597,7 @@ argument type, but it does not infer types from given terms. */
       // result type unification
 
       else {
-        const resultAnno = introspectDeep(r);
+        const resultAnno = introspectDeep({charCode: letterA}) (r);
 
         unifyTypes(
           unifiedAst,
@@ -6810,9 +6764,9 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
 ******************************************************************************/
 
 
-// substitute type variables with their instantiated, specific types
+// substitute type variables with their instantiated types
 
-const substitute = (ast, instantiations) => {
+/* VERSION: 0.4.0 */ const substitute = (ast, instantiations) => {
   let anno = serializeAst(ast), anno_;
 
   /* Iteratively performs substitution until the result type doesn't deviate
@@ -6823,25 +6777,36 @@ const substitute = (ast, instantiations) => {
     anno_ = anno;
 
     instantiations.forEach(({key, value, substitutor}) => {
-      if ((key[TAG] === "MetaTV" || key[TAG] === "RigitTV")
-        && (value[TAG] === "MetaTV" || value[TAG] === "RigitTV")
+
+      // check whether the key isn't a TV
+
+      if (!isTV(key))
+       throw new TypeError(
+        "internal error: only type variables can be substituted");
+
+      /* If both key and value of the substitution are TVs and the former is in
+      codomain position, then the latter must also be in codomain position, so
+      that the possible substitution with a function type omit the parenthesis. */
+
+      else if (isTV(value)
         && key.position === "codomain"
         && value.position === "")
           value.position = key.position;
 
+      // substitute each matching element of the AST
 
       ast = mapAst(ast_ => {
+
+        // each AST element class decides how substitution works in its context
+
         ast_ = substitutor(ast_, key, value);
 
-        /* Function substitutes in codomain position should be transparent to
-        the caller and thus must be dealt with within the loop. */
+        /* If the mapping process runs into a `Codomain` AST element, it must
+        convert it back into a regular `Fun`, because `Codomain` only denotes a
+        placeholder that has already served its purpose at this point. In other
+        words: `Codomain` must not leak into the caller's side. */
 
         if (ast_[TAG] === "Codomain") {
-
-          /* After the function type is reduced in the course of the application
-          the result can be a bare Codomain type, which must be reconverted to
-          its original function type. */
-
           ast_ = Fun(
             ast_.body.slice(0, -1),
             ast_.body[ast_.body.length - 1]);
@@ -6851,9 +6816,10 @@ const substitute = (ast, instantiations) => {
 
         else if (ast_[TAG] === "Fun") {
 
-          /* Collect reference of Codomain types within the AST in order to
-          transform them afterwards. Since this alters the shape of the AST,
-          the transformation must take place after the tree is traversed. */
+          /* An `Codmain` AST element with `Fun` as its immediate parent must
+          be referenced, so that it can be merged with its parent element
+          afterwards. The merging is deferred and thus seperated from the
+          mapping, because it changes the shape of the mapped AST in place. */
 
           if (ast_.body.result[TAG] === "Codomain")
             codomainRefs.push(ast_);
@@ -6864,8 +6830,8 @@ const substitute = (ast, instantiations) => {
         else return ast_;
       }) (ast);
 
-      /* Merges substitution functions in codomain position with its surrounding
-      function. */
+      /* Merge functions that substituted a TV in codomain position with its
+      surrounding function to avoid redundant parenthesis. */
 
       codomainRefs.forEach(ref => {
         ref.body.lambdas.push(...ref.body.result.body.slice(0, -1));
@@ -6900,7 +6866,7 @@ const specialize = Cons => (scope, iteration, tvid) => {
   const alphaRenamings = new Map(),
     uniqNames = new Set();
   
-  let charCode = 97; // ASCII a
+  let charCode = letterA;
 
   const mapAst_ = mapAst(ast => {
     if (ast[TAG] === "Forall") {
@@ -6996,7 +6962,7 @@ const regeneralize = ast => {
   const alphaRenamings = new Map(),
     uniqNames = new Set();
 
-  let charCode = 97;
+  let charCode = letterA;
 
   ast = mapAst(ast_ => {
     switch (ast_[TAG]) {
@@ -7727,7 +7693,7 @@ enables first class in-place upades but is not composable. */
 
 export const Mutable = fun(
   clone => ref => {
-    const anno = CHECK ? introspectDeep(ref) : "";
+    const anno = CHECK ? introspectDeep({charCode: letterA}) (ref) : "";
 
     return _let({}, ref).in(fun((o, ref) => {
       let mutated = false;
@@ -8115,6 +8081,12 @@ TailRec.return = x => ({tag: "Return", x});
 ************************************[ LIB ]************************************
 *******************************************************************************
 ******************************************************************************/
+
+
+//debugger; const foo =parseAnno("f<a, b, c> => t<f<a>> => t<f<a, b>> => Number");
+debugger; const foo = introspectDeep({charCode: letterA});
+const bar = foo(new Map());
+const baz = foo([]);
 
 
 /******************************************************************************
