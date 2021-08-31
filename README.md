@@ -24,7 +24,9 @@ Runtime type checking is expensive and only useful within the development stage.
 
 Unstable (v0.3.0)
 
-There is a major update to v0.5.0 on the way that will render the type validator implementation much more principled and robust: ▓▓▓▓▓▓▓▓░░ done.
+There is a major update to v0.5.0 on the way that will render the type validator implementation much more principled and much less brittle: ▓▓▓▓▓▓▓▓▓░ done.
+
+I am confident that it will be on next sunday.
 
 ## Goals
 
