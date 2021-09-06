@@ -34,13 +34,11 @@ export const ANNO = PREFIX + "anno";
 const MAX_COLONS = 80; // limit length of error messages
 const MAX_TUPLE = 4;
 
-// probability of deferring computation to next micro task
+// treshold of deferring computation to next micro task
 
 const MICROTASK_TRESHOLD = 0.01;
 
 const SAFE_SPACE = "·"; // use within type indentations
-const TOP_LEVEL_SCOPE = ".0/0";
-const UNWRAP = PREFIX + "unwrap"; // access to the untyped function
 
 // lib related
 
@@ -60,7 +58,7 @@ const letterA = 97;
 
 
 /* VERSION: 0.4.0 */ const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
-  tcDict = new Map(); // type class dict (k: tcons, v: tparam + ops)
+  tcDict = new Map(); // type class dict (k: tcons, v: {tparam, tcAnno})
 
 
 /* VERSION: 0.4.0 */ const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
@@ -253,8 +251,16 @@ const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => 
     argAnnos = `original arg: ${argAnnos.join(", ")}\n`;
 
   if (instantiations.size > 0) {
-    instantiations = "\n" + Array.from(instantiations)
-      .map(([k, v]) => `${k} ~ ${serializeAst(v.value)}`).join("\n");
+    const instantiations_ = [];
+
+    instantiations.forEach((v, k) => {
+      v.forEach((v_) => {
+        instantiations_.push([k, serializeAst(v_.value)]);
+      });
+    });
+
+    instantiations = "\n" + instantiations_.map(
+      ([k, v]) => `${k} ~ ${v}`).join("\n");
   }
 
   else instantiations = "";
@@ -268,13 +274,14 @@ const extendErrMsg = (lamIndex, argIndex, funAnno, argAnnos, instantiations) => 
 };
 
 
-const ordinalNum = n => {
-  switch (n) {
-    case 1: return "1st";
-    case 2: return "2nd";
-    case 3: return "3rd";
-    default: return `${n}th`;
-  }
+const setNestedMap = (k, k_, v) => m => {
+  if (!m.has(k))
+    m.set(k, new Map());
+
+  if (!m.get(k).has(k_))
+    m.get(k).set(k_, v);
+
+  return m;
 };
 
 
@@ -606,12 +613,12 @@ const BoundTV = (name, scope, position, body) =>
   ({[Symbol.toStringTag]: BoundTV.name, name, scope, position, body});
 
 
-const MetaTV = (name, scope, position, iteration, body) => // a.k.a. flexible type variable
-  ({[Symbol.toStringTag]: MetaTV.name, name, scope, position, iteration, body});
+const MetaTV = (name, scope, position, body) => // a.k.a. flexible type variable
+  ({[Symbol.toStringTag]: MetaTV.name, name, scope, position, body});
 
 
-const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem constant
-  ({[Symbol.toStringTag]: RigidTV.name, name, scope, position, iteration, body});
+const RigidTV = (name, scope, position, body) => // a.k.a. skolem constant
+  ({[Symbol.toStringTag]: RigidTV.name, name, scope, position, body});
 
 
 /******************************************************************************
@@ -622,7 +629,7 @@ const RigidTV = (name, scope, position, iteration, body) => // a.k.a. skolem con
 /* If a `Forall` AST is extracted from an annotation, the bound TVs it might
 contain must be retrieved, because the quantifier isn't implicit anymore. */
 
-const adjustForall = ref => {
+/* DEPRECATED */ const adjustForall = ref => { // TODO: delete
   const nestedScopes = new Set(),
     btvs = new Set();
 
@@ -634,7 +641,7 @@ const adjustForall = ref => {
     const ast_ = mapAst(ast => {
       switch (ast[TAG]) {
         case "BoundTV": {
-          if (ast.scope === TOP_LEVEL_SCOPE) {
+          if (getRank(ast.scope) === TOP_LEVEL_SCOPE) {
             btvs.add(ast.name);
             return ast;
           }
@@ -673,9 +680,9 @@ const adjustForall = ref => {
 };
 
 
-// determines the arity of the passed type constructor
+// determine the arity of the passed type constructor
 
-const determineArity = ast => {
+/* VERSION: 0.4.0 */ const determineArity = ast => {
   switch (ast[TAG]) {
     case "Fun": {
       switch (ast.body.lambdas[0] [TAG]) {
@@ -702,18 +709,17 @@ const determineArity = ast => {
 };
 
 
-const hasRank = (ast, rank) => reduceAst((acc, ast_) => {
-  switch (ast_[TAG]) {
-    case "BoundTV":
-      return ast_.scope
-        .match(/\./g).length === rank || acc
+/* If an sub-AST is extracted from an annotation, it might require `Forall`
+either as function type boundaries or as a quantifier. */
 
-    default: return acc;
-  }
-}, false) (ast);
+/* DEPRECATED */ const extractAst = ast => ast; // TODO: delete
 
 
-const hasTV = scope => reduceAst((acc, ast) => {
+/* VERSION: 0.4.0 */ const getRank = scope =>
+  scope.split(/\./).length - 1;
+
+
+/* DEPRECATED */ const hasTV = scope => reduceAst((acc, ast) => { // TODO: delete
   if (ast[TAG] === "BoundTV" && isParentScope(scope, ast.scope)
     || ast[TAG] === "MetaTV" && isParentScope(scope, ast.scope)
     || ast[TAG] === "RigidTV" && isParentScope(scope, ast.scope))
@@ -723,30 +729,15 @@ const hasTV = scope => reduceAst((acc, ast) => {
 }, false);
 
 
-
 /* Determine whether the first scope is a parent or the same as the second one. */
 
-/* VERSION: 0.4.0 */ const isParentScope = (parentScope, childScope) => {
-
-  /* A single nested scope, for instance, may have the serialized string form
-  ".0/0.0/0". The digit before the slash denotes the index of the curried
-  function sequence and the following one the index of the parameter, because
-  multi-parameter functions are possible in scriptum. Now if we try to
-  determine if two scopes are the same, the last pair
-  of digits must be ignored, i.e. ".0/0.0/0" is the same scope as ".0/0.1/2"
-  and vice versa. */
-
-  const parentScope_ = parentScope.replace(new RegExp("[^.]+$", ""), ""),
-    childScope_ = childScope.replace(new RegExp("[^.]+$", ""), "");
-
-  return childScope.split(/\./).length >= parentScope.split(/\./).length
-    && childScope_.search(parentScope_) === 0;
-}
+/* VERSION: 0.4.0 */ const isParentScope = (parentScope, childScope) =>
+  childScope.split(/\./).length >= parentScope.split(/\./).length
+    && childScope.search(parentScope) === 0;
 
 
 /* VERSION: 0.4.0 */ const isTV = ast => {
   switch (ast[TAG]) {
-    case "BoundTV":
     case "MetaTV":
     case "RigidTV": return true;
     default: return false;
@@ -754,7 +745,7 @@ const hasTV = scope => reduceAst((acc, ast) => {
 };
 
 
-const mapAst = f => {
+/* VERSION: 0.4.0 */ const mapAst = f => {
   const go = ast => {
     switch (ast[TAG]) {
       case "Adt": return f(
@@ -796,7 +787,6 @@ const mapAst = f => {
             ast.name,
             ast.scope,
             ast.position,
-            ast.iteration,
             ast.body.map(go)));
 
       case "Native": return f(
@@ -821,7 +811,6 @@ const mapAst = f => {
             ast.name,
             ast.scope,
             ast.position,
-            ast.iteration,
             ast.body.map(go)));
 
       case "Tconst": return f(Tconst(ast.name));
@@ -846,10 +835,7 @@ const mapAst = f => {
 };
 
 
-/* When an AST is regeneralized or extratced from a larger annotation there may
-occur redundant `Forall` subterms that need to be pruned from the tree. */
-
-const pruneForalls = ast => {
+/* DEPRECATED */ const pruneForalls = ast => { // TODO: delete
   switch (ast[TAG]) {
     case "Adt": return Adt(ast.cons, ast.body.map(pruneForalls));
     case "Arg0": return new Arg0();
@@ -897,12 +883,12 @@ const pruneForalls = ast => {
     }
 
     case "Fun": return Fun(ast.body.lambdas.map(pruneForalls), pruneForalls(ast.body.result));
-    case "MetaTV": return MetaTV( ast.name, ast.scope, ast.position, ast.iteration, ast.body.map(pruneForalls));
+    case "MetaTV": return MetaTV( ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
     case "Native": return Native(ast.cons, ast.body.map(pruneForalls));
     case "Nea": return Nea(pruneForalls(ast.body));
     case "Obj": return Obj(ast.cons, ast.props, ast.row, ast.body.map(({k, v}) => ({k, v: pruneForalls(v)})));
     case "Partial": return Partial;
-    case "RigidTV": return RigidTV(ast.name, ast.scope, ast.position, ast.iteration, ast.body.map(pruneForalls));
+    case "RigidTV": return RigidTV(ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
     case "Tconst": return Tconst(ast.name);
 
     case "This": {
@@ -920,40 +906,15 @@ const pruneForalls = ast => {
 };
 
 
-/* If an sub-AST is extracted from an annotation, it might require `Forall`
-either as grouping or as a quantifier. */
+/* If a subtree of an AST is extratced it might contain redundant `Forall`
+elements, which need to be deleted. Instead of traversing the tree and
+conducting the necessary transfomrations we just recreate the AST. */
 
-const quantifyAst = ast => {
-  const hasForall = ast[TAG] === "Forall";
-
-  if (hasForall && ast.btvs.size > 0)
-    return Forall(
-      ast.btvs,
-      TOP_LEVEL_SCOPE,
-      ast);
-
-  else if (hasForall)
-    return Forall(
-      retrieveBoundTVs(ast.scope) (ast),
-      TOP_LEVEL_SCOPE,
-      ast);
-
-  else {
-    const btvs = retrieveBoundTVs(ast.scope) (ast);
-
-    if (btvs.size > 0
-      || ast[TAG] === "Fun")
-        return Forall(
-          btvs,
-          TOP_LEVEL_SCOPE,
-          ast);
-
-    else return ast;
-  }
-};
+/* VERSION: 0.4.0 */ const recreateAst = ast =>
+  parseAnno(serializeAst(ast))
 
 
-const reduceAst = (f, init) => {
+/* VERSION: 0.4.0 */ const reduceAst = (f, init) => {
   const go = (acc, ast) => {
     switch (ast[TAG]) {
       case "Adt": return f(ast.body.reduce((acc_, field) =>
@@ -1033,31 +994,44 @@ const reduceAst = (f, init) => {
 };
 
 
-/* Removes the leftmost formal parameter of a function type after a function
-application. */
+/* Removes the leftmost formal parameter of a function type after it was applied
+to an argument type. */
 
-const remConsumedParams = (ast) => {
-  if (ast.body.body.lambdas.length === 1) {
-    if (ast[TAG] === "Forall")
-      return ast.body.body.result;
+/* VERSION: 0.4.0 */ const remParams = ast => {
 
-    else if (hasTV(TOP_LEVEL_SCOPE) (ast))
-      return Forall(new Set(), TOP_LEVEL_SCOPE, ast.body.body.result);
+  // the function returns the result value
 
-    else return ast.body.body.result;
-  }
+  if (ast.body.body.lambdas.length === 1)
+    return ast.body.body.result;
+
+  // the function returns another one expecting more arguments
 
   else
     return Forall(
-      ast.btvs,
-      TOP_LEVEL_SCOPE,
+      new Set(),
+      ".",
       Fun(
         ast.body.body.lambdas.slice(1),
         ast.body.body.result));
 };
 
 
-const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
+// remove the optional top-level quantifier of a function type
+
+/* VERSION: 0.4.0 */ const remQuant = anno => { // TODO: wrong, don't just remove the quantifier!!
+  if (anno === "()")
+    return anno;
+
+  else if (anno[0] !== "(" || anno[anno.length - 1] !== ")")
+    return anno;
+
+  else
+    return anno.replace(new RegExp("^\\((?:\\^[^.]+\\. )?", ""), "")
+      .replace(/\)$/, "");
+};
+
+
+/* DEPRECATED */ const retrieveBoundTVs = scope => reduceAst((acc, ast) => { // TODO: delete
   if (ast[TAG] === "BoundTV"
     && ast.scope === scope)
       return acc.add(ast.name);
@@ -1074,14 +1048,14 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
 
 /* VERSION: 0.4.0 */ const parseAnno = anno => {
-  const go = (cs, lamIx, argIx, scope, position, context, thisAnno, nesting) => {
+  const go = (cs, lamIndex, argIndex, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
     or codomain position. Depending on this value a function type is wrapped in
     parenthesis (domain) or not (codomain) during substitution.
 
     The `context` argument is used to prevent both, impredicative polymorphism
-    and function types without a surrounding quantifer/grouping. The former is
+    and function types without a surrounding quantifer/boundaries. The former is
     only allowed on the LHS of the function type. The latter is necessary to
     keep the language syntax simple.
 
@@ -1193,12 +1167,12 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
               // normal parameter
 
               if (args[0].search(/^\.\./) === NOT_FOUND)
-                return new Arg1(go(args[0], i, 0, scope, "", context + "/Function", thisAnno, nesting));
+                return new Arg1(go(args[0], i, 0, scope, "domain", context + "/Function", thisAnno, nesting));
 
               // variadic parameter
 
               else
-                return new Argv(go(args[0].slice(2), i, 0, scope, "", context + "/Function", thisAnno, nesting));
+                return new Argv(go(args[0].slice(2), i, 0, scope, "domain", context + "/Function", thisAnno, nesting));
             }
 
             // multi parameter
@@ -1222,7 +1196,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
                   throw new TypeError(cat(
                     "malformed type annotation\n",
                     `illegal variadic argument "${cs}"\n`,
-                    `at lambda #${lamIx + 1} argument #${i + 1}\n`,
+                    `at lambda #${lamIndex + 1} argument #${i + 1}\n`,
                     `in "${anno}"\n`));
               });
 
@@ -1230,15 +1204,15 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
               if (args[args.length - 1].search(/\.\./) === NOT_FOUND)
                 return Args.fromArr(
-                  args.map((arg, j) => go(arg, i, j, scope, "", context + "/Function", thisAnno, nesting)));
+                  args.map((arg, j) => go(arg, i, j, scope, "domain", context + "/Function", thisAnno, nesting)));
 
               // multi parameter with trailing variadic one
 
               else return Argsv.fromArr(
                 args.map((arg, j) => 
                   j === args.length - 1
-                    ? go(arg.slice(2), i, j, scope, "", context + "/Function", thisAnno, nesting)
-                    : go(arg, i, j, scope, "", context + "/Function", thisAnno, nesting)));
+                    ? go(arg.slice(2), i, j, scope, "domain", context + "/Function", thisAnno, nesting)
+                    : go(arg, i, j, scope, "domain", context + "/Function", thisAnno, nesting)));
             }
           }
         }),
@@ -1248,71 +1222,72 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
         go(last, -1, -1, scope, "codomain", context + "/Function", thisAnno, nesting));
     }
 
-    // ADT
+    // ADT/TC
 
-    else if (adtDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
+    else if (adtDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])
+      || tcDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
 
-      /* Check if the ADT is not yet applied or has no type parameters at all.
-      Since ADT type constructor arity is hold in a map, we can restore it in
-      place. */
+        /* Check if the ADT is not yet applied or has no type parameters at all.
+        Since ADT type constructor arity is hold in a map, we can restore it in
+        place. */
 
-      if (cs.search(/</) === NOT_FOUND)
-        return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
+        if (cs.search(/</) === NOT_FOUND)
+          return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
 
-      else {
+        else {
 
-        // parse the type constructor components
+          // parse the type constructor components
 
-        rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
+          rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
-        // denote missing type parameters with "__"
+          // denote missing type parameters with "__"
 
-        if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
-          rx.groups.fields = rx.groups.fields
-            .replace(/^,/, "__,")
-            .replace(/,,/g, ", __, __")
-            .replace(/,$/, ", __");
+          if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
+            rx.groups.fields = rx.groups.fields
+              .replace(/^,/, "__,")
+              .replace(/,,/g, ", __, __")
+              .replace(/,$/, ", __");
 
-        // split type parameters
+          // split type parameters
 
-        const fields = splitByPattern(
-          /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
+          const fields = splitByPattern(
+            /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
-        // check if parameter number corresponds with the stored arity
+          // check if parameter number corresponds with the stored arity
 
-        if (fields.length > adtDict.get(rx.groups.cons))
-          throw new TypeError(cat(
-            "malformed type annotation\n",
-            `type constructor arity mismatch\n`,
-            `defined type parameters: ${adtDict.get(rx.groups.cons)}\n`,
-            `received type arguments: ${fields.length}\n`,
-            `in "${anno}"\n`));
+          if (fields.length > adtDict.get(rx.groups.cons))
+            throw new TypeError(cat(
+              "malformed type annotation\n",
+              `type constructor arity mismatch\n`,
+              `defined type parameters: ${adtDict.get(rx.groups.cons)}\n`,
+              `received type arguments: ${fields.length}\n`,
+              `in "${anno}"\n`));
 
-        // check for invalid partially applied type parameters
-        
-        fields.reduce((acc, field) => {
-          if (field === "__") {
-            if (acc)
-              throw new TypeError(cat(
-                "malformed type annotation\n",
-                "invalid partially applied type constructor\n",
-                "partially application goes from left to right\n",
-                `but "${cs}" received\n`,
-                `in "${anno}"\n`));
+          // check for invalid partially applied type parameters
+          
+          fields.reduce((acc, field) => {
+            if (field === "__") {
+              if (acc)
+                throw new TypeError(cat(
+                  "malformed type annotation\n",
+                  "invalid partially applied type constructor\n",
+                  "partially application goes from left to right\n",
+                  `but "${cs}" received\n`,
+                  `in "${anno}"\n`));
 
-            else return acc;
-          }
+              else return acc;
+            }
 
-          else return true;
-        }, false);
+            else return true;
+          }, false);
 
-        // create the AST element
+          // create the AST element
 
-        return Adt(
-          rx.groups.cons,
-          fields.map(field =>
-            go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
-      }
+          return Adt(
+            rx.groups.cons,
+            fields.map(field =>
+              go(field, lamIndex, argIndex, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
+        }
     }
 
     // array like
@@ -1343,12 +1318,12 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
         // Arr
 
         if (rx.groups.nea === undefined)
-          return Arr(go(rx.groups.body, lamIx, argIx, scope, "", context + "/Array", thisAnno, nesting));
+          return Arr(go(rx.groups.body, lamIndex, argIndex, scope, "", context + "/Array", thisAnno, nesting));
 
         // Nea
 
         else
-          return Nea(go(rx.groups.body, lamIx, argIx, scope, "", context + "/NEArray", thisAnno, nesting));
+          return Nea(go(rx.groups.body, lamIndex, argIndex, scope, "", context + "/NEArray", thisAnno, nesting));
       }
 
       // Tup
@@ -1381,7 +1356,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
         return Tup(
           fields.length,
-          fields.map(field => go(field, lamIx, argIx, scope, "", context + "/Tuple", thisAnno, nesting)));
+          fields.map(field => go(field, lamIndex, argIndex, scope, "", context + "/Tuple", thisAnno, nesting)));
       }
     }
 
@@ -1390,22 +1365,23 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)$", ""))) {
       let selectedScope = "";
 
-      /* Since scriptum supports higher-rank types we must resolve the scope of
-      each TV from its syntactical position within the annotation. */
+      /* Since scriptum supports higher-rank types we must decuce the scope of
+      each TV from its synthactic position within the annotation. Each TV must
+      be bound to the nearest scope whose quantifier lists a TV of the same name. */
 
       for (const locator of rntvs) {
         const [scope_, name] = locator.split(/:/);
 
         if (name === rx.groups.name
           && isParentScope(scope_, scope)
-          && scope_.length > selectedScope)
+          && scope_.length > selectedScope.length)
             selectedScope = scope_;
       }
 
       // fall back to top-level scope
 
       if (selectedScope === "") {
-        selectedScope = TOP_LEVEL_SCOPE;
+        selectedScope = ".";
 
         // register rank-1 TV
 
@@ -1422,18 +1398,36 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
     else if (rx = cs.match(new RegExp("^\\((?:\\^(?<quant>[^\\.]+)\\. )?(?<body>.+)\\)$", ""))) {
 
-      /* `Forall` constants are triggered by the parser as soon as it comes
-      across round parenthesis, which have an ambiguous syntactical meaning. On
-      the one hand they are used to denote nested, higher-rank quantifiers at
-      the left side of a function type. On the other hand they denote a simple
-      grouping to simplify parsing function types. */
+      /* `Forall` elements are created by the parser as soon as the parsing
+      process comes across round parenthesis, which have an ambiguous synthactic
+      meaning. On the one hand they are used to denote nested, higher-rank
+      quantifiers on the left side of a function type. On the other hand they
+      are used as synthactic boundaries of the function type. Every function
+      type except top-level ones require explicit parenthesis to simply parsing.
+      `Forall` elements used as synthactic boundaries don't span their own scope
+      and thus don't list any TVs or a specific scope.
 
-      // syntactical grouping
+      Scope is spanned by a `Forall` AST element. Each TV within this scope that
+      is listed in the respective field of the `Forall` quantifier is bound to
+      it. The rank of a scope is denoted as `.`. Its position in the parent scope
+      is displayed by two digits separated by a slash. The first digit represents
+      the index of a (curried) function sequence. The second one represents the
+      index of a parameter list. The latter is necessary, because scriptum
+      supports multi-argument functions. Here is an example:
+
+      (^f, a. (^r.      (^b.        (b =>   a) => f<     b> =>      r) =>  r) => Coyoneda<f, a>)
+        |  |    |         |          |      |     |      |          |      |              |  |
+        ^  ^  ^^^^^   ^^^^^^^^^  ^^^^^^^^^  ^     ^  ^^^^^^^^^    ^^^^^  ^^^^^            ^  ^
+        .  .  .0/0.   .0/0.0/0.  .0/0.0/0.  .     .  .0/0.0/0.    .0/0.  .0/0.            .  .
+      
+      */
+
+      // synthactic boundaries of the function type
 
       if (rx.groups.quant === undefined)
         return Forall(
-          new Set(),
-          TOP_LEVEL_SCOPE,
+          new Set(), // empty
+          "", // empty
           go(rx.groups.body, 0, 0, scope, "", context + "/Forall", thisAnno, nesting));
 
       // explicit rank-n quantifier
@@ -1445,23 +1439,23 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
         if (context.replace(new RegExp("(?:/Forall)?/Function", "g"), "") !== "")
           throw new TypeError(cat(
             "malformed type annotation\n",
-            "impredicative polymorphic type detected\n",
             `higher-rank quantifiers must only occur on the LHS of "=>"\n`,
-            `but received "${cs}"\n`,
+            `but "${cs}" received\n`,
+            "impredicative types are not yet supported\n",
             `inside context: ${context.split(/\//).slice(-1) [0]}\n`,
             `in "${anno}"\n`));
 
         else {
-          const scope_ = `${scope}.${lamIx}/${argIx}`,
+          const newScope = `${scope}${lamIndex}/${argIndex}.`,
             rntvs_ = new Set(rx.groups.quant.split(", "));
 
           rntvs_.forEach(rntv_ =>
-            rntvs.add(`${scope_}:${rntv_}`));
+            rntvs.add(`${newScope}:${rntv_}`));
 
           return Forall(
             rntvs_,
-            scope_,
-            go(rx.groups.body, 0, 0, scope_, "", context + "/Forall", thisAnno, nesting));
+            newScope,
+            go(rx.groups.body, 0, 0, newScope, "", context + "/Forall", thisAnno, nesting));
         }
       }
     }
@@ -1529,7 +1523,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
         return Native(
           rx.groups.cons,
           fields.map(field =>
-            go(field, lamIx, argIx, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
+            go(field, lamIndex, argIndex, scope, "", context + `/${rx.groups.cons}`, thisAnno, nesting)));
       }
     }
 
@@ -1590,7 +1584,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
           row === null ? null : RowVar(row),
           props.map(s => ({
             k: s.match(new RegExp("^([a-z][a-z0-9]*):", "i"), "") [1],
-            v: go(s.replace(new RegExp("^[a-z][a-z0-9]*: ", "i"), ""), lamIx, argIx, scope, "", context + (cons ? `/${cons}` : "/Object"), cs, nesting)
+            v: go(s.replace(new RegExp("^[a-z][a-z0-9]*: ", "i"), ""), lamIndex, argIndex, scope, "", context + (cons ? `/${cons}` : "/Object"), cs, nesting)
           })));
       }
     }
@@ -1620,21 +1614,21 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
       let selectedScope = "";
 
       /* Since scriptum supports higher-rank types we must resolve the scope of
-      each TC from its syntactical position within the annotation. */
+      each TC from its synthactic position within the annotation. */
 
       for (const locator of rntvs) {
         const [scope_, name] = locator.split(/:/);
 
         if (name === rx.groups.name
           && isParentScope(scope_, scope)
-          && scope_.length > selectedScope)
+          && scope_.length > selectedScope.length)
             selectedScope = scope_;
       }
 
       // fall back to top-level scope
 
       if (selectedScope === "") {
-        selectedScope = TOP_LEVEL_SCOPE;
+        selectedScope = ".";
 
         // register rank-1 TV
 
@@ -1670,7 +1664,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
         selectedScope,
         position,
         fields.map(field =>
-          go(field, lamIx, argIx, scope, "", context + `/${rx.groups.name}<..>`, thisAnno, nesting)));
+          go(field, lamIndex, argIndex, scope, "", context + `/${rx.groups.name}<..>`, thisAnno, nesting)));
     }
 
     // Tconst
@@ -1689,7 +1683,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
       return This(nesting, {
         get body() {
-          const thisAst = go(thisAnno, lamIx, argIx, scope, "", context, thisAnno, nesting + 1);
+          const thisAst = go(thisAnno, lamIndex, argIndex, scope, "", context, thisAnno, nesting + 1);
           delete this.body;
           return this.body = thisAst;
         }
@@ -1713,14 +1707,13 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
 
   verifyAnno(anno);
 
-  // remove redundant parenthesis at the topmost level
+  // remove optional top-level parenthesis
 
-  if (anno[0] === "(" && anno[anno.length - 1] === ")")
-    anno = anno.slice(1, -1);
+  anno = remQuant(anno);
 
   // parse the annotation
 
-  const ast = go(anno, 0, 0, TOP_LEVEL_SCOPE, "", "", null, 0);
+  const ast = go(anno, 0, 0, ".", "", "", null, 0);
 
   /* It is not always evident in advance what arity a TV has, because as type
   parameters they can be passed partially applied. We have to traverse the AST
@@ -1772,20 +1765,22 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
   // if the AST includes type variables we need a quantifier
 
   if (r1tvs.size > 0)
-    return Forall(r1tvs, TOP_LEVEL_SCOPE, ast_);
+    return Forall(r1tvs, ".", ast_);
 
-  /* If the topmost level of the AST is a function type, we need a grouping,
-  which is just an empty quantifier. Please recall that function types always
-  needs to be surrounded by round parenthesis to keep the syntax simple. */
+  /* If the topmost level of the AST is a function type, we need synthactic,
+  boundaries using round parenthesis. For the sake of simplicity we use the
+  empty `Forall` element without bound TVs and scope. Please recall that
+  function types always needs to be surrounded by round parenthesis to keep
+  the syntax simple. */
 
   else if (ast_[TAG] === "Fun")
-    return Forall(new Set(), TOP_LEVEL_SCOPE, ast_);
+    return Forall(new Set(), ".", ast_);
 
   else return ast_;
 };
 
 
-// verifies the provided annotation using basic syntactical rules
+// verifies the provided annotation using basic synthactic rules
 
 /* VERSION: 0.4.0 */ const verifyAnno = s => {
   const scheme = remNestings(s);
@@ -1844,7 +1839,7 @@ const retrieveBoundTVs = scope => reduceAst((acc, ast) => {
     throw new TypeError(cat(
       "malformed type annotation\n",
       `invalid use of "=>"\n`,
-      "allowed syntactical forms:\n",
+      "allowed synthactic forms:\n",
       "(foo => bar)\n",
       "(foo =>)\n",
       "(=>)\n",
@@ -2081,7 +2076,7 @@ const serializeAst = initialAst => {
     switch (ast[TAG]) {
       case "Adt": {
         const body = ast.body.map(go).join(", ")
-          .replace(/ ?__/g, "")
+          .replace(/(?:, )?__/g, "")
           .replace(/,+$/, "");
 
         return cat(
@@ -2106,7 +2101,7 @@ const serializeAst = initialAst => {
 
         else  {
           const body = ast.body.map(go).join(", ")
-            .replace(/ ?__/g, "");
+            .replace(/(?:, )?__/g, "");
 
           return cat(
             ast.name,
@@ -2115,7 +2110,7 @@ const serializeAst = initialAst => {
       }
 
       case "Forall": {
-        if (ast.scope === TOP_LEVEL_SCOPE)
+        if (ast.scope === "." || ast.scope === "")
           return cat(
             "(",
             go(ast.body),
@@ -2159,7 +2154,7 @@ const serializeAst = initialAst => {
       
       case "Native": {
         const body = ast.body.map(go).join(", ")
-          .replace(/ ?__/g, "")
+          .replace(/(?:, )?__/g, "")
           .replace(/,+$/, "");
 
         return cat(
@@ -2217,11 +2212,9 @@ const serializeAst = initialAst => {
     }
   };
 
-  const s = go(initialAst);
+  // remove optional top-level parenthesis
 
-  return s[0] === "(" && s[s.length - 1] === ")"
-    ? s.slice(1, -1)
-    : s;
+  return remQuant(go(initialAst));
 };
 
 
@@ -2303,30 +2296,19 @@ fall back to elusive side effects every now and then. */
         if (ts.size === 0)
           return `[${String.fromCharCode(state.charCode++)}]`;
 
-        else if (ts.size > 1) {
-          const ts_ = []
-
-          ts.forEach(t => {
-            if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-              ts_.push(t);
-          })
-
-          if (ts_.length > 1)
-            throw new TypeError(cat(
-              "invalid Array\n",
-              "must contain homogeneous elements\n",
-              `but "${ts_.join(", ")}" received`,
-              "\n"));
-
-          else return `[${ts_[0]}]`;
-        }
+        else if (ts.size > 1)
+          throw new TypeError(cat(
+            "invalid Array\n",
+            "must contain homogeneous elements\n",
+            `but elements of type "${Array.from(ts).join(", ")}" received`,
+            "\n"));
 
         else return `[${Array.from(ts) [0]}]`;
       }
 
       case "Function": {
 
-        /* Functions are an opaque type, therefore they need an explicit user
+        /* Functions are an opaque value, therefore they need an explicit user
         defined type annotation. The top-level quantifier is implicit but can
         still be provided by the user. Both forms must be taken into account. */
 
@@ -2336,7 +2318,7 @@ fall back to elusive side effects every now and then. */
 
           else return x[ANNO];
         }
-       
+
         /* If a function is untyped, the introspection returns a native Javascript
         `Function` constant. This behavior gives rise to type holes or untyped
         sections in the type validator. If this is a feature or a design mistake
@@ -2355,23 +2337,12 @@ fall back to elusive side effects every now and then. */
               "invalid NEArray\n",
               "must contain at least a single element\n"));
 
-        else if (ts.size > 1) {
-          const ts_ = []
-
-          ts.forEach(t => {
-            if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-              ts_.push(t);
-          })
-
-          if (ts_.length > 1)
-            throw new TypeError(cat(
-              "invalid NEArray\n",
-              "must contain homogeneous elements\n",
-              `but "${ts_.join(", ")}" received`,
-              "\n"));
-
-          else return `[1${ts_[0]}]`;
-        }
+        else if (ts.size > 1)
+          throw new TypeError(cat(
+            "invalid NEArray\n",
+            "must contain homogeneous elements\n",
+            `but elements of type "${Array.from(ts).join(", ")}" received`,
+            "\n"));
 
         else return `[1${Array.from(ts) [0]}]`;
       } 
@@ -2441,7 +2412,16 @@ fall back to elusive side effects every now and then. */
     }
   };
 
-  return go;
+  // remove optional top-level parenthesis
+
+  return y => {
+    const r = go(y);
+
+    if (r[0] === "(" && r[r.length - 1] === ")")
+      return r.slice(1, -1);
+
+    else return r;
+  };
 };
 
 
@@ -2452,183 +2432,229 @@ fall back to elusive side effects every now and then. */
 ******************************************************************************/
 
 
-/* `type` is used for declaring Scott encoded ADTs with several constructors
-using CPS, because it entails pattern matching including exhaustiveness checks. */
+/* `type` is used for declaring general ADTs including several value constructors.
+Type dictionaries based on Javascript objects are used to allow an exhaustiveness
+check and to facilitate pattern matching. */
 
 export const type = adtAnno => {
 
   // bypass the type validator
 
   if (CHECK === false)
-    return k => ({run: k});
+    return o => ({run: o});
 
-  // run the type validator
+  // strip newlines and indentations
 
-  else {
-    
-    // strip newlines and indentations
+  adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+    .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
-      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+  // ensures top-level function type
 
-    // parse the type wrapper
+  if (remNestings(adtAnno).search(/ => /) === NOT_FOUND)
+    throw new TypeError(cat(
+      "invalid algebraic data type declaration\n",
+      "top-level type must be a function\n",
+      `while declaring "${adtAnno}"\n`));
 
-    const [domain, wrapperAnno] = splitByPattern(
-      / => /, 4, remNestings(adtAnno)) (adtAnno);
+  // separate domain from codomain
 
-    // ensures top-level function type
+  const [domainAnno, codomainAnno] = splitByPattern(
+    / => /, 4, remNestings(adtAnno)) (adtAnno);
 
-    if (domain === undefined)
+  // determine name of the codomain
+
+  const tcons = codomainAnno.match(/[^<]+/) [0];
+
+  // verify codomain
+
+  if (tcons.search(new RegExp("^[A-Z][A-Z-a-z0-9]*", "")) === NOT_FOUND)
+    throw new TypeError(cat(
+      "invalid algebraic data type declaration\n",
+      "RHS of the top-level function type must be a type constructor\n",
+      `but "${codomainAnno}" received\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // determine arity of the codomain
+
+  const arity = codomainAnno !== tcons
+    ? splitByPattern(
+        /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+          (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
+    : 0;
+
+  // check for name clashes with existing ADTs
+
+  if (adtDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with another ADT found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // check for name clashes with existing TCs
+
+  else if (tcDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a type class found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
+
+  // check for name clashes with existing native types
+
+  else if (nativeTypeDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a native type found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // check for name clashes with existing type constants
+
+  else if (typeConstDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a type constant found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // register ADT as name-arity pair
+
+  else adtDict.set(tcons, arity);
+
+  // parse ADT
+
+  let adtAst = parseAnno(adtAnno);
+
+  // verify the domain is a rank-2 function argument
+
+  if (adtAst.body.body.lambdas[0] [0] [TAG] !== "Forall"
+    || adtAst.body.body.lambdas[0] [0].btvs.size === 0)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "Scott encoding expects a top-level function type\n",
+        "LHS of the top-level function type must be\n",
+        "a rank-1 function type argument\n",
+        `but "${domainAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
 
-    // verify valid domain
+  /* Verify the function argument expects a type dictionary with at least one
+  property. */
 
-    else if (domain.search(new RegExp("^\\(\\^[a-z][A-Za-z0-9]*\\.", "")) === NOT_FOUND)
+  else if (adtAst.body.body.lambdas[0] [0].body.body.lambdas[0] [0] [TAG] !== "Obj"
+    || adtAst.body.body.lambdas[0] [0].body.body.lambdas[0] [0].props.length === 0)
       throw new TypeError(cat(
         "invalid algebraic data type declaration\n",
-        "Scott encoding expects a rank-2 function type as its argument\n",
+        "LHS of the top-level function type must be\n",
+        "a rank-1 function type argument\n",
+        "expecting a type dictionary with at least one property\n",
+        `but "${domainAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
 
-    // verify valid codomain
+  /* Verify that all rank-1 TVs in argument position of the domain occur in
+  the codomain of the value constructor:
 
-    else if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
+  (^r. {left: (a => r), right: (b => r)} => Either<a, b>
+               ^                ^                  ^^^^
+  (^r. {none: r, some: (a => r)} => Option<a>
+                        ^                  ^ */
+
+  // collect all rank-1 TVs in the domain
+
+  const tvsDomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (adtAst.body.body.lambdas[0] [0]);
+
+  // collect all rank-1 TVs in the codomain
+
+  const tvsCodomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (adtAst.body.body.result);
+
+  // check if there is a left difference between domain and codomain
+
+  tvsDomain.forEach((v, k) => {
+    if (!tvsCodomain.has(k))
       throw new TypeError(cat(
-        "invalid algebraic data type declaration\n",
-        "Scott encoding expects a type constructor\n",
-        "in its codomain\n",
-        `but "${wrapperAnno}" received\n`,
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" out of scope\n`,
         `while declaring "${adtAnno}"\n`));
+  });
 
-    // determine name and arity of the type wrapper
+  /* Check if there is a right difference between domain and codomain, which
+  would indicate existential types. */
 
-    const tcons = wrapperAnno.match(/[^<]+/) [0];
-
-    const arity = splitByPattern(
-      /, /, 2, remNestings(wrapperAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
-        (wrapperAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
-
-    // check for name clashes with previously registered ADTs
-
-    if (adtDict.has(tcons))
+  tvsCodomain.forEach((v, k) => {
+    if (!tvsDomain.has(k))
       throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with another ADT found\n",
-        `namely: ${tcons}\n`,
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" only occurs on the RHS\n`,
+        "existential types are not yet supported\n",
         `while declaring "${adtAnno}"\n`));
+  });
 
-    // check for name clashes with native types
+  // create the continuation type
 
-    else if (nativeTypeDict.has(tcons))
+  const domainAst = recreateAst(adtAst.body.body.lambdas[0] [0]);
+
+  /***********************
+   * ALGEBRAIC DATA TYPE *
+   ***********************/
+
+  // data constructor
+
+  const dataCons = k => { // k is the continuation containing a type dictionary
+
+    // ensure untyped continuation argument
+
+    if (typeof k !== "function")
       throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with a native type found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+        "algebraic data type error\n",
+        "invalid value constructor argument\n",
+        "expected: function\n",
+        `received: ${introspectDeep(k)}\n`,
+        `while applying "${adtAnno}"\n`));
 
-    // check for name clashes with type constants
-
-    else if (typeConstDict.has(tcons))
+    else if (ANNO in k)
       throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with a type constant found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+        "algebraic data type error\n",
+        "invalid value constructor argument\n",
+        "expected: untyped function\n",
+        `received: ${k[ANNO]}\n`,
+        `while applying "${adtAnno}"\n`));
 
-    // register ADT as name-arity pair
+    // set the domain annotation
 
-    else adtDict.set(tcons, arity);
+    k[ANNO] = serializeAst(domainAst);
 
-    // parse ADT and wrapper AST and extract the continuation AST
+    // return the ADT
 
-    const adtAst = parseAnno(adtAnno),
-      contAst = adjustForall(adtAst.body.body.lambdas[0] [0]),
-      wrapperAst = parseAnno(wrapperAnno);
+    return {
+      [TAG]: tcons,
+      [ADT]: codomainAnno,
+      run: k
+    };
+  };
 
-    // ensure valid domain
+  // set the annotation and return the data constructor
 
-    if (!hasRank(adtAst.body.body.lambdas[0] [0], 2))
-      throw new TypeError(cat(
-        "invalid algebraic data type declaration\n",
-        "Scott encoding expects a rank-2 function type\n",
-        "in its domain\n",
-        `but "${serializeAst(adtAst.body.body.lambdas[0] [0])}" received\n`,
-        `while declaring "${adtAnno}"\n`));
-
-    // serialize continuation AST
-
-    const contAnno = serializeAst(contAst);
-
-    /* Verify that all rank-1 type variables of the domain occur in the codomain
-    of the value constructor:
-
-    (^r. (a => r) => (b => r) => r) => Either<a, b>
-          ^           ^                       ^^^^
-    ((a => r) => r => Cont<a, r>)
-      ^    ^     ^         ^^^^ */
-
-    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
-
-        else return rank1;
-      }
-
-      else return rank1;
-    }, new Set()) (adtAst.body.body.lambdas[0] [0]));
-
-    const rank1Co = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
-
-        else return rank1;
-      }
-
-      else return rank1;
-    }, new Set()) (wrapperAst));
-
-    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
-      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
-
-    if (outOfScope.length > 0)
-        throw new TypeError(cat(
-          "illegal algebraic data type declaration\n",
-          "type parameter(s) not in scope\n",
-          `namely: ${outOfScope.join(", ")}\n`,
-          `while declaring "${adtAnno}"\n`));
-
-    // return the ADT value constructor
-
-    return Object.assign(k => { // untyped Scott encoded continuations
-      
-      // check if untyped
-
-      if (ANNO in k)
-        throw new TypeError(cat(
-          "invalid algebraic data type usage\n",
-          "untyped Scott encoded continuation expected\n",
-          `but "${k[ANNO]}" received\n`,
-          `while applying "${adtAnno}"\n`));
-
-      // return the ADT
-
-      else return {
-        [TAG]: tcons,
-        [ADT]: wrapperAnno,
-        run: fun(k, contAnno)
-      };
-    }, {[ANNO]: adtAnno});
-  }
+  dataCons[ANNO] = adtAnno;
+  return dataCons;
 };
 
 
-/* `type1` is used to declare single constructor ADTs. Such ADTs don't need
-pattern matching and thus no higher-rank types. We can drop the CPS encoding
-to gain simplified types. */
+/* `type1` declares ordinary ADTs without type refinements and with only one
+value constructor. Hence neither pattern matching nor exhaustiveness checking
+is required. */
 
 export const type1 = adtAnno => {
 
@@ -2637,187 +2663,229 @@ export const type1 = adtAnno => {
   if (CHECK === false)
     return x => ({run: x});
 
-  // run the type validator
+  // strip newlines and indentations
 
-  else {
-    
-    // strip newlines and indentations
+  adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+    .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    adtAnno = adtAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
-      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+  // verify top-level function type
 
-    /* Parse the codomain of the ADT annotation. Since `type1` annotations
-    always have single function argument the codomain is always at index 1. */
+  if (remNestings(adtAnno).search(/ => /) === NOT_FOUND)
+    throw new TypeError(cat(
+      "invalid algebraic data type declaration\n",
+      "top-level type must be a function\n",
+      `while declaring "${adtAnno}"\n`));
 
-    const codomainAnno = splitByPattern(
-      / => /, 4, remNestings(adtAnno)) (adtAnno) [1];
+  // separate domain from codomain
 
-    // ensures top-level function type
+  const [domainAnno, codomainAnno] = splitByPattern(
+    / => /, 4, remNestings(adtAnno)) (adtAnno);
 
-    if (codomainAnno === undefined)
+  // determine name of the codomain
+
+  const tcons = codomainAnno.match(/[^<]+/) [0];
+
+  // verify codomain
+
+  if (tcons.search(new RegExp("^[A-Z][A-Z-a-z0-9]*", "")) === NOT_FOUND)
+    throw new TypeError(cat(
+      "invalid algebraic data type declaration\n",
+      "RHS of the top-level function type must be a type constructor\n",
+      `but "${codomainAnno}" received\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // determine arity of the codomain
+
+  const arity = codomainAnno !== tcons
+    ? splitByPattern(
+        /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+          (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
+    : 0;
+
+  // check for name clashes with existing ADTs
+
+  if (adtDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with another ADT found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // check for name clashes with existing TCs
+
+  else if (tcDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a type class found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
+
+  // check for name clashes with existing native types
+
+  else if (nativeTypeDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a native type found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // check for name clashes with existing type constants
+
+  else if (typeConstDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal algebraic data type declaration\n",
+      "name collision with a type constant found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${adtAnno}"\n`));
+
+  // register ADT as name-arity pair
+
+  else adtDict.set(tcons, arity);
+
+  // parse ADT
+
+  let adtAst = parseAnno(adtAnno);
+
+  /* Verify that all rank-1 TVs of the domain occur in the codomain of the
+  value constructor:
+
+  ((a => r) => r => Cont<a, r>)
+    ^    ^     ^         ^^^^ */
+
+  // collect all rank-1 TVs within the domain
+
+  const tvsDomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (adtAst.body.body.lambdas[0] [0]);
+
+  // collect all rank-1 TVs within the codomain
+
+  const tvsCodomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (adtAst.body.body.result);
+
+  // check if there is a left difference between domain and codomain
+
+  tvsDomain.forEach((v, k) => {
+    if (!tvsCodomain.has(k))
       throw new TypeError(cat(
-        "invalid algebraic data type declaration\n",
-        "type1 declarations require a top-level function type\n",
-        "with exactly a single function parameter\n",
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" out of scope\n`,
         `while declaring "${adtAnno}"\n`));
+  });
 
-    // ensure valid codomain
+  /* Check if there is a right difference between domain and codomain, which
+  would indicate existential types. */
 
-    else if (codomainAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*(?:<.*>)?$", "")) === NOT_FOUND)
+  tvsCodomain.forEach((v, k) => {
+    if (!tvsDomain.has(k))
       throw new TypeError(cat(
-        "invalid algebraic data type declaration\n",
-        "type1 declarations require a type constructor in their codomain\n",
-        `but "${codomainAnno}" received\n`,
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" only occurs on the RHS\n`,
+        "existential types are not yet supported\n",
         `while declaring "${adtAnno}"\n`));
+  });
 
-    // determine name and arity of the type abstraction
+  /***********************
+   * ALGEBRAIC DATA TYPE *
+   ***********************/
 
-    const tcons = codomainAnno.match(/[^<]+/) [0];
+  // data constructor
 
-    const arity = codomainAnno !== tcons
-      ? splitByPattern(
-          /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
-            (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length
-      : 0;
+  const dataCons = x => {
 
-    // check for name clashes with previously registered ADTs
+    let tvid = 0,
+      instantiations = new Map(),
+      aliases = new Map(),
+      intros = [];
 
-    if (adtDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with another ADT found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+    // determine the type of the passed argument
 
-    // check for name clashes with native types
+    const argAnno = introspectDeep({charCode: letterA}) (x),
+      argAst = parseAnno(argAnno);
 
-    else if (nativeTypeDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with a native type found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+    // dequantify ADT AST considering TV introductions
 
-    // check for name clashes with type constants
+    let intro;
 
-    else if (typeConstDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal algebraic data type\n",
-        "name collision with a type constant found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${adtAnno}"\n`));
+    ({ast: adtAst, intro} = specializeLHS(new Map(), ".") (adtAst));
 
-    // register ADT as name-arity pair
+    if (intro.size > 0) intros.push(intro);
 
-    else adtDict.set(tcons, arity);
+    // unify the function type application
 
-    // parse ADT annotation/codomain
+    ({tvid, instantiations, aliases, intros} = unifyTypes(
+      adtAst.body.body.lambdas[0] [0],
+      argAst,
+      0,
+      0,
+      {tvid, instantiations, aliases, intros},
+      domainAnno,
+      argAnno,
+      adtAnno,
+      [argAnno]));
 
-    const adtAst = parseAnno(adtAnno),
-      codomainAst = parseAnno(codomainAnno);
+    // disclose transitive relations
 
-    // extract ADT domain
+    ({tvid, instantiations, aliases, intros} = uncoverTransRel(
+      {tvid, instantiations, aliases, intros}, null, null, adtAnno, [argAnno]));
 
-    let domainAst;
+    // remove contradictory instantiations
 
-    if (adtAst.body.body.lambdas[0] [0] [TAG] === "Forall")
-        domainAst = adjustForall(adtAst.body.body.lambdas[0] [0]);
+    instantiations = remConflictingAliases(instantiations);
 
-    else if (hasTV(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]))
-      domainAst = Forall(
-        retrieveBoundTVs(TOP_LEVEL_SCOPE) (adtAst.body.body.lambdas[0] [0]),
-        TOP_LEVEL_SCOPE,
-        adtAst.body.body.lambdas[0] [0]);
-    
-    else domainAst = adtAst.body.body.lambdas[0] [0];
+    // conduct occurs check
 
-    // serialize ADT domain AST
+    instantiations.forEach(m => {
+      m.forEach(({key: keyAst, value: valueAst}) =>
+        occursCheck(keyAst, valueAst, instantiations, aliases, new Set(), null, null, adtAnno, [argAnno]));
+    });
 
-    const domainAnno = serializeAst(domainAst);
+    // substitute ADT AST without removing the type parameter
 
-    /* Verify that all rank-1 type variables of the domain occur in the codomain
-    of the value constructor:
+    adtAst = 
+      substitute(
+        adtAst,
+        instantiations);
 
-    (^r. (a => r) => (b => r) => r) => Either<a, b>
-          ^           ^                       ^^^^
-    ((a => r) => r => Cont<a, r>)
-      ^    ^     ^         ^^^^
+    /* If the argument of the data constructor is a function, then update
+    its annotation with the substituted one. */
 
-    scriptum doesn't allow existential type variables within data constructors
-    for the time being. */
+    if (x && x[ANNO]) {
+      x[ANNO] = serializeAst(
+        prettyPrint(
+          recreateAst(adtAst.body.body.lambdas[0] [0])));
+    }
 
-    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
+    // update the codomain annotation with the substituted one
 
-        else return rank1;
-      }
+    const codomainAnno_ = serializeAst(
+      prettyPrint(
+        recreateAst(adtAst.body.body.result)));
 
-      else return rank1;
-    }, new Set()) (adtAst.body.body.lambdas[0] [0]));
+    // return the ADT
 
-    const rank1Co = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
+    return {
+      [TAG]: tcons,
+      [ADT]: codomainAnno_,
+      run: x
+    };
+  };
 
-        else return rank1;
-      }
+  // set the annotation and return the data constructor
 
-      else return rank1;
-    }, new Set()) (codomainAst));
-
-    const outOfScope = rank1Dom.filter(btv => !rank1Co.includes(btv))
-      .concat(rank1Co.filter(btv => !rank1Dom.includes(btv)));
-
-    if (outOfScope.length > 0)
-        throw new TypeError(cat(
-          "illegal algebraic data type declaration\n",
-          "type parameter(s) not in scope\n",
-          `namely: ${outOfScope.join(", ")}\n`,
-          `while declaring "${adtAnno}"\n`));
-
-    // return the ADT value constructor
-
-    return Object.assign(x => {
-
-      // retrieve the type of the passed argument
-
-      const argAnno = introspectDeep({charCode: letterA}) (x);
-
-      // specialize ADT domain/codomain
-
-      const domainAst_ = specializeLHS(domainAst.scope, 0, "") (domainAst).ast,
-        codomainAst_ = specializeLHS(codomainAst.scope, 0, "") (codomainAst).ast;
-
-      let instantiations = unifyTypes(
-        domainAst_,
-        parseAnno(argAnno),
-        0,
-        0,
-        0,
-        0,
-        new Map(),
-        domainAnno,
-        argAnno,
-        adtAnno,
-        []);
-
-      const codomainAnno_ = serializeAst(
-        regeneralize(
-          pruneForalls(
-            substitute(codomainAst_, instantiations))));
-
-      // return the ADT
-
-      return {
-        [TAG]: tcons,
-        [ADT]: codomainAnno_,
-        run: x
-      };
-    }, {[ANNO]: adtAnno});
-  }
+  dataCons[ANNO] = adtAnno;
+  return dataCons;
 };
 
 
@@ -2834,415 +2902,525 @@ export const typeClass = tcAnno => {
 
   // bypass the type validator
 
-  if (CHECK === false)
+  if (CHECK === false) {
     return (...os) => o => {
       o = Object.assign({}, o); // clone
       os.forEach(p => o = Object.assign(o, p));
       return o;
     }
+  }
 
-  // run the type validator
+  // strip newlines and indentations
 
-  else {
-    
-    // strip newlines and indentations
+  tcAnno = tcAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
+    .replace(new RegExp(SAFE_SPACE, "g"), " ");
 
-    tcAnno = tcAnno.replace(new RegExp("[ \\t]*\\r\\n[ \\t]*|[ \\t]*\\n[ \\t]*", "g"), "")
-      .replace(new RegExp(SAFE_SPACE, "g"), " ");
+  // determine TC components
 
-    // determine type class components
+  const tcCompos = splitByPattern(
+    / => /, 4, remNestings(tcAnno)) (tcAnno);
 
-    const tcCompos = splitByPattern(
-      / => /, 4, remNestings(tcAnno)) (tcAnno);
+  // determine TC constaints
 
-    // determine superclass dependencies
+  const constraints = [];
 
-    const superClasses = [];
+  // verify top-level function type
 
-    if (tcCompos.length < 2)
-      throw new TypeError(cat(
-        "invalid type class declaration\n",
-        "value-level type classes expect a top-level function type\n",
-        "where the codomain contains the type dictionary\n",
-        "and the codomain contains the type wrapper\n",
-        `while declaring "${tcAnno}"\n`));
+  if (tcCompos.length === 1)
+    throw new TypeError(cat(
+      "invalid type class declaration\n",
+      "top-level type must be a function\n",
+      `while declaring "${tcAnno}"\n`));
 
-    else if (tcCompos.length > 3)
-      throw new TypeError(cat(
-        "invalid type class declaration\n",
-        "malformed type class dependencies\n",
-        "superclasses must be listed\n",
-        "in a single multi-argument parameter\n",
-        `while declaring "${tcAnno}"\n`));
+  // verify constraints are passed as multi-parameter
 
-    else if (tcCompos.length === 3) {
+  else if (tcCompos.length > 3)
+    throw new TypeError(cat(
+      "invalid type class declaration\n",
+      "malformed constraints\n",
+      "constraints must be passed as a single multi-parameter argument\n",
+      `while declaring "${tcAnno}"\n`));
 
-      // validate superclasses dependencies
+  else if (tcCompos.length === 3) {
 
-      if (tcCompos[0].search(new RegExp(
-        "^(?:[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>, )*[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>$", "")) === NOT_FOUND)
-          throw new TypeError(cat(
-            "invalid type class declaration\n",
-            "malformed type class dependencies\n",
-            "comma separated list of superclasses expected\n",
-            `but "${tcCompos[0]}" received\n`,
-            `while declaring "${tcAnno}"\n`));
+    // validate constraints
 
-      // parse superclass dependencies and retrieve their components
-
-      tcCompos[0].split(", ")
-        .forEach((superClass, i) => {
-          const tcons = superClass.replace(/<.+>$/, ""),
-            tparamTo = superClass.split(/</) [1].slice(0, -1);
-
-          if (!tcDict.has(tcons))
-            throw new TypeError(cat(
-              "invalid type class declaration\n",
-              "malformed type class dependencies\n",
-              "list of declared type classes expected\n",
-              `but unknown "${tcons}" received\n`,
-              `while declaring "${tcAnno}"\n`));
-
-          else {
-
-            // retrieve superclass components from global type class dictionary
-
-            const {tparam, tdictAnno} = tcDict.get(tcons);
-
-            /* Store type constructor, the type parameter and the dictionary
-            annotation. The type parameter is stored in two versions: The first
-            one represents the type parameter used in the original type class
-            annotation. The second one is the type parameter used in the super
-            class dependency. If both differ, they must be unified before being
-            added to the current type class. */
-
-            superClasses[i] = {
-              tcons,
-              tparamFrom: tparam,
-              tparamTo,
-              tdictAnno
-            };
-          }
-        });
-    }
-
-    const tcOffset = tcCompos.length === 3 ? 1 : 0;
-
-    // verify type wrapper
-
-    const wrapperAnno = tcCompos[1 + tcOffset];
-
-    if (wrapperAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
-      throw new TypeError(cat(
-        "invalid type class declaration\n",
-        "value-level type class expects a type constructor\n",
-        "parameterized by exaclty one type parameter\n",
-        "in its codomain\n",
-        `but "${wrapperAnno}" received\n`,
-        `while declaring "${tcAnno}"\n`));
-
-    // determine name and arity of the type wrapper
-
-    const tcons = wrapperAnno.replace(/<[^>]+>$/, ""),
-      tparam = wrapperAnno.match(/<([^>]+)>$/) [1];
-
-    // check for name clashes with previously registered ADTs
-
-    if (adtDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal type class\n",
-        "name collision with an algebraic data type found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${tcAnno}"\n`));
-
-    // check for name clashes with native types
-
-    else if (nativeTypeDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal type class\n",
-        "name collision with a native type found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${tcAnno}"\n`));
-
-    // check for name clashes with type constants
-
-    else if (typeConstDict.has(tcons))
-      throw new TypeError(cat(
-        "illegal type class\n",
-        "name collision with a type constant found\n",
-        `namely: ${tcons}\n`,
-        `while declaring "${tcAnno}"\n`));
-
-    // register type class as name-arity pair
-
-    else
-      adtDict.set(tcons, 1);
-
-    // parse type class and type dict
-
-    const tcAst = parseAnno(tcAnno),
-      tdictAst = adjustForall(tcAst.body.body.lambdas[0 + tcOffset] [0]),
-      wrapperAst = parseAnno(wrapperAnno),
-      reservedOps = new Set(tdictAst.body.body.map(({k}) => k));
-
-    // recover arity of the type constructor
-
-    wrapperAst.body.body[0].body.push(Partial);
-
-    // verify type dict
-
-    if (!("body" in tdictAst) || tdictAst.body[TAG] !== "Obj")
-      throw new TypeError(cat(
-        "invalid type class declaration\n",
-        "value-level encoding expects a type dictionary\n",
-        `but "${serializeAst(tcAst.body.body.lambdas[0] [0])}" received\n`,
-        `while declaring "${tcAnno}"\n`));
-
-    /* Verify that all rank-1 type variables of the domain occur in the codomain
-    of the function type:
-
-    (^a, b. {of: (a => m<a>), chain: (m<a> => (a => m<a>) => m<b>)}) => Monad<m>
-                       ^              ^             ^        ^                ^
-
-    ({empty: m, append: (m => m => m)}) => Monoid<m>
-             ^           ^    ^    ^              ^ */
-
-    const rank1Dom = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
-
-        else return rank1;
-      }
-
-      else return rank1;
-    }, new Set()) (tcAst.body.body.lambdas[0] [0]));
-
-    const rank1CoDom = Array.from(reduceAst((rank1, ast) => {
-      if (ast[TAG] === "BoundTV") {
-        if (ast.scope === TOP_LEVEL_SCOPE)
-          return rank1.add(ast.name);
-
-        else return rank1;
-      }
-
-      else return rank1;
-    }, new Set()) (wrapperAst));
-
-    const outOfScope = rank1Dom.filter(btv => !rank1CoDom.includes(btv))
-      .concat(rank1CoDom.filter(btv => !rank1Dom.includes(btv)));
-
-    if (outOfScope.length > 0)
+    if (tcCompos[0].search(new RegExp(
+      "^(?:[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>, )*[A-Z][A-Za-z0-9]*<[a-z][A-Za-z0-9]*>$", "")) === NOT_FOUND)
         throw new TypeError(cat(
-          "illegal type class declaration\n",
-          "type parameter(s) not in scope\n",
-          `namely: ${outOfScope.join(", ")}\n`,
+          "invalid type class declaration\n",
+          "malformed constraints\n",
+          "comma separated constraint list expected\n",
+          `but "${tcCompos[0]}" received\n`,
           `while declaring "${tcAnno}"\n`));
 
-    // extend current type dict by superclass operations
+    // parse constraints and retrieve their components
 
-    superClasses.forEach(({tcons: tcons_, tparamFrom, tparamTo, tdictAnno}) => {
-      let tdictAst_ = parseAnno(tdictAnno);
+    tcCompos[0].split(", ").forEach((constraint, i) => {
+      const tcons = constraint.replace(/<.+>$/, ""),
+        tparamTo = constraint.split(/</) [1].slice(0, -1);
 
-      // alpha renaming of the type class type parameter
+      if (!tcDict.has(tcons))
+        throw new TypeError(cat(
+          "invalid type class declaration\n",
+          "malformed constraints\n",
+          "list of existing type class constraints expected\n",
+          `but unknown "${tcons}" received\n`,
+          `while declaring "${tcAnno}"\n`));
 
-      if (tparamFrom !== tparamTo) {
+      else {
 
-        // retrieve used rank-1 TV names
+        // retrieve components of the constraining TC from global TC dictionary
 
-        const btvs_ = retrieveBoundTVs(TOP_LEVEL_SCOPE) (tdictAst_);
+        const {tparam: tparamFrom, tcAnno} = tcDict.get(tcons);
 
-        // resolve name ambiguities
+        /* Store the type constructor, type parameter and the dictionary
+        annotation. There are actually two type parameters involved: The first
+        one represents the type parameter used in the current type class
+        declaration. The second one is used in the constraining type class. If
+        both differ, they must be unified before being added to the current TC. */
 
-        let name = tparamTo;
-
-        if (btvs_.has(name)) {
-          let charCode = letterA;
-
-          do {
-            name = String.fromCharCode(charCode++)
-          } while (btvs_.has(name));
-        }
-
-        // alpha renaming
-
-        tdictAst_ = mapAst(ast => {
-          if (ast[TAG] === "BoundTV"
-            && ast.scope === TOP_LEVEL_SCOPE
-            && ast.name === tparamFrom) {
-              ast.name = name;
-              return ast;
-          }
-
-          else if (ast[TAG] === "Forall"
-            && ast.scope === TOP_LEVEL_SCOPE
-            && ast.btvs.has(tparamFrom)) {
-              ast.btvs.delete(tparamFrom);
-              ast.btvs.add(name);
-              return ast;
-          }
-
-          else return ast;
-        }) (tdictAst_);
+        constraints[i] = {
+          tcons,
+          tparamFrom,
+          tparamTo,
+          tcAnno
+        };
       }
+    });
+  }
 
-      // attach superclass operations to current dict
+  // verify codomain
 
-      let btvs = new Set();
+  const codomainAnno = tcCompos[1 + (tcCompos.length === 3 ? 1 : 0)];
 
-      tdictAst_.body.body.forEach(({k, v}) => {
+  if (codomainAnno.search(new RegExp("^[A-Z][A-Za-z0-9]*<.*>$", "")) === NOT_FOUND)
+    throw new TypeError(cat(
+      "invalid type class declaration\n",
+      "type constructor parameterized by a single type parameter\n",
+      "expected in the codomain\n",
+      `but "${codomainAnno}" received\n`,
+      `while declaring "${tcAnno}"\n`));
 
-        btvs = new Set([...btvs, ...retrieveBoundTVs(TOP_LEVEL_SCOPE) (v)]);
+  // determine name and arity of the codomain
 
-        /* Check that a superclass doesn't override properties of the current
-        type class. Superclasses might share properties, though. */
+  const tcons = codomainAnno.replace(/<[^>]+>$/, ""),
+    tparam = codomainAnno.match(/<([^>]+)>$/) [1];
 
-        if (reservedOps.has(k))
-          throw new TypeError(cat(
-            "illegal type class declaration\n",
-            "subclass tries to override a property of one of its superclasses\n",
-            `namely: ${k}\n`,
-            `while declaring "${tcAnno}"\n`));
+  // check for name clashes with existing TCs
 
-        else {
+  if (tcDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal type class declaration\n",
+      "name collision with another type class found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
 
-          // attach operation to current type dict
+  // check for name clashes with existing ADTs
 
-          tdictAst.body.body.push({k, v});
+  else if (adtDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal type class declaration\n",
+      "name collision with an algebraic data type found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
+
+  // check for name clashes with existing native types
+
+  else if (nativeTypeDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal type class declaration\n",
+      "name collision with a native type found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
+
+  // check for name clashes with existing type constants
+
+  else if (typeConstDict.has(tcons))
+    throw new TypeError(cat(
+      "illegal type class declaration\n",
+      "name collision with a type constant found\n",
+      `namely: ${tcons}\n`,
+      `while declaring "${tcAnno}"\n`));
+
+  /* The current type dictionary must already be registered, although its type
+  annotation hasn't reached its final form. We will overwrite this mapping
+  at the end of the process. */
+
+  tcDict.set(tcons, {tparam, tcAnno: "Undefined"});
+
+  // remove the optional constraints and parse TC annotation
+
+  let tcAst = tcCompos.length === 3
+    ? parseAnno(tcAnno.replace(/^.*? => /, ""))
+    : parseAnno(tcAnno);
+
+  // create AST references for convenience
+
+  const domainAst = tcAst.body.body.lambdas[0] [0],
+    codomainAst = tcAst.body.body.result;
+
+  /* The type dictionary on the ast level is an `Obj` element optionally wrapped
+  in a `Forall`, which depends on the occurrence of higher-rank TVs in the TC
+  annotation. We create another reference to abstract form this optionally
+  `Forall` element. */
+
+  const tdictAst = domainAst[TAG] === "Forall"
+    ? domainAst.body
+    : domainAst;
+
+  // get the properies of the current TC type dictionary
+
+  const reservedProps = new Set(tdictAst.props);
+
+  /* The type parameter of the TC is either a type constant or a type constructor
+  that is itself parameterized a single type parameter. This information must be
+  determined and updated at the type parameter within the AST. */
+
+  /*if (domainAst[TAG] === "Forall")
+    codomainAst.body.body[0].body.push(Partial);*/
+
+  /* TCs can have types without higher-rank TVs, but we can at least verify
+  that the parameter of the top-level function type is a type dictionray
+  containing any number of operations/values. */
+
+  if ((domainAst[TAG] !== "Obj" && domainAst[TAG] !== "Forall")
+    || domainAst[TAG] === "Forall" && domainAst.body[TAG] !== "Obj")
+      throw new TypeError(cat(
+        "invalid type class declaration\n",
+        "function type parameter must be a type dictionary\n",
+        "containg any number of operations/values\n",
+        `but "${tcCompos[0 + tcOffset]}" received\n`,
+        `while declaring "${tcAnno}"\n`));
+
+  /* Verify that all rank-1 type variables of the domain occur in the codomain
+  of the function type:
+
+  (^a, b. {of: (a => m<a>), chain: (m<a> => (a => m<a>) => m<b>)}) => Monad<m>
+                     ^              ^             ^        ^                ^
+
+  ({empty: m, append: (m => m => m)}) => Monoid<m>
+           ^           ^    ^    ^              ^ */
+
+  // collect all rank-1 TVs in the domain
+
+  const tvsDomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (domainAst);
+
+  // collect all rank-1 TVs in the codomain
+
+  const tvsCodomain = reduceAst((acc, ast) => {
+    if (isTV(ast) && ast.scope === ".") {
+      acc.add(ast.name);
+      return acc;
+    }
+
+    else return acc;
+  }, new Set()) (codomainAst);
+
+  // check if there is a left difference between domain and codomain
+
+  tvsDomain.forEach((v, k) => {
+    if (!tvsCodomain.has(k))
+      throw new TypeError(cat(
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" out of scope\n`,
+        `while declaring "${tcAnno}"\n`));
+  });
+
+  /* Check if there is a right difference between domain and codomain, which
+  would indicate existential types. */
+
+  tvsCodomain.forEach((v, k) => {
+    if (!tvsDomain.has(k))
+      throw new TypeError(cat(
+        "illegal algebraic data type declaration\n",
+        `type parameter "${k}" only occurs on the RHS\n`,
+        "existential types are not yet supported\n",
+        `while declaring "${tcAnno}"\n`));
+  });
+
+  // extend current type dictionary by operations/values of its constraints
+
+  constraints.forEach(({tcons: tcons_, tparamFrom, tparamTo, tcAnno: tcAnno_}) => {
+    
+    // parse the TC annotation of the constraint
+
+    let tcAst_ = parseAnno(tcAnno_);
+
+    /* If the type parameter name of the current TC and its constraint differ,
+    it is adjusted by alpha renaming. */
+
+    if (tparamFrom !== tparamTo) {
+
+      // adjust type parameter name
+
+      tcAst_.body.body.lambdas[0] [0] = mapAst(ast => {
+        if (ast[TAG] === "BoundTV"
+          && ast.scope === "."
+          && ast.name === tparamFrom) {
+            ast.name = tparamTo;
+            return ast;
         }
-      });
 
-      // adjust the outer quantifier
+        else if (ast[TAG] === "Forall"
+          && ast.scope === "."
+          && ast.btvs.has(tparamFrom)) {
+            ast.btvs.delete(tparamFrom);
+            ast.btvs.add(tparamTo);
+            return ast;
+        }
 
-      tdictAst.btvs = btvs;
+        else return ast;
+      }) (tcAst_.body.body.lambdas[0] [0]);
+    }
+
+    // create AST reference for convenience
+    
+    const domainAst_ = tcAst_.body.body.lambdas[0] [0];
+
+    const tdictAst_ = domainAst_[TAG] === "Forall"
+      ? domainAst_.body
+      : domainAst_;
+
+    // add operations/values
+
+    let btvs = new Set();
+
+    tdictAst_.body.forEach(({k, v}) => {
+
+      // rule out operation/value name collision
+
+      if (reservedProps.has(k))
+        throw new TypeError(cat(
+          "illegal type class declaration\n",
+          "subclass tries to override a property of one of its superclasses\n",
+          `namely: ${k}\n`,
+          `while declaring "${tcAnno}"\n`));
+
+      // collect rank-2 bound TVs
+
+      btvs = reduceAst((acc, ast) => {
+        if (ast[TAG] === "BoundTV"
+          && getRank(ast.scope) === 2) {
+            return acc.add(ast.name)
+        }
+
+        else return acc;
+      }, btvs) (v);
+
+      // add operations/values to current type dictionary
+
+      tdictAst.body.push({k, v});
+      tdictAst.props.push(k);
     });
 
-    // register current type dictionary
+    // add an optional quantifier
 
-    tcDict.set(tcons, {tparam, tdictAnno: serializeAst(tdictAst)});
+    if (btvs.size > 0) {
+      if (domainAst[TAG] === "Forall")
+        domainAst.btvs = new Set([...domainAst.btvs, ...btvs]);
 
-    /* Return a function that excepts zero, one or several super dictionaries
-    and unifies the operations of the current type dictionary and the super
-    optional dictionaries with these of the resolved type class:
-    `{specialicedTypeDict} => {unifiedTypedDict}` */
+      else
+        tcAst.body.body.lambdas[0] [0] = Forall(
+          btvs,
+          ".0/0.",
+          domainAst);
+    }
+  });
 
-    return (...superDicts) => Object.assign(dict => {
-      dict = Object.assign({}, dict); // clone
+  // register current type dictionary
 
-      // add super dictionary properties to the current one
+  tcDict.set(tcons, {tparam, tcAnno: serializeAst(tcAst)});
 
-      superDicts.forEach((superDict, i) => {
+  /**************
+   * TYPE CLASS *
+   **************/
 
-        // ensure superclass dict is an ADT
+  /* Return a function that excepts zero, one or several super dictionaries
+  and unifies the operations of the current type dictionary and the super
+  optional dictionaries with these of the resolved type class:
+  `{specialicedTypeDict} => {unifiedTypedDict}` */
 
-        if (!(ADT in superDict)
-          || Object.keys(superDict).length === 0)
-            throw new TypeError(cat(
-              "illegal type class instance\n",
-              "expects typed dictionaries as superclasses\n",
-              `but received: ${introspectDeep({charCode: letterA}) (superDict)}\n`,
-              `as the ${ordinalNum(i + 1)} passed argument\n`,
-              `while applying "${tcAnno}"\n`));
-
-        else {
-          Object.entries(superDict).forEach(([k, v]) => {
-
-            // skip identical properties from different superclasses
-
-            if (k in dict) return null;
-
-            // skip symbolic properties
-
-            else if (k === ANNO || k === ADT || k === TAG) return null;
+  const r = (...dicts) => Object.assign(dict => {
+    let tvid = 0,
+      instantiations = new Map(),
+      intros = [],
+      aliases = new Map();
     
-            // add property to new type class
+    // clone the main object
 
-            else dict[k] = v;
-          });
-        }
+    dict = Object.assign({}, dict);
 
-        /* Make each super dictionary available via a non-enumerable property
-        of the current type dictionary. */
+    // add constraining dictionaries
 
-        Object.defineProperty(
-          dict,
-          superDict[TAG],
-          {value: superDict, configurable: true, writable: true});
-      });
+    dicts.forEach((dict_, i) => {
 
-      // collect properties each from the type class and the passed dictionaries
+      // ensure type dictionary arguments
 
-      const typeLevelProps = tdictAst.body.body.reduce((acc, {k, v}) =>
-        acc.set(k, v[TAG] === "Forall" ? adjustForall(v) : quantifyAst(v)), new Map());
+      if (dict_[ADT] === undefined
+        && introspectFlat(dict_) !== "Object")
+          throw new TypeError(cat(
+            "illegal type class instance\n",
+            "expect type class arguments as constraints\n",
+            `but "${introspectDeep({charCode: letterA}) (dict_)}" received\n`,
+            `while applying "${tcAnno}"\n`));
 
-      const valueLevelProps = Object.keys(dict);
+      else {
+        Object.entries(dict_).forEach(([k, v]) => {
 
-      // ensure the property number at type and value level match
+          // skip identical properties from different superclasses
 
-      if (typeLevelProps.size !== valueLevelProps.length)
+          if (k in dict) return null;
+
+          // skip symbolic properties
+
+          else if (k === ANNO || k === ADT || k === TAG) return null;
+  
+          // add property to new type class
+
+          else dict[k] = v;
+        });
+      }
+
+      /* Make each super dictionary available via a non-enumerable property
+      of the current type dictionary. */
+
+      Object.defineProperty(
+        dict,
+        dict_[TAG],
+        {value: dict_, configurable: true, writable: true});
+    });
+
+    // dequantify TC AST considering TV introductions
+
+    let intro;
+
+    ({ast: tcAst, intro} = specializeLHS(new Map(), ".") (tcAst));
+
+    if (intro.size > 0) intros.push(intro);
+
+    // collect type level properties without losing rank-2 qunatifiers
+
+    let typeLevelProps;
+
+    if (tcAst.body.body.lambdas[0] [0] [TAG] === "Forall") {
+      typeLevelProps = tcAst.body.body.lambdas[0] [0].body.body
+        .reduce((acc, {k, v}) => {
+          const forall = Object.assign(
+            {}, tcAst.body.body.lambdas[0] [0]); // clone `Forall`
+
+          forall.body = v[TAG] === "Forall"
+            ? v.body : v;
+
+          return acc.set(k, forall);
+        }, new Map());
+    }
+
+    else {
+      typeLevelProps = tcAst.body.body.lambdas[0] [0].body
+        .reduce((acc, {k, v}) => acc.set(k, v), new Map())
+    }
+
+    // retrieve term level properties
+
+    const termLevelProps_ = Object.keys(dict),
+      termLevelProps = new Set(termLevelProps_);;
+
+    // ensure the property number at type and term level match
+
+    if (typeLevelProps.size !== termLevelProps.size)
+      throw new TypeError(cat(
+        "illegal type class instance\n",
+        "exhaustiveness check failed\n",
+        `expected: ${tdictAst.props.join(", ")}\n`,
+        `received: ${termLevelProps_.join(", ")}\n`,
+        `while applying "${tcAnno}"\n`));
+
+    // traverse term level properties and unify them with the type level
+
+    termLevelProps.forEach(k => {
+
+      // exhaustiveness check
+
+      if (!typeLevelProps.has(k))
         throw new TypeError(cat(
           "illegal type class instance\n",
           "exhaustiveness check failed\n",
-          `expected: ${Array.from(typeLevelProps)
-            .map(([k, v]) => k)
-            .join(", ")}\n`,
-          `received: ${valueLevelProps.join(", ")}\n`,
+          `expected: ${tdictAst.props.join(", ")}\n`,
+          `received: ${termLevelProps_.join(", ")}\n`,
           `while applying "${tcAnno}"\n`));
 
-      else {
-        let instantiations = new Map();
+      // type the current function property
 
-        // unify type class and type dictionary
+      ({tvid, instantiations, aliases, intros} = unifyTypes(
+        typeLevelProps.get(k),
+        typeof dict[k] === "function"
+          ? parseAnno(dict[k] [ANNO])
+          : parseAnno(introspectDeep({charCode: letterA}) (dict[k])),
+        0,
+        0,
+        {tvid, instantiations, aliases, intros},
+        serializeAst(typeLevelProps.get(k)),
+        dict[k] [ANNO],
+        tcAnno,
+        []));
+    });
 
-        valueLevelProps.forEach(k => {
+    /* Update the TC annotation using substitution without removing the type
+    parameter. */
 
-          // exhaustiveness check
+    let unifiedAst = prettyPrint(
+      recreateAst(
+        substitute(
+          tcAst,
+          instantiations)));
 
-          if (!typeLevelProps.has(k))
-            throw new TypeError(cat(
-              "illegal type class instance\n",
-              "exhaustiveness check failed\n",
-              `expected: ${Array.from(typeLevelProps)
-                .map(([k, v]) => k)
-                .join(", ")}\n`,
-              `received: ${Array.from(valueLevelProps)
-                .join(", ")}\n`,
-              `while applying "${tcAnno}"\n`));
+    // collect unified type level properties without losing rank-2 qunatifiers
 
-          // type the current function property
+    let typeLevelProps_;
 
-          instantiations = unifyTypes(
-            typeLevelProps.get(k),
-            typeof dict[k] === "function"
-              ? parseAnno(dict[k] [ANNO])
-              : parseAnno(introspectDeep({charCode: letterA}) (dict[k])),
-            0,
-            0,
-            0,
-            0,
-            instantiations,
-            serializeAst(typeLevelProps.get(k)),
-            dict[k] [ANNO],
-            tcAnno,
-            []);
-        });
+    if (unifiedAst.body.body.lambdas[0] [0] [TAG] === "Forall") {
+      typeLevelProps_ = unifiedAst.body.body.lambdas[0] [0].body.body
+        .reduce((acc, {k, v}) => {
+          const forall = Object.assign(
+            {}, unifiedAst.body.body.lambdas[0] [0]); // clone `Forall`
 
-        // update the type wrapper
+          forall.body = v[TAG] === "Forall"
+            ? v.body : v;
 
-        const wrapperAnno_ = serializeAst(
-          regeneralize(
-            pruneForalls(
-              substitute(
-                specializeLHS(
-                  TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                  instantiations))));
+          return acc.set(k, forall);
+        }, new Map());
+    }
 
-        dict[ADT] = wrapperAnno_;
-        dict[TAG] = tcons;
-        return dict;
-      }
-    }, {[ANNO]: tcAnno});
-  }
+    else {
+      typeLevelProps_ = unifiedAst.body.body.lambdas[0] [0].body
+        .reduce((acc, {k, v}) => acc.set(k, v), new Map())
+    }
+
+    /* Annotate properties of the term level type dictionary using the
+    corresponing portions unified TC annotation. */
+
+    termLevelProps.forEach(k => {
+      if (typeof dict[k] === "function")
+        dict[k] [ANNO] = serializeAst(typeLevelProps_.get(k));
+    });
+
+    dict[ADT] = serializeAst(unifiedAst.body.body.result);
+    dict[TAG] = tcons;
+    return dict;
+  }, {[ANNO]: tcAnno});
+
+  // provide no constraining type dictionaries if the type level says so
+
+  return tcCompos.length === 2
+    ? r() : r;
 };
 
 
@@ -3254,21 +3432,74 @@ export const typeClass = tcAnno => {
 
 
 /* `fun` is one of the major operations of the type validator API. It only
-conducts type validation of applications, not definition. It only
-attempts to unify the formal parameter of a function type with a provided
-argument type, but it does not infer types from given terms. */
+conducts type validation of applications, not definition. It only attempts to
+unify the formal parameter of a function type with a provided argument type,
+but it does not infer types from given terms. */
 
 /* VERSION: 0.4.0 */ export const fun = (f, funAnno) => {
   const go = (g, lamIndex, funAst, funAnno) => {
     const getArgs = (...args) => {
 
-      // store mappings `TV => type` or `TV => TV`
-
-      let instantiations = new Map();
-
       // create unique numbers for alpha renaming
 
       let tvid = 0;
+
+      /* Unification generates instantiations, which are later applied to type
+      annotations using substitution. Instantiations are mappings from TV to
+      TV/Type, where Type is a composite type that might include other TVs. The
+      LHS of the mapping might be instantiated with several TVs/Types, which
+      all have to unify with one another. `instantiations` is a data structure
+      of following form:
+
+      Map("foo" => Map("Bar<baz, bat>" => {keyAst, valueAst, substitutor}))
+            |                |                           |
+      ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      key/source type  value/target type            object type
+
+      It maps a key/source type to a value/target type. The keys of both the
+      outer and inner maps are used to guarnatee unique mappings. The resulting
+      object contains all the information necessary for substituting from the
+      key/source to the value/target type. The key/source type has to be a type
+      variable, because only type variables can be instantiated. */
+
+      let instantiations = new Map();
+
+      /* We must keep track of type aliases to be able to implement reliable
+      occurs and escape checks:
+
+      given:
+      a ~ b
+      a ~ c
+
+      aliases due to commutativity and transitivity of type equality:
+      b ~ a
+      c ~ a
+      b ~ c
+      c ~ b */
+
+      let aliases = new Map(); // Map("key" => Map("key ~ value", [key, value]))
+
+      /* We must keep track which type variables are introduced in which
+      subsumption judgement to decide if higher-rank type variables may be
+      instantiated with such of lower rank.
+
+      subsumption judgement:
+      {left: (a => s), right: (b => s)} => s <: (^r. {left: (a0 => r), right: (b0 => r)} => r)
+
+      introduced type variables:
+      [a, b, s, r]
+
+      type aliases:
+      a ~ a0
+      b ~ b0
+
+      remove type aliases:
+      [s, r]
+
+      The rank-2 type variable `r` must only be instantiated with the rank-1
+      type variable `s` */
+
+      let intros = []; // [Map("a0" => a0, "b0" => b0), Map("a1" => a1, "b1" => b1, "r1" => r1)]
 
       // take variadic arguments into account
 
@@ -3287,7 +3518,9 @@ argument type, but it does not infer types from given terms. */
         }
       }
 
-      // introspect arguments
+      /* Recursively introspect the argument type. Since `introspectDeep` is
+      stateful in its `charCode` argument, a reference of the partially applied
+      function must be kept for successive use. */
 
       const introspectDeep_ = introspectDeep({charCode: letterA}),
         argAnnos = args.map(arg => introspectDeep_(arg));
@@ -3315,23 +3548,27 @@ argument type, but it does not infer types from given terms. */
       }
 
       /* Prior to unification the function type has to be dequantified. During
-      this process bount TVs are instantiated with fresh meta TVs. As opposed to
+      this process bound TVs are instantiated with fresh meta TVs. As opposed to
       subsequent dequantifications there is no alpha renaming taking place. This
       ensures that the unified annotation only deviates as little as possible
       from the original user-defined one. */
       
-      ({ast: funAst, tvid} = specializeLHS(funAst.scope, 0, "") (funAst));
+      let intro;
 
-      /* Attempt to type validate the application of `fun` with `arg` by unifying
-      `fun`'s first formal parameter with `arg`. Since this is a higher-rank type
-      validator, subsumption is necessary in order to unify deeply nested
-      quantifiers. The subsumption judgement for type application has the form
-      `arg <: param` (`arg` is at least as polymorphic as `param`). The order
-      flips for each nesting due to the usual co- and contravariant phenomena of
-      the function type. */
+      ({ast: funAst, intro} = specializeLHS(new Map(), funAst.scope) (funAst));
 
-      instantiations = argAnnos.reduce(
-        (instantiations, argAnno, argIndex) =>
+      if (intro.size > 0) intros.push(intro);
+
+      /* Attempt to type validate the application of `fun` with `arg` by
+      unifying `fun`'s first formal parameter with `arg`. Since this is a
+      higher-rank type validator, subsumption is necessary in order to unify
+      deeply nested quantifiers. The subsumption judgement for type application
+      reads `arg <: param`, where `<:` denotes the is-at-least-as-polymorphic-as
+      relation. The judgement order flips for each nested function argument due
+      to the usual co- and contravariant phenomena of the function type. */
+
+      ({tvid, instantiations, aliases, intros} = argAnnos.reduce(
+        (acc, argAnno, argIndex) =>
           unifyTypes(
             funAst.body.body.lambdas[0] [TAG] === "Arg0"
               ? Tconst("Undefined")
@@ -3339,122 +3576,43 @@ argument type, but it does not infer types from given terms. */
             parseAnno(argAnno),
             lamIndex,
             argIndex,
-            1,
-            tvid,
-            instantiations,
+            {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
             funAst.body.body.lambdas[0] [TAG] === "Arg0"
               ? "Undefined"
               : serializeAst(funAst.body.body.lambdas[0] [argIndex]),
             argAnno,
             funAnno,
-            argAnnos), instantiations);
+            argAnnos), {tvid, instantiations, aliases, intros}));
 
-      /* The type validator must consider transitivity of type equality:
+      // disclose transitive relations
 
-      a ~ b
-      a ~ c
-      b ~ c
+      ({tvid, instantiations, aliases, intros} = uncoverTransRel(
+        {tvid, instantiations, aliases, intros}, lamIndex, null, funAnno, argAnnos));
 
-      TODO:
+      // remove interfering type aliases
 
-      a ~ [b]
-      a ~ [c]
-      b ~ c
-      
-      */
+      instantiations = remConflictingAliases(instantiations);
 
-      const transProp = new Map();
+      // conduct occurs check
 
-      instantiations.forEach(({key: keyAst, value: valueAst}, keyAnno) => {debugger;
-        const valueAnno = serializeAst(valueAst);
-
-        // skip transitivity check for `Partial`
-
-        if (keyAst[TAG] === "Partial"
-          || valueAst[TAG] === "Partial") return null;
-       
-        else if (transProp.has(valueAnno)) {
-          const targetAst = transProp.get(valueAnno);
-
-          instantiations.set(serializeAst(keyAst), {
-            key: keyAst,
-            value: targetAst,
-            substitutor: ast => ast[TAG] === keyAst[TAG]
-              && ast.name === keyAst.name
-                ? targetAst
-                : ast});
-        }
-
-        else transProp.set(valueAnno, keyAst);
+      instantiations.forEach(m => {
+        m.forEach(({key: keyAst, value: valueAst}) =>
+          occursCheck(keyAst, valueAst, instantiations, aliases, new Set(), lamIndex, null, funAnno, argAnnos));
       });
 
-      /* TVs must not occur within a composite type they are meant to be
-      instantiated with, because this would yield an infinite type. This rule
-      also applies if such an occurrence is only indirectly, established by
-      another instantiation. */
+      /* After unification of the application the consumed type parameter must
+      be removed from the AST and all instantiations must be substituted within
+      the remaining subtree. Since the extracted subtree can include redundant
+      `Forall` elements the entire subtree must be recreated. The type
+      parameter(s) is/are removed before the substitution, because this spares
+      some work. There might be several parameters due to scriptum's support of
+      multi argument functions. */
 
-      const occurrences = new Set();
-
-      instantiations.forEach(({key: keyAst, value: valueAst}) => {
-        const lhs = reduceAst((acc, ast) => {
-          switch (ast[TAG]) {
-            case "BoundTV":
-            case "MetaTV":
-            case "RigidTV":
-              return acc.concat(ast.name);
-
-            default: return acc;
-          }
-        }, []) (keyAst);
-
-        const rhs = reduceAst((acc, ast) => {
-          switch (ast[TAG]) {
-            case "BoundTV":
-            case "MetaTV":
-            case "RigidTV":
-              return acc.concat(ast.name);
-
-            default: return acc;
-          }
-        }, []) (valueAst);
-
-        lhs.reduce((acc, x) => rhs.reduce(
-          (acc_, y) => acc.add(`${x}/${y}`), acc), occurrences);
-      });
-
-      occurrences.forEach(occurrence => {
-        const [lhs, rhs] = occurrence.split(/\//);
-
-        if (occurrences.has(`${rhs}/${lhs}`)) {
-          if (rhs === lhs)
-            throw new TypeError(cat(
-              "occurs check failed\n",
-              `"${lhs}" occurs on the LHS and RHS respecitvely\n`,
-              "during instantiation\n",
-              "and thus yields an infinite type\n",
-              "while unifying\n",
-              extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-
-          else throw new TypeError(cat(
-            "occurs check failed\n",
-            `"${lhs}" and "${rhs}" occur on the LHS and RHS respecitvely\n`,
-            "during instantiation\n",
-            "and thus yield an infinite type\n",
-            "while unifying\n",
-            extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
-        }
-      });
-
-      /* After unification the consumed type parameter must be stripped off and
-      all relevant instantiations must be substituted in the remaining type.
-      Regeneralizing restores the bound TVs, provided there are still some left. */
-
-      const unifiedAst =
-        regeneralize(
-          pruneForalls(
-            substitute(
-              remConsumedParams(funAst),
-              instantiations)));
+      let unifiedAst = prettyPrint(
+        recreateAst(
+          substitute(
+            remParams(funAst),
+            instantiations)));
 
       // take variadic arguments into account
 
@@ -3474,117 +3632,27 @@ argument type, but it does not infer types from given terms. */
 
       let r = g(...args);
 
-      // ensure that applications on the term level never returns `undefined`
+      // rule out `undefined` as return value
 
       if (r === undefined)
         throw new TypeError(cat(
-          "illegal result type\n",
-          "namely: undefined\n",
+          `illegal "undefined" result type\n`,
+          "after applying the given function term to its argument(s)\n",
           `runtime immediately terminated\n`,
           extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
 
-      // take algebraic data types and type classes into account
+      /* If the result value is a function the type validator cannot determine
+      its type, because functions are opaque values. However, if the unified
+      type is also a function type we can assume at this point that both types
+      match. */
 
-      else if (r && typeof r === "object" && ADT in r) {
+      else if (introspectFlat(r) === "Function") {
 
-        // type class
+          // check whether the unified type a function type as well
 
-        if (tcDict.has(r[TAG])) {
-          const wrapperAst = parseAnno(r[ADT]);
-
-          const instantiations_ = unifyTypes(
-            wrapperAst,
-            unifiedAst,
-            0,
-            0,
-            0,
-            0,
-            new Map(),
-            r[ADT],
-            serializeAst(unifiedAst),
-            funAnno,
-            []);
-
-          const wrapperAnno = serializeAst(
-            regeneralize(
-              pruneForalls(
-                substitute(
-                  specializeLHS(
-                    TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                    instantiations_))));
-
-          r[ADT] = wrapperAnno;
-        }
-
-        // algebraic data type
-
-        else {
-
-          // parse the annotations of the ADT components
-
-          const wrapperAst = parseAnno(r[ADT]),
-            domainAst = r.run && r.run[ANNO]
-              ? parseAnno(r.run[ANNO])
-              : parseAnno(introspectDeep({charCode: letterA}) (r.run));
-
-          // unify the wrapper with the unified AST
-
-          const instantiations_ = unifyTypes(
-            wrapperAst,
-            unifiedAst,
-            0,
-            0,
-            0,
-            0,
-            new Map(),
-            r[ADT],
-            serializeAst(unifiedAst),
-            funAnno,
-            []);
-
-          // update the domain annotation
-
-          const domainAnno = serializeAst(
-            regeneralize(
-              pruneForalls(
-                substitute(
-                  specializeLHS(
-                    TOP_LEVEL_SCOPE, 0, 1) (domainAst).ast,
-                    instantiations_))));
-
-          // update the wrapper annotation
-
-          const wrapperAnno = serializeAst(
-            regeneralize(
-              pruneForalls(
-                substitute(
-                  specializeLHS(
-                    TOP_LEVEL_SCOPE, 0, 1) (wrapperAst).ast,
-                    instantiations_))));
-
-          // type the Scott encoded ADT domain and the wrapper
-
-          if (domainAst[TAG] === "Forall"
-            && domainAst.body[TAG] === "Fun")
-              r.run = fun(r.run[UNWRAP], domainAnno);
-
-          r[ADT] = wrapperAnno;
-        }
-
-        return r;
-      }
-
-      /* If the resulting AST is a function type or a function type constant, the
-      type validator is still in process of collecting more arguments. Please note
-      that due to return type abstraction a function may collect more arguments
-      than was initially specified. */
-
-      if (unifiedAst[TAG] === "Forall"
-        && unifiedAst.body[TAG] === "Fun") {
-          if (introspectFlat(r) === "Function")
-            return Object.assign(
-              go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst)),
-              {[UNWRAP]: r});
+          if (unifiedAst[TAG] === "Forall"
+            && unifiedAst.body[TAG] === "Fun")
+              return go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst));
 
           else
             throw new TypeError(cat(
@@ -3594,31 +3662,99 @@ argument type, but it does not infer types from given terms. */
               extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
       }
 
-      // result type unification
+      // check whether the result is an ADT or TC
+
+      else if (r && r[ADT]) {
+
+        const tcons = r[ADT].match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) [0];
+
+        // check whether the result is an ADT
+        
+        if (adtDict.has(tcons)) {
+          
+          // parse domain and codomain
+
+          let domainAst = r.run[ANNO]
+            ? parseAnno(r.run[ANNO])
+            : parseAnno(introspectDeep_(r));
+          
+          let codomainAst = parseAnno(r[ADT]);
+
+          // dequantify domain and codomain
+
+          ({ast: domainAst} = specializeLHS(new Map(), ".") (domainAst));
+          ({ast: codomainAst} = specializeLHS(new Map(), ".") (codomainAst));
+
+          // adjust domain according to the unified type using subsumption
+
+          const domainAnno = serializeAst(
+            prettyPrint(
+              recreateAst(
+                substitute(
+                  domainAst,
+                  instantiations))));
+
+          // adjust codomain according to the unified type using subsumption
+
+          const codomainAnno = serializeAst(
+            prettyPrint(
+              recreateAst(
+                substitute(
+                  codomainAst,
+                  instantiations))));
+
+          // update the ADT annotations
+
+          if (r.run[ANNO])
+            r.run[ANNO] = domainAnno;
+          
+          r[ADT] = codomainAnno;
+
+          return r;
+        }
+
+        // no special treatment for TCs
+
+        else if (tcDict.has(tcons))
+          return r;
+
+        else
+          throw TypeError("internal error: ADT or TC expected");
+      }
+
+      // unify the unified type with the actual term level result
 
       else {
-        const resultAnno = introspectDeep({charCode: letterA}) (r);
+        
+        // introspect the value yielded at the term level
+
+        const resultAnno = introspectDeep_(r);
+
+        // dequantify the unified AST prior to unification
+
+        ({ast: unifiedAst} = specializeLHS(new Map(), unifiedAst.scope) (unifiedAst));
+
+        /* Attempt to unify type and term level to prove that the yielded value
+        at the term level has the expected type, hence this unification process
+        is completely decoupled from previous turns and possible new
+        instantiations, aliases and introductions are discarded. */
 
         unifyTypes(
           unifiedAst,
           parseAnno(resultAnno),
           0,
           0,
-          0,
-          0,
-          new Map(),
+          {tvid: 0, instantiations: new Map(), aliases: new Map(), intros: []},
           serializeAst(funAst.body.body.result),
           resultAnno,
           funAnno,
           argAnnos);
 
-        // return the untyped final result
-
         return r;
       }
     };
 
-    // attach processed type annotation
+    // attach current type annotation to term level function object
 
     getArgs[ANNO] = serializeAst(funAst);
     
@@ -3640,14 +3776,14 @@ argument type, but it does not infer types from given terms. */
   else if (funAnno === undefined)
     throw new TypeError(cat(
       "missing type annotation\n",
-      "type validator expects an annotated lambda\n",
-      "but untyped lambda received\n"));
+      "scriptum only allows type annotated lambdas\n",
+      "but an untyped lambda received\n"));
 
   // run the validator
 
   else {
 
-    /* scriptum supports indetations and newlines to render type annotations
+    /* scriptum supports indentations and newlines to render type annotations
     more readable. These optional characters must be removed before type
     validation. */
 
@@ -3657,13 +3793,10 @@ argument type, but it does not infer types from given terms. */
     /* The `fun` operation can only type lambdas, i.e. the top-level type must
     be a function type. */
 
-    if (remNestings(funAnno[0] === "(" && funAnno[funAnno.length - 1] === ")"
-      ? funAnno.slice(1, -1)
-      : funAnno).search(/ => /) === NOT_FOUND) {
-        throw new TypeError(cat(
-          "top-level type must be a function\n",
-          `but ${funAnno} received\n`));
-    }
+    if (remNestings(remQuant(funAnno)).search(/ => /) === NOT_FOUND)
+      throw new TypeError(cat(
+        "top-level type must be a function\n",
+        `but ${funAnno} received\n`));
 
     else {
 
@@ -3673,15 +3806,126 @@ argument type, but it does not infer types from given terms. */
 
       // return the typed function
 
-      const typedLambda = go(f, 0, funAst, funAnno);
-
-      // attach the original function
-
-      return Object.assign(
-        typedLambda,
-        {get [UNWRAP] () {return f}});
+      return go(f, 0, funAst, funAnno);
     }
   }
+};
+
+
+/* Check for all instantiations of the form `TV => TV` whether there are
+interfering mappings like
+
+a => b1
+b1 => a
+
+and delete mappings from older to newer entries. */
+
+/* VERSION: 0.4.0 */ const remConflictingAliases = instantiations => {
+  instantiations.forEach(m => {
+    const xs = Array.from(m);
+
+    for (let i = 0; i < xs.length; i++) {
+      const [, {key, value}] = xs[i];
+
+      if (isTV(value)
+        && instantiations.has(value.name)) {
+          if (instantiations.get(value.name).has(`${value.name} ~ ${key.name}`)) {
+            instantiations.get(value.name).delete(`${value.name} ~ ${key.name}`);
+
+            if (instantiations.get(value.name).size === 0)
+              instantiations.delete(value.name);
+          }
+      }
+    }
+  });
+
+  return instantiations;
+};
+
+
+/* A TV or one of its type aliases on the LHS of an instantiation must not
+occur within a composite type on the RHS, because this would introduce an
+infinite definition. Infinite types lead to non-termination during
+substitution and thus must be rejected by the type validator. */
+
+const occursCheck = (keyAst, valueAst, instantiations, aliases, history, lamIndex, argIndex, funAnno, argAnnos) => {
+
+  // return early if valueAst isn't a composite type
+
+  if (!isTV(valueAst)
+    && valueAst[TAG] !== "RowVar"
+    && valueAst[TAG] !== "Tconst") {
+
+      // throw an error if keyAst occurs in valueAst
+
+      mapAst(ast => {
+        if (isTV(ast)
+          && ast.name === keyAst.name) {
+            if (aliases.has(keyAst.name))
+              throw new TypeError(cat(
+                "occurs check failed\n",
+                `"${keyAst.name}" or one of its aliases\n`,
+                "occurs on the LHS and RHS of the type annotation\n",
+                "cannot construct the resulting infinite type\n",
+                extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+            else
+              throw new TypeError(cat(
+                "occurs check failed\n",
+                `"${keyAst.name}" occurs on the LHS and RHS of the type annotation\n`,
+                "cannot construct the resulting infinite type\n",
+                extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+        }
+        
+        else return ast;
+      }) (valueAst);
+
+      // check alias occurrences if any
+
+      if (aliases.has(keyAst.name)
+        && !history.has(keyAst.name)) {
+      
+        // recursively check whether one of its aliases occurs in valueAst
+        
+        aliases.get(keyAst.name).forEach(([, aliasAst]) =>
+          occursCheck(aliasAst, valueAst, instantiations, aliases, history.add(aliasAst.name), lamIndex, argIndex, funAnno, argAnnos));
+      }
+  }
+};
+
+
+/* Disclose transitive relations between TVs:
+
+a ~ b
+a ~ c
+
+yields the type equality by transitivity
+
+b ~ c */
+
+const uncoverTransRel = ({tvid, instantiations, aliases, intros}, lamIndex, argIndex, funAnno, argAnnos) => {
+  instantiations.forEach((m, keyAnno) => {
+    const xs = Array.from(m);
+
+    if (xs.length > 1) {
+      for (let i = 1; i < xs.length; i++) {
+        const [, {value: valueAst}] = xs[i];
+
+        ({tvid, instantiations, aliases, intros} = unifyTypes(
+          xs[0] [1].value,
+          valueAst,
+          lamIndex,
+          argIndex,
+          {tvid, instantiations, aliases, intros},
+          keyAnno,
+          serializeAst(valueAst),
+          funAnno,
+          argAnnos));
+      }
+    }
+  });
+
+  return {tvid, instantiations, aliases, intros};
 };
 
 
@@ -3690,45 +3934,70 @@ argument type, but it does not infer types from given terms. */
 ******************************************************************************/
 
 
-const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
+const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argAnno, funAnno, argAnnos) => {
 
-  /* Unifies two possibly higher-kinded types using subsumption. Interestingly,
-  we don't need kinds and kind unification respecitvely but can solely rely on
-  arities and abstraction over arities in case of generic type constructors. */
+  /* In order to determine if a function application `f(x)` is well typed in a
+  language with higher-order functions and higher-rank types we must determine
+  whether the type of `x` is a subtype of `f`'s type parameter, i.e. can safely
+  be used in a context where the type of `f`'s' parameter is expected. Please
+  note that in functional programming instead of "is a subtype of" we rather
+  use the term "is at least as polymorphic as" relating to parametricity.
 
-  /* Subsumption is required to instantiate bound TVs within deeply nested
-  quantifiers. It comes along with the usual covariance subtype order in the
-  codomain but also with contravariance order in the domain. For variance
-  to kick in both the LHS and RHS must be function types. */
+  Higher-rank types or impredicative types are only valid on the LHS of the
+  function type. The function type is contravariant in its argument type and
+  covariant in its result type. Contravariance flips the order of types whereas
+  covariance maintains it.
 
-  /* Although strictly speaking subsumption is only necessary to look into
-  explicit forall quantifiers, this algorithm also uses it for regular,
-  rank-1 function types. */
+  First-order:
 
-  /* The subsumption judgement defines the scope that emerges by applying a
-  function to an argument type. It has the form `arg <: param`, which reads
-  "arg is at least as polymorphic as param". `param` is just the first formal
-  parameter of the function type. */
+  A => B <: C => D if
+  B <: D (covariance)
+  C <: A (contravariance)
 
-  /* If fun and arg include function parameter and arguments respectively, the
-  subsumption judgement flips for each evaluation of parameters/arguments. This
-  is due to the contravariant property of the function domain. */
+  Higher-order:
 
-  if (iteration % 2 === 0) {
-    if (paramAst[TAG] === "Forall" && paramAst.btvs.size > 0)
-      ({ast: paramAst, tvid} = specializeLHS(paramAst.scope, iteration, tvid + 1) (paramAst));
+  (A => B) => C <: (D => E) => F if
+  C <: F (covariance)
+  D => E <: A => B (contravariance) if
+  E <: B
+  A <: D
 
-    if (argAst[TAG] === "Forall" && argAst.btvs.size > 0)
-      ({ast: argAst, tvid} = specializeRHS(argAst.scope, iteration, tvid + 1) (argAst));
-  }
+  The "<:" symbol denotes the "is a subtype of"/"is at least as polymorphic as"
+  relation. For nested function types the variance rules must be applied several
+  times leading to a somewhat confusing distribution of contra- and covariance.
+  The less formal subsumption rule of function application reads as follows:
 
-  else {
-    if (argAst[TAG] === "Forall" && argAst.btvs.size > 0)
-      ({ast: argAst, tvid} = specializeLHS(argAst.scope, iteration, tvid + 1) (argAst));
+  The function application `f(x)` is type safe if `x <: p` holds.
 
-    if (paramAst[TAG] === "Forall" && paramAst.btvs.size > 0)
-      ({ast: paramAst, tvid} = specializeRHS(paramAst.scope, iteration, tvid + 1) (paramAst));
-  }
+  In the above judgement `x` is an argument type and `p` is `f`'s type parameter. */
+
+  // destructure state
+
+  let {tvid, instantiations, aliases, intros} = state;
+
+  /* In order to conduct an escape check we need to determine which meta TVs a
+  rigid TV is allowed to be instantiated with. All meta TVs that are introduced
+  within the same subsumption judgement and that are not aliases of TVs of
+  earlier introductions are legit instantiations. */
+
+  let intro = new Map();
+
+  /* Higher-rank TVs only exist in their scope and must not escape it. As the
+  caller of a higher-rank function type you cannot pick a specific type for its
+  higher-rank TVs and you cannot use this TVs outside the function's scope.
+  The unification algorithm used in scriptum distinguish between meta and rigid
+  TVs to address these issues. A rigid TV denotes a higher-rank one, which was
+  located on the RHS of the subsumption judgement during instantiation. */
+
+  if (argAst[TAG] === "Forall" && argAst.btvs.size > 0)
+    ({ast: argAst, intro} = specializeLHS(intro, argAst.scope, ++tvid) (argAst));
+
+  if (paramAst[TAG] === "Forall" && paramAst.btvs.size > 0)
+    ({ast: paramAst, intro} = specializeRHS(intro, paramAst.scope, ++tvid) (paramAst));
+
+  // make TV introduction persitent across function calls
+
+  if (intro.size > 0) intros.push(intro);
 
   /* TVs can represent higher-kinded types, therefore their arity must be
   unified as well. If we assume that type constructors are generative and
@@ -3746,11 +4015,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
   F<a> !~ G<b, c, d>
   F<a, b, c> !~ G<d> */
 
-  /* Substitution should go from arg to param type whenever possible. This way
-  the unified type has as little deviations as possible from fun's original
-  annotation.  However, this only works for instantiations of two meta or two
-  rigid TVs. If both meta and rigid TVs are involved, the latter must always be
-  substituted by the former. */
+  // the mother of all conditionals
 
   switch (paramAst[TAG]) {
     case "Adt": {
@@ -3774,13 +4039,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
         }
 
@@ -3794,9 +4057,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -3804,8 +4065,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": {// Adt<a, b> ~ u<c> | u<c, d>
-          if (argAst.body.length === 0) // Adt<a, b> ~ c
-            return instantiate(
+          if (argAst.body.length === 0) { // Adt<a, b> ~ c
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -3814,21 +4075,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length <= paramAst.body.length) { // Adt<a, b> ~ u<c> | u<c, d>
-            instantiations = instantiate( // Adt | Adt<a> ~ u
+            ({instantiations, aliases} = instantiate( // Adt | Adt<a> ~ u
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 Array(argAst.body.length).fill(Partial)),
               paramAst.body.length === argAst.body.length
                 ? Adt(paramAst.cons, Array(paramAst.body.length).fill(Partial))
@@ -3850,13 +4111,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
               unifyTypes(
@@ -3864,13 +4123,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
 
           else // Adt<a, b> ~ u<c, d, e>
@@ -3886,8 +4143,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               argAnnos);
         }
 
-        case "Partial": // Adt<a, b> ~ __
-          return instantiate(
+        case "Partial": { // Adt<a, b> ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -3896,13 +4153,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // Adt<a, b> ~ composite type except Adt<a, b>
           unificationError(
@@ -3926,9 +4184,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -3944,9 +4200,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -3954,31 +4208,31 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
         
         case "MetaTV":
         case "RigidTV": {
-          if (argAst.body.length === 0) // [a] ~ b
-            return instantiate(
-              argAst,
-              paramAst,
-              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
-                && refAst.name === fromAst.name
-                  ? toAst
-                  : refAst,
-              lamIndex,
-              argIndex,
-              iteration,
-              tvid,
-              instantiations,
-              paramAnno,
-              argAnno,
-              funAnno,
-              argAnnos);
+          if (argAst.body.length === 0) { // [a] ~ b
+            ({instantiations, aliases} = instantiate(
+                argAst,
+                paramAst,
+                (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name
+                    ? toAst
+                    : refAst,
+                lamIndex,
+                argIndex,
+                {tvid, instantiations, aliases, intros},
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length === 1) { // [a] ~ u<b>
-            instantiations = instantiate( // u ~ []
+            ({instantiations, aliases} = instantiate( // u ~ []
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 [Partial]),
               Arr(Partial),
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -3987,22 +4241,18 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return unifyTypes(
               paramAst.body,
               argAst.body[0],
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
@@ -4022,8 +4272,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               argAnnos);
         }
 
-        case "Partial": // [a] ~ __
-          return instantiate(
+        case "Partial": { // [a] ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4032,13 +4282,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // [a] ~ composite type except [b]
           unificationError(
@@ -4066,9 +4317,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -4080,9 +4329,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -4102,9 +4349,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -4124,7 +4369,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           (a1 => b1) => a1 => c1 <: c // covariant
 
           The result type can either by the remainder of the curried function
-          sequence or the actual result. */
+          sequence or the final result. */
 
           // contravariant subsumption
 
@@ -4143,39 +4388,43 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           switch (paramAst.body.lambdas[0] [TAG]) {
             case "Arg0": break; // thunk
             
+            /* Since the function type is contravariant in its argument type
+            the subsumption judgement `arg <: param` is flipped by passing the
+            argument AST first and then the parameter one. */
+
             case "Arg1": // single argument
             case "Argv": { // variadic argument
-              instantiations = unifyTypes(
-                paramAst.body.lambdas[0] [0],
+              ({tvid, instantiations, aliases, intros} = unifyTypes(
                 argAst.body.lambdas[0] [0],
+                paramAst.body.lambdas[0] [0],
                 lamIndex,
                 argIndex,
-                iteration + 1,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos);
+                argAnnos));
 
               break;
             }
             
+            /* Since the function type is contravariant in its argument type
+            the subsumption judgement `arg <: param` is flipped by passing the
+            argument AST first and then the parameter one. */
+
             case "Args": // multi argument
             case "Argsv": { // multi argument with a trailing variadic argument
-              instantiations = paramAst.body.lambdas[0].reduce((acc, arg, i) =>
+              ({tvid, instantiations, aliases, intros} = paramAst.body.lambdas[0].reduce((acc, arg, i) =>
                 unifyTypes(
-                  paramAst.body.lambdas[0] [i],
                   argAst.body.lambdas[0] [i],
+                  paramAst.body.lambdas[0] [i],
                   lamIndex,
                   argIndex,
-                  iteration + 1,
-                  tvid,
-                  instantiations,
+                  {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                   paramAnno,
                   argAnno,
                   funAnno,
-                  argAnnos), instantiations);
+                  argAnnos), {tvid, instantiations, aliases, intros}));
 
               break;
             }
@@ -4189,26 +4438,12 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
           if (paramAst.body.lambdas.length === 1) {
             if (argAst.body.lambdas.length === 1) { // (a => b) ~ (c => d)
-              let paramResult, argResult;
-
-              if (!isTV(paramAst.body.result) && isTV(argAst.body.result)) {
-                argResult = paramAst.body.result;
-                paramResult = argAst.body.result;
-              }
-
-              else {
-                paramResult = paramAst.body.result;
-                argResult = argAst.body.result;
-              }
-
               return unifyTypes(
-                paramResult,
-                argResult,
+                paramAst.body.result,
+                argAst.body.result,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4225,9 +4460,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst_,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4246,9 +4479,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body.result,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4269,9 +4500,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst_,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4282,8 +4511,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": { // zyx
-          if (argAst.body.length === 0) // (a => b) ~ c
-            return instantiate(
+          if (argAst.body.length === 0) { // (a => b) ~ c
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => {
@@ -4291,19 +4520,20 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   && refAst.name === fromAst.name)
                     return refAst.position === "codomain"
                       ? Codomain(...toAst.body.lambdas, toAst.body.result)
-                      : Forall(new Set(), TOP_LEVEL_SCOPE, toAst);
+                      : Forall(new Set(), ".", toAst);
 
                 else return refAst;
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else {
             const arityDiff = determineArity(paramAst) - argAst.body.length;
@@ -4314,12 +4544,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
               switch (paramAst.body.lambdas[0] [TAG]) {
                 case "Arg0": {
-                  instantiations = instantiate( // (=>) ~ u
+                  ({instantiations, aliases} = instantiate( // (=>) ~ u
                     (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       argAst.name,
                       argAst.scope,
                       argAst.position,
-                      argAst.iteration,
                       [Partial]),
                     Fun([new Arg0()], Partial),
                     (refAst, fromAst, toAst) => {
@@ -4327,7 +4556,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            TOP_LEVEL_SCOPE,
+                            ".",
                             Fun([
                               new Arg0()],
                               mapAst(refAst_ => {
@@ -4336,7 +4565,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
-                                    refAst_.iteration,
                                     refAst_.body);
                                 
                                 else return refAst_;
@@ -4347,24 +4575,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   break;
                 }
 
                 case "Arg1": {
-                  instantiations = instantiate( // (=>) ~ u
+                  ({instantiations, aliases} = instantiate( // (=>) ~ u
                     (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       argAst.name,
                       argAst.scope,
                       argAst.position,
-                      argAst.iteration,
                       [Partial, Partial]),
                     Fun([new Arg1(Partial)], Partial),
                     (refAst, fromAst, toAst) => {
@@ -4372,7 +4597,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            TOP_LEVEL_SCOPE,
+                            ".",
                             Fun([
                               new Arg1(refAst.body[0])],
                               mapAst(refAst_ => {
@@ -4381,7 +4606,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
-                                    refAst_.iteration,
                                     refAst_.body);
                                 
                                 else return refAst_;
@@ -4392,37 +4616,32 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
-                  instantiations = unifyTypes(
+                  ({tvid, instantiations, aliases, intros} = unifyTypes(
                     paramAst.body.lambdas[0] [0],
                     argAst.body[0],
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   break;
                 }
 
                 case "Args": {
-                  instantiations = instantiate( // (=>) ~ u
+                  ({instantiations, aliases} = instantiate( // (=>) ~ u
                     (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       argAst.name,
                       argAst.scope,
                       argAst.position,
-                      argAst.iteration,
                       Array(argAst.body.length).fill(Partial)),
                     Fun([
                       Args.fromArr(Array(paramAst.body.lambdas[0].length).fill(Partial))],
@@ -4432,7 +4651,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            TOP_LEVEL_SCOPE,
+                            ".",
                             Fun([
                               Args.fromArr(refAst.body.slice(0, -1))],
                               mapAst(refAst_ => {
@@ -4441,7 +4660,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
-                                    refAst_.iteration,
                                     refAst_.body);
                                 
                                 else return refAst_;
@@ -4452,27 +4670,23 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
-                  instantiations = paramAst.body.lambdas[0].reduce((acc, ast, i) =>
+                  ({tvid, instantiations, aliases, intros} = paramAst.body.lambdas[0].reduce((acc, ast, i) =>
                     unifyTypes(
                       ast,
                       argAst.body[i],
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos), instantiations);
+                      argAnnos), {tvid, instantiations, aliases, intros}));
 
                   break;
                 }
@@ -4512,12 +4726,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   "internal error: unexpected thunk");
 
                 case "Arg1": {
-                  instantiations = instantiate( // (a => ) ~ u
+                  ({instantiations, aliases} = instantiate( // (a => ) ~ u
                     (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       argAst.name,
                       argAst.scope,
                       argAst.position,
-                      argAst.iteration,
                       [Partial]),
                     Fun([paramAst.body.lambdas[0]], Partial),
                     (refAst, fromAst, toAst) => {
@@ -4525,7 +4738,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            TOP_LEVEL_SCOPE,
+                            ".",
                             Fun([
                               toAst.body.lambdas[0]],
                               mapAst(refAst_ => {
@@ -4534,7 +4747,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
-                                    refAst_.iteration,
                                     refAst_.body);
                                 
                                 else return refAst_;
@@ -4545,24 +4757,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   break;
                 }
 
                 case "Args": {
-                  instantiations = instantiate( // (a, b =>) ~ u
+                  ({instantiations, aliases} = instantiate( // (a, b =>) ~ u
                     (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       argAst.name,
                       argAst.scope,
                       argAst.position,
-                      argAst.iteration,
                       Array(argAst.body.length).fill(Partial)),
                     Fun([
                       paramAst.body.lambdas[0]
@@ -4574,7 +4783,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            TOP_LEVEL_SCOPE,
+                            ".",
                             Fun([
                               toAst.body.lambdas[0]
                                 .slice(0, arityDiff)
@@ -4585,7 +4794,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
-                                    refAst_.iteration,
                                     refAst_.body);
                                 
                                 else return refAst_;
@@ -4596,15 +4804,13 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
-                  instantiations = paramAst.body.lambdas[0]
+                  ({tvid, instantiations, aliases, intros} = paramAst.body.lambdas[0]
                     .slice(arityDiff)
                     .reduce((acc, ast, i) =>
                       unifyTypes(
@@ -4612,13 +4818,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         argAst.body[i],
                         lamIndex,
                         argIndex,
-                        iteration,
-                        tvid,
-                        instantiations,
+                        {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                         paramAnno,
                         argAnno,
                         funAnno,
-                        argAnnos), instantiations);
+                        argAnnos), {tvid, instantiations, aliases, intros}));
 
                   break;
                 }
@@ -4645,9 +4849,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[argAst.body.length - 1],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4664,9 +4866,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[argAst.body.length - 1],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
@@ -4675,8 +4875,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           }
         }
 
-        case "Partial": // (a => b) ~ __
-          return instantiate(
+        case "Partial": { // (a => b) ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4685,13 +4885,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // (a => b) ~ composite type except (c => d)
           unificationError(
@@ -4720,9 +4921,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -4736,28 +4935,30 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
           if (paramAst.body.length === 0 && argAst.body.length === 0) { // a ~ b
             if (paramAst.name === argAst.name) // a ~ a
-              return instantiations;
+              return {tvid, instantiations, aliases, intros};
 
-            else return instantiate( // a ~ b
-              paramAst,
-              argAst,
-              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
-                && refAst.name === fromAst.name
-                  ? toAst
-                  : refAst,
-                lamIndex,
-                argIndex,
-                iteration,
-                tvid,
-                instantiations,
-                paramAnno,
-                argAnno,
-                funAnno,
-                argAnnos);
+            else {
+              ({instantiations, aliases} = instantiate( // a ~ b
+                paramAst,
+                argAst,
+                (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name
+                    ? toAst
+                    : refAst,
+                  lamIndex,
+                  argIndex,
+                  {tvid, instantiations, aliases, intros},
+                  paramAnno,
+                  argAnno,
+                  funAnno,
+                  argAnnos));
+
+              return {tvid, instantiations, aliases, intros};
+            }
           }
 
           else if (paramAst.body.length === 0) { // a ~ u<b>
-            return instantiate(
+            ({instantiations, aliases} = instantiate(
               paramAst,
               argAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4766,17 +4967,17 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos);
+                argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
           }
 
           else if (argAst.body.length === 0) { // t<a> ~ b
-            return instantiate(
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4785,13 +4986,13 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos);
+                argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
           }
 
           const arityDiff = paramAst.body.length - argAst.body.length;
@@ -4802,18 +5003,16 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             }
 
             else { // t ~ u
-              instantiations = instantiate(
+              ({instantiations, aliases} = instantiate(
                 (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                   paramAst.name,
                   paramAst.scope,
                   paramAst.position,
-                  paramAst.iteration,
                   Array(paramAst.body.length).fill(Partial)),
                 (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                   argAst.name,
                   argAst.scope,
                   argAst.position,
-                  argAst.iteration,
                   Array(argAst.body.length).fill(Partial)),
                 (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
                   && refAst.name === fromAst.name
@@ -4821,18 +5020,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         toAst.name,
                         toAst.scope,
                         toAst.position,
-                        toAst.iteration,
                         refAst.body)
                     : refAst,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos);
+                argAnnos));
             }
 
             return paramAst.body.reduce((acc, field, i) =>
@@ -4841,30 +5037,26 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
           
           else if (arityDiff < 0) { // t<a, b> ~ u<c, d, e, f>
             const fields = argAst.body.slice(arityDiff);
 
-            instantiations = instantiate( // t ~ u<c, d>
+            ({instantiations, aliases} = instantiate( // t ~ u<c, d>
               (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 paramAst.name,
                 paramAst.scope,
                 paramAst.position,
-                paramAst.iteration,
                 Array(paramAst.body.length).fill(Partial)),
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 argAst.body.slice(0, argAst.body.length - paramAst.body.length)
                   .concat(Array(paramAst.body.length).fill(Partial))),
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4873,18 +5065,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       toAst.name,
                       toAst.scope,
                       toAst.position,
-                      toAst.iteration,
                       refAst.body.slice(arityDiff))
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return fields.reduce((acc, field, i) =>
               unifyTypes(
@@ -4892,13 +5081,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 field,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
 
           else if (arityDiff > 0) { // t<a, b, c, d> ~ u<e, f>
@@ -4915,8 +5102,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           }
         }
 
-        case "Partial": // a | t<a> ~ __
-          return instantiate(
+        case "Partial": { // a | t<a> ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -4925,18 +5112,19 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: { // xyz
           if (paramAst.body.length === 0) { // a ~ composite type
             if (argAst[TAG] === "Fun") { // a ~ (b => c)
-              return instantiate(
+              ({instantiations, aliases} = instantiate(
                 paramAst,
                 argAst,
                 (refAst, fromAst, toAst) => {
@@ -4944,37 +5132,39 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     && refAst.name === fromAst.name)
                       return refAst.position === "codomain"
                         ? Codomain(...toAst.body.lambdas, toAst.body.result)
-                        : Forall(new Set(), TOP_LEVEL_SCOPE, toAst);
+                        : Forall(new Set(), ".", toAst);
                   
                   else return refAst;
                 },
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid, instantiations, aliases, intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos);
+                argAnnos));
+
+              return {tvid, instantiations, aliases, intros};
             }
 
-            else return instantiate( // a ~ composite type
-              paramAst,
-              argAst,
-              (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
-                && refAst.name === fromAst.name
-                  ? toAst
-                  : refAst,
-              lamIndex,
-              argIndex,
-              iteration,
-              tvid,
-              instantiations,
-              paramAnno,
-              argAnno,
-              funAnno,
-              argAnnos);
+            else {
+              ({instantiations, aliases} = instantiate( // a ~ composite type
+                paramAst,
+                argAst,
+                (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
+                  && refAst.name === fromAst.name
+                    ? toAst
+                    : refAst,
+                lamIndex,
+                argIndex,
+                {tvid, instantiations, aliases, intros},
+                paramAnno,
+                argAnno,
+                funAnno,
+                argAnnos));
+
+              return {tvid, instantiations, aliases, intros};
+            }
           }
 
           else {
@@ -4993,8 +5183,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             else {
               switch (argAst[TAG]) {
                 case "Adt": { // t<a> | t<a, b> ~ Adt<c, d>
-                  if (paramAst.body.length === 0) // a ~ Adt<b, c>
-                    return instantiate(
+                  if (paramAst.body.length === 0) { // a ~ Adt<b, c>
+                    ({instantiations, aliases} = instantiate(
                       paramAst,
                       argAst,
                       (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5003,21 +5193,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           : refAst,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid, instantiations, aliases, intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos);
+                      argAnnos));
+
+                    return {tvid, instantiations, aliases, intros};
+                  }
 
                   else if (paramAst.body.length <= argArity) { // t<a> | t<a, b> ~ Adt<c, d>
-                    instantiations = instantiate( // t ~ Adt | Adt<b>
+                    ({instantiations, aliases} = instantiate( // t ~ Adt | Adt<b>
                       (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                         paramAst.name,
                         paramAst.scope,
                         paramAst.position,
-                        paramAst.iteration,
                         Array(paramAst.body.length).fill(Partial)),
                       argArity === paramAst.body.length
                         ? Adt(argAst.cons, Array(argArity).fill(Partial))
@@ -5046,27 +5236,23 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       },
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid, instantiations, aliases, intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos);
+                      argAnnos));
 
                     return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
                       unifyTypes(
-                        field,
                         paramAst.body[i],
+                        field,
                         lamIndex,
                         argIndex,
-                        iteration,
-                        tvid,
-                        instantiations,
+                        {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                         paramAnno,
                         argAnno,
                         funAnno,
-                        argAnnos), instantiations);
+                        argAnnos), {tvid, instantiations, aliases, intros});
                   }
 
                   else // t<a, b, c> ~ Adt<d, e>
@@ -5084,12 +5270,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
                 case "Arr":
                 case "Nea": { // t<a> ~ [b] | [1b]
-                  instantiations = instantiate( // t ~ [] | [1]
+                  ({instantiations, aliases} = instantiate( // t ~ [] | [1]
                     (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       paramAst.name,
                       paramAst.scope,
                       paramAst.position,
-                      paramAst.iteration,
                       [Partial]),
                     (argAst[TAG] === "Arr" ? Arr : Nea) (Partial),
                     (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5098,22 +5283,18 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         : refAst,
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   return unifyTypes(
                     paramAst.body[0],
                     argAst.body,
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
@@ -5129,12 +5310,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             
                     switch (argAst.body.lambdas[0] [TAG]) {
                       case "Arg0": {
-                        instantiations = instantiate( // t ~ (=>)
+                        ({instantiations, aliases} = instantiate( // t ~ (=>)
                           (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                             paramAst.name,
                             paramAst.scope,
                             paramAst.position,
-                            paramAst.iteration,
                             [Partial]),
                           Fun([new Arg0()], Partial),
                           (refAst, fromAst, toAst) => {
@@ -5142,15 +5322,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  TOP_LEVEL_SCOPE, Fun([
-                                    new Arg0()],
+                                  ".",
+                                  Fun(
+                                    [new Arg0()],
                                     mapAst(refAst_ => {
                                       if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
                                         return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
-                                          refAst_.iteration,
                                           refAst_.body);
                                       
                                       else return refAst_;
@@ -5161,24 +5341,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           },
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
                         break;
                       }
 
                       case "Arg1": {
-                        instantiations = instantiate( // t ~ (=>)
+                        ({instantiations, aliases} = instantiate( // t ~ (=>)
                           (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                             paramAst.name,
                             paramAst.scope,
                             paramAst.position,
-                            paramAst.iteration,
                             [Partial, Partial]),
                           Fun([new Arg1(Partial)], Partial),
                           (refAst, fromAst, toAst) => {
@@ -5186,16 +5363,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  TOP_LEVEL_SCOPE,
-                                  Fun([
-                                    new Arg1(refAst.body[0])],
+                                  ".",
+                                  Fun(
+                                    [new Arg1(refAst.body[0])],
                                     mapAst(refAst_ => {
                                       if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
                                         return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
-                                          refAst_.iteration,
                                           refAst_.body);
                                       
                                       else return refAst_;
@@ -5206,37 +5382,32 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           },
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
-                        instantiations = unifyTypes(
+                        ({tvid, instantiations, aliases, intros} = unifyTypes(
                           paramAst.body[0],
                           argAst.body.lambdas[0] [0],
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
                         break;
                       }
 
                       case "Args": {
-                        instantiations = instantiate( // t ~ (=>)
+                        ({instantiations, aliases} = instantiate( // t ~ (=>)
                           (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                             paramAst.name,
                             paramAst.scope,
                             paramAst.position,
-                            paramAst.iteration,
                             Array(paramAst.body.length).fill(Partial)),
                           Fun([
                             Args.fromArr(Array(argAst.body.lambdas[0].length).fill(Partial))],
@@ -5246,16 +5417,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  TOP_LEVEL_SCOPE,
-                                  Fun([
-                                    Args.fromArr(refAst.body.slice(0, -1))],
+                                  ".",
+                                  Fun(
+                                    [Args.fromArr(refAst.body.slice(0, -1))],
                                     mapAst(refAst_ => {
                                       if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
                                         return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
-                                          refAst_.iteration,
                                           refAst_.body);
                                       
                                       else return refAst_;
@@ -5266,27 +5436,23 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           },
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
-                        instantiations = argAst.body.lambdas[0].reduce((acc, ast, i) =>
+                        ({tvid, instantiations, aliases, intros} = argAst.body.lambdas[0].reduce((acc, ast, i) =>
                           unifyTypes(
                             paramAst.body[i],
                             ast,
                             lamIndex,
                             argIndex,
-                            iteration,
-                            tvid,
-                            instantiations,
+                            {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                             paramAnno,
                             argAnno,
                             funAnno,
-                            argAnnos), instantiations);
+                            argAnnos), {tvid, instantiations, aliases, intros}));
 
                         break;
                       }
@@ -5326,12 +5492,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                         "internal error: unexpected thunk");
 
                       case "Arg1": {
-                        instantiations = instantiate( // t ~ (b => )
+                        ({instantiations, aliases} = instantiate( // t ~ (b => )
                           (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                             paramAst.name,
                             paramAst.scope,
                             paramAst.position,
-                            paramAst.iteration,
                             [Partial]),
                           Fun([argAst.body.lambdas[0]], Partial),
                           (refAst, fromAst, toAst) => {
@@ -5339,16 +5504,15 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  TOP_LEVEL_SCOPE,
-                                  Fun([
-                                    toAst.body.lambdas[0]],
+                                  ".",
+                                  Fun(
+                                    [toAst.body.lambdas[0]],
                                     mapAst(refAst_ => {
                                       if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
                                         return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
-                                          refAst_.iteration,
                                           refAst_.body);
                                       
                                       else return refAst_;
@@ -5359,24 +5523,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           },
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
                         break;
                       }
 
                       case "Args": {
-                        instantiations = instantiate( // t ~ (b, c =>)
+                        ({instantiations, aliases} = instantiate( // t ~ (b, c =>)
                           (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                             paramAst.name,
                             paramAst.scope,
                             paramAst.position,
-                            paramAst.iteration,
                             Array(paramAst.body.length).fill(Partial)),
                           Fun([
                             argAst.body.lambdas[0]
@@ -5388,9 +5549,9 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  TOP_LEVEL_SCOPE,
-                                  Fun([
-                                    toAst.body.lambdas[0]
+                                  ".",
+                                  Fun(
+                                    [toAst.body.lambdas[0]
                                       .slice(0, arityDiff)
                                       .concat(Args.fromArr(refAst.body.slice(0, -1)))],
                                     mapAst(refAst_ => {
@@ -5399,7 +5560,6 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
-                                          refAst_.iteration,
                                           refAst_.body);
                                       
                                       else return refAst_;
@@ -5410,15 +5570,13 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                           },
                           lamIndex,
                           argIndex,
-                          iteration,
-                          tvid,
-                          instantiations,
+                          {tvid, instantiations, aliases, intros},
                           paramAnno,
                           argAnno,
                           funAnno,
-                          argAnnos);
+                          argAnnos));
 
-                        instantiations = argAst.body.lambdas[0]
+                        ({tvid, instantiations, aliases, intros} = argAst.body.lambdas[0]
                           .slice(arityDiff)
                           .reduce((acc, ast, i) =>
                             unifyTypes(
@@ -5426,13 +5584,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                               ast,
                               lamIndex,
                               argIndex,
-                              iteration,
-                              tvid,
-                              instantiations,
+                              {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                               paramAnno,
                               argAnno,
                               funAnno,
-                              argAnnos), instantiations);
+                              argAnnos), {tvid, instantiations, aliases, intros}));
 
                         break;
                       }
@@ -5459,9 +5615,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       argAst.body.result,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid, instantiations, aliases, intros},
                       paramAnno,
                       argAnno,
                       funAnno,
@@ -5478,9 +5632,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       argAst_,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid, instantiations, aliases, intros},
                       paramAnno,
                       argAnno,
                       funAnno,
@@ -5489,12 +5641,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 }
 
                 case "Native": { // t<a> | t<a, b> ~ Set<c, d>
-                  instantiations = instantiate( // t ~ Set | Set<c>
+                  ({instantiations, aliases} = instantiate( // t ~ Set | Set<c>
                     (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       paramAst.name,
                       paramAst.scope,
                       paramAst.position,
-                      paramAst.iteration,
                       Array(paramAst.body.length).fill(Partial)),
                     argArity === paramAst.body.length
                       ? Native(argAst.cons, Array(argArity).fill(Partial))
@@ -5516,13 +5667,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
                     unifyTypes(
@@ -5530,22 +5679,19 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       field,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos), instantiations);
+                      argAnnos), {tvid, instantiations, aliases, intros});
                 }
 
                 case "Obj": { // t<a> | t<a, b> ~ {foo: b, bar: c}
-                  instantiations = instantiate( // t ~ {foo:, bar:} | {foo: b, bar:}
+                  ({instantiations, aliases} = instantiate( // t ~ {foo:, bar:} | {foo: b, bar:}
                     (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       paramAst.name,
                       paramAst.scope,
                       paramAst.position,
-                      paramAst.iteration,
                       Array(paramAst.body.length).fill(Partial)),
                     argArity === paramAst.body.length
                       ? Obj(
@@ -5587,13 +5733,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
                     unifyTypes(
@@ -5601,22 +5745,19 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       field.v,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos), instantiations);
+                      argAnnos), {tvid, instantiations, aliases, intros});
                 }
 
                 case "Tup": { // t<a> | t<a, b> ~ [c, d] | [c, d, e]
-                  instantiations = instantiate( // t ~ [,] | [c,]
+                  ({instantiations, aliases} = instantiate( // t ~ [,] | [c,]
                     (paramAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                       paramAst.name,
                       paramAst.scope,
                       paramAst.position,
-                      paramAst.iteration,
                       Array(paramAst.body.length).fill(Partial)),
                     argArity === paramAst.body.length
                       ? Tup(argArity, Array(argArity).fill(Partial))
@@ -5638,13 +5779,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                     },
                     lamIndex,
                     argIndex,
-                    iteration,
-                    tvid,
-                    instantiations,
+                    {tvid, instantiations, aliases, intros},
                     paramAnno,
                     argAnno,
                     funAnno,
-                    argAnnos);
+                    argAnnos));
 
                   return argAst.body.slice(argArity - paramAst.body.length).reduce((acc, field, i) =>
                     unifyTypes(
@@ -5652,13 +5791,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                       field,
                       lamIndex,
                       argIndex,
-                      iteration,
-                      tvid,
-                      instantiations,
+                      {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                       paramAnno,
                       argAnno,
                       funAnno,
-                      argAnnos), instantiations);
+                      argAnnos), {tvid, instantiations, aliases, intros});
                 }
 
                 default:
@@ -5683,9 +5820,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -5693,8 +5828,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": {
-          if (argAst.body.length === 0) // Map<a, b> ~ c
-            return instantiate(
+          if (argAst.body.length === 0) { // Map<a, b> ~ c
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5703,21 +5838,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length <= paramAst.body.length) { // Map<a, b> ~ u<c> | u<c, d>
-            instantiations = instantiate( // Map | Map<a> ~ u
+            ({instantiations, aliases} = instantiate( // Map | Map<a> ~ u
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 Array(argAst.body.length).fill(Partial)),
               paramAst.body.length === argAst.body.length
                 ? Native(paramAst.cons, Array(paramAst.body.length).fill(Partial))
@@ -5739,13 +5874,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
               unifyTypes(
@@ -5753,13 +5886,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
 
           else // Map<a, b> ~ u<c, d, e>
@@ -5794,18 +5925,16 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
         }
 
-        case "Partial": // Map<a, b> ~ __
-          return instantiate(
+        case "Partial": { // Map<a, b> ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5814,13 +5943,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // Map<a, b> ~ composite type except U<b>
           unificationError(
@@ -5848,9 +5978,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -5858,8 +5986,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": { // [1a] ~ b
-          if (argAst.body.length === 0) // [1a] ~ b
-            return instantiate(
+          if (argAst.body.length === 0) { // [1a] ~ b
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5868,21 +5996,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length === 1) { // [1a] ~ u<b>
-            instantiations = instantiate( // [1] ~ u
+            ({instantiations, aliases} = instantiate( // [1] ~ u
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 [Partial]),
               Nea(Partial),
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5891,22 +6019,18 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return unifyTypes(
               paramAst.body,
               argAst.body[0],
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
@@ -5932,16 +6056,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
             argAnnos);
         
-        case "Partial": // [1a] ~ __
-          return instantiate(
+        case "Partial": { // [1a] ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -5950,13 +6072,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // [1a] ~ composite type except [1b]
           unificationError(
@@ -5984,9 +6107,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -5994,8 +6115,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": {
-          if (argAst.body.length === 0) // {foo: a, bar: b} ~ c
-            return instantiate(
+          if (argAst.body.length === 0) { // {foo: a, bar: b} ~ c
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6004,21 +6125,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length <= paramAst.body.length) { // {foo: a, bar: b} ~ u<c> | u<c, d>
-            instantiations = instantiate( // {foo:, bar:} | {foo: a, bar:} ~ u
+            ({instantiations, aliases} = instantiate( // {foo:, bar:} | {foo: a, bar:} ~ u
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 Array(argAst.body.length).fill(Partial)),
               paramAst.body.length === argAst.body.length
                 ? Obj(
@@ -6060,13 +6181,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
               unifyTypes(
@@ -6074,13 +6193,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i].v,
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
 
           else // {foo: a, bar: b} ~ u<c, d, e>
@@ -6152,22 +6269,20 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
             });
 
-            instantiations = paramAst.body.reduce((acc, {k, v}, i) => {
+            ({tvid, instantiations, aliases, intros} = paramAst.body.reduce((acc, {k, v}, i) => {
               return unifyTypes(
                 v,
                 argMap.get(k),
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
                 argAnnos)
-            }, instantiations);
+            }, {tvid, instantiations, aliases, intros}));
 
-            return instantiate(
+            ({instantiations, aliases} = instantiate(
               paramAst.row,
               RowType(rowType),
               (refAst, fromAst, toAst) => {
@@ -6187,13 +6302,13 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
           }
 
           else if (paramAst.body.length !== argAst.body.length) { // {foo: a, bar: b} ~ {foo: c} | {foo: c, bar: d, baz: e}
@@ -6228,9 +6343,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   argMap.get(k),
                   lamIndex,
                   argIndex,
-                  iteration,
-                  tvid,
-                  instantiations,
+                  {tvid, instantiations, aliases, intros},
                   paramAnno,
                   argAnno,
                   funAnno,
@@ -6239,8 +6352,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
           }
         }
         
-        case "Partial": // {foo: a, bar: b} ~ __
-          return instantiate(
+        case "Partial": { // {foo: a, bar: b} ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6249,13 +6362,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         case "This": { // {foo: a, bar: b} ~ this*
           return unifyTypes(
@@ -6263,9 +6377,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -6288,10 +6400,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
     case "Partial": {
       switch (argAst[TAG]) {
-        case "Partial": return instantiations; // __ ~ __
+        case "Partial":
+          return {tvid, instantiations, aliases, intros}; // __ ~ __
 
-        case "Tconst": // __ ~ U
-          return instantiate(
+        case "Tconst": { // __ ~ U
+          ({instantiations, aliases} = instantiate(
             paramAst,
             argAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6300,13 +6413,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         default: // __ ~ any other type expect Partial
           unificationError(
@@ -6334,9 +6448,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -6344,8 +6456,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": {
-          if (argAst.body.length === 0) // T ~ b
-            return instantiate(
+          if (argAst.body.length === 0) { // T ~ b
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6354,13 +6466,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else // T ~ u<b>
             unificationError(
@@ -6375,8 +6488,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               argAnnos);
         }
 
-        case "Partial": // T ~ __
-          return instantiate(
+        case "Partial": { // T ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6385,17 +6498,18 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         case "Tconst": { // T ~ U
           if (paramAst.name === argAst.name)
-            return instantiations;
+            return {tvid, instantiations, aliases, intros};
 
           else
             unificationError(
@@ -6432,9 +6546,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -6442,7 +6554,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
         }
 
         case "This": // this* ~ this*
-          return instantiations;
+          return {tvid, instantiations, aliases, intros};
 
         default:
           unificationError(
@@ -6470,9 +6582,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
             argAst.body,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
@@ -6480,8 +6590,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
 
         case "MetaTV":
         case "RigidTV": {
-          if (argAst.body.length === 0) // [a, b] ~ c
-            return instantiate(
+          if (argAst.body.length === 0) { // [a, b] ~ c
+            ({instantiations, aliases} = instantiate(
               argAst,
               paramAst,
               (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6490,21 +6600,21 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                   : refAst,
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
+
+            return {tvid, instantiations, aliases, intros};
+          }
 
           else if (argAst.body.length <= paramAst.body.length) { // [a, b] ~ u<c> | u<c, d>
-            instantiations = instantiate( // [,] | [a,] ~ u
+            ({instantiations, aliases} = instantiate( // [,] | [a,] ~ u
               (argAst[TAG] === "MetaTV" ? MetaTV : RigidTV) (
                 argAst.name,
                 argAst.scope,
                 argAst.position,
-                argAst.iteration,
                 Array(argAst.body.length).fill(Partial)),
               paramAst.body.length === argAst.body.length
                 ? Tup(paramAst.body.length, Array(paramAst.body.length).fill(Partial))
@@ -6526,13 +6636,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               },
               lamIndex,
               argIndex,
-              iteration,
-              tvid,
-              instantiations,
+              {tvid, instantiations, aliases, intros},
               paramAnno,
               argAnno,
               funAnno,
-              argAnnos);
+              argAnnos));
 
             return paramAst.body.slice(paramAst.body.length - argAst.body.length).reduce((acc, field, i) =>
               unifyTypes(
@@ -6540,13 +6648,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
           }
 
           else // [a, b] ~ u<c, d, e>
@@ -6562,8 +6668,8 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
               argAnnos);
         }
 
-        case "Partial": // [a, b] ~ __
-          return instantiate(
+        case "Partial": { // [a, b] ~ __
+          ({instantiations, aliases} = instantiate(
             argAst,
             paramAst,
             (refAst, fromAst, toAst) => refAst[TAG] === fromAst[TAG]
@@ -6572,13 +6678,14 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 : refAst,
             lamIndex,
             argIndex,
-            iteration,
-            tvid,
-            instantiations,
+            {tvid, instantiations, aliases, intros},
             paramAnno,
             argAnno,
             funAnno,
-            argAnnos);
+            argAnnos));
+
+          return {tvid, instantiations, aliases, intros};
+        }
 
         case "Tup": { // [a, b] ~ [c, d]
           if (paramAst.body.length !== argAst.body.length)
@@ -6598,13 +6705,11 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, iteration, tvid, insta
                 argAst.body[i],
                 lamIndex,
                 argIndex,
-                iteration,
-                tvid,
-                instantiations,
+                {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
                 paramAnno,
                 argAnno,
                 funAnno,
-                argAnnos), instantiations);
+                argAnnos), {tvid, instantiations, aliases, intros});
         }
 
         default: // [a, b] ~ composite type except [c, d]
@@ -6653,107 +6758,201 @@ const unificationError = (paramAnno_, argAnno_, lamIndex, argIndex, instantiatio
 ******************************************************************************/
 
 
-const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvid, instantiations, paramAnno, argAnno, funAnno, argAnnos) => {
+/* Rigid TVs that are on the LHS of a nested function type must only be
+instantiated with themselves or with meta TVs within the same scope. The latter
+holds, if the meta TV is introduced within the same scope or later during
+unification. */
 
-  // skip instantiation checks for row variables
+/* VERSION: 0.4.0 */ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAnno, argAnno, funAnno, argAnnos) => {
+
+  // destructure state
+
+  let {tvid, instantiations, aliases, intros} = state;
+
+  // skip scope check for row variables
 
   if (key[TAG] === "RowVar")
-    return instantiations.set(serializeAst(key), {key, value, substitutor});
+    return setNestedMap(
+      key.name, `${key.name} ~ ${serializeAst(value)}`, {key, value, substitutor})
+        (instantiations);
 
-  /* Rigid TVs which are nested on the LHS of a function type must only be
-  instantiated with themselves or with meta TVs of the same scope. The latter
-  holds if the meta TV is introduced at the same time or later during the
-  unificiation process.*/
+  // ensure that key is a TV
 
-  if (key[TAG] === "RigidTV" && key.scope.split(".").length > 2) { // RTV ~ ?
-    if (value[TAG] === "MetaTV" && key.iteration > value.iteration) // RTV ~ MTV
+  else if (!isTV(key)) {
+    if (isTV(value)) 
+      [key, value] = [value, key]; // swap values
+
+    else
       throw new TypeError(cat(
-        `cannot instantiate rigid "${key.name}" with "${value.name}"\n`,
-        `"${key.name}" would escape its scope\n`,
-        "while unifying\n",
-        `${paramAnno}\n`,
-        `${argAnno}\n`,
-        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
-
-    else if (value[TAG] === "RigidTV" && key.name !== value.name) // RTV ~ RTV
-      throw new TypeError(cat(
-        `cannot instantiate rigid "${key.name}" with rigid "${value.name}"\n`,
-        `"${key.name}" can only be instantiated with itself or a meta type variable in scope\n`,
-        "while unifying\n",
-        `${paramAnno}\n`,
-        `${argAnno}\n`,
-        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
-
-    else if (value[TAG] !== "MetaTV" && value[TAG] !== "RigidTV") // RTV ~ composite type
-      throw new TypeError(cat(
-        `cannot instantiate rigid "${key.name}" with "${serializeAst(value)}"\n`,
-        `"${key.name}" can only be instantiated with itself or a meta type variable in scope\n`,
+        `can only instantiate type variables with another type\n`,
+        `but "${serializeAst(key)}" recieved\n`,
         "while unifying\n",
         `${paramAnno}\n`,
         `${argAnno}\n`,
         extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
   }
 
-  else { // MTV ~ ?
-    if (value[TAG] === "RigidTV"
-      && value.scope.split(".").length > 2
-      && key.iteration < value.iteration) // MTV ~ RTV
-        throw new TypeError(cat(
-          `cannot instantiate "${key.name}" with rigid "${value.name}"\n`,
-          `"${value.name}" would escape its scope\n`,
-          "while unifying\n",
-          `${paramAnno}\n`,
-          `${argAnno}\n`,
-          extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+  // store aliases due to commutativity of type equality
 
-    reduceAst((acc, value_) => { // MTV ~ composite type including possible RTVs
-      if (value_[TAG] === "RigidTV"
-        && value_.scope.split(".").length > 2
-        && key.iteration < value_.iteration)
-          throw new TypeError(cat(
-            `cannot instantiate "${key.name}" with rigid "${value_.name}"\n`,
-            `contained in "${serializeAst(value)}"\n`,
-            `"${value_.name}" would escape its scope\n`,
-            "while unifying\n",
-            `${paramAnno}\n`,
-            `${argAnno}\n`,
-            extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+  else if (isTV(value)) {
+    if (aliases.has(key.name))
+      aliases.get(key.name).set(`${key.name} ~ ${value.name}`, [key, value]);
+
+    else
+      aliases.set(key.name, new Map([[`${key.name} ~ ${value.name}`, [key, value]]]));
+
+    if (aliases.has(value.name))
+      aliases.get(value.name).set(`${value.name} ~ ${key.name}`, [value, key]);
+
+    else
+      aliases.set(value.name, new Map([[`${value.name} ~ ${key.name}`, [value, key]]]));
+  }
+
+  // rigid TV ~ ?
+
+  if (key[TAG] === "RigidTV") {
+
+    // rigid TV ~ meta TV
+
+    if (value[TAG] === "MetaTV")
+      escapeCheck(key, value, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
+
+    // rigid TV ~ rigid TV
+
+    else if (value[TAG] === "RigidTV")
+      escapeCheck(key, value, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
+
+    // rigid TV ~ composite type
+
+    else if (!isTV(value))
+      throw new TypeError(cat(
+        `cannot instantiate rigid type variable "${key.name}"\n`,
+        `with "${serializeAst(value)}"\n`,
+        "rigid type variables can only be instantiated with themselves\n",
+        "or with meta type variables within the same scope\n",
+        "while unifying\n",
+        `${paramAnno}\n`,
+        `${argAnno}\n`,
+        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+  }
+
+  // meta TV ~ ?
+
+  else {
+
+    // meta TV ~ rigid TV
+
+    if (value[TAG] === "RigidTV")
+      escapeCheck(value, key, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
+
+    // meta TV ~ meta TV is skipped, because there are no restrictions
+
+    // meta TV ~ composite type possibly containing rigid TVs
+
+    reduceAst((acc, value_) => {
+      if (value_[TAG] === "RigidTV")
+        escapeCheck(value_, key, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
+
+      else return acc;
     }, null) (value);
   }
 
-  /* If the meta TV is already instantiated with a composite type, both
-  instantiations must unify. */
+  /* Check if the current TV already has an instantiation and if any, try to
+  unify both. If the unification with the first entry succeeds, the process can
+  be terminated prematurely, because other possible entries are guaranteed to
+  pass unification as well. Any new instantiations or aliases, which may occur
+  during unification, are discarded. The `try`/`catch` block is required to
+  improve error messaging. */
 
-  if (instantiations.has(key.name)) {
-    try {
-      return unifyTypes(
-        instantiations.get(key.name).value,
-        value,
-        lamIndex,
-        argIndex,
-        iteration,
-        tvid,
-        instantiations,
-        paramAnno,
-        argAnno,
-        funAnno,
-        argAnnos);
-    }
+  if (instantiations.has(key.name)
+    && instantiations.get(key.name).size > 0) {
+      try {
+        unifyTypes(
+          Array.from(instantiations.get(key.name)) [0] [1].value,
+          value,
+          lamIndex,
+          argIndex,
+          {tvid, instantiations: new Map(), aliases, intros: []},
+          paramAnno,
+          argAnno,
+          funAnno,
+          argAnnos);
+      }
 
-    catch(_) {
-      throw new TypeError(cat(
-        "cannot instantiate\n",
-        `"${key.name}" with "${serializeAst(value)}"\n`,
-        "because the former is already instantiated with\n",
-        `"${serializeAst(instantiations.get(key.name).value)}"\n`,
-        "while unifying\n",
-        `${paramAnno}\n`,
-        `${argAnno}\n`,
-        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
-    }
+      catch (e) {
+        throw new TypeError(cat(
+          `cannot instantiate "${key.name}" with "${serializeAst(value)}"\n`,
+          `because "${key.name}" is already instantiated with `,
+          `"${serializeAst(Array.from(instantiations.get(key.name)) [0] [1].value)}"\n`,
+          "while unifying\n",
+          `${paramAnno}\n`,
+          `${argAnno}\n`,
+          extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));        
+      }
   }
 
-  return instantiations.set(serializeAst(key), {key, value, substitutor});
+  instantiations = setNestedMap(
+    key.name, `${key.name} ~ ${serializeAst(value)}`, {key, value, substitutor})
+      (instantiations);
+
+  return {instantiations, aliases};
+};
+
+
+const escapeCheck = (rigid, meta, instantiations, intros, aliases, history, lamIndex, argIndex, paramAnno, argAnno, funAnno, argAnnos) => {
+
+  let iterRigid = null, iterMeta = null;
+
+  // traverse the introduction list
+
+  for (let i = 0; i < intros.length; i ++) {
+    const m = intros[i];
+
+    // persist the index if rigid TV is a member of the current introduction
+
+    if (m.has(rigid.name))
+      iterRigid = i;
+
+    // persist the index if meta TV is a member of the current introduction
+
+    if (m.has(meta.name))
+      iterMeta = i;
+  }
+
+  if ((iterRigid === null && iterMeta === null)
+    || (iterRigid === null && iterMeta !== null)
+    || (iterRigid !== null && iterMeta === null))
+      throw new TypeError(
+        "internal error: one or both involved TVs are not member of any introduction");
+
+  // rigid TV was introduced later than meta TV
+
+  else if (iterRigid > iterMeta)
+    throw new TypeError(cat(
+      "escape check failed\n",
+      `cannot instantiate "${rigid.name}" with "${meta.name}"\n`,
+      "because the latter is bound by a parent scope of the former\n",
+      `"${rigid.name}" would escape its scope\n`,
+      "while unifying\n",
+      `${paramAnno}\n`,
+      `${argAnno}\n`,
+      extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+
+  // rigid TV was introduced earlier or at the same time as TV
+
+  else {
+
+    // check whether meta TV has aliases
+
+    if (aliases.has(meta.name)
+      && !history.has(meta.name)) {
+
+        // recursively conduct an escape check on each alias
+
+        aliases.get(meta.name).forEach(([, alias]) =>
+          escapeCheck(rigid, alias, instantiations, intros, aliases, history.add(alias.name), lamIndex, argIndex, paramAnno, argAnno, funAnno, argAnnos));
+    }
+  }
 };
 
 
@@ -6764,7 +6963,14 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
 ******************************************************************************/
 
 
-// substitute type variables with their instantiated types
+/* Substitute type variables for their instantiated types. The following
+substitutions are legal:
+
+meta TV ~ Type
+meta TV ~ meta TV
+meta TV ~ rigit TV
+rigit TV ~ mete TV
+rigit TV ~ rigid TV */
 
 /* VERSION: 0.4.0 */ const substitute = (ast, instantiations) => {
   let anno = serializeAst(ast), anno_;
@@ -6776,13 +6982,17 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
     let codomainRefs = [];
     anno_ = anno;
 
-    instantiations.forEach(({key, value, substitutor}) => {
+    instantiations.forEach(m => {
+
+      // only the first entry must be taken into account
+
+      const [, {key, value, substitutor}] = Array.from(m) [0];
 
       // check whether the key isn't a TV
 
       if (!isTV(key))
        throw new TypeError(
-        "internal error: only type variables can be substituted");
+         "internal error: only type variables can be substituted");
 
       /* If both key and value of the substitution are TVs and the former is in
       codomain position, then the latter must also be in codomain position, so
@@ -6856,97 +7066,107 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, iteration, tvi
 
 
 /* Specialization is the process of instantiating bound TVs with fresh meta or
-rigid ones by giving them a new unique name without altering their scopes (alpha
-renaming). This effectively removes the affected quantifier. Specialization is
-only possible with the outermost quantifier. In order to do it with nested
-quantifiers subsumption is necessary. Whether bound TVs become meta or rigid
-depends on the side of the equation they are located in during subsumption. */
+rigid TVs by giving them a fresh unique name without altering their scopes
+(alpha renaming). Specialization only affects the top-level quantifier. Nested
+quantifiers can be accessed using subsumption. scriptum only allows nested
+quantifiers and thus impredicative polymorphism at the LHS of function types.
+Whether bound TVs are meta- or skolem-ized depends on the side of the
+subsumption judgement they are located in:
 
-const specialize = Cons => (scope, iteration, tvid) => {
+The function application `f(x)` is type safe if `x <: p` holds.
+
+In the above judgment `<:` denotes "is subtype of"/"is at least as polymorphic as",
+`x` is an argument type and `p` is f's type parameter. All top-level bound TVs on
+the LHS are meta-ized and on the RHS are skolem-ized. */
+
+/* VERSION: 0.4.0 */ const specialize = Cons => (intro, scope, tvid = "") => ast => {
   const alphaRenamings = new Map(),
-    uniqNames = new Set();
+    uniqueNames = new Set();
   
   let charCode = letterA;
 
-  const mapAst_ = mapAst(ast => {
-    if (ast[TAG] === "Forall") {
+  return {
+    ast: mapAst(ast_ => {
+      if (ast_[TAG] === "Forall") {
 
-      // replace quantifier with mere grouping
+        /* Replace the `Forall` quantifier with an `Forall` function type boundary,
+        i.e. one without bound TVs and scope. */
 
-      if (ast.scope === scope)
-        return Forall(new Set(), ast.scope, ast.body);
+        if (scope === ast_.scope)
+          return Forall(new Set(), ".", ast_.body);
 
-      // leave higher-rank quantifier untouched
+        // ignore all other `Forall` elements
 
-      else return ast;
-    }
-
-    else if (ast[TAG] === "BoundTV") {
-
-      // current scope is a parent of the reference scope
-
-      if (isParentScope(ast.scope, scope)) {
-
-        // truncate current lam/arg index
-        
-        const scope_ = ast.scope.replace(/[^.]+$/, "");
-
-        let name;
-        
-        // original name is already alpha-renamed
-
-        if (alphaRenamings.has(`${scope_}/${ast.name}`))
-          name = alphaRenamings.get(`${scope_}/${ast.name}`);
-
-        else {
-
-          // remove trailing digits
-          
-          name = ast.name.replace(/\d+$/, "");
-
-          // name collision
-
-          if (uniqNames.has(name + tvid)) {
-
-            // determine next unused letter
-
-            do {
-              if (charCode > 122)
-                throw new TypeError(
-                  "internal error: type variable name upper bound exceeded");
-
-              else name = String.fromCharCode(charCode++);
-            } while (uniqNames.has(name + tvid));
-
-            name += tvid;
-            alphaRenamings.set(`${scope_}/${ast.name}`, name);
-            uniqNames.add(name);
-          }
-
-          // no name collision
-
-          else {
-            name += tvid;
-            alphaRenamings.set(`${scope_}/${ast.name}`, name);
-            uniqNames.add(name);
-          }
-        }
-
-        return Cons(
-          name, ast.scope, ast.position, iteration, ast.body);
+        else return ast_;
       }
 
-      // current scope is not connected with the reference scope
+      else if (ast_[TAG] === "BoundTV") {
 
-      else return ast;
-    }
+        // TV scope matches the sought scope
 
-    // neither `Scope` nor `BoundTV`
+        if (scope === ast_.scope) {
 
-    else return ast;
-  });
+          let name;
+          
+          // original name is already alpha-renamed
 
-  return ast => ({ast: mapAst_(ast), tvid: tvid === "" ? 0 : tvid});
+          if (alphaRenamings.has(`${scope}/${ast_.name}`))
+            name = alphaRenamings.get(`${scope}/${ast_.name}`);
+
+          else {
+
+            // remove possible trailing digits
+            
+            name = ast_.name.replace(/\d+$/, "");
+
+            // name collision
+
+            if (uniqueNames.has(name + tvid)) {
+
+              // determine next unused letter
+
+              do {
+                if (charCode > 122)
+                  throw new TypeError(
+                    "internal error: type variable name upper bound exceeded");
+
+                else name = String.fromCharCode(charCode++);
+              } while (uniqueNames.has(name + tvid));
+
+              name += tvid;
+              alphaRenamings.set(`${scope}/${ast_.name}`, name);
+              uniqueNames.add(name);
+            }
+
+            // no name collision
+
+            else {
+              name += tvid;
+              alphaRenamings.set(`${scope}/${ast_.name}`, name);
+              uniqueNames.add(name);
+            }
+          }
+
+          const r = Cons(
+            name, ast_.scope, ast_.position, ast_.body);
+
+          // store introduction of TV
+
+          intro.set(r.name, r);
+          
+          return r;
+        }
+
+        // TV scope doesn't match the sought scope
+
+        else return ast_;
+      }
+
+      // neither `Scope` nor `BoundTV`
+
+      else return ast_;
+    }) (ast),
+    intro};
 };
 
 
@@ -6956,24 +7176,23 @@ const specializeLHS = specialize(MetaTV);
 const specializeRHS = specialize(RigidTV);
 
 
-// reverse the specialization process
+// remove alpha renamings
 
-const regeneralize = ast => {
+/* VERSION: 0.4.0 */ const prettyPrint = ast => {
   const alphaRenamings = new Map(),
-    uniqNames = new Set();
+    uniqueNames = new Set();
 
   let charCode = letterA;
 
-  ast = mapAst(ast_ => {
+  return mapAst(ast_ => {
     switch (ast_[TAG]) {
-      case  "MetaTV":
-      case "RigidTV": {
+      case "BoundTV": {
 
         // original name is already restored
 
-        if (alphaRenamings.has(ast_.name))
+        if (alphaRenamings.has(`${ast_.scope}:${ast_.name}`))
           return BoundTV(
-            alphaRenamings.get(ast_.name), ast_.scope, ast_.position, ast_.body);
+            alphaRenamings.get(`${ast_.scope}:${ast_.name}`), ast_.scope, ast_.position, ast_.body);
 
         // remove trailing digits
 
@@ -6981,7 +7200,7 @@ const regeneralize = ast => {
 
         // name collision
 
-        if (uniqNames.has(name)) {
+        if (uniqueNames.has(name)) {
 
           // find next unused letter
 
@@ -6991,27 +7210,35 @@ const regeneralize = ast => {
                 "internal error: type variable name upper bound exceeded");
 
             name = String.fromCharCode(charCode++);
-          } while (uniqNames.has(name));
+          } while (uniqueNames.has(name));
         }
 
-        alphaRenamings.set(ast_.name, name);
-        uniqNames.add(name);
+        alphaRenamings.set(`${ast_.scope}:${ast_.name}`, name);
+        uniqueNames.add(name);
 
         return BoundTV(
           name, ast_.scope, ast_.position, ast_.body);
       }
 
+      case "Forall": {
+
+        // adapt bound TV names listed at the quantifier to the new names
+
+        const btvs = new Set();
+
+        ast_.btvs.forEach((btv) => {
+          btvs.add(alphaRenamings.get(`${ast_.scope}:${btv}`));
+        });
+
+        return Forall(
+          btvs,
+          ast_.scope,
+          ast_.body)
+      }
+
       default: return ast_;
     }
   }) (ast);
-
-  if (uniqNames.size > 0)
-    return Forall(
-      uniqNames,
-      TOP_LEVEL_SCOPE,
-      ast[TAG] === "Forall" ? ast.body : ast);
-
-  else return ast;
 };
 
 
@@ -7786,7 +8013,7 @@ class ThunkProxy {
 
     if (CHECK) {
 
-      // thunks are opaque types
+      // thunks are opaque values
 
       if (anno.search(/\(\) => /) === 0)
         this[ANNO] = anno.replace(/\(\) => /, "");
@@ -8081,12 +8308,6 @@ TailRec.return = x => ({tag: "Return", x});
 ************************************[ LIB ]************************************
 *******************************************************************************
 ******************************************************************************/
-
-
-//debugger; const foo =parseAnno("f<a, b, c> => t<f<a>> => t<f<a, b>> => Number");
-debugger; const foo = introspectDeep({charCode: letterA});
-const bar = foo(new Map());
-const baz = foo([]);
 
 
 /******************************************************************************
@@ -9006,7 +9227,7 @@ lazyProp(F, "Semigroup", function() {
   delete this.Semigroup;
   
   return this.Semigroup = fun(
-    Semigroup_ => Semigroup() ({
+    Semigroup_ => Semigroup({
       append: F.append(Semigroup_)
     }),
     "Semigroup<b> => Semigroup<(a => b)>");
@@ -9077,7 +9298,7 @@ Endo.empty = Endo(id);
 lazyProp(Endo, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: Endo.append
   });
 });
@@ -9262,7 +9483,7 @@ A.para = fun(
 lazyProp(A, "Functor", function() {
   delete this.Functor;
   
-  return this.Functor = Functor() ({
+  return this.Functor = Functor({
     map: A.map
   });
 });
@@ -9313,7 +9534,7 @@ A.empty = [];
 lazyProp(A, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: A.append
   });
 });
@@ -9436,7 +9657,7 @@ export const Bool = {}; // namespace
 lazyProp(Bool, "Bounded", function() {
   delete this.Bounded;
   
-  return this.Bounded = Bounded() ({
+  return this.Bounded = Bounded({
     min: Bool.minBound,
     max: Bool.maxBound
   });
@@ -9530,7 +9751,7 @@ export const All = type1("Boolean => All");
 lazyProp(All, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid() ({
+  return this.Monoid = Monoid({
     empty: All.empty
   });
 });
@@ -9545,7 +9766,7 @@ All.empty = true;
 lazyProp(All, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: All.append
   });
 });
@@ -9572,7 +9793,7 @@ export const Any = type1("Boolean => Any");
 lazyProp(Any, "Monoid", function() {
   delete this.Monoid;
   
-  return this.Monoid = Monoid() ({
+  return this.Monoid = Monoid({
     empty: Any.empty
   });
 });
@@ -9587,7 +9808,7 @@ Any.empty = false;
 lazyProp(Any, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: Any.append
   });
 });
@@ -9646,7 +9867,7 @@ Comparator.empty = Comparator.EQ;
 lazyProp(Comparator, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: Comparator.append
   });
 });
@@ -9724,7 +9945,7 @@ List.Nil = List(({nil}) => nil);
 lazyProp(List, "Foldable", function() {
   delete this.Foldable;
   
-  return this.Foldable = Foldable() ({
+  return this.Foldable = Foldable({
     foldl: List.foldl,
     foldr: List.foldr
   });
@@ -9786,7 +10007,7 @@ List.empty = List.Nil;
 lazyProp(List, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: List.append
   });
 });
@@ -9875,7 +10096,7 @@ DList.empty = DList(id);
 lazyProp(DList, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: DList.append
   });
 });
@@ -9996,7 +10217,7 @@ Prod.empty = Prod(1);
 lazyProp(Prod, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: Prod.append
   });
 });
@@ -10038,7 +10259,7 @@ Sum.empty = Sum(0);
 lazyProp(Sum, "Semigroup", function() {
   delete this.Semigroup;
   
-  return this.Semigroup = Semigroup() ({
+  return this.Semigroup = Semigroup({
     append: Sum.append
   });
 });
@@ -10114,7 +10335,7 @@ lazyProp(Option, "Semigroup", function() {
   delete this.Semigroup;
   
   return this.Semigroup = fun(
-    Semigroup_ => Semigroup() ({
+    Semigroup_ => Semigroup({
       append: Option.append(Semigroup_)
     }),
     "Semigroup<a> => Semigroup<Option<a>>");
@@ -10337,7 +10558,7 @@ Yoneda.lower = fun(
 lazyProp(Yoneda, "Functor", function() {
   delete this.Functor;
   
-  return this.Functor = Functor() ({
+  return this.Functor = Functor({
     map: Yoneda.map
   });
 });
