@@ -24,6 +24,10 @@ Runtime type checking is expensive and only useful within the development stage.
 
 Unstable (v0.5.0)
 
+I currently work on a rudimentary kind system:
+
+▓▓░░░░░░░░ done.
+
 ## Goals
 
 In order to reconcile the functional paradigm with Javascript the following main aspects need to be addressed:
