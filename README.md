@@ -26,7 +26,7 @@ Unstable (v0.5.0)
 
 I currently work on a rudimentary kind system:
 
-▓▓░░░░░░░░ done.
+▓▓▓▓▓▓▓░░░ done.
 
 ## Goals
 
