@@ -57,17 +57,17 @@ const letterA = 97;
 /***[ Type Dictionaries ]*****************************************************/
 
 
-/* VERSION: 0.4.0 */ const adtDict = new Map(), // ADT dict (k: tcons, v: arity)
-  tcDict = new Map(); // type class dict (k: tcons, v: {tparam, tcAnno})
+const adtDict = new Map(), // ADT dict Map(tcons => {arity, kind})
+  tcDict = new Map(); // type class dict Map(tcons => {arity, kind})
 
 
-/* VERSION: 0.4.0 */ const nativeTypeDict = new Map([ // native type dict (k: tcons, v: arity)
-  ["Map", 2],
-  ["Set", 1],
-  ["Vector", 1]]);
+const nativeDict = new Map([ // native type dict Map(tcons => {arity, kind})
+  ["Map", {arity: 2, kind: "* => * => *"}],
+  ["Set", {arity: 1, kind: "* => *"}],
+  ["Vector", {arity: 1, kind: "* => *"}]]);
 
 
-/* VERSION: 0.4.0 */ const nativeIntrospection = new Map([
+const nativeIntrospection = new Map([
   ["Map", (m, state, introspectDeep_) => {
     const ts = new Map();
 
@@ -148,78 +148,10 @@ const letterA = 97;
   }]]);
 
 
-export const registerNativeType = (name, arity, introspect) => {
-  if (CHECK) {
-
-    // check for name clashes with native types
-
-    if (nativeTypeDict.has(name))
-      throw new TypeError(cat(
-        "illegal native data type\n",
-        "name collision with another native type found\n",
-        `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
-    
-    // check for name clashes with type constants
-
-    else if (typeConstDict.has(name))
-      throw new TypeError(cat(
-        "illegal native data type\n",
-        "name collision with a type constant found\n",
-        `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
-
-    // check for name clashes with ADTs
-
-    else if (adtDict.has(name))
-      throw new TypeError(cat(
-        "illegal native data type\n",
-        "name collision with an algebraic data type found\n",
-        `namely: ${name}\n`,
-        `while declaring "${name}<${Array(arity).fill("").map((_, i) => i + letterA).join(", ")}>"\n`));
-
-    nativeTypeDict.set(name, arity);
-    nativeIntrospection.set(name, introspect);
-  }
-};
-
-
-const typeConstDict = new Set([ // Tconst register
+const monoDict = new Set([ // Tconst register
   "Char",
   "Integer",
   "Natural"]);
-
-
-export const registerTypeConst = name => {
-  if (CHECK) {
-
-    // check for name clashes with native types
-
-    if (nativeTypeDict.has(name))
-      throw new TypeError(cat(
-        "illegal type constant\n",
-        "name collision with another native type found\n",
-        `namely: ${name}\n`));
-    
-    // check for name clashes with type constants
-
-    else if (typeConstDict.has(name))
-      throw new TypeError(cat(
-        "illegal type constant\n",
-        "name collision with another type constant found\n",
-        `namely: ${name}\n`));
-
-    // check for name clashes with ADTs
-
-    else if (adtDict.has(name))
-      throw new TypeError(cat(
-        "illegal type constant\n",
-        "name collision with an algebraic data type found\n",
-        `namely: ${name}\n`));
-
-    typeConstDict.add(name);
-  }
-};
 
 
 /***[ Combinators ]***********************************************************/
@@ -626,63 +558,9 @@ const RigidTV = (name, scope, position, body) => // a.k.a. skolem constant
 ******************************************************************************/
 
 
-/* If a `Forall` AST is extracted from an annotation, the bound TVs it might
-contain must be retrieved, because the quantifier isn't implicit anymore. */
-
-/* DEPRECATED */ const adjustForall = ref => { // TODO: delete
-  const nestedScopes = new Set(),
-    btvs = new Set();
-
-  if (ref[TAG] !== "Forall")
-    throw new TypeError(
-      "internal error: adjustForall expects a Forall as outer element");
-
-  else {
-    const ast_ = mapAst(ast => {
-      switch (ast[TAG]) {
-        case "BoundTV": {
-          if (getRank(ast.scope) === TOP_LEVEL_SCOPE) {
-            btvs.add(ast.name);
-            return ast;
-          }
-
-          else if (nestedScopes.has(ast.scope))
-            return ast;
-
-          else {
-            btvs.add(ast.name);
-
-            return BoundTV(
-              ast.name,
-              TOP_LEVEL_SCOPE,
-              ast.position,
-              ast.body);
-          }
-        }
-
-        case "Forall": {
-          if (ast.scope !== ref.scope
-            && ast.scope !== TOP_LEVEL_SCOPE)
-              nestedScopes.add(ast.scope);
-
-          return ast;
-        }
-
-        default: return ast;
-      }
-    }) (ref.body);
-
-    return Forall(
-      btvs,
-      TOP_LEVEL_SCOPE,
-      ast_);
-  }
-};
-
-
 // determine the arity of the passed type constructor
 
-/* VERSION: 0.4.0 */ const determineArity = ast => {
+const retrieveArity = ast => {
   switch (ast[TAG]) {
     case "Fun": {
       switch (ast.body.lambdas[0] [TAG]) {
@@ -709,35 +587,76 @@ contain must be retrieved, because the quantifier isn't implicit anymore. */
 };
 
 
-/* If an sub-AST is extracted from an annotation, it might require `Forall`
-either as function type boundaries or as a quantifier. */
+// determine the kind of a known type constructor
 
-/* DEPRECATED */ const extractAst = ast => ast; // TODO: delete
+const retrieveKind = ast => {
+  switch (ast[TAG]) {
+    case "Adt": return adtDict.has(ast.cons)
+      ? adtDict.get(ast.cons).kind
+      : tcDict.get(ast.cons).kind;
+
+    case "Arr": return "* => *";
+
+    case "Fun":
+      return "* => "
+        .repeat(retrieveArity(ast))
+        .concat("*");
+
+    case "Native": return nativeDict.get(ast.cons).kind;
+    case "Nea": return "* => *";
+    case "Obj": return "*" + " => *".repeat(ast.size);
+    case "Tconst": return "*";
+    case "Tup": return "*" + " => *".repeat(ast.size);
+
+    case "BoundTV":
+    case "MetaTV":
+    case "RigidTV": throw TypeError(
+      "internal error: unexpected type variable @retrieveKind");
+
+    case "Tcons": throw TypeError(
+      "internal error: unexpected polymorphic type constructor @retrieveKind");
+
+    default: throw TypeError(
+      "internal error: unknown type constructor @retrieveKind");
+  }
+};
 
 
-/* VERSION: 0.4.0 */ const getRank = scope =>
+const getRank = scope =>
   scope.split(/\./).length - 1;
 
 
-/* DEPRECATED */ const hasTV = scope => reduceAst((acc, ast) => { // TODO: delete
-  if (ast[TAG] === "BoundTV" && isParentScope(scope, ast.scope)
-    || ast[TAG] === "MetaTV" && isParentScope(scope, ast.scope)
-    || ast[TAG] === "RigidTV" && isParentScope(scope, ast.scope))
-      return true;
+// infer the kind of an unknown type constructor
 
-  else return acc;
-}, false);
+const inferKind = tconsAst => {
+  return tconsAst.body.reduce((acc, ast) => {
+    if (isTV(ast)) {
+      const higherKind = ast.body.reduce((acc_, ast_) => {
+        if (ast_[TAG] === "Partial")
+          return `${acc_}* => `;
+
+        else return acc_;
+      }, "");
+
+      if (higherKind === "") return `${acc}* => `;
+      else return `${acc}(${higherKind}*) => `;
+    }
+
+    else return acc;
+  }, "").concat("*");
+}
 
 
 /* Determine whether the first scope is a parent or the same as the second one. */
 
-/* VERSION: 0.4.0 */ const isParentScope = (parentScope, childScope) =>
+const isParentScope = (parentScope, childScope) =>
   childScope.split(/\./).length >= parentScope.split(/\./).length
     && childScope.search(parentScope) === 0;
 
 
-/* VERSION: 0.4.0 */ const isTV = ast => {
+const isTV = ast => {
   switch (ast[TAG]) {
+    case "BoundTV":
     case "MetaTV":
     case "RigidTV": return true;
     default: return false;
@@ -745,7 +664,7 @@ either as function type boundaries or as a quantifier. */
 };
 
 
-/* VERSION: 0.4.0 */ const mapAst = f => {
+const mapAst = f => {
   const go = ast => {
     switch (ast[TAG]) {
       case "Adt": return f(
@@ -835,86 +754,15 @@ either as function type boundaries or as a quantifier. */
 };
 
 
-/* DEPRECATED */ const pruneForalls = ast => { // TODO: delete
-  switch (ast[TAG]) {
-    case "Adt": return Adt(ast.cons, ast.body.map(pruneForalls));
-    case "Arg0": return new Arg0();
-    case "Arg1": return new Arg1(pruneForalls(ast[0]));
-    case "Args": return Args.fromArr(ast.map(pruneForalls));
-    case "Argsv": return Argsv.fromArr(ast.map(pruneForalls));
-    case "Argv": return new Argv(pruneForalls(ast[0]));
-    case "Arr": return Arr(pruneForalls(ast.body));
-    case "BoundTV": return BoundTV(ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
-
-    case "Forall": {
-      let hasForall = false,
-        hasTV = false,
-        r = false;
-
-      if (ast.body[TAG] === "Fun")
-        r = true;
-
-      else r = reduceAst((acc, ast_) => {
-        switch (ast_[TAG]) {
-          case "Forall": {
-            hasForall = true;
-            return acc;
-          }
-
-          case "MetaTV":
-          case "RigitTV": {
-            hasTV = true;
-
-            return hasForall
-              ? acc
-              : true;
-          }
-
-          default: return acc;
-        }
-      }, false) (ast.body);
-
-      return r
-        ? Forall(
-            ast.btvs,
-            ast.scope,        
-            pruneForalls(ast.body))
-        : pruneForalls(ast.body);
-    }
-
-    case "Fun": return Fun(ast.body.lambdas.map(pruneForalls), pruneForalls(ast.body.result));
-    case "MetaTV": return MetaTV( ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
-    case "Native": return Native(ast.cons, ast.body.map(pruneForalls));
-    case "Nea": return Nea(pruneForalls(ast.body));
-    case "Obj": return Obj(ast.cons, ast.props, ast.row, ast.body.map(({k, v}) => ({k, v: pruneForalls(v)})));
-    case "Partial": return Partial;
-    case "RigidTV": return RigidTV(ast.name, ast.scope, ast.position, ast.body.map(pruneForalls));
-    case "Tconst": return Tconst(ast.name);
-
-    case "This": {
-      if (ast.nesting === 0)
-        return This(ast.nesting, {body: pruneForalls(ast.body)});
-
-      else return ast;
-    }
-
-    case "Tup": return Tup(ast.size, ast.body.map(pruneForalls));
-    
-    default: throw new TypeError(
-      "internal error: unknown value constructor at pruneForalls");
-  }
-};
-
-
 /* If a subtree of an AST is extratced it might contain redundant `Forall`
 elements, which need to be deleted. Instead of traversing the tree and
 conducting the necessary transfomrations we just recreate the AST. */
 
-/* VERSION: 0.4.0 */ const recreateAst = ast =>
+const recreateAst = ast =>
   parseAnno(serializeAst(ast))
 
 
-/* VERSION: 0.4.0 */ const reduceAst = (f, init) => {
+const reduceAst = (f, init) => {
   const go = (acc, ast) => {
     switch (ast[TAG]) {
       case "Adt": return f(ast.body.reduce((acc_, field) =>
@@ -997,7 +845,7 @@ conducting the necessary transfomrations we just recreate the AST. */
 /* Removes the leftmost formal parameter of a function type after it was applied
 to an argument type. */
 
-/* VERSION: 0.4.0 */ const remParams = ast => {
+const remParams = ast => {
 
   // the function returns the result value
 
@@ -1018,7 +866,7 @@ to an argument type. */
 
 // remove the optional top-level quantifier of a function type
 
-/* VERSION: 0.4.0 */ const remQuant = anno => { // TODO: wrong, don't just remove the quantifier!!
+const remQuant = anno => { // TODO: wrong, don't just remove the quantifier!!
   if (anno === "()")
     return anno;
 
@@ -1031,15 +879,6 @@ to an argument type. */
 };
 
 
-/* DEPRECATED */ const retrieveBoundTVs = scope => reduceAst((acc, ast) => { // TODO: delete
-  if (ast[TAG] === "BoundTV"
-    && ast.scope === scope)
-      return acc.add(ast.name);
-
-  else return acc;
-}, new Set());
-
-
 /******************************************************************************
 *******************************************************************************
 **********************************[ PARSING ]**********************************
@@ -1047,7 +886,7 @@ to an argument type. */
 ******************************************************************************/
 
 
-/* VERSION: 0.4.0 */ const parseAnno = anno => {
+const parseAnno = anno => {
   const go = (cs, lamIndex, argIndex, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
@@ -1227,12 +1066,15 @@ to an argument type. */
     else if (adtDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])
       || tcDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
 
+        const dictRef = adtDict.has(cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) [0])
+          ? adtDict : tcDict;
+
         /* Check if the ADT is not yet applied or has no type parameters at all.
         Since ADT type constructor arity is hold in a map, we can restore it in
         place. */
 
         if (cs.search(/</) === NOT_FOUND)
-          return Adt(cs, Array(adtDict.get(cs)).fill(Partial));
+          return Adt(cs, Array(dictRef.get(cs).arity).fill(Partial));
 
         else {
 
@@ -1255,11 +1097,11 @@ to an argument type. */
 
           // check if parameter number corresponds with the stored arity
 
-          if (fields.length > adtDict.get(rx.groups.cons))
+          if (fields.length > dictRef.get(rx.groups.cons).arity)
             throw new TypeError(cat(
               "malformed type annotation\n",
               `type constructor arity mismatch\n`,
-              `defined type parameters: ${adtDict.get(rx.groups.cons)}\n`,
+              `defined type parameters: ${dictRef.get(rx.groups.cons).arity}\n`,
               `received type arguments: ${fields.length}\n`,
               `in "${anno}"\n`));
 
@@ -1388,6 +1230,14 @@ to an argument type. */
         r1tvs.add(rx.groups.name);
       }
 
+      /* Type variables in type parameter position that are fully polymorphic
+      may turn out to have a specific arity due to partial application. Hence
+      we must determine the maximal arity and kind of each one in a subsequent
+      review. */
+
+      if (!polyTcons.has(`${selectedScope}:${rx.groups.name}`))
+        polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: 0, kind: "*"});
+
       // create the bound TV
 
       return BoundTV(
@@ -1462,14 +1312,14 @@ to an argument type. */
 
     // Native
 
-    else if (nativeTypeDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
+    else if (nativeDict.has((cs.match(new RegExp("^[A-Z][a-zA-Z0-9]*", "")) || [""]) [0])) {
 
       /* Check if the native type is not yet applied or has no type parameters
       at all. Since native type constructor arity is hold in a map, we can
       restore it in place. */
 
       if (cs.search(/</) === NOT_FOUND)
-        return Native(cs, Array(nativeTypeDict.get(cs)).fill(Partial));
+        return Native(cs, Array(nativeDict.get(cs).arity).fill(Partial));
 
       else {
 
@@ -1492,11 +1342,11 @@ to an argument type. */
 
         // check if parameter number corresponds with the stored arity
 
-        if (fields.length > nativeTypeDict.get(rx.groups.cons))
+        if (fields.length > nativeDict.get(rx.groups.cons).arity)
           throw new TypeError(cat(
             "malformed type annotation\n",
             "type constructor arity mismatch\n",
-            `defined type parameters: ${nativeTypeDict.get(rx.groups.cons)}\n`,
+            `defined type parameters: ${nativeDict.get(rx.groups.cons).arity}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
@@ -1598,13 +1448,12 @@ to an argument type. */
 
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)<(?<fields>.*)>$", ""))) {
       
-      /* If a polymorphic TC is used as a type parameter and not yet applied or
-      only partially applied as in `Monad<m>`, for instance, its arity cannot
-      be determined in place. For this reason "__" is not necessary to denote
-      missing type parameters, but such a type constructor is treated as a
-      normal, general TV without a specific arity. The latter is redetermined
-      in the course of the process. Partially applied type constructors can
-      only be in type parameter position. */
+      /* If a polymorphic type constructor is passed to another type constructor
+      it can be either fully or partially applied. For the latter, like like in
+      `Monad<m>` for instance, neither the arity nor the kind of the polymorphic
+      type constructor can be determined in place. However, it can be
+      reconstructed after parsing of the annotation is completed. Partially
+      applied type constructors are only permitted in type parameter position. */
 
       // split type parameters
 
@@ -1614,7 +1463,7 @@ to an argument type. */
       let selectedScope = "";
 
       /* Since scriptum supports higher-rank types we must resolve the scope of
-      each TC from its synthactic position within the annotation. */
+      each type constructor from its synthactic position within the annotation. */
 
       for (const locator of rntvs) {
         const [scope_, name] = locator.split(/:/);
@@ -1635,27 +1484,18 @@ to an argument type. */
         r1tvs.add(rx.groups.name);
       }
 
-      /* Register the arity of the current TC. If a registered arity already
-      exists, replace it provided the newly determined arity is higher then the
-      registered one. Only the maximal arity of a TC matters, because all other
-      occurrences of this TC can be considered as partially applied. */
+      /* Type constructors in type parameter position may occur with varying
+      arities at the annotation level due to partial application. Therefore we
+      must determine the maximal arity and kind of each one  in a subsequent
+      review. */
 
-      if (!tvArity.has(`${selectedScope}:${rx.groups.name}`)
-        || tvArity.get(`${selectedScope}:${rx.groups.name}`) < fields.length)
-          tvArity.set(`${selectedScope}:${rx.groups.name}`, fields.length);
-
-      /* In some cases we can determine the arity of a optionally partially
-      applied polymorphic TC by looking up in the arity map. This obvisouly
-      only works if the fully applied TC of the same name occurs first in the
-      type annotation. Since this is not guaranteed a subsequent traversal of
-      the finally cretaed AST to recover the right arity for all partially
-      applied TCs is necessary. */
-
-      else if (tvArity.get(`${selectedScope}:${rx.groups.name}`) > fields.length) {
-        fields.push(
-          ...Array(tvArity.get(`${selectedScope}:${rx.groups.name}`) - fields.length)
-            .fill("__"));
+      if (polyTcons.has(`${selectedScope}:${rx.groups.name}`)) {
+        if (fields.length > polyTcons.get(`${selectedScope}:${rx.groups.name}`).arity)
+          polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: fields.length, kind: "*"});
       }
+
+      else
+        polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: fields.length, kind: "*"});
 
       // create the higher-kinded bound TV
 
@@ -1699,7 +1539,7 @@ to an argument type. */
         anno === cs ? "" : `in "${anno}"\n`));
   };
 
-  const tvArity = new Map(),
+  const polyTcons = new Map(),
     r1tvs = new Set(),
     rntvs = new Set();
 
@@ -1715,52 +1555,75 @@ to an argument type. */
 
   const ast = go(anno, 0, 0, ".", "", "", null, 0);
 
-  /* It is not always evident in advance what arity a TV has, because as type
-  parameters they can be passed partially applied. We have to traverse the AST
-  one more time to finally determine the arity of each TV. For performance
-  reasons this should be carried out in the first traversal, but I leave it as
-  is for the time being. */
+  /* TVs can be passed partially applied to type constructors, which is not
+  obvious from annotations, except for tuples and multi-parameter functions.
+  For this reason we must reconstruct the arity for each type parameter in
+  post traversal. If a type constructor is higher-order, i.e. it receives
+  another type constructor, we must ensure that it is invoked with the right
+  kind:
 
-  const ast_ = mapAst(ast__ => {
-    if (ast__[TAG] === "BoundTV"
-      && ast__.body.length === 0) {
-        const selected = {arity: 0, scope: ""};
+  t<f> => t<(=>)> => f<a, b> -- accepted
+  t<f> => t<(=>)> => f<a> -- rejected */
 
-        /* The locator identifies a type variable within the AST unambiguously.
-        It has the scheme ".0/0.0/0:name", where occurrences of "." denotes the
-        rank and `0/0` the respective index of the curried function sequence
-        and the respective index of the parameter in a multi-parameter function
-        respectively. "name" is the name of the TV, which can be ambiguous on
-        its own. */
+  // * make sure all partial kinds are compatible with the complete kind
+  // * determine the complete kind for each partially applied type constructor
+  // * we can also infere the real arity/kind of a partially type constructor from the kind of a known type constructor it is passed to
+  // * forbid partially applied type constructors that are not in type parameter position
 
-        for (let [locator, arity] of tvArity) {
-          const [scope, name] = locator.split(/:/);
+  let ast_ = mapAst(ast__ => {
+    if (ast__[TAG] === "BoundTV") {
+      if (polyTcons.has(`${ast__.scope}:${ast__.name}`)
+        && ast__.body.length < polyTcons.get(`${ast__.scope}:${ast__.name}`).arity) {
+          ast__.body = Object.assign([],
+            Array(polyTcons.get(`${ast__.scope}:${ast__.name}`).arity).fill(Partial),
+            ast__.body);
 
-          /* The last predicate of the if statement is necessary, because we
-          want to retrieve the parent scope with the least distance to the
-          current one. */
-
-          if (name === ast__.name
-            && isParentScope(scope, ast__.scope)
-            && scope.length > selected.scope.length) {
-              selected.arity = arity;
-              selected.scope = scope;
-          }
-        }
-
-        if (selected.arity === 0)
           return ast__;
+      }
 
-        else
-          return BoundTV(
-            ast__.name,
-            ast__.scope,
-            ast__.position,
-            Array(selected.arity).fill(Partial));
+      else return ast__;
     }
 
     else return ast__;
   }) (ast);
+
+  // TODO: arity/kind review
+  
+  /*ast_ = mapAst(ast__ => {
+    switch (ast__[TAG]) {
+      case "Adt":
+      case "Arr":
+      case "Nea":
+      case "Fun":
+      case "Native":
+      case "Obj":
+      case "Tup": {
+        if (retrieveKind(ast__) !== inferKind(ast__))
+          throw new TypeError(cat(
+            "malformed type annotation\n",
+            "type constructor kind mismatch\n",
+            `expected: ${retrieveKind(ast__)}\n`,
+            `received: ${inferKind(ast__)}\n`,
+            `in "${anno}"\n`));
+
+        else return ast__;
+      }
+
+      case "BoundTV": {
+        // * if it is a type variabel of kind * w/o a specific arity
+          // * is it passed to another type constructor
+            // * can we reconstruct a higher-arity from the invoked type constructor?
+          // * is there another occurrence of the same type variable that indicates a type constructor?
+      }
+
+      case "Tcons": {
+        // * if it is an unknown polymorphic type constructor
+          // * is it passed to another type constructor
+            // * does the expected arity/kind of the invoked type constructor match with tha actual and maybe partially one?
+          // * is there another occurrence of the same type constructor with a contradicting arity/kind?
+      }
+    }
+  }) (ast);*/
 
   // if the AST includes type variables we need a quantifier
 
@@ -1782,7 +1645,7 @@ to an argument type. */
 
 // verifies the provided annotation using basic synthactic rules
 
-/* VERSION: 0.4.0 */ const verifyAnno = s => {
+const verifyAnno = s => {
   const scheme = remNestings(s);
 
   // prevent invalid chars
@@ -2011,7 +1874,7 @@ to an argument type. */
 expressions. This is the reason why functions must always be nested in round
 parenthesis, even though the syntax doesn't require them to be unambiguous. */
 
-/* VERSION: v0.4.0 */const remNestings = cs => {
+const remNestings = cs => {
   let ds;
 
   do {
@@ -2225,7 +2088,7 @@ const serializeAst = initialAst => {
 ******************************************************************************/
 
 
-/* VERSION: 0.4.0 */ export const introspectFlat = x => {
+export const introspectFlat = x => {
   const type = Object.prototype.toString.call(x).slice(8, -1);
 
   switch (type) {
@@ -2279,7 +2142,7 @@ that holds some state and can pass this closure to other functions to share
 this state. The type validator relies on vanilla Javascript and thus needs to
 fall back to elusive side effects every now and then. */
 
-/* VERSION: 0.4.0 */ export const introspectDeep = state => {
+export const introspectDeep = state => {
   const go = x => {
 
     // retrieve the native Javascript type
@@ -2366,7 +2229,7 @@ fall back to elusive side effects every now and then. */
 
         // object-based type constant (e.g. `Integer` or `Char`)
 
-        if (typeConstDict.has(type))
+        if (monoDict.has(type))
           return type;
 
         /* Native types are imperative Javascript types, i.e. they are not
@@ -2374,7 +2237,7 @@ fall back to elusive side effects every now and then. */
         defined for every native type how introspection works. Since such
         introspection might introduce further TVs, it must be stateful as well. */
 
-        else if (nativeTypeDict.has(type))
+        else if (nativeDict.has(type))
           return nativeIntrospection.get(type) (x, state, go);
 
         // Thunk (lookup doesn't trigger thunk evaluation)
@@ -2502,7 +2365,7 @@ export const type = adtAnno => {
 
   // check for name clashes with existing native types
 
-  else if (nativeTypeDict.has(tcons))
+  else if (nativeDict.has(tcons))
     throw new TypeError(cat(
       "illegal algebraic data type declaration\n",
       "name collision with a native type found\n",
@@ -2511,20 +2374,26 @@ export const type = adtAnno => {
 
   // check for name clashes with existing type constants
 
-  else if (typeConstDict.has(tcons))
+  else if (monoDict.has(tcons))
     throw new TypeError(cat(
       "illegal algebraic data type declaration\n",
       "name collision with a type constant found\n",
       `namely: ${tcons}\n`,
       `while declaring "${adtAnno}"\n`));
 
-  // register ADT as name-arity pair
+  // pre-register ADT using a default kind
 
-  else adtDict.set(tcons, arity);
+  else adtDict.set(tcons, {arity, kind: "*"});
 
   // parse ADT
 
   let adtAst = parseAnno(adtAnno);
+
+  // determine the kind of the codomain and update the ADT registry
+
+  const kind = inferKind(adtAst.body.body.result);
+
+  adtDict.set(tcons, {arity, kind});
 
   // verify the domain is a rank-2 function argument
 
@@ -2550,8 +2419,8 @@ export const type = adtAnno => {
         `but "${domainAnno}" received\n`,
         `while declaring "${adtAnno}"\n`));
 
-  /* Verify that all rank-1 TVs in argument position of the domain occur in
-  the codomain of the value constructor:
+  /* Verify that all rank-1 TVs in the domain occur in the codomain of the
+  value constructor:
 
   (^r. {left: (a => r), right: (b => r)} => Either<a, b>
                ^                ^                  ^^^^
@@ -2580,21 +2449,10 @@ export const type = adtAnno => {
     else return acc;
   }, new Set()) (adtAst.body.body.result);
 
-  // check if there is a left difference between domain and codomain
+  // lookup possible differences
 
   tvsDomain.forEach((v, k) => {
     if (!tvsCodomain.has(k))
-      throw new TypeError(cat(
-        "illegal algebraic data type declaration\n",
-        `type parameter "${k}" out of scope\n`,
-        `while declaring "${adtAnno}"\n`));
-  });
-
-  /* Check if there is a right difference between domain and codomain, which
-  would indicate existential types. */
-
-  tvsCodomain.forEach((v, k) => {
-    if (!tvsDomain.has(k))
       throw new TypeError(cat(
         "illegal algebraic data type declaration\n",
         `type parameter "${k}" only occurs on the RHS\n`,
@@ -2722,7 +2580,7 @@ export const type1 = adtAnno => {
 
   // check for name clashes with existing native types
 
-  else if (nativeTypeDict.has(tcons))
+  else if (nativeDict.has(tcons))
     throw new TypeError(cat(
       "illegal algebraic data type declaration\n",
       "name collision with a native type found\n",
@@ -2731,20 +2589,26 @@ export const type1 = adtAnno => {
 
   // check for name clashes with existing type constants
 
-  else if (typeConstDict.has(tcons))
+  else if (monoDict.has(tcons))
     throw new TypeError(cat(
       "illegal algebraic data type declaration\n",
       "name collision with a type constant found\n",
       `namely: ${tcons}\n`,
       `while declaring "${adtAnno}"\n`));
 
-  // register ADT as name-arity pair
+  // pre-register ADT using a default kind
 
-  else adtDict.set(tcons, arity);
+  else adtDict.set(tcons, {arity, kind: "*"});
 
   // parse ADT
 
   let adtAst = parseAnno(adtAnno);
+
+  // determine the kind of the codomain and update the ADT registry
+
+  const kind = inferKind(adtAst.body.body.result);
+
+  adtDict.set(tcons, {arity, kind});
 
   /* Verify that all rank-1 TVs of the domain occur in the codomain of the
   value constructor:
@@ -2774,21 +2638,10 @@ export const type1 = adtAnno => {
     else return acc;
   }, new Set()) (adtAst.body.body.result);
 
-  // check if there is a left difference between domain and codomain
+  // lookup possible differences
 
   tvsDomain.forEach((v, k) => {
     if (!tvsCodomain.has(k))
-      throw new TypeError(cat(
-        "illegal algebraic data type declaration\n",
-        `type parameter "${k}" out of scope\n`,
-        `while declaring "${adtAnno}"\n`));
-  });
-
-  /* Check if there is a right difference between domain and codomain, which
-  would indicate existential types. */
-
-  tvsCodomain.forEach((v, k) => {
-    if (!tvsDomain.has(k))
       throw new TypeError(cat(
         "illegal algebraic data type declaration\n",
         `type parameter "${k}" only occurs on the RHS\n`,
@@ -2972,7 +2825,7 @@ export const typeClass = tcAnno => {
 
         // retrieve components of the constraining TC from global TC dictionary
 
-        const {tparam: tparamFrom, tcAnno} = tcDict.get(tcons);
+        const {tparam: tparamFrom, tcAnno, arity, kind} = tcDict.get(tcons);
 
         /* Store the type constructor, type parameter and the dictionary
         annotation. There are actually two type parameters involved: The first
@@ -3027,7 +2880,7 @@ export const typeClass = tcAnno => {
 
   // check for name clashes with existing native types
 
-  else if (nativeTypeDict.has(tcons))
+  else if (nativeDict.has(tcons))
     throw new TypeError(cat(
       "illegal type class declaration\n",
       "name collision with a native type found\n",
@@ -3036,18 +2889,16 @@ export const typeClass = tcAnno => {
 
   // check for name clashes with existing type constants
 
-  else if (typeConstDict.has(tcons))
+  else if (monoDict.has(tcons))
     throw new TypeError(cat(
       "illegal type class declaration\n",
       "name collision with a type constant found\n",
       `namely: ${tcons}\n`,
       `while declaring "${tcAnno}"\n`));
 
-  /* The current type dictionary must already be registered, although its type
-  annotation hasn't reached its final form. We will overwrite this mapping
-  at the end of the process. */
+  // pre-register the type class using a default annotation
 
-  tcDict.set(tcons, {tparam, tcAnno: "Undefined"});
+  tcDict.set(tcons, {tparam, tcAnno: "Undefined", arity: 1, kind: "(* => *) => Constraint"});
 
   // remove the optional constraints and parse TC annotation
 
@@ -3093,8 +2944,8 @@ export const typeClass = tcAnno => {
         `but "${tcCompos[0 + tcOffset]}" received\n`,
         `while declaring "${tcAnno}"\n`));
 
-  /* Verify that all rank-1 type variables of the domain occur in the codomain
-  of the function type:
+  /* Verify that all rank-1 type variables occur in the codomain of the
+  function type:
 
   (^a, b. {of: (a => m<a>), chain: (m<a> => (a => m<a>) => m<b>)}) => Monad<m>
                      ^              ^             ^        ^                ^
@@ -3124,21 +2975,10 @@ export const typeClass = tcAnno => {
     else return acc;
   }, new Set()) (codomainAst);
 
-  // check if there is a left difference between domain and codomain
+  // lookup possbile differences
 
   tvsDomain.forEach((v, k) => {
     if (!tvsCodomain.has(k))
-      throw new TypeError(cat(
-        "illegal algebraic data type declaration\n",
-        `type parameter "${k}" out of scope\n`,
-        `while declaring "${tcAnno}"\n`));
-  });
-
-  /* Check if there is a right difference between domain and codomain, which
-  would indicate existential types. */
-
-  tvsCodomain.forEach((v, k) => {
-    if (!tvsDomain.has(k))
       throw new TypeError(cat(
         "illegal algebraic data type declaration\n",
         `type parameter "${k}" only occurs on the RHS\n`,
@@ -3235,9 +3075,15 @@ export const typeClass = tcAnno => {
     }
   });
 
-  // register current type dictionary
+  /* Register the type class using a default annotation. Since scriptum doesn't
+  support multi-parameter TCs for the time being, we can just set arity and kind
+  to its default values. */
 
-  tcDict.set(tcons, {tparam, tcAnno: serializeAst(tcAst)});
+  tcDict.set(tcons, {
+    tparam,
+    tcAnno: serializeAst(tcAst),
+    arity: 1,
+    kind: "(* => *) => Constraint"});
 
   /**************
    * TYPE CLASS *
@@ -3436,7 +3282,7 @@ conducts type validation of applications, not definition. It only attempts to
 unify the formal parameter of a function type with a provided argument type,
 but it does not infer types from given terms. */
 
-/* VERSION: 0.4.0 */ export const fun = (f, funAnno) => {
+export const fun = (f, funAnno) => {
   const go = (g, lamIndex, funAst, funAnno) => {
     const getArgs = (...args) => {
 
@@ -3648,7 +3494,7 @@ but it does not infer types from given terms. */
 
       else if (introspectFlat(r) === "Function") {
 
-          // check whether the unified type a function type as well
+          // check whether the unified type is a function type as well
 
           if (unifiedAst[TAG] === "Forall"
             && unifiedAst.body[TAG] === "Fun")
@@ -3680,10 +3526,47 @@ but it does not infer types from given terms. */
           
           let codomainAst = parseAnno(r[ADT]);
 
-          // dequantify domain and codomain
+          // dequantify ADT AST considering TV introductions
 
-          ({ast: domainAst} = specializeLHS(new Map(), ".") (domainAst));
-          ({ast: codomainAst} = specializeLHS(new Map(), ".") (codomainAst));
+          let intro;
+
+          ({ast: unifiedAst, intro} = specializeLHS(new Map(), ".") (unifiedAst));
+
+          if (intro.size > 0) intros.push(intro);
+
+          // unify the function type application
+
+          ({tvid, instantiations, aliases, intros} = unifyTypes(
+            unifiedAst,
+            codomainAst,
+            0,
+            0,
+            {tvid, instantiations, aliases, intros},
+            serializeAst(unifiedAst),
+            r[ADT],
+            funAnno,
+            argAnnos));
+
+          // disclose transitive relations
+
+          ({tvid, instantiations, aliases, intros} = uncoverTransRel(
+            {tvid, instantiations, aliases, intros}, null, null, funAnno, argAnnos));
+
+          // remove contradictory instantiations
+
+          instantiations = remConflictingAliases(instantiations);
+
+          // conduct occurs check
+
+          instantiations.forEach(m => {
+            m.forEach(({key: keyAst, value: valueAst}) =>
+              occursCheck(keyAst, valueAst, instantiations, aliases, new Set(), null, null, funAnno, argAnnos));
+          });
+
+          // dequantify domain/codomain
+
+          ({ast: domainAst} = specializeLHS(new Map(), ".", 1) (domainAst));
+          ({ast: codomainAst} = specializeLHS(new Map(), ".", 1) (codomainAst));
 
           // adjust domain according to the unified type using subsumption
 
@@ -3820,7 +3703,7 @@ b1 => a
 
 and delete mappings from older to newer entries. */
 
-/* VERSION: 0.4.0 */ const remConflictingAliases = instantiations => {
+const remConflictingAliases = instantiations => {
   instantiations.forEach(m => {
     const xs = Array.from(m);
 
@@ -4536,7 +4419,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
           }
 
           else {
-            const arityDiff = determineArity(paramAst) - argAst.body.length;
+            const arityDiff = retrieveArity(paramAst) - argAst.body.length;
 
             if (arityDiff === 0) { // (() => b) ~ u<c> | (a => b) ~ u<c, d> | (a, b => c) ~ u<d, e, f>
 
@@ -5168,7 +5051,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
           }
 
           else {
-            const argArity = determineArity(argAst);
+            const argArity = retrieveArity(argAst);
             
             if (paramAst.body.length > argArity)
               throw new TypeError(cat(
@@ -6763,7 +6646,7 @@ instantiated with themselves or with meta TVs within the same scope. The latter
 holds, if the meta TV is introduced within the same scope or later during
 unification. */
 
-/* VERSION: 0.4.0 */ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAnno, argAnno, funAnno, argAnnos) => {
+const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAnno, argAnno, funAnno, argAnnos) => {
 
   // destructure state
 
@@ -6785,7 +6668,7 @@ unification. */
     else
       throw new TypeError(cat(
         `can only instantiate type variables with another type\n`,
-        `but "${serializeAst(key)}" recieved\n`,
+        `but "${serializeAst(key)}" received\n`,
         "while unifying\n",
         `${paramAnno}\n`,
         `${argAnno}\n`,
@@ -6972,7 +6855,7 @@ meta TV ~ rigit TV
 rigit TV ~ mete TV
 rigit TV ~ rigid TV */
 
-/* VERSION: 0.4.0 */ const substitute = (ast, instantiations) => {
+const substitute = (ast, instantiations) => {
   let anno = serializeAst(ast), anno_;
 
   /* Iteratively performs substitution until the result type doesn't deviate
@@ -7079,7 +6962,7 @@ In the above judgment `<:` denotes "is subtype of"/"is at least as polymorphic a
 `x` is an argument type and `p` is f's type parameter. All top-level bound TVs on
 the LHS are meta-ized and on the RHS are skolem-ized. */
 
-/* VERSION: 0.4.0 */ const specialize = Cons => (intro, scope, tvid = "") => ast => {
+const specialize = Cons => (intro, scope, tvid = "") => ast => {
   const alphaRenamings = new Map(),
     uniqueNames = new Set();
   
@@ -7178,7 +7061,7 @@ const specializeRHS = specialize(RigidTV);
 
 // remove alpha renamings
 
-/* VERSION: 0.4.0 */ const prettyPrint = ast => {
+const prettyPrint = ast => {
   const alphaRenamings = new Map(),
     uniqueNames = new Set();
 
@@ -9904,6 +9787,30 @@ export const liftk2 = fun(
 
 
 /******************************************************************************
+*********************************[ COYONEDA ]**********************************
+******************************************************************************/
+
+
+/*const Coyoneda_ = type1("(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
+
+
+export const Coyoneda = fun(f => tx => Coyoneda_(fun(
+  k => k(f) (tx),
+  "((b => a) => f<b> => r) => r")),
+  "(b => a) => f<b> => Coyoneda<f, a>");
+
+
+Coyoneda.lift = Coyoneda(id);
+
+
+Coyoneda.lower = fun(
+  ({map}) => tx => tx.run(fun(
+    f => ty => map(f) (ty),
+    "(b => a) => f<b> => f<a>")),
+  "Functor<f> => Coyoneda<f, a> => f<b>");*/
+
+
+/******************************************************************************
 **********************************[ EITHER ]***********************************
 ******************************************************************************/
 
@@ -10513,25 +10420,6 @@ Vector.elem = fun(
 /******************************************************************************
 **********************************[ YONEDA ]***********************************
 ******************************************************************************/
-
-
-const Coyoneda_ = type1("(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
-
-
-export const Coyoneda = fun(f => tx => Coyoneda_(fun(
-  k => k(f) (tx),
-  "((b => a) => f<b> => r) => r")),
-  "(b => a) => f<b> => Coyoneda<f, a>");
-
-
-Coyoneda.lift = Coyoneda(id);
-
-
-Coyoneda.lower = fun(
-  ({map}) => tx => tx.run(fun(
-    f => ty => map(f) (ty),
-    "(b => a) => f<b> => f<a>")),
-  "Functor<f> => Coyoneda<f, a> => f<b>");
 
 
 export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
