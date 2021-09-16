@@ -866,7 +866,7 @@ const remParams = ast => {
 
 // remove the optional top-level quantifier of a function type
 
-const remQuant = anno => { // TODO: wrong, don't just remove the quantifier!!
+const remQuant = anno => {
   if (anno === "()")
     return anno;
 
@@ -904,26 +904,29 @@ const parseAnno = anno => {
     while parsing `this*`. */
 
     /* Annotation might contain type constructors whose type parameters are not
-    fully specified. While for some types the arity is well-known and fixed
-    (`Adt`, `Native`, Array, NEArray), others must use appropiate syntax to
-    maintain their arity (e.g. `Function`, Tuple`). The following
-    manifestations are possible:
+    fully specified, i.e. not fully applied. This is only possible for these
+    type constructors that are themselves passed as a type parameter to another
+    type constructor. During the parse process all arities can be eventually
+    restored and missing type parameters are denoted as `__` in the resulting
+    ASTs.
 
-    Adt: Either / Either<foo> / Either<foo, bar>
+    Partially applied type constructors are not apparent from their syntax. In
+    order to restore their full arity fully applied counterparts are necessary.
+    This doesn't hold for tuples though. Hence we need a special syntax to
+    denote partial application:
+
+    ADT: Either / Either<foo> / Either<foo, bar>
     Array/NEArray: [] / [1] / [foo] / [1foo]
-    Function: (=>) / (foo =>) / (, =>) / (foo, =>) / (,, =>) / (foo,, =>) / (foo, bar, =>)
+    binary Function: (=>) / (foo =>) / (foo, bar =>) / (foo, bar => baz)
     Native: Map / Map<foo> / Map<foo, bar>
     Object: /
-    Tcons t<foo, bar>: t / t<foo> / t<foo, bar>
-    Tuple: [,] / [foo,] / [,,] / [foo,,] / [foo, bar,]
+    binary polymorphic type cons: t / t<foo> / t<foo, bar>
+    pair Tuple: [,] / [foo,] / [foo, bar] but not [, bar]
 
-    All types constrcutors must be applied from left to right, that is to say
-    `[, Bar]` is invalid. Objects are unordered and thus are incompatible with
-    partial application.
-
-    Partially specified type constructors are represented with the `__` constant.
-    During serialization `__` is replaced with the empty string which leads to the
-    above syntax forms depending on the type at hand. */
+    While multi-parameter functions are technically also tuple like types in
+    their domain, they are excluded from partial application to keep the
+    annotation syntax clean and simple. Objects cannot be partially applied
+    either, since they have no property order. */
 
     const simplifiedType = remNestings(cs);
     let rx;
@@ -949,7 +952,7 @@ const parseAnno = anno => {
         throw new TypeError(cat(
           "malformed type annotation\n",
           "invalid partially applied type constructor\n",
-          "partially application goes from left to right\n",
+          "partial application goes from right to left\n",
           `but "${cs}" received\n`,
           `in "${anno}"\n`));
 
@@ -958,15 +961,13 @@ const parseAnno = anno => {
       else if (cs.search(/^=>$/) !== NOT_FOUND)
         return Fun([Partial], Partial);
 
-      /* If the type constructor is partially applied or not applied at all the
-      missing type parameters must be denoted with "__" to simplify the parsing.
-      "__" is just an interim representation only use dinternally by `parseAnno`. */
+      // consider partially applied Function
 
       else if (cs.search(/^=|>$/) !== NOT_FOUND)
         cs = cs.replace(/^=>/, "__ =>")
           .replace(/=>$/, "=> __");
             
-      // split argument type(s) from rsult type
+      // split argument type(s) from result type
 
       const init = splitByPattern(/ => /, 4, remNestings(cs)) (cs),
         last = init.pop();
@@ -1017,16 +1018,6 @@ const parseAnno = anno => {
             // multi parameter
 
             else {
-
-              // rule out partially applied multi parameter type constructors
-
-              if (ds.search(new RegExp("^,|, =>|,,", "")) !== NOT_FOUND)
-                throw new TypeError(cat(
-                  "malformed type annotation\n",
-                  "invalid partially applied type constructor\n",
-                  "multi-parameter functions must not be partially applied\n",
-                  `but "${ds}" received\n`,
-                  `in "${anno}"\n`));
 
               // rule out invalid variadic parameters
 
@@ -1082,17 +1073,9 @@ const parseAnno = anno => {
 
           rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
-          // denote missing type parameters with "__"
-
-          if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
-            rx.groups.fields = rx.groups.fields
-              .replace(/^,/, "__,")
-              .replace(/,,/g, ", __, __")
-              .replace(/,$/, ", __");
-
           // split type parameters
 
-          const fields = splitByPattern(
+          let fields = splitByPattern(
             /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
           // check if parameter number corresponds with the stored arity
@@ -1105,23 +1088,12 @@ const parseAnno = anno => {
               `received type arguments: ${fields.length}\n`,
               `in "${anno}"\n`));
 
-          // check for invalid partially applied type parameters
-          
-          fields.reduce((acc, field) => {
-            if (field === "__") {
-              if (acc)
-                throw new TypeError(cat(
-                  "malformed type annotation\n",
-                  "invalid partially applied type constructor\n",
-                  "partially application goes from left to right\n",
-                  `but "${cs}" received\n`,
-                  `in "${anno}"\n`));
+          // consider partially applied ADT
 
-              else return acc;
-            }
-
-            else return true;
-          }, false);
+          else if (dictRef.get(rx.groups.cons).arity > fields.length)
+            fields = Object.assign([],
+              Array(dictRef.get(rx.groups.cons).arity).fill("__"),
+              fields);
 
           // create the AST element
 
@@ -1136,19 +1108,6 @@ const parseAnno = anno => {
 
     else if (rx = cs.match(new RegExp("^\\[(?:(?<nea>1))?(?<body>.*)\\]$", ""))) {
 
-      // denote missing Array/NEArray type parameter with "__"
-
-      if (rx.groups.body === "")
-        rx.groups.body = "__";
-
-      // denote missing Tuple type parameter with "__"
-
-      else if (rx.groups.body.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
-        rx.groups.body = rx.groups.body
-          .replace(/^,/, "__,")
-          .replace(/,,/g, ", __, __")
-          .replace(/,$/, ", __");
-
       // simplify type
 
       const scheme = remNestings(rx.groups.body);
@@ -1156,6 +1115,11 @@ const parseAnno = anno => {
       // determine more specific type
 
       if (scheme.search(/,/) === NOT_FOUND) {
+
+        // consider partially applied Array/NEArray
+
+        if (rx.groups.body === "")
+          rx.groups.body = "__";
 
         // Arr
 
@@ -1176,23 +1140,13 @@ const parseAnno = anno => {
 
         const fields = splitByPattern(/, /, 2, scheme) (rx.groups.body);
 
-        // check for invalid partially applied type parameters
+        // consider partially applied ADT
 
-        fields.reduce((acc, field) => {
-          if (field === "__") {
-            if (acc)
-              throw new TypeError(cat(
-                "malformed type annotation\n",
-                "invalid partially applied type constructor\n",
-                "partially application goes from left to right\n",
-                `but "${cs}" received\n`,
-                `in "${anno}"\n`));
-
-            else return acc;
-          }
-
-          else return true;
-        }, false);
+        if (rx.groups.body.search(new RegExp(",(?:,|$)", "")) !== NOT_FOUND)
+          rx.groups.body = rx.groups.body
+            .replace(/^,/, "__,")
+            .replace(/,,/g, ", __, __")
+            .replace(/,$/, ", __");
 
         // create AST element
 
@@ -1327,17 +1281,9 @@ const parseAnno = anno => {
 
         rx = cs.match(new RegExp("^(?<cons>[A-Z][A-Za-z0-9]*)<(?<fields>.+)>$", ""));
 
-        // denote missing type parameters with "__"
-
-        if (rx.groups.fields.search(new RegExp("^,|,,|,$", "")) !== NOT_FOUND)
-          rx.groups.fields = rx.groups.fields
-            .replace(/^,/, "__,")
-            .replace(/,,/g, ", __, __")
-            .replace(/,$/, ", __");
-
         // split type parameters
 
-        const fields = splitByPattern(
+        let fields = splitByPattern(
           /, /, 2, remNestings(rx.groups.fields)) (rx.groups.fields);
 
         // check if parameter number corresponds with the stored arity
@@ -1346,27 +1292,16 @@ const parseAnno = anno => {
           throw new TypeError(cat(
             "malformed type annotation\n",
             "type constructor arity mismatch\n",
-            `defined type parameters: ${nativeDict.get(rx.groups.cons).arity}\n`,
+            `expected type parameters: ${nativeDict.get(rx.groups.cons).arity}\n`,
             `received type arguments: ${fields.length}\n`,
             `in "${anno}"\n`));
 
-        // check for invalid partially applied type parameters
-        
-        fields.reduce((acc, field) => {
-          if (field === "__") {
-            if (acc)
-              throw new TypeError(cat(
-                "malformed type annotation\n",
-                "invalid partially applied type constructor\n",
-                "partially application goes from left to right\n",
-                `but "${cs}" received\n`,
-                `in "${anno}"\n`));
+        // consider partially applied ADT
 
-            else return acc;
-          }
-
-          else return true;
-        }, false);
+        else if (nativeDict.get(rx.groups.cons).arity > fields.length)
+          fields = Object.assign([],
+            Array(nativeDict.get(rx.groups.cons).arity).fill("__"),
+            fields);
 
         // create the AST element
 
@@ -1448,13 +1383,6 @@ const parseAnno = anno => {
 
     else if (rx = cs.match(new RegExp("^(?<name>[a-z][A-Za-z0-9]*)<(?<fields>.*)>$", ""))) {
       
-      /* If a polymorphic type constructor is passed to another type constructor
-      it can be either fully or partially applied. For the latter, like like in
-      `Monad<m>` for instance, neither the arity nor the kind of the polymorphic
-      type constructor can be determined in place. However, it can be
-      reconstructed after parsing of the annotation is completed. Partially
-      applied type constructors are only permitted in type parameter position. */
-
       // split type parameters
 
       const fields = splitByPattern(
@@ -1484,10 +1412,8 @@ const parseAnno = anno => {
         r1tvs.add(rx.groups.name);
       }
 
-      /* Type constructors in type parameter position may occur with varying
-      arities at the annotation level due to partial application. Therefore we
-      must determine the maximal arity and kind of each one  in a subsequent
-      review. */
+      /* Determine the actual arity and kind of partially applied type
+      constructors in type parameter position. */
 
       if (polyTcons.has(`${selectedScope}:${rx.groups.name}`)) {
         if (fields.length > polyTcons.get(`${selectedScope}:${rx.groups.name}`).arity)
@@ -1555,20 +1481,11 @@ const parseAnno = anno => {
 
   const ast = go(anno, 0, 0, ".", "", "", null, 0);
 
-  /* TVs can be passed partially applied to type constructors, which is not
-  obvious from annotations, except for tuples and multi-parameter functions.
-  For this reason we must reconstruct the arity for each type parameter in
-  post traversal. If a type constructor is higher-order, i.e. it receives
-  another type constructor, we must ensure that it is invoked with the right
-  kind:
+  /* An additional AST traversal is required to determine the actual arity and
+  kind of each type constructor in type parameter position:
 
   t<f> => t<(=>)> => f<a, b> -- accepted
   t<f> => t<(=>)> => f<a> -- rejected */
-
-  // * make sure all partial kinds are compatible with the complete kind
-  // * determine the complete kind for each partially applied type constructor
-  // * we can also infere the real arity/kind of a partially type constructor from the kind of a known type constructor it is passed to
-  // * forbid partially applied type constructors that are not in type parameter position
 
   let ast_ = mapAst(ast__ => {
     if (ast__[TAG] === "BoundTV") {
@@ -1588,7 +1505,7 @@ const parseAnno = anno => {
   }) (ast);
 
   // TODO: arity/kind review
-  
+
   /*ast_ = mapAst(ast__ => {
     switch (ast__[TAG]) {
       case "Adt":
@@ -1614,6 +1531,7 @@ const parseAnno = anno => {
           // * is it passed to another type constructor
             // * can we reconstruct a higher-arity from the invoked type constructor?
           // * is there another occurrence of the same type variable that indicates a type constructor?
+        // * forbid partially applied type constructors that are not in type parameter position
       }
 
       case "Tcons": {
@@ -1621,6 +1539,7 @@ const parseAnno = anno => {
           // * is it passed to another type constructor
             // * does the expected arity/kind of the invoked type constructor match with tha actual and maybe partially one?
           // * is there another occurrence of the same type constructor with a contradicting arity/kind?
+        // * forbid partially applied type constructors that are not in type parameter position
       }
     }
   }) (ast);*/
@@ -1719,15 +1638,12 @@ const verifyAnno = s => {
 
   // check for invalid use of ,
   
-  else if (s.search(new RegExp(",[^, \\]]", "")) !== NOT_FOUND)
+  else if (s.replace(new RegExp(",+\\]", "g"), "").search(new RegExp(",[^ ]|\\[,", "")) !== NOT_FOUND)
     throw new TypeError(cat(
       "malformed type annotation\n",
       `invalid use of ","\n`,
-      "must only be used to enumerate names:\n",
-      "foo, bar, baz\n",
-      "or to denote partially applied type constructors:\n",
-      "(, =>)\n",
-      "[,,]\n",
+      "must only be used to enumerate types\n",
+      "in the form of: foo, bar, baz\n",
       `in "${s}"\n`));
 
   // check for invalid use of ^
