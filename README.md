@@ -24,9 +24,9 @@ Runtime type checking is expensive and only useful within the development stage.
 
 Unstable (v0.5.0)
 
-I currently work on a rudimentary kind system:
+I currently work on a higher-order kind system:
 
-▓▓▓▓▓▓▓░░░ done.
+▓▓▓▓▓▓▓▓▓░ done.
 
 ## Goals
 
