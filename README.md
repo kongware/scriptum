@@ -13,8 +13,8 @@
 
 scriptum consists of two parts:
 
-* [a runtime type validator](https://github.com/kongware/scriptum/blob/master/type-validator.md)
-* [a typed standard library](https://github.com/kongware/scriptum/blob/master/library.md)
+* runtime type validator ([docs](https://github.com/kongware/scriptum/blob/master/type-validator.md))
+* typed standard library ([docs](https://github.com/kongware/scriptum/blob/master/library.md))
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional capabilities.
 
@@ -22,11 +22,7 @@ Runtime type checking is expensive and only useful within the development stage.
 
 ## Status
 
-Unstable (v0.5.0)
-
-I currently work on a higher-order kind system:
-
-▓▓▓▓▓▓▓▓▓░ done.
+Unstable (v0.9.0)
 
 ## Goals
 
@@ -39,7 +35,7 @@ In order to reconcile the functional paradigm with Javascript the following main
 - [x] persistent data structures
 - [x] safe in-place updates
 - [x] stack-safe sync/async recursion
-- [ ] effect handling and composition
+- [x] effect handling and composition
 - [ ] concurrency (STM)
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] strong eventual consistency (CRDTs)
