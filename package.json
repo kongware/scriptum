@@ -1,20 +1,15 @@
 {
   "name": "scriptum",
-  "version": "0.5.0",
-  "description": "An extended Hindley-Milner type validator and a functional library based on it",
-  "main": "index.js",
-  "scripts": {
-  },
+  "version": "0.9.0",
+  "author": "Iven Marquardt",
+  "license": "MIT",
+  "description": "Extended Hindley-Milner type validator for JS and a functional library based on it",
   "repository": {
     "type": "git",
     "url": "git://github.com/kongware/scriptum.git"
   },
-  "author": "Iven Marquardt",
-  "license": "MIT",
   "bugs": {
     "url": "https://github.com/kongware/scriptum/issues"
   },
-  "homepage": "https://github.com/kongware/scriptum#readme",
-  "dependencies": {
-  }
+  "homepage": "https://github.com/kongware/scriptum#readme"
 }
