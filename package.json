@@ -4,12 +4,13 @@
   "author": "Iven Marquardt",
   "license": "MIT",
   "description": "Extended Hindley-Milner type validator for JS and a functional library based on it",
+  "type": "module",
+  "main": "src/index.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/kongware/scriptum.git"
   },
-  "bugs": {
-    "url": "https://github.com/kongware/scriptum/issues"
-  },
-  "homepage": "https://github.com/kongware/scriptum#readme"
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
 }
