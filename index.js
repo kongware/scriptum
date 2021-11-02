@@ -54,105 +54,6 @@ const NOT_FOUND = -1;
 
 const letterA = 97;
 
-/***[ Type Dictionaries ]*****************************************************/
-
-
-const adtDict = new Map(), // ADT dict Map(tcons => {arity, kind})
-  tcDict = new Map(); // type class dict Map(tcons => {arity, kind})
-
-
-const nativeDict = new Map([ // native type dict Map(tcons => {arity, kind})
-  ["Map", {arity: 2, kind: "* => * => *"}],
-  ["Set", {arity: 1, kind: "* => *"}],
-  ["Vector", {arity: 1, kind: "* => *"}]]);
-
-
-const nativeIntrospection = new Map([
-  ["Map", (m, state, introspectDeep_) => {
-    const ts = new Map();
-
-    for (let [k, v] of m)
-      ts.set(introspectDeep_(k), introspectDeep_(v));
-
-    if (ts.size === 0)
-      return `Map<${String.fromCharCode(state.charCode++)}, ${String.fromCharCode(state.charCode++)}>`;
-
-    else if (ts.size > 1) {
-      const tk = [],
-        tv = [];
-
-      ts.forEach((v, k) => {
-        if (k.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-          tk.push(k);
-
-        if (v.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-          tv.push(v);
-      })
-
-      if (tk.length > 1)
-        throw new TypeError(cat(
-          "invalid Map\n",
-          "must contain homogeneous keys and values\n",
-          "but the following keys received:",
-          `${tk.join(", ")}\n`));
-
-      else if (tv.length > 1)
-        throw new TypeError(cat(
-          "invalid Map\n",
-          "must contain homogeneous keys and values\n",
-          "but the following values received:",
-          `${tv.join(", ")}\n`));
-
-      else return `Map<${tk[0]}, ${tv[0]}>`;
-    }
-
-    else return `Map<${Array.from(ts) [0].join(", ")}>`;
-  }],
-
-  ["Set", (s, state, introspectDeep_) => {
-    const ts = new Set();
-
-    for (let v of s)
-      ts.add(introspectDeep_(v));
-
-    if (ts.size === 0)
-      return `Set<${String.fromCharCode(state.charCode++)}>`;
-
-    else if (ts.size > 1) {
-      const ts_ = []
-
-      ts.forEach(t => {
-        if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
-          ts_.push(t);
-      })
-
-      if (ts_.length > 1)
-        throw new TypeError(cat(
-          "invalid Set\n",
-          "must contain homogeneous keys\n",
-          "but the following values received:",
-          `${ts_.join(", ")}\n`));
-
-      else return `Set<${ts_[0]}>`;
-    }
-
-    else return `Set<${Array.from(ts) [0]}>`;
-  }],
-
-  ["Vector", (o, state, introspectDeep_) => {
-    if (o.length === 0)
-      return "Vector<a>";
-
-    else
-      return `Vector<${introspectDeep_(o.data.v)}>`;
-  }]]);
-
-
-const monoDict = new Set([ // Tconst register
-  "Char",
-  "Integer",
-  "Natural"]);
-
 
 /***[ Combinators ]***********************************************************/
 
@@ -304,6 +205,46 @@ class Argsv extends Array {
 }
 
 
+/***[ Kinds ]*****************************************************************/
+
+
+class HigherKind extends Array {
+  constructor(len) {
+    super(len);
+    
+    for (let i = 0; i < len; i++)
+      this[i] = null;
+  }
+
+  get [Symbol.toStringTag] () {
+    return "HigherKind";
+  }
+}
+
+
+class Kind extends Array {
+  constructor(s) {
+    super(1);
+    this[0] = s;
+  }
+
+  get [Symbol.toStringTag] () {
+    return "Kind";
+  }
+}
+
+
+class KindArg {
+  constructor(x) {
+    this.kind = x;
+  }
+
+  get [Symbol.toStringTag] () {
+    return "KindArg";
+  }
+}
+
+
 /***[ Char ]******************************************************************/
 
 
@@ -442,6 +383,110 @@ export class Tuple extends Array {
 
 /******************************************************************************
 *******************************************************************************
+********************************[ TYPE DICTS ]*********************************
+*******************************************************************************
+******************************************************************************/
+
+
+const adtDict = new Map(), // ADT dict Map(tcons => {arity, kind})
+  tcDict = new Map(); // type class dict Map(tcons => {arity, kind})
+
+
+const nativeDict = new Map([ // native type dict Map(tcons => {arity, kind})
+  ["Map", {arity: 2, kind: new HigherKind(3).fill(new Kind("*"))}],
+  ["Set", {arity: 1, kind: new HigherKind(2).fill(new Kind("*"))}],
+  ["Vector", {arity: 1, kind: new HigherKind(2).fill(new Kind("*"))}]]);
+
+
+const nativeIntrospection = new Map([
+  ["Map", (m, state, introspectDeep_) => {
+    const ts = new Map();
+
+    for (let [k, v] of m)
+      ts.set(introspectDeep_(k), introspectDeep_(v));
+
+    if (ts.size === 0)
+      return `Map<${String.fromCharCode(state.charCode++)}, ${String.fromCharCode(state.charCode++)}>`;
+
+    else if (ts.size > 1) {
+      const tk = [],
+        tv = [];
+
+      ts.forEach((v, k) => {
+        if (k.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          tk.push(k);
+
+        if (v.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          tv.push(v);
+      })
+
+      if (tk.length > 1)
+        throw new TypeError(cat(
+          "invalid Map\n",
+          "must contain homogeneous keys and values\n",
+          "but the following keys received:",
+          `${tk.join(", ")}\n`));
+
+      else if (tv.length > 1)
+        throw new TypeError(cat(
+          "invalid Map\n",
+          "must contain homogeneous keys and values\n",
+          "but the following values received:",
+          `${tv.join(", ")}\n`));
+
+      else return `Map<${tk[0]}, ${tv[0]}>`;
+    }
+
+    else return `Map<${Array.from(ts) [0].join(", ")}>`;
+  }],
+
+  ["Set", (s, state, introspectDeep_) => {
+    const ts = new Set();
+
+    for (let v of s)
+      ts.add(introspectDeep_(v));
+
+    if (ts.size === 0)
+      return `Set<${String.fromCharCode(state.charCode++)}>`;
+
+    else if (ts.size > 1) {
+      const ts_ = []
+
+      ts.forEach(t => {
+        if (t.search(new RegExp("[a-z][a-zA-Z0-9]*", "")) === NOT_FOUND)
+          ts_.push(t);
+      })
+
+      if (ts_.length > 1)
+        throw new TypeError(cat(
+          "invalid Set\n",
+          "must contain homogeneous keys\n",
+          "but the following values received:",
+          `${ts_.join(", ")}\n`));
+
+      else return `Set<${ts_[0]}>`;
+    }
+
+    else return `Set<${Array.from(ts) [0]}>`;
+  }],
+
+  ["Vector", (o, state, introspectDeep_) => {
+    if (o.length === 0)
+      return "Vector<a>";
+
+    else
+      return `Vector<${introspectDeep_(o.data.v)}>`;
+  }]]);
+
+
+const monoDict = new Set([ // Tconst register
+  "Char",
+  "Integer",
+  "Natural"]);
+
+
+/******************************************************************************
+*******************************************************************************
 ************************************[ AST ]************************************
 *******************************************************************************
 ******************************************************************************/
@@ -558,17 +603,24 @@ const RigidTV = (name, scope, position, body) => // a.k.a. skolem constant
 ******************************************************************************/
 
 
-// determine the arity of the passed type constructor
+// get the arity of the type constructor argument
 
-const retrieveArity = ast => {
+const determineArity = ast => {
   switch (ast[TAG]) {
     case "Fun": {
-      switch (ast.body.lambdas[0] [TAG]) {
-        case "Arg0": return 1;
-        case "Arg1": return 2;
-        case "Args": return ast.body.lambdas[0].length + 1;
-        default: return 0; // Argv/Argsv are excluded
-      }
+      return ast.body.lambdas.reduce((acc, args) => {
+        switch (args[TAG]) {
+          case "Arg0": return acc;
+          case "Arg1": return acc + 1;
+
+          case "Args":
+          case "Argsv":
+          case "Argv": return acc + args.length;
+
+          default: throw new TypeError(
+            "internal error: argument list constructor expected @determineArity");
+        }
+      }, 1);
     }
 
     default: {
@@ -587,64 +639,57 @@ const retrieveArity = ast => {
 };
 
 
-// determine the kind of a known type constructor
+const extractAst = ast => {
+  if (ast[TAG] === "Forall")
+    ast = ast.body;
 
-const retrieveKind = ast => {
-  switch (ast[TAG]) {
-    case "Adt": return adtDict.has(ast.cons)
-      ? adtDict.get(ast.cons).kind
-      : tcDict.get(ast.cons).kind;
+  const [r1tvs, rntvs] = reduceAst(([r1tvs_, rntvs_], ast_) => {
+    if (ast_[TAG] === "Forall") {
+      if (ast_.scope === "") // synthactic grouping
+        return [r1tvs_, rntvs_];
 
-    case "Arr": return "* => *";
+      else { // quantifier
+        for (const btv of ast_.btvs)
+          rntvs_.add(`${ast_.scope}:${btv}`);
 
-    case "Fun":
-      return "* => "
-        .repeat(retrieveArity(ast))
-        .concat("*");
+        return [r1tvs_, rntvs_];
+      }
+    }
 
-    case "Native": return nativeDict.get(ast.cons).kind;
-    case "Nea": return "* => *";
-    case "Obj": return "*" + " => *".repeat(ast.size);
-    case "Tconst": return "*";
-    case "Tup": return "*" + " => *".repeat(ast.size);
+    else if (isTV(ast_))
+      return [r1tvs_.set(`${ast_.scope}:${ast_.name}`, ast_.name), rntvs_];
 
-    case "BoundTV":
-    case "MetaTV":
-    case "RigidTV": throw TypeError(
-      "internal error: unexpected type variable @retrieveKind");
+    else return [r1tvs_, rntvs_];
+  }, [new Map(), new Set()]) (ast);
 
-    case "Tcons": throw TypeError(
-      "internal error: unexpected polymorphic type constructor @retrieveKind");
+  if (r1tvs.size > 0) {
+    const r1tvs_ = new Map([...r1tvs].filter(([k, v]) => !rntvs.has(k)));
 
-    default: throw TypeError(
-      "internal error: unknown type constructor @retrieveKind");
+    const ast__ = mapAst(ast_ => {
+      if (isTV(ast_)
+        && r1tvs_.has(`${ast_.scope}:${ast_.name}`)) {
+          ast_.scope = ".";
+          return ast_;
+      }
+
+      else return ast_;
+    }) (ast);
+
+    return Forall(
+      [...r1tvs_].reduce((acc, [k, v]) => acc.add(v), new Set()),
+      ".",
+      ast__);
   }
+
+  else if (ast[TAG] === "Fun")
+    return Forall(new Set(), "", ast);
+
+  else return ast;
 };
 
 
 const getRank = scope =>
   scope.split(/\./).length - 1;
-
-
-// infer the kind of an unknown type constructor
-
-const inferKind = tconsAst => {
-  return tconsAst.body.reduce((acc, ast) => {
-    if (isTV(ast)) {
-      const higherKind = ast.body.reduce((acc_, ast_) => {
-        if (ast_[TAG] === "Partial")
-          return `${acc_}* => `;
-
-        else return acc_;
-      }, "");
-
-      if (higherKind === "") return `${acc}* => `;
-      else return `${acc}(${higherKind}*) => `;
-    }
-
-    else return acc;
-  }, "").concat("*");
-}
 
 
 /* Determine whether the first scope is a parent or the same as the second one. */
@@ -746,7 +791,7 @@ const mapAst = f => {
         ast.body.map(go)));
 
       default: throw new TypeError(
-        "internal error: unknown value constructor at mapAst");
+        "internal error: unknown value constructor @mapAst");
     }
   };
 
@@ -759,7 +804,7 @@ elements, which need to be deleted. Instead of traversing the tree and
 conducting the necessary transfomrations we just recreate the AST. */
 
 const recreateAst = ast =>
-  parseAnno(serializeAst(ast))
+  parseAnno(new Map()) (serializeAst(ast))
 
 
 const reduceAst = (f, init) => {
@@ -834,7 +879,7 @@ const reduceAst = (f, init) => {
         go(acc_, field), acc), ast);
 
       default: throw new TypeError(
-        "internal error: unknown value constructor at reduceAst");
+        "internal error: unknown value constructor @reduceAst");
     }
   };
 
@@ -881,12 +926,673 @@ const remQuant = anno => {
 
 /******************************************************************************
 *******************************************************************************
+*******************************[ KIND CHECKING ]*******************************
+*******************************************************************************
+******************************************************************************/
+
+
+const inferHigherOrderKinds = kindMap => ast => {
+  let kindParams, kindArgs, loop = false;
+
+  switch (ast[TAG]) {
+    case "Adt": {
+      kindParams = adtDict.has(ast.cons)
+        ? adtDict.get(ast.cons).kind
+        : tcDict.get(ast.cons).kind;
+
+      kindArgs = ast.body.reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    case "Arr":
+    case "Nea": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = [ast.body].reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    case "BoundTV": {
+      kindParams = kindMap.has(`${ast.scope}:${ast.name}`)
+        ? kindMap.get(`${ast.scope}:${ast.name}`)
+        : inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    case "Fun": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.lambdas.reduce((acc, args) => {
+        return args.reduce((acc_, ast_) => {
+          if (ast_[TAG] === "Forall")
+            ast_ = ast_.body;
+
+          const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+          loop = loop || loop_;
+          return acc_.concat(kindArg);
+        }, acc)
+      }, []);
+
+      kindArgs = [ast.body.result].reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, kindArgs);
+
+      break;
+    }
+
+    case "Native": {
+      kindParams = nativeDict.get(ast.cons).kind;
+
+      kindArgs = ast.body.reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    case "Obj": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.reduce((acc, {k, v}) => {
+        if (v[TAG] === "Forall")
+          v = v.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (v);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    case "Tconst":
+      return [kindMap, loop];
+
+    case "Tup": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        const [kindArg, loop_] = inferHigherOrderKind(kindMap, false) (ast_);
+        loop = loop || loop_;
+        return acc.concat(kindArg);
+      }, []);
+
+      break;
+    }
+
+    default: throw new TypeError(
+      "internal error: value constructor expected @inferHigherOrderKinds");
+  }
+
+  if (kindArgs.length === 0) {
+    if (kindParams.length === 1
+      && kindParams.join("") === "*")
+        return [kindMap, loop];
+
+    else throw new TypeError(cat(
+      `kind mismatch for "${serializeAst(ast)}"\n`,
+      `expected: ${serializeKind(0) (kindParams)}\n`,
+      `received: ${serializeKinds(kindArgs)}\n`));
+  }
+
+  else {
+    kindArgs = kindArgs.map(({kind}) => kind);
+
+    /*kindArgs = kindArgs.length > 1
+      ? new HigherKind(kindArgs.length)
+          .fill(null)
+          .map((_, i) => kindArgs[i].kind)
+      : kindArgs[0].kind;*/
+
+    if (compareKinds(serializeKind(0) (kindParams)) (serializeKinds(kindArgs)) === "gt"
+      && kindParams.length - kindArgs.length === 1
+      && kindParams[kindParams.length - 1].join("") === "*")
+        return [kindMap, loop];
+
+    else throw new TypeError(cat(
+      `kind mismatch for "${serializeAst(ast)}"\n`,
+      `expected: ${serializeKind(0) (kindParams)}\n`,
+      `received: ${serializeKinds(kindArgs)}\n`));
+  }
+};
+
+
+const inferHigherOrderKind = (kindMap, loop) => ast => {
+  let kindParams, kindArgs;
+
+  switch (ast[TAG]) {
+    case "Adt":
+    case "Arr":
+    case "BoundTV":
+    case "Native":
+    case "Nea":
+    case "Tup": {
+      kindParams = ast[TAG] === "BoundTV"
+        ? kindMap.get(`${ast.scope}:${ast.name}`)
+        : inferFirstOrderKind(ast);
+
+      if (Array.isArray(ast.body)
+        && ast.body.length === 0)
+          return [new KindArg(kindParams), loop];
+
+      kindArgs = (Array.isArray(ast.body) ? ast.body : [ast.body]).reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        switch (ast_[TAG]) {
+          case "Adt":
+          case "Arr":
+          case "Fun":
+          case "Nea":
+          case "Native":
+          case "Obj":
+          case "Tup": {
+            const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+            loop = loop_;
+            return acc.concat(kindArgs_);
+          }
+
+          case "BoundTV": {
+            if (ast_.body.length === 0) {
+              const kindArg_ = kindMap.get(`${ast_.scope}:${ast_.name}`);
+              return acc.concat(new KindArg(kindArg_));
+            }
+
+            else {
+              const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+              loop = loop_;
+              return acc.concat(kindArgs_);
+            }
+          }
+
+          case "Partial": return acc;
+
+          case "This":
+          case "Tconst": return acc.concat(new KindArg(new Kind("*")));
+
+          default: throw new TypeError(
+            "internal error: unknown value constructor @inferHigherOrderKind");
+        }
+      }, []);
+
+      break;
+    }
+
+    case "Fun": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.lambdas.reduce((acc, args) => {
+        return args.reduce((acc_, ast_) => {
+          if (ast_[TAG] === "Forall")
+            ast_ = ast_.body;
+
+          switch (ast_[TAG]) {
+            case "Adt":
+            case "Arr":
+            case "Fun":
+            case "Nea":
+            case "Native":
+            case "Obj":
+            case "Tup": {
+              const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+              loop = loop_;
+              return acc_.concat(kindArgs_);
+            }
+
+            case "BoundTV": {
+              if (ast_.body.length === 0) {
+                const kindArg_ = kindMap.get(`${ast_.scope}:${ast_.name}`);
+                return acc_.concat(new KindArg(kindArg_));
+              }
+
+              else {
+                const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+                loop = loop_;
+                return acc_.concat(kindArgs_);
+              }
+            }
+
+            case "Partial": return acc_;
+
+            case "This":
+            case "Tconst": return acc_.concat(new KindArg(new Kind("*")));
+
+            default: throw new TypeError(
+              "internal error: unknown value constructor @inferHigherOrderKind");
+          }
+        }, acc);
+      }, []);
+
+      kindArgs = [ast.body.result].reduce((acc, ast_) => {
+        if (ast_[TAG] === "Forall")
+          ast_ = ast_.body;
+
+        switch (ast_[TAG]) {
+          case "Adt":
+          case "Arr":
+          case "Fun":
+          case "Nea":
+          case "Native":
+          case "Obj":
+          case "Tup": {
+            const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+            loop = loop_;
+            return acc.concat(kindArgs_);
+          }
+
+          case "BoundTV": {
+            if (ast_.body.length === 0) {
+              const kindArg_ = kindMap.get(`${ast_.scope}:${ast_.name}`);
+              return acc.concat(new KindArg(kindArg_));
+            }
+
+            else {
+              const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (ast_);
+              loop = loop_;
+              return acc.concat(kindArgs_);
+            }
+          }
+
+          case "Partial": return acc;
+
+          case "This":
+          case "Tconst": return acc.concat(new KindArg(new Kind("*")));
+
+          default: throw new TypeError(
+            "internal error: unknown value constructor @inferHigherOrderKind");
+        }
+      }, kindArgs);
+
+      break;
+    }
+
+    case "Obj": {
+      kindParams = inferFirstOrderKind(ast);
+
+      kindArgs = ast.body.reduce((acc, {k, v}) => {
+        if (v[TAG] === "Forall")
+          v = v.body;
+
+        switch (v[TAG]) {
+          case "Adt":
+          case "Arr":
+          case "Fun":
+          case "Nea":
+          case "Native":
+          case "Obj":
+          case "Tup": {
+            const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (v);
+            loop = loop_;
+            return acc.concat(kindArgs_);
+          }
+
+          case "BoundTV": {
+            if (v.body.length === 0) {
+              const kindArg_ = kindMap.get(`${v.scope}:${v.name}`);
+              return acc.concat(new KindArg(kindArg_));
+            }
+
+            else {
+              const [kindArgs_, loop_] = inferHigherOrderKind(kindMap, loop) (v);
+              loop = loop_;
+              return acc.concat(kindArgs_);
+            }
+          }
+
+          case "Partial": return acc;
+
+          case "This":
+          case "Tconst": return acc.concat(new KindArg(new Kind("*")));
+
+          default: throw new TypeError(
+            "internal error: unknown value constructor @inferHigherOrderKind");
+        }
+      }, []);
+
+      break;
+    }
+
+    case "Tconst":
+      return [new KindArg(new Kind("*")), loop];
+
+    default: throw new TypeError(
+      "internal error: unknown value constructor @inferHigherOrderKind");
+  }
+
+  kindArgs.forEach(({kind: kindArg}, i) => {
+    switch (compareKinds(serializeKind(0) (kindParams[i])) (serializeKind(0) (kindArg))) {
+      case "eq": {
+        break;
+      }
+
+      case "lt": {
+        if (ast[TAG] === "BoundTV") {
+          if (i in ast.body && ast.body[i] [TAG] !== "BoundTV")
+            throw new TypeError(cat(
+              `kind mismatch for "${serializeAst(ast)}"\n`,
+              `expected: ${serializeKind(0) (kindParams[i])}\n`,
+              `received: ${serializeKind(0) (kindArg)}\n`,
+              `while kind checking "${serializeKind(0) (kindParams)}"\n`));
+
+          else {
+              kindMap.set(
+                `${ast.scope}:${ast.name}`,
+                adjustKind(kindArg, i)
+                  (kindMap.get(`${ast.scope}:${ast.name}`)));
+
+              loop = true;
+              break;
+          }
+        }
+
+        else if (ast[TAG] === "Adt"
+          && kindParams[i] [0] === "") {
+            if (adtDict.has(ast.cons)) {
+              const o = adtDict.get(ast.cons);
+              o.kind[i] = kindArg;
+              adtDict.set(ast.cons, o);
+            }
+
+            else if (tcDict.has(ast.cons)) {
+              const o = tcDict.get(ast.cons);
+              o.kind[i] = kindArg;
+              tcDict.set(ast.cons, o);
+            }
+
+            else throw new TypeError(
+              "internal error: unknown ADT @inferHigherOrderKind");
+
+            loop = true;
+            break;
+        }
+
+        else throw new TypeError(cat(
+          `kind mismatch for "${serializeAst(ast)}"\n`,
+          `expected: ${serializeKind(0) (kindParams[i])}\n`,
+          `received: ${serializeKind(0) (kindArg)}\n`,
+          `while kind checking "${serializeKind(0) (kindParams)}"\n`));
+      }
+
+      case "gt": {
+        if (ast[TAG] === "BoundTV"
+          && ast.body[i] [TAG] === "BoundTV") {
+            kindMap.set(
+              `${ast.body[i].scope}:${ast.body[i].name}`,
+              adjustKind(kindParams[i], i)
+                (kindMap.get(`${ast.body[i].scope}:${ast.body[i].name}`)));
+
+            loop = true;
+            break;
+        }
+
+        else if (ast[TAG] === "Adt"
+          && ast.body[i] [TAG] === "BoundTV") {
+            kindMap.set(
+              `${ast.body[i].scope}:${ast.body[i].name}`,
+              adjustKind(kindParams[i], i)
+                (kindMap.get(`${ast.body[i].scope}:${ast.body[i].name}`)));
+
+            loop = true;
+            break;
+        }
+
+        else throw new TypeError(cat(
+          `kind mismatch for "${serializeAst(ast)}"\n`,
+          `expected: ${serializeKind(0) (kindParams[i])}\n`,
+          `received: ${serializeKind(0) (kindArg)}\n`,
+          `while kind checking "${serializeKind(0) (kindParams)}"\n`));
+      }
+
+      case "neq": throw new TypeError(cat(
+        `kind mismatch for "${serializeAst(ast)}"\n`,
+        `expected: ${serializeKind(0) (kindParams[i])}\n`,
+        `received: ${serializeKind(0) (kindArg)}\n`,
+        `while kind checking "${serializeKind(0) (kindParams)}"\n`));
+
+      default: throw new TypeError(
+        "internal error: unknown constructor @inferHigherOrderKind");
+    }
+  });
+
+  if (kindArgs.length === 0)
+    return [[new KindArg(kindParams)], loop];
+
+  else {
+    const kindParams_ = kindParams.slice(kindArgs.length);
+
+    return kindParams_.length === 1
+      && kindParams_[TAG] === "HigherKind"
+        ? [[new KindArg(kindParams_[0])], loop]
+        : [[new KindArg(kindParams_)], loop]
+  }
+};
+
+const adjustKind = (kindNew, i) => kind => {
+  if (kind.length === 1)
+    kind = kindNew;
+  
+  else if (i === kind.length - 1)
+    kind = kind.slice(0, -1).concat(kindNew);
+
+  else kind[i] = kindNew.concat();
+
+  return kind;
+};
+
+
+const alignArities = kindMap => mapAst(ast => {
+  if (ast[TAG] === "BoundTV") {
+    const nominalArity = kindMap.get(`${ast.scope}:${ast.name}`).length - 1,
+      actualArity = ast.body.length;
+
+    if (nominalArity !== actualArity)
+      ast.body = Object.assign(
+        Array(nominalArity).fill(Partial), ast.body);
+
+    return ast;
+  }
+
+  else return ast;
+});
+
+
+const compareKinds = kindParamStr => kindArgStr => {
+  if (kindParamStr.length < kindArgStr.length) {
+    if (kindArgStr.search(new RegExp(kindParamStr.replace(/[*?()]/g, "\\$&"))) === 0)
+      return "lt";
+
+    else return "neq";
+  }
+
+  else if (kindParamStr.length > kindArgStr.length) {
+    if (kindParamStr.search(new RegExp(kindArgStr.replace(/[*?()]/g, "\\$&"))) === 0)
+      return "gt";
+
+    else return "neq";
+  }
+
+  else if (kindParamStr === kindArgStr)
+    return "eq";
+
+  else return "neq";
+};
+
+
+const inferFirstOrderKind = ast => {
+  switch (ast[TAG]) {
+    case "Adt": {
+      if (adtDict.has(ast.cons))
+        return adtDict.get(ast.cons).kind;
+
+      else if (tcDict.has(ast.cons))
+        return tcDict.get(ast.cons).kind;
+
+      else if (nativeDict.has(ast.cons))
+        return nativeDict.get(ast.cons).kind;
+
+      else throw new TypeError(
+        "internal error: missing ADT/TC entry @inferFirstOrderKind");
+    }
+
+    case "Arr":
+    case "BoundTV":
+    case "Fun":
+    case "Nea":
+    case "Obj":
+    case "Tup":
+    case "Tconst": {
+      const arity = determineArity(ast);
+
+      if (arity === 0)
+        return new Kind("*");
+
+      else
+        return new HigherKind(arity + 1).fill(new Kind("*"));
+    }
+
+    case "Native":
+      return nativeDict.get(ast.cons).kind;
+
+    default: throw new TypeError(
+      `internal error: unknown value constructor @inferFirstOrderKind`);
+  }
+};
+
+
+const inferFirstOrderKinds = init => ast => {
+  if (ast[TAG] === "Adt" || ast[TAG] === "Native") {
+    const kind = adtDict.has(ast.cons) ? adtDict.get(ast.cons).kind
+      : tcDict.has(ast.cons) ? tcDict.get(ast.cons).kind
+      : nativeDict.get(ast.cons).kind;
+
+    const kindMap = kind.slice(0, -1).reduce((acc, kind_, i) => {
+      const ast_ = ast.body[i];
+
+      if (ast_[TAG] === "BoundTV")
+        acc.set(`${ast_.scope}:${ast_.name}`, kind_);
+
+      return acc;
+    }, init);
+
+    return kindMap;
+  }
+
+  return reduceAst((acc, ast_) => {
+    if (ast_[TAG] === "BoundTV") {
+      if (acc.has(`${ast_.scope}:${ast_.name}`)) {
+        if (ast_.body.length > acc.get(`${ast_.scope}:${ast_.name}`).length - 1)
+          return acc.set(`${ast_.scope}:${ast_.name}`, new HigherKind(ast_.body.length + 1).fill(new Kind("*")));
+
+        else return acc;
+      }
+
+      else {
+        if (ast_.body.length === 0)
+          return acc.set(`${ast_.scope}:${ast_.name}`, new Kind("*"));
+
+        else
+          return acc.set(`${ast_.scope}:${ast_.name}`, new HigherKind(ast_.body.length + 1).fill(new Kind("*")));
+      }
+    }
+
+    else return acc;
+  }, init) (ast);
+};
+
+
+/*const serializeKind = kind => {
+  return kind.map((kind_, i) => {
+    if (kind_.length === 0)
+      return kind_;
+
+    else if (kind_.length === 1)
+      return kind_[0];
+
+    else {
+      if (i === kind.length - 1)
+        return serializeKind(kind_);
+
+      else
+        return `(${serializeKind(kind_)})`;
+    }
+  }).join(" -> ");
+};*/
+
+
+const serializeKinds = ks => {
+  return ks.map(kind =>
+    serializeKind(1) (kind)).join(" -> ");
+};
+
+
+const serializeKind = level => kind => {
+  switch (kind[TAG]) {
+    case "HigherKind": {
+      if (level === 0)
+        return `${kind.map(kind_ => serializeKind(level + 1) (kind_)).join(" -> ")}`;
+      
+      else
+        return `(${kind.map(kind_ => serializeKind(level + 1) (kind_)).join(" -> ")})`;
+    }
+    
+    case "Kind": {
+      if (kind.length === 0) return "";
+      else return kind[0];
+    }
+
+    default: throw new TypeError(
+      "internal error: kind constructor expected @serializeKind");
+  }
+};
+
+
+/******************************************************************************
+*******************************************************************************
 **********************************[ PARSING ]**********************************
 *******************************************************************************
 ******************************************************************************/
 
 
-const parseAnno = anno => {
+const parseAnno = kindMap => anno => {
   const go = (cs, lamIndex, argIndex, scope, position, context, thisAnno, nesting) => {
 
     /* The `position` argument denotes whether a function argument is in domain
@@ -910,10 +1616,10 @@ const parseAnno = anno => {
     restored and missing type parameters are denoted as `__` in the resulting
     ASTs.
 
-    Partially applied type constructors are not apparent from their syntax. In
-    order to restore their full arity fully applied counterparts are necessary.
-    This doesn't hold for tuples though. Hence we need a special syntax to
-    denote partial application:
+    Partially applied type constructors are recognized during kind checking.
+    Tuples require a special syntax in this regard to avoid ambiguities. Objects
+    cannot be partially applied, because they don't have a fix property order.
+    The following examples list partially applied type constructors:
 
     ADT: Either / Either<foo> / Either<foo, bar>
     Array/NEArray: [] / [1] / [foo] / [1foo]
@@ -921,12 +1627,7 @@ const parseAnno = anno => {
     Native: Map / Map<foo> / Map<foo, bar>
     Object: /
     binary polymorphic type cons: t / t<foo> / t<foo, bar>
-    pair Tuple: [,] / [foo,] / [foo, bar] but not [, bar]
-
-    While multi-parameter functions are technically also tuple like types in
-    their domain, they are excluded from partial application to keep the
-    annotation syntax clean and simple. Objects cannot be partially applied
-    either, since they have no property order. */
+    pair Tuple: [,] / [foo,] / [foo, bar] but not [, bar] */
 
     const simplifiedType = remNestings(cs);
     let rx;
@@ -1184,14 +1885,6 @@ const parseAnno = anno => {
         r1tvs.add(rx.groups.name);
       }
 
-      /* Type variables in type parameter position that are fully polymorphic
-      may turn out to have a specific arity due to partial application. Hence
-      we must determine the maximal arity and kind of each one in a subsequent
-      review. */
-
-      if (!polyTcons.has(`${selectedScope}:${rx.groups.name}`))
-        polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: 0, kind: "*"});
-
       // create the bound TV
 
       return BoundTV(
@@ -1412,17 +2105,6 @@ const parseAnno = anno => {
         r1tvs.add(rx.groups.name);
       }
 
-      /* Determine the actual arity and kind of partially applied type
-      constructors in type parameter position. */
-
-      if (polyTcons.has(`${selectedScope}:${rx.groups.name}`)) {
-        if (fields.length > polyTcons.get(`${selectedScope}:${rx.groups.name}`).arity)
-          polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: fields.length, kind: "*"});
-      }
-
-      else
-        polyTcons.set(`${selectedScope}:${rx.groups.name}`, {arity: fields.length, kind: "*"});
-
       // create the higher-kinded bound TV
 
       return BoundTV(
@@ -1430,7 +2112,7 @@ const parseAnno = anno => {
         selectedScope,
         position,
         fields.map(field =>
-          go(field, lamIndex, argIndex, scope, "", context + `/${rx.groups.name}<..>`, thisAnno, nesting)));
+          go(field, lamIndex, argIndex, scope, "", context + "/polyTypeCons", thisAnno, nesting)));
     }
 
     // Tconst
@@ -1465,8 +2147,7 @@ const parseAnno = anno => {
         anno === cs ? "" : `in "${anno}"\n`));
   };
 
-  const polyTcons = new Map(),
-    r1tvs = new Set(),
+  const r1tvs = new Set(),
     rntvs = new Set();
 
   // verify basic syntax rules of passed annotation
@@ -1481,73 +2162,25 @@ const parseAnno = anno => {
 
   const ast = go(anno, 0, 0, ".", "", "", null, 0);
 
-  /* An additional AST traversal is required to determine the actual arity and
-  kind of each type constructor in type parameter position:
+  /* During kind checking all partially applied type constructors are
+  determined, no matter if they are mono- or polymorphic. The correct arity of
+  every type constructor is restored as per their kinds. */
 
-  t<f> => t<(=>)> => f<a, b> -- accepted
-  t<f> => t<(=>)> => f<a> -- rejected */
+  let loop = false;
 
-  let ast_ = mapAst(ast__ => {
-    if (ast__[TAG] === "BoundTV") {
-      if (polyTcons.has(`${ast__.scope}:${ast__.name}`)
-        && ast__.body.length < polyTcons.get(`${ast__.scope}:${ast__.name}`).arity) {
-          ast__.body = Object.assign([],
-            Array(polyTcons.get(`${ast__.scope}:${ast__.name}`).arity).fill(Partial),
-            ast__.body);
+  kindMap = inferFirstOrderKinds(kindMap) (ast);
 
-          return ast__;
-      }
+  do {
+    if (ast[TAG] === "Forall") ast = ast.body;
+    ([kindMap, loop] = inferHigherOrderKinds(kindMap) (ast));
+  } while (loop)
 
-      else return ast__;
-    }
-
-    else return ast__;
-  }) (ast);
-
-  // TODO: arity/kind review
-
-  /*ast_ = mapAst(ast__ => {
-    switch (ast__[TAG]) {
-      case "Adt":
-      case "Arr":
-      case "Nea":
-      case "Fun":
-      case "Native":
-      case "Obj":
-      case "Tup": {
-        if (retrieveKind(ast__) !== inferKind(ast__))
-          throw new TypeError(cat(
-            "malformed type annotation\n",
-            "type constructor kind mismatch\n",
-            `expected: ${retrieveKind(ast__)}\n`,
-            `received: ${inferKind(ast__)}\n`,
-            `in "${anno}"\n`));
-
-        else return ast__;
-      }
-
-      case "BoundTV": {
-        // * if it is a type variabel of kind * w/o a specific arity
-          // * is it passed to another type constructor
-            // * can we reconstruct a higher-arity from the invoked type constructor?
-          // * is there another occurrence of the same type variable that indicates a type constructor?
-        // * forbid partially applied type constructors that are not in type parameter position
-      }
-
-      case "Tcons": {
-        // * if it is an unknown polymorphic type constructor
-          // * is it passed to another type constructor
-            // * does the expected arity/kind of the invoked type constructor match with tha actual and maybe partially one?
-          // * is there another occurrence of the same type constructor with a contradicting arity/kind?
-        // * forbid partially applied type constructors that are not in type parameter position
-      }
-    }
-  }) (ast);*/
+  const finalAst = alignArities(kindMap) (ast);
 
   // if the AST includes type variables we need a quantifier
 
   if (r1tvs.size > 0)
-    return Forall(r1tvs, ".", ast_);
+    return Forall(r1tvs, ".", finalAst);
 
   /* If the topmost level of the AST is a function type, we need synthactic,
   boundaries using round parenthesis. For the sake of simplicity we use the
@@ -1555,10 +2188,10 @@ const parseAnno = anno => {
   function types always needs to be surrounded by round parenthesis to keep
   the syntax simple. */
 
-  else if (ast_[TAG] === "Fun")
-    return Forall(new Set(), ".", ast_);
+  else if (finalAst[TAG] === "Fun")
+    return Forall(new Set(), ".", finalAst);
 
-  else return ast_;
+  else return finalAst;
 };
 
 
@@ -1920,7 +2553,7 @@ const serializeAst = initialAst => {
 
             default:
               throw new TypeError(
-                "internal error: illegal argument list");
+                "internal error: argument list expected @serializeAst");
           }
         }).join(" => ");
 
@@ -1987,7 +2620,7 @@ const serializeAst = initialAst => {
 
       default:
         throw new TypeError(
-          "internal error: unknown value constructor at serializeAst");
+          "internal error: unknown value constructor @serializeAst");
     }
   };
 
@@ -2299,17 +2932,20 @@ export const type = adtAnno => {
 
   // pre-register ADT using a default kind
 
-  else adtDict.set(tcons, {arity, kind: "*"});
+  else {
+    const kind = arity === 0
+      ? new Kind("*")
+
+      : new HigherKind(arity)
+          .fill(new Kind("")) // unknown kind
+          .concat([new Kind("*")]);
+
+    adtDict.set(tcons, {arity, kind});
+  }
 
   // parse ADT
 
-  let adtAst = parseAnno(adtAnno);
-
-  // determine the kind of the codomain and update the ADT registry
-
-  const kind = inferKind(adtAst.body.body.result);
-
-  adtDict.set(tcons, {arity, kind});
+  let adtAst = parseAnno(new Map()) (adtAnno);
 
   // verify the domain is a rank-2 function argument
 
@@ -2378,7 +3014,7 @@ export const type = adtAnno => {
 
   // create the continuation type
 
-  const domainAst = recreateAst(adtAst.body.body.lambdas[0] [0]);
+  const domainAst = extractAst(adtAst.body.body.lambdas[0] [0]);
 
   /***********************
    * ALGEBRAIC DATA TYPE *
@@ -2514,17 +3150,20 @@ export const type1 = adtAnno => {
 
   // pre-register ADT using a default kind
 
-  else adtDict.set(tcons, {arity, kind: "*"});
+  else {
+    const kind = arity === 0
+      ? new Kind("*")
+
+      : new HigherKind(arity)
+          .fill(new Kind("")) // unknown kind
+          .concat([new Kind("*")]);
+
+    adtDict.set(tcons, {arity, kind});
+  }
 
   // parse ADT
 
-  let adtAst = parseAnno(adtAnno);
-
-  // determine the kind of the codomain and update the ADT registry
-
-  const kind = inferKind(adtAst.body.body.result);
-
-  adtDict.set(tcons, {arity, kind});
+  let adtAst = parseAnno(new Map()) (adtAnno);
 
   /* Verify that all rank-1 TVs of the domain occur in the codomain of the
   value constructor:
@@ -2581,7 +3220,7 @@ export const type1 = adtAnno => {
     // determine the type of the passed argument
 
     const argAnno = introspectDeep({charCode: letterA}) (x),
-      argAst = parseAnno(argAnno);
+      argAst = parseAnno(new Map()) (argAnno);
 
     // dequantify ADT AST considering TV introductions
 
@@ -2630,24 +3269,28 @@ export const type1 = adtAnno => {
     /* If the argument of the data constructor is a function, then update
     its annotation with the substituted one. */
 
+    let x_ = x;
+
     if (x && x[ANNO]) {
-      x[ANNO] = serializeAst(
+      x_ = x.bind({}); // clone function object
+
+      x_[ANNO] = serializeAst(
         prettyPrint(
-          recreateAst(adtAst.body.body.lambdas[0] [0])));
+          extractAst(adtAst.body.body.lambdas[0] [0])));
     }
 
     // update the codomain annotation with the substituted one
 
     const codomainAnno_ = serializeAst(
       prettyPrint(
-        recreateAst(adtAst.body.body.result)));
+        extractAst(adtAst.body.body.result)));
 
     // return the ADT
 
     return {
       [TAG]: tcons,
       [ADT]: codomainAnno_,
-      run: x
+      run: x_
     };
   };
 
@@ -2812,15 +3455,47 @@ export const typeClass = tcAnno => {
       `namely: ${tcons}\n`,
       `while declaring "${tcAnno}"\n`));
 
-  // pre-register the type class using a default annotation
+  // infer the arity
 
-  tcDict.set(tcons, {tparam, tcAnno: "Undefined", arity: 1, kind: "(* => *) => Constraint"});
+  const arity = splitByPattern(
+    /, /, 2, remNestings(codomainAnno.replace(new RegExp("^[^<]+<|>$", "g"), "")))
+      (codomainAnno.replace(new RegExp("^[^<]+<|>$", ""), "g")).length;
+
+  // either derive kind from arity or from possible constraints
+
+  const kind = constraints.length === 0
+    ? new HigherKind(1)
+        .fill(new Kind("")) // unknown kind
+        .concat([new Kind("*")])
+
+    : new HigherKind(1)
+        .fill(tcDict.get(constraints[0].tcons).kind[0]) // derived from first constraint
+        .concat([new Kind("*")]);
+
+  // pre-register the type class using a placeholder for tcAnno
+
+  tcDict.set(
+    tcons, {
+      tparam,
+      tcAnno: "Undefined", // placeholder
+      arity,
+      kind
+    });
+
+  // preset the type class type parameter provided there are constraints
+
+  const kindMap = constraints.length === 0
+    ? new Map()
+    : new Map([
+        [`.:${constraints[0].tparamFrom}`, tcDict.get(constraints[0].tcons).kind[0]],
+        [`.:${constraints[0].tparamTo}`, tcDict.get(constraints[0].tcons).kind[0]]
+      ]);
 
   // remove the optional constraints and parse TC annotation
 
   let tcAst = tcCompos.length === 3
-    ? parseAnno(tcAnno.replace(/^.*? => /, ""))
-    : parseAnno(tcAnno);
+    ? parseAnno(kindMap) (tcAnno.replace(/^.*? => /, ""))
+    : parseAnno(kindMap) (tcAnno);
 
   // create AST references for convenience
 
@@ -2839,13 +3514,6 @@ export const typeClass = tcAnno => {
   // get the properies of the current TC type dictionary
 
   const reservedProps = new Set(tdictAst.props);
-
-  /* The type parameter of the TC is either a type constant or a type constructor
-  that is itself parameterized a single type parameter. This information must be
-  determined and updated at the type parameter within the AST. */
-
-  /*if (domainAst[TAG] === "Forall")
-    codomainAst.body.body[0].body.push(Partial);*/
 
   /* TCs can have types without higher-rank TVs, but we can at least verify
   that the parameter of the top-level function type is a type dictionray
@@ -2905,10 +3573,17 @@ export const typeClass = tcAnno => {
   // extend current type dictionary by operations/values of its constraints
 
   constraints.forEach(({tcons: tcons_, tparamFrom, tparamTo, tcAnno: tcAnno_}) => {
-    
+
+    // preset the type class constraint type parameter
+
+    const kindMap = new Map([
+      [`.:${tparamFrom}`, tcDict.get(tcons_).kind[0]],
+      [`.:${tparamTo}`, tcDict.get(tcons_).kind[0]]
+    ]);
+
     // parse the TC annotation of the constraint
 
-    let tcAst_ = parseAnno(tcAnno_);
+    let tcAst_ = parseAnno(kindMap) (tcAnno_);
 
     /* If the type parameter name of the current TC and its constraint differ,
     it is adjusted by alpha renaming. */
@@ -2939,7 +3614,7 @@ export const typeClass = tcAnno => {
 
     // create AST reference for convenience
     
-    const domainAst_ = tcAst_.body.body.lambdas[0] [0];
+    const domainAst_ = tcAst_.body.body.lambdas[tcAst_.body.body.lambdas.length - 1] [0];
 
     const tdictAst_ = domainAst_[TAG] === "Forall"
       ? domainAst_.body
@@ -2995,11 +3670,9 @@ export const typeClass = tcAnno => {
   support multi-parameter TCs for the time being, we can just set arity and kind
   to its default values. */
 
-  tcDict.set(tcons, {
-    tparam,
-    tcAnno: serializeAst(tcAst),
-    arity: 1,
-    kind: "(* => *) => Constraint"});
+  const o = tcDict.get(tcons);
+  o.tcAnno = tcAnno;
+  tcDict.set(tcons, o);
 
   /**************
    * TYPE CLASS *
@@ -3124,8 +3797,8 @@ export const typeClass = tcAnno => {
       ({tvid, instantiations, aliases, intros} = unifyTypes(
         typeLevelProps.get(k),
         typeof dict[k] === "function"
-          ? parseAnno(dict[k] [ANNO])
-          : parseAnno(introspectDeep({charCode: letterA}) (dict[k])),
+          ? parseAnno(new Map()) (dict[k] [ANNO])
+          : parseAnno(new Map()) (introspectDeep({charCode: letterA}) (dict[k])),
         0,
         0,
         {tvid, instantiations, aliases, intros},
@@ -3289,7 +3962,7 @@ export const fun = (f, funAnno) => {
 
       // parse main function annotation
 
-      const argAsts = argAnnos.map(parseAnno);
+      const argAsts = argAnnos.map(parseAnno(new Map()));
 
       // check function arity (multi-argument/variadic functions are supported)
 
@@ -3335,7 +4008,7 @@ export const fun = (f, funAnno) => {
             funAst.body.body.lambdas[0] [TAG] === "Arg0"
               ? Tconst("Undefined")
               : funAst.body.body.lambdas[0] [argIndex],
-            parseAnno(argAnno),
+            parseAnno(new Map()) (argAnno),
             lamIndex,
             argIndex,
             {tvid: acc.tvid, instantiations: acc.instantiations, aliases: acc.aliases, intros: acc.intros},
@@ -3437,10 +4110,10 @@ export const fun = (f, funAnno) => {
           // parse domain and codomain
 
           let domainAst = r.run[ANNO]
-            ? parseAnno(r.run[ANNO])
-            : parseAnno(introspectDeep_(r));
+            ? parseAnno(new Map()) (r.run[ANNO])
+            : parseAnno(new Map()) (introspectDeep_(r));
           
-          let codomainAst = parseAnno(r[ADT]);
+          let codomainAst = parseAnno(new Map()) (r[ADT]);
 
           // dequantify ADT AST considering TV introductions
 
@@ -3481,8 +4154,8 @@ export const fun = (f, funAnno) => {
 
           // dequantify domain/codomain
 
-          ({ast: domainAst} = specializeLHS(new Map(), ".", 1) (domainAst));
-          ({ast: codomainAst} = specializeLHS(new Map(), ".", 1) (codomainAst));
+          ({ast: domainAst} = specializeLHS(new Map(), ".") (domainAst));
+          ({ast: codomainAst} = specializeLHS(new Map(), ".") (codomainAst));
 
           // adjust domain according to the unified type using subsumption
 
@@ -3518,7 +4191,7 @@ export const fun = (f, funAnno) => {
           return r;
 
         else
-          throw TypeError("internal error: ADT or TC expected");
+          throw TypeError("internal error: ADT or TC expected @fun");
       }
 
       // unify the unified type with the actual term level result
@@ -3540,7 +4213,7 @@ export const fun = (f, funAnno) => {
 
         unifyTypes(
           unifiedAst,
-          parseAnno(resultAnno),
+          parseAnno(new Map()) (resultAnno),
           0,
           0,
           {tvid: 0, instantiations: new Map(), aliases: new Map(), intros: []},
@@ -3601,7 +4274,7 @@ export const fun = (f, funAnno) => {
 
       // parse the main function annotation
 
-      const funAst = parseAnno(funAnno);
+      const funAst = parseAnno(new Map()) (funAnno);
 
       // return the typed function
 
@@ -3848,7 +4521,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
 
         case "BoundTV": // Adt<a, b> ~ bound c
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // Adt<a, b> ~ forall
           return unifyTypes(
@@ -3991,7 +4664,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
 
         case "BoundTV": // [a] ~ bound b
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // [a] ~ forall
           return unifyTypes(
@@ -4106,7 +4779,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
 
     case "BoundTV":
       throw new TypeError(
-        "internal error: unexpected bound type variable");
+        "internal error: unexpected bound type variable @unifyTypes");
 
     case "Forall": {
       switch (argAst[TAG]) {
@@ -4140,7 +4813,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // (a => b) ~ bound c
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // (a => b) ~ forall
           return unifyTypes(
@@ -4230,7 +4903,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
 
             default:
               throw new TypeError(
-                "internal error: unknown argument list constructor");
+                "internal error: unknown argument list constructor @unifyTypes");
           }
 
           // covariant subsumption
@@ -4335,7 +5008,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
           }
 
           else {
-            const arityDiff = retrieveArity(paramAst) - argAst.body.length;
+            const arityDiff = determineArity(paramAst) - argAst.body.length;
 
             if (arityDiff === 0) { // (() => b) ~ u<c> | (a => b) ~ u<c, d> | (a, b => c) ~ u<d, e, f>
 
@@ -4522,7 +5195,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
               
               switch (paramAst.body.lambdas[0] [TAG]) {
                 case "Arg0": throw new TypeError(
-                  "internal error: unexpected thunk");
+                  "internal error: unexpected thunk @unifyTypes");
 
                 case "Arg1": {
                   ({instantiations, aliases} = instantiate( // (a => ) ~ u
@@ -4712,7 +5385,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // a ~ bound b
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall":
           return unifyTypes(
@@ -4967,7 +5640,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
           }
 
           else {
-            const argArity = retrieveArity(argAst);
+            const argArity = determineArity(argAst);
             
             if (paramAst.body.length > argArity)
               throw new TypeError(cat(
@@ -5288,7 +5961,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
             
                     switch (argAst.body.lambdas[0] [TAG]) {
                       case "Arg0": throw new TypeError(
-                        "internal error: unexpected thunk");
+                        "internal error: unexpected thunk @unifyTypes");
 
                       case "Arg1": {
                         ({instantiations, aliases} = instantiate( // t ~ (b => )
@@ -5599,7 +6272,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
 
                 default:
                   throw new TypeError(
-                    "internal error: unknown value constructor at unifyTypes");
+                    "internal error: unknown value constructor @unifyTypes");
               }
             }
           }
@@ -5611,7 +6284,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // Map<a, b> ~ bound c
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // Map<a, b> ~ forall
           return unifyTypes(
@@ -5769,7 +6442,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // [1a] ~ bound b
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // [1a] ~ forall
           return unifyTypes(
@@ -5898,7 +6571,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // {foo: a, bar: b} ~ bound c
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // {foo: a, bar: b} ~ forall
           return unifyTypes(
@@ -6239,7 +6912,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // T ~ bound b
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // T ~ forall
           return unifyTypes(
@@ -6373,7 +7046,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
       switch (argAst[TAG]) {
         case "BoundTV": // [a, b] ~ bound c
           throw new TypeError(
-            "internal error: unexpected bound type variable");
+            "internal error: unexpected bound type variable @unifyTypes");
 
         case "Forall": // [a, b] ~ forall
           return unifyTypes(
@@ -6526,7 +7199,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
     }
 
     default: throw new TypeError(
-      "internal error: unknown type");
+      "internal error: unknown type @unifyTypes");
   }
 };
 
@@ -6577,35 +7250,46 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
 
   // ensure that key is a TV
 
-  else if (!isTV(key)) {
-    if (isTV(value)) 
-      [key, value] = [value, key]; // swap values
+  else if (isTV(key)) {
+    if (isTV(value)) {
+      const [keyAlpha, keyDigit = "0"] = key.name.split(/(?<!\d)(?=\d)/),
+        [valueAlpha, valueDigit = "0"] = value.name.split(/(?<!\d)(?=\d)/);
 
-    else
-      throw new TypeError(cat(
-        `can only instantiate type variables with another type\n`,
-        `but "${serializeAst(key)}" received\n`,
-        "while unifying\n",
-        `${paramAnno}\n`,
-        `${argAnno}\n`,
-        extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
+      if (keyAlpha === valueAlpha
+        && keyDigit < valueDigit) {
+
+          /* Always maintain a descending order from keys to values of TV names
+          provided the non-digit part of both is the same. */
+
+          [key, value] = [value, key];
+      }
+
+      // store aliases due to commutativity of type equality
+
+      if (aliases.has(key.name))
+        aliases.get(key.name).set(`${key.name} ~ ${value.name}`, [key, value]);
+
+      else
+        aliases.set(key.name, new Map([[`${key.name} ~ ${value.name}`, [key, value]]]));
+
+      if (aliases.has(value.name))
+        aliases.get(value.name).set(`${value.name} ~ ${key.name}`, [value, key]);
+
+      else
+        aliases.set(value.name, new Map([[`${value.name} ~ ${key.name}`, [value, key]]]));
+    }
   }
 
-  // store aliases due to commutativity of type equality
+  else if ((isTV(value)))
+    [key, value] = [value, key]; // swap values
 
-  else if (isTV(value)) {
-    if (aliases.has(key.name))
-      aliases.get(key.name).set(`${key.name} ~ ${value.name}`, [key, value]);
-
-    else
-      aliases.set(key.name, new Map([[`${key.name} ~ ${value.name}`, [key, value]]]));
-
-    if (aliases.has(value.name))
-      aliases.get(value.name).set(`${value.name} ~ ${key.name}`, [value, key]);
-
-    else
-      aliases.set(value.name, new Map([[`${value.name} ~ ${key.name}`, [value, key]]]));
-  }
+  else throw new TypeError(cat(
+    `can only instantiate type variables with another type\n`,
+    `but "${serializeAst(key)}" received\n`,
+    "while unifying\n",
+    `${paramAnno}\n`,
+    `${argAnno}\n`,
+    extendErrMsg(lamIndex, argIndex, funAnno, argAnnos, instantiations)));
 
   // rigid TV ~ ?
 
@@ -6722,7 +7406,7 @@ const escapeCheck = (rigid, meta, instantiations, intros, aliases, history, lamI
     || (iterRigid === null && iterMeta !== null)
     || (iterRigid !== null && iterMeta === null))
       throw new TypeError(
-        "internal error: one or both involved TVs are not member of any introduction");
+        "internal error: one or both involved TVs are not member of any introduction @escapeCheck");
 
   // rigid TV was introduced later than meta TV
 
@@ -6791,7 +7475,7 @@ const substitute = (ast, instantiations) => {
 
       if (!isTV(key))
        throw new TypeError(
-         "internal error: only type variables can be substituted");
+         "internal error: only type variables can be substituted @substitute");
 
       /* If both key and value of the substitution are TVs and the former is in
       codomain position, then the latter must also be in codomain position, so
@@ -6927,7 +7611,7 @@ const specialize = Cons => (intro, scope, tvid = "") => ast => {
               do {
                 if (charCode > 122)
                   throw new TypeError(
-                    "internal error: type variable name upper bound exceeded");
+                    "internal error: type variable name upper bound exceeded @specialize");
 
                 else name = String.fromCharCode(charCode++);
               } while (uniqueNames.has(name + tvid));
@@ -7006,7 +7690,7 @@ const prettyPrint = ast => {
           do {
             if (charCode > 122)
               throw new TypeError(
-                "internal error: type variable name upper bound exceeded");
+                "internal error: type variable name upper bound exceeded @prettyPrint");
 
             name = String.fromCharCode(charCode++);
           } while (uniqueNames.has(name));
@@ -7039,3350 +7723,3 @@ const prettyPrint = ast => {
     }
   }) (ast);
 };
-
-
-/******************************************************************************
-*******************************************************************************
-************************[ PERSISTENT DATA STRUCTURES ]*************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* scriptum comprises a balanced tree implementation based on a left-leaning
-red/black tree, which is itself untyped to gain flexibility for some use cases.
-It is strongly encouraged to fully type the persistent data structures based
-upon it, so that type saftey is not hampered. */
-
-
-/***[ Constants ]*************************************************************/
-
-
-const RED = true;
-const BLACK = false;
-
-
-/***[ Constructors ]**********************************************************/
-
-
-const Leaf = {[Symbol.toStringTag]: "Leaf"};
-
-
-const Node = (c, h, l, k, v, r) =>
-  ({[Symbol.toStringTag]: "Node", c, h, l, k, v, r});
-
-
-const singleton = (k, v) =>
-  Node(BLACK, 1, Leaf, k, v, Leaf);
-
-
-/***[ Auxiliary Functions ]***************************************************/
-
-
-const balanceL = (c, h, l, k, v, r) => {
-  if (c === BLACK
-    && l[TAG] === "Node"
-    && l.c ===RED
-    && l.l[TAG] === "Node"
-    && l.l.c === RED)
-      return Node(
-        RED, h + 1, turnB(l.l), l.k, l.v, Node(BLACK, h, l.r, k, v, r));
-
-  else return Node(c, h, l, k, v, r);
-};
-
-
-const balanceR = (c, h, l, k, v, r) => {
-  if (c === BLACK
-    && l[TAG] === "Node"
-    && r[TAG] === "Node"
-    && l.c === RED
-    && r.c === RED)
-      return Node(
-        RED, h + 1, turnB(l), k, v, turnB(r));
-
-  else if (r[TAG] === "Node"
-    && r.c === RED)
-      return Node(
-        c, h, Node(RED, r.h, l, k, v, r.l), r.k, r.v, r.r);
-
-  else return Node(c, h, l, k, v, r);
-};
-
-
-const isBLB = t =>
-  t[TAG] === "Node"
-    && t.c === BLACK
-    && (t.l[TAG] === "Leaf" || t.l.c === BLACK)
-      ? true : false;
-
-
-const isBLR = t =>
-  t[TAG] === "Node"
-    && t.c === BLACK
-    && t.l[TAG] === "Node"
-    && t.l.c === RED
-      ? true : false;
-
-
-const rotateR = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RED)
-      return balanceR(
-        t.c, t.h, t.l.l, t.l.k, t.l.v, delMax_(Node(RED, t.h, t.l.r, t.k, t.v, t.r)));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const turnR = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return Node(
-    RED, h, l, k, v, r);
-};
-
-
-const turnB = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return Node(
-    BLACK, h, l, k, v, r);
-};
-
-
-const turnB_ = t => {
-  switch (t[TAG]) {
-    case "Leaf": return Leaf;
-    case "Node": return Node(BLACK, t.h, t.l, t.k, t.v, t.r);
-    default: throw new TypeError("invalid value constructor");
-  }
-}
-
-
-/***[ Deletion ]**************************************************************/
-
-
-const del = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return Leaf;
-    
-    case "Node": {
-      const t_ = del_(turnR(t), k, cmp);
-
-      switch (t_[TAG]) {
-        case "Leaf": return Leaf;
-        case "Node": return turnB(t_);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-const del_ = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return Leaf;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case EQ: return delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case GT: return delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-const delLT = (k, c, h, l, k_, v_, r, cmp) => {
-  if (c === RED
-    && isBLB(l)
-    && isBLR(r))
-      return Node(
-        RED,
-        h,
-        Node(BLACK, r.h, del_(turnR(l), k, cmp), k_, v_, r.l.l),
-        r.l.k,
-        r.l.v,
-        Node(BLACK, r.h, r.l.r, r.k, r.v, r.r));
-
-  else if (c === RED
-    && isBLB(l))
-      return balanceR(
-        BLACK, h - 1, del_(tunrR(l), k, cmp), k_, v_, turnR(r));
-
-  else return Node(c, h, del_(l, k, cmp), k_, v_, r);
-};
-
-
-const delEQ = (k, c, h, l, k_, v_, r, cmp) => {
-  if (c === RED
-    && l[TAG] === "Leaf"
-    && r[TAG] === "Leaf")
-      return Leaf;
-
-  else if (l[TAG] === "Node"
-    && l.c === RED)
-      return balanceR(
-        c, h, l.l, l.k, l.v, del_(Node(RED, h, l.r, k_, v_, r), k, cmp));
-
-  else if (c === RED
-    && isBLB(r)
-    && isBLR(l))
-      return balanceR(
-        RED,
-        h,
-        turnB(l.l),
-        l.k,
-        l.v,
-        balanceR(BLACK, l.h, l.r, ...min(r), delMin_(turnR(r))));
-
-  else if (c === RED
-    && isBLB(r))
-      return balanceR(BLACK, h - 1, turnR(l), ...min(r), delMin_(turnR(r)));
-
-  else if (c === RED
-    && r[TAG] === "Node"
-    && r.c === BLACK)
-      return Node(
-        RED, h, l, ...min(r), Node(BLACK, r.h, delMin_(r.l), r.k, r.v, r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const delGT = (k, c, h, l, k_, v_, r, cmp) => {
-  if (l[TAG] === "Node"
-    && l.c === RED)
-      return balanceR(
-        c, h, l.l, l.k, l.v, del_(Node(RED, h, l.r, k_, v_, r)), k, cmp);
-
-  else if (c === RED
-    && isBLB(r)
-    && isBLR(l))
-      return Node(
-        RED,
-        h,
-        turnB(l.l),
-        l.k,
-        l.v,
-        balanceR(BLACK, l.h, l.r, k_, v_, del_(turnR(r), k, cmp)));
-
-  else if (c === RED
-    && isBLB(r))
-      return balanceR(
-        BLACK, h - 1, turnR(l), k_, v_, del_(turnR(r), k, cmp));
-
-  else if (c === RED)
-    return Node(RED, h, l, k_, v_, del_(r, k, cmp));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-/***[ Getter ]****************************************************************/
-
-
-const get = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return null;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return get(t.l, k, cmp);
-        case EQ: return t.v;
-        case GT: return get(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-const has = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return false;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return has(t.l, k, cmp);
-        case EQ: return true;
-        case GT: return has(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/***[ Setter ]****************************************************************/
-
-
-const set = (t, k, v, cmp) =>
-  turnB(set_(t, k, v, cmp));
-
-
-const set_ = (t, k, v, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf":
-      return Node(RED, 1, Leaf, k, v, Leaf);
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return balanceL(
-          t.c, t.h, set_(t.l, k, v, cmp), t.k, t.v, t.r);
-
-        case EQ: return Node(t.c, t.h, t.l, k, v, t.r);
-
-        case GT: return balanceR(
-          t.c, t.h, t.l, t.k, t.v, set_(t.r, k, v, cmp));
-
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/***[ Minimum/Maximum ]*******************************************************/
-
-
-const min = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return min(t.l);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-const delMin = t =>{
-  switch (t[TAG]) {
-    case "Leaf": return Leaf;
-
-    case "Node": {
-      const t_ = delMin_(turnR(t));
-
-      switch (t_[TAG]) {
-        case "Leaf": return Leaf;
-        case "Node": return turnB(t_);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-const delMin_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RED)
-      return Node(RED, t.h, delMin_(t.l), t.k, t.v, t.r);
-
-  else if (t[TAG] === "Node"
-    && isBLB(t.l)
-    && isBLR(t.r))
-      return delMin__(t);
-
-  else if (t[TAG] === "Node"
-    && isBLB((t.l)))
-      return balanceR(
-        BLACK, t.h - 1, delMin_(turnR(t.l)), t.k, t.v, turnR(t.r));
-
-  else if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === BLACK)
-      return Node(
-        RED, t.h, Node(BLACK, t.l.h, delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const delMin__ = t => {
-  if(t[TAG] === "Node"
-    && t.c === RED
-    && t.r[TAG] === "Node"
-    && t.r.c === BLACK
-    && t.r.l[TAG] === "Node"
-    && t.r.l.c === RED)
-      return Node(
-        RED,
-        t.h,
-        Node(BLACK, t.r.h, delMin_(turnR(t.l)), t.k, t.v, t.r.l.l),
-        t.r.l.k,
-        t.r.l.v,
-        Node( BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const max = t => {
-  if (t[TAG] === "Node"
-    && t.r[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return max(t.r);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-const delMax = t => {
-  switch (t[TAG]) {
-    case "Leaf": return Leaf;
-
-    case "Node": {
-      const t_ = delMax_(turnR(t));
-
-      switch (t_[TAG]) {
-        case "Leaf": return Leaf;
-        case "Node": return turnB(t_);
-        default: TypeError("invalid value constructor");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-const delMax_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RED)
-      return rotateR(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RED
-    && isBLB(t.r)
-    && isBLR(t.l))
-      return delMax__(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RED
-    && isBLB(t.r))
-      return balanceR(
-        BLACK, t.h - 1, turnR(t.l), t.k, t.v, delMax_(turnR(t.r)));
-
-  else if (t[TAG] === "Node"
-    && t.c === RED)
-      return Node(RED, t.h, t.l, t.k, t.v, rotateR(t.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const delMax__ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RED
-    && t.l[TAG] === "Node"
-    && t.l.c === BLACK
-    && t.l.l[TAG] === "Node"
-    && t.l.l.c === RED)
-      return Node(
-        RED, t.h, turnB(t.l.l), t.l.k, t.l.v, balanceR(BLACK, t.l.h, t.l.r, t.k, t.v, delMax_(turnR(t.r))));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-/***[ Set Operations ]********************************************************/
-
-
-const join = (t1, t2, k, v, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return set(t2, k, v, cmp);
-
-  else if (t2[TAG] === "Leaf")
-    return set(t1, k, v, cmp);
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return turnB(joinLT(t1, t2, k, v, t1.h, cmp));
-      case EQ: return Node(BLACK, t1.h + 1, t1, k, v, t2);
-      case GT: return turnB(joinGT(t1, t2, k, v, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-const joinLT = (t1, t2, k, v, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return Node(RED, t2.h + 1, t1, k, v, t2);
-
-  else if (t2[TAG] === "Node")
-    return balanceL(t2.c, t2.h, joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-const joinGT = (t1, t2, k, v, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return Node(RED, t1.h + 1, t1, k, v, t2);
-
-  else if (t1[TAG] === "Node")
-    return balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, joinGT(t1.r, t2, k, v, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-const merge = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return t2;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return turnB(mergeLT(t1, t2, t1.h, cmp));
-      case EQ: return turnB(mergeEQ(t1, t2, cmp));
-      case GT: return turnB(mergeGT(t1, t2, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-const mergeLT = (t1, t2, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return mergeEQ(t1, t2, cmp);
-
-  else if (t2[TAG] === "Node")
-    return balanceL(t2.c, t2.h, mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-const mergeEQ = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf"
-    && t2[TAG] === "Leaf")
-      return Leaf;
-
-  else if (t1[TAG] === "Node") {
-    const t2_ = delMin(t2),
-      [k, v] = min(t2);
-
-    if (t1.h === t2_.h)
-      return Node(RED, t1.h + 1, t1, k, v, t2_);
-
-    else if (t1.l[TAG] === "Node"
-      && t1.l.c === RED)
-        return Node(
-          RED, t1.h + 1, turnB(t1.l), t1.k, t1.v, Node(BLACK, t1.h, t1.r, k, v, t2_));
-
-    else return Node(
-      BLACK, t1.h, turnR(t1), k, v, t2_);
-  }
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-const mergeGT = (t1, t2, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return mergeEQ(t1, t2, cmp);
-
-  else if (t1[TAG] === "Node")
-    return balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, mergeGT(t1.r, t2, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-const split = (t, k, cmp) => {
-  if (t[TAG] === "Leaf")
-    return [Leaf, Leaf];
-
-  else {
-    switch (cmp(k, t.k)) {
-      case LT: {
-        const [lt, gt] = split(t.l, k, cmp);
-        return [lt, join(gt, t.r, t.k, t.v, cmp)];
-      }
-
-      case EQ: return [turnB_(t.l), t.r];
-
-      case GT: {
-        const [lt, gt] = split(t.r, k, cmp);
-        return [join(t.l, lt, t.k, t.v, cmp), gt];
-      }
-
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-const union = (t1, t2, cmp) => {
-  if (t2[TAG] === "Leaf")
-    return t1;
-
-  else if (t1[TAG] === "Leaf")
-    return turnB_(t2);
-
-  else {
-    const [l, r] = split(t1, t2.k, cmp);
-    return join(union(l, t2.l, cmp), union(r, t2.r, cmp), t2.k, t2.v, cmp);
-  }
-};
-
-
-const intersect = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return Leaf;
-
-  else {
-    const [l, r] = split(t1, t2.k, cmp);
-
-    if (has(t1, t2.k, cmp))
-      return join(
-        intersect(l, t2.l, cmp), intersect(r, t2.r, cmp), t2.k, t2.v, cmp);
-
-    else return merge(
-      intersect(l, t2.l, cmp), intersect(r, t2.r, cmp), cmp);
-  }
-};
-
-
-const diff = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    const [l, r] = split(t1, t2.k, cmp);
-    return merge(diff(l, t2.l, cmp), diff(r, t2.r, cmp));
-  }
-};
-
-
-/******************************************************************************
-*******************************************************************************
-***************************[ SAFE IN-PLACE UPDATES ]***************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* `Mutable` is an imperative data type that allows in-place updates by encap-
-sulating the mutable data inside its data structure. Such mutations can be con-
-sidered safe, because `Mutable` prevents you from sharing the effect. The type
-enables first class in-place upades but is not composable. */
-
-
-export const Mutable = fun(
-  clone => ref => {
-    const anno = CHECK ? introspectDeep({charCode: letterA}) (ref) : "";
-
-    return _let({}, ref).in(fun((o, ref) => {
-      let mutated = false;
-
-      o.consume = thunk(() => {
-        if (mutated) {
-          delete o.update;
-
-          o.update = _ => {
-            throw new TypeError(
-              "illegal in-place update of consumed data structure");
-          };
-        }
-
-        return ref;
-      }, `() => ${anno}`);
-
-      o.update = fun(k => {
-        if (!mutated) {
-          ref = clone(ref); // copy once on first write
-          mutated = true;
-        }
-
-        k(ref); // use the effect but discard the result
-        return o;
-      }, `(${anno} => ${anno}) => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`);
-
-      return (o[TAG] = "Mutable", o);
-    }, `{}, ${anno} => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`));
-  },
-  "(t<a> => t<a>) => t<a> => Mutable {consume: t<a>, update: ((t<a> => t<a>) => this*)}");
-
-
-/******************************************************************************
-*******************************************************************************
-******************************[ LAZY EVALUATION ]******************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* Thunks are arbitrary unevaluated expressions that are evaluated when needed.
-As opposed to Javascript thunks like `() => expr` scriptum uses implicit thunks,
-i.e. you don't have to care whether they are evaluated or not. Thunks enable
-proper lazy evaluation in Javascript. Thunks are untyped but you are strongly
-encouraged to only use typed lambdas inside. */
-
-
-/***[ Constants ]*************************************************************/
-
-
-const EVAL = PREFIX + "eval";
-
-
-const NULL = PREFIX + "null";
-
-
-const THUNK = PREFIX + "thunk";
-
-
-/***[ API ]*******************************************************************/
-
-
-// strictly evaluate a thunk non-recursively
-
-export const strict = x =>
-  x && x[THUNK] ? x[EVAL] : x;
-
-
-// creates an annotated thunk
-
-export const thunk = (thunk, anno) => {
-  if (CHECK) {
-    if (anno)
-      return new Proxy(thunk, new ThunkProxy(anno));
-
-    else throw new TypeError(
-      "missing type annotation");
-  }
-
-  else return new Proxy(thunk, new ThunkProxy());
-  };
-
-
-/***[ Implementation ]********************************************************/
-
-
-class ThunkProxy {
-  constructor(anno) {
-    this.memo = NULL
-
-    if (CHECK) {
-
-      // thunks are opaque values
-
-      if (anno.search(/\(\) => /) === 0)
-        this[ANNO] = anno.replace(/\(\) => /, "");
-
-      else throw new TypeError(cat(
-        "thunk expected\n",
-        `but "${anno}" received`));
-    }
-  }
-
-  apply(g, that, args) {
-
-    // evaluate to WHNF
-
-    if (this.memo === NULL) {
-      this.memo = g();
-
-      while (this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return this.memo(...args);
-  }
-
-  get(g, k) {
-
-    // prevent evaluation
-    
-    if (k === THUNK)
-      return true;
-
-    // prevent evaluation
-
-    else if (k === ANNO)
-      return this[ANNO];
-
-    // prevent evaluation
-
-    else if (k === Symbol.toStringTag)
-      return "Function";
-
-    // evaluate once
-
-    else if (this.memo === NULL) {
-  
-      // shallowly evaluate
-
-      if (k === EVAL
-        && this.memo === NULL)
-          this.memo = g();
-
-      // evaluate to WHNF
-
-      else {
-        this.memo = g();
-
-        while (this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
-      }
-    }
-
-    // return the memoized result
-
-    if (k === EVAL)
-      return this.memo;
-
-    // enforce array spreading
-    
-    else if (k === Symbol.isConcatSpreadable
-      && Array.isArray(this.memo))
-        return true;
-
-    // method binding without triggering evaluation
-
-    else if (typeof this.memo[k] === "function"
-      && this.memo[k] [THUNK] !== true)
-        return this.memo[k].bind(this.memo);
-
-    else return this.memo[k];
-  }
-
-  getOwnPropertyDescriptor(g, k) {
-
-    // evaluate to WHNF
-
-    if (this.memo === NULL) {
-      this.memo = g();
-
-      while (this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return Reflect.getOwnPropertyDescriptor(this.memo, k);
-  }
-
-  has(g, k) {
-
-    // prevent evaluation
-
-    if (k === THUNK)
-      return true;
-
-    // prevent evaluation
-
-    else if (CHECK && k === ANNO)
-      return true;
-
-    // evaluate to WHNF
-
-    else if (this.memo === NULL) {
-      this.memo = g();
-
-      while (this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return k in this.memo;
-  }
-
-  ownKeys(g) {
-
-    // evaluate to WHNF
-
-    if (this.memo === NULL) {
-      this.memo = g();
-
-      while (this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
-    return Object.keys(this.memo);
-  }
-}
-
-
-/******************************************************************************
-*******************************************************************************
-****************************[ STACK SAFETY (SYNC) ]****************************
-*******************************************************************************
-******************************************************************************/
-
-
-/* Trampolines themselves are untyped to provide additional flexibility in some
-use cases. Howeverm, they ensure that the provided function argument is typed
-to maintain type safety. */
-
-
-/******************************************************************************
-*****************************[ STRICT RECURSION ]******************************
-******************************************************************************/
-
-
-/* `strictRec` enforec the evaluation of huge nested implicit thunks in a stack-
-safe manner. */
-
-export const strictRec = x => {
-  while (x && x[THUNK] === true)
-    x = x[EVAL];
-
-  return x;
-};
-
-
-/******************************************************************************
-*****************************[ MONADIC RECURSION ]*****************************
-******************************************************************************/
-
-
-/* Monad recursion enables stack-safe monadic recursive functions. The downside
-is that you can only compose this stack safety with other effects if the
-trampoline monad is the outermost one in the transformer. */
-
-export const MonadRec = {}; // namespace
-
-
-MonadRec.loop = o => { // trampoline
-  while (o.tag === "Iterate")
-    o = o.f(o.x);
-
-  return o.tag === "Return"
-    ? o.x
-    : _throw(new TypeError("invalid trampoline tag"));
-};
-
-
-/***[ Applicative ]***********************************************************/
-
-
-MonadRec.ap = tf => tx =>
-  MonadRec.chain(tf) (f =>
-    MonadRec.chain(tx) (x =>
-      MonadRec.of(f(x))));
-
-
-// MonadRec.of @Derived
-
-
-/***[ Functor ]***************************************************************/
-
-
-MonadRec.map = f => tx =>
-  MonadRec.chain(tx) (x => MonadRed.of(f(x)));
-
-
-/***[ Monad ]*****************************************************************/
-
-
-MonadRec.chain = mx => fm =>
-  mx.tag === "Iterate" ? Iterate(mx.x) (y => MonadRec.chain(mx.f(y)) (fm))
-    : mx.tag === "Return" ? fm(mx.x)
-    : _throw(new TypeError("invalid trampoline tag"));
-
-
-/***[ Tags ]******************************************************************/
-
-
-MonadRec.iterate = x => f => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else {tag: "Iterate", f, x};
-}
-
-
-MonadRec.return = x =>
-  ({tag: "Return", x});
-
-
-/***[ Derived ]***************************************************************/
-
-
-MonadRec.of = MonadRec.return;
-
-
-/******************************************************************************
-******************************[ TAIL RECURSION ]*******************************
-******************************************************************************/
-
-
-/* ES6 ships with tail call optimization but no major browser vendor has
-implemented them yet and probably never will. Therefore we need a trampoline
-to eliminate the tail call. */
-
-export const TailRec = {}; // namespace
-
-
-TailRec.loop = f => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else return x => {
-    let o = f(x);
-
-    while (o.tag === "Iterate")
-      o = f(o.x);
-
-    return o.tag === "Return"
-      ? o.x
-      : _throw(new TypeError("invalid trampoline tag"));
-  };
-};
-
-
-/***[ Tags ]******************************************************************/
-
-
-TailRec.iterate = x => ({tag: "Iterate", x});
-
-
-TailRec.return = x => ({tag: "Return", x});
-
-
-/******************************************************************************
-*******************************************************************************
-***************************[ STACK SAFETY (ASYNC) ]****************************
-*******************************************************************************
-******************************************************************************/
-
-
-// see @LIB/Serial
-
-
-// see @LIB/Parallel
-
-
-/******************************************************************************
-*******************************************************************************
-************************************[ LIB ]************************************
-*******************************************************************************
-******************************************************************************/
-
-
-/******************************************************************************
-**************************[ CROSS-CUTTING CONCERNS ]***************************
-******************************************************************************/
-
-
-export const lazyProp = (o, prop, f) =>
-  Object.defineProperty(
-    o,
-    prop, {
-      get: f,
-      configurable: true,
-      enumerable: true
-    });
-
-
-/******************************************************************************
-*******************************[ TYPE CLASSES ]********************************
-******************************************************************************/
-
-
-/* Only type classes with a single type parameter are supported. Superclass
-dependencies are listed in alphabetical order. Type class properties must be
-unique across classes, due to subclass/superclass relations. */
-
-
-/***[ Bifunctor ]*************************************************************/
-
-
-export const Bifunctor = typeClass(`(^a, b, c, d. {
-  bimap: ((a => b) => (c => d) => f<a, c> => f<b, d>)
-}) => Bifunctor<f>`);
-
-
-/***[ Bounded ]***************************************************************/
-
-
-export const Bounded = typeClass(`({
-  bottom: a,·
-  top: a
-}) => Bounded<a>`);
-
-
-/***[ Clonable ]**************************************************************/
-
-
-export const Clonable = typeClass(`(^a. {
-  clone: (t<a> => t<a>)
-}) => Clonable<t>`);
-
-
-/***[ Contravaraint ]*********************************************************/
-
-
-export const Contravaraint = typeClass(`(^a, b. {
-  cmap: ((b => a) => f<a> => f<b>)
-}) => Contravaraint<f>`);
-
-
-/***[ Enum ]******************************************************************/
-
-
-let Enum = Option => typeClass(`({
-  succ: (a => Option<a>),·
-  pred: (a => Option<a>)
-}) => Enum<a>`);
-
-
-/***[ Foldable ]**************************************************************/
-
-
-let Foldable = Monoid => typeClass(`(^m, a, b. {
-  foldl: ((b => a => b) => b => t<a> => b),·
-  foldr: ((a => b => b) => b => t<a> => b)
-}) => Foldable<t>`);
-
-
-/***[ Functor ]***************************************************************/
-
-
-export const Functor = typeClass(`(^a, b. {
-  map: ((a => b) => f<a> => f<b>)
-}) => Functor<f>`);
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-export const Alt = typeClass(`Functor<f> => (^a. {
-  alt: (f<a> => f<a> => f<a>)
-}) => Alt<f>`);
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-export const Plus = typeClass(`Alt<f> => (^a. {
-  neutral: f<a>
-}) => Plus<f>`);
-
-
-/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
-
-
-let Alternative = Applicative => typeClass(
-  `Applicative<a>, Plus<a> => ({}) => Alternative<a>`);
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-export const Apply = typeClass(`Functor<f> => (^a, b. {
-  apply: (f<(a => b)> => f<a> => f<b>)
-}) => Apply<f>`);
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-export const Applicative = typeClass(`Apply<f> => (^a. {
-  of: (a => f<a>)
-}) => Applicative<f>`);
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-export const Chain = typeClass(`Apply<m> => (^a, b. {
-  chain: (m<a> => (a => m<b>) => m<b>)
-}) => Chain<m>`);
-
-
-/***[ Functor :: Apply :: Chain :: Monad ]************************************/
-
-
-export const Monad = typeClass(
-  `Applicative<m>, Chain<m> => ({}) => Monad<m>`);
-
-
-/***[ Functor :: Apply :: Chain :: Monad :: MonadPlus ]***********************/
-
-
-let MonadPlus = Alternative => typeClass(
-  `Alternative<m>, Monad<m> => ({}) => MonadPlus<m>`);
-
-
-/***[ Functor :: Extend ]*****************************************************/
-
-
-export const Extend = typeClass(`Functor<w> => (^a, b. {
-  extend: ((w<a> => b) => w<a> => w<b>)
-}) => Extend<w>`);
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-export const Comonad = typeClass(`Extend<w> => (^a. {
-  extract: (w<a> => a)
-}) => Comonad<w>`);
-
-
-/***[ Functor :: Filterable ]*************************************************/
-
-
-let Filterable = (Option, Either) => typeClass(`Functor<f> => (^a, b, l, r. {
-  filter: ((a => Booelan) => f<a> => f<a>),·
-  filterMap: ((a => Option<b>) => f<a> => f<b>),·
-  partition: ((a => Boolean) => f<a> => {false: f<a>, true: f<a>}),·
-  partitionMap: ((a => Either<l, r>) => f<a> => {left: f<l>, right: f<r>})
-}) => Filterable<f>`);
-
-
-/***[ Profunctor ]************************************************************/
-
-
-export const Profunctor = typeClass(`(^a, b, c, d. {
-  dimap: ((a => b) => (c => d) => p<b, c> => p<a, d>)
-}) => Profunctor<p>`);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-export const Semigroup = typeClass(`({
-  append: (a => a => a)
-}) => Semigroup<a>`);
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-export const Monoid = typeClass(`Semigroup<a> => ({
-  empty: a
-}) => Monoid<a>`);
-
-
-/***[ Semigroupoid ]**********************************************************/
-
-
-export const Semigroupoid = typeClass(`(^a, b, c. {
-  comp: (t<b, c> => t<a, b> => t<a, c>)
-}) => Semigroupoid<t>`);
-
-
-/***[ Semigroupoid :: Category ]**********************************************/
-
-
-export const Category = typeClass(`Semigroupoid<t> => (^a, b, c. {
-  id: t<a, a>
-}) => Category<t>`);
-
-
-/***[ Semiring ]**************************************************************/
-
-
-export const Semiring = typeClass(`({
-  add: (a => a => a),·
-  zero: a,·
-  mul: (a => a => a),·
-  one: a
-}) => Semiring<a>`);
-
-
-/***[ Semiring :: Ring ]******************************************************/
-
-
-export const Ring = typeClass(`Semiring<a> => ({
-  sub: (a => a => a)
-}) => Ring<a>`);
-
-
-/***[ Semiring :: Ring :: DivisionRig ]***************************************/
-
-
-export const DivisionRing = typeClass(`Ring<a> => ({
-  recip: (a => a)
-}) => DivisionRing<a>`);
-
-
-/***[ Semiring :: Ring :: EuclideanRing ]*************************************/
-
-
-export const EuclideanRing = typeClass(`Ring<a> => ({
-  degree: (a => Integer),·
-  div: (a => a => a),·
-  mod: (a => a => a)
-}) => EuclideanRing<a>`);
-
-
-/***[ Semiring :: Ring :: EuclideanRing :: Field ]****************************/
-
-
-export const Field = typeClass(
-  `EuclideanRing<a>, DivisionRing<a> => ({}) => Field<a>`);
-
-
-/***[ Setoid ]****************************************************************/
-
-
-export const Setoid = typeClass(`({
-  eq: (a => a => Boolean),·
-  neq: (a => a => Boolean)
-}) => Setoid<a>`);
-
-
-/***[ Setoid :: Order ]*******************************************************/
-
-
-export const Order = typeClass(`Setoid<a> => ({
-  compare: (a => a => Comparator)
-}) => Order<a>`);
-
-
-/***[ Traversable ]***********************************************************/
-
-
-let Traversable = Foldable => typeClass(`Foldable<t>, Functor<t>, Applicative<f> => (^a, b, f. {
-  mapA: ((a => f<b>) => t<a> => f<t<b>>),·
-  seqA: (t<f<a>> => f<t<a>>)
-}) => Traversable<t>`);
-
-
-/***[ Dependent ]*************************************************************/
-
-
-Alternative = Alternative(Applicative);
-export {Alternative};
-
-
-Foldable = Foldable(Monoid);
-export {Foldable};
-
-
-MonadPlus = MonadPlus(Alternative);
-export {MonadPlus};
-
-
-Traversable = Traversable(Foldable);
-export {Traversable};
-
-
-/******************************************************************************
-***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
-******************************************************************************/
-
-
-export const appEff1 = fun(
-  Apply => tx => ty =>
-    Apply.apply(Apply.map(_const) (tx)) (ty),
-  "Apply<f> => f<a> => f<b> => f<a>");
-
-
-export const appEff2 = fun(
-  Apply => tx => ty =>
-    Apply.apply(mapEff(Apply.Functor) (id) (tx)) (ty),
-  "Apply<f> => f<a> => f<b> => f<b>");
-
-
-// based on an eager left-associative fold
-
-export const foldMap = fun(
-  ({foldl}, {append, empty}) => f => foldl(comp2nd(append) (f)) (empty),
-  "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
-
-
-// based on a lazy right-associative fold
-
-export const foldMap_ = fun(
-  ({foldr}, {append, empty}) => f => foldr(comp(append) (f)) (empty),
-  "Foldable<t>, Monoid<m> => (a => m) => t<a> => m");
-
-
-export const mapEff = fun(
-  Functor => x => Functor.map(fun(_ => x, "a => b")),
-  "Functor<f> => a => f<b> => f<a>");
-
-
-/******************************************************************************
-*********************************[ FUNCTION ]**********************************
-******************************************************************************/
-
-
-export const F = {}; // namespace
-
-
-/***[ Applicator ]************************************************************/
-
-
-export const app = fun(
-  f => x => f(x),
-  "(a => b) => a => b");
-
-
-export const app_ = fun(
-  x => f => f(x),
-  "a => (a => b) => b");
-
-
-// partially apply right argument
-
-export const appr = fun(
-  (f, y) => x => f(x) (y),
-  "(a => b => c), b => a => c");
-
-
-export const flip = fun(
-  f => y => x => f(x) (y),
-  "(a => b => c) => b => a => c");
-
-
-export const infix = fun(
-  (x, f, y) => f(x) (y),
-  "a, (a => b => c), b => c");
-
-
-export const infix2 = fun(
-  (x, f, y, g, z) => g(f(x) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d => e");
-
-
-export const infix2_ = fun(
-  (x, f, y, g, z) => g(x) (f(y) (z)),
-  "a, (a => b => c), b, (c => d => e), d => e");
-
-
-export const infix3 = fun(
-  (w, f, x, g, y, h, z) => h(g(f(w) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
-
-
-export const infix3_ = fun(
-  (w, f, x, g, y, h, z) => h(w) (g(x) (f(y) (z))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
-
-
-export const infix4 = fun(
-  (v, f, w, g, x, h, y, i, z) => i(h(g(f(v) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
-
-
-export const infix4_ = fun(
-  (v, f, w, g, x, h, y, i, z) => i(v) (h(w) (g(x) (f(y) (z)))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
-
-
-export const infix5 = fun(
-  (u, f, v, g, w, h, x, i, y, j, z) => j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
-
-
-export const infix5_ = fun(
-  (u, f, v, g, w, h, x, i, y, j, z) => j(u) (i(v) (h(w) (g(x) (f(y) (z))))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
-
-
-export const infix6 = fun(
-  (t, f, u, g, v, h, w, i, x, j, y, k, z) => k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
-
-
-export const infix6_ = fun(
-  (t, f, u, g, v, h, w, i, x, j, y, k, z) => k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z)))))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
-
-
-export const infix7 = fun(
-  (s, f, t, g, u, h, v, i, w, j, x, k, y, l, z) => l(k(j(i(h(g(f(s) (t)) (u)) (v)) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
-
-
-export const infix7_ = fun(
-  (s, f, t, g, u, h, v, i, w, j, x, k, y, l, z) => l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z))))))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
-
-
-export const infix8 = fun(
-  (r, f, s, g, t, h, u, i, v, j, w, k, x, l, y, m, z) => m(l(k(j(i(h(g(f(r) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
-
-
-export const infix8_ = fun(
-  (r, f, s, g, t, h, u, i, v, j, w, k, x, l, y, m, z) => m(r) (l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z)))))))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
-
-
-export const infix9 = fun(
-  (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) => n(m(l(k(j(i(h(g(f(q) (r)) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
-
-
-export const infix9_ = fun(
-  (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) => n(q) (m(r) (l(s) (k(t) (j(u) (i(v) (h(w) (g(x) (f(y) (z))))))))),
-  "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
-
-
-// mimic overloaded infix operations (left associative)
-
-export const infixn = (...args) => {
-  switch (args.length) {
-    case 5: return fun(
-      args[3] (args[1] (args[0]) (args[2])) (args[4]),
-      "a, (a => b => c), b, (c => d => e), d => e");
-
-    case 7: return fun(
-      args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
-
-    case 9: return fun(
-      args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
-
-    case 11: return fun(
-      args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
-
-    case 13: return fun(
-      args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
-
-    case 15: return fun(
-      args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
-
-    case 17: return fun(
-      args[15] (args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14])) (args[16]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
-
-    case 19: return fun(
-      args[17] (args[15] (args[13] (args[11] (args[9] (args[7] (args[5] (args[3] (args[1] (args[0]) (args[2])) (args[4])) (args[6])) (args[8])) (args[10])) (args[12])) (args[14])) (args[16])) (args[18]),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
-  }
-};
-
-
-// mimic overloaded infix operations (right associative)
-
-export const infixn_ = (...args) => {
-  switch (args.length) {
-    case 5: return fun(
-      args[3] (args[0]) (args[1] (args[2]) (args[4])),
-      "a, (a => b => c), b, (c => d => e), d => e");
-
-    case 7: return fun(
-      args[5] (args[0]) (args[3] (args[2]) (args[1] (args[4]) (args[6]))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f => g");
-
-    case 9: return fun(
-      args[7] (args[0]) (args[5] (args[2]) (args[3] (args[4]) (args[1] (args[6]) (args[8])))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h => i");
-
-    case 11: return fun(
-      args[9] (args[0]) (args[7] (args[2]) (args[5] (args[4]) (args[3] (args[6]) (args[1] (args[8]) (args[10]))))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j => k");
-
-    case 13: return fun(
-      args[11] (args[0]) (args[9] (args[2]) (args[7] (args[4]) (args[5] (args[6]) (args[3] (args[8]) (args[1] (args[10]) (args[12])))))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l => m");
-
-    case 15: return fun(
-      args[13] (args[0]) (args[11] (args[2]) (args[9] (args[4]) (args[7] (args[6]) (args[5] (args[8]) (args[3] (args[10]) (args[1] (args[12]) (args[14]))))))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n => o");
-
-    case 17: return fun(
-      args[15] (args[0]) (args[13] (args[2]) (args[11] (args[4]) (args[9] (args[6]) (args[7] (args[8]) (args[5] (args[10]) (args[3] (args[12]) (args[1] (args[14]) (args[16])))))))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p => q");
-
-    case 19: return fun(
-      args[17] (args[0]) (args[15] (args[2]) (args[13] (args[4]) (args[11] (args[6]) (args[9] (args[8]) (args[7] (args[10]) (args[5] (args[12]) (args[3] (args[14]) (args[1] (args[16]) (args[18]))))))))),
-      "a, (a => b => c), b, (c => d => e), d, (e => f => g), f, (g => h => i), h, (i => j => k), j, (k => l => m), l, (m => n => o), n, (o => p => q), p, (q => r => s), r => s");
-  }
-};
-
-
-/***[ Anonymous Recursion ]***************************************************/
-
-
-export const fix = fun(
-  f => x => f(fix(f)) (x),
-  "((a => b) => a => b) => a => b");
-
-
-export const fix_ = fun(
-  f => f(thunk(() => fix_(f), "() => a => a")),
-  "(a => a) => a");
-
-
-/***[ Category ]**************************************************************/
-
-
-export const comp = fun(
-  f => g => x => f(g(x)),
-  "(b => c) => (a => b) => a => c");
-
-
-export const comp3 = fun(
-  f => g => h => x => f(g(h(x))),
-  "(c => d) => (b => c) => (a => b) => a => d");
-
-
-export const comp4 = fun(
-  f => g => h => i => x => f(g(h(i(x)))),
-  "(d => e) => (c => d) => (b => c) => (a => b) => a => e");
-
-
-export const comp5 = fun(
-  f => g => h => i => j => x => f(g(h(i(j(x))))),
-  "(e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => f");
-
-
-export const comp6 = fun(
-  f => g => h => i => j => k => x => f(g(h(i(j(k(x)))))),
-  "(f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => g");
-
-
-export const comp7 = fun(
-  f => g => h => i => j => k => l => x => f(g(h(i(j(k(l(x))))))),
-  "(g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => h");
-
-
-export const comp8 = fun(
-  f => g => h => i => j => k => l => m => x => f(g(h(i(j(k(l(m(x)))))))),
-  "(h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => i");
-
-
-export const comp9 = fun(
-  f => g => h => i => j => k => l => m => n => x => f(g(h(i(j(k(l(m(n(x))))))))),
-  "(i => j) => (h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => j");
-
-
-// mimic overloaded composition function
-
-export const compn = (...fs) => x => {
-  switch (fs.length) {
-    case 2: return fun(
-      fs[0] (fs[1] (x)),
-      "(b => c) => (a => b) => a => c");
-
-    case 3: return fun(
-      fs[0] (fs[1] (fs[2] (x))),
-      "(c => d) => (b => c) => (a => b) => a => d");
-
-    case 4: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (x)))),
-      "(d => e) => (c => d) => (b => c) => (a => b) => a => e");
-
-    case 5: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (x))))),
-      "(e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => f");
-
-    case 6: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (x)))))),
-      "(f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => g");
-
-    case 7: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (x))))))),
-      "(g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => h");
-
-    case 8: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (fs[7] (x)))))))),
-      "(h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => i");
-
-    case 9: return fun(
-      fs[0] (fs[1] (fs[2] (fs[3] (fs[4] (fs[5] (fs[6] (fs[7] (fs[8] (x))))))))),
-      "(i => j) => (h => i) => (g => h) => (f => g) => (e => f) => (d => e) => (c => d) => (b => c) => (a => b) => a => j");
-  }
-};
-
-
-export const id = fun(x => x, "a => a");
-
-
-/***[ Composition ]***********************************************************/
-
-
-// compose in the second argument
-
-export const comp2nd = fun(
-  f => g => x => y => f(x) (g(y)),
-  "(a => b => c) => (d => b) => a => d => c");
-
-
-// compose a binary function
-
-export const compBin = fun(
-  f => g => x => y => f(g(x) (y)),
-  "(a => b) => (c => d => a) => c => d => b");
-
-
-// transform two inputs and combine the results
-
-export const compOn = fun(
-  f => g => x => y => f(g(x)) (g(y)),
-  "(b => b => c) => (a => b) => a => a => c");
-
-
-/***[ Conditional Operator ]**************************************************/
-
-
-/* While Javascript's conditional operator is a first class expression it is
-not lazy. `cond` defers evaluation, because it is a curried function and
-furthermore is lazy in its first argument, i.e. we can pass an expensive
-computation and only have to evaluate it if all arguments are provided. */
-
-export const cond = fun(
-  x => y => thunk => strict(thunk) ? x : y,
-  "a => a => b => a");
-
-
-/***[ Constant ]**************************************************************/
-
-
-export const _const = fun(
-  x => _ => x,
-  "a => discard => a");
-
-
-/***[ Currying ]**************************************************************/
-
-
-export const curry = fun(
-  f => x => y => f(x, y),
-  "(a, b => c) => a => b => c");
-
-
-export const curry3 = fun(
-  f => x => y => z => f(x, y, z),
-  "(a, b, c => d) => a => b => c => d");
-
-
-export const curry4 = fun(
-  f => w => x => y => z => f(w, x, y, z),
-  "(a, b, c, d => e) => a => b => c => d => e");
-
-
-export const curry5 = fun(
-  f => v => w => x => y => z => f(v, w, x, y, z),
-  "(a, b, c, d, e => f) => a => b => c => d => e => f");
-
-
-export const curry6 = fun(
-  f => u => v => w => x => y => z => f(u, v, w, x, y, z),
-  "(a, b, c, d, e, f => g) => a => b => c => d => e => f => g");
-
-
-export const uncurry = fun(
-  f => (x, y) => f(x) (y),
-  "(a => b => c) => a, b => c");
-
-
-export const uncurry3 = fun(
-  f => (x, y, z) => f(x) (y) (z),
-  "(a => b => c => d) => a, b, c => d");
-
-
-export const uncurry4 = fun(
-  f => (w, x, y, z) => f(w) (x) (y) (z),
-  "(a => b => c => d => e) => a, b, c, d => e");
-
-
-export const uncurry5 = fun(
-  f => (v, w, x, y, z) => f(v) (w) (x) (y) (z),
-  "(a => b => c => d => e => f) => a, b, c, d, e => f");
-
-
-export const uncurry6 = fun(
-  f => (u, v, w, x, y, z) => f(u) (v) (w) (x) (y) (z),
-  "(a => b => c => d => e => f => g) => a, b, c, d, e, f => g");
-
-
-/***[ Debugging ]*************************************************************/
-
-
-export const debug = f => (...args) => {
-  debugger;
-  return f(...args);
-};
-
-
-export const debugIf = p => f => (...args) => {
-  if (p(...args)) debugger;
-  return f(...args);
-};
-
-
-export const log = (...args) =>
-  (console.log(...args), args[0]);
-
-
-export const taggedLog = tag => (...args) =>
-  (console.log(tag, ...args), args[0]);
-
-
-export const trace = x =>
-  (x => console.log(JSON.stringify(x) || x.toString()), x);
-
-
-/***[ Equality ]**************************************************************/
-
-
-export const eq = fun(
-  x => y => x === y,
-  "a => a => Boolean");
-
-
-export const neq = fun(
-  x => y => x !== y,
-  "a => a => Boolean");
-
-
-/***[ Impure ]****************************************************************/
-
-
-export const eff = fun(
-  f => x => (f(x), x),
-  "(a => discard) => a => a");
-
-
-export const _throw = e => {
-  throw e;
-};
-
-
-export const throwOn = fun(
-  p => e => msg => x => {
-    if (p(x))
-      throw new e(msg);
-    
-    else return x;
-  },
-  "(a => Boolean) => Function => String => a => discard");
-
-
-/***[ Local Bindings ]********************************************************/
-
-
-/* `_let` needs to be untyped, because it relies on an heterogenuous array
-holding the arguments. It ensures that the passed function argument is typed,
-though. */
-
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed lambda expected\n",
-        `but "${f.toString()}" received\n`));
-
-    else return f(...args);
-  }};
-};
-
-
-/***[ Logical Operators ]*****************************************************/
-
-
-export const and = fun(
-  x => y => !!(x && y),
-  "a => a => Boolean");
-
-
-export const andf = fun(
-  f => x => y => !!(f(x) && f(y)),
-  "(a => b) => a => a => Boolean");
-
-
-export const imply = fun(
-  x => y => !!(!x || y),
-  "a => a => Boolean");
-
-
-export const not = fun(
-  x => !x,
-  "a => Boolean");
-
-
-export const notf = fun(
-  f => x => !f(x),
-  "(a => b) => a => Boolean");
-
-
-export const or = fun(
-  x => y => !!(x || y),
-  "a => a => Boolean");
-
-
-export const orf = fun(
-  f => x => y => !!(f(x) || f(y)),
-  "(a => b) => a => a => Boolean");
-
-
-export const xor = fun(
-  x => y => !!(!x ^ !y),
-  "a => a => Boolean");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(F, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = fun(
-    Monoid_ => Monoid(F.Semigroup(Monoid_.Semigroup)) ({
-      empty: F.empty(Monoid_)
-    }),
-    "Monoid<b> => Monoid<(a => b)>");
-});
-
-
-F.empty = fun(
-  ({empty}) => _ => empty,
-  "Monoid<b> => a => b");
-
-
-/***[ Partial Application ]***************************************************/
-
-
-export const partial = (f, ...args) => (..._args) => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else return f(...args, ..._args);
-};
-
-
-/***[ Relational Operators ]**************************************************/
-
-
-export const gt = fun(
-  x => y => x > y,
-  "a => a => Boolean");
-
-
-export const gte = fun(
-  x => y => x >= y,
-  "a => a => Boolean");
-
-
-export const lt = fun(
-  x => y => x < y,
-  "a => a => Boolean");
-
-
-
-export const lte = fun(
-  x => y => x <= y,
-  "a => a => Boolean");
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(F, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = fun(
-    Semigroup_ => Semigroup({
-      append: F.append(Semigroup_)
-    }),
-    "Semigroup<b> => Semigroup<(a => b)>");
-});
-
-
-F.append = fun(
-  ({append}) => f => g => x => append(f(x)) (g(x)),
-  "Semigroup<b> => (a => b) => (a => b) => a => b");
-
-
-/***[ Short Circuiting ]******************************************************/
-
-
-export const and_ = fun(
-  x => y => x && y,
-  "a => a => a");
-
-
-export const andf_ = fun(
-  f => x => y => f(x) && f(y),
-  "(a => b) => a => a => b");
-
-
-export const or_ = fun(
-  x => y => x || y,
-  "a => a => a");
-
-
-export const orf_ = fun(
-  f => x => y => f(x) || f(y),
-  "(a => b) => a => a => b");
-
-
-/******************************************************************************
-*****************************[ FUNCTION >> ENDO ]******************************
-******************************************************************************/
-
-
-export const Endo = type1("(a => a) => Endo<a>");
-
-
-Endo.run = fun(
-  tx => x => tx.run(x),
-  "Endo<a> => a => a");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Endo, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Endo.Semigroup) ({
-    empty: Endo.empty
-  });
-});
-
-
-// Endo<a>
-
-Endo.empty = Endo(id);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Endo, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: Endo.append
-  });
-});
-
-
-Endo.append = fun(
-  f => g => Endo(fun(
-    x => f.run(g.run(x)),
-    "a => a")),
-  "Endo<a> => Endo<a> => Endo<a>");
-
-
-/******************************************************************************
-***********************************[ ARRAY ]***********************************
-******************************************************************************/
-
-
-/* Array is designed as a mutable data type and treated as such. Use immutable
-`List` for an efficient `cons` operation. Use immutable `DList` for efficient
-`append` and `snoc` operations. Use `Vector` for efficient lookups or set and
-modify operations. */
-
-
-export const A = {}; // namespace
-
-
-/***[ Apply ]****************************************************************/
-
-
-lazyProp(A, "Apply", function() {
-  delete this.Apply;
-  
-  return this.Apply = Apply(A.Functor) ({
-    apply: A.apply
-  });
-});
-
-
-A.apply = fun(
-  fs => xs =>
-    A.foldl(fun(
-      acc => f => A.append(acc) (A.map(f) (xs)),
-      "[b] => (a => b) => [b]")) ([]) (fs),
-  "[(a => b)] => [a] => [b]");
-
-
-/***[ Applicative ]***********************************************************/
-
-
-lazyProp(A, "Applicative", function() {
-  delete this.Applicative;
-  
-  return this.Applicative = Applicative(A.Apply) ({
-    of: A.of
-  });
-});
-
-
-A.of = fun(x => [x], "a => [a]");
-
-
-/***[ Chain ]*****************************************************************/
-
-
-lazyProp(A, "Chain", function() {
-  delete this.Chain;
-  
-  return this.Chain = Chain(A.Apply) ({
-    chain: A.chain
-  });
-});
-
-
-A.chain = fun(
-  xs => fm => xs.flatMap(x => fm(x)),
-  "[a] => (a => [b]) => [b]");
-
-
-/***[ Clonable ]**************************************************************/
-
-
-A.clone = fun(
-  xs => xs.concat(),
-  "[a] => [a]");
-
-
-/***[ Construction ]**********************************************************/
-
-
-A.push = fun(
-  x => xs => (xs.push(x), xs),
-  "a => [a] => [a]");
-
-
-A.unshift = fun(
-  x => xs => (xs.unshift(x), xs),
-  "a => [a] => [a]");
-
-
-/***[ Foldable ]**************************************************************/
-
-
-/* The left associative fold for arrays is implemented as a loop to ensure
-stack safety. */
-
-A.foldl = fun(
-  f => init => xs => {
-    let acc = init;
-
-    for (let i = 0; i < xs.length; i++)
-      acc = f(acc) (xs[i]);
-
-    return acc;
-  },
-  "(b => a => b) => b => [a] => b");
-
-
-/* `A.foldk` is like `A.foldr` but with the ability to short circuit. The fold
-isn't type safe on its own but the continuation can contain a thunk rendering
-the whole computation lazy. `strictRec` can than be used to run through the
-iterations without exhausting the stack. */
-
-lazyProp(A, "foldk", function() {
-  delete this.foldk;
-  
-  return this.foldk = fun(
-    f => init => xs => function go(acc, i) {
-      return i >= xs.length
-        ? acc
-        : f(acc) (xs[i]).run(fun(acc_ => go(acc_, i + 1), "b => b"));
-    } (init, 0),
-    "(b => a => Cont<b, b>) => b => [a] => b");
-});
-
-
-/* Since array is an imperative data type the right associative fold is
-implemented as an eager loop to ensure stack safety. */
-
-A.foldr = fun(
-  f => init => xs => {
-    const stack = [];
-    let acc = init;
-
-    for (let i = 0; i < xs.length; i++)
-      stack.push(f(xs[i]));
-
-    for (let i = stack.length - 1; i >= 0; i--)
-      acc = stack[i] (acc);
-
-    return acc;
-  },
-  "(a => b => b) => b => [a] => b");
-
-
-/***[ Folds ]*****************************************************************/
-
-
-A.cata = A.foldr;
-
-
-/* Due to `Array`'s imperative nature its paramorphism is very inefficient and
-not capable of handling infinite corecursion. It is only supplied for the sake
-of completeness. */
-
-A.para = fun(
-  f => init => xs => {
-    const tail = xs;
-    let acc = init;
-
-    for (let i = xs.length - 1; i >= 0; i--) {
-      acc = f(xs[i]) (tail.slice(xs.length - i)) (acc);
-    }
-
-    return acc;
-  },
-  "(a => [a] => b => b) => b => [a] => b");
-
-
-/***[ Functor ]***************************************************************/
-
-
-lazyProp(A, "Functor", function() {
-  delete this.Functor;
-  
-  return this.Functor = Functor({
-    map: A.map
-  });
-});
-
-
-A.map = fun(
-  f => xs => xs.map(x => f(x)),
-  "(a => b) => [a] => [b]");
-
-
-/***[ Looping ]***************************************************************/
-
-
-A.forEach = fun(
-  f => xs => (xs.forEach((x, i) => xs[i] = f(x)), xs),
-  "(a => b) => [a] => [b]");
-
-
-/***[ Monad ]*****************************************************************/
-
-
-lazyProp(A, "Monad", function() {
-  delete this.Monad;
-  return this.Monad = Monad(A.Applicative, A.Chain) ({});
-});
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(A, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(A.Semigroup) ({
-    empty: A.empty
-  });
-});
-
-
-// [a]
-
-A.empty = [];
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(A, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: A.append
-  });
-});
-
-
-A.append = fun(
-  xs => ys => (xs.push.apply(xs, ys), xs),
-  "[a] => [a] => [a]");
-
-
-/* There is an additional `prepend` operation on the `Array` type, because the
-latter is mutable and thus this operation is frequently needed along with the
-`Mutable` type. */
-
-A.prepend = fun(
-  ys => xs => (xs.push.apply(xs, ys), xs),
-  "[a] => [a] => [a]");
-
-
-/***[ Unfoldable ]************************************************************/
-
-
-/* Due to `Array`'s imperative nature its anamorphism is very inefficient and
-not capable of handling infinite corecursion. It is only supplied for the sake
-of completeness. */
-
-lazyProp(A, "unfoldr", function() {
-  delete this.unfoldr;
-  
-  return this.unfoldr = fun(
-    f => init => {
-      let acc = [],
-        state = init,
-        next;
-
-      do {
-        next = false;
-
-        acc = f(state).run({
-          none: acc,
-          some: fun(
-            ([x, state_]) => {
-              state = state_;
-              next = true;
-              return acc.concat([x]);
-            },
-            "[a, b] => [a]")
-        });
-      } while (next);
-
-      return acc;
-    },
-    "(b => Option<[a, b]>) => b => [a]");
-});
-
-
-/***[ Unfolds ]***************************************************************/
-
-
-lazyProp(A, "ana", function() {
-  delete this.ana;
-  return this.ana = A.unfoldr;
-});
-
-
-/* Due to `Array`'s imperative nature its apomorphism is very inefficient and
-not capable of handling infinite corecursion. It is only supplied for the sake
-of completeness. */
-
-lazyProp(A, "apo", function() {
-  delete this.apo;
-
-  return this.apo = fun(
-    f => init => {
-      let acc = [],
-        state = init,
-        next;
-
-      do {
-        next = false;
-
-        acc = f(state).run({
-          none: acc,
-          some: fun(
-            ([x, tx]) =>
-              tx.run({
-                left: fun(
-                  xs => acc.concat(xs),
-                  "[a] => [a]"),
-
-                right: fun(
-                  state_ => {
-                    state = state_;
-                    next = true;
-                    return acc.concat([x]);
-                  },
-                  "b => [a]")
-              }),
-            "[a, Either<[a], b>] => [a]")
-        });
-      } while (next);
-
-      return acc;
-    },
-    "(b => Option<[a, Either<[a], b>]>) => b => [a]");
-});
-
-
-/******************************************************************************
-**********************************[ BOOLEAN ]**********************************
-******************************************************************************/
-
-
-export const Bool = {}; // namespace
-
-
-/***[ Bounded ]***************************************************************/
-
-
-lazyProp(Bool, "Bounded", function() {
-  delete this.Bounded;
-  
-  return this.Bounded = Bounded({
-    min: Bool.minBound,
-    max: Bool.maxBound
-  });
-});
-
-
-Bool.minBound = false;
-
-
-Bool.maxBound = true;
-
-
-/***[ Equality ]**************************************************************/
-
-
-Bool.eq = fun(
-  x => y => x === y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.neq = fun(
-  x => y => x !== y,
-  "Boolean => Boolean => Boolean");
-
-
-/***[ Logical Operators ]*****************************************************/
-
-
-Bool.and = fun(
-  x => y => x && y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.imply = fun(
-  x => y => !x || y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.not = fun(
-  x => !x,
-  "Boolean => Boolean");
-
-
-Bool.or = fun(
-  x => y => x || y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.xor = fun(
-  x => y => x !== y,
-  "Boolean => Boolean => Boolean");
-
-
-/***[ Relational Operators ]**************************************************/
-
-
-Bool.gt = fun(
-  x => y => x > y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.gte = fun(
-  x => y => x >= y,
-  "Boolean => Boolean => Boolean");
-
-
-Bool.lt = fun(
-  x => y => x < y,
-  "Boolean => Boolean => Boolean");
-
-
-
-Bool.lte = fun(
-  x => y => x <= y,
-  "Boolean => Boolean => Boolean");
-
-
-/******************************************************************************
-******************************[ BOOLEAN :: ALL ]*******************************
-******************************************************************************/
-
-
-// constructor + namespace
-
-export const All = type1("Boolean => All");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(All, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid({
-    empty: All.empty
-  });
-});
-
-
-All.empty = true;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(All, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: All.append
-  });
-});
-
-
-All.append = fun(
-  tx => ty => All(tx.run && ty.run),
-  "All => All => All");
-
-
-/******************************************************************************
-******************************[ BOOLEAN :: ANY ]*******************************
-******************************************************************************/
-
-
-// constructor + namespace
-
-export const Any = type1("Boolean => Any");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Any, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid({
-    empty: Any.empty
-  });
-});
-
-
-Any.empty = false;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Any, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: Any.append
-  });
-});
-
-
-Any.append = fun(
-  tx => ty => Any(tx.run || ty.run),
-  "Any => Any => Any");
-
-
-/******************************************************************************
-********************************[ COMPARATOR ]*********************************
-******************************************************************************/
-
-
-/* `Comparator` is compatible with Javascript's sorting protocoll. */
-
-
-// type constructor + namespace
-
-export const Comparator = type(
-  "(^r. {lt: r, eq: r, gt: r} => r) => Comparator");
-
-
-// value constructors
-
-Comparator.LT = Object.assign(Comparator(({lt}) => lt), {valueOf: () => -1});
-
-
-Comparator.EQ = Object.assign(Comparator(({eq}) => eq), {valueOf: () => 0});
-
-
-Comparator.GT = Object.assign(Comparator(({gt}) => gt), {valueOf: () => 1});
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Comparator, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Comparator.Semigroup) ({
-    empty: Comparator.empty
-  });
-});
-
-
-// Comparator
-
-Comparator.empty = Comparator.EQ;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Comparator, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: Comparator.append
-  });
-});
-
-
-Comparator.append = fun(
-  tx => ty =>
-    tx.run({
-      lt: tx,
-      eq: ty,
-      gt: tx
-    }),
-  "Comparator => Comparator => Comparator");
-
-
-/******************************************************************************
-***********************************[ CONT ]************************************
-******************************************************************************/
-
-
-/* `Cont` is the pure version of `Serial`, i.e. there is no micro task deferring.
-It facilitates continuation passing style and can be used with both synchronous
-and asynchronous computations. Please be aware that `Cont` is not stack-safe for
-large nested function call trees. */
-
-export const Cont = type1("((a => r) => r) => Cont<r, a>");
-
-
-export const liftk2 = fun(
-  f => x => y => Cont(fun(
-    k => k(f(x) (y)),
-    "(c => r) => r")),
-  "(a => b => c) => a => b => Cont<r, c>");
-
-
-/******************************************************************************
-*********************************[ COYONEDA ]**********************************
-******************************************************************************/
-
-
-/*const Coyoneda_ = type1("(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
-
-
-export const Coyoneda = fun(f => tx => Coyoneda_(fun(
-  k => k(f) (tx),
-  "((b => a) => f<b> => r) => r")),
-  "(b => a) => f<b> => Coyoneda<f, a>");
-
-
-Coyoneda.lift = Coyoneda(id);
-
-
-Coyoneda.lower = fun(
-  ({map}) => tx => tx.run(fun(
-    f => ty => map(f) (ty),
-    "(b => a) => f<b> => f<a>")),
-  "Functor<f> => Coyoneda<f, a> => f<b>");*/
-
-
-/******************************************************************************
-**********************************[ EITHER ]***********************************
-******************************************************************************/
-
-
-export const Either = type(
-  "(^r. {left: (a => r), right: (b => r)} => r) => Either<a, b>");
-
-
-Either.Left = fun(
-  x => Either(({left, right}) => left(x)),
-  "a => Either<a, b>");
-
-
-Either.Right = fun(
-  x => Either(({left, right}) => right(x)),
-  "b => Either<a, b>");
-
-
-/******************************************************************************
-***********************************[ LIST ]************************************
-******************************************************************************/
-
-
-export const List = type(
-  "(^r. {nil: r, cons: (a => List<a> => r)} => r) => List<a>");
-
-
-List.Cons = fun(
-  x => xs => List(({cons}) => cons(x) (xs)),
-  "a => List<a> => List<a>");
-
-
-List.Nil = List(({nil}) => nil);
-
-
-/***[ Foldable ]**************************************************************/
-
-
-lazyProp(List, "Foldable", function() {
-  delete this.Foldable;
-  
-  return this.Foldable = Foldable({
-    foldl: List.foldl,
-    foldr: List.foldr
-  });
-});
-
-
-List.foldl = fun(
-  f => function go(acc) {
-    return xs => xs.run({
-      nil: acc,
-      cons: fun(
-        x => ys => go(f(acc) (x)) (ys),
-        "a => List<a> => b")
-    });
-  },
-  "(b => a => b) => b => List<a> => b");
-
-
-List.foldMap = fun(
-  Monoid => foldMap(List.Foldable, Monoid),
-  "Monoid<m> => (a => m) => List<a> => m");
-
-
-List.foldMap_ = fun(
-  Monoid => foldMap_(List.Foldable, Monoid),
-  "Monoid<m> => (a => m) => List<a> => m");
-
-
-List.foldr = fun(
-  f => acc => function go(xs) {
-    return xs.run({
-      nil: acc,
-      cons: fun(
-        x => ys => f(x) (thunk(() => go(ys), "() => b")),
-        "a => List<a> => b")
-    });
-  },
-  "(a => b => b) => b => List<a> => b");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(List, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(List.Semigroup) ({
-    empty: List.empty
-  });
-});
-
-
-List.empty = List.Nil;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(List, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: List.append
-  });
-});
-
-
-List.append = fun(
-  xs => ys => function go(acc) {
-    return acc.run({
-      nil: ys,
-      cons: fun(
-        x => zs => List.Cons(x)
-          (thunk(() => go(zs), "() => List<a>")),
-        "a => List<a> => List<a>")
-    });
-  } (xs),
-  "List<a> => List<a> => List<a>");
-
-
-/******************************************************************************
-*******************************[ LIST :: DLIST ]*******************************
-******************************************************************************/
-
-
-// like a regular list but with efficient concat/snoc operations
-
-export const DList = type1(
-  "(List<a> => List<a>) => DList<a>");
-
-
-DList.run = fun(
-  f => f.run,
-  "DList<a> => List<a> => List<a>");
-
-
-/***[ Construction ]**********************************************************/
-
-
-// a => DList<a> => DList<a>
-
-DList.cons = x => xs =>
-  DList(comp(List.Cons(x)) (DList.run(xs)));
-
-
-// a => DList<a> => DList<a>
-
-DList.snoc = x => xs =>
-  DList(comp(DList.run(xs)) (List.Cons(x)));
-
-
-// a => DList<a>
-
-DList.singleton = comp(DList) (List.Cons);
-
-
-/***[ Conversion ]************************************************************/
-
-
-// List<a> => DList<a>
-
-DList.fromList = comp(DList) (List.append);
-
-
-// DList<a> => List<a>
-
-DList.toList = comp(app_(List.Nil)) (DList.run);
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(DList, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(DList.Semigroup) ({
-    empty: DList.empty
-  });
-});
-
-
-DList.empty = DList(id);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(DList, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: DList.append
-  });
-});
-
-
-DList.append = fun(
-  xs => ys => DList(comp(xs.run) (ys.run)),
-  "DList<a> => DList<a> => DList<a>");
-
-
-/******************************************************************************
-**********************************[ NUMBER ]***********************************
-******************************************************************************/
-
-
-export const Num = {}; // namespace
-
-
-/***[ Arithmetic Operators ]**************************************************/
-
-
-export const add = fun(
-  x => y => x + y,
-  "Number => Number => Number");
-
-
-export const div = fun(
-  x => y => x / y,
-  "Number => Number => Number");
-
-
-export const exp = fun(
-  exp => base => base ** exp,
-  "Number => Number => Number");
-
-
-export const dec = fun(
-  x => x - 1,
-  "Number => Number");
-
-
-export const inc = fun(
-  x => x + 1,
-  "Number => Number");
-
-
-export const mod = fun(
-  x => y => x % y,
-  "Number => Number => Number");
-
-
-export const mul = fun(
-  x => y => x * y,
-  "Number => Number => Number");
-
-
-export const neg = fun(
-  x => -x,
-  "Number => Number");
-
-
-export const sub = fun(
-  x => y => x - y,
-  "Number => Number => Number");
-
-
-/***[ Bitwise Operators ]*****************************************************/
-
-
-export const bitAnd = fun(
-  x => y => x & y,
-  "Number => Number => Number");
-
-
-export const bitNot = fun(
-  x => ~x,
-  "Number => Number");
-
-
-export const bitOr = fun(
-  x => y => x | y,
-  "Number => Number => Number");
-
-
-export const bitXor = fun(
-  x => y => x ^ y,
-  "Number => Number => Number");
-
-
-/******************************************************************************
-******************************[ NUMBER :: PROD ]*******************************
-******************************************************************************/
-
-
-// constructor + namespace
-
-export const Prod = type1("Number => Prod");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Prod, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Prod.Semigroup) ({
-    empty: Prod.empty
-  });
-});
-
-
-Prod.empty = Prod(1);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Prod, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: Prod.append
-  });
-});
-
-
-Prod.append = fun(
-  tx => ty => Prod(tx.run * ty.run),
-  "Prod => Prod => Prod");
-
-
-/******************************************************************************
-*******************************[ NUMBER :: SUM ]*******************************
-******************************************************************************/
-
-
-// constructor + namespace
-
-export const Sum = type1("Number => Sum");
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Sum, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = Monoid(Sum.Semigroup) ({
-    empty: Sum.empty
-  });
-});
-
-
-Sum.empty = Sum(0);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Sum, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = Semigroup({
-    append: Sum.append
-  });
-});
-
-
-Sum.append = fun(
-  tx => ty => Sum(tx.run + ty.run),
-  "Sum => Sum => Sum");
-
-
-/******************************************************************************
-**********************************[ OBJECT ]***********************************
-******************************************************************************/
-
-
-/* Implicitly provides an empty object along with a reference on it to enable
-local mutations on it. `this` itself is untyped but ensures that the passed
-lambda is. */
-
-export const thisify = f => {
-  if (CHECK && !(ANNO in f))
-    throw new TypeError(cat(
-      "typed lambda expected\n",
-      `but "${f.toString()}" received\n`));
-
-  else return f({});
-};
-
-
-/******************************************************************************
-**********************************[ OPTION ]***********************************
-******************************************************************************/
-
-
-// type of expressions that may not yield a result
-
-export const Option = type("(^r. {none: r, some: (a => r)} => r) => Option<a>");
-
-
-Option.Some = fun(
-  x => Option(({some}) => some(x)),
-  "a => Option<a>");
-
-
-// Option<a>
-
-Option.None = Option(({none}) => none);
-
-
-/***[ Monoid ]****************************************************************/
-
-
-lazyProp(Option, "Monoid", function() {
-  delete this.Monoid;
-  
-  return this.Monoid = fun(
-    Semigroup => Monoid(Option.Semigroup(Semigroup)) ({
-      empty: Option.empty
-    }),
-    "Semigroup<a> => Monoid<Option<a>>");
-});
-
-
-// Option<a>
-
-Option.empty = Option.None;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-lazyProp(Option, "Semigroup", function() {
-  delete this.Semigroup;
-  
-  return this.Semigroup = fun(
-    Semigroup_ => Semigroup({
-      append: Option.append(Semigroup_)
-    }),
-    "Semigroup<a> => Semigroup<Option<a>>");
-});
-
-
-Option.append = fun(
-  ({append}) => tx => ty =>
-    tx.run({
-      none: ty,
-      some: fun(
-        x => ty.run({
-          none: tx,
-          some: fun(
-            y => Option.Some(append(x) (y)),
-            "a => Option<a>")
-        }),
-        "a => Option<a>")
-    }),
-    "Semigroup<a> => Option<a> => Option<a> => Option<a>");
-
-
-/******************************************************************************
-*********************************[ PARALLEL ]**********************************
-******************************************************************************/
-
-
-/* Like `Serial` but is executed in parallel. Please note that `Parallel`
-doesn't implement monad, because they require order. */
-
-export const Parallel = type1("((a => r) => r) => Parallel<r, a>");
-
-
-/******************************************************************************
-**********************************[ SERIAL ]***********************************
-******************************************************************************/
-
-
-/* `Serial` provides stack-safe asynchronous computations, which are executed
-serially. It creates a lazy CPS composition that itself is either executed
-synchronuously within the same micro task or asynchronously in a subsequent one.
-The actual behavior depends on a PRNG and cannot be determined upfront. You can
-pass both synchronous and asynchronous functions to the CPS composition. */
-
-export const Serial = type1("((a => r) => r) => Serial<r, a>");
-
-
-/******************************************************************************
-********************************[ TRANSDUCER ]*********************************
-******************************************************************************/
-
-
-/* In order to simplify composing transducers and for performance reasons the
-raw type is used rather than the `Transducer<a, b>` wrapper. Each transducer is
-implemented in two variants: A normal one and one with short circuit semantics
-using local continuations. While the former is more efficient for computations
-that run to completion, the latter is more efficient in connection with early
-breaks. */
-
-
-export const filter = fun(
-  p => cons => x =>
-    p(x) ? cons(x) : id,
-  "(a => Boolean) => (a => r => r) => a => r => r");
-
-
-export const filterk = fun(
-  p => cons => acc => x => Cont(fun(
-    k => p(x) ? cons(acc) (x).run(k) : k(acc),
-    "(a => r) => r")),
-  "(a => Boolean) => (r => a => Cont<r, r>) => r => a => Cont<r, r>");
-
-
-export const map = fun(
-  f => cons => x => cons(f(x)),
-  "(a => b) => (b => r => r) => a => r => r");
-
-
-export const mapk = fun(
-  f => cons => acc => x => Cont(fun(
-    k => cons(acc) (f(x)).run(k),
-    "(b => r) => r")),
-  "(a => b) => (r => b => Cont<r, r>) => r => a => Cont<r, r>");
-
-
-export const take = fun(
-  n => cons => function (m) {
-    return fun(
-      x => n <= m ? id : (m++, cons(x)),
-      "a => r");
-  } (0),
-  "Number => (a => r => r) => a => r => r");
-
-
-export const takek = fun(
-  n => cons => function (m) {
-    return acc => x => Cont(fun(
-      k => n <= m ? acc : (m++, cons(acc) (x).run(k)),
-      "(a => r) => r"));
-  } (0),
-  "Number => (r => a => Cont<r, r>) => r => a => Cont<r, r>");
-
-
-/******************************************************************************
-**********************************[ VECTOR ]***********************************
-******************************************************************************/
-
-
-// internal constructor
-
-const Vector_ = (data, length, offset) => ({
-  [TAG]: "Vector",
-  data,
-  length,
-  offset
-})
-
-
-// public constructor and namespace
-
-export const Vector = Vector_(Leaf, 0, 0);
-
-
-/***[ Accessors ]*************************************************************/
-
-
-Vector.get = fun(
-  i => v =>
-    get(v.data, i + v.offset, Vector.compare),
-  "Number => Vector<a> => a");
-
-
-/***[ Construction ]**********************************************************/
-
-
-// consing at the beginning of a `Vector`
-
-Vector.cons = fun(
-  x => v => {
-    const offset = v.length === 0 ? 0 : v.offset - 1,
-      data = set(v.data, offset, x, Vector.compare);
-
-    return Vector_(data, v.length + 1, offset);
-  },
-  "a => Vector<a> => Vector<a>");
-
-
-// consing at the end of a `Vector`
-
-Vector.snoc = fun(
-  x => v => {
-    const data = set(v.data, v.length + v.offset, x, Vector.compare);
-    return Vector_(data, v.length + 1, v.offset);
-  },
-  "a => Vector<a> => Vector<a>");
-
-
-/***[ Order ]*****************************************************************/
-
-
-Vector.compare = fun(
-  (m, n) => m < n ? LT : m === n ? EQ : GT,
-  "Number, Number => Number");
-
-
-/***[ Searching ]*************************************************************/
-
-
-Vector.elem = fun(
-  i => v =>
-    has(v.data, i + v.offset, Vector.compare),
-  "Number => Vector<a> => Boolean");
-
-
-/******************************************************************************
-**********************************[ YONEDA ]***********************************
-******************************************************************************/
-
-
-export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
-
-
-/***[ De-/Construction ]******************************************************/
-
-
-Yoneda.lift = fun(
-  ({map}) => tx => Yoneda(fun(
-    f => map(f) (tx),
-    "(a => b) => f<b>")),
-  "Functor<f> => f<a> => Yoneda<f, a>");
-
-
-Yoneda.lower = fun(
-  tx => tx.run(id),
-  "Yoneda<f, a> => f<a>");
-
-
-/***[ Functor ]***************************************************************/
-
-
-lazyProp(Yoneda, "Functor", function() {
-  delete this.Functor;
-  
-  return this.Functor = Functor({
-    map: Yoneda.map
-  });
-});
-
-
-Yoneda.map = fun(
-  f => tx => Yoneda(fun(
-    g => tx.run(comp(g) (f)),
-    "(a => b) => f<b>")),
-  "(a => b) => Yoneda<f, a> => Yoneda<f, b>");
-
-
-/******************************************************************************
-*********************************[ DEPENDENT ]*********************************
-******************************************************************************/
-
-
-Enum = Enum(Option);
-export {Enum};
-
-
-Filterable = Filterable(Option, Either);
-export {Filterable};
