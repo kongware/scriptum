@@ -23,12 +23,14 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 safe in-place updates for it by avoiding sharing. */
 
 
-import {_let, thunk} from "./scriptum/index.js";
+import {thunk} from "./lazyness.js";
+import {_let} from "./library.js";
+import {CHECK, introspectDeep, fun, TAG} from "./validator.js";
 
 
 export const Mutable = fun(
   clone => ref => {
-    const anno = CHECK ? introspectDeep({charCode: letterA}) (ref) : "";
+    const anno = CHECK ? introspectDeep({charCode: 97}) (ref) : "";
 
     return _let({}, ref).in(fun((o, ref) => {
       let mutated = false;
