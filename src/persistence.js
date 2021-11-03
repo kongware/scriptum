@@ -19,6 +19,12 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 ******************************************************************************/
 
 
+/* Persistent data structures are based on an untyped left-leaning red/black
+tree in scriptum. While the implementation is not typed, derived persistent
+data structure usually are which in turn offers just enough type safety. This
+design decision might change in the future. */
+
+
 /***[ Constants ]*************************************************************/
 
 
