@@ -20,7 +20,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 
 /* `Mutable` is an imperative data type that takes a mutable type and provides
-safe in-place updates for it by avoiding sharing. */
+an API for safe in-place updates by avoiding sharing the effect. */
 
 
 import {thunk} from "./lazyness.js";
