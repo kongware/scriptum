@@ -26,33 +26,37 @@ safe in-place updates for it by avoiding sharing. */
 import {_let, thunk} from "./scriptum/index.js";
 
 
-export const Mutable = clone => ref => {
-  return _let({}, ref).in((o, ref) => {
-    let mutated = false;
+export const Mutable = fun(
+  clone => ref => {
+    const anno = CHECK ? introspectDeep({charCode: letterA}) (ref) : "";
 
-    o.consume = thunk(() => {
-      if (mutated) {
-        delete o.update;
+    return _let({}, ref).in(fun((o, ref) => {
+      let mutated = false;
 
-        o.update = _ => {
-          throw new TypeError(
-            "illegal in-place update of consumed data structure");
-        };
-      }
+      o.consume = thunk(() => {
+        if (mutated) {
+          delete o.update;
 
-      return ref;
-    });
+          o.update = _ => {
+            throw new TypeError(
+              "illegal in-place update of consumed data structure");
+          };
+        }
 
-    o.update = k => {
-      if (!mutated) {
-        ref = clone(ref); // copy once on first write
-        mutated = true;
-      }
+        return ref;
+      }, `() => ${anno}`);
 
-      k(ref); // use the effect but discard the result
-      return o;
-    };
+      o.update = fun(k => {
+        if (!mutated) {
+          ref = clone(ref); // copy once on first write
+          mutated = true;
+        }
 
-    return (o[TAG] = "Mutable", o);
-  });
-};
+        k(ref); // use the effect but discard the result
+        return o;
+      }, `(${anno} => ${anno}) => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`);
+
+      return (o[TAG] = "Mutable", o);
+    }, `{}, ${anno} => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`));
+  },
+  "(t<a> => t<a>) => t<a> => Mutable {consume: t<a>, update: ((t<a> => t<a>) => this*)}");
