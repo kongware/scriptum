@@ -5,7 +5,7 @@
   "license": "MIT",
   "description": "Extended Hindley-Milner type validator for JS and a functional library based on it",
   "type": "module",
-  "main": "src/index.js",
+  "main": "src/library.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/kongware/scriptum.git"
