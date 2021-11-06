@@ -23,9 +23,15 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 an API for safe in-place updates by avoiding sharing the effect. */
 
 
+/***[ Dependencies ]**********************************************************/
+
+
 import {thunk} from "./lazyness.js";
 import {_let} from "./library.js";
 import {CHECK, introspectDeep, fun, TAG} from "./validator.js";
+
+
+/***[ Type ]******************************************************************/
 
 
 export const Mutable = fun(
