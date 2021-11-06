@@ -52,6 +52,16 @@ export const strict = x =>
   x && x[THUNK] ? x[EVAL] : x;
 
 
+// iteratively evaluates arbitrarily deeply nested thunks
+
+export const strictRec = x => {
+  while (x && x[THUNK] === true)
+    x = x[EVAL];
+
+  return x;
+};
+
+
 // creates an annotated thunk
 
 export const thunk = (thunk, anno) => {
