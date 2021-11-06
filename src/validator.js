@@ -2301,7 +2301,7 @@ const verifyAnno = s => {
 
   // check for valid use of .
 
-  else if (s.replace(new RegExp("[a-zA-Z0-9]\\. ", "g"), "").search(/\./) !== NOT_FOUND)
+  else if (s.replace(new RegExp("[a-zA-Z0-9]\\. |\\.\\.\\[", "g"), "").search(/\./) !== NOT_FOUND)
     throw new TypeError(cat(
       "malformed type annotation\n",
       `invalid use of "."\n`,
