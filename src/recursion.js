@@ -28,8 +28,12 @@ and therefor don't require an external trampoline. */
 they ensure that the provided function is a typed one. */
 
 
+/******************************************************************************
+*******************************[ DEPENDENCIES ]********************************
+******************************************************************************/
 
-import {cat, _throw} from "./library.js";
+
+import {cat, _throw} from "./validator.js";
 
 
 /******************************************************************************
