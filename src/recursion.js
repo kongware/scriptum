@@ -33,7 +33,7 @@ they ensure that the provided function is a typed one. */
 ******************************************************************************/
 
 
-import {cat, _throw} from "./validator.js";
+import {cat, _throw} from "./library.js";
 
 
 /******************************************************************************
