@@ -25,22 +25,11 @@ and therefor don't require an external trampoline. */
 
 
 /* While trampolines themselves are not typed to provide additional flexibility
-they impose that the provided function is a typed one. */
+they ensure that the provided function is a typed one. */
 
 
-/******************************************************************************
-*****************************[ STRICT RECURSION ]******************************
-******************************************************************************/
 
-
-// iteratively evaluates arbitrarily deeply nested thunks
-
-export const strictRec = x => {
-  while (x && x[THUNK] === true)
-    x = x[EVAL];
-
-  return x;
-};
+import {cat, _throw} from "./validator.js";
 
 
 /******************************************************************************
