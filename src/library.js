@@ -45,6 +45,47 @@ export const Functor = typeClass(`(^a, b. {
 }) => Functor<f>`);
 
 
+/***[ Functor :: Apply ]******************************************************/
+
+
+export const Apply = typeClass(`Functor<f> => (^a, b. {
+  ap: (f<(a => b)> => f<a> => f<b>)
+}) => Apply<f>`);
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+export const Applicative = typeClass(`Apply<f> => (^a. {
+  of: (a => f<a>)
+}) => Applicative<f>`);
+
+
+/******************************************************************************
+*******************************************************************************
+***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
+*******************************************************************************
+******************************************************************************/
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+export const apFst = fun(
+  ({map, ap}) => tx => ty => ap(map(_const) (tx)) (ty),
+  "Apply<f> => f<a> => f<b> => f<a>");
+
+
+export const apSnd = fun(
+  ({map, ap}) => tx => ty => ap(mapEff(map) (id) (tx)) (ty),
+  "Apply<f> => f<a> => f<b> => f<b>");
+
+
+export const lift2 = fun(
+  ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty),
+  "Apply<f> => (a => b => c) => f<a> => f<b> => f<c>");
+
+
 /******************************************************************************
 *******************************************************************************
 ***********************************[ TYPES ]***********************************
@@ -55,6 +96,17 @@ export const Functor = typeClass(`(^a, b. {
 /******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
+
+
+/***[ Category ]**************************************************************/
+
+
+export const comp = fun(
+  f => g => x => f(g(x)),
+  "(b => c) => (a => b) => a => c");
+
+
+export const id = fun(x => x, "a => a");
 
 
 /***[ Impure ]****************************************************************/
@@ -89,6 +141,11 @@ export const _let = (...args) => {
 export const cat = fun(
   (...lines) => lines.join(""),
   "..[String] => String");
+
+
+export const _const = fun(
+  x => y => x,
+  "a => discard => a");
 
 
 /******************************************************************************
@@ -141,10 +198,15 @@ export const Mutable = fun(
 ******************************************************************************/
 
 
+/* Enables dynamic loop fusion based on a functor that is known right from the
+start, i.e. before you lift its type into `Yoneda`. Loop fusion is accomplished
+by function composition. */
+
+
 export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
 
 
-/***[ De-/Construction ]******************************************************/
+/***[ Con-/Destruction ]******************************************************/
 
 
 Yoneda.lift = fun(
@@ -162,11 +224,30 @@ Yoneda.lower = fun(
 /***[ Functor ]***************************************************************/
 
 
-Yoneda.map = fun(
+Yoneda.map = fun( // TODO: test
   f => tx => Yoneda(fun(
-    g => tx.run(comp(g) (f)),
+    g => tx.run(fun(
+      x => g(f(x)),
+      "a => b")),
     "(a => b) => f<b>")),
   "(a => b) => Yoneda<f, a> => Yoneda<f, b>");
 
 
 Yoneda.Functor = Functor({map: Yoneda.map});
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+Yoneda.ap = fun( // TODO: test
+  tf => th => Yoneda(fun(
+    g => tf.run(fun(
+      f => th.run(fun(
+        h => lift(id) (f(comp(g))) (h(id)),
+        "a => b")),
+      "(a => b) => f<b>")),
+    "f<(a => b)> => f<b>")),
+  "Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
+
+
+Yoneda.Apply = Apply(Yoneda.Functor) ({ap: Yoneda.ap});
