@@ -15,7 +15,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 
 `_let`
 
-Declares a local binding by taking an (expensive) expression and a single argument function and feeds the expression result to the latter. This is especially helpful if you need the result more than once:
+Declares a local binding by taking one or several (expensive) expressions and a multi argument function and feeds the expression results to the latter. This is especially helpful, if you need the result in the following computation more than once but don't want to leak the intermediate values into the global scope:
 
 ```javascript
 _let(3 * 3)
