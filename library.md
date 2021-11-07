@@ -19,5 +19,7 @@ Declares a local binding by taking one or several (expensive) expressions and a 
 
 ```javascript
 _let(3 * 3)
-  .in(fun(n => n + n, "Number => Number")); // 18
+  .in(fun(
+    n => n + n,
+    "Number => Number")); // 18
 ```
