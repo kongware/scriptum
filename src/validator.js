@@ -54,13 +54,13 @@ const SAFE_SPACE = "·"; // use within type indentations
 
 // JS related
 
-const TAG = Symbol.toStringTag;
+export const TAG = Symbol.toStringTag;
 
-const LT = -1;
-const EQ = 0;
-const GT = 1;
+export const LT = -1;
+export const EQ = 0;
+export const GT = 1;
 
-const NOT_FOUND = -1;
+export const NOT_FOUND = -1;
 
 const letterA = 97;
 
