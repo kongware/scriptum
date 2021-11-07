@@ -12,7 +12,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 ```
 
 
-*`_let`*
+`_let`
 
 Declares a local binding by taking an (expensive) expression and a single argument function and feeds the expression result to the latter. This is especially helpful if you need the result more than once:
 
