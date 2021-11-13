@@ -1,6 +1,6 @@
 {
   "name": "scriptum",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": "Iven Marquardt",
   "license": "MIT",
   "description": "Extended Hindley-Milner type validator for JS and a functional library based on it",
