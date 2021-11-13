@@ -31,13 +31,10 @@ wrapped expressions. scriptum considers this by supplying an adapted equality
 operator function. */
 
 
-/***[ Dependencies ]**********************************************************/
-
-
-import {PREFIX} from "./validator.js";
-
-
 /***[ Constants ]*************************************************************/
+
+
+const PREFIX = "$_";
 
 
 const EVAL = PREFIX + "eval";
