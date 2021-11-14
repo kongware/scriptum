@@ -30,6 +30,21 @@ import {
   TAG, type, type1, typeClass} from "./validator.js";
 
 
+/* In order to render asynchronous computations stack safe the stack must be
+reset periodically. In Javascript this is possible by awaiting the next micro
+task using the `Promise.resolve` method. Deferring the computation to the next
+micro task is by design a rather slow operation, hence it should only be
+carried out when a certain treshold is exceeded. */
+
+const MICROTASK_TRESHOLD = 0.01;
+
+
+export const LT = -1;
+export const EQ = 0;
+export const GT = 1;
+
+
+
 /******************************************************************************
 *******************************************************************************
 *******************************[ TYPE CLASSES ]********************************
@@ -112,9 +127,9 @@ export const id = fun(x => x, "a => a");
 /***[ Impure ]****************************************************************/
 
 
-export const _throw = e => {
-  throw e;
-};
+export const _throw = fun(
+  e => {throw e},
+  "e => exception");
 
 
 /***[ Local Bindings ]********************************************************/
@@ -194,6 +209,49 @@ export const Mutable = fun(
 
 
 /******************************************************************************
+***********************************[ ARRAY ]***********************************
+******************************************************************************/
+
+
+/* scriptum treats `Array` as a mutable data type, because it is designed as
+such. You should only use it if you want to perform a lot of element lookups
+and don't need to alter a once created array. */
+
+
+export const A = {}; // namespace
+
+
+/***[ Functor ]***************************************************************/
+
+
+A.map = fun(
+  f => xs => xs.map(x => f(x)),
+  "(a => b) => [a] => [b]");
+
+
+A.Functor = Functor({map: A.map});
+
+
+/******************************************************************************
+**********************************[ EITHER ]***********************************
+******************************************************************************/
+
+
+export const Either = type(
+  "(^r. {left: (a => r), right: (b => r)} => r) => Either<a, b>");
+
+
+Either.Left = fun(
+  x => Either(({left, right}) => left(x)),
+  "a => Either<a, b>");
+
+
+Either.Right = fun(
+  x => Either(({left, right}) => right(x)),
+  "b => Either<a, b>");
+
+
+/******************************************************************************
 **********************************[ YONEDA ]***********************************
 ******************************************************************************/
 
@@ -224,12 +282,10 @@ Yoneda.lower = fun(
 /***[ Functor ]***************************************************************/
 
 
-Yoneda.map = fun( // TODO: test
-  f => tx => Yoneda(fun(
-    g => tx.run(fun(
-      x => g(f(x)),
-      "a => b")),
-    "(a => b) => f<b>")),
+Yoneda.map = fun(
+  f => tx => Yoneda(
+    g => tx.run(
+      fun(x => g(f(x)), "a => b"))),
   "(a => b) => Yoneda<f, a> => Yoneda<f, b>");
 
 
@@ -239,14 +295,13 @@ Yoneda.Functor = Functor({map: Yoneda.map});
 /***[ Functor :: Apply ]******************************************************/
 
 
-Yoneda.ap = fun( // TODO: test
-  tf => th => Yoneda(fun(
+Yoneda.ap = fun(
+  tf => th => Yoneda(
     g => tf.run(fun(
       f => th.run(fun(
         h => lift(id) (f(comp(g))) (h(id)),
         "a => b")),
-      "(a => b) => f<b>")),
-    "f<(a => b)> => f<b>")),
+      "(a => b) => f<b>"))),
   "Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
 
 
