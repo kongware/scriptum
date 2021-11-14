@@ -44,7 +44,6 @@ export const EQ = 0;
 export const GT = 1;
 
 
-
 /******************************************************************************
 *******************************************************************************
 *******************************[ TYPE CLASSES ]********************************
@@ -132,24 +131,6 @@ export const _throw = fun(
   "e => exception");
 
 
-/***[ Local Bindings ]********************************************************/
-
-
-/* `_let` itself is not typed, because it expectes a heterogeneous list of
-arguments. It ensures that the passed function is typed though. */
-
-export const _let = (...args) => {
-  return {in: f => {
-    if (CHECK && !(ANNO in f))
-      throw new TypeError(cat(
-        "typed lambda expected\n",
-        `but "${f.toString()}" received\n`));
-
-    else return f(...args);
-  }};
-};
-
-
 /***[ Misc. ]*****************************************************************/
 
 
@@ -161,6 +142,22 @@ export const cat = fun(
 export const _const = fun(
   x => y => x,
   "a => discard => a");
+
+
+/* Supply local bindings. Combinator itself is not typed, because it allows a
+heterogeneous list of arguments. It ensures that the passed function is typed
+though. */
+
+export const _let = (...args) => {
+  return {in: f => {
+    if (CHECK && !(ANNO in f))
+      throw new TypeError(cat(
+        "typed lambda expected\n",
+        `but "${f.toString()}" received\n`));
+
+    else return f(...args);
+  }};
+};
 
 
 /******************************************************************************
@@ -233,6 +230,28 @@ A.Functor = Functor({map: A.map});
 
 
 /******************************************************************************
+*********************************[ COYONEDA ]**********************************
+******************************************************************************/
+
+
+const Coyoneda_ = type1(
+  "(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
+
+
+export const Coyoneda = fun(f => tx => Coyoneda_(
+  k => k(f) (tx)),
+  "(b => a) => f<b> => Coyoneda<f, a>");
+
+
+/***[ Con-/Destruction ]******************************************************/
+
+
+// f<a> => Coyoneda<f, a>
+
+Coyoneda.lift = Coyoneda(id);
+
+
+/******************************************************************************
 **********************************[ EITHER ]***********************************
 ******************************************************************************/
 
@@ -268,9 +287,8 @@ export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
 
 
 Yoneda.lift = fun(
-  ({map}) => tx => Yoneda(fun(
-    f => map(f) (tx),
-    "(a => b) => f<b>")),
+  ({map}) => tx => Yoneda(
+    f => map(f) (tx)),
   "Functor<f> => f<a> => Yoneda<f, a>");
 
 
@@ -281,6 +299,10 @@ Yoneda.lower = fun(
 
 /***[ Functor ]***************************************************************/
 
+/*
+instance Functor (Yoneda f) where
+  fmap f m = Yoneda (\k -> runYoneda m (k . f))
+*/
 
 Yoneda.map = fun(
   f => tx => Yoneda(
@@ -296,13 +318,26 @@ Yoneda.Functor = Functor({map: Yoneda.map});
 
 
 Yoneda.ap = fun(
-  tf => th => Yoneda(
+  ({ap}) => tf => th => Yoneda(
     g => tf.run(fun(
       f => th.run(fun(
-        h => lift(id) (f(comp(g))) (h(id)),
+        h => ap(f(comp(g))) (h(id)),
         "a => b")),
       "(a => b) => f<b>"))),
-  "Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
+  "Applicative<f> => Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
 
 
-Yoneda.Apply = Apply(Yoneda.Functor) ({ap: Yoneda.ap});
+Yoneda.Apply = apply =>
+  Apply(Yoneda.Functor) ({ap: Yoneda.ap(apply)});
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Yoneda.of = fun(
+  ({of}) => x => Yoneda(f => of(f(x))),
+  "Applicative<f> => a => Yoneda<f, a>");
+
+
+Yoneda.Applicative = applicative =>
+  Applicative(Yoneda.Apply) ({of: Yoneda.of(applicative)});
