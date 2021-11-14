@@ -234,12 +234,12 @@ A.Functor = Functor({map: A.map});
 ******************************************************************************/
 
 
-const Coyoneda_ = type1(
+export const Coyoneda = type1(
   "(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
 
 
-export const Coyoneda = fun(f => tx => Coyoneda_(
-  k => k(f) (tx)),
+export const coyoneda = fun(
+  f => tx => Coyoneda(k => k(f) (tx)),
   "(b => a) => f<b> => Coyoneda<f, a>");
 
 
@@ -248,7 +248,54 @@ export const Coyoneda = fun(f => tx => Coyoneda_(
 
 // f<a> => Coyoneda<f, a>
 
-Coyoneda.lift = Coyoneda(id);
+Coyoneda.lift = coyoneda(id);
+
+
+Coyoneda.lower = fun(
+  ({map}) => tx => tx.run(fun(
+    f => ty => map(f) (ty),
+    "(b => a) => f<b> => f<a>")),
+  "Functor<f> => Coyoneda<f, a> => f<a>");
+
+
+/***[ Functor ]***************************************************************/
+
+/*
+instance Functor (Coyoneda f) where
+  fmap f (Coyoneda g v) = Coyoneda (f . g) v
+*/
+
+Coyoneda.map = fun(
+  f => tx => tx.run(fun(
+    g => ty => coyoneda(fun(x => f(g(x)), "a => b")) (ty),
+    "(a => b) => f<a> => Coyoneda<f, b>")),
+  "(a => b) => Coyoneda<f, a> => Coyoneda<f, b>");
+
+
+Coyoneda.Functor = Functor({map: Coyoneda.map});
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+/*
+instance Apply f => Apply (Coyoneda f) where
+  Coyoneda tf tx <.> Coyoneda tg ty =
+    liftCoyoneda $ (\h tz -> tf h (tg tz)) <$> tx <.> ty
+*/
+
+/*Coyoneda.ap = fun(
+  ({map, ap}) => tf => tg => tf.run(fun(
+    f => tx => tg.run(fun(
+      g => ty => Coyoneda.lift(fun(
+        h => tz => ap(map(f(h) (g(tz))) (tx)) (ty)),
+        "")),
+      "")),
+    "(a => b) => f<b>"),
+  "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");*/
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
 
 
 /******************************************************************************
@@ -324,7 +371,7 @@ Yoneda.ap = fun(
         h => ap(f(comp(g))) (h(id)),
         "a => b")),
       "(a => b) => f<b>"))),
-  "Applicative<f> => Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
+  "Apply<f> => Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
 
 
 Yoneda.Apply = apply =>
