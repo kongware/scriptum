@@ -2886,11 +2886,7 @@ export const introspectDeep = state => {
 
   return y => {
     const r = go(y);
-
-    if (r[0] === "(" && r[r.length - 1] === ")")
-      return r.slice(1, -1);
-
-    else return r;
+    return implicitlyQuantify(r);
   };
 };
 
@@ -3072,44 +3068,46 @@ export const type = adtAnno => {
 
   // create the continuation type
 
-  const domainAst = extractAst(adtAst.body.body.lambdas[0] [0]);
+  const domainAst = adtAst.body.body.lambdas[0] [0];
 
-  /***********************
-   * ALGEBRAIC DATA TYPE *
-   ***********************/
+  /********************
+   * DATA CONSTRUCTOR *
+   ********************/
 
-  // data constructor
+  /* Continuation that expects a function argument that in turn expects a type
+  dictionary comprising all cases of the ADT. */
 
-  const dataCons = k => { // k is the continuation expecting a type dictionary
+  const dataCons = f => {
 
     // ensure untyped continuation argument
 
-    if (typeof k !== "function")
+    if (typeof f !== "function")
       throw new TypeError(cat(
         "algebraic data type error\n",
         "invalid value constructor argument\n",
         "expected: function\n",
-        `received: ${introspectDeep(k)}\n`,
+        `received: ${introspectDeep(f)}\n`,
         `while applying "${adtAnno}"\n`));
 
-    else if (ANNO in k)
+    else if (ANNO in f)
       throw new TypeError(cat(
         "algebraic data type error\n",
         "invalid value constructor argument\n",
         "expected: untyped function\n",
-        `received: ${k[ANNO]}\n`,
+        `received: ${f[ANNO]}\n`,
         `while applying "${adtAnno}"\n`));
 
     // set the domain annotation
 
-    k[ANNO] = serializeAst(domainAst);
+    f[ANNO] = serializeAst(
+      restoreQuantifier(domainAst));
 
     // return the ADT
 
     return {
       [TAG]: tcons,
       [ADT]: codomainAnno,
-      run: k
+      run: f
     };
   };
 
@@ -3783,7 +3781,7 @@ export const typeClass = tcAnno => {
 
       // ensure type dictionary arguments
 
-      if (dict_[ADT] === undefined // TODO: ??????????????????????????????????????????????
+      if (dict_[ADT] === undefined
         && introspectFlat(dict_) !== "Object")
           throw new TypeError(cat(
             "illegal type class instance\n",
@@ -7358,18 +7356,7 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
   // ensure that key is a TV
 
   else if (isTV(key)) {
-    if (isTV(value)) { // TODO: remove
-      /*const [keyAlpha, keyDigit = "0"] = key.name.split(/(?<!\d)(?=\d)/),
-        [valueAlpha, valueDigit = "0"] = value.name.split(/(?<!\d)(?=\d)/);
-
-      if (keyAlpha === valueAlpha
-        && keyDigit < valueDigit) {*/
-
-          /* Always maintain a descending order from keys to values of TV names
-          provided the non-digit part of both is the same. */
-
-          /*[key, value] = [value, key];
-      }*/
+    if (isTV(value)) {
 
       // store aliases due to commutativity of type equality
 
