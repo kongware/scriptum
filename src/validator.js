@@ -5097,7 +5097,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                   && refAst.name === fromAst.name)
                     return refAst.position === "codomain"
                       ? Codomain(...toAst.body.lambdas, toAst.body.result)
-                      : Forall(new Set(), ".", toAst);
+                      : Forall(new Set(), "", toAst);
 
                 else return refAst;
               },
@@ -5133,7 +5133,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            ".",
+                            "",
                             Fun([
                               new Arg0()],
                               mapAst(refAst_ => {
@@ -5174,7 +5174,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            ".",
+                            "",
                             Fun([
                               new Arg1(refAst.body[0])],
                               mapAst(refAst_ => {
@@ -5228,7 +5228,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            ".",
+                            "",
                             Fun([
                               Args.fromArr(refAst.body.slice(0, -1))],
                               mapAst(refAst_ => {
@@ -5315,7 +5315,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            ".",
+                            "",
                             Fun([
                               toAst.body.lambdas[0]],
                               mapAst(refAst_ => {
@@ -5360,7 +5360,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                         && refAst.name === fromAst.name) {
                           return Forall(
                             new Set(),
-                            ".",
+                            "",
                             Fun([
                               toAst.body.lambdas[0]
                                 .slice(0, arityDiff)
@@ -5709,7 +5709,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     && refAst.name === fromAst.name)
                       return refAst.position === "codomain"
                         ? Codomain(...toAst.body.lambdas, toAst.body.result)
-                        : Forall(new Set(), ".", toAst);
+                        : Forall(new Set(), "", toAst);
                   
                   else return refAst;
                 },
@@ -5899,7 +5899,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  ".",
+                                  "",
                                   Fun(
                                     [new Arg0()],
                                     mapAst(refAst_ => {
@@ -5940,7 +5940,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  ".",
+                                  "",
                                   Fun(
                                     [new Arg1(refAst.body[0])],
                                     mapAst(refAst_ => {
@@ -5994,7 +5994,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  ".",
+                                  "",
                                   Fun(
                                     [Args.fromArr(refAst.body.slice(0, -1))],
                                     mapAst(refAst_ => {
@@ -6081,7 +6081,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  ".",
+                                  "",
                                   Fun(
                                     [toAst.body.lambdas[0]],
                                     mapAst(refAst_ => {
@@ -6126,7 +6126,7 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                               && refAst.name === fromAst.name) {
                                 return Forall(
                                   new Set(),
-                                  ".",
+                                  "",
                                   Fun(
                                     [toAst.body.lambdas[0]
                                       .slice(0, arityDiff)
