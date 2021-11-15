@@ -218,6 +218,21 @@ and don't need to alter a once created array. */
 export const A = {}; // namespace
 
 
+/***[ Foldable ]**************************************************************/
+
+
+A.foldl = fun(
+  f => init => xs => {
+    let acc = init;
+
+    for (let i = 0; i < xs.length; i++)
+      acc = f(acc) (xs[i]);
+
+    return acc;
+  },
+  "(b => a => b) => b => [a] => b");
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -227,6 +242,19 @@ A.map = fun(
 
 
 A.Functor = Functor({map: A.map});
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+A.ap = fun(
+  fs => xs => A.foldl(fun(
+    acc => f => A.append(acc) (A.map(f) (xs)),
+    "[b] => (a => b) => [b]")) ([]) (fs),
+  "[(a => b)] => [a] => [b]");
+
+
+A.Apply = Apply(A.Functor) ({ap: A.ap});
 
 
 /******************************************************************************
