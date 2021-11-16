@@ -19,6 +19,9 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 ******************************************************************************/
 
 
+/***[ Modules ]***************************************************************/
+
+
 import {thunk} from "./lazyness.js";
 
 
@@ -30,6 +33,9 @@ import {
   TAG, type, type1, typeClass} from "./validator.js";
 
 
+/***[ Constants ]*************************************************************/
+
+
 /* In order to render asynchronous computations stack safe the stack must be
 reset periodically. In Javascript this is possible by awaiting the next micro
 task using the `Promise.resolve` method. Deferring the computation to the next
@@ -38,6 +44,8 @@ carried out when a certain treshold is exceeded. */
 
 const MICROTASK_TRESHOLD = 0.01;
 
+
+// native Javascript comparator protocoll
 
 export const LT = -1;
 export const EQ = 0;
@@ -54,7 +62,7 @@ export const GT = 1;
 /***[ Functor ]***************************************************************/
 
 
-export const Functor = typeClass(`(^a, b. {
+export const Functor = typeClass("Fucntor", `(^a, b. {
   map: ((a => b) => f<a> => f<b>)
 }) => Functor<f>`);
 
@@ -62,7 +70,7 @@ export const Functor = typeClass(`(^a, b. {
 /***[ Functor :: Apply ]******************************************************/
 
 
-export const Apply = typeClass(`Functor<f> => (^a, b. {
+export const Apply = typeClass("Apply", `Functor<f> => (^a, b. {
   ap: (f<(a => b)> => f<a> => f<b>)
 }) => Apply<f>`);
 
@@ -70,9 +78,17 @@ export const Apply = typeClass(`Functor<f> => (^a, b. {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-export const Applicative = typeClass(`Apply<f> => (^a. {
+export const Applicative = typeClass("Applicative", `Apply<f> => (^a. {
   of: (a => f<a>)
 }) => Applicative<f>`);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+export const Semigroup = typeClass("Semigroup", `({
+  append: (a => a => a)
+}) => Semigroup<a>`);
 
 
 /******************************************************************************
@@ -161,51 +177,6 @@ export const _let = (...args) => {
 
 
 /******************************************************************************
-**********************************[ Mutable ]**********************************
-******************************************************************************/
-
-
-/* `Mutable` is an imperative data type that takes a mutable type and provides
-an API for safe in-place updates by avoiding to share the effect. */
-
-
-export const Mutable = fun(
-  clone => ref => {
-    const anno = CHECK ? introspectDeep({charCode: 97}) (ref) : "";
-
-    return _let({}, ref).in(fun((o, ref) => {
-      let mutated = false;
-
-      o.consume = thunk(() => {
-        if (mutated) {
-          delete o.update;
-
-          o.update = _ => {
-            throw new TypeError(
-              "illegal in-place update of consumed data structure");
-          };
-        }
-
-        return ref;
-      }, `() => ${anno}`);
-
-      o.update = fun(k => {
-        if (!mutated) {
-          ref = clone(ref); // copy once on first write
-          mutated = true;
-        }
-
-        k(ref); // use the effect but discard the result
-        return o;
-      }, `(${anno} => ${anno}) => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`);
-
-      return (o[TAG] = "Mutable", o);
-    }, `{}, ${anno} => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`));
-  },
-  "(t<a> => t<a>) => t<a> => Mutable {consume: t<a>, update: ((t<a> => t<a>) => this*)}");
-
-
-/******************************************************************************
 ***********************************[ ARRAY ]***********************************
 ******************************************************************************/
 
@@ -257,9 +228,30 @@ A.ap = fun(
 A.Apply = Apply(A.Functor) ({ap: A.ap});
 
 
+/***[ Semigroup ]*************************************************************/
+
+
+A.append = fun(
+  xs => ys => (xs.push.apply(xs, ys), xs),
+  "[a] => [a] => [a]");
+
+
+A.prepend = fun(
+  ys => xs => (xs.push.apply(xs, ys), xs),
+  "[a] => [a] => [a]");
+
+
+A.Semigroup = Semigroup({append: A.append});
+
+
 /******************************************************************************
 *********************************[ COYONEDA ]**********************************
 ******************************************************************************/
+
+
+/* Enables dynamic loop fusion based on a functor that have to be known only
+when you need to get its value out of `Coyoneda`. Loop fusion is accomplished
+by function composition. */
 
 
 export const Coyoneda = type1(
@@ -295,7 +287,7 @@ instance Functor (Coyoneda f) where
 
 Coyoneda.map = fun(
   f => tx => tx.run(fun(
-    g => ty => coyoneda(fun(x => f(g(x)), "a => b")) (ty),
+    g => ty => coyoneda(comp(f) (g)) (ty),
     "(a => b) => f<a> => Coyoneda<f, b>")),
   "(a => b) => Coyoneda<f, a> => Coyoneda<f, b>");
 
@@ -307,23 +299,32 @@ Coyoneda.Functor = Functor({map: Coyoneda.map});
 
 
 /*
-instance Apply f => Apply (Coyoneda f) where
-  Coyoneda tf tx <.> Coyoneda tg ty =
-    liftCoyoneda $ (\h tz -> tf h (tg tz)) <$> tx <.> ty
+instance Applicative f => Applicative (Coyoneda f) where
+  pure = liftCoyoneda . pure
+
+  Coyoneda f tx <*> Coyoneda g ty =
+    liftCoyoneda $ (\x y -> f x (g y)) <$> tx <*> ty
 */
 
-/*Coyoneda.ap = fun(
-  ({map, ap}) => tf => tg => tf.run(fun(
-    f => tx => tg.run(fun(
-      g => ty => Coyoneda.lift(fun(
-        h => tz => ap(map(f(h) (g(tz))) (tx)) (ty)),
-        "")),
-      "")),
-    "(a => b) => f<b>"),
-  "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");*/
+
+Coyoneda.ap = fun(
+  ({map, ap}) => tf => tg =>
+    tf.run(fun(
+      f => tx =>
+        tg.run(fun(
+          g => ty =>
+            Coyoneda.lift(ap(map(fun(
+              x => y => f(x) (g(y)),
+              "Null => Null")) (tx)) (ty)),
+          "Null => Null")),
+      "Null => Null")),
+  "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -346,13 +347,58 @@ Either.Right = fun(
 
 
 /******************************************************************************
+**********************************[ Mutable ]**********************************
+******************************************************************************/
+
+
+/* `Mutable` is an imperative data type that takes a mutable type and provides
+an API for safe in-place updates by avoiding to share the effect. */
+
+
+export const Mutable = fun(
+  clone => ref => {
+    const anno = CHECK ? introspectDeep({charCode: 97}) (ref) : "";
+
+    return _let({}, ref).in(fun((o, ref) => {
+      let mutated = false;
+
+      o.consume = thunk(() => {
+        if (mutated) {
+          delete o.update;
+
+          o.update = _ => {
+            throw new TypeError(
+              "illegal in-place update of consumed data structure");
+          };
+        }
+
+        return ref;
+      }, `() => ${anno}`);
+
+      o.update = fun(k => {
+        if (!mutated) {
+          ref = clone(ref); // copy once on first write
+          mutated = true;
+        }
+
+        k(ref); // use the effect but discard the result
+        return o;
+      }, `(${anno} => ${anno}) => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`);
+
+      return (o[TAG] = "Mutable", o);
+    }, `{}, ${anno} => Mutable {consume: ${anno}, update: ((${anno} => ${anno}) => this*)}`));
+  },
+  "(t<a> => t<a>) => t<a> => Mutable {consume: t<a>, update: ((t<a> => t<a>) => this*)}");
+
+
+/******************************************************************************
 **********************************[ YONEDA ]***********************************
 ******************************************************************************/
 
 
-/* Enables dynamic loop fusion based on a functor that is known right from the
-start, i.e. before you lift its type into `Yoneda`. Loop fusion is accomplished
-by function composition. */
+/* Enables dynamic loop fusion based on a functor that have to be known before
+you put its value into `Yoneda`. Loop fusion is accomplished by function
+composition. */
 
 
 export const Yoneda = type1("(^b. (a => b) => f<b>) => Yoneda<f, a>");
@@ -374,10 +420,6 @@ Yoneda.lower = fun(
 
 /***[ Functor ]***************************************************************/
 
-/*
-instance Functor (Yoneda f) where
-  fmap f m = Yoneda (\k -> runYoneda m (k . f))
-*/
 
 Yoneda.map = fun(
   f => tx => Yoneda(
@@ -393,12 +435,8 @@ Yoneda.Functor = Functor({map: Yoneda.map});
 
 
 Yoneda.ap = fun(
-  ({ap}) => tf => th => Yoneda(
-    g => tf.run(fun(
-      f => th.run(fun(
-        h => ap(f(comp(g))) (h(id)),
-        "a => b")),
-      "(a => b) => f<b>"))),
+  ({ap}) => ({run: f}) => ({run: g}) =>
+    Yoneda(h => ap(f(comp(h))) (g(id))),
   "Apply<f> => Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
 
 
