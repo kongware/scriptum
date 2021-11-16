@@ -3390,14 +3390,37 @@ export const type1 = adtAnno => {
 name/typed lambda. Type classes can define super classes passed as arguments
 and thus form class hierarchies. */
 
-export const typeClass = tcAnno => {
+export const typeClass = (name, tcAnno) => {
 
   // bypass the type validator
 
   if (CHECK === false) {
-    return (...ps) => o => {
+    if (tcAnno[0] === "(") {
+      return o => {
+        return Object.defineProperty(
+          o,
+          TAG,
+          {value: name, configurable: true, writable: true});
+      };
+    }
+    
+    else return (...ps) => o => {
       o = Object.assign({}, o); // clone
-      ps.forEach(p => o = Object.assign(o, p));
+      
+      ps.forEach(p => {
+        o = Object.assign(o, p);
+
+        Object.defineProperty(
+          o,
+          p[TAG],
+          {value: p, configurable: true, writable: true});
+      });
+
+      Object.defineProperty(
+        o,
+        TAG,
+        {value: name, configurable: true, writable: true});
+
       return o;
     }
   }
@@ -4191,12 +4214,26 @@ export const fun = (f, funAnno) => {
             && unifiedAst.body[TAG] === "Fun")
               return go(r, lamIndex + 1, unifiedAst, serializeAst(unifiedAst));
 
-          else
+          /* If it is a TV, it is about an implicit instantiation `TV ~ function-type`.
+          So instead of the unified type we pass the function type itself to the next
+          iteration of type validation. */
+
+          else if (("body" in unifiedAst)
+            && isTV(unifiedAst.body)) {
+              const unifiedAst_ = introspectDeep_(r);
+              return go(r, lamIndex + 1, parseAnno(new Map()) (unifiedAst_), unifiedAst_);
+          }
+
+          // throw an error otherwise
+
+          else {
             throw new TypeError(cat(
-              `result type mismatch in parameter #${lamIndex + 1}\n`,
+              "result type mismatch\n",
               `expected: ${serializeAst(unifiedAst)}\n`,
-              `received: ${introspectFlat(r)}\n`,
-              extendErrMsg(lamIndex, null, funAnno, argAnnos, instantiations)));
+              `received: ${introspectDeep_(r)}\n`,
+              "lambda is applied to too many arguments\n",
+              extendErrMsg(null, null, funAnno, argAnnos, instantiations)));
+          }
       }
 
       /**********************
