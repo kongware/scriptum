@@ -4261,62 +4261,72 @@ export const fun = (f, funAnno) => {
 
           ({ast: codomainAst, intro} = specializeLHS(new Map(), ".") (codomainAst));
 
-          // unify `unifiedAst` with codomain of the return type `r`
+          /* Attempt to unify `unifiedAst` with `r`'s codomain portion of its
+          type. However, this unification step is only necessary in some cases
+          but leads to unification errors in others. Since I couldn't figure
+          out how to distinguish both scenarios I fall back to a hacky try-catch
+          mechanism. */
 
-          ({tvid, instantiations, aliases, intros} = unifyTypes(
-            codomainAst,
-            unifiedAst,
-            0,
-            0,
-            {tvid: 0, instantiations: new Map(), aliases: new Map(), intros: [intro]},
-            serializeAst(codomainAst),
-            serializeAst(unifiedAst),
-            funAnno,
-            argAnnos));
+          try {
+            ({tvid, instantiations, aliases, intros} = unifyTypes(
+              codomainAst,
+              unifiedAst,
+              0,
+              0,
+              {tvid: 0, instantiations: new Map(), aliases: new Map(), intros: [intro]},
+              serializeAst(codomainAst),
+              serializeAst(unifiedAst),
+              funAnno,
+              argAnnos));
 
-          // disclose transitive relations
+            // disclose transitive relations
 
-          ({tvid, instantiations, aliases, intros} = determineTransRel(
-            {tvid, instantiations, aliases, intros}, null, null, funAnno, argAnnos));
+            ({tvid, instantiations, aliases, intros} = determineTransRel(
+              {tvid, instantiations, aliases, intros}, null, null, funAnno, argAnnos));
 
-          // remove contradictory instantiations
+            // remove contradictory instantiations
 
-          instantiations = cleanupInstantiations(instantiations);
+            instantiations = cleanupInstantiations(instantiations);
 
-          // conduct occurs check
+            // conduct occurs check
 
-          instantiations.forEach(m => {
-            m.forEach(({key: keyAst, value: valueAst}) =>
-              occursCheck(keyAst, valueAst, instantiations, aliases, new Set(), null, null, funAnno, argAnnos));
-          });
+            instantiations.forEach(m => {
+              m.forEach(({key: keyAst, value: valueAst}) =>
+                occursCheck(keyAst, valueAst, instantiations, aliases, new Set(), null, null, funAnno, argAnnos));
+            });
 
-          // substitute and serialize codomain AST
+            // substitute and serialize codomain AST
 
-          const codomainAnno = serializeAst(
-            normalizeAst(
-              recreateAst(
-                substitute(
-                  codomainAst,
-                  instantiations))));
+            const codomainAnno = serializeAst(
+              normalizeAst(
+                recreateAst(
+                  substitute(
+                    codomainAst,
+                    instantiations))));
 
-          // dequantify domain of the return type `r`
+            // dequantify domain of the return type `r`
 
-          ({ast: domainAst} = specializeLHS(new Map(), ".") (domainAst));
+            ({ast: domainAst} = specializeLHS(new Map(), ".") (domainAst));
 
-          // substitute and serialize domain AST
+            // substitute and serialize domain AST
 
-          const domainAnno = serializeAst(
-            normalizeAst(
-              recreateAst(
-                substitute(
-                  domainAst,
-                  instantiations))));
+            const domainAnno = serializeAst(
+              normalizeAst(
+                recreateAst(
+                  substitute(
+                    domainAst,
+                    instantiations))));
 
-          // annotate and return ADT
+            // annotate and return ADT
 
-          r.run[ANNO] = domainAnno;
-          r[ADT] = codomainAnno;
-          return r;
+            r.run[ANNO] = domainAnno;
+            r[ADT] = codomainAnno;
+            return r;
+          }
+
+          catch (_) {
+            return r;
+          }
         }
 
         else if (tcDict.has(tcons)) {
