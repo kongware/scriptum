@@ -142,6 +142,17 @@ export const id = fun(x => x, "a => a");
 /***[ Impure ]****************************************************************/
 
 
+/* Dynamically debug within function compositions. Passe `id` as first argument
+to hook the debugger at the return type of a function. */
+
+export const debug = f => (...args) => {
+  debugger;
+  return f(...args);
+};
+
+
+// throwing statement as an expression
+
 export const _throw = fun(
   e => {throw e},
   "e => exception");
@@ -149,6 +160,9 @@ export const _throw = fun(
 
 /***[ Misc. ]*****************************************************************/
 
+
+/* Useful to structure error messages or regular expressions in lines and thus
+render them more readable. */
 
 export const cat = fun(
   (...lines) => lines.join(""),
@@ -258,6 +272,9 @@ export const Coyoneda = type1(
   "(^r. (^b. (b => a) => f<b> => r) => r) => Coyoneda<f, a>");
 
 
+/* Auxiliary function to allow constructing values of type `Coyoneda` in a
+curried form. */
+
 export const coyoneda = fun(
   f => tx => Coyoneda(k => k(f) (tx)),
   "(b => a) => f<b> => Coyoneda<f, a>");
@@ -280,10 +297,6 @@ Coyoneda.lower = fun(
 
 /***[ Functor ]***************************************************************/
 
-/*
-instance Functor (Coyoneda f) where
-  fmap f (Coyoneda g v) = Coyoneda (f . g) v
-*/
 
 Coyoneda.map = fun(
   f => tx => tx.run(fun(
@@ -298,15 +311,6 @@ Coyoneda.Functor = Functor({map: Coyoneda.map});
 /***[ Functor :: Apply ]******************************************************/
 
 
-/*
-instance Applicative f => Applicative (Coyoneda f) where
-  pure = liftCoyoneda . pure
-
-  Coyoneda f tx <*> Coyoneda g ty =
-    liftCoyoneda $ (\x y -> f x (g y)) <$> tx <*> ty
-*/
-
-
 Coyoneda.ap = fun(
   ({map, ap}) => tf => tg =>
     tf.run(fun(
@@ -315,16 +319,20 @@ Coyoneda.ap = fun(
           g => ty =>
             Coyoneda.lift(ap(map(fun(
               x => y => f(x) (g(y)),
-              "Null => Null")) (tx)) (ty)),
-          "Null => Null")),
-      "Null => Null")),
+              "a => a => b")) (tx)) (ty)),
+          "(a => b) => f<a> => Coyoneda<f, b>")),
+      "(a => b) => f<a> => Coyoneda<f, b>")),
   "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-// TODO
+Coyoneda.of = fun(
+  ({of}) => comp(Coyoneda.lift) (of));
+
+
+Coyoneda.Applicative = Applicative({of: Coyoneda.of});
 
 
 /******************************************************************************
