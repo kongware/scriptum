@@ -325,6 +325,10 @@ Coyoneda.ap = fun(
   "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");
 
 
+Coyoneda.Apply = apply =>
+  Apply(Coyoneda.Functor) ({ap: Coyoneda.ap(apply)});
+
+
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
@@ -332,7 +336,8 @@ Coyoneda.of = fun(
   ({of}) => comp(Coyoneda.lift) (of));
 
 
-Coyoneda.Applicative = Applicative({of: Coyoneda.of});
+Coyoneda.Applicative = applicative =>
+  Applicative(Coyoneda.Apply) ({of: Coyoneda.of(applicative)});
 
 
 /******************************************************************************
