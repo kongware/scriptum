@@ -300,7 +300,7 @@ Coyoneda.lower = fun(
 
 Coyoneda.map = fun(
   f => tx => tx.run(fun(
-    g => ty => coyoneda(comp(f) (g)) (ty),
+    g => ty => coyoneda(comp(f) (g)) (ty), // TODO: replace comp for more speed
     "(a => b) => f<a> => Coyoneda<f, b>")),
   "(a => b) => Coyoneda<f, a> => Coyoneda<f, b>");
 
@@ -319,7 +319,7 @@ Coyoneda.ap = fun(
           g => ty =>
             Coyoneda.lift(ap(map(fun(
               x => y => f(x) (g(y)),
-              "a => a => b")) (tx)) (ty)),
+              "a => a => b")) (tx)) (ty)), // TODO: make more general
           "(a => b) => f<a> => Coyoneda<f, b>")),
       "(a => b) => f<a> => Coyoneda<f, b>")),
   "Apply<f> => Coyoneda<f, (a => b)> => Coyoneda<f, a> => Coyoneda<f, b>");
@@ -333,7 +333,8 @@ Coyoneda.Apply = apply =>
 
 
 Coyoneda.of = fun(
-  ({of}) => comp(Coyoneda.lift) (of));
+  ({of}) => comp(Coyoneda.lift) (of),
+  "a => Coyoneda<f, a>");
 
 
 Coyoneda.Applicative = applicative =>
@@ -436,8 +437,7 @@ Yoneda.lower = fun(
 
 Yoneda.map = fun(
   f => tx => Yoneda(
-    g => tx.run(
-      fun(x => g(f(x)), "a => b"))),
+    g => tx.run(fun(x => g(f(x)), "a => b"))),
   "(a => b) => Yoneda<f, a> => Yoneda<f, b>");
 
 
@@ -449,7 +449,7 @@ Yoneda.Functor = Functor({map: Yoneda.map});
 
 Yoneda.ap = fun(
   ({ap}) => ({run: f}) => ({run: g}) =>
-    Yoneda(h => ap(f(comp(h))) (g(id))),
+    Yoneda(h => ap(f(comp(h))) (g(id))), // TODO: replace comp for more speed
   "Apply<f> => Yoneda<f, (a => b)> => Yoneda<f, a> => Yoneda<f, b>");
 
 
