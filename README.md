@@ -22,7 +22,7 @@ Runtime type checking is expensive and only useful within the development stage.
 
 ## Status
 
-Unstable (v0.9.1)
+Unstable (v0.9.2)
 
 ## Goals
 
