@@ -1050,7 +1050,7 @@ const inferHigherOrderKinds = kindMap => ast => {
         return [kindMap, loop];
 
     else throw new TypeError(cat(
-      `kind mismatch for "${serializeAst(ast)}"\n`,
+      `kind mismatch for "${serializeAst_(ast)}"\n`,
       `expected: ${serializeKind(0) (kindParams)}\n`,
       `received: ${serializeKinds(kindArgs)}\n`));
   }
@@ -1064,7 +1064,7 @@ const inferHigherOrderKinds = kindMap => ast => {
         return [kindMap, loop];
 
     else throw new TypeError(cat(
-      `kind mismatch for "${serializeAst(ast)}"\n`,
+      `kind mismatch for "${serializeAst_(ast)}"\n`,
       `expected: ${serializeKind(0) (kindParams)}\n`,
       `received: ${serializeKinds(kindArgs)}\n`));
   }
@@ -1283,7 +1283,7 @@ const inferHigherOrderKind = (kindMap, loop) => ast => {
         if (ast[TAG] === "BoundTV") {
           if (i in ast.body && ast.body[i] [TAG] !== "BoundTV")
             throw new TypeError(cat(
-              `kind mismatch for "${serializeAst(ast)}"\n`,
+              `kind mismatch for "${serializeAst_(ast)}"\n`,
               `expected: ${serializeKind(0) (kindParams[i])}\n`,
               `received: ${serializeKind(0) (kindArg)}\n`,
               `while kind checking "${serializeKind(0) (kindParams)}"\n`));
@@ -1321,7 +1321,7 @@ const inferHigherOrderKind = (kindMap, loop) => ast => {
         }
 
         else throw new TypeError(cat(
-          `kind mismatch for "${serializeAst(ast)}"\n`,
+          `kind mismatch for "${serializeAst_(ast)}"\n`,
           `expected: ${serializeKind(0) (kindParams[i])}\n`,
           `received: ${serializeKind(0) (kindArg)}\n`,
           `while kind checking "${serializeKind(0) (kindParams)}"\n`));
@@ -1351,14 +1351,14 @@ const inferHigherOrderKind = (kindMap, loop) => ast => {
         }
 
         else throw new TypeError(cat(
-          `kind mismatch for "${serializeAst(ast)}"\n`,
+          `kind mismatch for "${serializeAst_(ast)}"\n`,
           `expected: ${serializeKind(0) (kindParams[i])}\n`,
           `received: ${serializeKind(0) (kindArg)}\n`,
           `while kind checking "${serializeKind(0) (kindParams)}"\n`));
       }
 
       case "neq": throw new TypeError(cat(
-        `kind mismatch for "${serializeAst(ast)}"\n`,
+        `kind mismatch for "${serializeAst_(ast)}"\n`,
         `expected: ${serializeKind(0) (kindParams[i])}\n`,
         `received: ${serializeKind(0) (kindArg)}\n`,
         `while kind checking "${serializeKind(0) (kindParams)}"\n`));
@@ -1495,7 +1495,11 @@ const inferTypeVarKinds = init => ast => reduceAst((acc, ast_) => {
       if (ast__[TAG] === "BoundTV" && kind_[0] !== "") {
         if (acc_.has(`${ast__.scope}:${ast__.name}`)
           && acc_.get(`${ast__.scope}:${ast__.name}`).length > kind_.length)
-            throw new TypeError("kind mismatch!!!");
+            throw new TypeError(cat(
+              `kind mismatch for "${serializeAst_(ast_)}"\n`,
+              `expected: ${serializeKind(0) (kind_)}\n`,
+              `received: ${serializeKind(0) (acc_.get(`${ast__.scope}:${ast__.name}`))}\n`,
+              "while determening type variable kinds\n"));
 
         else acc_.set(`${ast__.scope}:${ast__.name}`, kind_);
       }
@@ -2237,15 +2241,6 @@ const verifyAnno = s => {
       `${showBracketMismatch(scheme)}\n`,
       `in "${s}"\n`));
 
-  // prevent redundant round parenthesis
-
-  else if (s.search(/\)\)/) !== NOT_FOUND)
-    throw new TypeError(cat(
-      "malformed type annotation\n",
-      `redundant "(..)"\n`,
-      `next to "${s.match(new RegExp(".{0,5}\\)\\)", "")) [0]}"\n`,
-      `in "${s}"\n`));
-
   // prevent redundant pointed parenthesis
 
   else if (s.search(/<>/) !== NOT_FOUND)
@@ -2694,6 +2689,201 @@ const serializeAst = initialAst => {
             `internal error: unbound type variable "${k}:${v}" @serializeAst`);
     });
   });
+
+  // set an top-level higher-rank quantifier
+
+  if (rtvs.size > 0) {
+    const scopes = new Set();
+
+    rtvs = rtvs.map(s => {
+      const [scope, name] = s.split(":");
+      scopes.add(scope);
+      return name;
+    });
+
+    if (scopes.size > 1)
+      throw new TypeError(
+        `internal error: ambiguous names through contradictory scopes @serializeAst`);
+
+    else return `(^${rtvs.join(", ")}. ${implicitlyQuantify(s)})`;
+  }
+
+  // remove an optional top-level grouping or rank-1 quantifier
+
+  else return implicitlyQuantify(s);
+};
+
+
+// relaxed version without quantifier/TV checks
+
+const serializeAst_ = initialAst => {
+  const go = ast => {
+    switch (ast[TAG]) {
+      case "Adt": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/(?:, )?__/g, "")
+          .replace(/,+$/, "");
+
+        return cat(
+          ast.cons,
+          body === ""
+            ? ""
+            : `<${body}>`);
+      }
+
+      case "Arr": return ast.body[TAG] === "Partial"
+        ? `[]`
+        : `[${go(ast.body)}]`;
+      
+      case "BoundTV":
+      case "MetaTV":
+      case "RigidTV": {
+
+        // store higher-rank rigid TVs
+
+        if (ast[TAG] === "RigidTV"
+          && ast.scope !== ".")
+            rtvs.push(`${ast.scope}:${ast.name}`);
+
+        if (ast.body.length === 0)
+          return ast.name;
+
+        // Tcons (higher-kinded)
+
+        else  {
+          const body = ast.body.map(go).join(", ")
+            .replace(/(?:, )?__/g, "");
+
+          return cat(
+            ast.name,
+            body.length ? `<${body}>` : "");
+        }
+      }
+
+      case "Forall": {
+
+        // syntactic grouping
+
+        if (ast.scope === "")
+          return cat(
+            "(",
+            go(ast.body),
+            ")");
+
+        // quantifier
+        
+        else { 
+
+          // first-rank quantifier
+
+          if (ast.scope === ".")
+            return cat(
+              "(",
+              go(ast.body),
+              ")");
+
+          // higher-rank quantifier
+
+          else return cat(
+            "(^",
+            Array.from(ast.btvs).join(", "),
+            ". ",
+            go(ast.body),
+            ")");
+        }
+      }
+
+      case "Fun": {
+        const domain = ast.body.lambdas.map(args => {
+          switch (args[TAG]) {
+            case "Arg0": return "()";
+            case "Arg1": return go(args[0]);
+            case "Args": return args.map(go).join(", ");
+            
+            case "Argsv": return args.map((arg, i) =>
+              i === args.length - 1
+                ? `..${go(arg)}`
+                : go(arg))
+                  .join(", ");
+            
+            case "Argv": return `..${go(args[0])}`;
+
+            default:
+              throw new TypeError(
+                "internal error: argument list expected @serializeAst");
+          }
+        }).join(" => ");
+
+        const codomain = go(ast.body.result);
+
+        return `${domain} => ${codomain}`
+          .replace(/ ?__/g, "")
+          .replace(/^ =>|=> $/, "=>");
+      }
+      
+      case "Native": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/(?:, )?__/g, "")
+          .replace(/,+$/, "");
+
+        return cat(
+          ast.cons,
+          body === ""
+            ? ""
+            : `<${body}>`);
+      }
+
+      case "Nea": return ast.body[TAG] === "Partial"
+        ? `[1]`
+        : `[1${go(ast.body)}]`;
+
+      case "Obj": {
+        const props = ast.body.map(({k, v}) =>
+          v[TAG] === "Partial"
+            ? {k} : {k, v});
+
+        const row = ast.row === null ? ""
+          : ast.row[TAG] === "RowVar" ? " | " + ast.row.name
+          : ", " + ast.row.body.map(({k, v}) =>
+              `${k}: ${go(v)}`).join(", ");
+
+        return cat(
+          ast.cons === null ? "" : `${ast.cons} `,
+          "{",
+          props.map(({k, v}) =>
+            v === undefined
+              ? `${k}:`
+              : `${k}: ${go(v)}`).join(", "),
+          row,
+          "}");
+      }
+
+      case "Partial": return "__";
+      
+      case "RowType": return ast.body.map(
+        ({k, v}) => `${k}: ${go(v)}`).join(", ");
+      
+      case "RowVar": return ast.name;
+      case "This": return "this*";
+
+      case "Tup": {
+        const body = ast.body.map(go).join(", ")
+          .replace(/ ?__/g, "");
+
+        return cat(`[${body}]`);
+      }
+
+      case "Tconst": return ast.name;
+
+      default:
+        throw new TypeError(
+          "internal error: unknown value constructor @serializeAst");
+    }
+  };
+
+  let rtvs = [];
+
+  const s = go(initialAst);
 
   // set an top-level higher-rank quantifier
 
