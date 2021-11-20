@@ -26,7 +26,7 @@ Unstable (v0.9.2)
 
 ## Goals
 
-In order to reconcile the functional paradigm with Javascript the following main aspects need to be addressed:
+In order to create an ecosystem for the functional paradigm in Javascript the following main aspects need to be supplied:
 
 - [x] type safety
 - [x] algebraic data types
