@@ -7642,8 +7642,9 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
     [key, value] = [value, key]; // swap values
 
   else throw new TypeError(cat(
-    `can only instantiate type variables with another type\n`,
-    `but "${serializeAst(key)}" received\n`,
+    "cannot instantiate\n",
+    `${serializeAst(key)}\n`,
+    "with another type, because it is already a concrete one\n",
     "while unifying\n",
     `${paramAnno}\n`,
     `${argAnno}\n`,
@@ -7667,8 +7668,10 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
 
     else if (!isTV(value))
       throw new TypeError(cat(
-        `cannot instantiate rigid type variable "${key.name}"\n`,
-        `with "${serializeAst(value)}"\n`,
+        "cannot instantiate rigid type variable\n",
+        `${key.name}\n`,
+        "with\n",
+        `${serializeAst(value)}\n`,
         "rigid type variables can only be instantiated with themselves\n",
         "or with meta type variables within the same scope\n",
         "while unifying\n",
@@ -7690,12 +7693,14 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
 
     // meta TV ~ composite type possibly containing rigid TVs
 
-    reduceAst((acc, value_) => {
-      if (value_[TAG] === "RigidTV")
-        escapeCheck(value_, key, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
+    if (!isTV(value) || value.body.length > 0) {
+      reduceAst((acc, value_) => {
+        if (value_[TAG] === "RigidTV")
+          escapeCheck(value_, key, instantiations, intros, aliases, new Set(), null, null, paramAnno, argAnno, funAnno, argAnnos);
 
-      else return acc;
-    }, null) (value);
+        else return acc;
+      }, null) (value);
+    }
   }
 
   /* Check if the current TV already has an instantiation and if any, try to
@@ -7713,7 +7718,7 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
           value,
           lamIndex,
           argIndex,
-          {tvid, instantiations: new Map(), aliases, intros: []},
+          {tvid, instantiations: new Map(instantiations), aliases, intros: intros.concat()},
           paramAnno,
           argAnno,
           funAnno,
@@ -7722,9 +7727,13 @@ const instantiate = (key, value, substitutor, lamIndex, argIndex, state, paramAn
 
       catch (e) {
         throw new TypeError(cat(
-          `cannot instantiate "${key.name}" with "${serializeAst(value)}"\n`,
-          `because "${key.name}" is already instantiated with `,
-          `"${serializeAst(Array.from(instantiations.get(key.name)) [0] [1].value)}"\n`,
+          "cannot instantiate\n",
+          `${key.name}\n`,
+          "with\n",
+          `${serializeAst(value)}\n`,
+          "because the former is already instantiated with\n",
+          `${serializeAst(Array.from(instantiations.get(key.name)) [0] [1].value)}\n`,
+          "and there is no most general unifier for both instantiations\n",
           "while unifying\n",
           `${paramAnno}\n`,
           `${argAnno}\n`,
@@ -7770,10 +7779,11 @@ const escapeCheck = (rigid, meta, instantiations, intros, aliases, history, lamI
 
   else if (iterRigid > iterMeta)
     throw new TypeError(cat(
-      "escape check failed\n",
-      `cannot instantiate "${rigid.name}" with "${meta.name}"\n`,
+      "cannot instantiate\n",
+      `"${rigid.name}" with "${meta.name}"\n`,
       "because the latter is bound by a parent scope of the former\n",
-      `"${rigid.name}" would escape its scope\n`,
+      "and the former would escape its scope\n",
+      "escape check failed\n",
       "while unifying\n",
       `${paramAnno}\n`,
       `${argAnno}\n`,
