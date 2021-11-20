@@ -1058,12 +1058,6 @@ const inferHigherOrderKinds = kindMap => ast => {
   else {
     kindArgs = kindArgs.map(({kind}) => kind);
 
-    /*kindArgs = kindArgs.length > 1
-      ? new HigherKind(kindArgs.length)
-          .fill(null)
-          .map((_, i) => kindArgs[i].kind)
-      : kindArgs[0].kind;*/
-
     if (compareKinds(serializeKind(0) (kindParams)) (serializeKinds(kindArgs)) === "gt"
       && kindParams.length - kindArgs.length === 1
       && kindParams[kindParams.length - 1].join("") === "*")
@@ -1474,9 +1468,61 @@ const inferFirstOrderKind = ast => {
       return nativeDict.get(ast.cons).kind;
 
     default: throw new TypeError(
-      `internal error: unknown value constructor @inferFirstOrderKind`);
+      "internal error: unknown value constructor @inferFirstOrderKind");
   }
 };
+
+
+const inferTypeVarKinds = init => ast => reduceAst((acc, ast_) => {
+  if (ast_[TAG] === "Adt" || ast_[TAG] === "Native") {
+    let kind;
+
+    if (adtDict.has(ast_.cons))
+      kind = adtDict.get(ast_.cons).kind;
+
+    else if (tcDict.has(ast_.cons))
+      kind = tcDict.get(ast_.cons).kind;
+
+    else if (nativeDict.has(ast_.cons))
+      kind = nativeDict.get(ast_.cons).kind;
+
+    else throw new TypeError(
+      "internal error: missing Adt or Native registration");
+
+    return kind.slice(0, -1).reduce((acc_, kind_, i) => {
+      const ast__ = ast_.body[i];
+
+      if (ast__[TAG] === "BoundTV" && kind_[0] !== "") {
+        if (acc_.has(`${ast__.scope}:${ast__.name}`)
+          && acc_.get(`${ast__.scope}:${ast__.name}`).length > kind_.length)
+            throw new TypeError("kind mismatch!!!");
+
+        else acc_.set(`${ast__.scope}:${ast__.name}`, kind_);
+      }
+
+      return acc_;
+    }, acc);
+  }
+
+  else if (ast_[TAG] === "BoundTV") {
+    if (acc.has(`${ast_.scope}:${ast_.name}`)) {
+      if (ast_.body.length > acc.get(`${ast_.scope}:${ast_.name}`).length - 1)
+        return acc.set(`${ast_.scope}:${ast_.name}`, new HigherKind(ast_.body.length + 1).fill(new Kind("*")));
+
+      else return acc;
+    }
+
+    else {
+      if (ast_.body.length === 0)
+        return acc.set(`${ast_.scope}:${ast_.name}`, new Kind("*"));
+
+      else
+        return acc.set(`${ast_.scope}:${ast_.name}`, new HigherKind(ast_.body.length + 1).fill(new Kind("*")));
+    }
+  }
+
+  else return acc;
+}, init) (ast);
 
 
 const inferFirstOrderKinds = init => ast => {
@@ -1518,25 +1564,6 @@ const inferFirstOrderKinds = init => ast => {
     else return acc;
   }, init) (ast);
 };
-
-
-/*const serializeKind = kind => {
-  return kind.map((kind_, i) => {
-    if (kind_.length === 0)
-      return kind_;
-
-    else if (kind_.length === 1)
-      return kind_[0];
-
-    else {
-      if (i === kind.length - 1)
-        return serializeKind(kind_);
-
-      else
-        return `(${serializeKind(kind_)})`;
-    }
-  }).join(" -> ");
-};*/
 
 
 const serializeKinds = ks => {
@@ -2149,7 +2176,7 @@ const parseAnno = kindMap => anno => {
 
   let loop = false;
 
-  kindMap = inferFirstOrderKinds(kindMap) (ast);
+  kindMap = inferTypeVarKinds(kindMap) (ast);
 
   do {
     ([kindMap, loop] = inferHigherOrderKinds(kindMap) (ast));
