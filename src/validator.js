@@ -655,27 +655,15 @@ const determineArity = ast => {
 };
 
 
-// restore the desired scope if not existing
+const getTVCons = ast => {
+  switch (ast[TAG]) {
+    case "BoundTV": return BoundTV;
+    case "MetaTV": return MetaTV;
+    case "RigidTV": return RigidTV;
 
-const restoreQuantifier = scope => ast => {
-  if (ast[TAG] === "Forall"
-    && ast.scope === scope)
-      return ast;
-
-  const btvs = reduceAst((acc, ast_) => {
-    switch (ast_[TAG]) {
-      case "BoundTV":
-      case "MetaTV":
-      case "RigidTV": {
-        if (ast_.scope === scope)
-          return acc.add(ast_.name);
-      }
-
-      default: return acc;
-    }
-  }, new Set()) (ast);
-
-  return Forall(btvs, scope, ast);
+    default: throw new TypeError(
+      "internal error: unknown type variable constructor");
+  }
 };
 
 
@@ -899,6 +887,30 @@ const remParams = ast => {
       Fun(
         ast.body.body.lambdas.slice(1),
         ast.body.body.result));
+};
+
+
+// restore the desired scope if not existing
+
+const restoreQuantifier = scope => ast => {
+  if (ast[TAG] === "Forall"
+    && ast.scope === scope)
+      return ast;
+
+  const btvs = reduceAst((acc, ast_) => {
+    switch (ast_[TAG]) {
+      case "BoundTV":
+      case "MetaTV":
+      case "RigidTV": {
+        if (ast_.scope === scope)
+          return acc.add(ast_.name);
+      }
+
+      default: return acc;
+    }
+  }, new Set()) (ast);
+
+  return Forall(btvs, scope, ast);
 };
 
 
@@ -5395,21 +5407,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     (refAst, fromAst, toAst) => {
                       if (refAst[TAG] === fromAst[TAG]
                         && refAst.name === fromAst.name) {
-                          return Forall(
-                            new Set(),
-                            "",
-                            Fun([
-                              new Arg0()],
+                          if (refAst.position === "codomain") {
+                            return Codomain(
+                              new Arg0(),
                               mapAst(refAst_ => {
-                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                if (isTV(refAst_))
+                                  return getTVCons(refAst_) (
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
                                     refAst_.body);
                                 
                                 else return refAst_;
-                              }) (refAst.body[0])));
+                              }) (refAst.body[0]));
+                          }
+
+                          else {
+                            return Forall(
+                              new Set(),
+                              "",
+                              Fun(
+                                [new Arg0()],
+                                mapAst(refAst_ => {
+                                  if (isTV(refAst_))
+                                    return getTVCons(refAst_) (
+                                      refAst_.name,
+                                      refAst_.scope,
+                                      "codomain",
+                                      refAst_.body);
+                                  
+                                  else return refAst_;
+                                }) (refAst.body[0])));
+                          }
                       }
                       
                       else return refAst;
@@ -5436,21 +5465,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     (refAst, fromAst, toAst) => {
                       if (refAst[TAG] === fromAst[TAG]
                         && refAst.name === fromAst.name) {
-                          return Forall(
-                            new Set(),
-                            "",
-                            Fun([
-                              new Arg1(refAst.body[0])],
+                          if (refAst.position === "codomain") {
+                            return Codomain(
+                              new Arg1(refAst.body[0]),
                               mapAst(refAst_ => {
-                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                if (isTV(refAst_))
+                                  return getTVCons(refAst_) (
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
                                     refAst_.body);
                                 
                                 else return refAst_;
-                              }) (refAst.body[1])));
+                              }) (refAst.body[1]));
+                          }
+
+                          else {
+                            return Forall(
+                              new Set(),
+                              "",
+                              Fun(
+                                [new Arg1(refAst.body[0])],
+                                mapAst(refAst_ => {
+                                  if (isTV(refAst_))
+                                    return getTVCons(refAst_) (
+                                      refAst_.name,
+                                      refAst_.scope,
+                                      "codomain",
+                                      refAst_.body);
+                                  
+                                  else return refAst_;
+                                }) (refAst.body[1])));
+                          }
                       }
                       
                       else return refAst;
@@ -5490,21 +5536,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     (refAst, fromAst, toAst) => {
                       if (refAst[TAG] === fromAst[TAG]
                         && refAst.name === fromAst.name) {
-                          return Forall(
-                            new Set(),
-                            "",
-                            Fun([
-                              Args.fromArr(refAst.body.slice(0, -1))],
+                          if (refAst.position === "codomain") {
+                            return Codomain(
+                              Args.fromArr(refAst.body.slice(0, -1)),
                               mapAst(refAst_ => {
-                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                if (isTV(refAst_))
+                                  return getTVCons(refAst_) (
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
                                     refAst_.body);
                                 
                                 else return refAst_;
-                              }) (refAst.body[refAst.body.length - 1])));
+                              }) (refAst.body[refAst.body.length - 1]));
+                          }
+
+                          else {
+                            return Forall(
+                              new Set(),
+                              "",
+                              Fun(
+                                [Args.fromArr(refAst.body.slice(0, -1))],
+                                mapAst(refAst_ => {
+                                  if (isTV(refAst_))
+                                    return getTVCons(refAst_) (
+                                      refAst_.name,
+                                      refAst_.scope,
+                                      "codomain",
+                                      refAst_.body);
+                                  
+                                  else return refAst_;
+                                }) (refAst.body[refAst.body.length - 1])));
+                          }
                       }
                       
                       else return refAst;
@@ -5577,21 +5640,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     (refAst, fromAst, toAst) => {
                       if (refAst[TAG] === fromAst[TAG]
                         && refAst.name === fromAst.name) {
-                          return Forall(
-                            new Set(),
-                            "",
-                            Fun([
-                              toAst.body.lambdas[0]],
+                          if (refAst.position === "codomain") {
+                            return Codomain(
+                              toAst.body.lambdas[0],
                               mapAst(refAst_ => {
-                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                if (isTV(refAst_))
+                                  return getTVCons(refAst_) (
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
                                     refAst_.body);
                                 
                                 else return refAst_;
-                              }) (refAst.body[0])));
+                              }) (refAst.body[0]));
+                          }
+
+                          else {
+                            return Forall(
+                              new Set(),
+                              "",
+                              Fun(
+                                [toAst.body.lambdas[0]],
+                                mapAst(refAst_ => {
+                                  if (isTV(refAst_))
+                                    return getTVCons(refAst_) (
+                                      refAst_.name,
+                                      refAst_.scope,
+                                      "codomain",
+                                      refAst_.body);
+                                  
+                                  else return refAst_;
+                                }) (refAst.body[0])));
+                          }
                       }
                        
                       else return refAst;
@@ -5622,23 +5702,42 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                     (refAst, fromAst, toAst) => {
                       if (refAst[TAG] === fromAst[TAG]
                         && refAst.name === fromAst.name) {
-                          return Forall(
-                            new Set(),
-                            "",
-                            Fun([
+                          if (refAst.position === "codomain") {
+                            return Codomain(
                               toAst.body.lambdas[0]
                                 .slice(0, arityDiff)
-                                .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                                .concat(Args.fromArr(refAst.body.slice(0, -1))),
                               mapAst(refAst_ => {
-                                if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                  return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                if (isTV(refAst_))
+                                  return getTVCons(refAst_) (
                                     refAst_.name,
                                     refAst_.scope,
                                     "codomain",
                                     refAst_.body);
                                 
                                 else return refAst_;
-                              }) (refAst.body[refAst.body.length - 1])));
+                              }) (refAst.body[refAst.body.length - 1]));
+                          }
+
+                          else {
+                            return Forall(
+                              new Set(),
+                              "",
+                              Fun(
+                                [toAst.body.lambdas[0]
+                                  .slice(0, arityDiff)
+                                  .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                                mapAst(refAst_ => {
+                                  if (isTV(refAst_))
+                                    return getTVCons(refAst_) (
+                                      refAst_.name,
+                                      refAst_.scope,
+                                      "codomain",
+                                      refAst_.body);
+                                  
+                                  else return refAst_;
+                                }) (refAst.body[refAst.body.length - 1])));
+                          }
                       }
 
                       else return refAst;
@@ -6161,21 +6260,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                           (refAst, fromAst, toAst) => {
                             if (refAst[TAG] === fromAst[TAG]
                               && refAst.name === fromAst.name) {
-                                return Forall(
-                                  new Set(),
-                                  "",
-                                  Fun(
-                                    [new Arg0()],
+                                if (refAst.position === "codomain") {
+                                  return Codomain(
+                                    new Arg0(),
                                     mapAst(refAst_ => {
-                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                      if (isTV(refAst_))
+                                        return getTVCons(refAst_) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
                                           refAst_.body);
                                       
                                       else return refAst_;
-                                    }) (refAst.body[0])));
+                                    }) (refAst.body[0]));
+                                }
+
+                                else {
+                                  return Forall(
+                                    new Set(),
+                                    "",
+                                    Fun(
+                                      [new Arg0()],
+                                      mapAst(refAst_ => {
+                                        if (isTV(refAst_))
+                                          return getTVCons(refAst_) (
+                                            refAst_.name,
+                                            refAst_.scope,
+                                            "codomain",
+                                            refAst_.body);
+                                        
+                                        else return refAst_;
+                                      }) (refAst.body[0])));
+                                }
                             }
 
                             else return refAst;
@@ -6202,21 +6318,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                           (refAst, fromAst, toAst) => {
                             if (refAst[TAG] === fromAst[TAG]
                               && refAst.name === fromAst.name) {
-                                return Forall(
-                                  new Set(),
-                                  "",
-                                  Fun(
-                                    [new Arg1(refAst.body[0])],
+                                if (refAst.position === "codomain") {
+                                  return Codomain(
+                                    new Arg1(refAst.body[0]),
                                     mapAst(refAst_ => {
-                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                      if (isTV(refAst_))
+                                        return getTVCons(refAst_) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
                                           refAst_.body);
                                       
                                       else return refAst_;
-                                    }) (refAst.body[1])));
+                                    }) (refAst.body[1]));
+                                }
+
+                                else {
+                                  return Forall(
+                                    new Set(),
+                                    "",
+                                    Fun(
+                                      [new Arg1(refAst.body[0])],
+                                      mapAst(refAst_ => {
+                                        if (isTV(refAst_))
+                                          return getTVCons(refAst_) (
+                                            refAst_.name,
+                                            refAst_.scope,
+                                            "codomain",
+                                            refAst_.body);
+                                        
+                                        else return refAst_;
+                                      }) (refAst.body[1])));
+                                }
                             }
 
                             else return refAst;
@@ -6256,21 +6389,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                           (refAst, fromAst, toAst) => {
                             if (refAst[TAG] === fromAst[TAG]
                               && refAst.name === fromAst.name) {
-                                return Forall(
-                                  new Set(),
-                                  "",
-                                  Fun(
-                                    [Args.fromArr(refAst.body.slice(0, -1))],
+                                if (refAst.position === "codomain") {
+                                  return Codomain(
+                                    Args.fromArr(refAst.body.slice(0, -1)),
                                     mapAst(refAst_ => {
-                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                      if (isTV(refAst_))
+                                        return getTVCons(refAst_) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
                                           refAst_.body);
                                       
                                       else return refAst_;
-                                    }) (refAst.body[refAst.body.length - 1])));
+                                    }) (refAst.body[refAst.body.length - 1]));
+                                }
+
+                                else {
+                                  return Forall(
+                                    new Set(),
+                                    "",
+                                    Fun(
+                                      [Args.fromArr(refAst.body.slice(0, -1))],
+                                      mapAst(refAst_ => {
+                                        if (isTV(refAst_))
+                                          return getTVCons(refAst_) (
+                                            refAst_.name,
+                                            refAst_.scope,
+                                            "codomain",
+                                            refAst_.body);
+                                        
+                                        else return refAst_;
+                                      }) (refAst.body[refAst.body.length - 1])));
+                                }
                             }
                             
                             else return refAst;
@@ -6343,21 +6493,38 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                           (refAst, fromAst, toAst) => {
                             if (refAst[TAG] === fromAst[TAG]
                               && refAst.name === fromAst.name) {
-                                return Forall(
-                                  new Set(),
-                                  "",
-                                  Fun(
-                                    [toAst.body.lambdas[0]],
+                                if (refAst.position === "codomain") {
+                                  return Codomain(
+                                    toAst.body.lambdas[0],
                                     mapAst(refAst_ => {
-                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                      if (isTV(refAst_))
+                                        return getTVCons(refAst_) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
                                           refAst_.body);
                                       
                                       else return refAst_;
-                                    }) (refAst.body[0])));
+                                    }) (refAst.body[0]));
+                                }
+
+                                else {
+                                  return Forall(
+                                    new Set(),
+                                    "",
+                                    Fun(
+                                      [toAst.body.lambdas[0]],
+                                      mapAst(refAst_ => {
+                                        if (isTV(refAst_))
+                                          return getTVCons(refAst_) (
+                                            refAst_.name,
+                                            refAst_.scope,
+                                            "codomain",
+                                            refAst_.body);
+                                        
+                                        else return refAst_;
+                                      }) (refAst.body[0])));
+                                }
                             }
 
                             else return refAst;
@@ -6388,23 +6555,42 @@ const unifyTypes = (paramAst, argAst, lamIndex, argIndex, state, paramAnno, argA
                           (refAst, fromAst, toAst) => {
                             if (refAst[TAG] === fromAst[TAG]
                               && refAst.name === fromAst.name) {
-                                return Forall(
-                                  new Set(),
-                                  "",
-                                  Fun(
-                                    [toAst.body.lambdas[0]
+                                if (refAst.position === "codomain") {
+                                  return Codomain(
+                                    toAst.body.lambdas[0]
                                       .slice(0, arityDiff)
-                                      .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                                      .concat(Args.fromArr(refAst.body.slice(0, -1))),
                                     mapAst(refAst_ => {
-                                      if (refAst_[TAG] === "MetaTV" || refAst_[TAG] === "RigidTV")
-                                        return (refAst_[TAG] === "MetaTV" ? MetaTV : RigidTV) (
+                                      if (isTV(refAst_))
+                                        return getTVCons(refAst_) (
                                           refAst_.name,
                                           refAst_.scope,
                                           "codomain",
                                           refAst_.body);
                                       
                                       else return refAst_;
-                                    }) (refAst.body[refAst.body.length - 1])));
+                                    }) (refAst.body[refAst.body.length - 1]));
+                                }
+
+                                else {
+                                  return Forall(
+                                    new Set(),
+                                    "",
+                                    Fun(
+                                      [toAst.body.lambdas[0]
+                                        .slice(0, arityDiff)
+                                        .concat(Args.fromArr(refAst.body.slice(0, -1)))],
+                                      mapAst(refAst_ => {
+                                        if (isTV(refAst_))
+                                          return getTVCons(refAst_) (
+                                            refAst_.name,
+                                            refAst_.scope,
+                                            "codomain",
+                                            refAst_.body);
+                                        
+                                        else return refAst_;
+                                      }) (refAst.body[refAst.body.length - 1])));
+                                }
                             }
 
                             else return refAst;
