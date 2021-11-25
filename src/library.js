@@ -22,7 +22,7 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 /***[ Modules ]***************************************************************/
 
 
-import {thunk} from "./lazyness.js";
+import {thunk} from "./lazy.js";
 
 
 import {
