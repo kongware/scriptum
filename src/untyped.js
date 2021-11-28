@@ -1023,7 +1023,7 @@ RBT.diff = (t1, t2, cmp) => {
 /***[ Foldable ]**************************************************************/
 
 
-RBT.foldl = f => init => t => function go(acc, u) {
+RBT.foldl = f => init => t => function go(acc, u) { // TODO: trampoline
   switch (u[TAG]) {
     case "Leaf": return acc;
     
@@ -1033,7 +1033,7 @@ RBT.foldl = f => init => t => function go(acc, u) {
       return go(acc3, u.r);
     }
 
-    default: throw new TypeError("");
+    default: throw new TypeError("invalid constructor");
   }
 } (init, t);
 
@@ -1048,7 +1048,7 @@ RBT.foldr = f => init => t => function go(acc, u) {
       return thunk(() => go(acc3, u.l));
     }
 
-    default: throw new TypeError("");
+    default: throw new TypeError("invalid constructor");
   }
 } (init, t);
 
@@ -1056,7 +1056,7 @@ RBT.foldr = f => init => t => function go(acc, u) {
 /***[ Folds ]*****************************************************************/
 
 
-RBT.cata = node => leaf => function go(t) {
+RBT.cata = node => leaf => function go(t) { // TODO: trampoline
   return k => {
     switch (t[TAG]) {
       case "Leaf": return k(leaf);
@@ -1065,7 +1065,7 @@ RBT.cata = node => leaf => function go(t) {
         go(t.r) (t3 =>
           k(node([t.k, t.v]) (t2) (t3))));
 
-      default: throw new TypeError("");
+      default: throw new TypeError("invalid constructor");
     }
   }
 };
@@ -1079,7 +1079,23 @@ RBT.cata_ = node => leaf => function go(t) {
       (thunk(() => go(t.l)))
         (thunk(() => go(t.r)));
 
-    default: throw new TypeError("");
+    default: throw new TypeError("invalid constructor");
+  }
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+RBT.map = f => function go(t) { // TODO: CPS + trampoline
+  switch (t[TAG]) {
+    case "Leaf": return RBT.Leaf;
+    
+    case "Node": {
+      return RBT.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
+    }
+
+    default: throw new TypeError("invalid constructor");
   }
 };
 
@@ -1102,7 +1118,7 @@ RBT.postOrder = ({append, empty}) => f => t =>
     append(append(l) (r)) (f(pair))) (empty) (t) (id);
 
 
-RBT.levelOrder = f => init => t => function go(acc, i, ts) {
+RBT.levelOrder = f => init => t => function go(acc, i, ts) { // TODO: trampoline
   if (i >= ts.length) return acc;
   else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
   
@@ -2300,7 +2316,7 @@ export const IMap_ = cmp => {
   });
 
 
-  IMap.root = IMap(RBT.Leaf, 0);
+  IMap.empty = IMap(RBT.Leaf, 0);
 
 
   /***[ Getters/Setters ]*****************************************************/
@@ -2388,7 +2404,7 @@ export const IOMap_ = cmp => {
   });
 
 
-  IOMap.root = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
+  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
 
 
   /***[ Getters/Setters ]*****************************************************/
@@ -2513,7 +2529,7 @@ export const ISet_ = cmp => {
   });
 
 
-  ISet.root = ISet(RBT.Leaf, 0);
+  ISet.empty = ISet(RBT.Leaf, 0);
 
 
   /***[ Getters/Setters ]*****************************************************/
@@ -2590,7 +2606,7 @@ export const IOSet_ = cmp => {
   });
 
 
-  IOSet.root = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
+  IOSet.empty = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
 
 
   /***[ Getters/Setters ]*****************************************************/
@@ -3879,6 +3895,27 @@ Vector.set = i => x => xs => {
 };
 
 
+/***[ Foldable ]**************************************************************/
+
+
+Vector.foldl = f => acc => xs =>
+  RBT.foldl(f) (acc) (xs.tree);
+
+
+Vector.foldr = f => acc => xs =>
+  RBT.foldr(f) (acc) (xs.tree);
+
+
+/***[ Functor ]***************************************************************/
+
+
+Vector.map = f => xs =>
+  Vector(
+    RBT.map(f) (xs.tree),
+    xs.length,
+    xs.offset);
+
+
 /******************************************************************************
 *******************************************************************************
 ***************************[ RESOLVE DEPENDENCIES ]****************************
@@ -3906,6 +3943,8 @@ TODOS:
 * Memoization
 * Pointed type class
 * probabilistic data structures
+* 12 finger tree
+* hashed array mapped trie
 
 * process CSV
 * do we really need Monoid prepend?
