@@ -18,7 +18,6 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 *******************************************************************************
 ******************************************************************************/
 
-
 /******************************************************************************
 *********************************[ CONSTANTS ]*********************************
 ******************************************************************************/
@@ -27,13 +26,22 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
-export const NOT_FOUND = -1;
-
-
 const PREFIX = "$_"; // avoid property name collisions
 
 
-const TAG = Symbol.toStringTag;
+/******************************************************************************
+****************************[ JAVASCRIPT RELATED ]*****************************
+******************************************************************************/
+
+
+export const comparator = (m, n) =>
+  m < n ? LT : m === n ? EQ : GT;
+
+
+export const NOT_FOUND = -1;
+
+
+export const TAG = Symbol.toStringTag;
 
 
 /******************************************************************************
@@ -380,8 +388,7 @@ RBT.singleton = (k, v) =>
 /***[ Order (Default) ]*******************************************************/
 
 
-RBT.cmp = (m, n) =>
-  m < n ? LT : m === n ? EQ : GT;
+RBT.cmp = comparator;
 
 
 /***[ Auxiliary Functions ]***************************************************/
@@ -602,7 +609,7 @@ RBT.delGT = (k, c, h, l, k_, v_, r, cmp) => {
 
 RBT.get = (t, k, cmp) => {
   switch (t[TAG]) {
-    case "Leaf": return null;
+    case "Leaf": return undefined;
 
     case "Node": {
       switch (cmp(k, t.k)) {
@@ -1013,6 +1020,125 @@ RBT.diff = (t1, t2, cmp) => {
 };
 
 
+/***[ Foldable ]**************************************************************/
+
+
+RBT.foldl = f => init => t => function go(acc, u) {
+  switch (u[TAG]) {
+    case "Leaf": return acc;
+    
+    case "Node": {
+      const acc2 = go(acc, u.l);
+      const acc3 = f(acc2) (u.v);
+      return go(acc3, u.r);
+    }
+
+    default: throw new TypeError("");
+  }
+} (init, t);
+
+
+RBT.foldr = f => init => t => function go(acc, u) {
+  switch (u[TAG]) {
+    case "Leaf": return acc;
+    
+    case "Node": {
+      const acc2 = thunk(() => go(acc, u.r));
+      const acc3 = f(u.v) (acc2);
+      return thunk(() => go(acc3, u.l));
+    }
+
+    default: throw new TypeError("");
+  }
+} (init, t);
+
+
+/***[ Folds ]*****************************************************************/
+
+
+RBT.cata = node => leaf => function go(t) {
+  return k => {
+    switch (t[TAG]) {
+      case "Leaf": return k(leaf);
+      
+      case "Node": return go(t.l) (t2 =>
+        go(t.r) (t3 =>
+          k(node([t.k, t.v]) (t2) (t3))));
+
+      default: throw new TypeError("");
+    }
+  }
+};
+
+
+RBT.cata_ = node => leaf => function go(t) {
+  switch (t[TAG]) {
+    case "Leaf": return leaf;
+    
+    case "Node": return node([t.k, t.v])
+      (thunk(() => go(t.l)))
+        (thunk(() => go(t.r)));
+
+    default: throw new TypeError("");
+  }
+};
+
+
+/***[ Traversals ]************************************************************/
+
+
+RBT.preOrder = ({append, empty}) => f => t =>
+  RBT.cata(pair => l => r =>
+    append(append(f(pair)) (l)) (r)) (empty) (t) (id);
+
+
+RBT.inOrder = ({append, empty}) => f => t =>
+  RBT.cata(pair => l => r =>
+    append(append(l) (f(pair))) (r)) (empty) (t) (id);
+
+
+RBT.postOrder = ({append, empty}) => f => t =>
+  RBT.cata(pair => l => r =>
+    append(append(l) (r)) (f(pair))) (empty) (t) (id);
+
+
+RBT.levelOrder = f => init => t => function go(acc, i, ts) {
+  if (i >= ts.length) return acc;
+  else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
+  
+  else {
+    ts.push(ts[i].l, ts[i].r);
+    return go(f(acc) ([ts[i].k, ts[i].v]), i + 1, ts);
+  }
+} (init, 0, [t]);
+
+
+RBT.preOrder_ = ({append, empty}) => f => t =>
+  RBT.cata_(pair => l => r =>
+    append(append(f(pair)) (l)) (r)) (empty) (t);
+
+
+RBT.inOrder_ = ({append, empty}) => f => t =>
+  RBT.cata_(pair => l => r =>
+    append(append(l) (f(pair))) (r)) (empty) (t);
+
+
+RBT.postOrder_ = ({append, empty}) => f => t =>
+  RBT.cata_(pair => l => r =>
+    append(append(l) (r)) (f(pair))) (empty) (t);
+
+
+RBT.levelOrder_ = f => acc => t => function go(ts, i) {
+  if (i >= ts.length) return acc;
+  else if (ts[i] [TAG] === "Leaf") return go(ts, i + 1);
+  
+  else {
+    ts.push(ts[i].l, ts[i].r);
+    return f([ts[i].k, ts[i].v]) (thunk(() => go(ts, i + 1)));
+  }
+} ([t], 0);
+
+
 /******************************************************************************
 *******************************************************************************
 ************************************[ IO ]*************************************
@@ -1113,11 +1239,11 @@ export const liftA2 = ({map, ap}) => f => tx => ty =>
 /***[ Foldable ]**************************************************************/
 
 
-export const foldMapl = ({foldl}, {append, empty}) => f =>
+export const foldMapl = ({foldl, append, empty}) => f =>
   foldl(comp2nd(append) (f)) (empty);
 
 
-export const foldMapr = ({foldr}, {append, empty}) => f =>
+export const foldMapr = ({foldr, append, empty}) => f =>
   foldr(comp(append) (f)) (empty);
 
 
@@ -1131,7 +1257,7 @@ export const mapEff = ({map}) => x =>
 /***[ Monad ]*****************************************************************/
 
 
-export const foldM = ({foldr}, {chain, of}) => f => acc => tx =>
+export const foldM = ({foldr, chain, of}) => f => acc => tx =>
   foldr(x => my => acc_ => chain(f(acc_) (x)) (my)) (of) (tx) (acc);
 
 
@@ -1699,12 +1825,6 @@ A.tails = A => A.apo(xs =>
 A.filter = p => xs => xs.filter(x => p(x));
 
 
-/***[ Functor ]***************************************************************/
-
-
-A.map = f => xs => xs.map(x => f(x));
-
-
 /***[ Foldable ]**************************************************************/
 
 
@@ -1739,6 +1859,12 @@ A.para = f => init => xs => {
 
   return acc;
 };
+
+
+/***[ Functor ]***************************************************************/
+
+
+A.map = f => xs => xs.map(x => f(x));
 
 
 /***[ Generator ]*************************************************************/
@@ -2166,19 +2292,12 @@ export function* objValues(o) {
 ******************************************************************************/
 
 
-const IMap = (tree, size) => ({
-  [TAG]: "IMap",
-  tree,
-  size
-});
-
-
 /******************************************************************************
 ***********************************[ IOMAP ]***********************************
 ******************************************************************************/
 
 
-export const IOMap = cmp => {
+export const IOMap_ = cmp => {
   const IOMap = (tree, keys, size, counter) => ({
     [TAG]: "IOMap",
     tree,
@@ -2188,7 +2307,7 @@ export const IOMap = cmp => {
   });
 
 
-  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
+  IOMap.root = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
 
 
   /***[ Getters/Setters ]*****************************************************/
@@ -2197,7 +2316,7 @@ export const IOMap = cmp => {
   IOMap.get = k => m => {
     const r = RBT.get(m.tree, k, cmp);
     
-    return r === null
+    return r === undefined
       ? Option.None
       : Option.Some(r);
   };
@@ -2208,7 +2327,7 @@ export const IOMap = cmp => {
 
 
   IOMap.mod = k => f => m => {
-    if (IOMap.has(k) (m.tree)) {
+    if (IOMap.has(k) (m)) {
       const x = RBT.get(m.tree, k, cmp);
 
       return IOMap(
@@ -2225,16 +2344,14 @@ export const IOMap = cmp => {
   IOMap.rem = k => m => {
     let size = m.size;
 
-    if (IOMap.has(k) (m.tree))
+    if (IOMap.has(k) (m))
       size = m.size - 1;
     
     else return m;
 
-    // TODO: find key index using in-order traversal
-
     return IOMap(
       RBT.del(m.tree, k, cmp),
-      RBT.del(m.keys, i, RBT.cmp),
+      m.keys, // no key removal
       size,
       m.counter);
   };
@@ -2244,7 +2361,7 @@ export const IOMap = cmp => {
     let size = m.size,
       counter = m.counter;
 
-    if (!IOMap.has(k) (m.tree)) {
+    if (!IOMap.has(k) (m)) {
       size = m.size + 1;
       counter = m.counter + 1;
     }
@@ -2257,53 +2374,40 @@ export const IOMap = cmp => {
   };
 
 
-  /***[ Foldable ]************************************************************/
-
-
-  // TODO: foldl
-
-
-  IOMap.foldr = f => acc => function go(tx) {
-    switch (tx[TAG]) {
-      case "Leaf": return acc;
-
-      case "Node": {
-        const {l, v, r} = t;
-        return f(v) (thunk(() => go(l))) (thunk(() => go(r)));
-      }
-
-      default: throw TypeError("");
-    }
-  };
-
-
   /***[ Traversal ]***********************************************************/
 
 
-  IOMap.preOrder = ({cons}, {empty}) => t =>
-    IOMap.foldr(v => l => r => comp3(cons(v)) (l) (r)) (id) (t) (empty);
+  IOMap.inOrder = ({append, empty}) => f => m =>
+    RBT.inOrder({append, empty}) (f) (m.tree);
 
 
-  IOMap.inOrder = ({cons}, {empty}) => t =>
-    IOMap.foldr(v => l => r => comp3(l) (cons(v)) (r)) (id) (t) (empty);
+  IOMap.insertOrder = f => init => m => function go(acc, i) {
+    if (i >= m.counter) return acc;
 
+    else {
+      const k = RBT.get(m.keys, i, RBT.cmp),
+        tv = IOMap.get(k) (m);
 
-  IOMap.postOrder = ({cons}, {empty}) => t =>
-    IOMap.foldr(v => l => r => comp3(l) (r) (cons(v))) (id) (t) (empty);
-
-
-  /*
-  TODO: levelOrder
-
-  levelorder :: Tree a -> [a]
-  levelorder t = step [t]
-      where step [] = []
-            step ts = map element ts ++ step (concatMap subtrees ts)
-  */
+      return tv.run({
+        get none() {return go(acc, i + 1)},
+        some: v => go(f(acc) ([k, v]), i + 1)
+      });
+    }
+  } (init, 0);
 
 
   return IOMap;
 };
+
+
+/******************************************************************************
+***********************************[ ISET ]************************************
+******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ IOSET ]***********************************
+******************************************************************************/
 
 
 /******************************************************************************
