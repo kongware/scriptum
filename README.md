@@ -36,6 +36,7 @@ In order to create an ecosystem for the functional paradigm in Javascript the fo
 - [x] safe in-place updates
 - [x] stack-safe sync/async recursion
 - [x] effect handling and composition
+- [ ] probabilistic data structures
 - [ ] concurrency (STM)
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] strong eventual consistency (CRDTs)
