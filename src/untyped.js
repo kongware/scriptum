@@ -2292,6 +2292,87 @@ export function* objValues(o) {
 ******************************************************************************/
 
 
+export const IMap_ = cmp => {
+  const IMap = (tree, size) => ({
+    [TAG]: "IMap",
+    tree,
+    size
+  });
+
+
+  IMap.root = IMap(RBT.Leaf, 0);
+
+
+  /***[ Getters/Setters ]*****************************************************/
+
+
+  IMap.get = k => m => {
+    const r = RBT.get(m.tree, k, cmp);
+    
+    return r === undefined
+      ? Option.None
+      : Option.Some(r);
+  };
+
+
+  IMap.has = k => m =>
+    RBT.has(m.tree, k, cmp);
+
+
+  IMap.mod = k => f => m => {
+    if (IMap.has(k) (m)) {
+      const v = RBT.get(m.tree, k, cmp);
+
+      return IMap(
+        RBT.set(m.tree, k, f(v), cmp),
+        m.size);
+    }
+
+    else return m;
+  };
+
+
+  IMap.rem = k => m => {
+    let size = m.size;
+
+    if (IMap.has(k) (m))
+      size = m.size - 1;
+    
+    else return m;
+
+    return IMap(
+      RBT.del(m.tree, k, cmp),
+      size);
+  };
+
+
+  IMap.set = k => v => m => {
+    let size = m.size;
+
+    if (!IMap.has(k) (m))
+      size = m.size + 1;
+
+    return IMap(
+      RBT.set(m.tree, k, v, cmp),
+      size);
+  };
+
+
+  /***[ Traversal ]***********************************************************/
+
+
+  IMap.inOrder = ({append, empty}) => f => m =>
+    RBT.inOrder({append, empty}) (f) (m.tree);
+
+
+  IMap.inOrder_ = ({append, empty}) => f => m =>
+    RBT.inOrder_({append, empty}) (f) (m.tree);
+
+
+  return IMap;
+};
+
+
 /******************************************************************************
 ***********************************[ IOMAP ]***********************************
 ******************************************************************************/
@@ -2328,10 +2409,10 @@ export const IOMap_ = cmp => {
 
   IOMap.mod = k => f => m => {
     if (IOMap.has(k) (m)) {
-      const x = RBT.get(m.tree, k, cmp);
+      const v = RBT.get(m.tree, k, cmp);
 
       return IOMap(
-        RBT.set(m.tree, k, f(x), cmp),
+        RBT.set(m.tree, k, f(v), cmp),
         m.keys,
         m.size,
         m.counter);
@@ -2381,6 +2462,10 @@ export const IOMap_ = cmp => {
     RBT.inOrder({append, empty}) (f) (m.tree);
 
 
+  IOMap.inOrder_ = ({append, empty}) => f => m =>
+    RBT.inOrder_({append, empty}) (f) (m.tree);
+
+
   IOMap.insertOrder = f => init => m => function go(acc, i) {
     if (i >= m.counter) return acc;
 
@@ -2396,6 +2481,21 @@ export const IOMap_ = cmp => {
   } (init, 0);
 
 
+  IOMap.insertOrder_ = f => acc => m => function go(i) {
+    if (i >= m.counter) return acc;
+
+    else {
+      const k = RBT.get(m.keys, i, RBT.cmp),
+        tv = IOMap.get(k) (m);
+
+      return tv.run({
+        get none() {return go(i + 1)},
+        some: v => f([k, v]) (thunk(() => go(i + 1)))
+      });
+    }
+  } (0);
+
+
   return IOMap;
 };
 
@@ -2405,9 +2505,190 @@ export const IOMap_ = cmp => {
 ******************************************************************************/
 
 
+export const ISet_ = cmp => {
+  const ISet = (tree, size) => ({
+    [TAG]: "ISet",
+    tree,
+    size
+  });
+
+
+  ISet.root = ISet(RBT.Leaf, 0);
+
+
+  /***[ Getters/Setters ]*****************************************************/
+
+
+  ISet.has = k => s =>
+    RBT.has(s.tree, k, cmp);
+
+
+  ISet.mod = k => f => s => {
+    if (ISet.has(k) (s)) {
+      return ISet(
+        RBT.set(s.tree, f(k), null, cmp),
+        s.size);
+    }
+
+    else return s;
+  };
+
+
+  ISet.rem = k => s => {
+    let size = s.size;
+
+    if (ISet.has(k) (s))
+      size = s.size - 1;
+    
+    else return s;
+
+    return ISet(
+      RBT.del(s.tree, k, cmp),
+      size);
+  };
+
+
+  ISet.set = k => s => {
+    let size = s.size;
+
+    if (!ISet.has(k) (s))
+      size = s.size + 1;
+
+    return ISet(
+      RBT.set(s.tree, k, null, cmp),
+      size);
+  };
+
+
+  /***[ Traversal ]***********************************************************/
+
+
+  ISet.inOrder = ({append, empty}) => f => s =>
+    RBT.inOrder({append, empty}) (f) (s.tree);
+
+
+  ISet.inOrder_ = ({append, empty}) => f => s =>
+    RBT.inOrder_({append, empty}) (f) (s.tree);
+
+
+  return ISet;
+};
+
+
 /******************************************************************************
 ***********************************[ IOSET ]***********************************
 ******************************************************************************/
+
+
+export const IOSet_ = cmp => {
+  const IOSet = (tree, keys, size, counter) => ({
+    [TAG]: "IOSet",
+    tree,
+    keys,
+    size,
+    counter
+  });
+
+
+  IOSet.root = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
+
+
+  /***[ Getters/Setters ]*****************************************************/
+
+
+  IOSet.has = k => s =>
+    RBT.has(s.tree, k, cmp);
+
+
+  IOSet.mod = k => f => s => {
+    if (IOSet.has(k) (s)) {
+      return IOSet(
+        RBT.set(s.tree, f(k), null, cmp),
+        s.keys,
+        s.size,
+        s.counter);
+    }
+
+    else return s;
+  };
+
+
+  IOSet.rem = k => s => {
+    let size = s.size;
+
+    if (IOSet.has(k) (s))
+      size = s.size - 1;
+    
+    else return s;
+
+    return IOSet(
+      RBT.del(s.tree, k, cmp),
+      s.keys, // no key removal
+      size,
+      s.counter);
+  };
+
+
+  IOSet.set = k => s => {
+    let size = s.size,
+      counter = s.counter;
+
+    if (!IOSet.has(k) (s)) {
+      size = s.size + 1;
+      counter = s.counter + 1;
+    }
+
+    return IOSet(
+      RBT.set(s.tree, k, null, cmp),
+      RBT.set(s.keys, s.counter, k, RBT.cmp),
+      size,
+      counter);
+  };
+
+
+  /***[ Traversal ]***********************************************************/
+
+
+  IOSet.inOrder = ({append, empty}) => f => s =>
+    RBT.inOrder({append, empty}) (f) (s.tree);
+
+
+  IOSet.inOrder_ = ({append, empty}) => f => s =>
+    RBT.inOrder_({append, empty}) (f) (s.tree);
+
+
+  IOSet.insertOrder = f => init => s => function go(acc, i) {
+    if (i >= s.counter) return acc;
+
+    else {
+      const k = RBT.get(s.keys, i, RBT.cmp),
+        tv = IOSet.get(k) (s);
+
+      return tv.run({
+        get none() {return go(acc, i + 1)},
+        some: v => go(f(acc) (v), i + 1)
+      });
+    }
+  } (init, 0);
+
+
+  IOSet.insertOrder_ = f => acc => s => function go(i) {
+    if (i >= s.counter) return acc;
+
+    else {
+      const k = RBT.get(s.keys, i, RBT.cmp),
+        tv = IOSet.get(k) (s);
+
+      return tv.run({
+        get none() {return go(i + 1)},
+        some: v => f(v) (thunk(() => go(i + 1)))
+      });
+    }
+  } (0);
+
+
+  return IOSet;
+};
 
 
 /******************************************************************************
@@ -3612,21 +3893,19 @@ Vector.set = i => x => xs => {
 TODOS:
 
 * transducers
-* IOMap/Imap
-* IOSet/Iset
-* List/DList
-* Vector
+* DList
 * Compose (applicative)
+* monad transformers
 * MFunctor/hoist/liftM
-* Yoneda/Coyoneda
 * Streams
-* Rose tree
 * delimited conts using shift/reset
 * Coroutine
 * Zipper
 * Optics
 * Natural transformations
 * Memoization
+* Pointed type class
+* probabilistic data structures
 
 * process CSV
 * do we really need Monoid prepend?
