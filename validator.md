@@ -1,4 +1,4 @@
-[Editor's note: This readme is under construction]
+[Editor's note: Outdated]
 
 # TODO
 
