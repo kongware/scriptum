@@ -35,7 +35,7 @@ const PREFIX = "$_"; // avoid property name collisions
 
 
 export const comparator = (m, n) =>
-  m < n ? LT : m === n ? EQ : GT;
+  m < n ? Ctor.LT : m === n ? Ctor.EQ : Ctor.GT;
 
 
 export const NOT_FOUND = -1;
@@ -1320,7 +1320,7 @@ export const appr = (f, y) => x => f(x) (y);
 export const flip = f => y => x => f(x) (y);
 
 
-export const infix = (x, f, y) =>
+export const infix1 = (x, f, y) =>
   f(x) (y);
 
 
@@ -1356,7 +1356,7 @@ export const infix9 = (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) 
   n(m(l(k(j(i(h(g(f(q) (r)) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-export const $ = (...args) => {
+export const infix = (...args) => {
   switch (args.length) {
     case 3: return infix(...args);
     case 5: return infix2(...args);
@@ -1443,7 +1443,7 @@ export const comp2nd = f => g => x => y => f(x) (g(y));
 export const compBin = f => g => x => y => f(g(x) (y));
 
 
-export const compOn = f => g => x => y => f(g(x)) (g(y));
+export const compBoth = f => g => x => y => f(g(x)) (g(y));
 
 
 /***[ Conditional Operator ]**************************************************/
@@ -1693,6 +1693,35 @@ export const partialProps = (f, o) => p => f({...o, ...p});
 
 
 export const thisify = f => f({});
+
+
+/******************************************************************************
+********************************[ APPLICATOR ]*********************************
+******************************************************************************/
+
+
+export const App = t => ({
+  to: x => App(t(x)),
+  flipped: y => App(x => t(x) (y)),
+  flat: (...args) => App(args.reduce((f, x) => f(x), t)),
+  lazy: x => App_({get run() {return t(x)}}),
+  by: f => App(f(t)),
+  flippedBy: f => App(x => f(x) (t)),
+  lazyBy: f => App_({get run() {return f(t)}}),
+  get: t
+});
+
+
+const App_ = o => ({
+  to: x => App_({get run() {return o.run(x)}}),
+  flipped: y => App_({get run() {return x => o.run(x) (y)}}),
+  flat: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
+  strict: x => App(o.run(x)),
+  by: f => App_({get run() {return f(o.run)}}),
+  flippedBy: f => App_({get run() {return x => f(x) (t)}}),
+  strictBy: f => App(f(o.run)),
+  get get() {const r = o.run; delete this.get; return this.get = {run: r}}
+});
 
 
 /******************************************************************************
@@ -2007,7 +2036,7 @@ A.empty = [];
 /***[ Unfoldable ]************************************************************/
 
 
-A.unfoldr = f => init => {
+A.unfoldr = f => init => { // TODO: revise
   let acc = [], x = init, next;
 
   do {
@@ -2048,21 +2077,21 @@ A.zero = A.zero(A);
 export const Ctor = {};
 
 
-export const LT = ({
+Ctor.LT = ({
   [TAG]: "Comparator",
   run: ({lt}) => lt,
   valueOf: () => -1
 });
 
 
-export const EQ = ({
+Ctor.EQ = ({
   [TAG]: "Comparator",
   run: ({eq}) => eq,
   valueOf: () => 0
 });
 
 
-export const GT = ({
+Ctor.GT = ({
   [TAG]: "Comparator",
   run: ({gt}) => gt,
   valueOf: () => 1
@@ -2083,7 +2112,175 @@ Ctor.prepend = ty => tx =>
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Ctor.empty = EQ;
+Ctor.empty = Ctor.EQ;
+
+
+/******************************************************************************
+**********************************[ COMPARE ]**********************************
+******************************************************************************/
+
+
+export const Compare = f => ({
+  [TAG]: "Compare",
+  run: f
+});
+
+
+/***[ Contravariant ]*********************************************************/
+
+
+Compare.contra = f => tx =>
+  Compare(compBoth(tx.run) (f));
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+Compare.append = tx => ty =>
+  Compare(x => y =>
+    Ctor.append(tx.run(x) (y)) (ty.run(x) (y)));
+
+
+Compare.prepend = ty => tx =>
+  Compare(x => y =>
+    Ctor.append(tx.run(x) (y)) (ty.run(x) (y)));
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+Compare.empty = _ => _ => Ctor.EQ;
+
+
+/******************************************************************************
+**********************************[ COMPOSE ]**********************************
+******************************************************************************/
+
+
+export const Comp = ttx => ({
+  [TAG]: "Comp",
+  run: ttx
+});
+
+
+/***[ Foldable ]**************************************************************/
+
+
+/* TODO: Compo.foldr = (
+  {foldr: foldr1, append: append1, empty: empty1},
+  {foldr: foldr2, append: append2, empty: empty2}) =>
+    f => acc => ttx =>
+      foldr1(tx => acc2 =>
+        foldr2(x => acc3 =>
+          f(x) (acc3)) (acc2) (tx)) (acc) (ttx);*/
+
+
+/***[ Functor ]***************************************************************/
+
+
+Comp.map = ({map: map1}, {map: map2}) => f => ttx =>
+  Comp(map1(map2(f)) (ttx));
+
+
+/***[ Functor :: Applicative ]************************************************/
+
+
+Comp.ap = ({map, ap: ap1}, {ap: ap2}) => ttf => ttx =>
+  Comp(ap1(map(ap2) (ttf)) (ttx));
+
+
+Comp.of = ({of: of1}, {of: of2}) => x => Comp(of1(of2(x)));
+
+
+/******************************************************************************
+***********************************[ CONST ]***********************************
+******************************************************************************/
+
+
+export const Const = x => ({
+  [TAG]: "Const",
+  run: x
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+Const.map = _ => tx => tx;
+
+
+/***[ Functor :: Applicative ]************************************************/
+
+
+Const.ap = ({append}) => tf => tx =>
+  Const(append(tf.run) (tx.run));
+
+
+Const.of = ({empty}) => _ => Const(empty);
+
+
+/******************************************************************************
+***********************************[ CONT ]************************************
+******************************************************************************/
+
+
+export const Cont = k => ({
+  [TAG]: "Cont",
+  run: k
+});
+
+
+/***[ Delimitation (w/o Regions) ]********************************************/
+
+
+const reset = mx => Cont(k => k(mx.run(id)));
+
+
+const shift = fm => Cont(k => fm(k).run(id));
+
+
+/***[ Functor ]***************************************************************/
+
+
+Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
+
+
+/***[ Functor :: Applicative ]************************************************/
+
+
+Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
+
+
+Cont.of = x => Cont(k => k(x));
+
+
+/***[ Functor :: Applicative :: Monad ]***************************************/
+
+
+Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+Cont.append = ({append}) => tx => ty =>
+  Cont(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+Cont.prepend = ({append}) => ty => tx =>
+  Cont(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+Cont.empty = empty => Cont(k => k(empty));
 
 
 /******************************************************************************
@@ -2261,7 +2458,7 @@ Either.Right = x => ({
 });
 
 
-Either.cata = ({left, right}) => tx => tx.run({left, right});
+Either.cata = left => right => tx => tx.run({left, right});
 
 
 /***[ Functor ]***************************************************************/
@@ -2312,19 +2509,6 @@ Either.chainT = ({chain, of}) => mmx => fmm =>
 
 
 Either.ofT = ({of}) => x => of(Either.Right(x));
-
-
-/******************************************************************************
-***********************************[ FLOW ]************************************
-******************************************************************************/
-
-
-export const Flow = x => ({
-  app: arg => Flow(x(arg)),
-  appFlat: (...args) => Flow(args.reduce((f, arg) => f(arg), x)),
-  get: x,
-  map: f => Flow(f(x))
-});
 
 
 /******************************************************************************
@@ -2813,7 +2997,37 @@ List.Nil = ({
 });
 
 
-List.singleton =  x => List.Cons(x) (List.Nil);
+List.cata = nil => cons => xs => xs.run({nil, cons});
+
+
+List.singleton = x => List.Cons(x) (List.Nil);
+
+
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+List.head = xs =>
+  xs.run({
+    nil: Option.None,
+    some: x => xs => Option.Some(x)
+  });
+
+
+List.tail = xs =>
+  xs.run({
+    nil: List.Nil,
+    cons: x => xs => xs
+  });
+
+
+List.cons = List.Cons;
+
+
+List.uncons = xs =>
+  xs.run({
+    nil: Option.None,
+    cons: y => ys => Option.Some([y, ys]);
+  });
 
 
 /***[ Conversion ]************************************************************/
@@ -2859,7 +3073,7 @@ List.foldr = f => acc => function go(xs) {
 
 List.map = f =>
   listFoldr(x => acc =>
-    Cons(f(x)) (acc))
+    List.Cons(f(x)) (acc))
       (List.Nil);
 
 
@@ -2872,7 +3086,7 @@ List.ap = fs => xs =>
       (acc)) (List.Nil) (fs);
 
 
-List.of = x => Cons(x) (List.Nil);
+List.of = List.singleton;
 
 
 /***[ Functor :: Applicative :: Monad ]***************************************/
@@ -2886,26 +3100,51 @@ List.chain = xs => fm => function go(ys) {
 } (xs);
 
 
+/***[ Infinite Lists ]********************************************************/
+
+
+List.iterate = f => function go(x) {
+  List.Cons(x) (thunk(() => go(f(x))));
+
+
+const repeat = x =>
+  List.Cons(x) (thunk(() => repeat(x)));
+
+
 /***[ Semigroup ]*************************************************************/
 
 
 List.append = xs => ys => function go(acc) {
   return acc.run({
     nil: ys,
-
-    cons: z => zs =>
-      List.Cons(z) (thunk(() => go(zs)))
+    cons: z => zs => List.Cons(z) (thunk(() => go(zs)))
   });
 } (xs);
 
 
-// TODO: List.prepend
+List.prepend = ys => xs => function go(acc) {
+  return acc.run({
+    nil: ys,
+    cons: z => zs => List.Cons(z) (thunk(() => go(zs)))
+  });
+} (xs);
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 List.empty = List.Nil;
+
+
+/***[ Unfoldable ]************************************************************/
+
+
+List.unfoldr = f => function go(y) {
+  return f(y).run({
+    none: List.Nil,
+    some: ([x, y_]) => List.Cons(x) (thunk(() => go(y_)))
+  });
+};
 
 
 /******************************************************************************
@@ -3030,7 +3269,7 @@ Option.None = ({
 });
 
 
-Option.cata = ({none, some}) => tx => tx.run({none, some});
+Option.cata = none => some => tx => tx.run({none, some});
 
 
 /***[ Functor ]***************************************************************/
@@ -4058,12 +4297,9 @@ Vector.map = f => xs =>
 TODOS:
 
 * transducers
-* DList
-* Compose (applicative)
 * monad transformers
 * MFunctor/hoist/liftM
 * Streams
-* delimited conts using shift/reset
 * Coroutine
 * Zipper
 * Optics
@@ -4078,5 +4314,6 @@ TODOS:
 * natural transformation Parallel >> Serial and vice versa
 * add singleton to each type
 * make foldl a loop or at least a CPS+trampoline
+* maybe unfoldl for Array/Vector?
 
 */
