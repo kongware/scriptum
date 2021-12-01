@@ -26,6 +26,9 @@ aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88    
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
+const NOOP = null;
+
+
 const PREFIX = "$_"; // avoid property name collisions
 
 
@@ -35,7 +38,7 @@ const PREFIX = "$_"; // avoid property name collisions
 
 
 export const comparator = (m, n) =>
-  m < n ? Ctor.LT : m === n ? Ctor.EQ : Ctor.GT;
+  m < n ? LT : m === n ? EQ : GT;
 
 
 export const NOT_FOUND = -1;
@@ -200,10 +203,8 @@ class ThunkProxy {
 ******************************************************************************/
 
 
-/***[ Strict Recursion ]******************************************************/
+/***[ Guarded Recursion ]*****************************************************/
 
-
-// a.k.a. guarded recursion
 
 export const strictRec = x => {
   while (x && x[THUNK] === true)
@@ -216,74 +217,88 @@ export const strictRec = x => {
 /***[ Monadic Recursion ]*****************************************************/
 
 
-export const MonadRec = {};
+export const LoopM = {};
 
 
-MonadRec.loop = o => {
-  while (o.tag === "Iterate")
+LoopM.loop = o => {
+  while (o.tag === "LoopMNext")
     o = o.f(o.x);
 
-  return o.tag === "Return"
+  return o.tag === "LoopMDone"
     ? o.x
     : _throw(new TypeError("invalid trampoline tag"));
 };
 
 
-// Applicative
-
-
-MonadRec.ap = tf => tx =>
-  MonadRec.chain(tf) (f =>
-    MonadRec.chain(tx) (x =>
-      MonadRec.of(f(x))));
-
-
-MonadRec.of = MonadRec => MonadRec.return;
-
-
 // Functor
 
-
-MonadRec.map = f => tx =>
-  MonadRec.chain(tx) (x => MonadRed.of(f(x)));
-
-
-// Monad
+LoopM.map = f => tx =>
+  LoopM.chain(tx) (x => LoopM.of(f(x)));
 
 
-MonadRec.chain = mx => fm =>
-  mx.tag === "Iterate" ? Iterate(mx.x) (y => MonadRec.chain(mx.f(y)) (fm))
-    : mx.tag === "Return" ? fm(mx.x)
+// Functor :: Applicative
+
+LoopM.ap = tf => tx =>
+  LoopM.chain(tf) (f =>
+    LoopM.chain(tx) (x =>
+      LoopM.of(f(x))));
+
+
+LoopM.of = LoopM => LoopM.done;
+
+
+// Functor :: Applicative :: Monad
+
+LoopM.chain = mx => fm =>
+  mx.tag === "LoopMNext" ? LoopM.next(mx.x) (y => LoopM.chain(mx.f(y)) (fm))
+    : mx.tag === "LoopMDone" ? fm(mx.x)
     : _throw(new TypeError("invalid trampoline tag"));
 
 
 // Tags
 
-
-MonadRec.iterate = x => f =>
-  ({tag: "Iterate", f, x});
-
-
-MonadRec.return = x =>
-  ({tag: "Return", x});
+LoopM.next = x => f =>
+  ({tag: "LoopMNext", f, x});
 
 
-/***[ Mutual Recursion ]******************************************************/
-
-
-export const MutualRec = MonadRec;
+LoopM.done = x =>
+  ({tag: "LoopMDone", x});
 
 
 /***[ Tail Recursion ]********************************************************/
 
 
-export const TailRec = f => x => {
+export const Loop = f => x => {
   let o = f(x);
 
-  while (o[TAG] === "Iterate")
+  while (o[TAG] === "LoopNext")
     o = f(o.x);
 
-  return o[TAG] === "Return"
+  return o[TAG] === "LoopDone"
+    ? o.x
+    : _throw(new TypeError("invalid constructor"));
+};
+
+
+export const Loop2 = f => (x, y) => {
+  let o = f(x, y);
+
+  while (o[TAG] === "LoopNext")
+    o = f(o.x, o.y);
+
+  return o[TAG] === "LoopDone"
+    ? o.x
+    : _throw(new TypeError("invalid constructor"));
+};
+
+
+export const Loop3 = f => (x, y, z) => {
+  let o = f(x, y, z);
+
+  while (o[TAG] === "LoopNext")
+    o = f(o.x, o.y, o.z);
+
+  return o[TAG] === "LoopDone"
     ? o.x
     : _throw(new TypeError("invalid constructor"));
 };
@@ -292,16 +307,28 @@ export const TailRec = f => x => {
 // Tags
 
 
-TailRec.iterate = x => ({[TAG]: "Iterate", x});
+Loop.next = x => ({[TAG]: "LoopNext", x});
 
 
-TailRec.return = x => ({[TAG]: "Return", x});
+Loop.done = x => ({[TAG]: "LoopDone", x});
+
+
+Loop2.next = (x, y) => ({[TAG]: "LoopNext", x, y});
+
+
+Loop2.done = x => ({[TAG]: "LoopDone", x});
+
+
+Loop3.next = (x, y, z) => ({[TAG]: "LoopNext", x, y, z});
+
+
+Loop3.done = x => ({[TAG]: "LoopDone", x});
 
 
 /***[ Resolve Dependencies ]**************************************************/
 
 
-MonadRec.of = MonadRec.of(MonadRec);
+LoopM.of = LoopM.of(LoopM);
 
 
 /******************************************************************************
@@ -2077,25 +2104,34 @@ A.zero = A.zero(A);
 export const Ctor = {};
 
 
-Ctor.LT = ({
+export const LT = ({
   [TAG]: "Comparator",
   run: ({lt}) => lt,
   valueOf: () => -1
 });
 
 
-Ctor.EQ = ({
+Ctor.LT = LT;
+
+
+export const EQ = ({
   [TAG]: "Comparator",
   run: ({eq}) => eq,
   valueOf: () => 0
 });
 
 
-Ctor.GT = ({
+Ctor.EQ = EQ;
+
+
+export const GT = ({
   [TAG]: "Comparator",
   run: ({gt}) => gt,
   valueOf: () => 1
 });
+
+
+Ctor.GT = GT;
 
 
 /***[ Semigroup ]*************************************************************/
@@ -2112,7 +2148,7 @@ Ctor.prepend = ty => tx =>
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Ctor.empty = Ctor.EQ;
+Ctor.empty = EQ;
 
 
 /******************************************************************************
@@ -2149,7 +2185,7 @@ Compare.prepend = ty => tx =>
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Compare.empty = _ => _ => Ctor.EQ;
+Compare.empty = _ => _ => EQ;
 
 
 /******************************************************************************
@@ -2509,6 +2545,28 @@ Either.chainT = ({chain, of}) => mmx => fmm =>
 
 
 Either.ofT = ({of}) => x => of(Either.Right(x));
+
+
+/******************************************************************************
+************************************[ ENV ]************************************
+******************************************************************************/
+
+
+export const Env = pair => ({
+  [TAG]: "Env",
+  run: pair
+});
+
+
+
+/***[ Comonad ]***************************************************************/
+
+
+Env.extend = fw => wx =>
+  Env([wx.run[0], fw(wx)]);
+
+
+Env.extract = wx => wx.run[1];
 
 
 /******************************************************************************
@@ -3013,6 +3071,48 @@ List.head = xs =>
   });
 
 
+List.init = xs =>
+  xs.run({
+    nil: Option.None,
+
+    some: _ => {
+      const go = ys =>
+        ys.run({
+          nil: List.Nil,
+
+          cons: z => zs =>
+            ys.run({
+              nil: NOOP,
+              cons: _ => _ => List.Cons(z) (go(zs))
+            })
+        });
+
+      return Option.Some(go(xs));
+    }
+  });
+
+
+List.last = xs =>
+  xs.run({
+    nil: Option.None,
+
+    some: _ => {
+      const go = ys =>
+        ys.run({
+          nil: List.Nil,
+
+          cons: z => zs =>
+            ys.run({
+              nil: z,
+              cons: _ => _ => thunk(() => go(zs))
+            })
+        });
+
+      return Option.Some(go(xs));
+    }
+  });
+
+
 List.tail = xs =>
   xs.run({
     nil: List.Nil,
@@ -3026,7 +3126,7 @@ List.cons = List.Cons;
 List.uncons = xs =>
   xs.run({
     nil: Option.None,
-    cons: y => ys => Option.Some([y, ys]);
+    cons: y => ys => Option.Some([y, ys])
   });
 
 
@@ -3036,7 +3136,7 @@ List.uncons = xs =>
 List.fromArr = A.foldr(x => xs => List.Cons(x) (xs)) (List.Nil);
 
 
-List.toArr = List.foldl(A.snoc_) ([]);
+List.toArr = List => List.foldl(A.snoc_) ([]);
 
 
 /***[ Foldable ]**************************************************************/
@@ -3104,8 +3204,8 @@ List.chain = xs => fm => function go(ys) {
 
 
 List.iterate = f => function go(x) {
-  List.Cons(x) (thunk(() => go(f(x))));
-
+  return List.Cons(x) (thunk(() => go(f(x))));
+};
 
 const repeat = x =>
   List.Cons(x) (thunk(() => repeat(x)));
@@ -3147,6 +3247,12 @@ List.unfoldr = f => function go(y) {
 };
 
 
+/***[ Resolve Dependencies ]**************************************************/
+
+
+List.toArr = List.toArr(List);
+
+
 /******************************************************************************
 ********************************[ LIST ZIPPER ]********************************
 ******************************************************************************/
@@ -3158,6 +3264,7 @@ List.unfoldr = f => function go(y) {
 /******************************************************************************
 **********************************[ NUMBER ]***********************************
 ******************************************************************************/
+
 
 
 export const Num = {};
@@ -4297,9 +4404,12 @@ Vector.map = f => xs =>
 TODOS:
 
 * transducers
+* DList
+* Compose (applicative)
 * monad transformers
 * MFunctor/hoist/liftM
 * Streams
+* delimited conts using shift/reset
 * Coroutine
 * Zipper
 * Optics
