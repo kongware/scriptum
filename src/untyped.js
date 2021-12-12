@@ -236,11 +236,15 @@ LoopM.loop = o => {
 
 // Functor
 
+
 LoopM.map = f => tx =>
   LoopM.chain(tx) (x => LoopM.of(f(x)));
 
 
-// Functor :: Applicative
+LoopM.Functor = {map: LoopM.map};
+
+
+// Functor :: Apply
 
 LoopM.ap = tf => tx =>
   LoopM.chain(tf) (f =>
@@ -248,10 +252,26 @@ LoopM.ap = tf => tx =>
       LoopM.of(f(x))));
 
 
+LoopM.Apply = {
+  ...LoopM.Functor,
+  ap: LoopM.ap
+};
+
+
+// Functor :: Apply :: Applicative
+
+
 LoopM.of = LoopM => LoopM.done;
 
 
-// Functor :: Applicative :: Monad
+LoopM.Applicative = {
+  ...LoopM.Apply,
+  of: LoopM.of
+};
+
+
+// Functor :: Apply :: Applicative :: Chain
+
 
 LoopM.chain = mx => fm =>
   mx.tag === "LoopMNext" ? LoopM.next(mx.x) (y => LoopM.chain(mx.f(y)) (fm))
@@ -259,7 +279,23 @@ LoopM.chain = mx => fm =>
     : _throw(new TypeError("invalid trampoline tag"));
 
 
+LoopM.Chain = {
+  ...LoopM.Apply,
+  chain: LoopM.chain
+};
+
+
+// Functor :: Apply :: Applicative :: Chain :: Monad
+
+
+LoopM.Monad = {
+  ...LoopM.Applicative,
+  chain: LoopM.chain
+};
+
+
 // Tags
+
 
 LoopM.next = x => f =>
   ({tag: "LoopMNext", f, x});
@@ -514,11 +550,11 @@ RBT.del = (t, k, cmp) => {
     case "Leaf": return RBT.Leaf;
     
     case "Node": {
-      const t_ = RBT.del_(RBT.turnR(t), k, cmp);
+      const t2 = RBT.del_(RBT.turnR(t), k, cmp);
 
-      switch (t_[TAG]) {
+      switch (t2[TAG]) {
         case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t_);
+        case "Node": return RBT.turnB(t2);
         default: throw new TypeError("invalid value constructor");
       }
     }
@@ -546,14 +582,14 @@ RBT.del_ = (t, k, cmp) => {
 };
 
 
-RBT.delLT = (k, c, h, l, k_, v_, r, cmp) => {
+RBT.delLT = (k, c, h, l, k2, v2, r, cmp) => {
   if (c === RBT.RED
     && RBT.isBLB(l)
     && RBT.isBLR(r))
       return RBT.Node(
         RBT.RED,
         h,
-        RBT.Node(RBT.BLACK, r.h, RBT.del_(RBT.turnR(l), k, cmp), k_, v_, r.l.l),
+        RBT.Node(RBT.BLACK, r.h, RBT.del_(RBT.turnR(l), k, cmp), k2, v2, r.l.l),
         r.l.k,
         r.l.v,
         RBT.Node(RBT.BLACK, r.h, r.l.r, r.k, r.v, r.r));
@@ -561,13 +597,13 @@ RBT.delLT = (k, c, h, l, k_, v_, r, cmp) => {
   else if (c === RBT.RED
     && RBT.isBLB(l))
       return RBT.balanceR(
-        RBT.BLACK, h - 1, RBT.del_(tunrR(l), k, cmp), k_, v_, RBT.turnR(r));
+        RBT.BLACK, h - 1, RBT.del_(tunrR(l), k, cmp), k2, v2, RBT.turnR(r));
 
-  else return RBT.Node(c, h, RBT.del_(l, k, cmp), k_, v_, r);
+  else return RBT.Node(c, h, RBT.del_(l, k, cmp), k2, v2, r);
 };
 
 
-RBT.delEQ = (k, c, h, l, k_, v_, r, cmp) => {
+RBT.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
   if (c === RBT.RED
     && l[TAG] === "Leaf"
     && r[TAG] === "Leaf")
@@ -576,7 +612,7 @@ RBT.delEQ = (k, c, h, l, k_, v_, r, cmp) => {
   else if (l[TAG] === "Node"
     && l.c === RBT.RED)
       return RBT.balanceR(
-        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k_, v_, r), k, cmp));
+        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k2, v2, r), k, cmp));
 
   else if (c === RBT.RED
     && RBT.isBLB(r)
@@ -603,11 +639,11 @@ RBT.delEQ = (k, c, h, l, k_, v_, r, cmp) => {
 };
 
 
-RBT.delGT = (k, c, h, l, k_, v_, r, cmp) => {
+RBT.delGT = (k, c, h, l, k2, v2, r, cmp) => {
   if (l[TAG] === "Node"
     && l.c === RBT.RED)
       return RBT.balanceR(
-        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k_, v_, r)), k, cmp);
+        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k2, v2, r)), k, cmp);
 
   else if (c === RBT.RED
     && RBT.isBLB(r)
@@ -618,15 +654,15 @@ RBT.delGT = (k, c, h, l, k_, v_, r, cmp) => {
         RBT.turnB(l.l),
         l.k,
         l.v,
-        RBT.balanceR(RBT.BLACK, l.h, l.r, k_, v_, RBT.del_(RBT.turnR(r), k, cmp)));
+        RBT.balanceR(RBT.BLACK, l.h, l.r, k2, v2, RBT.del_(RBT.turnR(r), k, cmp)));
 
   else if (c === RBT.RED
     && RBT.isBLB(r))
       return RBT.balanceR(
-        RBT.BLACK, h - 1, RBT.turnR(l), k_, v_, RBT.del_(RBT.turnR(r), k, cmp));
+        RBT.BLACK, h - 1, RBT.turnR(l), k2, v2, RBT.del_(RBT.turnR(r), k, cmp));
 
   else if (c === RBT.RED)
-    return RBT.Node(RBT.RED, h, l, k_, v_, RBT.del_(r, k, cmp));
+    return RBT.Node(RBT.RED, h, l, k2, v2, RBT.del_(r, k, cmp));
 
   else throw new TypeError("unexpected branch");
 };
@@ -722,11 +758,11 @@ RBT.delMin = t =>{
     case "Leaf": return RBT.Leaf;
 
     case "Node": {
-      const t_ = RBT.delMin_(RBT.turnR(t));
+      const t2 = RBT.delMin_(RBT.turnR(t));
 
-      switch (t_[TAG]) {
+      switch (t2[TAG]) {
         case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t_);
+        case "Node": return RBT.turnB(t2);
         default: throw new TypeError("invalid value constructor");
       }
     }
@@ -803,11 +839,11 @@ RBT.delMax = t => {
     case "Leaf": return RBT.Leaf;
 
     case "Node": {
-      const t_ = RBT.delMax_(RBT.turnR(t));
+      const t2 = RBT.delMax_(RBT.turnR(t));
 
-      switch (t_[TAG]) {
+      switch (t2[TAG]) {
         case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t_);
+        case "Node": return RBT.turnB(t2);
         default: TypeError("invalid value constructor");
       }
     }
@@ -1128,6 +1164,9 @@ RBT.map = f => function go(t) { // TODO: CPS + trampoline
 };
 
 
+RBT.Functor = {map: RBT.map};
+
+
 /***[ Traversals ]************************************************************/
 
 
@@ -1199,14 +1238,14 @@ export const FS_ = fs => cons => thisify(o => {
   o.copy = src => dest =>
     cons(k =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
-        e ? _throw(new TypeError(e)) : k([src, dest])));
+        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
 
 
   o.move = src => dest =>
     cons.chain(
       cons.chain(o.copy(src) (dest))
-        (([src_, dest_]) => o.unlink(src_)))
-          (src => Serial.of([src, dest]));
+        (([src2]) => o.unlink(src2)))
+          (src => Serial.of(Pair(src, dest)));
 
 
   o.read = opt => path =>
@@ -1251,7 +1290,7 @@ export const Process_ = cp => cons => ({
 
   execFile: opts => app => srciptPath => args =>
     cons(k =>
-      cp.execFile(app, [srciptPath, ...args], opts, (e, stdout, stderr) =>
+      cp.execFile(app, Tuple(srciptPath, ...args), opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
           : stderr ? _throw(new TypeError(stderr))
           : k(stdout)))
@@ -1266,6 +1305,12 @@ export const Process_ = cp => cons => ({
 
 
 /***[ Foldable ]**************************************************************/
+
+
+export const concatArr = ({foldl}) => foldl(A.append) (A.empty);
+
+
+export const concatList = ({foldr}) => foldr(List.append) (List.empty);
 
 
 export const fold = ({fold}, {append, empty}) => tx =>
@@ -1283,57 +1328,45 @@ export const foldMapr = ({foldr}, {append, empty}) => f =>
 /***[ Functor ]***************************************************************/
 
 
-export const mapEff = ({map}) => x =>
-  map(_ => x);
+export const mapEff = ({map}) => x => map(_ => x);
 
 
-/***[ Functor :: Applicative ]************************************************/
+/***[ Functor :: Apply ]******************************************************/
 
 
-export const apEff1 = ({map, ap}) => tx => ty =>
-  ap(map(_const) (tx)) (ty);
+export const apEff1 = ({map, ap}) => tx => ty => ap(map(_const) (tx)) (ty);
 
 
-export const apEff2 = ({map, ap}) => tx => ty =>
-  ap(mapEff(map) (id) (tx)) (ty);
+export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff(map) (id) (tx)) (ty);
 
 
-export const liftA2 = ({map, ap}) => f => tx => ty =>
-  ap(map(f) (tx)) (ty);
+export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 
 
-export const liftM = ({of, chain}) => f => mx =>
-  chain(mx) (x => of(f(x)));
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+export const join = ({chain}) => ttx => chain(ttx) (id);
+
+
+export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
+
+
+export const kipe = ({chain}) => gm => fm => x => chain(gm(x)) (fm);
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
 
 
 export const ap = ({of, chain}) => mf => mx =>
   chain(mf) (f => chain(mx) (x => of(f(m))));
 
 
-export const foldM = ({foldr, of, chain}) => f => acc => tx =>
-  foldr(x => my => acc_ => chain(f(acc_) (x)) (my)) (of) (tx) (acc);
+export const foldM = ({foldr}, {of, chain}) => f => acc => tx =>
+  foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (tx) (acc);
 
 
-export const join = ({chain}) => ttx =>
-  chain(ttx) (id);
-
-
-export const komp = ({chain}) => fm => gm =>
-  x => chain(fm(x)) (gm);
-
-
-export const kipe = ({chain}) => gm => fm =>
-  x => chain(gm(x)) (fm);
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-export const concat = ({foldl}) =>
-  foldl(A.append) (A.empty);
+export const liftM = ({of, chain}) => f => mx => chain(mx) (x => of(f(x)));
 
 
 /******************************************************************************
@@ -1348,7 +1381,7 @@ export const concat = ({foldl}) =>
 ******************************************************************************/
 
 
-export const Fun = {};
+export const F = {};
 
 
 /***[ Applicator ]************************************************************/
@@ -1474,10 +1507,10 @@ export const comp = f => g => x => f(g(x));
 export const id = x => x;
 
 
-Fun.comp = comp;
+F.comp = comp;
 
 
-Fun.id = id;
+F.id = id;
 
 
 /***[ Composition ]***********************************************************/
@@ -1508,20 +1541,20 @@ export const cond = x => y => thunk =>
 /***[ Contravariant ]*********************************************************/
 
 
-Fun.contra = () => pipe;
+F.contra = () => pipe;
 
 
 /***[ Currying ]**************************************************************/
 
 
-export const curry = f => x => y => f([x, y]);
+export const curry = f => x => y => f(Pair(x, y));
 
 
 export const curry_ = f => x => y => f(x, y);
 
 
 export const curry3 = f => x => y => z =>
-  f([x, y, z]);
+  f(Triple(x, y, z));
 
 
 export const curry3_ = f => x => y => z =>
@@ -1529,7 +1562,7 @@ export const curry3_ = f => x => y => z =>
 
 
 export const curry4 = f => w => x => y => z =>
-  f([w, x, y, z]);
+  f(Tuple(w, x, y, z));
 
 
 export const curry4_ = f => w => x => y => z =>
@@ -1537,7 +1570,7 @@ export const curry4_ = f => w => x => y => z =>
 
 
 export const curry5 = f => v => w => x => y => z =>
-  f([v, w, x, y, z]);
+  f(Tuple(v, w, x, y, z));
 
 
 export const curry5_ = f => v => w => x => y => z =>
@@ -1624,81 +1657,101 @@ export const fix_ = f =>
 /***[ Functor ]***************************************************************/
 
 
-Fun.map = comp;
+F.map = comp;
 
 
-Fun.Functor = {map: Fun.map};
+F.Functor = {map: F.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-Fun.ap = f => g => x => f(x) (g(x));
+F.ap = f => g => x => f(x) (g(x));
 
 
-Fun.Apply = {
-  ...Fun.Functor,
-  ap: Fun.ap
+F.Apply = {
+  ...F.Functor,
+  ap: F.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Fun.of = () => _const;
+F.of = () => _const;
 
 
-Fun.Chain = {
-  ...Fun.Apply,
-  of: Fun.of
+F.Applicative = {
+  ...F.Apply,
+  of: F.of
 };
 
 
-/***[ Functor :: Applicative :: Chain ]***************************************/
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
-Fun.chain = f => g => x => f(g(x)) (x);
+F.chain = f => g => x => f(g(x)) (x);
 
 
-Fun.join = f => x => f(x) (x);
+F.join = f => x => f(x) (x);
 
 
-Fun.Chain = {
-  ...Fun.Apply,
-  chain: Fun.chain
+F.Chain = {
+  ...F.Apply,
+  chain: F.chain
 };
 
 
-/***[ Functor :: Applicative :: Chain :: Monad ]******************************/
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
 
 
-Fun.Monad = {
-  ...Fun.Applicative,
-  chain: Fun.chain
+F.Monad = {
+  ...F.Applicative,
+  chain: F.chain
 };
 
 
 /***[ Functor :: Extend ]*****************************************************/
 
 
-Fun.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
+F.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
 
 
-Fun.Extend = {
-  ...Fun.Functor,
-  extend: Fun.extend
+F.Extend = {
+  ...F.Functor,
+  extend: F.extend
 };
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
-Fun.extract = ({empty}) => f => f(empty);
+F.extract = ({empty}) => f => f(empty);
 
 
-Fun.Comonad = {
-  ...Fun.Extend,
-  extract: Fun.extract
+F.Comonad = {
+  ...F.Extend,
+  extract: F.extract
+};
+
+
+/***[ Functor :: Profunctor ]*************************************************/
+
+
+F.dimap = f => g => tf => x => g(tf.run(f(x)));
+
+
+F.lmap = f => tg => x => f(tg.run(x));
+
+
+F.rmap = g => tf => x => tf.run(g(x));
+
+
+F.Profunctor = {
+  ...F.Functor,
+  dimap: F.dimap,
+  lmap: F.lmap,
+  rmap: F.rmap
 };
 
 
@@ -1766,86 +1819,66 @@ export const tag = (type, o) =>
   (o[Symbol.toStringTag] = type, o);
 
 
-/***[ Profunctor ]***********************************************************/
-
-
-Fun.dimap = f => g => tf => x => g(tf.run(f(x)));
-
-
-Fun.lmap = f => tg => x => f(tg.run(x));
-
-
-Fun.rmap = g => tf => x => tf.run(g(x));
-
-
-Fun.Profunctor = {
-  ...Fun.Functor,
-  dimap: Fun.dimap,
-  lmap: Fun.lmap,
-  rmap: Fun.rmap
-};
-
-
 /***[ Profunctor :: Strong ]**************************************************/
 
 
-Fun.first = f => tx => [f(tx.run[0]), tx.run[1]];
+F.first = f => tx => [f(tx.run[0]), tx.run[1]]; // TODO make a newtype
 
 
-Fun.second = f => tx => [tx.run[0], f(tx.run[1])];
+F.second = f => tx => [tx.run[0], f(tx.run[1])];
 
 
-Fun.Strong = {
-  ...Fun.Profunctor,
-  first: Fun.first,
-  second: Fun.second
+F.Strong = {
+  ...F.Profunctor,
+  first: F.first,
+  second: F.second
 };
 
 
 /***[ Profunctor :: Choice ]**************************************************/
 
 
-Fun.left => f => tx => tx.run({
+F.left = f => tx => tx.run({ // TODO: make a newtype
   left: x => Either.Left(f(x)),
   right: x => Either.Right(x)
 });
 
 
-Fun.right => f => tx => tx.run({
+F.right = f => tx => tx.run({
   left: x => Either.Left(x),
   right: x => Either.Right(f(x))
 });
 
 
-Fun.Choice = {
-  ...Fun.Profunctor,
-  left: Fun.left,
-  right: Fun.right
+F.Choice = {
+  ...F.Profunctor,
+  left: F.left,
+  right: F.right
 };
 
 
 /***[ Profunctor :: Closed ]**************************************************/
 
 
-Fun.closed = comp;
+F.closed = comp; // TODO: make a newtype
 
 
-Fun.Closed = {
-  ...Fun.Profunctor,
-  closed: Fun.closed
+F.Closed = {
+  ...F.Profunctor,
+  closed: F.closed
 };
 
 
 /***[ Reader ]****************************************************************/
 
 
-Fun.reader = f => Fun.map(f) (id);
+F.reader = f => F.map(f) (id);
 
 
-Fun.ask = id;
+F.ask = id;
 
 
-Fun.local = Fun.contra;
+F.local = F.contra;
 
 
 /***[ Relational Operators ]**************************************************/
@@ -1866,21 +1899,24 @@ export const lte = x => y => x <= y;
 /***[ Semigroup ]*************************************************************/
 
 
-Fun.append = ({append}) => f => g => x => append(f(x)) (g(x));
+F.append = ({append}) => f => g => x => append(f(x)) (g(x));
 
 
-Fun.Semigroup = {append: Fun.append};
+F.Semigroup = {
+  append: F.append,
+  prepend: F.prepend
+};
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Fun.empty = ({empty}) => _ => empty;
+F.empty = ({empty}) => _ => empty;
 
 
-Fun.Monoid = {
-  ...Fun.Semigroup,
-  empty: Fun.empty
+F.Monoid = {
+  ...F.Semigroup,
+  empty: F.empty
 };
 
 
@@ -1940,7 +1976,7 @@ export const cat = (...lines) => lines.join("");
 export const _const = x => y => x;
 
 
-export const exp = f => f();
+export const express = f => f();
 
 
 export const _let = (...args) => ({in: f => f(...args)});
@@ -1974,10 +2010,10 @@ export const once = times(1);
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Fun.contra = Fun.contra();
+F.contra = F.contra();
 
 
-Fun.of = Fun.of();
+F.of = F.of();
 
 
 /******************************************************************************
@@ -2095,8 +2131,8 @@ A.tail = xs =>
 
 A.tails = A => A.apo(xs =>
   xs.length === 0
-    ? Option.Some([[], Either.Left([])])
-    : Option.Some([xs, Either.Right(xs.slice(1))]));
+    ? Option.Some(Pair([], Either.Left([])))
+    : Option.Some(Pair(xs, Either.Right(xs.slice(1)))));
 
 
 A.uncons = xs => [
@@ -2185,6 +2221,9 @@ A.seqA = ({map, ap, of}) => xs =>
 A.map = f => xs => xs.map(x => f(x));
 
 
+A.Functor = {map: A.map};
+
+
 /***[ Functor :: Alt ]********************************************************/
 
 
@@ -2197,24 +2236,54 @@ A.alt = A => A.append;
 A.zero = A => A.empty;
 
 
-/***[ Functor :: Applicative ]************************************************/
+/***[ Functor :: Apply ]******************************************************/
 
 
 A.ap = fs => xs =>
   fs.reduce((acc, f) =>
-    xs.reduce((acc_, x) =>
-      (acc_.push(f(x)), acc_), acc), []);
+    xs.reduce((acc2, x) =>
+      (acc2.push(f(x)), acc2), acc), []);
+
+
+A.Apply = {
+  ...A.Functor,
+  ap: A.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
 
 
 A.of = A.singleton;
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+A.Applicative = {
+  ...A.Apply,
+  of: A.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 A.chain = xs => fm =>
   xs.reduce((acc, x) =>
     (acc.push.apply(acc, fm(x)), acc), []);
+
+
+A.Chain = {
+  ...A.Apply,
+  chain: A.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+A.Monad = {
+  ...A.Applicative,
+  chain: A.chain
+};
 
 
 /***[ Generator ]*************************************************************/
@@ -2225,7 +2294,7 @@ A.generator = f => function go(x) {
     none: [],
 
     some: ([y, z]) =>
-      [y, thunk(() => go(z))]
+      Pair(y, thunk(() => go(z)))
   });
 };
 
@@ -2303,12 +2372,16 @@ A.para = f => init => xs => {
 /***[ Semigroup ]*************************************************************/
 
 
-A.append = xs => ys =>
-  xs.concat(ys);
+A.append = xs => ys => xs.concat(ys);
 
 
-A.prepend = ys => xs =>
-  xs.concat(ys);
+A.prepend = ys => xs => xs.concat(ys);
+
+
+A.Semigroup = {
+  append: A.append,
+  prepend: A.prepend
+};
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
@@ -2317,10 +2390,16 @@ A.prepend = ys => xs =>
 A.empty = [];
 
 
+A.Monoid = {
+  ...A.Semigroup,
+  empty: A.empty
+};
+
+
 /***[ Unfoldable ]************************************************************/
 
 
-A.unfoldr = f => init => { // TODO: revise
+A.unfoldr = f => init => {
   let acc = [], x = init, next;
 
   do {
@@ -2402,10 +2481,22 @@ Ctor.prepend = ty => tx =>
   tx.run({lt: tx, eq: ty, gt: tx});
 
 
+Ctor.Semigroup = {
+  append: Ctor.append,
+  prepend: Ctor.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Ctor.empty = EQ;
+
+
+Ctor.Monoid = {
+  ...Ctor.Semigroup,
+  empty: Ctor.empty
+};
 
 
 /******************************************************************************
@@ -2439,10 +2530,22 @@ Compare.prepend = ty => tx =>
     Ctor.append(tx.run(x) (y)) (ty.run(x) (y)));
 
 
+Compare.Semigroup = {
+  append: Compare.append,
+  prepend: Compare.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Compare.empty = _ => _ => EQ;
+
+
+Compare.Monoid = {
+  ...Compare.Semigroup,
+  empty: Compare.empty
+};
 
 
 /******************************************************************************
@@ -2459,15 +2562,6 @@ export const Comp = ttx => ({
 /***[ Foldable ]**************************************************************/
 
 
-/* TODO: Compo.foldr = (
-  {foldr: foldr1, append: append1, empty: empty1},
-  {foldr: foldr2, append: append2, empty: empty2}) =>
-    f => acc => ttx =>
-      foldr1(tx => acc2 =>
-        foldr2(x => acc3 =>
-          f(x) (acc3)) (acc2) (tx)) (acc) (ttx);*/
-
-
 /***[ Functor ]***************************************************************/
 
 
@@ -2475,14 +2569,32 @@ Comp.map = ({map}, {map: map2}) => f => ttx =>
   Comp(map(map2(f)) (ttx));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Comp.Functor = {map: Comp.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Comp.ap = ({map, ap}, {ap: ap2}) => ttf => ttx =>
   Comp(ap(map(ap2) (ttf)) (ttx));
 
 
+Comp.Apply = {
+  ...Comp.Functor,
+  ap: Comp.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Comp.of = ({of}, {of: of2}) => x => Comp(of(of2(x)));
+
+
+Comp.Applicative = {
+  ...Comp.Apply,
+  of: Comp.of
+};
 
 
 /******************************************************************************
@@ -2502,14 +2614,32 @@ export const Const = x => ({
 Const.map = _ => tx => tx;
 
 
-/***[ Functor :: Applicative ]************************************************/
+Const.Functor = {map: Const.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Const.ap = ({append}) => tf => tx =>
   Const(append(tf.run) (tx.run));
 
 
+Const.Apply = {
+  ...Const.Functor,
+  ap: Const.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Const.of = ({empty}) => _ => Const(empty);
+
+
+Const.Applicative = {
+  ...Const.Apply,
+  of: Const.of
+};
 
 
 /******************************************************************************
@@ -2532,28 +2662,58 @@ const reset = mx => Cont(k => k(mx.run(id)));
 const shift = fm => Cont(k => fm(k).run(id));
 
 
-// TODO: (define (yield x) (shift k (cons x (k (void)))))
-
-
 /***[ Functor ]***************************************************************/
 
 
 Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Cont.Functor = {map: Cont.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
 
 
+Cont.Apply = {
+  ...Cont.Functor,
+  ap: Cont.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Cont.of = x => Cont(k => k(x));
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Cont.Applicative = {
+  ...Cont.Apply,
+  of: Cont.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+
+
+Cont.Chain = {
+  ...Cont.Apply,
+  chain: Cont.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Cont.Monad = {
+  ...Cont.Applicative,
+  chain: Cont.chain
+};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -2573,10 +2733,34 @@ Cont.prepend = ({append}) => ty => tx =>
         k(append(x) (y)))));
 
 
+Cont.Semigroup = {
+  append: Cont.append,
+  prepend: Cont.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Cont.empty = empty => Cont(k => k(empty));
+
+
+Cont.Monoid = {
+  ...Cont.Semigroup,
+  empty: Cont.empty
+};
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Cont.abrupt = x => Cont(k => x);
+
+
+Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
+
+
+Cont.reify = k => x => Cont(k2 => k(x));
 
 
 /******************************************************************************
@@ -2627,7 +2811,6 @@ CoroutineT.of = ({of}) => x => CoroutineT(of(Either.Right(x)));
 
 
 CoroutineT.Applicative = {
-  ...CoroutineT.Functor,
   ...CoroutineT.Apply,
   of: CoroutineT.of
 };
@@ -2640,11 +2823,10 @@ CoroutineT.chain = ({map}, {of, chain}) => mttx => fmtt =>
   CoroutineT(chain(mttx.run) (ttx => ttx.run({
     left: tx => of(Either.Left(map(appr(chain, fmtt)) (tx))),
     right: x => fmtt(x).run
-  }));
+  })));
 
 
 CoroutineT.Chain = {
-  ...CoroutineT.Functor,
   ...CoroutineT.Apply,
   chain: CoroutineT.chain
 };
@@ -2654,10 +2836,8 @@ CoroutineT.Chain = {
 
 
 CoroutineT.Monad = {
-  ...CoroutineT.Functor,
-  ...CoroutineT.Apply,
   ...CoroutineT.Applicative,
-  ...CoroutineT.Chain
+  chain: CoroutineT.chain
 };
 
 
@@ -2691,7 +2871,7 @@ CoroutineT.exhaustM = ({of, chain}) => function go(fm) {
 CoroutineT.fold = ({of, chain}) => f => function go(acc) {
   return mttx => chain(mttx.run) (ttx => ttx.run({
     left: tx => uncurry(go) (f(acc) (tx)),
-    right: x => of([acc, x])
+    right: x => of(Pair(acc, x))
   }));
 };
 
@@ -2713,7 +2893,7 @@ CoroutineT.mapSuspension = ({map}, {of, chain}) => fm => function go(mmtx) {
     liftM({of, chain}) (mtx => mtx.run({
       left: tx => Either.Left(fm(map(go) (tx))),
       right: x => Either.Right(x)
-    })) (mmtx.run);
+    })) (mmtx.run));
 };
 
 
@@ -2728,7 +2908,7 @@ CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Either.Left(tx)));
 ******************************************************************************/
 
 
-export const f => Await = mmx => ({
+export const Await = f => ({
   [TAG]: "Await",
   run: f
 });
@@ -2745,9 +2925,9 @@ Await.await = ({of}) => CoroutineT.suspend({of}) (Await(of))
 ******************************************************************************/
 
 
-export const x => y => Yield = mmx => ({
+export const Yield = x => y => ({
   [TAG]: "Yield",
-  run: [x, y]
+  run: Pair(x, y)
 });
 
 
@@ -2833,19 +3013,52 @@ export const Defer = thunk => ({
 Defer.map = f => tx => Defer(() => f(tx.run));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Defer.Functor = {map: Defer.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Defer.ap = ft => tx => Defer(() => ft.run(tx.run));
 
 
+Defer.Apply = {
+  ...Defer.Functor,
+  ap: Defer.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Defer.of = x => Defer(() => x);
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Defer.Applicative = {
+  ...Defer.Apply,
+  of: Defer.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Defer.chain = mx => fm => Defer(() => fm(mx.run).run);
+
+
+Defer.Chain = {
+  ...Defer.Apply,
+  chain: Defer.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Defer.Monad = {
+  ...Defer.Applicative,
+  chain: Defer.chain
+};
 
 
 /******************************************************************************
@@ -2881,7 +3094,10 @@ Either.map = f => tx =>
   });
 
 
-/***[ Functor :: Applicative ]************************************************/
+Either.Functor = {map: Either.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Either.ap = tf => tx =>
@@ -2895,10 +3111,25 @@ Either.ap = tf => tx =>
   });
 
 
+Either.Apply = {
+  ...Either.Functor,
+  ap: Either.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Either.of = x => Either.Right(x);
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Either.Applicative = {
+  ...Either.Apply,
+  of: Either.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Either.chain = tx => fm =>
@@ -2908,10 +3139,25 @@ Either.chain = tx => fm =>
   });
 
 
+Either.Chain = {
+  ...Either.Apply,
+  chain: Either.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Either.Monad = {
+  ...Either.Applicative,
+  chain: Either.chain
+};
+
+
 /***[ Transformer ]***********************************************************/
 
 
-Either.chainT = ({of, chain}) => mmx => fmm =>
+Either.chainT = ({of, chain}) => mmx => fmm => // TODO: make a newtype
   chain(mmx) (mx => mx.run({
     left: x => of(Either.Left(x)),
     right: x => fmm(x)
@@ -2935,16 +3181,28 @@ export const Endo = f => ({
 /***[ Semigroup ]*************************************************************/
 
 
-Endo.append = tf => tg => Endo(x => tf.run(tg.run(x));
+Endo.append = tf => tg => Endo(x => tf.run(tg.run(x)));
 
 
-Endo.prepend = tg => tf => Endo(x => tf.run(tg.run(x));
+Endo.prepend = tg => tf => Endo(x => tf.run(tg.run(x)));
+
+
+Endo.Semigroup = {
+  append: Endo.append,
+  prepend: Endo.prepend
+};
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Endo.empty = Endo(id);
+
+
+Endo.Monoid = {
+  ...Endo.Semigroup,
+  empty: Endo.empty
+};
 
 
 /******************************************************************************
@@ -2986,8 +3244,7 @@ export const Equiv = f => ({
 /***[ Contravariant ]*********************************************************/
 
 
-Equiv.contra = f => tg =>
-  Equiv(compBoth(tg.run) (f));
+Equiv.contra = f => tg => Equiv(compBoth(tg.run) (f));
 
 
 /***[ Semigroup ]*************************************************************/
@@ -3001,10 +3258,22 @@ Equiv.append = tx => ty =>
 Equiv.prepend = Equiv.append;
 
 
+Equiv.Semigroup = {
+  append: Equiv.append,
+  prepend: Equiv.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Equiv.empty = Equiv(_ => _ => true);
+
+
+Equiv.Monoid = {
+  ...Equiv.Semigroup,
+  empty: Equiv.empty
+};
 
 
 /******************************************************************************
@@ -3031,10 +3300,22 @@ First.append = ttx => tty =>
 First.prepend = Last => Last.append;
 
 
+First.Semigroup = {
+  append: First.append,
+  prepend: First.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-First.empty = First(Option.None);
+First.empty = () => First(Option.None);
+
+
+First.Monoid = {
+  ...First.Semigroup,
+  empty: First.empty
+};
 
 
 /******************************************************************************
@@ -3042,13 +3323,13 @@ First.empty = First(Option.None);
 ******************************************************************************/
 
 
-export const Forget = tf => ({
+export const Forget = tf => ({ // TODO: add map/Functor
   [TAG]: "Forget",
   run: tf
 });
 
 
-/***[ Profunctor ]************************************************************/
+/***[ Functor :: Profunctor ]*************************************************/
 
 
 Forget.dimap = g => _ => tf => Forget(x => tf.run(g(x)));
@@ -3060,7 +3341,12 @@ Forget.lmap = g => tf => Forget(x => tf.run(g(x)));
 Forget.rmap = _ => tf => Forget(tf.run);
 
 
-Forget.Profunctor = {dimap: Forget.dimap, lmap: Forget.lmap, rmap: Forget.rmap};
+Forget.Profunctor = {
+  ...Forget.Functor,
+  dimap: Forget.dimap,
+  lmap: Forget.lmap,
+  rmap: Forget.rmap
+};
 
 
 /******************************************************************************
@@ -3070,7 +3356,7 @@ Forget.Profunctor = {dimap: Forget.dimap, lmap: Forget.lmap, rmap: Forget.rmap};
 
 export function* objEntries(o) {
   for (let prop in o) {
-    yield [prop, o[prop]];
+    yield Pair(prop, o[prop]);
   }
 }
 
@@ -3106,19 +3392,46 @@ export const Id = x => ({
 Id.map = f => tx => Id(f(tx.run));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Id.Functor = {map: Id.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Id.ap = tf => tx => Id(tf.run(tx.run));
 
 
+Id.Apply = {
+  ...Id.Functor,
+  ap: Id.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Id.of = x => Id(x);
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Id.Applicative = {
+  ...Id.Apply,
+  of: Id.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 const idChain = ({id: x}) => fm => fm(x);
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Id.Monad = {
+  ...Id.Applicative,
+  chain: Id.chain
+};
 
 
 /******************************************************************************
@@ -3190,6 +3503,9 @@ export const IMap_ = cmp => {
       RBT.set(m.tree, k, v, cmp),
       size);
   };
+
+
+  // TODO: IMap.singleton
 
 
   /***[ Traversal ]***********************************************************/
@@ -3289,6 +3605,9 @@ export const IOMap_ = cmp => {
   };
 
 
+  // TODO: IOMap.singleton
+
+
   /***[ Traversal ]***********************************************************/
 
 
@@ -3309,7 +3628,7 @@ export const IOMap_ = cmp => {
 
       return tv.run({
         get none() {return go(acc, i + 1)},
-        some: v => go(f(acc) ([k, v]), i + 1)
+        some: v => go(f(acc) (Pair(k, v)), i + 1)
       });
     }
   } (init, 0);
@@ -3324,7 +3643,7 @@ export const IOMap_ = cmp => {
 
       return tv.run({
         get none() {return go(i + 1)},
-        some: v => f([k, v]) (thunk(() => go(i + 1)))
+        some: v => f(Pair(k, v)) (thunk(() => go(i + 1)))
       });
     }
   } (0);
@@ -3392,6 +3711,9 @@ export const ISet_ = cmp => {
       RBT.set(s.tree, k, null, cmp),
       size);
   };
+
+
+  // TODO: ISet.singleton
 
 
   /***[ Traversal ]***********************************************************/
@@ -3480,6 +3802,9 @@ export const IOSet_ = cmp => {
   };
 
 
+  // TODO: IOSet.singleton
+
+
   /***[ Traversal ]***********************************************************/
 
 
@@ -3549,10 +3874,22 @@ Last.append = ttx => tty =>
 Last.prepend = First.append;
 
 
+Last.Semigroup = {
+  append: Last.append,
+  prepend: Last.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Last.empty = Last(Option.None);
+Last.empty = () => Last(Option.None);
+
+
+Last.Monoid = {
+  ...Last.Semigroup,
+  empty: Last.empty
+};
 
 
 /******************************************************************************
@@ -3576,19 +3913,52 @@ export const Lazy = thunk => ({
 Lazy.map = f => tx => Lazy(() => f(tx.run));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Lazy.Functor = {map: Lazy.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Lazy.ap = ft => tx => Lazy(() => ft.run(tx.run));
 
 
+Lazy.Apply = {
+  ...Lazy.Functor,
+  ap: Lazy.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Lazy.of = x => Lazy(() => x);
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Lazy.Applicative = {
+  ...Lazy.Apply,
+  of: Lazy.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Lazy.chain = mx => fm => Lazy(() => fm(mx.run).run);
+
+
+Lazy.Chain = {
+  ...Lazy.Apply,
+  chain: Lazy.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Lazy.Monad = {
+  ...Lazy.Applicative,
+  chain: Lazy.chain
+};
 
 
 /******************************************************************************
@@ -3605,6 +3975,12 @@ List.Cons = x => xs => ({
 });
 
 
+List.Cons_ = xs => x => ({
+  [TAG]: "List",
+  run: ({cons}) => cons(x) (xs)
+});
+
+
 List.Nil = ({
   [TAG]: "List",
   run: ({nil}) => nil
@@ -3614,10 +3990,16 @@ List.Nil = ({
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
-// inits/tails
+// TODO: inits/tails
 
 
 /***[ Con-/Deconstruction ]***************************************************/
+
+
+List.cons = List.Cons;
+
+
+List.cons_ = List.Cons_;
 
 
 List.head = xs =>
@@ -3679,13 +4061,10 @@ List.tail = xs =>
   });
 
 
-List.cons = List.Cons;
-
-
 List.uncons = xs =>
   xs.run({
     nil: Option.None,
-    cons: y => ys => Option.Some([y, ys])
+    cons: y => ys => Option.Some(Pair(y, ys))
   });
 
 
@@ -3727,7 +4106,10 @@ List.map = f =>
       (List.Nil);
 
 
-/***[ Functor :: Applicative ]************************************************/
+List.Functor = {map: List.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 List.ap = fs => xs =>
@@ -3736,10 +4118,25 @@ List.ap = fs => xs =>
       (acc)) (List.Nil) (fs);
 
 
+List.Apply = {
+  ...List.Functor,
+  ap: List.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 List.of = List.singleton;
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+List.Applicative = {
+  ...List.Apply,
+  of: List.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 List.chain = xs => fm => function go(ys) {
@@ -3748,6 +4145,21 @@ List.chain = xs => fm => function go(ys) {
     cons: z => zs => List.append(fm(z)) (thunk(() => go(zs)))
   });
 } (xs);
+
+
+List.Chain = {
+  ...List.Apply,
+  chain: List.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+List.Monad = {
+  ...List.Applicative,
+  chain: List.chain
+};
 
 
 /***[ Infinite Lists ]********************************************************/
@@ -3801,10 +4213,22 @@ List.prepend = ys => xs => function go(acc) {
 } (xs);
 
 
+List.Semigroup = {
+  append: List.append,
+  prepend: List.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 List.empty = List.Nil;
+
+
+List.Monoid = {
+  ...List.Semigroup,
+  empty: List.empty
+};
 
 
 /***[ Unfoldable ]************************************************************/
@@ -3813,7 +4237,7 @@ List.empty = List.Nil;
 List.unfoldr = f => function go(y) {
   return f(y).run({
     none: List.Nil,
-    some: ([x, y_]) => List.Cons(x) (thunk(() => go(y_)))
+    some: ([x, y2]) => List.Cons(x) (thunk(() => go(y2)))
   });
 };
 
@@ -3821,7 +4245,7 @@ List.unfoldr = f => function go(y) {
 /***[ Misc. ]*****************************************************************/
 
 
-List.reverse = List.foldl(cons_) (Nil); // TODO: foldr?
+List.reverse = List.foldl(List.Cons_) (List.Nil);
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -3853,7 +4277,7 @@ DList.singleton = comp(DList) (List.Cons);
 DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
 
 
-/***[ Conversion ]************************************************************/
+/***[ Natural Transformations ]***********************************************/
 
 
 DList.fromList = xs => comp(DList) (List.append);
@@ -3871,10 +4295,22 @@ DList.append = xs => ys => app(DList) (comp(xs.run) (ys.run));
 DList.prepend = ys => xs => app(DList) (comp(xs.run) (ys.run));
 
 
+DList.Semigroup = {
+  append: DList.append,
+  prepend: DList.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 DList.empty = DList(id);
+
+
+DList.Monoid = {
+  ...DList.Semigroup,
+  empty: DList.empty
+};
 
 
 /***[ Unfoldable ]************************************************************/
@@ -3883,7 +4319,7 @@ DList.empty = DList(id);
 DList.unfoldr = f => function go(y) {
   return f(y).run({
     none: DList.empty,
-    some: ([x, y_]) => DList.Cons(x) (thunk(() => go(y_)))
+    some: ([x, y2]) => DList.Cons(x) (thunk(() => go(y2)))
   })
 };
 
@@ -3897,21 +4333,6 @@ export const ListZ = ls => rs => ({
   [TAG]: "ListZ",
   run: {ls, rs}
 });
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-/***[ Conversion ]************************************************************/
-
-
-ListZ.fromList = xs => ListZ(List.Nil) (xs);
-
-
-ListZ.fromListEnd = xs => ListZ(List.reverse(xs)) (List.Nil);
-
-
-ListZ.toList = xs => List.append(List.reverse(xs.run.ls)) (xs.run.rs)
 
 
 /***[ Cursor ]****************************************************************/
@@ -3986,10 +4407,31 @@ ListZ.rem = xs =>
 /***[ Functor ]***************************************************************/
 
 
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+ListZ.fromList = xs => ListZ(List.Nil) (xs);
+
+
+ListZ.fromListEnd = xs => ListZ(List.reverse(xs)) (List.Nil);
+
+
+ListZ.toList = xs => List.append(List.reverse(xs.run.ls)) (xs.run.rs)
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 ListZ.empty = ListZ([], []);
+
+
+/*ListZ.Monoid = {
+  ...ListZ.Semigroup,
+  empty: ListZ.empty
+};*/
 
 
 /***[ Misc. ]*****************************************************************/
@@ -4216,7 +4658,10 @@ Option.map = f => tx =>
   });
 
 
-/***[ Functor :: Applicative ]************************************************/
+Option.Functor = {map: Option.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Option.ap = tf => tx =>
@@ -4230,10 +4675,25 @@ Option.ap = tf => tx =>
   });
 
 
+Option.Apply = {
+  ...Option.Functor,
+  ap: Option.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Option.of = x => Option.Some(x);
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Option.Applicative = {
+  ...Option.Apply,
+  of: Option.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Option.chain = tx => fm =>
@@ -4248,6 +4708,21 @@ Option.chain_ = fm => tx =>
     none: Option.None,
     some: x => fm(x)
   });
+
+
+Option.Chain = {
+  ...Option.Apply,
+  chain: Option.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Option.Monad = {
+  ...Option.Applicative,
+  chain: Option.chain
+};
 
 
 /***[ Misc. ]*****************************************************************/
@@ -4291,7 +4766,7 @@ OptionT.map = ({map}) => f => OptionT.mapMonad(map(Option.map(f)));
 OptionT.Functor = {map: OptionT.map};
 
 
-/***[ Functor :: Applicative ]************************************************/
+/***[ Functor :: Apply ]******************************************************/
 
 
 OptionT.ap = ({map, of, chain}) => mmf => mmx =>
@@ -4307,19 +4782,27 @@ OptionT.ap = ({map, of, chain}) => mmf => mmx =>
     })));
 
 
+OptionT.Apply = {
+  ...OptionT.Functor,
+  ap: OptionT.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 // a -> MaybeT m a
 
 OptionT.of = ({of}) => x => OptionT(of(Option.Some(x)));
 
 
 OptionT.Applicative = {
-  ...OptionT.Functor,
-  ap: OptionT.ap,
+  ...OptionT.Apply,
   of: OptionT.of
 };
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 OptionT.chain = ({of, chain}) => mmx => fmm =>
@@ -4329,8 +4812,16 @@ OptionT.chain = ({of, chain}) => mmx => fmm =>
   }));
 
 
-OptionT.Applicative = {
-  ...OptionT.Functor,
+OptionT.Chain = {
+  ...OptionT.Apply,
+  chain: OptionT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+OptionT.Monad = {
   ...OptionT.Applicative,
   chain: OptionT.chain
 };
@@ -4435,7 +4926,10 @@ Parallel.map = f => tx =>
   Parallel(k => tx.run(x => k(f(x))));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Parallel.Functor = {map: Parallel.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Parallel.ap = tf => tx =>
@@ -4445,36 +4939,66 @@ Parallel.ap = tf => tx =>
          k(f(x))));
 
 
+Parallel.Apply = {
+  ...Parallel.Functor,
+  ap: Parallel.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Parallel.of = x => Parallel(k => k(x));
 
 
-/***[ Semigroup (base type) ]*************************************************/
+Parallel.Applicative = {
+  ...Parallel.Apply,
+  of: Parallel.of
+};
 
 
-Parallel.base = {};
+/***[ Natural Transformations ]***********************************************/
 
 
-Parallel.base.append = append => tx => ty =>
+// TODO: fromSerial/toSerial
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+Parallel.append = append => tx => ty =>
   Parallel(k =>
     Parallel.and(tx) (ty)
       .run(([x, y]) =>
         k(append(x) (y))));
 
 
-Parallel.base.prepend = Parallel.base.append;
+Parallel.prepend = Parallel.append;
+
+
+Parallel.Semigroup = {
+  append: Parallel.append,
+  prepend: Parallel.prepend
+};
 
   
-/***[ Semigroup :: Monoid (base type) ]***************************************/
+/***[ Semigroup :: Monoid ]***************************************************/
 
 
-Parallel.base.empty = empty =>
+Parallel.empty = empty =>
   Parallel(k => k(empty));
+
+
+Parallel.Monoid = {
+  ...Parallel.Semigroup,
+  empty: Parallel.empty
+};
 
 
 /***[ Semigroup (race) ]******************************************************/
 
 
-Parallel.race = {};
+Parallel.race = {}; // TODO: make a newtype
 
 
 Parallel.race.append = Parallel.or;
@@ -4527,16 +5051,16 @@ Parser.orElse = ft => gt =>
     const [[s, i], tx] = ft.run(pair);
 
     return tx.run({
-      left: e => gt.run([s, i]),
-      right: x => [[s, i], Either.Right(x)]
+      left: e => gt.run(Pair(s, i)),
+      right: x => Pair(Pair(s, i), Either.Right(x))
     });
   });
 
 
 Parser.satisfy = p =>
-  Parser(([s, i]) => s.length < i ? [[s, i], Either.Left("end of stream")]
-    : p(s[i]) ? [[s, i + 1], Either.Right(s[i])]
-    : [[s, i + 1], Either.Left("did not satisfy")]);
+  Parser(([s, i]) => s.length < i ? Pair(Pair(s, i), Either.Left("end of stream"))
+    : p(s[i]) ? Pair(Pair(s, i + 1), Either.Right(s[i]))
+    : Pair(Pair(s, i + 1), Either.Left("did not satisfy")));
 
 
 Parser.try = ft =>
@@ -4544,8 +5068,8 @@ Parser.try = ft =>
     const [[s, j], tx] = ft.run(pair);
 
     return tx.run({
-      left: e => [[s, i], Either.Left(e)],
-      right: x => [[s, j], Either.Right(x)]
+      left: e => Pair(Pair(s, i), Either.Left(e)),
+      right: x => Pair(Pair(s, j), Either.Right(x))
     });
   });
 
@@ -4591,10 +5115,22 @@ Pred.prepend = tq => tp =>
   Pred(x => tp.run(x) && tq.run(x));
 
 
+Pred.Semigroup = {
+  append: Pred.append,
+  prepend: Pred.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Pred.empty = Pred(_ => true);
+
+
+Pred.Monoid = {
+  ...Pred.Semigroup,
+  empty: Pred.empty
+};
 
 
 /******************************************************************************
@@ -4811,10 +5347,10 @@ Rex.match = os => s =>
 
 
 Rex.parse = os => s =>
-  os.reduceRight(([s_, acc], {start, end}) => [
-    s_.slice(0, start).concat(s_.slice(end)),
-    (acc.unshift(s_.slice(start, end)), acc)
-  ], [s, []]);
+  os.reduceRight(([s2, acc], {start, end}) => [
+    s2.slice(0, start).concat(s2.slice(end)),
+    (acc.unshift(s2.slice(start, end)), acc)
+  ], Pair(s, []));
 
 
 Rex.matchSection = os => ps => s => {
@@ -4830,17 +5366,17 @@ Rex.parseSection = os => ps => s => {
   const diff = ps.length - os.length;
 
   return (diff === 0 || diff > 0 ? os : os.slice(0, diff))
-    .reduceRight(([s_, acc], {end: start}, i) => [
-      s_.slice(0, start).concat(s_.slice(ps[i].end)),
-      (acc.unshift(s_.slice(start, ps[i].end)), acc)
-    ], [s, []]);
+    .reduceRight(([s2, acc], {end: start}, i) => [
+      s2.slice(0, start).concat(s2.slice(ps[i].end)),
+      (acc.unshift(s2.slice(start, ps[i].end)), acc)
+    ], Pair(s, []));
 };
 
 
-Rex.replace = s_ => os => s =>
+Rex.replace = s2 => os => s =>
   os.reduceRight((acc, {start, end}) =>
     acc.slice(0, start)
-      .concat(s_)
+      .concat(s2)
       .concat(acc.slice(end)), s);
 
 
@@ -4857,17 +5393,17 @@ Rex.remove = os => s =>
       .concat(acc.slice(end)), s);
 
 
-Rex.insertBefore = s_ => os => s =>
+Rex.insertBefore = s2 => os => s =>
   os.reduceRight((acc, {start, end}) =>
     acc.slice(0, start)
-      .concat(s_)
+      .concat(s2)
       .concat(acc.slice(start)), s);
 
 
-Rex.insertAfter = s_ => os => s =>
+Rex.insertAfter = s2 => os => s =>
   os.reduceRight((acc, {start, end}) =>
     acc.slice(0, end)
-      .concat(s_)
+      .concat(s2)
       .concat(acc.slice(end)), s);
 
 
@@ -4920,8 +5456,8 @@ Rex.areAdjacent = rx => ({end}) => ({start}) => {
 Rex.areOverlapping = ({end}) => ({start}) => end >= start;
 
 
-Rex.areNested = ({start, end}) => ({start: start_, end: end_}) =>
-  start <= start_ && end >= end_;
+Rex.areNested = ({start, end}) => ({start: start2, end: end2}) =>
+  start <= start2 && end >= end2;
 
 
 /***[ Primitive Patterns ]****************************************************/
@@ -5058,7 +5594,7 @@ Serial.and = tx => ty =>
   Serial(k =>
     tx.run(x =>
       ty.run(y =>
-        k([x, y]))));
+        k(Pair(x, y)))));
 
 
 Serial.allArr = Serial =>
@@ -5075,7 +5611,10 @@ Serial.map = f => tx =>
   Serial(k => tx.run(x => k(f(x))));
 
 
-/***[ Functor :: Applicative ]************************************************/
+Serial.Functor = {map: Serial.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
 
 
 Serial.ap = tf => tx =>
@@ -5085,14 +5624,50 @@ Serial.ap = tf => tx =>
          k(f(x))));
 
 
+Serial.Apply = {
+  ...Serial.Functor,
+  ap: Serial.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
 Serial.of = x => Serial(k => k(x));
 
 
-/***[ Functor :: Applicative :: Monad ]***************************************/
+Serial.Applicative = {
+  ...Serial.Apply,
+  of: Serial.of
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
 
 
 Serial.chain = mx => fm =>
   Serial(k => mx.run(x => fm(x).run(k)));
+
+
+Serial.Chain = {
+  ...Serial.Apply,
+  chain: Serial.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+
+
+Serial.Monad = {
+  ...Serial.Applicative,
+  chain: Serial.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+// TODO: fromParallel/toParallel
 
 
 /***[ Semigroup ]*************************************************************/
@@ -5106,10 +5681,22 @@ Serial.append = append => tx => ty =>
 Serial.prepend = Serial.append;
 
 
+Serial.Semigroup = {
+  append: Serial.append,
+  prepend: Serial.prepend
+};
+
+
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
 Serial.empty = empty => Serial(k => k(empty));
+
+
+Serial.Monoid = {
+  ...Serial.Semigroup,
+  empty: Serial.empty
+};
 
 
 /***[ Misc. ]*****************************************************************/
@@ -5154,13 +5741,13 @@ Serial.allArr = Serial.allArr(Serial);
 ******************************************************************************/
 
 
-export const Star = tf => ({
+export const Star = tf => ({ // TODO: add map/Functor
   [TAG]: "Star",
   run: tf
 });
 
 
-/***[ Profunctor ]************************************************************/
+/***[ Functor :: Profunctor ]*************************************************/
 
 
 Star.dimap = ({map}) => h => f => tg =>
@@ -5175,7 +5762,12 @@ Star.rmap = ({map}) => f => tg =>
   Star(x => map(f) (tg.run(x)));
 
 
-Star.Profunctor = {dimap: Star.dimap, lmap: Star.lmap, rmap: Star.rmap};
+Star.Profunctor = {
+  ...Star.Functor,
+  dimap: Star.dimap,
+  lmap: Star.lmap,
+  rmap: Star.rmap
+};
 
 
 /******************************************************************************
@@ -5206,18 +5798,17 @@ Stream.Done = tmx => ({
 });
 
 
-Stream.cata = ({map}, {of, chain}) => step => eff => done => tmx_ => 
-  eff(function go(tmx) {
-    return tmx.run({
+Stream.cata = ({map}, {of, chain}) => step => eff => done => tmx => 
+  eff(function go(tmx2) {
+    return tmx2.run({
       step: tx => of(step(map(x => eff(go(x)) (tx)))),
       eff: mx => chain(mx) (go),
       done: x => of(done(x))
     });
-  } (tmx_));
+  } (tmx));
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
-
 
 
 /******************************************************************************
@@ -5269,13 +5860,53 @@ Str.normalize = s => {
 
 
 Str.foldRex = rx => f => acc => s => {
-  let r, acc_ = acc;
+  let r, acc2 = acc;
 
   while (r = rx.exec(s)) {
-    acc_ = f(acc_) (r[0]);
+    acc2 = f(acc2) (r[0]);
   }
 
-  return acc_;
+  return acc2;
+};
+
+
+/******************************************************************************
+*******************************[ TUPLE :: PAIR ]*******************************
+******************************************************************************/
+
+
+export const Tuple = (r, s, t, u, v, w, x, y, z, _) => {
+  if (_ !== undefined)
+    throw new TypeError("upper bound exceeded");
+
+  const o = {[TAG]: "Tuple"};
+  let len = 0;
+
+  if (r !== undefined) {o[0] = r; len = 1}
+  if (s !== undefined) {o[1] = s; len = 2}
+  if (t !== undefined) {o[2] = t; len = 3}
+  if (u !== undefined) {o[3] = u; len = 4}
+  if (v !== undefined) {o[4] = v; len = 5}
+  if (w !== undefined) {o[5] = w; len = 6}
+  if (x !== undefined) {o[6] = x; len = 7}
+  if (y !== undefined) {o[7] = y; len = 8}
+  if (z !== undefined) {o[8] = z; len = 9}
+
+  o.length = len;
+
+  o[Symbol.iterator] = function*() {
+    if (r !== undefined) yield r;
+    if (s !== undefined) yield s;
+    if (t !== undefined) yield t;
+    if (u !== undefined) yield u;
+    if (v !== undefined) yield v;
+    if (w !== undefined) yield w;
+    if (x !== undefined) yield x;
+    if (y !== undefined) yield y;
+    if (z !== undefined) yield z;
+  }  
+
+  return o;
 };
 
 
@@ -5353,7 +5984,7 @@ Pair.Applicative = {
 
 
 Pair.chain = ({append}) => fm => mx => {
-  const my => fm(mx[1]);
+  const my = fm(mx[1]);
   return Pair(append(mx[0]) (my[0]), my[1]);
 };
 
@@ -5379,10 +6010,22 @@ Pair.Monad = {
 Pair.extend = fw => wx => Pair(wx[0], fw(wx));
 
 
+Pair.Extend = {
+  ...Pair.Functor,
+  extend: Pair.extend
+};
+
+
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
 Pair.extract = Pair.snd;
+
+
+Pair.Comonad = {
+  ...Pair.Extend,
+  extract: Pair.extract
+};
 
 
 /***[ Misc. ]*****************************************************************/
@@ -5569,6 +6212,9 @@ Vector.set = i => x => xs => {
 };
 
 
+// TODO: Vector.singleton
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -5590,6 +6236,9 @@ Vector.map = f => xs =>
     xs.offset);
 
 
+Vector.Functor = {map: Vector.map};
+
+
 /******************************************************************************
 *******************************************************************************
 ***************************[ RESOLVE DEPENDENCIES ]****************************
@@ -5597,13 +6246,18 @@ Vector.map = f => xs =>
 ******************************************************************************/
 
 
+First.empty = First.empty();
+
+
+Last.empty = Last.empty();
 
 
 /*
 
 FEATURES:
 
-* Any/All/lift Semigroup/Down/Up/Max/Min/Prod/Sum/Pair/Const/Id/lift Applicative/Alt/Compose
+* Any/All//Down/Up/Max/Min/Prod/Sum/Pair/Const/Id
+* lift Semigroup/Applicative/Alt/Compose
 * liftIO equivalent (shortcut to the bottom of the stack)
 * MonadParallel
 * Indexed Monads
@@ -5620,18 +6274,7 @@ FEATURES:
 TODOS:
 
 * process CSV
-* natural transformation Parallel >> Serial and vice versa
-* add singleton to each type
-* make foldl a loop or at least a CPS+trampoline
-* maybe unfoldl for Array/Vector?
-* check Array for shared mutable accumulators
-* style: replace x_ or consecutive-letter-approach with x2
-* take relude into account
-* add dictionaries representing type classes (A.Functor = {map: A.map})
-* rearrange Apply :: Applicative and Chain :: Monad
-* apply rules for type dicts
-* replace using of [,] with Pair
-* make String/Choice a newtype
-* replace Conversion with Natural Transformations
+* add chain_ to Chain type class
+* add prepend to Semigroup type class
 
 */
