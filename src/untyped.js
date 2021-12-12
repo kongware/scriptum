@@ -270,7 +270,7 @@ LoopM.Applicative = {
 };
 
 
-// Functor :: Apply :: Applicative :: Chain
+// Functor :: Apply :: Chain
 
 
 LoopM.chain = mx => fm =>
@@ -285,7 +285,7 @@ LoopM.Chain = {
 };
 
 
-// Functor :: Apply :: Applicative :: Chain :: Monad
+// Functor :: Apply :: Applicative :: Monad
 
 
 LoopM.Monad = {
@@ -1343,7 +1343,7 @@ export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff(map) (id) (tx)) (ty);
 export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 export const join = ({chain}) => ttx => chain(ttx) (id);
@@ -1355,7 +1355,7 @@ export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
 export const kipe = ({chain}) => gm => fm => x => chain(gm(x)) (fm);
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 export const ap = ({of, chain}) => mf => mx =>
@@ -1687,7 +1687,7 @@ F.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 F.chain = f => g => x => f(g(x)) (x);
@@ -1702,7 +1702,7 @@ F.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 F.Monad = {
@@ -1752,6 +1752,56 @@ F.Profunctor = {
   dimap: F.dimap,
   lmap: F.lmap,
   rmap: F.rmap
+};
+
+
+/***[ Functor :: Profunctor :: Strong ]***************************************/
+
+
+F.first = f => tx => [f(tx.run[0]), tx.run[1]];
+
+
+F.second = f => tx => [tx.run[0], f(tx.run[1])];
+
+
+F.Strong = {
+  ...F.Profunctor,
+  first: F.first,
+  second: F.second
+};
+
+
+/***[ Functor :: Profunctor :: Choice ]***************************************/
+
+
+F.left = f => tx => tx.run({
+  left: x => Either.Left(f(x)),
+  right: x => Either.Right(x)
+});
+
+
+F.right = f => tx => tx.run({
+  left: x => Either.Left(x),
+  right: x => Either.Right(f(x))
+});
+
+
+F.Choice = {
+  ...F.Profunctor,
+  left: F.left,
+  right: F.right
+};
+
+
+/***[ Functor :: Profunctor :: Closed ]***************************************/
+
+
+F.closed = comp;
+
+
+F.Closed = {
+  ...F.Profunctor,
+  closed: F.closed
 };
 
 
@@ -1817,56 +1867,6 @@ export const introspect = x =>
 
 export const tag = (type, o) =>
   (o[Symbol.toStringTag] = type, o);
-
-
-/***[ Profunctor :: Strong ]**************************************************/
-
-
-F.first = f => tx => [f(tx.run[0]), tx.run[1]]; // TODO make a newtype
-
-
-F.second = f => tx => [tx.run[0], f(tx.run[1])];
-
-
-F.Strong = {
-  ...F.Profunctor,
-  first: F.first,
-  second: F.second
-};
-
-
-/***[ Profunctor :: Choice ]**************************************************/
-
-
-F.left = f => tx => tx.run({ // TODO: make a newtype
-  left: x => Either.Left(f(x)),
-  right: x => Either.Right(x)
-});
-
-
-F.right = f => tx => tx.run({
-  left: x => Either.Left(x),
-  right: x => Either.Right(f(x))
-});
-
-
-F.Choice = {
-  ...F.Profunctor,
-  left: F.left,
-  right: F.right
-};
-
-
-/***[ Profunctor :: Closed ]**************************************************/
-
-
-F.closed = comp; // TODO: make a newtype
-
-
-F.Closed = {
-  ...F.Profunctor,
-  closed: F.closed
-};
 
 
 /***[ Reader ]****************************************************************/
@@ -2014,6 +2014,14 @@ F.contra = F.contra();
 
 
 F.of = F.of();
+
+
+/******************************************************************************
+*********************************[ FUNCTIONT ]*********************************
+******************************************************************************/
+
+
+// TODO: (a.k.a. ReaderT)
 
 
 /******************************************************************************
@@ -2230,10 +2238,31 @@ A.Functor = {map: A.map};
 A.alt = A => A.append;
 
 
+A.Alt = {
+  ...A.Functor,
+  alt: A.alt
+};
+
+
 /***[ Functor :: Alt :: Plus ]************************************************/
 
 
 A.zero = A => A.empty;
+
+
+A.Plus = {
+  ...A.Alt,
+  zero: A.zero
+};
+
+
+/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
+
+
+A.Alternative = {
+  ...A.Plus,
+  ...A.Applicative
+};
 
 
 /***[ Functor :: Apply ]******************************************************/
@@ -2263,7 +2292,7 @@ A.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 A.chain = xs => fm =>
@@ -2277,7 +2306,7 @@ A.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 A.Monad = {
@@ -2695,7 +2724,7 @@ Cont.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
@@ -2707,7 +2736,7 @@ Cont.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Cont.Monad = {
@@ -2816,7 +2845,7 @@ CoroutineT.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 CoroutineT.chain = ({map}, {of, chain}) => mttx => fmtt =>
@@ -2832,7 +2861,7 @@ CoroutineT.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 CoroutineT.Monad = {
@@ -3040,7 +3069,7 @@ Defer.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Defer.chain = mx => fm => Defer(() => fm(mx.run).run);
@@ -3052,7 +3081,7 @@ Defer.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Defer.Monad = {
@@ -3129,7 +3158,7 @@ Either.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Either.chain = tx => fm =>
@@ -3145,7 +3174,7 @@ Either.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Either.Monad = {
@@ -3154,17 +3183,49 @@ Either.Monad = {
 };
 
 
-/***[ Transformer ]***********************************************************/
+/******************************************************************************
+**********************************[ EITHERT ]**********************************
+******************************************************************************/
 
 
-Either.chainT = ({of, chain}) => mmx => fmm => // TODO: make a newtype
+export const OptionT = mmx => ({
+  [TAG]: "OptionT",
+  run: mmx
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+// TODO
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+// TODO
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Either.ofT = ({of}) => x => of(Either.Right(x));
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+Either.chainT = ({of, chain}) => mmx => fmm =>
   chain(mmx) (mx => mx.run({
     left: x => of(Either.Left(x)),
     right: x => fmm(x)
   }));
 
 
-Either.ofT = ({of}) => x => of(Either.Right(x));
+/***[ Functor :: Apply :: Chain :: Monad ]************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -3419,13 +3480,13 @@ Id.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 const idChain = ({id: x}) => fm => fm(x);
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Id.Monad = {
@@ -3940,7 +4001,7 @@ Lazy.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Lazy.chain = mx => fm => Lazy(() => fm(mx.run).run);
@@ -3952,7 +4013,7 @@ Lazy.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Lazy.Monad = {
@@ -4136,7 +4197,7 @@ List.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 List.chain = xs => fm => function go(ys) {
@@ -4153,7 +4214,7 @@ List.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 List.Monad = {
@@ -4493,6 +4554,120 @@ instance Functor NonEmpty where
 
 
 /******************************************************************************
+***********************************[ LISTT ]***********************************
+******************************************************************************/
+
+
+/*
+// union constructor
+
+const union = type => (tag, o) =>
+  (o[type] = type, o.tag = tag.name || tag, o);
+  
+const match = (tx, o) =>
+  tx.tag in o
+    ? o[tx.tag] (tx)
+    : _throw(new TypeError(`unknown union property "${tx.tag}"`));
+  
+// LISTT
+
+const ListT = union("ListT");
+
+const NilT = of => of(ListT("NilT", {}));
+
+const ConsT = of => head => tail =>
+  of(ListT(ConsT, {head, tail}));
+*/
+
+/*
+const ListT = union("ListT");
+
+
+const NilT = of =>
+  of(ListT("NilT", {}));
+
+
+const ConsT = of => head => tail =>
+  of(ListT("ConsT", {head, tail}));
+
+
+const listAltT = ({chain, of}) => mmx => mmy => {
+  const go = (mmx_) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => strict(mmy), // strictness is necessary
+        ConsT: ({head, tail}) =>
+          ConsT(of) (head) (thunk(() => go(tail)))
+      }));
+  
+  return go(mmx);
+};
+
+
+const listZeroT = NilT;
+
+
+const listFromArrT = of =>
+  arrFoldr(x => acc =>
+    ConsT(of) (x) (acc))
+      (NilT(of));
+
+
+const listToArrT = ({chain, of}) =>
+  listFoldT(chain) (acc => x =>
+    chain(acc) (acc_ =>
+      of(arrSnoc(x) (acc_)))) (of([]));
+
+
+const listFoldrT = chain => f => acc => {
+  const go = mmx => chain(mmx) (mx =>
+    match(mx, {
+      NilT: _ => strict(acc), // strictness is necessary
+      ConsT: ({head, tail}) =>
+        f(head) (thunk(() => go(tail)))
+    }));
+
+  return go;
+};
+
+
+const listFoldT = chain => f => init => mmx =>
+  tailRec(([acc, mmx_]) =>
+    chain(mmx_) (mx =>
+      match(mx, {
+        NilT: _ => Base(acc),
+        ConsT: ({head, tail}) =>
+          Loop([f(acc) (head), tail])
+      }))) ([init, mmx]);
+
+
+const listAppendT = ({chain, of}) => mmx => mmy =>
+  listFoldrT(chain)
+    (ConsT(of))
+      (mmy)
+        (mmx);
+
+
+const listChainT = ({chain, of}) => mmx => fmm =>
+  listFoldrT(chain)
+    (x => listAppendT({chain, of}) (fmm(x)))
+      (NilT(of))
+        (mmx);
+
+
+const listLiftT = ({chain, of}) => mx =>
+  chain(mx) (listOfT(of));
+
+
+const listOfT = of => x =>
+  ConsT(of) (x) (NilT(of));
+*/
+
+
+// TODO
+
+
+/******************************************************************************
 **********************************[ NUMBER ]***********************************
 ******************************************************************************/
 
@@ -4639,10 +4814,10 @@ Option.Some = x => ({
 });
 
 
-Option.None = ({
+Option.None = {
   [TAG]: "Option",
   run: ({none}) => none
-});
+};
 
 
 Option.cata = none => some => tx => tx.run({none, some});
@@ -4693,7 +4868,7 @@ Option.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Option.chain = tx => fm =>
@@ -4716,7 +4891,7 @@ Option.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Option.Monad = {
@@ -4802,7 +4977,7 @@ OptionT.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 OptionT.chain = ({of, chain}) => mmx => fmm =>
@@ -4818,7 +4993,7 @@ OptionT.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 OptionT.Monad = {
@@ -5642,7 +5817,7 @@ Serial.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Serial.chain = mx => fm =>
@@ -5655,7 +5830,7 @@ Serial.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Serial.Monad = {
@@ -5768,6 +5943,111 @@ Star.Profunctor = {
   lmap: Star.lmap,
   rmap: Star.rmap
 };
+
+
+/******************************************************************************
+***********************************[ STATE ]***********************************
+******************************************************************************/
+
+
+export const State = f => ({
+  [TAG]: "State",
+  run: f
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+State.map = f => tx =>
+  State(s => {
+    const [x, s2] = tx.state(s);
+    return Pair(f(x), s2);
+  });
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+State.ap = tf => tx =>
+  State(s => {
+    const [f, s2] = tf.state(s),
+      [x, s3] = tx.state(s2);
+
+    return Pair(f(x), s3);
+  });
+
+
+State.Apply = {
+  ...State.Functor,
+  ap: State.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+State.of = x => State(s => Pair(x, s));
+
+
+State.Applicative = {
+  ...State.Apply,
+  of: State.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+State.chain = mx => fm =>
+  State(s => {
+    const [x, s2] = mx.state(s);
+    return fm(x).state(s2);
+  });
+
+
+State.Chain = {
+  ...State.Apply,
+  chain: State.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+State.Monad = {
+  ...State.Applicative,
+  chain: State.chain
+};
+
+
+/***[ Miscellaneous ]*********************************************************/
+
+
+State.eval = tx => s => tx.state(s) [0];
+
+
+State.exec = tx => s => tx.state(s) [1];
+
+
+State.get = State(s => Pair(s, s));
+
+
+State.gets = f => State(s => Pair(f(s), s));
+
+
+State.modify = f => State(s => Pair(null, f(s)));
+
+
+State.put = s => State(_ => Pair(null, s));
+
+
+/******************************************************************************
+**********************************[ STATET ]***********************************
+******************************************************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -5980,7 +6260,7 @@ Pair.Applicative = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain ]******************************/
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
 Pair.chain = ({append}) => fm => mx => {
@@ -5995,7 +6275,7 @@ Pair.Chain = {
 };
 
 
-/***[ Functor :: Apply :: Applicative :: Chain :: Monad ]*********************/
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 Pair.Monad = {
@@ -6038,6 +6318,14 @@ Pair.mapSnd = Pair.map;
 
 
 Pair.swap = tx => Pair(tx[1], tx[0]);
+
+
+/******************************************************************************
+******************************[ TUPLE :: PAIRT ]*******************************
+******************************************************************************/
+
+
+// TODO: a.k.a. WriterT
 
 
 /******************************************************************************
