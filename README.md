@@ -13,9 +13,9 @@
 
 scriptum consists of two parts:
 
-* [runtime type validator] (https://github.com/kongware/scriptum/blob/master/src/validator.js)
-* [typed standard library] (https://github.com/kongware/scriptum/blob/master/src/library.js)
-* [untyped standard library (playground)] (https://github.com/kongware/scriptum/blob/master/src/library.js)
+* [runtime type validator](https://github.com/kongware/scriptum/blob/master/src/validator.js)
+* [typed standard library](https://github.com/kongware/scriptum/blob/master/src/library.js)
+* [untyped standard library (playground)](https://github.com/kongware/scriptum/blob/master/src/library.js)
 
 Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional Lisp roots.
 
