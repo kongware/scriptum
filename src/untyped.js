@@ -75,23 +75,28 @@ export const strict = x =>
   x && x[THUNK] ? x[EVAL] : x;
 
 
-export const thunk = thunk =>
-  new Proxy(thunk, new ThunkProxy());
+export const lazy = thunk =>
+  new Proxy(thunk, new ThunkProxy(true));
+
+
+export const defer = thunk =>
+  new Proxy(thunk, new ThunkProxy(false));
 
 
 /***[ Implementation ]********************************************************/
 
 
 class ThunkProxy {
-  constructor(anno) {
-    this.memo = NULL
+  constructor(share) {
+    this.memo = NULL;
+    this.share = share;
   }
 
   apply(g, that, args) {
 
     // evaluate to WHNF
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
       while (this.memo[THUNK] === true)
@@ -115,13 +120,11 @@ class ThunkProxy {
 
     // evaluate once
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL || this.share === false) {
   
-      // shallowly evaluate
+      // evaluate only one layer
 
-      if (k === EVAL
-        && this.memo === NULL)
-          this.memo = g();
+      if (k === EVAL) this.memo = g();
 
       // evaluate to WHNF
 
@@ -157,7 +160,7 @@ class ThunkProxy {
 
     // evaluate to WHNF
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
       while (this.memo[THUNK] === true)
@@ -176,7 +179,7 @@ class ThunkProxy {
 
     // evaluate to WHNF
 
-    else if (this.memo === NULL) {
+    else if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
       while (this.memo[THUNK] === true)
@@ -190,7 +193,7 @@ class ThunkProxy {
 
     // evaluate to WHNF
 
-    if (this.memo === NULL) {
+    if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
       while (this.memo[THUNK] === true)
@@ -261,7 +264,7 @@ LoopM.Apply = {
 // Functor :: Apply :: Applicative
 
 
-LoopM.of = LoopM => LoopM.done;
+LoopM.of = () => LoopM.done;
 
 
 LoopM.Applicative = {
@@ -368,7 +371,7 @@ Loop3.done = x => ({[TAG]: "LoopDone", x});
 /***[ Resolve Dependencies ]**************************************************/
 
 
-LoopM.of = LoopM.of(LoopM);
+LoopM.of = LoopM.of();
 
 
 /******************************************************************************
@@ -380,7 +383,7 @@ export const Mutable = clone => ref => {
   return _let({}, ref).in((o, ref) => {
     let mutated = false;
 
-    o.consume = thunk(() => {
+    o.consume = lazy(() => {
       if (mutated) {
         delete o.update;
 
@@ -1107,9 +1110,9 @@ RBT.foldr = f => init => t => function go(acc, u) {
     case "Leaf": return acc;
     
     case "Node": {
-      const acc2 = thunk(() => go(acc, u.r));
+      const acc2 = lazy(() => go(acc, u.r));
       const acc3 = f(u.v) (acc2);
-      return thunk(() => go(acc3, u.l));
+      return lazy(() => go(acc3, u.l));
     }
 
     default: throw new TypeError("invalid constructor");
@@ -1140,8 +1143,8 @@ RBT.cata_ = node => leaf => function go(t) {
     case "Leaf": return leaf;
     
     case "Node": return node([t.k, t.v])
-      (thunk(() => go(t.l)))
-        (thunk(() => go(t.r)));
+      (lazy(() => go(t.l)))
+        (lazy(() => go(t.r)));
 
     default: throw new TypeError("invalid constructor");
   }
@@ -1217,7 +1220,7 @@ RBT.levelOrder_ = f => acc => t => function go(ts, i) {
   
   else {
     ts.push(ts[i].l, ts[i].r);
-    return f([ts[i].k, ts[i].v]) (thunk(() => go(ts, i + 1)));
+    return f([ts[i].k, ts[i].v]) (lazy(() => go(ts, i + 1)));
   }
 } ([t], 0);
 
@@ -1651,7 +1654,7 @@ export const fix = f => x =>
 
 
 export const fix_ = f =>
-  f(thunk(() => fix_(f)));
+  f(lazy(() => fix_(f)));
 
 
 /***[ Functor ]***************************************************************/
@@ -2137,7 +2140,7 @@ A.tail = xs =>
   xs.length === 0 ? Option.None : Option.Some(xs.slice(1));
 
 
-A.tails = A => A.apo(xs =>
+A.tails = () => A.apo(xs =>
   xs.length === 0
     ? Option.Some(Pair([], Either.Left([])))
     : Option.Some(Pair(xs, Either.Right(xs.slice(1)))));
@@ -2203,7 +2206,7 @@ A.foldl = f => init => xs => {
 
 A.foldr = f => init => xs => function go(i) {
   if (i === xs.length) return init;
-  else return f(xs[i]) (thunk(() => go(i + 1)));
+  else return f(xs[i]) (lazy(() => go(i + 1)));
 } (0);
 
 
@@ -2235,7 +2238,7 @@ A.Functor = {map: A.map};
 /***[ Functor :: Alt ]********************************************************/
 
 
-A.alt = A => A.append;
+A.alt = () => A.append;
 
 
 A.Alt = {
@@ -2247,7 +2250,7 @@ A.Alt = {
 /***[ Functor :: Alt :: Plus ]************************************************/
 
 
-A.zero = A => A.empty;
+A.zero = () => A.empty;
 
 
 A.Plus = {
@@ -2323,7 +2326,7 @@ A.generator = f => function go(x) {
     none: [],
 
     some: ([y, z]) =>
-      Pair(y, thunk(() => go(z)))
+      Pair(y, lazy(() => go(z)))
   });
 };
 
@@ -2452,13 +2455,13 @@ A.unfoldr = f => init => {
 /***[ Resolve Dependencies ]**************************************************/
 
 
-A.alt = A.alt(A);
+A.alt = A.alt();
 
 
-A.tails = A.tails(A);
+A.tails = A.tails();
 
 
-A.zero = A.zero(A);
+A.zero = A.zero();
 
 
 /******************************************************************************
@@ -2824,7 +2827,10 @@ CoroutineT.Functor = {map: CoroutineT.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-CoroutineT.ap = ap;
+CoroutineT.ap = () => ap({
+  of: CoroutineT.of,
+  chain: CoroutineT.chain
+});
 
 
 CoroutineT.Apply = {
@@ -2875,6 +2881,9 @@ CoroutineT.Monad = {
 
 CoroutineT.lift = ({of, chain}) =>
   comp(CoroutineT) (liftM({of, chain}) (Either.Right));
+
+
+CoroutineT.Transformer = {lift: CoroutineT.lift};
 
 
 /***[ Running ]***************************************************************/
@@ -2930,6 +2939,12 @@ CoroutineT.mapSuspension = ({map}, {of, chain}) => fm => function go(mmtx) {
 
 
 CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Either.Left(tx)));
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+CoroutineT.ap = CoroutineT.ap();
 
 
 /******************************************************************************
@@ -3030,7 +3045,13 @@ D.isDayOfMonth = ({year, month}) => day =>
 ******************************************************************************/
 
 
-export const Defer = thunk => ({
+export const Defer = deferThunk => ({
+  [TAG]: "Defer",
+  run: deferThunk
+});
+
+
+Defer.getter = thunk => ({
   [TAG]: "Defer",
   get run() {return thunk()}
 });
@@ -3188,8 +3209,8 @@ Either.Monad = {
 ******************************************************************************/
 
 
-export const OptionT = mmx => ({
-  [TAG]: "OptionT",
+export const EitherT = mmx => ({
+  [TAG]: "EitherT",
   run: mmx
 });
 
@@ -3704,7 +3725,7 @@ export const IOMap_ = cmp => {
 
       return tv.run({
         get none() {return go(i + 1)},
-        some: v => f(Pair(k, v)) (thunk(() => go(i + 1)))
+        some: v => f(Pair(k, v)) (lazy(() => go(i + 1)))
       });
     }
   } (0);
@@ -3901,7 +3922,7 @@ export const IOSet_ = cmp => {
 
       return tv.run({
         get none() {return go(i + 1)},
-        some: v => f(v) (thunk(() => go(i + 1)))
+        some: v => f(v) (lazy(() => go(i + 1)))
       });
     }
   } (0);
@@ -3958,7 +3979,13 @@ Last.Monoid = {
 ******************************************************************************/
 
 
-export const Lazy = thunk => ({
+export const Lazy = lazyThunk => ({
+  [TAG]: "Lazy",
+  run: lazyThunk
+});
+
+
+Lazy.getter = thunk => ({
   [TAG]: "Lazy",
 
   get run() {
@@ -4103,7 +4130,7 @@ List.last = xs =>
           cons: z => zs =>
             ys.run({
               nil: z,
-              cons: _ => _ => thunk(() => go(zs))
+              cons: _ => _ => lazy(() => go(zs))
             })
         });
 
@@ -4153,7 +4180,7 @@ List.foldr = f => acc => function go(xs) {
     nil: acc,
 
     cons: y => ys =>
-      f(y) (thunk(() => go(ys)))
+      f(y) (lazy(() => go(ys)))
   });
 };
 
@@ -4203,7 +4230,7 @@ List.Applicative = {
 List.chain = xs => fm => function go(ys) {
   return ys.run({
     nil: List.Nil,
-    cons: z => zs => List.append(fm(z)) (thunk(() => go(zs)))
+    cons: z => zs => List.append(fm(z)) (lazy(() => go(zs)))
   });
 } (xs);
 
@@ -4227,11 +4254,11 @@ List.Monad = {
 
 
 List.iterate = f => function go(x) {
-  return List.Cons(x) (thunk(() => go(f(x))));
+  return List.Cons(x) (lazy(() => go(f(x))));
 };
 
 const repeat = x =>
-  List.Cons(x) (thunk(() => repeat(x)));
+  List.Cons(x) (lazy(() => repeat(x)));
 
 
 /***[ Natural Transformations ]***********************************************/
@@ -4246,7 +4273,7 @@ List.fromOption = tx => tx.run({
 });
 
 
-List.toArr = List => List.foldl(A.snoc_) ([]);
+List.toArr = () => List.foldl(A.snoc_) ([]);
 
 
 List.toOption = ({append, empty}) => xs =>
@@ -4261,7 +4288,7 @@ List.toOption = ({append, empty}) => xs =>
 List.append = xs => ys => function go(acc) {
   return acc.run({
     nil: ys,
-    cons: z => zs => List.Cons(z) (thunk(() => go(zs)))
+    cons: z => zs => List.Cons(z) (lazy(() => go(zs)))
   });
 } (xs);
 
@@ -4269,7 +4296,7 @@ List.append = xs => ys => function go(acc) {
 List.prepend = ys => xs => function go(acc) {
   return acc.run({
     nil: ys,
-    cons: z => zs => List.Cons(z) (thunk(() => go(zs)))
+    cons: z => zs => List.Cons(z) (lazy(() => go(zs)))
   });
 } (xs);
 
@@ -4298,7 +4325,7 @@ List.Monoid = {
 List.unfoldr = f => function go(y) {
   return f(y).run({
     none: List.Nil,
-    some: ([x, y2]) => List.Cons(x) (thunk(() => go(y2)))
+    some: ([x, y2]) => List.Cons(x) (lazy(() => go(y2)))
   });
 };
 
@@ -4312,7 +4339,7 @@ List.reverse = List.foldl(List.Cons_) (List.Nil);
 /***[ Resolve Dependencies ]**************************************************/
 
 
-List.toArr = List.toArr(List);
+List.toArr = List.toArr();
 
 
 /******************************************************************************
@@ -4380,7 +4407,7 @@ DList.Monoid = {
 DList.unfoldr = f => function go(y) {
   return f(y).run({
     none: DList.empty,
-    some: ([x, y2]) => DList.Cons(x) (thunk(() => go(y2)))
+    some: ([x, y2]) => DList.Cons(x) (lazy(() => go(y2)))
   })
 };
 
@@ -4558,113 +4585,129 @@ instance Functor NonEmpty where
 ******************************************************************************/
 
 
-/*
-// union constructor
+// TODO: add Alt/Plus
 
-const union = type => (tag, o) =>
-  (o[type] = type, o.tag = tag.name || tag, o);
-  
-const match = (tx, o) =>
-  tx.tag in o
-    ? o[tx.tag] (tx)
-    : _throw(new TypeError(`unknown union property "${tx.tag}"`));
-  
-// LISTT
-
-const ListT = union("ListT");
-
-const NilT = of => of(ListT("NilT", {}));
-
-const ConsT = of => head => tail =>
-  of(ListT(ConsT, {head, tail}));
-*/
-
-/*
-const ListT = union("ListT");
+export const ListT = mtx => ({
+  [TAG]: "ListT",
+  run: mtx
+});
 
 
-const NilT = of =>
-  of(ListT("NilT", {}));
+/***[ Functor ]***************************************************************/
 
 
-const ConsT = of => head => tail =>
-  of(ListT("ConsT", {head, tail}));
+ListT.map = ({map}) => f => mtx =>
+  comp(ListT)
+    (comp(map) (Option.map) (Pair.bimap(f) (ListT.map(f))))
+      (mtx.run);
 
 
-const listAltT = ({chain, of}) => mmx => mmy => {
-  const go = (mmx_) =>
-    chain(mmx_) (mx =>
-      match(mx, {
-        NilT: _ => strict(mmy), // strictness is necessary
-        ConsT: ({head, tail}) =>
-          ConsT(of) (head) (thunk(() => go(tail)))
-      }));
-  
-  return go(mmx);
+ListT.Functor = {map: ListT.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+ListT.ap = () => ap({of: ListT.of, chain: ListT.chain});
+
+
+ListT.Apply = {
+  ...ListT.Functor,
+  ap: ListT.ap
 };
 
 
-const listZeroT = NilT;
+/***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-const listFromArrT = of =>
-  arrFoldr(x => acc =>
-    ConsT(of) (x) (acc))
-      (NilT(of));
+ListT.of = ({of}) => x =>
+  ListT(of(Option.Some(Pair(x, ListT(of(Option.None))))));
 
 
-const listToArrT = ({chain, of}) =>
-  listFoldT(chain) (acc => x =>
-    chain(acc) (acc_ =>
-      of(arrSnoc(x) (acc_)))) (of([]));
-
-
-const listFoldrT = chain => f => acc => {
-  const go = mmx => chain(mmx) (mx =>
-    match(mx, {
-      NilT: _ => strict(acc), // strictness is necessary
-      ConsT: ({head, tail}) =>
-        f(head) (thunk(() => go(tail)))
-    }));
-
-  return go;
+ListT.Applicative = {
+  ...ListT.Apply,
+  of: ListT.of
 };
 
 
-const listFoldT = chain => f => init => mmx =>
-  tailRec(([acc, mmx_]) =>
-    chain(mmx_) (mx =>
-      match(mx, {
-        NilT: _ => Base(acc),
-        ConsT: ({head, tail}) =>
-          Loop([f(acc) (head), tail])
-      }))) ([init, mmx]);
+/***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-const listAppendT = ({chain, of}) => mmx => mmy =>
-  listFoldrT(chain)
-    (ConsT(of))
-      (mmy)
-        (mmx);
+ListT.chain = ({of, chain}) => mtx => fm => function go(mtx2) {
+  ListT(chain(mtx2.run) (tx => tx.run({
+    none: of(Option.None),
+    some: ([x, mty]) => ListT.append(fm(x)) (go(mty)).run
+  })))
+} (mtx);
 
 
-const listChainT = ({chain, of}) => mmx => fmm =>
-  listFoldrT(chain)
-    (x => listAppendT({chain, of}) (fmm(x)))
-      (NilT(of))
-        (mmx);
+ListT.Chain = {
+  ...ListT.Apply,
+  chain: ListT.chain
+};
 
 
-const listLiftT = ({chain, of}) => mx =>
-  chain(mx) (listOfT(of));
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-const listOfT = of => x =>
-  ConsT(of) (x) (NilT(of));
-*/
+ListT.Monad = {
+  ...ListT.Applicative,
+  chain: ListT.chain
+};
 
 
-// TODO
+/***[ Semigroup ]*************************************************************/
+
+
+ListT.append = ({of, chain}) => function go(mtx) {
+  return mty =>
+    ListT(chain(mtx.run) (tx =>
+      tx.run({
+        none: mty,
+        some: ([x, mtz]) => of(Option.Some(Pair(x, go(mtz) (mty))))
+      })))
+};
+
+
+ListT.prepend = ({of, chain}) => function go(mty) {
+  return mtx =>
+    ListT(chain(mtx.run) (tx =>
+      tx.run({
+        none: mty,
+        some: ([x, mtz]) => of(Option.Some(Pair(x, go(mtz) (mty))))
+      })))
+};
+
+
+ListT.Semigroup = {
+  append: ListT.append,
+  prepend: ListT.prepend
+};
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+ListT.empty = ({of}) => ListT(of(Option.None));
+
+
+ListT.Monoid = {
+  ...ListT.Semigroup,
+  empty: ListT.empty
+};
+
+
+/***[ Transformer ]***********************************************************/
+
+
+ListT.lift = ({of, chain}) => mx =>
+  ListT(liftM({of, chain}) (x => Option.Some(Pair(x, ListT.empty))) (mx));
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+ListT.ap = ListT.ap();
 
 
 /******************************************************************************
@@ -5064,7 +5107,7 @@ Parallel.and = tx => ty => {
 };
 
 
-Parallel.allArr = Parallel =>
+Parallel.allArr = () =>
   A.seqA({
     map: Parallel.map,
     ap: Parallel.ap,
@@ -5088,7 +5131,7 @@ Parallel.or = tx => ty => {
 };
 
 
-Parallel.any = Parallel =>
+Parallel.any = () =>
   A.foldl(acc => tx =>
     Parallel.race.append(acc) (tx))
       (Parallel.race.empty);
@@ -5202,10 +5245,10 @@ Parallel.flatten = ttx =>
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Parallel.allArr = Parallel.allArr(Parallel);
+Parallel.allArr = Parallel.allArr();
 
 
-Parallel.any = Parallel.any(Parallel);
+Parallel.any = Parallel.any();
 
 
 /******************************************************************************
@@ -5772,7 +5815,7 @@ Serial.and = tx => ty =>
         k(Pair(x, y)))));
 
 
-Serial.allArr = Serial =>
+Serial.allArr = () =>
   A.seqA({
     map: Serial.map,
     ap: Serial.ap,
@@ -5878,7 +5921,7 @@ Serial.Monoid = {
 
 
 Serial.once = tx => {
-  let x = thunk(() => {
+  let x = lazy(() => {
     throw new TypeError("race condition detected");
   });
 
@@ -5908,7 +5951,7 @@ Serial.once = tx => {
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Serial.allArr = Serial.allArr(Serial);
+Serial.allArr = Serial.allArr();
 
 
 /******************************************************************************
@@ -6354,7 +6397,7 @@ Triple.curried = curry3_(Triple);
 /***[ Bifunctor ]*************************************************************/
 
 
-Pair.bimap = f => g => tx => Pair(tx[0], f(tx[1]), g(tx[2]));
+Triple.bimap = f => g => tx => Triple(tx[0], f(tx[1]), g(tx[2]));
 
 
 /***[ Extracting ]************************************************************/
@@ -6547,8 +6590,10 @@ FEATURES:
 * Any/All//Down/Up/Max/Min/Prod/Sum/Pair/Const/Id
 * lift Semigroup/Applicative/Alt/Compose
 * liftIO equivalent (shortcut to the bottom of the stack)
+* generalize liftIO to MonadBase
 * MonadParallel
 * Indexed Monads
+* Hylomorphism
 * Graph theory
 * Behaviors/Events (purescript)
 * Incremental Computations
@@ -6564,5 +6609,6 @@ TODOS:
 * process CSV
 * add chain_ to Chain type class
 * add prepend to Semigroup type class
+* replace comp with explicit composition
 
 */
