@@ -1384,7 +1384,7 @@ export const liftM = ({of, chain}) => f => mx => chain(mx) (x => of(f(x)));
 ******************************************************************************/
 
 
-export const F = {};
+export const Fun = {};
 
 
 /***[ Applicator ]************************************************************/
@@ -1510,10 +1510,10 @@ export const comp = f => g => x => f(g(x));
 export const id = x => x;
 
 
-F.comp = comp;
+Fun.comp = comp;
 
 
-F.id = id;
+Fun.id = id;
 
 
 /***[ Composition ]***********************************************************/
@@ -1544,7 +1544,7 @@ export const cond = x => y => thunk =>
 /***[ Contravariant ]*********************************************************/
 
 
-F.contra = () => pipe;
+Fun.contra = () => pipe;
 
 
 /***[ Currying ]**************************************************************/
@@ -1660,151 +1660,151 @@ export const fix_ = f =>
 /***[ Functor ]***************************************************************/
 
 
-F.map = comp;
+Fun.map = comp;
 
 
-F.Functor = {map: F.map};
+Fun.Functor = {map: Fun.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-F.ap = f => g => x => f(x) (g(x));
+Fun.ap = f => g => x => f(x) (g(x));
 
 
-F.Apply = {
-  ...F.Functor,
-  ap: F.ap
+Fun.Apply = {
+  ...Fun.Functor,
+  ap: Fun.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-F.of = () => _const;
+Fun.of = () => _const;
 
 
-F.Applicative = {
-  ...F.Apply,
-  of: F.of
+Fun.Applicative = {
+  ...Fun.Apply,
+  of: Fun.of
 };
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-F.chain = f => g => x => f(g(x)) (x);
+Fun.chain = f => g => x => f(g(x)) (x);
 
 
-F.join = f => x => f(x) (x);
+Fun.join = f => x => f(x) (x);
 
 
-F.Chain = {
-  ...F.Apply,
-  chain: F.chain
+Fun.Chain = {
+  ...Fun.Apply,
+  chain: Fun.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-F.Monad = {
-  ...F.Applicative,
-  chain: F.chain
+Fun.Monad = {
+  ...Fun.Applicative,
+  chain: Fun.chain
 };
 
 
 /***[ Functor :: Extend ]*****************************************************/
 
 
-F.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
+Fun.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
 
 
-F.Extend = {
-  ...F.Functor,
-  extend: F.extend
+Fun.Extend = {
+  ...Fun.Functor,
+  extend: Fun.extend
 };
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
-F.extract = ({empty}) => f => f(empty);
+Fun.extract = ({empty}) => f => f(empty);
 
 
-F.Comonad = {
-  ...F.Extend,
-  extract: F.extract
+Fun.Comonad = {
+  ...Fun.Extend,
+  extract: Fun.extract
 };
 
 
 /***[ Functor :: Profunctor ]*************************************************/
 
 
-F.dimap = f => g => tf => x => g(tf.run(f(x)));
+Fun.dimap = f => g => tf => x => g(tf.run(f(x)));
 
 
-F.lmap = f => tg => x => f(tg.run(x));
+Fun.lmap = f => tg => x => f(tg.run(x));
 
 
-F.rmap = g => tf => x => tf.run(g(x));
+Fun.rmap = g => tf => x => tf.run(g(x));
 
 
-F.Profunctor = {
-  ...F.Functor,
-  dimap: F.dimap,
-  lmap: F.lmap,
-  rmap: F.rmap
+Fun.Profunctor = {
+  ...Fun.Functor,
+  dimap: Fun.dimap,
+  lmap: Fun.lmap,
+  rmap: Fun.rmap
 };
 
 
 /***[ Functor :: Profunctor :: Strong ]***************************************/
 
 
-F.first = f => tx => [f(tx.run[0]), tx.run[1]];
+Fun.first = f => tx => [f(tx.run[0]), tx.run[1]];
 
 
-F.second = f => tx => [tx.run[0], f(tx.run[1])];
+Fun.second = f => tx => [tx.run[0], f(tx.run[1])];
 
 
-F.Strong = {
-  ...F.Profunctor,
-  first: F.first,
-  second: F.second
+Fun.Strong = {
+  ...Fun.Profunctor,
+  first: Fun.first,
+  second: Fun.second
 };
 
 
 /***[ Functor :: Profunctor :: Choice ]***************************************/
 
 
-F.left = f => tx => tx.run({
+Fun.left = f => tx => tx.run({
   left: x => Either.Left(f(x)),
   right: x => Either.Right(x)
 });
 
 
-F.right = f => tx => tx.run({
+Fun.right = f => tx => tx.run({
   left: x => Either.Left(x),
   right: x => Either.Right(f(x))
 });
 
 
-F.Choice = {
-  ...F.Profunctor,
-  left: F.left,
-  right: F.right
+Fun.Choice = {
+  ...Fun.Profunctor,
+  left: Fun.left,
+  right: Fun.right
 };
 
 
 /***[ Functor :: Profunctor :: Closed ]***************************************/
 
 
-F.closed = comp;
+Fun.closed = comp;
 
 
-F.Closed = {
-  ...F.Profunctor,
-  closed: F.closed
+Fun.Closed = {
+  ...Fun.Profunctor,
+  closed: Fun.closed
 };
 
 
@@ -1875,13 +1875,13 @@ export const tag = (type, o) =>
 /***[ Reader ]****************************************************************/
 
 
-F.reader = f => F.map(f) (id);
+Fun.reader = f => Fun.map(f) (id);
 
 
-F.ask = id;
+Fun.ask = id;
 
 
-F.local = F.contra;
+Fun.local = Fun.contra;
 
 
 /***[ Relational Operators ]**************************************************/
@@ -1902,24 +1902,24 @@ export const lte = x => y => x <= y;
 /***[ Semigroup ]*************************************************************/
 
 
-F.append = ({append}) => f => g => x => append(f(x)) (g(x));
+Fun.append = ({append}) => f => g => x => append(f(x)) (g(x));
 
 
-F.Semigroup = {
-  append: F.append,
-  prepend: F.prepend
+Fun.Semigroup = {
+  append: Fun.append,
+  prepend: Fun.prepend
 };
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-F.empty = ({empty}) => _ => empty;
+Fun.empty = ({empty}) => _ => empty;
 
 
-F.Monoid = {
-  ...F.Semigroup,
-  empty: F.empty
+Fun.Monoid = {
+  ...Fun.Semigroup,
+  empty: Fun.empty
 };
 
 
@@ -2013,10 +2013,10 @@ export const once = times(1);
 /***[ Resolve Dependencies ]**************************************************/
 
 
-F.contra = F.contra();
+Fun.contra = Fun.contra();
 
 
-F.of = F.of();
+Fun.of = Fun.of();
 
 
 /******************************************************************************
@@ -2024,7 +2024,10 @@ F.of = F.of();
 ******************************************************************************/
 
 
-// TODO: (a.k.a. ReaderT)
+export const FunT = mmf => ({
+  [TAG]: "FunctionT",
+  run: mmf
+});
 
 
 /******************************************************************************
@@ -2210,20 +2213,34 @@ A.foldr = f => init => xs => function go(i) {
 } (0);
 
 
+A.Foldable = {
+  foldl: A.foldl,
+  foldr: A.foldr
+};
+
+
 /***[ Foldable :: Traversable ]***********************************************/
 
 
-A.mapA = ({map, ap, of}) => f => xs => {
+A.mapA = ({map, ap, of}) => ft => xs => {
   const liftA2_ = liftA2({map, ap});
 
   return A.foldl(ys => y =>
-    liftA2_(A.push) (f(y)) (ys))
+    liftA2_(A.push) (ft(y)) (ys))
       (of([])) (xs);
 };
 
 
 A.seqA = ({map, ap, of}) => xs =>
   A.foldl(liftA2({map, ap}) (A.push_)) (of([])) (xs);
+
+
+A.Traversable = () => ({
+  ...A.Foldable,
+  ...A.Functor,
+  mapA: A.mapA,
+  seqA: A.seqA
+});
 
 
 /***[ Functor ]***************************************************************/
@@ -2259,7 +2276,7 @@ A.Plus = {
 };
 
 
-/***[ Functor :: Alt :: Plus :: Alternative ]*********************************/
+/***[ Functor :: Applicative :: Alternative ]*********************************/
 
 
 A.Alternative = {
@@ -2459,6 +2476,9 @@ A.alt = A.alt();
 
 
 A.tails = A.tails();
+
+
+A.Traversable = A.Traversable();
 
 
 A.zero = A.zero();
@@ -3051,7 +3071,7 @@ export const Defer = deferThunk => ({
 });
 
 
-Defer.getter = thunk => ({
+Defer.get = thunk => ({
   [TAG]: "Defer",
   get run() {return thunk()}
 });
@@ -3985,7 +4005,7 @@ export const Lazy = lazyThunk => ({
 });
 
 
-Lazy.getter = thunk => ({
+Lazy.get = thunk => ({
   [TAG]: "Lazy",
 
   get run() {
@@ -4585,7 +4605,7 @@ instance Functor NonEmpty where
 ******************************************************************************/
 
 
-// TODO: add Alt/Plus
+// TODO: add alt/zero/fold
 
 export const ListT = mtx => ({
   [TAG]: "ListT",
@@ -4975,13 +4995,83 @@ export const OptionT = mmx => ({
 });
 
 
+/***[ Foldable ]**************************************************************/
+
+
+OptionT.foldl = ({foldl}) => f => acc => foldl(Option.foldl(f)) (acc);
+
+
+OptionT.foldr = ({foldr}) => f => acc => foldr(Option.foldr(f)) (acc);
+
+
+OptionT.Foldable = {
+  foldl: OptionT.foldl,
+  foldr: OptionT.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+OptionT.mapA = ({mapA}, {map, ap, of}) => ft => mmx =>
+  map(OptionT) (
+    mapA({map, ap, of})
+      (Option.mapA({map, ap, of}) (ft))
+        (mmx.run));
+
+
+OptionT.Traversable = () => ({
+  ...OptionT.Foldable,
+  ...OptionT.Functor,
+  mapA: OptionT.mapA,
+  seqA: OptionT.seqA
+});
+
+
 /***[ Functor ]***************************************************************/
 
 
-OptionT.map = ({map}) => f => OptionT.mapMonad(map(Option.map(f)));
+OptionT.map = ({map}) => f => OptionT.mapBase(map(Option.map(f)));
 
 
 OptionT.Functor = {map: OptionT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+OptionT.alt = ({of, chain}) => mmx => mmy =>
+  OptionT(chain(mmx.run) (mx => mx.run({
+    none: mmy.run,
+    some: _ => of(mx)
+  })));
+
+
+OptionT.Alt = {
+  ...OptionT.Functor,
+  alt: OptionT.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+OptionT.zero = ({of}) => of(Option.None);
+
+
+OptionT.Plus = {
+  ...OptionT.Alt,
+  zero: OptionT.zero
+};
+
+
+/***[ Functor :: Applicative :: Alternative ]*********************************/
+
+
+OptionT.Alternative = {
+  ...OptionT.Plus,
+  ...OptionT.Applicative
+};
 
 
 /***[ Functor :: Apply ]******************************************************/
@@ -5008,8 +5098,6 @@ OptionT.Apply = {
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
-
-// a -> MaybeT m a
 
 OptionT.of = ({of}) => x => OptionT(of(Option.Some(x)));
 
@@ -5048,24 +5136,39 @@ OptionT.Monad = {
 /***[ Transformer ]***********************************************************/
 
 
-// m a -> t Maybe a
+// Option<a> -> OptionT<m, a>
 
-OptionT.lift = ({of, chain}) => comp(OptionT) (liftM({of, chain}) (Option.Some));
-
-
-OptionT.Transformer = {lift: OptionT.lift};
+OptionT.hoist = ({of}) => mx => OptionT(of(mx));
 
 
-/***[ Misc. ]*****************************************************************/
+// m<a> -> OptionT<m, a>
 
-// convert Option to OptionT
+OptionT.lift = ({of, chain}) => mx =>
+  OptionT(liftM({of, chain}) (Option.Some) (mx));
 
-OptionT.hoist = ({of}) => comp(OptionT) (of);
+
+// OptionT m a -> OptionT n b
+
+OptionT.mapBase = fm => mmx => OptionT(fm(mmx.run));
 
 
-// map both the type constructor of the base monad and its argument
+// OptionT m a -> OptionT n a
 
-OptionT.mapMonad = fm => mmx => MaybeT(fm(mmx.run));
+OptionT.mapNat = nat => mmx => OptionT(nat(mmx.run));
+
+
+OptionT.Transformer = {
+  hoist: OptionT.hoist,
+  lift: OptionT.lift
+  mapBase: OptionT.mapBase,
+  mapNat: OptionT.mapNat
+};
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+A.Traversable = A.Traversable();
 
 
 /******************************************************************************
@@ -6588,16 +6691,13 @@ Last.empty = Last.empty();
 FEATURES:
 
 * Any/All//Down/Up/Max/Min/Prod/Sum/Pair/Const/Id
-* lift Semigroup/Applicative/Alt/Compose
-* liftIO equivalent (shortcut to the bottom of the stack)
-* generalize liftIO to MonadBase
+* lift Semigroup/Applicative/Alt/Compose into Monoid
 * MonadParallel
 * Indexed Monads
 * Hylomorphism
 * Graph theory
 * Behaviors/Events (purescript)
 * Incremental Computations
-* Monad morphisms (MFunctor, MMonad)
 * Free Monad
 * Generic Zipper
 * Memoization
