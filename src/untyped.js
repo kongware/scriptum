@@ -4605,24 +4605,109 @@ instance Functor NonEmpty where
 ******************************************************************************/
 
 
-// TODO: add alt/zero/fold
-
-export const ListT = mtx => ({
+export const ListT = mmx => ({
   [TAG]: "ListT",
-  run: mtx
+  run: mmx
 });
+
+
+/***[ Foldable ]**************************************************************/
+
+
+ListT.foldl = ({chain}) => f => init => mmx => function go(acc, mmx2) { // TODO: trampoline
+  return chain(mmx.run) (mx => mx.run({
+    none: acc,
+    some: ([x, mmy]) => go(f(acc) (x), mmy)
+  }));
+} (init, mmx);
+
+
+ListT.foldr = ({chain}) => f => acc => function go(mmx) {
+  return chain(mmx.run) (mx => mx.run({
+    none: acc,
+    some: ([x, mmy]) => f(x) (lazy(() => go(mmy)))
+  }));
+};
+
+
+ListT.Foldable = {
+  foldl: ListT.foldl,
+  foldr: ListT.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+ListT.mapA = ({map, ap, of}, {of: of2, chain}) => ft => {
+  const liftA2_ = liftA2({map, ap});
+  
+  return ListT.foldr({chain})
+    (x => liftA2_(ListT.cons) (ft(x)))
+      (of(ListT.empty({of: of2})));
+};
+
+
+ListT.seqA = ({map, ap, of}, {of: of2, chain}) =>
+  ListT.foldr({chain}) (liftA2({map, ap}) (LiftT.cons))
+    (of(ListT.empty({of: of2})));
+
+
+ListT.Traversable = {
+  ...ListT.Foldable,
+  mapA: ListT.mapA,
+  seqA: ListT.seqA
+};
 
 
 /***[ Functor ]***************************************************************/
 
 
-ListT.map = ({map}) => f => mtx =>
-  comp(ListT)
-    (comp(map) (Option.map) (Pair.bimap(f) (ListT.map(f))))
-      (mtx.run);
+newtype ListT m a =
+  ListT (m (Maybe (a, ListT m a)))
+
+
+ListT.map = ({map}) => f => function go(mmx) { // TODO: CPS + trampoline
+  return ListT(map(mx => mx.run(
+    none: Option.None,
+    some: ([x, mmy]) => Option.Some(Pair(f(x), go(mmy))))) (mmx.run));
+};
 
 
 ListT.Functor = {map: ListT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+ListT.alt = () => ListT.append;
+
+
+ListT.Alt = {
+  ...ListT.Functor,
+  alt: ListT.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+ListT.zero = () => ListT.empty;
+
+
+ListT.Plus = {
+  ...ListT.Alt,
+  zero: ListT.zero
+};
+
+
+/***[ Functor :: Applicative :: Alternative ]*********************************/
+
+
+ListT.Alternative = {
+  ...ListT.Plus,
+  ...ListT.Applicative
+};
 
 
 /***[ Functor :: Apply ]******************************************************/
@@ -4653,12 +4738,12 @@ ListT.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-ListT.chain = ({of, chain}) => mtx => fm => function go(mtx2) {
-  ListT(chain(mtx2.run) (tx => tx.run({
+ListT.chain = ({of, chain}) => mmx => fm => function go(mmx2) { // TODO: CPS + trampoline
+  ListT(chain(mmx2.run) (mx => mx.run({
     none: of(Option.None),
-    some: ([x, mty]) => ListT.append(fm(x)) (go(mty)).run
+    some: ([x, mmy]) => ListT.append(fm(x)) (go(mmy)).run
   })))
-} (mtx);
+} (mmx);
 
 
 ListT.Chain = {
@@ -4676,26 +4761,44 @@ ListT.Monad = {
 };
 
 
+/***[ Natural Transformations ]***********************************************/
+
+
+/* TODO:
+
+const listFromArrT = of =>
+  arrFoldr(x => acc =>
+    ConsT(of) (x) (acc))
+      (NilT(of));
+
+
+const listToArrT = ({chain, of}) =>
+  listFoldT(chain) (acc => x =>
+    chain(acc) (acc_ =>
+      of(arrSnoc(x) (acc_)))) (of([]));
+*/
+
+
 /***[ Semigroup ]*************************************************************/
 
 
-ListT.append = ({of, chain}) => function go(mtx) {
-  return mty =>
-    ListT(chain(mtx.run) (tx =>
-      tx.run({
-        none: mty,
-        some: ([x, mtz]) => of(Option.Some(Pair(x, go(mtz) (mty))))
-      })))
+ListT.append = ({of, chain}) => function go(mmx) {
+  return mmy =>
+    ListT(chain(mmx.run) (mx =>
+      mx.run({
+        none: mmy,
+        some: ([x, mmz]) => of(Option.Some(Pair(x, go(mmz) (mmy))))
+      })));
 };
 
 
-ListT.prepend = ({of, chain}) => function go(mty) {
-  return mtx =>
-    ListT(chain(mtx.run) (tx =>
-      tx.run({
-        none: mty,
-        some: ([x, mtz]) => of(Option.Some(Pair(x, go(mtz) (mty))))
-      })))
+ListT.prepend = ({of, chain}) => function go(mmy) {
+  return mmx =>
+    ListT(chain(mmx.run) (mx =>
+      mx.run({
+        none: mmy,
+        some: ([x, mmz]) => of(Option.Some(Pair(x, go(mmz) (mmy))))
+      })));
 };
 
 
@@ -4705,7 +4808,7 @@ ListT.Semigroup = {
 };
 
 
-/***[ Semigroup ]*************************************************************/
+/***[ Semigroup :: Monoid ]***************************************************/
 
 
 ListT.empty = ({of}) => ListT(of(Option.None));
@@ -4727,7 +4830,13 @@ ListT.lift = ({of, chain}) => mx =>
 /***[ Resolve Dependencies ]**************************************************/
 
 
+ListT.alt = ListT.alt();
+
+
 ListT.ap = ListT.ap();
+
+
+ListT.zero = ListT.zero();
 
 
 /******************************************************************************
@@ -5018,6 +5127,9 @@ OptionT.mapA = ({mapA}, {map, ap, of}) => ft => mmx =>
     mapA({map, ap, of})
       (Option.mapA({map, ap, of}) (ft))
         (mmx.run));
+
+
+// TODO: seqA
 
 
 OptionT.Traversable = () => ({
@@ -6692,7 +6804,10 @@ FEATURES:
 
 * Any/All//Down/Up/Max/Min/Prod/Sum/Pair/Const/Id
 * lift Semigroup/Applicative/Alt/Compose into Monoid
+* ZListT (ZipListT)
+* MonadPlus/MonadZero
 * MonadParallel
+* MonadLogic
 * Indexed Monads
 * Hylomorphism
 * Graph theory
@@ -6703,12 +6818,3 @@ FEATURES:
 * Memoization
 * Eq1, Order1, etc.
 * Eq2, Order2, etc.
-
-TODOS:
-
-* process CSV
-* add chain_ to Chain type class
-* add prepend to Semigroup type class
-* replace comp with explicit composition
-
-*/
