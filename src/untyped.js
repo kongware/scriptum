@@ -1369,9 +1369,6 @@ export const foldM = ({foldr}, {of, chain}) => f => acc => tx =>
   foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (tx) (acc);
 
 
-export const liftM = ({of, chain}) => f => mx => chain(mx) (x => of(f(x)));
-
-
 /******************************************************************************
 *******************************************************************************
 ***********************************[ TYPES ]***********************************
@@ -2101,6 +2098,9 @@ export const A = {};
 A.clone = xs => xs.concat();
 
 
+A.Clonable = {clone: A.clone};
+
+
 /***[ Con-/Deconstruction ]***************************************************/
 
 
@@ -2192,6 +2192,9 @@ A.unshift_ = xs => x => (xs.unshift(x), xs);
 
 
 A.filter = p => xs => xs.filter(x => p(x));
+
+
+A.Filterable = {filter: Filterable.filter};
 
 
 /***[ Foldable ]**************************************************************/
@@ -2375,7 +2378,7 @@ A.forEach = f => xs =>
 /***[ Recursion Schemes ]*****************************************************/
 
 
-A.ana = A.unfoldr;
+A.ana = A.unfold;
 
 
 A.apo = f => init => {
@@ -2448,7 +2451,7 @@ A.Monoid = {
 /***[ Unfoldable ]************************************************************/
 
 
-A.unfoldr = f => init => {
+A.unfold = f => init => {
   let acc = [], x = init, next;
 
   do {
@@ -2467,6 +2470,9 @@ A.unfoldr = f => init => {
 
   return acc;
 };
+
+
+A.Unfoldable = {unfold: A.unfold};
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -2847,7 +2853,7 @@ CoroutineT.Functor = {map: CoroutineT.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-CoroutineT.ap = () => ap({
+CoroutineT.ap = () => ap({ // AP
   of: CoroutineT.of,
   chain: CoroutineT.chain
 });
@@ -2899,8 +2905,7 @@ CoroutineT.Monad = {
 /***[ Transformer ]***********************************************************/
 
 
-CoroutineT.lift = ({of, chain}) =>
-  comp(CoroutineT) (liftM({of, chain}) (Either.Right));
+CoroutineT.lift = ({map}) => comp(CoroutineT) (map(Either.Right));
 
 
 CoroutineT.Transformer = {lift: CoroutineT.lift};
@@ -2937,18 +2942,18 @@ CoroutineT.fold = ({of, chain}) => f => function go(acc) {
 /***[ Mapping ]***************************************************************/
 
 
-CoroutineT.mapMonad = ({map}, {of, chain}) => fm => function go(mmtx) {
+CoroutineT.mapMonad = ({map}, {map: map2}) => fm => function go(mmtx) { // TODO: switch map/map2
   return CoroutineT(
-    liftM({of, chain}) (mtx => mtx.run({
+    map2(mtx => mtx.run({
       left: tx => Either.Left(map(go) (tx)),
       right: x => Either.Right
     })) (fm(mmtx.run)));
 };
 
 
-CoroutineT.mapSuspension = ({map}, {of, chain}) => fm => function go(mmtx) {
+CoroutineT.mapSuspension = ({map}, {map: map2}) => fm => function go(mmtx) {
   return CoroutineT(
-    liftM({of, chain}) (mtx => mtx.run({
+    map2(mtx => mtx.run({
       left: tx => Either.Left(fm(map(go) (tx))),
       right: x => Either.Right(x)
     })) (mmtx.run));
@@ -4342,12 +4347,15 @@ List.Monoid = {
 /***[ Unfoldable ]************************************************************/
 
 
-List.unfoldr = f => function go(y) {
+List.unfold = f => function go(y) {
   return f(y).run({
     none: List.Nil,
     some: ([x, y2]) => List.Cons(x) (lazy(() => go(y2)))
   });
 };
+
+
+List.Unfoldable = {unfold: List.unfold};
 
 
 /***[ Misc. ]*****************************************************************/
@@ -4424,12 +4432,15 @@ DList.Monoid = {
 /***[ Unfoldable ]************************************************************/
 
 
-DList.unfoldr = f => function go(y) {
+DList.unfold = f => function go(y) {
   return f(y).run({
     none: DList.empty,
     some: ([x, y2]) => DList.Cons(x) (lazy(() => go(y2)))
   })
 };
+
+
+DLIst.Unfoldable = {unfold: DList.unfold};
 
 
 /******************************************************************************
@@ -4611,20 +4622,29 @@ export const ListT = mmx => ({
 });
 
 
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+ListT.cons = ({of}) => x => mmx => ListT(of(Option.Some(Pair(x, mmx))));
+
+
+ListT.cons_ = ({of}) => mmx => x => ListT(of(Option.Some(Pair(x, mmx))));
+
+
 /***[ Foldable ]**************************************************************/
 
 
-ListT.foldl = ({chain}) => f => init => mmx => function go(acc, mmx2) { // TODO: trampoline
+ListT.foldl = ({of, chain}) => f => init => mmx => function go(acc, mmx2) { // TODO: trampoline
   return chain(mmx.run) (mx => mx.run({
-    none: acc,
+    none: of(acc),
     some: ([x, mmy]) => go(f(acc) (x), mmy)
   }));
 } (init, mmx);
 
 
-ListT.foldr = ({chain}) => f => acc => function go(mmx) {
+ListT.foldr = ({of, chain}) => f => acc => function go(mmx) {
   return chain(mmx.run) (mx => mx.run({
-    none: acc,
+    none: of(acc),
     some: ([x, mmy]) => f(x) (lazy(() => go(mmy)))
   }));
 };
@@ -4663,14 +4683,10 @@ ListT.Traversable = {
 /***[ Functor ]***************************************************************/
 
 
-newtype ListT m a =
-  ListT (m (Maybe (a, ListT m a)))
-
-
-ListT.map = ({map}) => f => function go(mmx) { // TODO: CPS + trampoline
+ListT.map = ({map}) => f => function go(mmx) {
   return ListT(map(mx => mx.run(
     none: Option.None,
-    some: ([x, mmy]) => Option.Some(Pair(f(x), go(mmy))))) (mmx.run));
+    some: ([x, mmy]) => Option.Some(Pair(f(x), lazy(() => go(mmy)))))) (mmx.run));
 };
 
 
@@ -4713,7 +4729,7 @@ ListT.Alternative = {
 /***[ Functor :: Apply ]******************************************************/
 
 
-ListT.ap = () => ap({of: ListT.of, chain: ListT.chain});
+ListT.ap = () => ap({of: ListT.of, chain: ListT.chain}); // AP
 
 
 ListT.Apply = {
@@ -4738,10 +4754,10 @@ ListT.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-ListT.chain = ({of, chain}) => mmx => fm => function go(mmx2) { // TODO: CPS + trampoline
+ListT.chain = ({of, chain}) => mmx => fm => function go(mmx2) {
   ListT(chain(mmx2.run) (mx => mx.run({
     none: of(Option.None),
-    some: ([x, mmy]) => ListT.append(fm(x)) (go(mmy)).run
+    some: ([x, mmy]) => ListT.append(fm(x)) (lazy(() => go(mmy)).run
   })))
 } (mmx);
 
@@ -4764,19 +4780,19 @@ ListT.Monad = {
 /***[ Natural Transformations ]***********************************************/
 
 
-/* TODO:
-
-const listFromArrT = of =>
-  arrFoldr(x => acc =>
-    ConsT(of) (x) (acc))
-      (NilT(of));
+ListT.fromFoldable = ({foldl}) => foldl(f) (ListT.cons_) (ListT.empty);
 
 
-const listToArrT = ({chain, of}) =>
-  listFoldT(chain) (acc => x =>
-    chain(acc) (acc_ =>
-      of(arrSnoc(x) (acc_)))) (of([]));
-*/
+ListT.toList = ({map, of, chain}) => function go(mmx) {
+  return chain(mmx.run) (mx => {
+    const my => mx.run({
+      none: List.Nil,
+      some: ([x, mmy]) => List.Cons(x) (lazy(() => go(mmy)))
+    });
+
+    return of(my);
+  });
+};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -4787,7 +4803,7 @@ ListT.append = ({of, chain}) => function go(mmx) {
     ListT(chain(mmx.run) (mx =>
       mx.run({
         none: mmy,
-        some: ([x, mmz]) => of(Option.Some(Pair(x, go(mmz) (mmy))))
+        some: ([x, mmz]) => of(Option.Some(Pair(x, lazy(() => go(mmz) (mmy)))))
       })));
 };
 
@@ -4797,7 +4813,7 @@ ListT.prepend = ({of, chain}) => function go(mmy) {
     ListT(chain(mmx.run) (mx =>
       mx.run({
         none: mmy,
-        some: ([x, mmz]) => of(Option.Some(Pair(x, go(mmz) (mmy))))
+        some: ([x, mmz]) => of(Option.Some(Pair(x, layz(() => go(mmz) (mmy)))))
       })));
 };
 
@@ -4823,8 +4839,22 @@ ListT.Monoid = {
 /***[ Transformer ]***********************************************************/
 
 
-ListT.lift = ({of, chain}) => mx =>
-  ListT(liftM({of, chain}) (x => Option.Some(Pair(x, ListT.empty))) (mx));
+ListT.lift = ({map}) =>
+  comp(ListT) (map(x => Option.Some(Pair(x, ListT.empty))));
+
+
+/***[ Unfoldable ]************************************************************/
+
+
+ListT.unfold = f => function go(x) {
+  return f(x).run({
+    none: ListT.empty,
+    some: ([y, z]) => ListT.cons(y) (lazy(() => go(z)))
+  });
+};
+
+
+ListT.Unfoldable = {unfold: ListT.unfold};
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -4932,6 +4962,9 @@ Obj.clone = o => {
 
   return p;
 };
+
+
+Obj.Clonable = {clone: Obj.clone};
 
 
 /******************************************************************************
@@ -5255,8 +5288,7 @@ OptionT.hoist = ({of}) => mx => OptionT(of(mx));
 
 // m<a> -> OptionT<m, a>
 
-OptionT.lift = ({of, chain}) => mx =>
-  OptionT(liftM({of, chain}) (Option.Some) (mx));
+OptionT.lift = ({map}) => mx => OptionT(map(Option.Some) (mx));
 
 
 // OptionT m a -> OptionT n b
@@ -6818,3 +6850,13 @@ FEATURES:
 * Memoization
 * Eq1, Order1, etc.
 * Eq2, Order2, etc.
+
+TODOS:
+
+* process CSV
+* add chain_ to Chain type class
+* add prepend to Semigroup type class
+* replace comp with explicit composition
+* replace ap with applicative ap
+
+*/
