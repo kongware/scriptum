@@ -1361,10 +1361,6 @@ export const kipe = ({chain}) => gm => fm => x => chain(gm(x)) (fm);
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-export const ap = ({of, chain}) => mf => mx =>
-  chain(mf) (f => chain(mx) (x => of(f(m))));
-
-
 export const foldM = ({foldr}, {of, chain}) => f => acc => tx =>
   foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (tx) (acc);
 
@@ -4729,7 +4725,17 @@ ListT.Alternative = {
 /***[ Functor :: Apply ]******************************************************/
 
 
-ListT.ap = () => ap({of: ListT.of, chain: ListT.chain}); // AP
+ListT.ap = ({map, of, chain}) => function go(mmf) {
+  return mmx =>
+    ListT(chain(mmf.run) (mf => mf.run({
+      none: of(Option.None),
+
+      some: ([f, mmg]) => map(mx => mx.run({
+        none: Option.None,
+        some: ([x, mmy]) => Option.Some(Pair(f(x), go(mmg) (mmy)))
+      })) (mmx.run)
+    })))
+};
 
 
 ListT.Apply = {
@@ -4780,7 +4786,13 @@ ListT.Monad = {
 /***[ Natural Transformations ]***********************************************/
 
 
-ListT.fromFoldable = ({foldl}) => foldl(f) (ListT.cons_) (ListT.empty);
+ListT.fromFoldable = ({of}, {foldl}) =>
+  foldl(f) (ListT.cons_) (ListT.empty({of}));
+
+
+// mapListT :: (m (List a) -> n (List b)) -> ListT m a -> ListT n b
+
+ListT.mapListT = f => mmx => ListT(f(mmx.run));
 
 
 ListT.toList = ({map, of, chain}) => function go(mmx) {
@@ -4839,8 +4851,44 @@ ListT.Monoid = {
 /***[ Transformer ]***********************************************************/
 
 
-ListT.lift = ({map}) =>
-  comp(ListT) (map(x => Option.Some(Pair(x, ListT.empty))));
+// hoistListT :: List<a> -> ListT<m, a>
+
+ListT.hoist = ({of}) => function go(xs) {
+  return xs.run({
+    nil: ListT.empty({of})
+    cons: y => ys => ListT(of(Option.Some(Pair(y, lazy(() => go(ys))))))
+  });
+};
+
+
+// lift :: m<a> -> ListT<m, a>
+
+ListT.lift = ({map, of}) =>
+  comp(ListT) (map(x => Option.Some(Pair(x, ListT.empty({of})))));
+
+
+// hoist :: (m a -> n a) -> ListT m a -> ListT n a
+
+ListT.mapT = ({map}) => f => function go(mmx)
+  ListT(f(map(Option.map(Pair.map(mmy => lazy(() => go(mmy))))) (mmx.run)));
+
+
+// embed :: (m a -> ListT n a) -> ListT m a -> ListT n a
+
+ListT.chainT = ({of}) => fm => function go(mmx) { 
+  return ListT.chain(fm(mmx.run)) (mx => mx.run({
+    none: ListT.empty({of}),
+    some: ([x, mmy]) => ListT(of(Option.Some(Pair(x, lazy(() => go(mmy))))))
+  }));
+};
+
+
+ListT.Transformer = {
+  chainT: ListT.chainT,
+  hoist: ListT.hoist,
+  lift: ListT.lift
+  mapT: ListT.mapT,
+};
 
 
 /***[ Unfoldable ]************************************************************/
@@ -4848,7 +4896,7 @@ ListT.lift = ({map}) =>
 
 ListT.unfold = f => function go(x) {
   return f(x).run({
-    none: ListT.empty,
+    none: ListT.empty({of}),
     some: ([y, z]) => ListT.cons(y) (lazy(() => go(z)))
   });
 };
@@ -5291,21 +5339,27 @@ OptionT.hoist = ({of}) => mx => OptionT(of(mx));
 OptionT.lift = ({map}) => mx => OptionT(map(Option.Some) (mx));
 
 
-// OptionT m a -> OptionT n b
+// (m (Option a) -> n (Option b)) -> OptionT m a -> OptionT n b
 
-OptionT.mapBase = fm => mmx => OptionT(fm(mmx.run));
+OptionT.mapTrans = fm => mmx => OptionT(fm(mmx.run));
 
 
-// OptionT m a -> OptionT n a
+// (m a -> n a) -> OptionT m a -> OptionT n a
 
-OptionT.mapNat = nat => mmx => OptionT(nat(mmx.run));
+OptionT.mapT = f => mmx => OptionT(f(mmx.run));
+
+
+// (m a -> OptionT n a) -> OptionT m a -> OptionT n a
+
+OptionT.chainT = fm => mmx =>
 
 
 OptionT.Transformer = {
+  chainT: Option.chainT,
   hoist: OptionT.hoist,
   lift: OptionT.lift
-  mapBase: OptionT.mapBase,
-  mapNat: OptionT.mapNat
+  mapT: OptionT.mapT,
+  mapTrans: OptionT.mapTrans,
 };
 
 
@@ -6828,35 +6882,3 @@ First.empty = First.empty();
 
 
 Last.empty = Last.empty();
-
-
-/*
-
-FEATURES:
-
-* Any/All//Down/Up/Max/Min/Prod/Sum/Pair/Const/Id
-* lift Semigroup/Applicative/Alt/Compose into Monoid
-* ZListT (ZipListT)
-* MonadPlus/MonadZero
-* MonadParallel
-* MonadLogic
-* Indexed Monads
-* Hylomorphism
-* Graph theory
-* Behaviors/Events (purescript)
-* Incremental Computations
-* Free Monad
-* Generic Zipper
-* Memoization
-* Eq1, Order1, etc.
-* Eq2, Order2, etc.
-
-TODOS:
-
-* process CSV
-* add chain_ to Chain type class
-* add prepend to Semigroup type class
-* replace comp with explicit composition
-* replace ap with applicative ap
-
-*/
