@@ -1355,7 +1355,7 @@ export const join = ({chain}) => ttx => chain(ttx) (id);
 export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
 
 
-export const kipe = ({chain}) => gm => fm => x => chain(gm(x)) (fm);
+export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
@@ -2836,11 +2836,12 @@ export const CoroutineT = mmx => ({
 /***[ Functor ]***************************************************************/
 
 
-CoroutineT.map = ({map}, {map: map2}) => f => mttx =>
-  CoroutineT(map2(ttx => ttx.run({
-    right: x => Either.Right(f(x)),
-    left: tx => Either.Left(map2(map(f)) (tx))
-  })) (mttx.run));
+CoroutineT.map = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
+  return CoroutineT(mapBase(mx => mx.run({
+    left: tx => Either.Left(mapSuspension(go) (tx)),
+    right: x => Either.Right(f(x))
+  })) (mmx.run));
+};
 
 
 CoroutineT.Functor = {map: CoroutineT.map};
@@ -2849,10 +2850,17 @@ CoroutineT.Functor = {map: CoroutineT.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-CoroutineT.ap = () => ap({ // AP
-  of: CoroutineT.of,
-  chain: CoroutineT.chain
-});
+CoroutineT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf) {
+  return mmx =>
+    CoroutineT(chain(mmf.run) (mf => mx.run({
+      left: tf => Either.Left(mapSuspension(go) (tf)),
+
+      right: f => mapBase(mx => mx.run({
+        left: tx => Either.Left(mapSuspension(go) (tx))
+        right: x => Either.Right(f(x))
+      })) (mmx.run)
+    })));
+};
 
 
 CoroutineT.Apply = {
@@ -2876,11 +2884,12 @@ CoroutineT.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-CoroutineT.chain = ({map}, {of, chain}) => mttx => fmtt =>
-  CoroutineT(chain(mttx.run) (ttx => ttx.run({
-    left: tx => of(Either.Left(map(appr(chain, fmtt)) (tx))),
-    right: x => fmtt(x).run
+CoroutineT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
+  return CoroutineT(chain(mmx2.run) (mx => mx.run({
+    left: tx => of(Either.Left(map(go) (tx))),
+    right: x => fmm(x).run
   })));
+} (mmx);
 
 
 CoroutineT.Chain = {
@@ -2901,71 +2910,77 @@ CoroutineT.Monad = {
 /***[ Transformer ]***********************************************************/
 
 
+// TODO: hoist
+
+
 CoroutineT.lift = ({map}) => comp(CoroutineT) (map(Either.Right));
 
 
-CoroutineT.Transformer = {lift: CoroutineT.lift};
+CoroutineT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
+  return CoroutineT(
+    mapBase(mx => mx.run({
+      left: tx => Either.Left(mapSuspension(go) (tx)),
+      right: x => Either.Right(x)
+    })) (f(mmx.run)));
+};
+
+
+// TODO: chainT
+
+
+CoroutineT.Transformer = {
+  lift: CoroutineT.lift,
+  mapT: CoroutineT.mapT
+};
 
 
 /***[ Running ]***************************************************************/
 
 
-CoroutineT.consume = ({of, chain}) => fm => mttx =>
-  chain(CoroutineT.lift({of, chain}) (mttx.run)) (ttx => ttx.run({
-    left: fm,
+CoroutineT.consume = ({of, chain}) => f => mmx =>
+  CoroutineT(chain(mmx.run) (mx => mx.run({
+    left: tx => f(tx)
+    right: x => of(Either.Right(x))
+  })));
+
+
+CoroutineT.exhaust = ({of, chain}) => f => function go(mmx) {
+  return chain(mmx.run) (mx => mx.run({
+    left: tx => go(f(tx)),
     right: of
   }));
-
-
-CoroutineT.exhaust = ({of, chain}) => fm => function go(mttx) {
-  return chain(mttx.run) (Either.cata(comp(go) (fm)) (of));
 };
 
 
-CoroutineT.exhaustM = ({of, chain}) => function go(fm) {
-  return mttx => chain(mmtx.run) (Either.cata(kipe({chain}) (go) (fm)) (of));
+CoroutineT.exhaustM = ({of, chain}) => fm => function go(mmx) {
+  return chain(mmx.run) (mx => mx.run({
+    left: tx => chain(fm(x)) (go),
+    right: of
+  }))
 };
 
 
-CoroutineT.fold = ({of, chain}) => f => function go(acc) {
-  return mttx => chain(mttx.run) (ttx => ttx.run({
-    left: tx => uncurry(go) (f(acc) (tx)),
+CoroutineT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
+  return chain(mmx2.run) (mx => mx.run({
+    left: tx => go(f(acc) (tx)),
     right: x => of(Pair(acc, x))
   }));
-};
+} (Pair(init, mmx));
 
 
-/***[ Mapping ]***************************************************************/
+/***[ Suspension ]************************************************************/
 
 
-CoroutineT.mapMonad = ({map}, {map: map2}) => fm => function go(mmtx) { // TODO: switch map/map2
+CoroutineT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => function go(mmx) {
   return CoroutineT(
-    map2(mtx => mtx.run({
-      left: tx => Either.Left(map(go) (tx)),
-      right: x => Either.Right
-    })) (fm(mmtx.run)));
-};
-
-
-CoroutineT.mapSuspension = ({map}, {map: map2}) => fm => function go(mmtx) {
-  return CoroutineT(
-    map2(mtx => mtx.run({
-      left: tx => Either.Left(fm(map(go) (tx))),
+    mapBase(mx => mx.run({
+      left: tx => Either.Left(f(mapSuspension2(go) (tx))),
       right: x => Either.Right(x)
-    })) (mmtx.run));
+    })) (mmx.run));
 };
-
-
-/***[ Suspending ]************************************************************/
 
 
 CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Either.Left(tx)));
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-CoroutineT.ap = CoroutineT.ap();
 
 
 /******************************************************************************
@@ -6882,3 +6897,4 @@ First.empty = First.empty();
 
 
 Last.empty = Last.empty();
+ 
