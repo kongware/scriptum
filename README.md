@@ -11,15 +11,24 @@
                                    
 # Gradual Typed Functional Programming with Javascript
 
-scriptum consists of two parts:
+scriptum consists of two parts
 
-* [runtime type validator](https://github.com/kongware/scriptum/blob/master/src/validator.js)
-* [typed standard library](https://github.com/kongware/scriptum/blob/master/src/library.js)
-* [untyped standard library (playground)](https://github.com/kongware/scriptum/blob/master/src/untyped.js)
+* a [typed standard functional library](https://github.com/kongware/scriptum/blob/master/src/library.js) based upon a [higher-rank/kinded runtime type validator](https://github.com/kongware/scriptum/blob/master/src/validator.js)
+* and an [untyped standard functional library](https://github.com/kongware/scriptum/blob/master/src/untyped.js)
 
-Just like Typescript scriptum enables gradual typing in Javascript but with a radically different approach. While Typescript targets the object oriented aspects of Javascript, scriptum embraces its functional Lisp roots.
+The untyped library serves as a playground to explore Haskell idioms and translate them to Javascript. In a second step these translations are type annotated and incorporated into the typed library. Please note that scriptum supports a wide range of Haskell idioms, because it ships with
 
-Runtime type checking is expensive and only useful during the development stage. For this reason the type validator can be turned off in production to minimize a performance penalty. Beyond that it is planned to implement a parser that erases the type validator from a codebase altogether.
+* lazy evaluation with implicit thunks (and thus guarded recursion)
+* tail recursion through trampolines
+* persistent data structures based on R/B trees
+* safe mutations without sharing
+* Scott encoded sum types (augmented with record syntax)
+* type classes through dictionary passing (with lots of pre-defined dictionaries)
+* effect system based on monad transformers
+* pure concurrency through async operations (parallel/serial)
+* loop fusion with transducers
+* functorial fusion with yoneda/coyoneda
+* flat syntax through special applicator type and infix operators
 
 ## Status
 
@@ -38,6 +47,7 @@ In order to create an ecosystem for the functional paradigm in Javascript the fo
 - [x] stack-safe sync/async recursion
 - [x] effect handling and composition
 - [ ] probabilistic data structures
-- [ ] concurrency (STM)
+- [ ] software transaction memory (STM)
+- [ ] distributed programs based on STMs
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] strong eventual consistency (CRDTs)
