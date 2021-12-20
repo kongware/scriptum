@@ -1377,7 +1377,7 @@ export const foldM = ({foldr}, {of, chain}) => f => acc => tx =>
 ******************************************************************************/
 
 
-export const Fun = {};
+export const F = {};
 
 
 /***[ Applicator ]************************************************************/
@@ -1503,10 +1503,16 @@ export const comp = f => g => x => f(g(x));
 export const id = x => x;
 
 
-Fun.comp = comp;
+F.comp = comp;
 
 
-Fun.id = id;
+F.id = id;
+
+
+F.Category = {
+  comp: F.comp,
+  id: F.id
+};
 
 
 /***[ Composition ]***********************************************************/
@@ -1537,7 +1543,10 @@ export const cond = x => y => thunk =>
 /***[ Contravariant ]*********************************************************/
 
 
-Fun.contra = () => pipe;
+F.contramap = () => pipe;
+
+
+F.Contravariant = () => {contramap: F.contramap};
 
 
 /***[ Currying ]**************************************************************/
@@ -1653,151 +1662,151 @@ export const fix_ = f =>
 /***[ Functor ]***************************************************************/
 
 
-Fun.map = comp;
+F.map = comp;
 
 
-Fun.Functor = {map: Fun.map};
+F.Functor = {map: F.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-Fun.ap = f => g => x => f(x) (g(x));
+F.ap = f => g => x => f(x) (g(x));
 
 
-Fun.Apply = {
-  ...Fun.Functor,
-  ap: Fun.ap
+F.Apply = {
+  ...F.Functor,
+  ap: F.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Fun.of = () => _const;
+F.of = () => _const;
 
 
-Fun.Applicative = {
-  ...Fun.Apply,
-  of: Fun.of
+F.Applicative = {
+  ...F.Apply,
+  of: F.of
 };
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Fun.chain = f => g => x => f(g(x)) (x);
+F.chain = f => g => x => f(g(x)) (x);
 
 
-Fun.join = f => x => f(x) (x);
+F.join = f => x => f(x) (x);
 
 
-Fun.Chain = {
-  ...Fun.Apply,
-  chain: Fun.chain
+F.Chain = {
+  ...F.Apply,
+  chain: F.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-Fun.Monad = {
-  ...Fun.Applicative,
-  chain: Fun.chain
+F.Monad = {
+  ...F.Applicative,
+  chain: F.chain
 };
 
 
 /***[ Functor :: Extend ]*****************************************************/
 
 
-Fun.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
+F.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
 
 
-Fun.Extend = {
-  ...Fun.Functor,
-  extend: Fun.extend
+F.Extend = {
+  ...F.Functor,
+  extend: F.extend
 };
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
-Fun.extract = ({empty}) => f => f(empty);
+F.extract = ({empty}) => f => f(empty);
 
 
-Fun.Comonad = {
-  ...Fun.Extend,
-  extract: Fun.extract
+F.Comonad = {
+  ...F.Extend,
+  extract: F.extract
 };
 
 
 /***[ Functor :: Profunctor ]*************************************************/
 
 
-Fun.dimap = f => g => tf => x => g(tf.run(f(x)));
+F.dimap = f => g => tf => x => g(tf.run(f(x)));
 
 
-Fun.lmap = f => tg => x => f(tg.run(x));
+F.lmap = f => tg => x => f(tg.run(x));
 
 
-Fun.rmap = g => tf => x => tf.run(g(x));
+F.rmap = g => tf => x => tf.run(g(x));
 
 
-Fun.Profunctor = {
-  ...Fun.Functor,
-  dimap: Fun.dimap,
-  lmap: Fun.lmap,
-  rmap: Fun.rmap
+F.Profunctor = {
+  ...F.Functor,
+  dimap: F.dimap,
+  lmap: F.lmap,
+  rmap: F.rmap
 };
 
 
 /***[ Functor :: Profunctor :: Strong ]***************************************/
 
 
-Fun.first = f => tx => [f(tx.run[0]), tx.run[1]];
+F.first = f => tx => [f(tx.run[0]), tx.run[1]];
 
 
-Fun.second = f => tx => [tx.run[0], f(tx.run[1])];
+F.second = f => tx => [tx.run[0], f(tx.run[1])];
 
 
-Fun.Strong = {
-  ...Fun.Profunctor,
-  first: Fun.first,
-  second: Fun.second
+F.Strong = {
+  ...F.Profunctor,
+  first: F.first,
+  second: F.second
 };
 
 
 /***[ Functor :: Profunctor :: Choice ]***************************************/
 
 
-Fun.left = f => tx => tx.run({
+F.left = f => tx => tx.run({
   left: x => Either.Left(f(x)),
   right: x => Either.Right(x)
 });
 
 
-Fun.right = f => tx => tx.run({
+F.right = f => tx => tx.run({
   left: x => Either.Left(x),
   right: x => Either.Right(f(x))
 });
 
 
-Fun.Choice = {
-  ...Fun.Profunctor,
-  left: Fun.left,
-  right: Fun.right
+F.Choice = {
+  ...F.Profunctor,
+  left: F.left,
+  right: F.right
 };
 
 
 /***[ Functor :: Profunctor :: Closed ]***************************************/
 
 
-Fun.closed = comp;
+F.closed = comp;
 
 
-Fun.Closed = {
-  ...Fun.Profunctor,
-  closed: Fun.closed
+F.Closed = {
+  ...F.Profunctor,
+  closed: F.closed
 };
 
 
@@ -1868,13 +1877,10 @@ export const tag = (type, o) =>
 /***[ Reader ]****************************************************************/
 
 
-Fun.reader = f => Fun.map(f) (id);
+F.ask = id;
 
 
-Fun.ask = id;
-
-
-Fun.local = Fun.contra;
+F.local = pipe; // a.k.a. withReader
 
 
 /***[ Relational Operators ]**************************************************/
@@ -1895,24 +1901,24 @@ export const lte = x => y => x <= y;
 /***[ Semigroup ]*************************************************************/
 
 
-Fun.append = ({append}) => f => g => x => append(f(x)) (g(x));
+F.append = ({append}) => f => g => x => append(f(x)) (g(x));
 
 
-Fun.Semigroup = {
-  append: Fun.append,
-  prepend: Fun.prepend
+F.Semigroup = {
+  append: F.append,
+  prepend: F.prepend
 };
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Fun.empty = ({empty}) => _ => empty;
+F.empty = ({empty}) => _ => empty;
 
 
-Fun.Monoid = {
-  ...Fun.Semigroup,
-  empty: Fun.empty
+F.Monoid = {
+  ...F.Semigroup,
+  empty: F.empty
 };
 
 
@@ -2006,21 +2012,150 @@ export const once = times(1);
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Fun.contra = Fun.contra();
+F.contramap = F.contramap();
 
 
-Fun.of = Fun.of();
+F.Contravariant = F.Contravariant();
+
+
+F.of = F.of();
 
 
 /******************************************************************************
-*********************************[ FUNCTIONT ]*********************************
+****************************[ FUNCTION :: READERT ]****************************
 ******************************************************************************/
 
 
-export const FunT = mmf => ({
-  [TAG]: "FunctionT",
+export const ReaderT = mmf => ({
+  [TAG]: "ReaderT",
   run: mmf
 });
+
+
+/***[ Contravariant ]*********************************************************/
+
+
+ReaderT.contramap = ({map, contramap: contramap2}) => f => mmg =>
+  x => ReaderT(map(contramap2(f) (mmg.run(x)));
+
+
+ReaderT.Contravariant = {contramap: ReaderT.contramap};
+
+
+/***[ Functor ]***************************************************************/
+
+
+ReaderT.map = ({map}) => f => ReaderT.mapBase(map(f));
+
+
+ReaderT.Functor = {map: ReaderT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+ReaderT.alt = ({alt}) => mmf => mmg =>
+  ReaderT(x => alt(mmf.run(x)) (mmg.run(x)));
+
+
+ReaderT.Alt = {
+  ...ReaderT.Functor,
+  alt: ReaderT.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+ReaderT.zero = ({zero}) => ReaderT.lift(zero);
+
+
+ReaderT.Plus = {
+  ...ReaderT.Alt,
+  chain: ReaderT.chain
+};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+ReaderT.ap = ({ap}) => mmf => mmg => ReaderT(x => ap(mmf.run(x)) (mmg.run(x)));
+
+
+ReaderT.Apply = {
+  ...ReaderT.Functor,
+  ap: ReaderT.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+ReaderT.of = ({of}) => x => ReaderT.lift(of(x));
+
+
+ReaderT.Applicative = {
+  ...ReaderT.Apply,
+  of: ReaderT.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+ReaderT.chain = ({chain}) => mmg => fmm =>
+  ReaderT(y => chain(mmg.run(y)) (x => fmm(x).run(y)));
+
+
+ReaderT.Chain = {
+  ...ReaderT.Apply,
+  chain: ReaderT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+ReaderT.Alternative = {
+  ...ReaderT.Plus,
+  ...ReaderT.Applicative,
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+ReaderT.Monad = {
+  ...ReaderT.Applicative,
+  chain: ReaderT.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+ReaderT.mapBase = f => mmf => ReaderT(x => f(mmf.run(x)));
+
+
+/***[ Reader ]****************************************************************/
+
+
+ReaderT.ask = ({of}) => ReaderT(of);
+
+
+ReaderT.reader = ({of}) => f => ReaderT(x => of(f(x)));
+
+
+ReaderT.withReader = f => mmf => ReaderT(x => mmf.run(f(x)));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+ReaderT.lift = mx => ReaderT(_const(mx));
+
+
+// TODO
 
 
 /******************************************************************************
@@ -2275,15 +2410,6 @@ A.Plus = {
 };
 
 
-/***[ Functor :: Applicative :: Alternative ]*********************************/
-
-
-A.Alternative = {
-  ...A.Plus,
-  ...A.Applicative
-};
-
-
 /***[ Functor :: Apply ]******************************************************/
 
 
@@ -2322,6 +2448,15 @@ A.chain = xs => fm =>
 A.Chain = {
   ...A.Apply,
   chain: A.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+A.Alternative = {
+  ...A.Plus,
+  ...A.Applicative
 };
 
 
@@ -2567,8 +2702,11 @@ export const Compare = f => ({
 /***[ Contravariant ]*********************************************************/
 
 
-Compare.contra = f => tx =>
+Compare.contramap = f => tx =>
   Compare(compBoth(tx.run) (f));
+
+
+Compare.Contravariant = {contramap: Compare.contramap};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -3170,13 +3308,57 @@ Either.Right = x => ({
 Either.cata = left => right => tx => tx.run({left, right});
 
 
+/***[ Foldable ]**************************************************************/
+
+
+Either.foldr = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(y) (acc)
+});
+
+
+Either.foldl = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(acc) (y)
+});
+
+
+Either.Foldable = {
+  left: Either.foldl,
+  right: Either.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+Either.mapA = ({map, of}) => ft => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => map(Either.Right) (ft(y))
+});
+
+
+Either.seqA = ({of}) => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => of(Either.Right(y))
+});
+
+
+Either.Traversable = () => ({
+  ...Either.Foldable,
+  ...Either.Functor,
+  mapA: Either.mapA,
+  seqA: Either.seqA
+});
+
+
 /***[ Functor ]***************************************************************/
 
 
 Either.map = f => tx =>
   tx.run({
     left: x => Either.Left(x),
-    right: x => Either.Right(f(x))
+    right: y => Either.Right(f(y))
   });
 
 
@@ -3191,8 +3373,8 @@ Either.ap = tf => tx =>
     left: x => Either.Left(x),
 
     right: f => tx.run({
-      left: x => Either.Left(x),
-      right: x => Either.Right(f(x))
+      left: y => Either.Left(y),
+      right: z => Either.Right(f(z))
     })
   });
 
@@ -3221,7 +3403,7 @@ Either.Applicative = {
 Either.chain = tx => fm =>
   tx.run({
     left: x => Either.Left(x),
-    right: x => fm(x)
+    right: y => fm(y)
   });
 
 
@@ -3240,10 +3422,17 @@ Either.Monad = {
 };
 
 
+/***[ Resolve Dependencies ]**************************************************/
+
+
+Either.Traversable = Either.Traversable();
+
+
 /******************************************************************************
 **********************************[ EITHERT ]**********************************
 ******************************************************************************/
 
+// newtype ExceptT e m a = ExceptT (m (Either e a))
 
 export const EitherT = mmx => ({
   [TAG]: "EitherT",
@@ -3251,7 +3440,73 @@ export const EitherT = mmx => ({
 });
 
 
+/***[ Either ]****************************************************************/
+
+
+// TODO
+
+
+// Either.throw
+
+
+// Either.catch
+
+
+// Either.handle
+
+
+// Either.try
+
+
+// Either.finally
+
+
+// Either.withEitherT
+
+
+/***[ Foldable ]**************************************************************/
+
+
+EitherT.foldl = ({foldl}) => f => acc => mmx =>
+  foldl(Either.foldl(f)) (acc) (mmx.run);
+
+
+EitherT.foldr = ({foldr}) => f => acc => mmx =>
+  foldr(Either.foldr(f)) (acc) (mmx.run);
+
+
+EitherT.Foldable = {
+  foldl: EitherT.foldl,
+  foldr: EitherT.foldr
+};
+
+
+/***[ Foldable :: Traverable ]************************************************/
+
+
+// TODO
+
+
 /***[ Functor ]***************************************************************/
+
+
+EitherT.map = ({map}) => f => mmx =>
+  EitherT(map(mx => mx.run({
+    left: e => Either.Left(e),
+    right: x => Either.Right(f(x))
+  })) (mmx.run));
+
+
+EitherT.Functor = {map: EitherT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+// TODO
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
 
 
 // TODO
@@ -3260,7 +3515,14 @@ export const EitherT = mmx => ({
 /***[ Functor :: Apply ]******************************************************/
 
 
-// TODO
+EitherT.ap = ({of, chain}) => mmf => mmx =>
+  EitherT(chain(mmf.run) (mf => mf.run({
+    left: e => of(Either.Left(e)),
+    right: f => chain(mmx.run) (mx => mx.run({
+      left: e => of(Either.Left(e)),
+      right: x => of(Either.Right(f(x)))
+    }))
+  })));
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
@@ -3272,14 +3534,47 @@ Either.ofT = ({of}) => x => of(Either.Right(x));
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Either.chainT = ({of, chain}) => mmx => fmm =>
-  chain(mmx) (mx => mx.run({
-    left: x => of(Either.Left(x)),
-    right: x => fmm(x)
-  }));
+EitherT.chain = ({of, chain}) => mmx => fmm =>
+  EitherT(chain(mmx.run) (mx => mx.run({
+    left: e => of(Either.Left(e)),
+    right: x => fmm(x).run
+  })));
 
 
-/***[ Functor :: Apply :: Chain :: Monad ]************************************/
+EitherT.Monad = {
+  ...EitherT.Apply,
+  chain: EitherT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+/*EitherT.Alternative = {
+  ...EitherT.Plus,
+  ...EitherT.Applicative
+};*/
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+EitherT.Monad = {
+  ...EitherT.Applicative,
+  chain: EitherT.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+EitherT.mapBase = f => mmx => EitherT(f(mmx.run));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+EitherT.lift = ({map}) => mx => EitherT(map(Option.Right) (mx));
 
 
 // TODO
@@ -3362,7 +3657,10 @@ export const Equiv = f => ({
 /***[ Contravariant ]*********************************************************/
 
 
-Equiv.contra = f => tg => Equiv(compBoth(tg.run) (f));
+Equiv.contramap = f => tg => Equiv(compBoth(tg.run) (f));
+
+
+Equiv.Contravariant = {contramap: Equiv.contramap};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -4451,7 +4749,7 @@ DList.unfold = f => function go(y) {
 };
 
 
-DLIst.Unfoldable = {unfold: DList.unfold};
+DList.Unfoldable = {unfold: DList.unfold};
 
 
 /******************************************************************************
@@ -4684,8 +4982,9 @@ ListT.seqA = ({map, ap, of}, {of: of2, chain}) =>
     (of(ListT.empty({of: of2})));
 
 
-ListT.Traversable = {
+ListT.Traversable = () => {
   ...ListT.Foldable,
+  ...ListT.Functor,
   mapA: ListT.mapA,
   seqA: ListT.seqA
 };
@@ -4725,15 +5024,6 @@ ListT.zero = () => ListT.empty;
 ListT.Plus = {
   ...ListT.Alt,
   zero: ListT.zero
-};
-
-
-/***[ Functor :: Applicative :: Alternative ]*********************************/
-
-
-ListT.Alternative = {
-  ...ListT.Plus,
-  ...ListT.Applicative
 };
 
 
@@ -4789,6 +5079,15 @@ ListT.Chain = {
 };
 
 
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+ListT.Alternative = {
+  ...ListT.Plus,
+  ...ListT.Applicative
+};
+
+
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
@@ -4807,7 +5106,7 @@ ListT.fromFoldable = ({of}, {foldl}) =>
 
 // mapListT :: (m (List a) -> n (List b)) -> ListT m a -> ListT n b
 
-ListT.mapListT = f => mmx => ListT(f(mmx.run));
+ListT.mapBase = f => mmx => ListT(f(mmx.run));
 
 
 ListT.toList = ({map, of, chain}) => function go(mmx) {
@@ -4866,7 +5165,7 @@ ListT.Monoid = {
 /***[ Transformer ]***********************************************************/
 
 
-// hoistListT :: List<a> -> ListT<m, a>
+// hoistListT :: List<a> => ListT<m, a>
 
 ListT.hoist = ({of}) => function go(xs) {
   return xs.run({
@@ -4876,19 +5175,19 @@ ListT.hoist = ({of}) => function go(xs) {
 };
 
 
-// lift :: m<a> -> ListT<m, a>
+// lift :: m<a> => ListT<m, a>
 
 ListT.lift = ({map, of}) =>
   comp(ListT) (map(x => Option.Some(Pair(x, ListT.empty({of})))));
 
 
-// hoist :: (m a -> n a) -> ListT m a -> ListT n a
+// hoist :: (m<a> => n<a>) => ListT<m, a> => ListT<n, a>
 
 ListT.mapT = ({map}) => f => function go(mmx)
   ListT(f(map(Option.map(Pair.map(mmy => lazy(() => go(mmy))))) (mmx.run)));
 
 
-// embed :: (m a -> ListT n a) -> ListT m a -> ListT n a
+// embed :: (m<a> => ListT<n, a>) -> ListT<m, a> => ListT<n, a>
 
 ListT.chainT = ({of}) => fm => function go(mmx) { 
   return ListT.chain(fm(mmx.run)) (mx => mx.run({
@@ -4927,6 +5226,9 @@ ListT.alt = ListT.alt();
 
 
 ListT.ap = ListT.ap();
+
+
+ListT.Traversable = ListT.Traversable();
 
 
 ListT.zero = ListT.zero();
@@ -5089,6 +5391,33 @@ Option.None = {
 
 
 Option.cata = none => some => tx => tx.run({none, some});
+
+
+/***[ Foldable ]**************************************************************/
+
+
+Option.foldl = f => acc => tx => tx.run({
+  none: acc,
+  some: x => f(acc) (x)
+});
+
+
+Option.foldr = f => acc => tx => tx.run({
+  none: acc,
+  some: x => f(x) (acc)
+});
+
+
+Option.Foldable = {
+  foldl: Option.foldl,
+  foldr: Option.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+// TODO
 
 
 /***[ Functor ]***************************************************************/
@@ -5273,15 +5602,6 @@ OptionT.Plus = {
 };
 
 
-/***[ Functor :: Applicative :: Alternative ]*********************************/
-
-
-OptionT.Alternative = {
-  ...OptionT.Plus,
-  ...OptionT.Applicative
-};
-
-
 /***[ Functor :: Apply ]******************************************************/
 
 
@@ -5332,6 +5652,15 @@ OptionT.Chain = {
 };
 
 
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+OptionT.Alternative = {
+  ...OptionT.Plus,
+  ...OptionT.Applicative
+};
+
+
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
@@ -5341,47 +5670,39 @@ OptionT.Monad = {
 };
 
 
+/***[ Natural Transformations ]***********************************************/
+
+
+OptionT.mapBase = fm => mmx => OptionT(fm(mmx.run));
+
+
 /***[ Transformer ]***********************************************************/
 
-
-// Option<a> -> OptionT<m, a>
 
 OptionT.hoist = ({of}) => mx => OptionT(of(mx));
 
 
-// m<a> -> OptionT<m, a>
-
 OptionT.lift = ({map}) => mx => OptionT(map(Option.Some) (mx));
 
-
-// (m (Option a) -> n (Option b)) -> OptionT m a -> OptionT n b
-
-OptionT.mapTrans = fm => mmx => OptionT(fm(mmx.run));
-
-
-// (m a -> n a) -> OptionT m a -> OptionT n a
 
 OptionT.mapT = f => mmx => OptionT(f(mmx.run));
 
 
-// (m a -> OptionT n a) -> OptionT m a -> OptionT n a
-
-OptionT.chainT = fm => mmx =>
+// TODO: OptionT.chainT
 
 
-OptionT.Transformer = {
+/*OptionT.Transformer = {
   chainT: Option.chainT,
   hoist: OptionT.hoist,
   lift: OptionT.lift
   mapT: OptionT.mapT,
-  mapTrans: OptionT.mapTrans,
-};
+};*/
 
 
 /***[ Resolve Dependencies ]**************************************************/
 
 
-A.Traversable = A.Traversable();
+OptionT.Traversable = OptionT.Traversable();
 
 
 /******************************************************************************
@@ -5635,7 +5956,10 @@ export const Pred = p => ({
 /***[ Contravariant ]*********************************************************/
 
 
-Pred.contra = f => tq => x => Pred(tp.run(f(x)));
+Pred.contramap = f => tq => x => Pred(tp.run(f(x)));
+
+
+Pred.Contravariant = {contramap: Pred.contramap};
 
 
 /***[ Semigroup ]*************************************************************/
@@ -6318,22 +6642,25 @@ export const State = f => ({
 /***[ Functor ]***************************************************************/
 
 
-State.map = f => tx =>
-  State(s => {
-    const [x, s2] = tx.state(s);
-    return Pair(f(x), s2);
+State.map = f => tg =>
+  State(y => {
+    const [x, y2] = tg.run(y);
+    return Pair(f(x), y2);
   });
+
+
+State.Functor = {map: State.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-State.ap = tf => tx =>
-  State(s => {
-    const [f, s2] = tf.state(s),
-      [x, s3] = tx.state(s2);
+State.ap = tf => tg =>
+  State(y => {
+    const [f, y2] = tf.run(y),
+      [x, y3] = tg.run(y2);
 
-    return Pair(f(x), s3);
+    return Pair(f(x), y3);
   });
 
 
@@ -6346,7 +6673,7 @@ State.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-State.of = x => State(s => Pair(x, s));
+State.of = x => State(y => Pair(x, y));
 
 
 State.Applicative = {
@@ -6358,10 +6685,10 @@ State.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-State.chain = mx => fm =>
-  State(s => {
-    const [x, s2] = mx.state(s);
-    return fm(x).state(s2);
+State.chain = mg => fm =>
+  State(y => {
+    const [x, y2] = mg.run(y);
+    return fm(x).run(y2);
   });
 
 
@@ -6380,30 +6707,166 @@ State.Monad = {
 };
 
 
-/***[ Miscellaneous ]*********************************************************/
+/***[ State ]*****************************************************************/
 
 
-State.eval = tx => s => tx.state(s) [0];
+State.eval = tf => x => tf.run(x) [0];
 
 
-State.exec = tx => s => tx.state(s) [1];
+State.exec = tf => x => tf.run(x) [1];
 
 
-State.get = State(s => Pair(s, s));
+State.get = State(x => Pair(x, x));
 
 
-State.gets = f => State(s => Pair(f(s), s));
+State.gets = f => State(x => Pair(f(x), x));
 
 
-State.modify = f => State(s => Pair(null, f(s)));
+State.mod = f => State(x => Pair(null, f(x)));
 
 
-State.put = s => State(_ => Pair(null, s));
+State.put = x => State(_ => Pair(null, x));
+
+
+State.withState = f => tg => State(x => tg.run(f(x)));
 
 
 /******************************************************************************
 **********************************[ STATET ]***********************************
 ******************************************************************************/
+
+
+export const StateT = mmf => ({
+  [TAG]: "StateT",
+  run: mmf
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+StateT.map = ({map}) => f => mmg =>
+  StateT(y => map(mx => Pair(f(mx[0]), mx[1])) (mmg.run(y));
+
+
+StateT.Functor = {map: StateT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+StateT.alt = ({alt}) => mmf => mmg => StateT(y => alt(mmf.run(y)) (mmg.run(y)));
+
+
+StateT.Alt = {
+  ...StateT.Functor,
+  map: StateT.map
+};
+
+
+/***[ Functor :: Plus ]*******************************************************/
+
+
+StateT.zero = ({zero}) => StateT(_ => zero);
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+StateT.ap = ({of, chain}) => mmf => mmg =>
+  StateT(y => chain(mmf.run(y)) (mx =>
+    chain(mmg.run(mx[1])) (my =>
+      of(Pair(mx[0] (my[0]), my[1])))));
+
+
+StateT.Apply = {
+  ...StateT.Functor,
+  ap: StateT.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+StateT.of = x => StateT(y => of(Pair(x, y)));
+
+
+StateT.Applicative = {
+  ...StateT.Apply,
+  of: StateT.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+StateT.chain = ({of, chain}) => mmg => fmm =>
+  StateT(y => chain(mmg.run(y)) (mx =>
+    fmm(mx[0]).run(mx[1])));
+
+
+StateT.Chain = {
+  ...StateT.Apply,
+  chain: StateT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+StateT.Alternative = {
+  ...StateT.Plus,
+  ...StateT.Applicative
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+StateT.Monad = {
+  ...StateT.Applicative,
+  chain: StateT.chain
+};
+
+
+/***[ State ]*****************************************************************/
+
+
+StateT.eval = ({of, chain}) => mmf => x => of(mmf.run(x) [0]);
+
+
+StateT.exec = ({of, chain}) => mmf => x => of(mmf.run(x) [1]);
+
+
+StateT.get = StateT.state(x => Pair(x, x));
+
+
+StateT.gets = f => StateT.state(x => Pair(f(x), x));
+
+
+StateT.mod = f => StateT.state(x => Pair(null, f(x)));
+
+
+StateT.put = x => StateT.state(_ => Pair(null, x));
+
+
+StateT.state = ({of}) => f => StateT(x => of(f(x)));
+
+
+StateT.withState = f => mmg => StateT(x => mmg.run(f(x)));
+
+
+/***[ Natural Transformation ]************************************************/
+
+
+StateT.mapBase = f => mmg => StateT(x => f(mmg.run(x)));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+StateT.lift = ({of, chain}) => mx =>
+  StateT(y => chain(mx) (x => of(Pair(x, y))));
 
 
 // TODO
@@ -6448,6 +6911,9 @@ Stream.cata = ({map}, {of, chain}) => step => eff => done => tmx =>
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+// TODO
 
 
 /******************************************************************************
@@ -6510,7 +6976,7 @@ Str.foldRex = rx => f => acc => s => {
 
 
 /******************************************************************************
-*******************************[ TUPLE :: PAIR ]*******************************
+***********************************[ TUPLE ]***********************************
 ******************************************************************************/
 
 
@@ -6583,6 +7049,27 @@ Pair.fst = tx => tx[0];
 
 
 Pair.snd = tx => tx[1];
+
+
+/***[ Foldable ]**************************************************************/
+
+
+Pair.foldl = f => acc => tx => f(acc) (tx[1]);
+
+
+Pair.foldr = f => acc => tx => f(tx[1]) (acc);
+
+
+Pair.Foldable = {
+  foldl: Pair.foldl,
+  foldr: Pair.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+// TODO
 
 
 /***[ Functor ]***************************************************************/
@@ -6667,6 +7154,24 @@ Pair.Comonad = {
 };
 
 
+/***[ Writer ]****************************************************************/
+
+
+Pair.censor = f => tx => Pair(tx[0], f(tx[1]));
+
+
+Pair.listen = tx => Pair(Pair(tx[0], tx[1]), tx[1]);
+
+
+Pair.listens = f => tx => Pair(Pair(tx[0], f(tx[1])), tx[1]);
+
+
+Pair.pass = f => tx => Pair(tx[0] [0], tx[0] [1] (tx[1]));
+
+
+Pair.tell = x => Pair(null, x);
+
+
 /***[ Misc. ]*****************************************************************/
 
 
@@ -6680,11 +7185,172 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /******************************************************************************
-******************************[ TUPLE :: PAIRT ]*******************************
+*****************************[ TUPLE :: WRITERT ]******************************
 ******************************************************************************/
 
 
-// TODO: a.k.a. WriterT
+export const WriterT = mmx => ({
+  [TAG]: "WriterT",
+  run: mmx
+});
+
+
+/***[ Contravariant ]*********************************************************/
+
+
+WriterT.contramap = ({contramap}) => f => mmx =>
+  WriterT(contramap(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
+
+
+WriterT.Contravariant = {contramap: WriterT.contramap};
+
+
+/***[ Foldable ]**************************************************************/
+
+
+WriterT.foldl = ({foldl}) => f => acc => foldl(Option.foldl(f)) (acc);
+
+
+WriterT.foldr = ({foldr}) => f => acc => foldr(Option.foldr(f)) (acc);
+
+
+WriterT.Foldable = {
+  foldl: WriterT.foldl,
+  foldr: WriterT.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+// TODO
+
+
+/***[ Functor ]***************************************************************/
+
+
+WriterT.map = ({map}) => f => mmx =>
+  WriterT(map(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
+
+
+WriterT.Functor = {map: WriterT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+WriterT.alt = ({alt}) => mmx => mmy => WriterT(alt(mmx.run) (mmy.run));
+
+
+WriterT.Alt = {
+  ...WriterT.Functor,
+  alt: WriterT.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+WriterT.zero = ({zero}) => WriterT(zero);
+
+
+WriterT.Plus = {
+  ...WriterT.Alt,
+  zero: WriterT.zero
+};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+WriterT.ap = ({append}, {map, ap}) => mmf => mmx =>
+  WriterT(ap(map(
+    ([f, y]) => ([x, y2]) => Pair(f(x), append(y) (y2))) (mmf.run)) (mmx.run));
+
+
+WriterT.Apply = {
+  ...WriterT.Functor,
+  ap: WriterT.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+WriterT.of = ({empty}) => x => WriterT(Pair(x, empty));
+
+
+WriterT.Applicative = {
+  ...WriterT.Apply,
+  of: WriterT.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+WriterT.chain = ({append}, {of, chain}) => mmx => fmm =>
+  WriterT(chain(mmx.run) ((x, y) =>
+    chain(fmm(x)) (([x2, y2]) =>
+      of(Pair(x2, append(y) (y2))))));
+
+
+WriterT.Chain = {
+  ...WriterT.Apply,
+  chain: WriterT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+WriterT.Alternative = {
+  ...WriterT.Plus,
+  ...WriterT.Applicative
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+WriterT.Monad = {
+  ...WriterT.Applicative,
+  chain: WriterT.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+WriterT.mapBase = f => mmx => WriterT(f(mmx.run));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+WriterT.lift = ({empty}, {of, chain}) => mx =>
+  WriterT(chain(mx) (x => of(Pair(x, empty))));
+
+
+// TODO
+
+
+/***[ Writer ]****************************************************************/
+
+
+WriterT.censor = f => tx => WriterT(of(Pair(tx[0], f(tx[1]))));
+
+
+WriterT.listen = tx => WriterT(of(Pair(Pair(tx[0], tx[1]), tx[1])));
+
+
+WriterT.listens = f => tx => WriterT(of(Pair(Pair(tx[0], f(tx[1])), tx[1])));
+
+
+WriterT.pass = f => tx => WriterT(of(Pair(tx[0] [0], tx[0] [1] (tx[1]))));
+
+
+WriterT.tell = x => WriterT(of(Pair(null, x)));
 
 
 /******************************************************************************
@@ -6897,4 +7563,3 @@ First.empty = First.empty();
 
 
 Last.empty = Last.empty();
- 
