@@ -2036,7 +2036,7 @@ export const ReaderT = mmf => ({
 
 
 ReaderT.contramap = ({map, contramap: contramap2}) => f => mmg =>
-  x => ReaderT(map(contramap2(f) (mmg.run(x)));
+  x => ReaderT(map(contramap2(f) (mmg.run(x))));
 
 
 ReaderT.Contravariant = {contramap: ReaderT.contramap};
@@ -2325,7 +2325,7 @@ A.unshift_ = xs => x => (xs.unshift(x), xs);
 A.filter = p => xs => xs.filter(x => p(x));
 
 
-A.Filterable = {filter: Filterable.filter};
+A.Filterable = {filter: A.filter};
 
 
 /***[ Foldable ]**************************************************************/
@@ -2994,7 +2994,7 @@ CoroutineT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf
       left: tf => Either.Left(mapSuspension(go) (tf)),
 
       right: f => mapBase(mx => mx.run({
-        left: tx => Either.Left(mapSuspension(go) (tx))
+        left: tx => Either.Left(mapSuspension(go) (tx)),
         right: x => Either.Right(f(x))
       })) (mmx.run)
     })));
@@ -3077,7 +3077,7 @@ CoroutineT.Transformer = {
 
 CoroutineT.consume = ({of, chain}) => f => mmx =>
   CoroutineT(chain(mmx.run) (mx => mx.run({
-    left: tx => f(tx)
+    left: tx => f(tx),
     right: x => of(Either.Right(x))
   })));
 
@@ -4982,21 +4982,21 @@ ListT.seqA = ({map, ap, of}, {of: of2, chain}) =>
     (of(ListT.empty({of: of2})));
 
 
-ListT.Traversable = () => {
+ListT.Traversable = () => ({
   ...ListT.Foldable,
   ...ListT.Functor,
   mapA: ListT.mapA,
   seqA: ListT.seqA
-};
+});
 
 
 /***[ Functor ]***************************************************************/
 
 
 ListT.map = ({map}) => f => function go(mmx) {
-  return ListT(map(mx => mx.run(
+  return ListT(map(mx => mx.run({
     none: Option.None,
-    some: ([x, mmy]) => Option.Some(Pair(f(x), lazy(() => go(mmy)))))) (mmx.run));
+    some: ([x, mmy]) => Option.Some(Pair(f(x), lazy(() => go(mmy))))})) (mmx.run));
 };
 
 
@@ -5066,10 +5066,10 @@ ListT.Applicative = {
 
 
 ListT.chain = ({of, chain}) => mmx => fm => function go(mmx2) {
-  ListT(chain(mmx2.run) (mx => mx.run({
+  return ListT(chain(mmx2.run) (mx => mx.run({
     none: of(Option.None),
-    some: ([x, mmy]) => ListT.append(fm(x)) (lazy(() => go(mmy)).run
-  })))
+    some: ([x, mmy]) => ListT.append(fm(x)) (lazy(() => go(mmy))).run
+  })));
 } (mmx);
 
 
@@ -5111,7 +5111,7 @@ ListT.mapBase = f => mmx => ListT(f(mmx.run));
 
 ListT.toList = ({map, of, chain}) => function go(mmx) {
   return chain(mmx.run) (mx => {
-    const my => mx.run({
+    const my = mx.run({
       none: List.Nil,
       some: ([x, mmy]) => List.Cons(x) (lazy(() => go(mmy)))
     });
@@ -5169,7 +5169,7 @@ ListT.Monoid = {
 
 ListT.hoist = ({of}) => function go(xs) {
   return xs.run({
-    nil: ListT.empty({of})
+    nil: ListT.empty({of}),
     cons: y => ys => ListT(of(Option.Some(Pair(y, lazy(() => go(ys))))))
   });
 };
@@ -5183,8 +5183,9 @@ ListT.lift = ({map, of}) =>
 
 // hoist :: (m<a> => n<a>) => ListT<m, a> => ListT<n, a>
 
-ListT.mapT = ({map}) => f => function go(mmx)
-  ListT(f(map(Option.map(Pair.map(mmy => lazy(() => go(mmy))))) (mmx.run)));
+ListT.mapT = ({map}) => f => function go(mmx) {
+  return ListT(f(map(Option.map(Pair.map(mmy => lazy(() => go(mmy))))) (mmx.run)));
+};
 
 
 // embed :: (m<a> => ListT<n, a>) -> ListT<m, a> => ListT<n, a>
@@ -5200,8 +5201,8 @@ ListT.chainT = ({of}) => fm => function go(mmx) {
 ListT.Transformer = {
   chainT: ListT.chainT,
   hoist: ListT.hoist,
-  lift: ListT.lift
-  mapT: ListT.mapT,
+  lift: ListT.lift,
+  mapT: ListT.mapT
 };
 
 
@@ -5223,9 +5224,6 @@ ListT.Unfoldable = {unfold: ListT.unfold};
 
 
 ListT.alt = ListT.alt();
-
-
-ListT.ap = ListT.ap();
 
 
 ListT.Traversable = ListT.Traversable();
@@ -6746,7 +6744,7 @@ export const StateT = mmf => ({
 
 
 StateT.map = ({map}) => f => mmg =>
-  StateT(y => map(mx => Pair(f(mx[0]), mx[1])) (mmg.run(y));
+  StateT(y => map(mx => Pair(f(mx[0]), mx[1])) (mmg.run(y)));
 
 
 StateT.Functor = {map: StateT.map};
@@ -6838,7 +6836,7 @@ StateT.eval = ({of, chain}) => mmf => x => of(mmf.run(x) [0]);
 StateT.exec = ({of, chain}) => mmf => x => of(mmf.run(x) [1]);
 
 
-StateT.get = StateT.state(x => Pair(x, x));
+StateT.get = () => StateT.state(x => Pair(x, x));
 
 
 StateT.gets = f => StateT.state(x => Pair(f(x), x));
@@ -6870,6 +6868,12 @@ StateT.lift = ({of, chain}) => mx =>
 
 
 // TODO
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+StateT.get = StateT.get();
 
 
 /******************************************************************************
