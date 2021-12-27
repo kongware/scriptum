@@ -3572,9 +3572,9 @@ EitherT.ap = ({of, chain}) => mmf => mmx =>
   })));
 
 
-EitherT.Plus = {
-  ...EitherT.Alt,
-  zero: EitherT.zero
+EitherT.Apply = {
+  ...EitherT.Functor,
+  ap: EitherT.ap
 };
 
 
@@ -3642,7 +3642,7 @@ EitherT.hoist = ({of}) => mx => EitherT(of(mx));
 EitherT.mapT = f => mmx => EitherT(f(mmx.run));
 
 
-EitherT.chainT ({of, chain}) => fm => mmx =>
+EitherT.chainT = ({of, chain}) => fm => mmx =>
   EitherT(chain(fm(mmx.run).run) (mx => of(mx.run({
     left: Either.Left,
   
@@ -5781,8 +5781,8 @@ OptionT.chainT = ({of, chain}) => fm => mmx =>
 OptionT.Transformer = {
   chainT: Option.chainT,
   hoist: OptionT.hoist,
-  lift: OptionT.lift
-  mapT: OptionT.mapT,
+  lift: OptionT.lift,
+  mapT: OptionT.mapT
 };
 
 
