@@ -3308,6 +3308,12 @@ Either.Right = x => ({
 Either.cata = left => right => tx => tx.run({left, right});
 
 
+/***[ Either ]****************************************************************/
+
+
+// TODO
+
+
 /***[ Foldable ]**************************************************************/
 
 
@@ -3432,7 +3438,6 @@ Either.Traversable = Either.Traversable();
 **********************************[ EITHERT ]**********************************
 ******************************************************************************/
 
-// newtype ExceptT e m a = ExceptT (m (Either e a))
 
 export const EitherT = mmx => ({
   [TAG]: "EitherT",
@@ -3461,7 +3466,11 @@ export const EitherT = mmx => ({
 // Either.finally
 
 
-// Either.withEitherT
+EitherT.withEither = ({map}) => f => mmx =>
+  EitherT(map(mx => mx.run({
+    left: x => Either.Left(f(x)),
+    right: Either.Right
+  })) (mmx.run));
 
 
 /***[ Foldable ]**************************************************************/
@@ -3481,10 +3490,28 @@ EitherT.Foldable = {
 };
 
 
-/***[ Foldable :: Traverable ]************************************************/
+/***[ Foldable :: Traversable ]***********************************************/
 
 
-// TODO
+EitherT.mapA = ({map, of}, {mapA}) => ft => mmx =>
+  map(EitherT) (mapA(mx => mx.run({
+    left: x => of(Either.Left(x)),
+    right: y => map(Either.Right) (f(y))
+  })) (mmx.run));
+
+
+EitherT.seqA = ({map, of}, {mapA}) => ft => mmx =>
+  map(EitherT) (mapA(mx => mx.run({
+    left: x => of(Either.Left(x)),
+    right: y => of(Either.Right(y))
+  })) (mmx.run));
+
+
+EitherT.Traversable = {
+  ...EitherT.Foldable,
+  mapA: EitherT.mapA,
+  seqA: EitherT.seqA
+};
 
 
 /***[ Functor ]***************************************************************/
@@ -3503,13 +3530,33 @@ EitherT.Functor = {map: EitherT.map};
 /***[ Functor :: Alt ]********************************************************/
 
 
-// TODO
+EitherT.alt = ({map, of, chain}, {append}) => mmx => mmy =>
+  EitherT(chain(mmx.run) (mx => mx.run({
+    left: x => map(my => my.run({
+      left: x2 => Either.Left(append(x) (x2)),
+      right: EitherT.Right
+    })) (mmy.run),
+
+    right: y => of(Either.Right(y))
+  })));
+
+
+EitherT.Alt = {
+  ...EitherT.Functor,
+  alt: EitherT.alt
+};
 
 
 /***[ Functor :: Alt :: Plus ]************************************************/
 
 
-// TODO
+EitherT.zero = ({of}, {empty}) => EitherT(of(Either.Left(empty)));
+
+
+EitherT.Plus = {
+  ...EitherT.Alt,
+  zero: EitherT.zero
+};
 
 
 /***[ Functor :: Apply ]******************************************************/
@@ -3525,10 +3572,22 @@ EitherT.ap = ({of, chain}) => mmf => mmx =>
   })));
 
 
+EitherT.Plus = {
+  ...EitherT.Alt,
+  zero: EitherT.zero
+};
+
+
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Either.ofT = ({of}) => x => of(Either.Right(x));
+Either.of = ({of}) => x => of(Either.Right(x));
+
+
+EitherT.Applicaitve = {
+  ...EitherT.Apply,
+  of: EitherT.of
+};
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
@@ -3541,7 +3600,7 @@ EitherT.chain = ({of, chain}) => mmx => fmm =>
   })));
 
 
-EitherT.Monad = {
+EitherT.Chain = {
   ...EitherT.Apply,
   chain: EitherT.chain
 };
@@ -3550,10 +3609,10 @@ EitherT.Monad = {
 /***[ Functor :: Apply :: Applicative :: Alternative ]************************/
 
 
-/*EitherT.Alternative = {
+EitherT.Alternative = {
   ...EitherT.Plus,
   ...EitherT.Applicative
-};*/
+};
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
@@ -3577,7 +3636,29 @@ EitherT.mapBase = f => mmx => EitherT(f(mmx.run));
 EitherT.lift = ({map}) => mx => EitherT(map(Option.Right) (mx));
 
 
-// TODO
+EitherT.hoist = ({of}) => mx => EitherT(of(mx));
+
+
+EitherT.mapT = f => mmx => EitherT(f(mmx.run));
+
+
+EitherT.chainT ({of, chain}) => fm => mmx =>
+  EitherT(chain(fm(mmx.run).run) (mx => of(mx.run({
+    left: Either.Left,
+  
+    right: mx2 => mx2.run({
+      left: Either.Left,
+      right: Either.Right
+    })
+  }))));
+
+
+EitherT.Transformer = {
+  chainT: EitherT.chainT,
+  hoist: EitherT.hoist,
+  lift: EitherT.lift,
+  mapT: EitherT.mapT
+};
 
 
 /******************************************************************************
@@ -5190,7 +5271,7 @@ ListT.mapT = ({map}) => f => function go(mmx) {
 
 // embed :: (m<a> => ListT<n, a>) -> ListT<m, a> => ListT<n, a>
 
-ListT.chainT = ({of}) => fm => function go(mmx) { 
+ListT.chainT = ({of}) => fm => function go(mmx) { // TODO: review
   return ListT.chain(fm(mmx.run)) (mx => mx.run({
     none: ListT.empty({of}),
     some: ([x, mmy]) => ListT(of(Option.Some(Pair(x, lazy(() => go(mmy))))))
@@ -5686,15 +5767,23 @@ OptionT.lift = ({map}) => mx => OptionT(map(Option.Some) (mx));
 OptionT.mapT = f => mmx => OptionT(f(mmx.run));
 
 
-// TODO: OptionT.chainT
+OptionT.chainT = ({of, chain}) => fm => mmx =>
+  OptionT(chain(f(mmx.run).run) (mx => of(mx.run({
+    none: Option.None,
+
+    some: mx2 => mx2.run({
+      none: Option.None,
+      some: Option.Some
+    })
+  }))));
 
 
-/*OptionT.Transformer = {
+OptionT.Transformer = {
   chainT: Option.chainT,
   hoist: OptionT.hoist,
   lift: OptionT.lift
   mapT: OptionT.mapT,
-};*/
+};
 
 
 /***[ Resolve Dependencies ]**************************************************/
