@@ -379,7 +379,7 @@ LoopM.of = LoopM.of();
 ******************************************************************************/
 
 
-export const Mutable = clone => ref => {
+export const Ref = clone => ref => {
   return _let({}, ref).in((o, ref) => {
     let mutated = false;
 
@@ -406,7 +406,7 @@ export const Mutable = clone => ref => {
       return o;
     };
 
-    return (o[TAG] = "Mutable", o);
+    return (o[TAG] = "Ref", o);
   });
 };
 
@@ -1233,6 +1233,38 @@ RBT.levelOrder_ = f => acc => t => function go(ts, i) {
 
 
 /******************************************************************************
+*******************************[ CHILD PROCESS ]*******************************
+******************************************************************************/
+
+
+export const Process_ = cp => cons => ({
+  exec: opts => cmd =>
+    ExceptT(cons(k => {debugger; console.log("ying");
+      return cp.exec(cmd, opts, (e, stdout, stderr) =>
+        e ? _throw(new TypeError(e))
+          : stderr ? k(Except.Left(stderr))
+          : k(Except.Right(stdout)))})),
+
+
+  execFile: opts => args => cmdName =>
+    ExceptT(cons(k => {debugger; console.log("yang");
+      return cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
+        e ? _throw(new TypeError(e))
+          : stderr ? k(Except.Left(stderr))
+          : k(Except.Right(stdout)))}))
+
+
+  /*spawn: opts => args => cmdName => // TODO
+    ExceptT(cons(k => {
+      const cmd = cp.spawn(cmdName, args, opts);
+      cmd.stderr.on("data", x => k(Except.Left(x)));
+      cmd.stdout.on("data", y => k(Except.Right(y)));
+      return cmd;
+    }))*/
+});
+
+
+/******************************************************************************
 ********************************[ FILE SYSTEM ]********************************
 ******************************************************************************/
 
@@ -1279,28 +1311,6 @@ export const FS_ = fs => cons => thisify(o => {
 
 
 /******************************************************************************
-**********************************[ PROCESS ]**********************************
-******************************************************************************/
-
-
-export const Process_ = cp => cons => ({
-  exec: opts => cmd =>
-    cons(k =>
-      cp.exec(cmd, opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? _throw(new TypeError(stderr))
-          : k(stdout))),
-
-  execFile: opts => app => srciptPath => args =>
-    cons(k =>
-      cp.execFile(app, Tuple(srciptPath, ...args), opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? _throw(new TypeError(stderr))
-          : k(stdout)))
-});
-
-
-/******************************************************************************
 *******************************************************************************
 ***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
 *******************************************************************************
@@ -1340,7 +1350,7 @@ export const mapEff = ({map}) => x => map(_ => x);
 export const apEff1 = ({map, ap}) => tx => ty => ap(map(_const) (tx)) (ty);
 
 
-export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff(map) (id) (tx)) (ty);
+export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff({map}) (id) (tx)) (ty);
 
 
 export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
@@ -1433,7 +1443,7 @@ export const infix9 = (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) 
 
 export const infix = (...args) => {
   switch (args.length) {
-    case 3: return infix(...args);
+    case 3: return infix1(...args);
     case 5: return infix2(...args);
     case 7: return infix3(...args);
     case 9: return infix4(...args);
@@ -3225,12 +3235,6 @@ export const Defer = deferThunk => ({
 });
 
 
-Defer.get = thunk => ({
-  [TAG]: "Defer",
-  get run() {return thunk()}
-});
-
-
 /***[ Functor ]***************************************************************/
 
 
@@ -3290,12 +3294,36 @@ Defer.Monad = {
 ******************************************************************************/
 
 
+export const Either = {};
+
+
+Either.Left = x => ({
+  [TAG]: "Either",
+  run: ({left}) => left(x)
+});
+
+
+Either.Right = y => ({
+  [TAG]: "Either",
+  run: ({right}) => right(y)
+});
+
+
+Either.cata = left => right => tx => tx.run({left, right});
+
+
 // TODO
 
 
 /******************************************************************************
 **********************************[ EITHERT ]**********************************
 ******************************************************************************/
+
+
+export const EitherT = mmx => ({
+  [TAG]: "EitherT",
+  run: mmx
+});
 
 
 // TODO
@@ -3356,6 +3384,9 @@ export class ExtendableError extends Error {
       this.stack = (new Error(s)).stack;
   }
 };
+
+
+export class ApplicationError extends ExtendableError {};
 
 
 export class ParseError extends ExtendableError {};
@@ -3714,7 +3745,7 @@ ExceptT.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-ExceptT.of = ({of}) => x => of(Except.Right(x));
+ExceptT.of = ({of}) => x => ExceptT(of(Except.Right(x)));
 
 
 ExceptT.Applicaitve = {
@@ -4418,16 +4449,6 @@ Last.Monoid = {
 export const Lazy = lazyThunk => ({
   [TAG]: "Lazy",
   run: lazyThunk
-});
-
-
-Lazy.get = thunk => ({
-  [TAG]: "Lazy",
-
-  get run() {
-    delete this.run;
-    return this.run = thunk();
-  }
 });
 
 
@@ -5408,9 +5429,16 @@ Num.formatSep = sep => n => sep;
 export const Obj = {};
 
 
-Obj.lazyProp = k => v => o =>
+Obj.deferredProp = k => thunk => o =>
   Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = v()},
+    get: function() {return thunk()},
+    configurable: true,
+    enumerable: true});
+
+
+Obj.lazyProp = k => thunk => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = thunk()},
     configurable: true,
     enumerable: true});
 
@@ -5430,6 +5458,16 @@ Obj.clone = o => {
 
 
 Obj.Clonable = {clone: Obj.clone};
+
+
+/******************************************************************************
+********************************[ OBSERVABLE ]*********************************
+******************************************************************************/
+
+
+/* `Observable` is not necessary in scriptum, because the asynchronous types
+`Serial` and `Parallel` are stateless and thus can be called any number of
+times like an event handler. */
 
 
 /******************************************************************************
@@ -5821,7 +5859,7 @@ OptionT.Traversable = OptionT.Traversable();
 export const Parallel = k => {
   const o = {
     [TAG]: "Parallel",
-    run: f => k(f)
+    run: k
   };
     
   if (Math.random() < MICROTASK_TRESHOLD) // defer until next microtask
@@ -6543,7 +6581,7 @@ Rex.escape = s =>
 export const Serial = k => {
   const o = {
     [TAG]: "Serial",
-    run: f => k(f)
+    run: k
   };
 
   if (Math.random() < MICROTASK_TRESHOLD) // defer until next microtask
