@@ -1239,19 +1239,19 @@ RBT.levelOrder_ = f => acc => t => function go(ts, i) {
 
 export const Process_ = cp => cons => ({
   exec: opts => cmd =>
-    ExceptT(cons(k => {debugger; console.log("ying");
-      return cp.exec(cmd, opts, (e, stdout, stderr) =>
+    ExceptT(cons(k =>
+      cp.exec(cmd, opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
           : stderr ? k(Except.Left(stderr))
-          : k(Except.Right(stdout)))})),
+          : k(Except.Right(stdout))))),
 
 
   execFile: opts => args => cmdName =>
-    ExceptT(cons(k => {debugger; console.log("yang");
-      return cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
+    ExceptT(cons(k =>
+      cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
           : stderr ? k(Except.Left(stderr))
-          : k(Except.Right(stdout)))}))
+          : k(Except.Right(stdout)))))
 
 
   /*spawn: opts => args => cmdName => // TODO
