@@ -5465,9 +5465,13 @@ Obj.Clonable = {clone: Obj.clone};
 ******************************************************************************/
 
 
-/* `Observable` is not necessary in scriptum, because the asynchronous types
-`Serial` and `Parallel` are stateless and thus can be called any number of
-times like an event handler. */
+/* TODO: `Observable` is not necessary in scriptum, because the asynchronous
+types `Serial` and `Parallel` are stateless and thus can be called any number
+of times like an event handler.
+
+However, the main feature of `Observable` is representing subscriptions as
+first-class objects, which can be passed around like values and be composed.
+So maybe scriptum should introduce them to benefit from this feature. */
 
 
 /******************************************************************************
@@ -7025,47 +7029,125 @@ StateT.get = StateT.get();
 
 
 /******************************************************************************
-**********************************[ STREAM ]***********************************
+**********************************[ STREAMT ]**********************************
 ******************************************************************************/
 
 
 // data Stream f m r = Step !(f (Stream f m r)) | Eff (m (Stream f m r)) | Done r
 
-export const Stream = {};
+export const StreamT = {};
 
 
-Stream.Step = tmx => ({
-  [TAG]: "Stream",
-  run: ({step}) => step(tmx)
+StreamT.Step = mmx => ({
+  [TAG]: "StreamT",
+  run: ({step}) => step(mmx)
 });
 
 
-Stream.Eff = tmx => ({
-  [TAG]: "Stream",
-  run: ({eff}) => eff(tmx)
+StreamT.Eff = mmx => ({
+  [TAG]: "StreamT",
+  run: ({eff}) => eff(mmx)
 });
 
 
-Stream.Done = tmx => ({
-  [TAG]: "Stream",
-  run: ({done}) => done(tmx)
+StreamT.Done = mmx => ({
+  [TAG]: "StreamT",
+  run: ({done}) => done(mmx)
 });
 
 
-Stream.cata = ({map}, {of, chain}) => step => eff => done => tmx => 
-  eff(function go(tmx2) {
-    return tmx2.run({
+StreamT.cata = ({map}, {of, chain}) => step => eff => done => mmx => 
+  eff(function go(mmx2) {
+    return mmx2.run({
       step: tx => of(step(map(x => eff(go(x)) (tx)))),
       eff: mx => chain(mx) (go),
       done: x => of(done(x))
     });
-  } (tmx));
+  } (mmx));
+
+
+/***[ Functor ]***************************************************************/
+
+
+StreamT.map = ({map}, {of, chain}) => f => function go(mmx) {
+  return mmx.run({
+    step: tx => Step(map(go) (tx)),
+    eff: mx => Eff(chain(mx) (x => of(go(x)))),
+    done: x => Done(f(x))
+  });
+};
+
+
+StreamT.Functor = {map: StreamT.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+StreamT.ap = mmf => mmx =>
+  StreamT.chain(mmf) (f =>
+    StreamT.chain(mmx) (x =>
+      StreamT.of(f(x))));
+
+
+StreamT.Apply = {
+  ...StreamT.Functor,
+  ap: StreamT.ap
+};
+
+
+/***[ Functor :: Applicative ]************************************************/
+
+
+StreamT.of = Done;
+
+
+StreamT.Applicative = {
+  ...StreamT.Functor,
+  ...StreamT.Apply,
+  of: StreamT.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+StreamT.chain = ({map}, {map2}) => mmx => fmm => function go(mmx2) {
+  return mmx2.run({
+    step: tx => Step(map(go) (tx)),
+    eff: mx => Eff(map2(go) (mx)),
+    done: x => fmm(x)
+  });
+} (mmx);
+
+
+StreamT.Chain = {
+  ...StreamT.Apply,
+  chain: StreamT.chain
+};
+
+
+/***[ Functor :: Applicative :: Monad ]***************************************/
+
+
+StreamT.Monad = {
+  ...StreamT.Applicative,
+  chain: StreamT.chain
+};
 
 
 /***[ Functor :: Extend :: Comonad ]******************************************/
 
 
 // TODO
+
+
+/******************************************************************************
+*******************************[ STREAMT :: OF ]*******************************
+******************************************************************************/
+
+
+// TODO: functor of StreamT.Step
 
 
 /******************************************************************************
