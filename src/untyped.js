@@ -99,7 +99,7 @@ class ThunkProxy {
     if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
-      while (this.memo[THUNK] === true)
+      while (this.memo && this.memo[THUNK] === true)
         this.memo = this.memo[EVAL];
     }
 
@@ -118,7 +118,7 @@ class ThunkProxy {
     else if (k === Symbol.toStringTag)
       return "Function";
 
-    // evaluate once
+    // evaluate
 
     else if (this.memo === NULL || this.share === false) {
   
@@ -131,7 +131,7 @@ class ThunkProxy {
       else {
         this.memo = g();
 
-        while (this.memo[THUNK] === true)
+        while (this.memo && this.memo[THUNK] === true)
           this.memo = this.memo[EVAL];
       }
     }
@@ -147,9 +147,9 @@ class ThunkProxy {
       && Array.isArray(this.memo))
         return true;
 
-    // method binding without triggering evaluation
+    // method binding
 
-    else if (typeof this.memo[k] === "function"
+    else if (this.memo && typeof this.memo[k] === "function"
       && this.memo[k] [THUNK] !== true)
         return this.memo[k].bind(this.memo);
 
@@ -163,7 +163,7 @@ class ThunkProxy {
     if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
-      while (this.memo[THUNK] === true)
+      while (this.memo && this.memo[THUNK] === true)
         this.memo = this.memo[EVAL];
     }
 
@@ -182,7 +182,7 @@ class ThunkProxy {
     else if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
-      while (this.memo[THUNK] === true)
+      while (this.memo && this.memo[THUNK] === true)
         this.memo = this.memo[EVAL];
     }
 
@@ -196,7 +196,7 @@ class ThunkProxy {
     if (this.memo === NULL || this.share === false) {
       this.memo = g();
 
-      while (this.memo[THUNK] === true)
+      while (this.memo && this.memo[THUNK] === true)
         this.memo = this.memo[EVAL];
     }
 
@@ -1254,7 +1254,7 @@ export const Process_ = cp => cons => ({
           : k(Either.Right(stdout)))))
 
 
-  /*spawn: opts => args => cmdName => // TODO: CoroutineT
+  /*spawn: opts => args => cmdName => // TODO: CoT
     EitherT(cons(k => {
       const cmd = cp.spawn(cmdName, args, opts);
       cmd.stderr.on("data", x => k(Either.Left(x)));
@@ -3036,8 +3036,8 @@ Cont.reify = k => x => Cont(k2 => k(x));
 ******************************************************************************/
 
 
-export const CoroutineT = mmx => ({
-  [TAG]: "CoroutineT",
+export const CoT = mmx => ({
+  [TAG]: "CoT",
   run: mmx
 });
 
@@ -3045,23 +3045,23 @@ export const CoroutineT = mmx => ({
 /***[ Functor ]***************************************************************/
 
 
-CoroutineT.map = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
-  return CoroutineT(mapBase(mx => mx.run({
+CoT.map = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
+  return CoT(mapBase(mx => mx.run({
     left: tx => Either.Left(mapSuspension(go) (tx)),
     right: x => Either.Right(f(x))
   })) (mmx.run));
 };
 
 
-CoroutineT.Functor = {map: CoroutineT.map};
+CoT.Functor = {map: CoT.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-CoroutineT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf) {
+CoT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf) {
   return mmx =>
-    CoroutineT(chain(mmf.run) (mf => mx.run({
+    CoT(chain(mmf.run) (mf => mx.run({
       left: tf => Either.Left(mapSuspension(go) (tf)),
 
       right: f => mapBase(mx => mx.run({
@@ -3072,47 +3072,47 @@ CoroutineT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf
 };
 
 
-CoroutineT.Apply = {
-  ...CoroutineT.Functor,
-  ap: CoroutineT.ap
+CoT.Apply = {
+  ...CoT.Functor,
+  ap: CoT.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-CoroutineT.of = ({of}) => x => CoroutineT(of(Either.Right(x)));
+CoT.of = ({of}) => x => CoT(of(Either.Right(x)));
 
 
-CoroutineT.Applicative = {
-  ...CoroutineT.Apply,
-  of: CoroutineT.of
+CoT.Applicative = {
+  ...CoT.Apply,
+  of: CoT.of
 };
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-CoroutineT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
-  return CoroutineT(chain(mmx2.run) (mx => mx.run({
+CoT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
+  return CoT(chain(mmx2.run) (mx => mx.run({
     left: tx => of(Either.Left(map(go) (tx))),
     right: x => fmm(x).run
   })));
 } (mmx);
 
 
-CoroutineT.Chain = {
-  ...CoroutineT.Apply,
-  chain: CoroutineT.chain
+CoT.Chain = {
+  ...CoT.Apply,
+  chain: CoT.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-CoroutineT.Monad = {
-  ...CoroutineT.Applicative,
-  chain: CoroutineT.chain
+CoT.Monad = {
+  ...CoT.Applicative,
+  chain: CoT.chain
 };
 
 
@@ -3122,11 +3122,11 @@ CoroutineT.Monad = {
 // TODO: hoist
 
 
-CoroutineT.lift = ({map}) => comp(CoroutineT) (map(Either.Right));
+CoT.lift = ({map}) => comp(CoT) (map(Either.Right));
 
 
-CoroutineT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
-  return CoroutineT(
+CoT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
+  return CoT(
     mapBase(mx => mx.run({
       left: tx => Either.Left(mapSuspension(go) (tx)),
       right: x => Either.Right(x)
@@ -3137,23 +3137,23 @@ CoroutineT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx
 // TODO: chainT
 
 
-CoroutineT.Transformer = {
-  lift: CoroutineT.lift,
-  mapT: CoroutineT.mapT
+CoT.Transformer = {
+  lift: CoT.lift,
+  mapT: CoT.mapT
 };
 
 
 /***[ Running ]***************************************************************/
 
 
-CoroutineT.consume = ({of, chain}) => f => mmx =>
-  CoroutineT(chain(mmx.run) (mx => mx.run({
+CoT.consume = ({of, chain}) => f => mmx =>
+  CoT(chain(mmx.run) (mx => mx.run({
     left: tx => f(tx),
     right: x => of(Either.Right(x))
   })));
 
 
-CoroutineT.exhaust = ({of, chain}) => f => function go(mmx) {
+CoT.exhaust = ({of, chain}) => f => function go(mmx) {
   return chain(mmx.run) (mx => mx.run({
     left: tx => go(f(tx)),
     right: of
@@ -3161,7 +3161,7 @@ CoroutineT.exhaust = ({of, chain}) => f => function go(mmx) {
 };
 
 
-CoroutineT.exhaustM = ({of, chain}) => fm => function go(mmx) {
+CoT.exhaustM = ({of, chain}) => fm => function go(mmx) {
   return chain(mmx.run) (mx => mx.run({
     left: tx => chain(fm(x)) (go),
     right: of
@@ -3169,7 +3169,7 @@ CoroutineT.exhaustM = ({of, chain}) => fm => function go(mmx) {
 };
 
 
-CoroutineT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
+CoT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
   return chain(mmx2.run) (mx => mx.run({
     left: tx => go(f(acc) (tx)),
     right: x => of(Pair(acc, x))
@@ -3180,8 +3180,8 @@ CoroutineT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) 
 /***[ Suspension ]************************************************************/
 
 
-CoroutineT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => function go(mmx) {
-  return CoroutineT(
+CoT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => function go(mmx) {
+  return CoT(
     mapBase(mx => mx.run({
       left: tx => Either.Left(f(mapSuspension2(go) (tx))),
       right: x => Either.Right(x)
@@ -3189,7 +3189,7 @@ CoroutineT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => funct
 };
 
 
-CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Either.Left(tx)));
+CoT.suspend = ({of}) => tx => CoT(of(Either.Left(tx)));
 
 
 /******************************************************************************
@@ -3206,7 +3206,7 @@ export const Await = f => ({
 Await.map = f => tg => Await(x => f(tg.run(x)));
 
 
-Await.await = ({of}) => CoroutineT.suspend({of}) (Await(of))
+Await.await = ({of}) => CoT.suspend({of}) (Await(of))
 
 
 /******************************************************************************
@@ -3220,10 +3220,10 @@ export const Yield = x => y => ({
 });
 
 
-Yield.map = f => tx => Yield(tx[0]) (f(tx[1]));
+Yield.map = f => tx => Yield(tx.run[0]) (f(tx.run[1]));
 
 
-Yield.yield = ({of}) => x => CoroutineT.suspend({of}) (Yield(x) (of(null)));
+Yield.yield = ({of}) => x => CoT.suspend({of}) (Yield(x) (of(null)));
 
 
 /******************************************************************************
@@ -3992,7 +3992,13 @@ Id.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-const idChain = ({id: x}) => fm => fm(x);
+Id.chain = mx => fm => fm(mx.run);
+
+
+Id.Chain = {
+  ...Id.Apply,
+  chain: Id.chain
+};
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
@@ -7106,7 +7112,7 @@ StreamT.Apply = {
 /***[ Functor :: Applicative ]************************************************/
 
 
-StreamT.of = Done;
+StreamT.of = StreamT.Done;
 
 
 StreamT.Applicative = {
