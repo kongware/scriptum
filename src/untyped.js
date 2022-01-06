@@ -1254,7 +1254,7 @@ export const Process_ = cp => cons => ({
           : k(Except.Right(stdout)))))
 
 
-  /*spawn: opts => args => cmdName => // TODO
+  /*spawn: opts => args => cmdName => // TODO: CoroutineT
     ExceptT(cons(k => {
       const cmd = cp.spawn(cmdName, args, opts);
       cmd.stderr.on("data", x => k(Except.Left(x)));
@@ -1308,6 +1308,67 @@ export const FS_ = fs => cons => thisify(o => {
 
   return o;
 });
+
+
+/******************************************************************************
+*********************************[ OBSERVER ]**********************************
+******************************************************************************/
+
+
+ObserverEmitter = ({controller, init, listener, target, type}) => {
+  let state = {run: init};
+
+  return Cont(k => {
+    target.on(
+      type,
+
+      Object.assign(listener, {handleEvent: next => {
+        state.run = listener.handle(next) (state.run) (k);
+      }}));
+    
+    return {
+      controller,
+      listener,
+      target,
+      type,
+      state: Cont(k2 => k2(state.run))
+    };
+  })
+};
+
+
+ObserverEmitter.cancel = o => o.target.off(o.type, o.listener);
+
+
+ObserverTarget = ({controller, init, listener, opts = {}, target, type}) => {
+  let state = {run: init};
+
+  return Cont(k => {
+    target.addEventListener(
+      type,
+
+      Object.assign(listener, {handleEvent: next => {
+        state.run = listener.handle(next) (state.run) (k);
+      }}),
+      
+      opts);
+    
+    return {
+      controller,
+      listener,
+      opts,
+      target,
+      type,
+      state: Cont(k2 => k2(state.run))
+    };
+  })
+};
+
+
+ObserverTarget.cancel = o => o.target.removeEventListener(o.type, o.listener, o.opts);
+
+
+// TODO: add rx-like combinators
 
 
 /******************************************************************************
@@ -5458,20 +5519,6 @@ Obj.clone = o => {
 
 
 Obj.Clonable = {clone: Obj.clone};
-
-
-/******************************************************************************
-********************************[ OBSERVABLE ]*********************************
-******************************************************************************/
-
-
-/* TODO: `Observable` is not necessary in scriptum, because the asynchronous
-types `Serial` and `Parallel` are stateless and thus can be called any number
-of times like an event handler.
-
-However, the main feature of `Observable` is representing subscriptions as
-first-class objects, which can be passed around like values and be composed.
-So maybe scriptum should introduce them to benefit from this feature. */
 
 
 /******************************************************************************
