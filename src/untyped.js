@@ -1239,26 +1239,26 @@ RBT.levelOrder_ = f => acc => t => function go(ts, i) {
 
 export const Process_ = cp => cons => ({
   exec: opts => cmd =>
-    ExceptT(cons(k =>
+    EitherT(cons(k =>
       cp.exec(cmd, opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
-          : stderr ? k(Except.Left(stderr))
-          : k(Except.Right(stdout))))),
+          : stderr ? k(Either.Left(stderr))
+          : k(Either.Right(stdout))))),
 
 
   execFile: opts => args => cmdName =>
-    ExceptT(cons(k =>
+    EitherT(cons(k =>
       cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
-          : stderr ? k(Except.Left(stderr))
-          : k(Except.Right(stdout)))))
+          : stderr ? k(Either.Left(stderr))
+          : k(Either.Right(stdout)))))
 
 
   /*spawn: opts => args => cmdName => // TODO: CoroutineT
-    ExceptT(cons(k => {
+    EitherT(cons(k => {
       const cmd = cp.spawn(cmdName, args, opts);
-      cmd.stderr.on("data", x => k(Except.Left(x)));
-      cmd.stdout.on("data", y => k(Except.Right(y)));
+      cmd.stderr.on("data", x => k(Either.Left(x)));
+      cmd.stdout.on("data", y => k(Either.Right(y)));
       return cmd;
     }))*/
 });
@@ -1315,7 +1315,7 @@ export const FS_ = fs => cons => thisify(o => {
 ******************************************************************************/
 
 
-ObserverEmitter = ({controller, init, listener, target, type}) => {
+export const ObserverEmitter = ({controller, init, listener, target, type}) => {
   let state = {run: init};
 
   return Cont(k => {
@@ -1340,7 +1340,7 @@ ObserverEmitter = ({controller, init, listener, target, type}) => {
 ObserverEmitter.cancel = o => o.target.off(o.type, o.listener);
 
 
-ObserverTarget = ({controller, init, listener, opts = {}, target, type}) => {
+export const ObserverTarget = ({controller, init, listener, opts = {}, target, type}) => {
   let state = {run: init};
 
   return Cont(k => {
@@ -1851,14 +1851,14 @@ F.Strong = {
 
 
 F.left = f => tx => tx.run({
-  left: x => Except.Left(f(x)),
-  right: x => Except.Right(x)
+  left: x => Either.Left(f(x)),
+  right: x => Either.Right(x)
 });
 
 
 F.right = f => tx => tx.run({
-  left: x => Except.Left(x),
-  right: x => Except.Right(f(x))
+  left: x => Either.Left(x),
+  right: x => Either.Right(f(x))
 });
 
 
@@ -2347,8 +2347,8 @@ A.tail = xs =>
 
 A.tails = () => A.apo(xs =>
   xs.length === 0
-    ? Option.Some(Pair([], Except.Left([])))
-    : Option.Some(Pair(xs, Except.Right(xs.slice(1)))));
+    ? Option.Some(Pair([], Either.Left([])))
+    : Option.Some(Pair(xs, Either.Right(xs.slice(1)))));
 
 
 A.uncons = xs => [
@@ -3037,7 +3037,7 @@ Cont.reify = k => x => Cont(k2 => k(x));
 
 
 export const CoroutineT = mmx => ({
-  [TAG]: "Coroutine",
+  [TAG]: "CoroutineT",
   run: mmx
 });
 
@@ -3047,8 +3047,8 @@ export const CoroutineT = mmx => ({
 
 CoroutineT.map = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
   return CoroutineT(mapBase(mx => mx.run({
-    left: tx => Except.Left(mapSuspension(go) (tx)),
-    right: x => Except.Right(f(x))
+    left: tx => Either.Left(mapSuspension(go) (tx)),
+    right: x => Either.Right(f(x))
   })) (mmx.run));
 };
 
@@ -3062,11 +3062,11 @@ CoroutineT.Functor = {map: CoroutineT.map};
 CoroutineT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf) {
   return mmx =>
     CoroutineT(chain(mmf.run) (mf => mx.run({
-      left: tf => Except.Left(mapSuspension(go) (tf)),
+      left: tf => Either.Left(mapSuspension(go) (tf)),
 
       right: f => mapBase(mx => mx.run({
-        left: tx => Except.Left(mapSuspension(go) (tx)),
-        right: x => Except.Right(f(x))
+        left: tx => Either.Left(mapSuspension(go) (tx)),
+        right: x => Either.Right(f(x))
       })) (mmx.run)
     })));
 };
@@ -3081,7 +3081,7 @@ CoroutineT.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-CoroutineT.of = ({of}) => x => CoroutineT(of(Except.Right(x)));
+CoroutineT.of = ({of}) => x => CoroutineT(of(Either.Right(x)));
 
 
 CoroutineT.Applicative = {
@@ -3095,7 +3095,7 @@ CoroutineT.Applicative = {
 
 CoroutineT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
   return CoroutineT(chain(mmx2.run) (mx => mx.run({
-    left: tx => of(Except.Left(map(go) (tx))),
+    left: tx => of(Either.Left(map(go) (tx))),
     right: x => fmm(x).run
   })));
 } (mmx);
@@ -3122,14 +3122,14 @@ CoroutineT.Monad = {
 // TODO: hoist
 
 
-CoroutineT.lift = ({map}) => comp(CoroutineT) (map(Except.Right));
+CoroutineT.lift = ({map}) => comp(CoroutineT) (map(Either.Right));
 
 
 CoroutineT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
   return CoroutineT(
     mapBase(mx => mx.run({
-      left: tx => Except.Left(mapSuspension(go) (tx)),
-      right: x => Except.Right(x)
+      left: tx => Either.Left(mapSuspension(go) (tx)),
+      right: x => Either.Right(x)
     })) (f(mmx.run)));
 };
 
@@ -3149,7 +3149,7 @@ CoroutineT.Transformer = {
 CoroutineT.consume = ({of, chain}) => f => mmx =>
   CoroutineT(chain(mmx.run) (mx => mx.run({
     left: tx => f(tx),
-    right: x => of(Except.Right(x))
+    right: x => of(Either.Right(x))
   })));
 
 
@@ -3183,13 +3183,13 @@ CoroutineT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) 
 CoroutineT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => function go(mmx) {
   return CoroutineT(
     mapBase(mx => mx.run({
-      left: tx => Except.Left(f(mapSuspension2(go) (tx))),
-      right: x => Except.Right(x)
+      left: tx => Either.Left(f(mapSuspension2(go) (tx))),
+      right: x => Either.Right(x)
     })) (mmx.run));
 };
 
 
-CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Except.Left(tx)));
+CoroutineT.suspend = ({of}) => tx => CoroutineT(of(Either.Left(tx)));
 
 
 /******************************************************************************
@@ -3364,16 +3364,139 @@ Either.Left = x => ({
 });
 
 
-Either.Right = y => ({
+Either.Right = x => ({
   [TAG]: "Either",
-  run: ({right}) => right(y)
+  run: ({right}) => right(x)
 });
 
 
 Either.cata = left => right => tx => tx.run({left, right});
 
 
+/***[ Either ]****************************************************************/
+
+
 // TODO
+
+
+/***[ Foldable ]**************************************************************/
+
+
+Either.foldr = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(y) (acc)
+});
+
+
+Either.foldl = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(acc) (y)
+});
+
+
+Either.Foldable = {
+  left: Either.foldl,
+  right: Either.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+Either.mapA = ({map, of}) => ft => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => map(Either.Right) (ft(y))
+});
+
+
+Either.seqA = ({of}) => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => of(Either.Right(y))
+});
+
+
+Either.Traversable = () => ({
+  ...Either.Foldable,
+  ...Either.Functor,
+  mapA: Either.mapA,
+  seqA: Either.seqA
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+Either.map = f => tx =>
+  tx.run({
+    left: x => Either.Left(x),
+    right: y => Either.Right(f(y))
+  });
+
+
+Either.Functor = {map: Either.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+Either.ap = tf => tx =>
+  tf.run({
+    left: x => Either.Left(x),
+
+    right: f => tx.run({
+      left: y => Either.Left(y),
+      right: z => Either.Right(f(z))
+    })
+  });
+
+
+Either.Apply = {
+  ...Either.Functor,
+  ap: Either.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Either.of = x => Either.Right(x);
+
+
+Either.Applicative = {
+  ...Either.Apply,
+  of: Either.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+Either.chain = tx => fm =>
+  tx.run({
+    left: x => Either.Left(x),
+    right: y => fm(y)
+  });
+
+
+Either.Chain = {
+  ...Either.Apply,
+  chain: Either.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+Either.Monad = {
+  ...Either.Applicative,
+  chain: Either.chain
+};
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+Either.Traversable = Either.Traversable();
 
 
 /******************************************************************************
@@ -3387,7 +3510,225 @@ export const EitherT = mmx => ({
 });
 
 
-// TODO
+/***[ Either ]****************************************************************/
+
+
+EitherT.catch = ({of, chain}) => mmx => handle =>
+  chain(mmx.run) (mx => mx.run({
+    left: x => handle(x).run,
+    right: y => of(Either.Right(y))
+  }));
+
+
+EitherT.finally = ({map, of, chain}) => mmx => thunk =>
+  chain(EitherT.try({map, of, chain}) (mmx)) (mx => {
+    strictRec(thunk);
+    return Either.cata(EitherT.throw) (of) (mx);
+  });
+
+
+EitherT.throw = ({of}) => x => EitherT(of(Either.Left(x)));
+
+
+EitherT.try = ({map, of, chain}) => mmx =>
+  EitherT.catch({of, chain})
+    (map(Either.Right) (mmx.run))
+      (x => of(Either.Left(x)));
+
+
+EitherT.withEither = ({map}) => f => mmx =>
+  EitherT(map(mx => mx.run({
+    left: x => Either.Left(f(x)),
+    right: Either.Right
+  })) (mmx.run));
+
+
+/***[ Foldable ]**************************************************************/
+
+
+EitherT.foldl = ({foldl}) => f => acc => mmx =>
+  foldl(Either.foldl(f)) (acc) (mmx.run);
+
+
+EitherT.foldr = ({foldr}) => f => acc => mmx =>
+  foldr(Either.foldr(f)) (acc) (mmx.run);
+
+
+EitherT.Foldable = {
+  foldl: EitherT.foldl,
+  foldr: EitherT.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+EitherT.mapA = ({map, of}, {mapA}) => ft => mmx =>
+  map(EitherT) (mapA(mx => mx.run({
+    left: x => of(Either.Left(x)),
+    right: y => map(Either.Right) (f(y))
+  })) (mmx.run));
+
+
+EitherT.seqA = ({map, of}, {mapA}) => ft => mmx =>
+  map(EitherT) (mapA(mx => mx.run({
+    left: x => of(Either.Left(x)),
+    right: y => of(Either.Right(y))
+  })) (mmx.run));
+
+
+EitherT.Traversable = {
+  ...EitherT.Foldable,
+  mapA: EitherT.mapA,
+  seqA: EitherT.seqA
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+EitherT.map = ({map}) => f => mmx =>
+  EitherT(map(mx => mx.run({
+    left: e => Either.Left(e),
+    right: x => Either.Right(f(x))
+  })) (mmx.run));
+
+
+EitherT.Functor = {map: EitherT.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+EitherT.alt = ({map, of, chain}, {append}) => mmx => mmy =>
+  EitherT(chain(mmx.run) (mx => mx.run({
+    left: x => map(my => my.run({
+      left: x2 => Either.Left(append(x) (x2)),
+      right: EitherT.Right
+    })) (mmy.run),
+
+    right: y => of(Either.Right(y))
+  })));
+
+
+EitherT.Alt = {
+  ...EitherT.Functor,
+  alt: EitherT.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+EitherT.zero = ({of}, {empty}) => EitherT(of(Either.Left(empty)));
+
+
+EitherT.Plus = {
+  ...EitherT.Alt,
+  zero: EitherT.zero
+};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+EitherT.ap = ({of, chain}) => mmf => mmx =>
+  EitherT(chain(mmf.run) (mf => mf.run({
+    left: e => of(Either.Left(e)),
+    right: f => chain(mmx.run) (mx => mx.run({
+      left: e => of(Either.Left(e)),
+      right: x => of(Either.Right(f(x)))
+    }))
+  })));
+
+
+EitherT.Apply = {
+  ...EitherT.Functor,
+  ap: EitherT.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+EitherT.of = ({of}) => x => EitherT(of(Either.Right(x)));
+
+
+EitherT.Applicaitve = {
+  ...EitherT.Apply,
+  of: EitherT.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+EitherT.chain = ({of, chain}) => mmx => fmm =>
+  EitherT(chain(mmx.run) (mx => mx.run({
+    left: e => of(Either.Left(e)),
+    right: x => fmm(x).run
+  })));
+
+
+EitherT.Chain = {
+  ...EitherT.Apply,
+  chain: EitherT.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+EitherT.Alternative = {
+  ...EitherT.Plus,
+  ...EitherT.Applicative
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+EitherT.Monad = {
+  ...EitherT.Applicative,
+  chain: EitherT.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+EitherT.mapBase = f => mmx => EitherT(f(mmx.run));
+
+
+/***[ Transformer ]***********************************************************/
+
+
+EitherT.lift = ({map}) => mx => EitherT(map(Option.Right) (mx));
+
+
+EitherT.hoist = ({of}) => mx => EitherT(of(mx));
+
+
+EitherT.mapT = f => mmx => EitherT(f(mmx.run));
+
+
+EitherT.chainT = ({of, chain}) => fm => mmx =>
+  EitherT(chain(fm(mmx.run).run) (mx => of(mx.run({
+    left: Either.Left,
+  
+    right: mx2 => mx2.run({
+      left: Either.Left,
+      right: Either.Right
+    })
+  }))));
+
+
+EitherT.Transformer = {
+  chainT: EitherT.chainT,
+  hoist: EitherT.hoist,
+  lift: EitherT.lift,
+  mapT: EitherT.mapT
+};
 
 
 /******************************************************************************
@@ -3502,387 +3843,6 @@ Equiv.empty = Equiv(_ => _ => true);
 Equiv.Monoid = {
   ...Equiv.Semigroup,
   empty: Equiv.empty
-};
-
-
-/******************************************************************************
-**********************************[ EXCEPT ]***********************************
-******************************************************************************/
-
-
-export const Except = {};
-
-
-Except.Left = x => ({
-  [TAG]: "Except",
-  run: ({left}) => left(x)
-});
-
-
-Except.Right = x => ({
-  [TAG]: "Except",
-  run: ({right}) => right(x)
-});
-
-
-Except.cata = left => right => tx => tx.run({left, right});
-
-
-/***[ Except ]****************************************************************/
-
-
-// TODO
-
-
-/***[ Foldable ]**************************************************************/
-
-
-Except.foldr = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(y) (acc)
-});
-
-
-Except.foldl = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(acc) (y)
-});
-
-
-Except.Foldable = {
-  left: Except.foldl,
-  right: Except.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-Except.mapA = ({map, of}) => ft => tx => tx.run({
-  left: x => of(Except.Left(x)),
-  right: y => map(Except.Right) (ft(y))
-});
-
-
-Except.seqA = ({of}) => tx => tx.run({
-  left: x => of(Except.Left(x)),
-  right: y => of(Except.Right(y))
-});
-
-
-Except.Traversable = () => ({
-  ...Except.Foldable,
-  ...Except.Functor,
-  mapA: Except.mapA,
-  seqA: Except.seqA
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-Except.map = f => tx =>
-  tx.run({
-    left: x => Except.Left(x),
-    right: y => Except.Right(f(y))
-  });
-
-
-Except.Functor = {map: Except.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Except.ap = tf => tx =>
-  tf.run({
-    left: x => Except.Left(x),
-
-    right: f => tx.run({
-      left: y => Except.Left(y),
-      right: z => Except.Right(f(z))
-    })
-  });
-
-
-Except.Apply = {
-  ...Except.Functor,
-  ap: Except.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Except.of = x => Except.Right(x);
-
-
-Except.Applicative = {
-  ...Except.Apply,
-  of: Except.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Except.chain = tx => fm =>
-  tx.run({
-    left: x => Except.Left(x),
-    right: y => fm(y)
-  });
-
-
-Except.Chain = {
-  ...Except.Apply,
-  chain: Except.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Except.Monad = {
-  ...Except.Applicative,
-  chain: Except.chain
-};
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-Except.Traversable = Except.Traversable();
-
-
-/******************************************************************************
-**********************************[ EXCEPTT ]**********************************
-******************************************************************************/
-
-
-export const ExceptT = mmx => ({
-  [TAG]: "ExceptT",
-  run: mmx
-});
-
-
-/***[ Except ]****************************************************************/
-
-
-ExceptT.catch = ({of, chain}) => mmx => handle =>
-  chain(mmx.run) (mx => mx.run({
-    left: x => handle(x).run,
-    right: y => of(Except.Right(y))
-  }));
-
-
-ExceptT.finally = ({map, of, chain}) => mmx => thunk =>
-  chain(ExceptT.try({map, of, chain}) (mmx)) (mx => {
-    strictRec(thunk);
-    return Except.cata(ExceptT.throw) (of) (mx);
-  });
-
-
-ExceptT.throw = ({of}) => x => ExceptT(of(Except.Left(x)));
-
-
-ExceptT.try = ({map, of, chain}) => mmx =>
-  ExceptT.catch({of, chain})
-    (map(Except.Right) (mmx.run))
-      (x => of(Except.Left(x)));
-
-
-ExceptT.withEither = ({map}) => f => mmx =>
-  ExceptT(map(mx => mx.run({
-    left: x => Except.Left(f(x)),
-    right: Except.Right
-  })) (mmx.run));
-
-
-/***[ Foldable ]**************************************************************/
-
-
-ExceptT.foldl = ({foldl}) => f => acc => mmx =>
-  foldl(Except.foldl(f)) (acc) (mmx.run);
-
-
-ExceptT.foldr = ({foldr}) => f => acc => mmx =>
-  foldr(Except.foldr(f)) (acc) (mmx.run);
-
-
-ExceptT.Foldable = {
-  foldl: ExceptT.foldl,
-  foldr: ExceptT.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-ExceptT.mapA = ({map, of}, {mapA}) => ft => mmx =>
-  map(ExceptT) (mapA(mx => mx.run({
-    left: x => of(Except.Left(x)),
-    right: y => map(Except.Right) (f(y))
-  })) (mmx.run));
-
-
-ExceptT.seqA = ({map, of}, {mapA}) => ft => mmx =>
-  map(ExceptT) (mapA(mx => mx.run({
-    left: x => of(Except.Left(x)),
-    right: y => of(Except.Right(y))
-  })) (mmx.run));
-
-
-ExceptT.Traversable = {
-  ...ExceptT.Foldable,
-  mapA: ExceptT.mapA,
-  seqA: ExceptT.seqA
-};
-
-
-/***[ Functor ]***************************************************************/
-
-
-ExceptT.map = ({map}) => f => mmx =>
-  ExceptT(map(mx => mx.run({
-    left: e => Except.Left(e),
-    right: x => Except.Right(f(x))
-  })) (mmx.run));
-
-
-ExceptT.Functor = {map: ExceptT.map};
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-ExceptT.alt = ({map, of, chain}, {append}) => mmx => mmy =>
-  ExceptT(chain(mmx.run) (mx => mx.run({
-    left: x => map(my => my.run({
-      left: x2 => Except.Left(append(x) (x2)),
-      right: ExceptT.Right
-    })) (mmy.run),
-
-    right: y => of(Except.Right(y))
-  })));
-
-
-ExceptT.Alt = {
-  ...ExceptT.Functor,
-  alt: ExceptT.alt
-};
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-ExceptT.zero = ({of}, {empty}) => ExceptT(of(Except.Left(empty)));
-
-
-ExceptT.Plus = {
-  ...ExceptT.Alt,
-  zero: ExceptT.zero
-};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-ExceptT.ap = ({of, chain}) => mmf => mmx =>
-  ExceptT(chain(mmf.run) (mf => mf.run({
-    left: e => of(Except.Left(e)),
-    right: f => chain(mmx.run) (mx => mx.run({
-      left: e => of(Except.Left(e)),
-      right: x => of(Except.Right(f(x)))
-    }))
-  })));
-
-
-ExceptT.Apply = {
-  ...ExceptT.Functor,
-  ap: ExceptT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-ExceptT.of = ({of}) => x => ExceptT(of(Except.Right(x)));
-
-
-ExceptT.Applicaitve = {
-  ...ExceptT.Apply,
-  of: ExceptT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-ExceptT.chain = ({of, chain}) => mmx => fmm =>
-  ExceptT(chain(mmx.run) (mx => mx.run({
-    left: e => of(Except.Left(e)),
-    right: x => fmm(x).run
-  })));
-
-
-ExceptT.Chain = {
-  ...ExceptT.Apply,
-  chain: ExceptT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
-
-
-ExceptT.Alternative = {
-  ...ExceptT.Plus,
-  ...ExceptT.Applicative
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-ExceptT.Monad = {
-  ...ExceptT.Applicative,
-  chain: ExceptT.chain
-};
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-ExceptT.mapBase = f => mmx => ExceptT(f(mmx.run));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-ExceptT.lift = ({map}) => mx => ExceptT(map(Option.Right) (mx));
-
-
-ExceptT.hoist = ({of}) => mx => ExceptT(of(mx));
-
-
-ExceptT.mapT = f => mmx => ExceptT(f(mmx.run));
-
-
-ExceptT.chainT = ({of, chain}) => fm => mmx =>
-  ExceptT(chain(fm(mmx.run).run) (mx => of(mx.run({
-    left: Except.Left,
-  
-    right: mx2 => mx2.run({
-      left: Except.Left,
-      right: Except.Right
-    })
-  }))));
-
-
-ExceptT.Transformer = {
-  chainT: ExceptT.chainT,
-  hoist: ExceptT.hoist,
-  lift: ExceptT.lift,
-  mapT: ExceptT.mapT
 };
 
 
@@ -6090,7 +6050,7 @@ Parallel.any = Parallel.any();
 ******************************************************************************/
 
 
-// newtype Parser a = P (String -> (String, Except Error a))
+// newtype Parser a = P (String -> (String, Either Error a))
 
 export const Parser = ft => ({
   [TAG]: "Parser",
@@ -6104,15 +6064,15 @@ Parser.orElse = ft => gt =>
 
     return tx.run({
       left: e => gt.run(Pair(s, i)),
-      right: x => Pair(Pair(s, i), Except.Right(x))
+      right: x => Pair(Pair(s, i), Either.Right(x))
     });
   });
 
 
 Parser.satisfy = p =>
-  Parser(([s, i]) => s.length < i ? Pair(Pair(s, i), Except.Left("end of stream"))
-    : p(s[i]) ? Pair(Pair(s, i + 1), Except.Right(s[i]))
-    : Pair(Pair(s, i + 1), Except.Left("did not satisfy")));
+  Parser(([s, i]) => s.length < i ? Pair(Pair(s, i), Either.Left("end of stream"))
+    : p(s[i]) ? Pair(Pair(s, i + 1), Either.Right(s[i]))
+    : Pair(Pair(s, i + 1), Either.Left("did not satisfy")));
 
 
 Parser.try = ft =>
@@ -6120,8 +6080,8 @@ Parser.try = ft =>
     const [[s, j], tx] = ft.run(pair);
 
     return tx.run({
-      left: e => Pair(Pair(s, i), Except.Left(e)),
-      right: x => Pair(Pair(s, j), Except.Right(x))
+      left: e => Pair(Pair(s, i), Either.Left(e)),
+      right: x => Pair(Pair(s, j), Either.Right(x))
     });
   });
 
@@ -7257,6 +7217,120 @@ Str.foldRex = rx => f => acc => s => {
 
 
 /******************************************************************************
+***********************************[ THESE ]***********************************
+******************************************************************************/
+
+
+export const These = {};
+
+
+These.This = x => ({
+  [TAG]: "These",
+  run: ({this: _this}) => _this(x)
+});
+
+
+These.That = y => ({
+  [TAG]: "These",
+  run: ({that}) => that(y)
+});
+
+
+These.Both = x => y => ({
+  [TAG]: "These",
+  run: ({both}) => both(x) (y)
+});
+
+
+These.cata = f => g => h => tx => tx.run({
+  this: f,
+  that: g,
+  both: h
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+These.map = f => tx => tx.run({
+  this: These.This,
+  that: y => These.That(f(y)),
+  both: x => y => These.Both(x) (f(y))
+});
+
+
+These.Functor = {map: These.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+These.ap = ({append}) => tf => tx => tf.run({
+  this: These.This,
+
+  that: f => tx.run({
+    this: These.This,
+    that: y => These.That(f(y)),
+    both: x => y => These.Both(x) (f(y))
+  }),
+
+  both: x => f => tx.run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y => These.Both(x) (f(y)),
+    both: x2 => y => These.Both(append(x) (x2)) (f(y))
+  })
+});
+
+
+These.Apply = {
+  ...These.Functor,
+  ap: These.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+These.of = These.That;
+
+
+These.Applicative = {
+  ...These.Apply,
+  of: These.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+These.chain = ({append}) => mx => fm => mx.run({
+  this: These.This,
+  that: y => fm(y),
+
+  both: x => y => fm(y).run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y2 => These.Both(x) (y2),
+    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
+  })
+});
+
+
+These.Chain = {
+  ...These.Apply,
+  chain: These.chain
+};
+
+
+/***[ Functor :: Applicative :: Monad ]***************************************/
+
+
+These.Monad = {
+  ...These.Applicative,
+  chain: These.chain
+};
+
+
+/******************************************************************************
 ***********************************[ TUPLE ]***********************************
 ******************************************************************************/
 
@@ -7466,7 +7540,7 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /******************************************************************************
-*****************************[ TUPLE :: WRITERT ]******************************
+*************************[ TUPLE :: PAIR :: WRITERT ]**************************
 ******************************************************************************/
 
 
