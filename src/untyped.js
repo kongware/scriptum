@@ -62,6 +62,9 @@ export const TAG = Symbol.toStringTag;
 const EVAL = PREFIX + "eval";
 
 
+const FORCE = PREFIX + "force"
+
+
 const NULL = PREFIX + "null";
 
 
@@ -92,115 +95,152 @@ class ThunkProxy {
     this.share = share;
   }
 
-  apply(g, that, args) {
+  apply(f, that, args) {
 
-    // evaluate to WHNF
+    // force evalutation to WHNF
 
-    if (this.memo === NULL || this.share === false) {
-      this.memo = g();
+    if (this.memo === NULL) {
+      let g = f();
+      
+      while (g && g[THUNK] === true)
+        g = g[EVAL];
 
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
+      if (this.share) this.memo = g;
+
+      if (typeof g !== "function")
+        throw new TypeError(`cannot invoke thunk of type "${introspect(g)}"`);
+
+      return g(...args);
     }
 
-    return this.memo(...args);
+    else return this.memo(...args);
   }
 
-  get(g, k) {
+  get(f, k, p) {
 
-    // prevent evaluation
+    // prevent evaluation in case of introspection
     
-    if (k === THUNK)
-      return true;
+    if (k === THUNK) return true;
 
-    // prevent evaluation
+    else if (k === Symbol.toStringTag) return "Proxy";
 
-    else if (k === Symbol.toStringTag)
-      return "Function";
+    // force evaluation of one layer
 
-    // evaluate
+    else if (k === EVAL) {
+      if (this.memo === NULL) {
+        let o = f();
+        if (this.share) this.memo = o;
+        return o;
+      }
 
-    else if (this.memo === NULL || this.share === false) {
-  
-      // evaluate only one layer
+      else return this.memo;
+    }
 
-      if (k === EVAL) this.memo = g();
+    // force evaluation to WHNF due to array context
 
-      // evaluate to WHNF
+    else if (k === Symbol.isConcatSpreadable) {
+      if (this.memo === NULL) {
+        let o = f();
+
+        while (o && o[THUNK] === true)
+          o = o[EVAL];
+
+        if (this.share) this.memo = o;
+
+        if (Array.isArray(o) || o[Symbol.isConcatSpreadable]) return true;
+        else return false;
+      }
 
       else {
-        this.memo = g();
-
-        while (this.memo && this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
+        if (Array.isArray(this.memo) || this.memo[Symbol.isConcatSpreadable]) return true;
+        else return false;
       }
     }
 
-    // return the memoized result
+    // force evaluation to WHNF due to property access
 
-    if (k === EVAL)
-      return this.memo;
+    else {
+      if (this.memo === NULL) {
+        let o = f();
 
-    // enforce array spreading
-    
-    else if (k === Symbol.isConcatSpreadable
-      && Array.isArray(this.memo))
-        return true;
+        while (o && o[THUNK] === true)
+          o = o[EVAL];
 
-    // method binding
+        // take method binding into account
 
-    else if (this.memo && typeof this.memo[k] === "function"
-      && this.memo[k] [THUNK] !== true)
-        return this.memo[k].bind(this.memo);
+        if (o === Object(o) && o[k] && o[k].bind) o[k] = o[k].bind(o);
 
-    else return this.memo[k];
+        if (this.share) this.memo = o;
+
+        // restrict duck typing
+
+        if (typeof k !== "symbol" && o[k] === undefined)
+          throw new TypeError(`unknown property "${k}" access`);
+
+        else return o[k];
+      }
+
+      else return this.memo[k];
+    }
   }
 
-  getOwnPropertyDescriptor(g, k) {
+  getOwnPropertyDescriptor(f, k) {
 
-    // evaluate to WHNF
+    // force evaluation to WHNF
 
-    if (this.memo === NULL || this.share === false) {
-      this.memo = g();
+    if (this.memo === NULL) {
+      let o = f();
 
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
+      while (o && o[THUNK] === true)
+        o = o[EVAL];
+
+      if (this.share) this.memo = o;
+      return Reflect.getOwnPropertyDescriptor(o, k);
     }
 
-    return Reflect.getOwnPropertyDescriptor(this.memo, k);
+    else return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
-  has(g, k) {
+  has(f, k) {
 
-    // prevent evaluation
+    // prevent evaluation in case of introspection
 
-    if (k === THUNK)
-      return true;
+    if (k === THUNK) return true;
 
-    // evaluate to WHNF
+    // force evaluation to WHNF
 
-    else if (this.memo === NULL || this.share === false) {
-      this.memo = g();
+    if (this.memo === NULL) {
+      let o = f();
 
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
+      while (o && o[THUNK] === true)
+        o = o[EVAL];
+
+      if (this.share) this.memo = o;
+      return k in o;
     }
 
-    return k in this.memo;
+    else return k in this.memo;
   }
 
-  ownKeys(g) {
+  ownKeys(o) {
 
-    // evaluate to WHNF
+    // force evaluation to WHNF
 
-    if (this.memo === NULL || this.share === false) {
-      this.memo = g();
+    if (this.memo === NULL) {
+      let o = f();
 
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
+      while (o && o[THUNK] === true)
+        o = o[EVAL];
+
+      if (this.share) this.memo = o;
+      return Reflect.ownKeys(o);
     }
 
-    return Object.keys(this.memo);
+    else return Reflect.ownKeys(this.memo);
+  }
+
+  set(o) {
+    throw new TypeError("must not mutate thunk");
   }
 }
 
@@ -1315,57 +1355,96 @@ export const FS_ = fs => cons => thisify(o => {
 ******************************************************************************/
 
 
-export const ObserverEmitter = ({controller, init, listener, target, type}) => {
-  let state = {run: init};
+/* The `Observer` type is based on continuations and allows both serial and
+parallel evaluation. This means the familiar continuation passing style
+machinery can be used to construct computations triggered by sync and async
+events. Besides you can subscripe and unsubscripte to values of type `Observer`.
+Observers are pure, because they only subscripe to event emitters and targets
+at effect runtime, i.e. when the observer composition is actually run. */
 
-  return Cont(k => {
-    target.on(
-      type,
 
-      Object.assign(listener, {handleEvent: next => {
-        state.run = listener.handle(next) (state.run) (k);
-      }}));
-    
-    return {
-      controller,
-      listener,
-      target,
-      type,
-      state: Cont(k2 => k2(state.run))
+export const Observer = k => ({
+  [TAG]: "Observer",
+  run: k
+});
+
+
+Observer.emitter = ({emitter, init, listener, type}) => {
+  const state = {run: init},
+    subs = new Set();
+
+  let r;
+
+  return Observer(k => {
+    if (r) return r; // ensure idempotency
+
+    const timestamp = Date.now();
+
+    const listener2 = (...args) => {
+      state.run = listener({args, state: state.run, timestamp}) (k)
+      subs.forEach(sub => sub({args, state: state.run, timestamp}));
     };
-  })
+    
+    emitter.on(type, listener2);
+    
+    r = {
+      get cancel() {
+        if (subs.length === 0) {
+          emitter.off(type, listener2)
+          return Either.Right(null);
+        }
+
+        else return Either.Left(
+          "cannot remove listener with pending subscriptions");
+      },
+
+      state: Cont(k2 => k2(state.run)), // state passed to the consumer
+      sub: k3 => (subs.add(k3), r),
+      unsub: k4 => (subs.delete(k4), r)
+    };
+
+    return r;
+  });
 };
 
 
-ObserverEmitter.cancel = o => o.target.off(o.type, o.listener);
+Observer.target = ({controller = Option.None, init, listener, opts = {}, target, type}) => {
+  const state = {run: init},
+    subs = new Set();
 
+  let r;
 
-export const ObserverTarget = ({controller, init, listener, opts = {}, target, type}) => {
-  let state = {run: init};
+  return Observer(k => {
+    if (r) return r; // ensure idempotency
 
-  return Cont(k => {
-    target.addEventListener(
-      type,
-
-      Object.assign(listener, {handleEvent: next => {
-        state.run = listener.handle(next) (state.run) (k);
-      }}),
-      
-      opts);
-    
-    return {
-      controller,
-      listener,
-      opts,
-      target,
-      type,
-      state: Cont(k2 => k2(state.run))
+    const listener2 = next => {
+      state.run = listener({next, state: state.run}) (k);
+      subs.forEach(sub => sub({next, state: state.run}));
     };
-  })
+
+    target.addEventListener(type, listener2, opts);
+    
+    r = {
+      controller,
+
+      get cancel() {
+        if (subs.length === 0) {
+          target.removeEventListener(type, listener2, opts);
+          return Either.Right(null);
+        }
+
+        else return Either.Left(
+          "cannot remove listener with pending subscriptions");
+      },
+
+      state: Cont(k2 => k2(state.run)), // state passed to the consumer
+      sub: k3 => (subs.add(k3), r),
+      unsub: k4 => (subs.delete(k4), r)
+    };
+
+    return r;
+  });
 };
-
-
-ObserverTarget.cancel = o => o.target.removeEventListener(o.type, o.listener, o.opts);
 
 
 // TODO: add rx-like combinators
@@ -3031,10 +3110,19 @@ Cont.reify = k => x => Cont(k2 => k(x));
 ******************************************************************************/
 
 
+// TODO
+
+
 /******************************************************************************
 ********************************[ COROUTINET ]*********************************
 ******************************************************************************/
 
+
+/* Main use case is handling asynchronous events in conjunction with the
+`Serial` monad. */
+
+
+// m (Either (s (Coroutine s m r)) r) -> Coroutine s m r
 
 export const CoT = mmx => ({
   [TAG]: "CoT",
@@ -3045,13 +3133,17 @@ export const CoT = mmx => ({
 /***[ Functor ]***************************************************************/
 
 
-CoT.map = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
-  return CoT(mapBase(mx => mx.run({
-    left: tx => Either.Left(mapSuspension(go) (tx)),
+// (a -> b) -> Coroutine s m a -> Coroutine s m b
+
+CoT.map = ({map}, {map: map2}) => f => function go(mmx) {
+  return CoT(map(mx => mx.run({
+    left: tx => Either.Left(lazy(() => map2(go) (tx))),
     right: x => Either.Right(f(x))
   })) (mmx.run));
 };
 
+
+// instance (Functor s, Functor m) => Functor (Coroutine s m)
 
 CoT.Functor = {map: CoT.map};
 
@@ -3059,13 +3151,15 @@ CoT.Functor = {map: CoT.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-CoT.ap = ({map: mapSuspension}, {map: mapBase, chain}) => function go(mmf) {
-  return mmx =>
-    CoT(chain(mmf.run) (mf => mx.run({
-      left: tf => Either.Left(mapSuspension(go) (tf)),
+// Coroutine s m (a -> b) -> Coroutine s m a -> Coroutine s m b
 
-      right: f => mapBase(mx => mx.run({
-        left: tx => Either.Left(mapSuspension(go) (tx)),
+CoT.ap = ({map, chain}, {map: map2}) => function go(mmf) {
+  return mmx =>
+    CoT(chain(mmf.run) (mf => mf.run({
+      left: tf => Either.Left(lazy(() => map2(go) (tf))),
+
+      right: f => map(mx => mx.run({
+        left: tx => Either.Left(lazy(() => map2(go) (tx))),
         right: x => Either.Right(f(x))
       })) (mmx.run)
     })));
@@ -3081,8 +3175,12 @@ CoT.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
+// a -> Coroutine s m a
+
 CoT.of = ({of}) => x => CoT(of(Either.Right(x)));
 
+
+// instance (Functor s, Functor m, Monad m) => Applicative (Coroutine s m)
 
 CoT.Applicative = {
   ...CoT.Apply,
@@ -3093,11 +3191,13 @@ CoT.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
+// Coroutine s m a -> (a -> Coroutine s m b) -> Coroutine s m b
+
 CoT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
-  return CoT(chain(mmx2.run) (mx => mx.run({
-    left: tx => of(Either.Left(map(go) (tx))),
-    right: x => fmm(x).run
-  })));
+  return chain(mmx2.run) (mx => mx.run({
+    left: tx => CoT(of(Either.Left(lazy(() => map(go) (tx))))),
+    right: x => fmm(x)
+  }));
 } (mmx);
 
 
@@ -3110,6 +3210,8 @@ CoT.Chain = {
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
+// instance (Functor s, Monad m) => Monad (Coroutine s m)
+
 CoT.Monad = {
   ...CoT.Applicative,
   chain: CoT.chain
@@ -3119,39 +3221,22 @@ CoT.Monad = {
 /***[ Transformer ]***********************************************************/
 
 
-// TODO: hoist
-
-
-CoT.lift = ({map}) => comp(CoT) (map(Either.Right));
-
-
-CoT.mapT = ({map: mapSuspension}, {map: mapBase}) => f => function go(mmx) {
-  return CoT(
-    mapBase(mx => mx.run({
-      left: tx => Either.Left(mapSuspension(go) (tx)),
-      right: x => Either.Right(x)
-    })) (f(mmx.run)));
-};
-
-
-// TODO: chainT
-
-
-CoT.Transformer = {
-  lift: CoT.lift,
-  mapT: CoT.mapT
-};
+// TODO
 
 
 /***[ Running ]***************************************************************/
 
 
-CoT.consume = ({of, chain}) => f => mmx =>
-  CoT(chain(mmx.run) (mx => mx.run({
-    left: tx => f(tx),
-    right: x => of(Either.Right(x))
-  })));
+// (Monad m, Functor s) => (s (Coroutine s m x) -> Coroutine s m x) -> Coroutine s m x -> Coroutine s m x
 
+CoT.consume = ({of, chain}) => fm => mmx =>
+  chain(mmx.run) (mx => mx.run({
+    left: tx => fm(tx),
+    right: x => CoT(of(Either.Right(x)))
+  }));
+
+
+// Monad m => (s (Coroutine s m x) -> Coroutine s m x) -> Coroutine s m x -> m x
 
 CoT.exhaust = ({of, chain}) => f => function go(mmx) {
   return chain(mmx.run) (mx => mx.run({
@@ -3161,13 +3246,17 @@ CoT.exhaust = ({of, chain}) => f => function go(mmx) {
 };
 
 
+// Monad m => (s (Coroutine s m x) -> m (Coroutine s m x)) -> Coroutine s m x -> m x
+
 CoT.exhaustM = ({of, chain}) => fm => function go(mmx) {
   return chain(mmx.run) (mx => mx.run({
-    left: tx => chain(fm(x)) (go),
+    left: tx => chain(fm(tx)) (go),
     right: of
   }))
 };
 
+
+// Monad m => (a -> s (Coroutine s m x) -> (a, Coroutine s m x)) -> a -> Coroutine s m x -> m (a, x)
 
 CoT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
   return chain(mmx2.run) (mx => mx.run({
@@ -3177,17 +3266,10 @@ CoT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
 } (Pair(init, mmx));
 
 
-/***[ Suspension ]************************************************************/
+/***[ Suspending ]************************************************************/
 
 
-CoT.mapSuspension = ({map: mapSuspension2}, {map: mapBase}) => f => function go(mmx) {
-  return CoT(
-    mapBase(mx => mx.run({
-      left: tx => Either.Left(f(mapSuspension2(go) (tx))),
-      right: x => Either.Right(x)
-    })) (mmx.run));
-};
-
+// (Monad m, Functor s) => s (Coroutine s m x) -> Coroutine s m x
 
 CoT.suspend = ({of}) => tx => CoT(of(Either.Left(tx)));
 
@@ -3197,16 +3279,37 @@ CoT.suspend = ({of}) => tx => CoT(of(Either.Left(tx)));
 ******************************************************************************/
 
 
+/* Encodes purely functional iteratee. Is equivalent to `(->)` but more
+descriptive. */
+
+
+// Await x y = Await (x -> y)
+
 export const Await = f => ({
   [TAG]: "Await",
   run: f
 });
 
 
+/***[ Functor ]***************************************************************/
+
+
+// (a -> b) -> Await x a -> Await x b
+
 Await.map = f => tg => Await(x => f(tg.run(x)));
 
 
-Await.await = ({of}) => CoT.suspend({of}) (Await(of))
+//instance Functor (Await x)
+
+Await.Functor = {map: Await.map};
+
+
+/***[ Suspending ]************************************************************/
+
+
+// Monad m => Coroutine (Await x) m x
+
+Await.await = ({of}) => CoT.suspend({of}) (Await(CoT.of({of})));
 
 
 /******************************************************************************
@@ -3214,16 +3317,75 @@ Await.await = ({of}) => CoT.suspend({of}) (Await(of))
 ******************************************************************************/
 
 
-export const Yield = x => y => ({
+/* Encodes purely functional generator. Is equivalent to `(,)` but more
+descriptive. */
+
+
+// Yield x y = Yield x y
+
+export const Yield = x => tx => ({
   [TAG]: "Yield",
-  run: Pair(x, y)
+  run: Pair(x, tx)
 });
 
+
+/***[ Functor ]***************************************************************/
+
+
+// (a -> b) -> Yield x a -> Yield x b
 
 Yield.map = f => tx => Yield(tx.run[0]) (f(tx.run[1]));
 
 
-Yield.yield = ({of}) => x => CoT.suspend({of}) (Yield(x) (of(null)));
+// instance Functor (Yield x)
+
+Yield.Functor = {map: Yield.map};
+
+
+/***[ Suspending ]************************************************************/
+
+
+// Monad m => x -> Coroutine (Yield x) m ()
+
+Yield.yield = ({of}) => x => CoT.suspend({of}) (Yield(x) (CoT.of({of}) (null)));
+
+
+/******************************************************************************
+*************************[ COROUTINET :: TRAMPOLINE ]**************************
+******************************************************************************/
+
+
+/* Encodes stack-safe recursion within a monad. Is equivalent to `Id` but more
+descriptive. */
+
+
+// Trampoline y = Trampoline y
+
+export const Tramp = tx => ({
+  [TAG]: "Trampoline",
+  run: tx
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+// (a -> b) -> Trampoline x a -> Trampoline x b
+
+Tramp.map = f => tx => Tramp(f(tx.run));
+
+
+// instance Functor Trampoline
+
+Yield.Functor = {map: Yield.map};
+
+
+/***[ Suspending ]************************************************************/
+
+
+// Monad m => Coroutine Trampoline m ()
+
+Tramp.pause = ({of}) => CoT.suspend({of}) (Tramp(CoT.of({of}) (null)));
 
 
 /******************************************************************************
@@ -3353,6 +3515,9 @@ Defer.Monad = {
 /******************************************************************************
 **********************************[ EITHER ]***********************************
 ******************************************************************************/
+
+
+/* As a monad it encodes exception handling, logical exclusive or otherwise. */
 
 
 export const Either = {};
@@ -3791,15 +3956,18 @@ export class ExtendableError extends Error {
 export class ApplicationError extends ExtendableError {};
 
 
-export class ParseError extends ExtendableError {};
-
-
 export class DomainError extends ExtendableError {};
+
+
+export class ParseError extends ExtendableError {};
 
 
 /******************************************************************************
 ***********************************[ EQUIV ]***********************************
 ******************************************************************************/
+
+
+/* relaxed equality */
 
 
 export const Equiv = f => ({
@@ -3924,6 +4092,11 @@ Forget.Profunctor = {
 ******************************************************************************/
 
 
+/* scriptum doesn't rely on native generators/iterators, because they are
+imperative, stateful types. They are still useful sometimes for object
+transformations without intermediate arrays. */
+
+
 export function* objEntries(o) {
   for (let prop in o) {
     yield Pair(prop, o[prop]);
@@ -3948,6 +4121,11 @@ export function* objValues(o) {
 /******************************************************************************
 ************************************[ ID ]*************************************
 ******************************************************************************/
+
+
+/* The identity type implements a couple of type classes that don't do anything
+but provide just enough structure to be lawful instances of their respective
+class. */
 
 
 export const Id = x => ({
@@ -3980,7 +4158,7 @@ Id.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Id.of = x => Id(x);
+Id.of = Id;
 
 
 Id.Applicative = {
@@ -5528,6 +5706,10 @@ export const Lens = ({map}) => f => g => ({
 /******************************************************************************
 **********************************[ OPTION ]***********************************
 ******************************************************************************/
+
+
+/* Transforms partial functions into total ones. Resort to `Either` for
+exception handling use. */
 
 
 export const Option = {}
@@ -7226,6 +7408,8 @@ Str.foldRex = rx => f => acc => s => {
 ***********************************[ THESE ]***********************************
 ******************************************************************************/
 
+
+/* encodes logical or */
 
 export const These = {};
 
