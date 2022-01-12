@@ -18,22 +18,63 @@ It has no dependencies and can be used both client- and server-side. */
 
 /******************************************************************************
 *******************************************************************************
-**************************[ CROSS-CUTTING CONCERNS ]***************************
-*******************************************************************************
-******************************************************************************/
-
-/******************************************************************************
 *********************************[ CONSTANTS ]*********************************
+*******************************************************************************
 ******************************************************************************/
 
 
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
-const NOOP = null;
+const NOOP = null; // no operation
 
 
 const PREFIX = "$_"; // avoid property name collisions
+
+
+/******************************************************************************
+*******************************************************************************
+**************************[ CROSS-CUTTING CONCERNS ]***************************
+*******************************************************************************
+******************************************************************************/
+
+
+/******************************************************************************
+********************************[ APPLICATOR ]*********************************
+******************************************************************************/
+
+
+/* Allows a flat syntax by utilizing method chaining without actually relying
+on methods and `this`. Beyond that it provides some handy utilities. */
+
+
+export const App = t => ({
+  to: x => App(t(x)), // applies the boxed fun
+  flipped: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
+  uncurry: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
+  lazy: x => App_({get run() {return t(x)}}), // applies the boxed fun lazily
+  by: f => App(f(t)),  // applies the fun
+  flippedBy: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
+  lazyBy: f => App_({get run() {return f(t)}}), // applies the fun lazily
+  get: t // gets the boxed value
+});
+
+
+/* Once an operation is lazy all subsequent operations are lazy as well until
+the strict operation is performed or the lazy computation is run. Provides the
+lazy operation counterparts. */
+
+
+const App_ = o => ({
+  to: x => App_({get run() {return o.run(x)}}),
+  flipped: y => App_({get run() {return x => o.run(x) (y)}}),
+  uncurry: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
+  strict: x => App(o.run(x)), // forces evaluation of the boxed lazy computation
+  by: f => App_({get run() {return f(o.run)}}),
+  flippedBy: f => App_({get run() {return x => f(x) (t)}}),
+  strictBy: f => App(f(o.run)), // forces evaluation of the boxed lazy computation
+  get get() {const r = o.run; delete this.get; return this.get = {run: r}}
+});
 
 
 /******************************************************************************
@@ -41,8 +82,7 @@ const PREFIX = "$_"; // avoid property name collisions
 ******************************************************************************/
 
 
-export const comparator = (m, n) =>
-  m < n ? LT : m === n ? EQ : GT;
+export const comparator = (m, n) => m < n ? LT : m === n ? EQ : GT;
 
 
 export const NOT_FOUND = -1;
@@ -60,9 +100,6 @@ export const TAG = Symbol.toStringTag;
 
 
 const EVAL = PREFIX + "eval";
-
-
-const FORCE = PREFIX + "force"
 
 
 const NULL = PREFIX + "null";
@@ -1291,16 +1328,47 @@ export const Process_ = cp => cons => ({
       cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
         e ? _throw(new TypeError(e))
           : stderr ? k(Either.Left(stderr))
-          : k(Either.Right(stdout)))))
+          : k(Either.Right(stdout))))),
 
 
-  /*spawn: opts => args => cmdName => // TODO: CoT
-    EitherT(cons(k => {
+  spawn: opts => args => cmdName =>
+    Emitter(k => {
       const cmd = cp.spawn(cmdName, args, opts);
-      cmd.stderr.on("data", x => k(Either.Left(x)));
-      cmd.stdout.on("data", y => k(Either.Right(y)));
-      return cmd;
-    }))*/
+
+      const stdoutOb = Emitter.observe({
+        ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
+        emitter: Pair(cmd.stdout, "Node.Stream.In.data"),
+        init: "",
+        
+        listener: args => k => {
+          switch (args.type) {
+            case "Node.CP.error":
+            case "Node.CP.exit": return k(args);
+            
+            case "Node.Stream.In.data":
+              return args.state + args.dyn[0];
+          }
+        }
+      });
+
+      const stderrOb = Emitter.observe({
+        ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
+        emitter: Pair(cmd.stderr, "Node.Stream.In.data"),
+        init: "",
+
+        listener: args => k => {
+          switch (args.type) {
+            case "Node.CP.error":
+            case "Node.CP.exit": return k(args);
+            
+            case "Node.Stream.In.data":
+              return args.state + args.dyn[0];
+          }
+        }
+      });
+
+      return Emitter.or(stdoutOb) (stderrOb);
+    })
 });
 
 
@@ -1348,106 +1416,6 @@ export const FS_ = fs => cons => thisify(o => {
 
   return o;
 });
-
-
-/******************************************************************************
-*********************************[ OBSERVER ]**********************************
-******************************************************************************/
-
-
-/* The `Observer` type is based on continuations and allows both serial and
-parallel evaluation. This means the familiar continuation passing style
-machinery can be used to construct computations triggered by sync and async
-events. Besides you can subscripe and unsubscripte to values of type `Observer`.
-Observers are pure, because they only subscripe to event emitters and targets
-at effect runtime, i.e. when the observer composition is actually run. */
-
-
-export const Observer = k => ({
-  [TAG]: "Observer",
-  run: k
-});
-
-
-Observer.emitter = ({emitter, init, listener, type}) => {
-  const state = {run: init},
-    subs = new Set();
-
-  let r;
-
-  return Observer(k => {
-    if (r) return r; // ensure idempotency
-
-    const timestamp = Date.now();
-
-    const listener2 = (...args) => {
-      state.run = listener({args, state: state.run, timestamp}) (k)
-      subs.forEach(sub => sub({args, state: state.run, timestamp}));
-    };
-    
-    emitter.on(type, listener2);
-    
-    r = {
-      get cancel() {
-        if (subs.length === 0) {
-          emitter.off(type, listener2)
-          return Either.Right(null);
-        }
-
-        else return Either.Left(
-          "cannot remove listener with pending subscriptions");
-      },
-
-      state: Cont(k2 => k2(state.run)), // state passed to the consumer
-      sub: k3 => (subs.add(k3), r),
-      unsub: k4 => (subs.delete(k4), r)
-    };
-
-    return r;
-  });
-};
-
-
-Observer.target = ({controller = Option.None, init, listener, opts = {}, target, type}) => {
-  const state = {run: init},
-    subs = new Set();
-
-  let r;
-
-  return Observer(k => {
-    if (r) return r; // ensure idempotency
-
-    const listener2 = next => {
-      state.run = listener({next, state: state.run}) (k);
-      subs.forEach(sub => sub({next, state: state.run}));
-    };
-
-    target.addEventListener(type, listener2, opts);
-    
-    r = {
-      controller,
-
-      get cancel() {
-        if (subs.length === 0) {
-          target.removeEventListener(type, listener2, opts);
-          return Either.Right(null);
-        }
-
-        else return Either.Left(
-          "cannot remove listener with pending subscriptions");
-      },
-
-      state: Cont(k2 => k2(state.run)), // state passed to the consumer
-      sub: k3 => (subs.add(k3), r),
-      unsub: k4 => (subs.delete(k4), r)
-    };
-
-    return r;
-  });
-};
-
-
-// TODO: add rx-like combinators
 
 
 /******************************************************************************
@@ -1593,8 +1561,14 @@ export const infix = (...args) => {
     case 17: return infix8(...args);
     case 19: return infix9(...args);
 
-    default: throw new TypeError(
-      "upper argument bound exceeded");
+    default: {
+      if (args.length > 19)
+        throw new TypeError(
+          "upper argument bound exceeded");
+
+      else throw new TypeError(
+        "invalid number of arguments");
+    }
   }
 };
 
@@ -1971,6 +1945,10 @@ export const _throw = e => {
 };
 
 
+export const throw_ = e =>
+  defer(() => {throw strict(e)});
+
+
 export const throwOn = p => e => x => {
   if (p(x)) _throw(e);
   else return x;
@@ -2306,35 +2284,6 @@ ReaderT.lift = mx => ReaderT(_const(mx));
 
 
 // TODO
-
-
-/******************************************************************************
-********************************[ APPLICATOR ]*********************************
-******************************************************************************/
-
-
-export const App = t => ({
-  to: x => App(t(x)),
-  flipped: y => App(x => t(x) (y)),
-  flat: (...args) => App(args.reduce((f, x) => f(x), t)),
-  lazy: x => App_({get run() {return t(x)}}),
-  by: f => App(f(t)),
-  flippedBy: f => App(x => f(x) (t)),
-  lazyBy: f => App_({get run() {return f(t)}}),
-  get: t
-});
-
-
-const App_ = o => ({
-  to: x => App_({get run() {return o.run(x)}}),
-  flipped: y => App_({get run() {return x => o.run(x) (y)}}),
-  flat: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
-  strict: x => App(o.run(x)),
-  by: f => App_({get run() {return f(o.run)}}),
-  flippedBy: f => App_({get run() {return x => f(x) (t)}}),
-  strictBy: f => App(f(o.run)),
-  get get() {const r = o.run; delete this.get; return this.get = {run: r}}
-});
 
 
 /******************************************************************************
@@ -5665,6 +5614,174 @@ Obj.clone = o => {
 Obj.Clonable = {clone: Obj.clone};
 
 
+/***[ Getters/Setters ]*******************************************************/
+
+
+Obj.getPath = ks => o => function go(o2, i) {
+  if (i >= ks.length) return Option.Some(o2);
+  else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
+  else return Option.None;
+} (o, 0);
+
+
+Obj.getPathOr = x => ks => o => function go(o2, i) {
+  if (i >= ks.length) return o2;
+  else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
+  else return x;
+} (o, 0);
+
+
+/******************************************************************************
+****************************[ OBSERVER :: EMITTER ]****************************
+******************************************************************************/
+
+
+/* The `Emitter` type is based on continuations and allows both serial and
+parallel evaluation. This means the familiar continuation passing style
+machinery can be used to compose computations triggered by sync and async
+events. Observers of emitters are pure, because they only subscripe at effect
+runtime, i.e. when the asynchronous computation is actually run. */
+
+
+// TODO: maybe implement event delegation?
+// TODO: maybe use `Cont` and `Emitter` only as a namespace?
+
+
+export const Emitter = k => ({
+  [TAG]: "Emitter",
+  run: k
+});
+
+
+Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listener, once = false}) => {
+  const state = {run: init};
+
+  let r;
+
+  return Emitter(k => {
+    if (r) return r; // ensure idempotency
+
+    const timestamp = Date.now(),
+      refs = [];
+
+    const listener2 = currType => (...dyn) => {
+      state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
+    };
+    
+    refs.push(listener2(type));
+    (once ? emitter.once : emitter.on) (type.split(".").pop(), refs[0]);
+
+    emitters.forEach(([emitter2, type2, once2 = true], i) => {
+      refs.push(listener2(type2));
+      (once2 ? emitter2.once : emitter2.on) (type2.split(".").pop(), refs[i + 1]);
+    });
+
+    r = {
+      get cancel() {
+        emitter.off(type.split(".").pop(), refs[0]);
+
+        emitters.forEach(
+          ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
+        
+        return r;
+      },
+
+      state: Cont(k2 => k2(state.run)) // value over time
+    };
+
+    return r;
+  });
+};
+
+
+Emitter.and = tx => ty => {
+  const guard = (k, i) => x => {
+    pair[i] = x;
+
+    return settled || !("0" in pair) || !("1" in pair)
+      ? false
+      : (settled = true, k(Pair(pair[0], pair[1])));
+  };
+
+  const pair = [];
+  let settled = false;
+
+  return Emitter(k => (
+    tx.run(guard(k, 0)),
+    ty.run(guard(k, 1))));
+};
+
+
+Emitter.or = tx => ty => {
+  const guard = k => x =>
+    settled
+      ? false
+      : (settled = true, k(x));
+
+  let settled = false;
+
+  return Emitter(k => (
+    tx.run(guard(k)),
+    ty.run(guard(k))));
+};
+
+
+/******************************************************************************
+****************************[ OBSERVER :: TRAGET ]*****************************
+******************************************************************************/
+
+
+/* The `Target` observer is modelled for typical DOM event scenarios. */
+
+
+// TODO
+
+
+/*export const Target = k => ({
+  [TAG]: "Target",
+  run: k
+});
+
+
+Target.observe = ({controller = Option.None, init = Option.None, listener, opts = {}, target, type}) => {
+  const state = {run: init},
+    subs = new Set();
+
+  let r;
+
+  return Target(k => {
+    if (r) return r; // ensure idempotency
+
+    const listener2 = next => {
+      state.run = listener({next, state: state.run}) (k);
+      subs.forEach(sub => sub({next, state: state.run}));
+    };
+
+    target.addEventListener(type, listener2, opts);
+    
+    r = {
+      controller,
+
+      get cancel() {
+        if (subs.length === 0) {
+          target.removeEventListener(type, listener2, opts);
+          return Either.Right(null);
+        }
+
+        else return Either.Left(
+          "cannot remove listener with pending subscriptions");
+      },
+
+      state: Cont(k2 => k2(state.run)), // state passed to the consumer
+      sub: k3 => (subs.add(k3), r),
+      unsub: k4 => (subs.delete(k4), r)
+    };
+
+    return r;
+  });
+};*/
+
+
 /******************************************************************************
 *****************************[ OPTICS :: GETTER ]******************************
 ******************************************************************************/
@@ -6077,7 +6194,7 @@ Parallel.and = tx => ty => {
 
     return settled || !("0" in pair) || !("1" in pair)
       ? false
-      : (settled = true, k([pair[0], pair[1]]));
+      : (settled = true, k(Pair(pair[0], pair[1])));
   };
 
   const pair = [];
@@ -6113,7 +6230,7 @@ Parallel.or = tx => ty => {
 };
 
 
-Parallel.any = () =>
+Parallel.anyArr = () =>
   A.foldl(acc => tx =>
     Parallel.race.append(acc) (tx))
       (Parallel.race.empty);
@@ -6230,7 +6347,7 @@ Parallel.flatten = ttx =>
 Parallel.allArr = Parallel.allArr();
 
 
-Parallel.any = Parallel.any();
+Parallel.anyArr = Parallel.anyArr();
 
 
 /******************************************************************************
@@ -6670,6 +6787,9 @@ Rex._ = " +"; // sequential spaces
 
 
 Rex.CRLF = "\\r?\\n"; // safe line feeds
+
+
+Rex.DOT = ".|[\\r\\n]";
 
 
 Rex.HYPHENS = "(?:—|–|-)"; // OCR safe hyphens
