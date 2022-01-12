@@ -1331,44 +1331,43 @@ export const Process_ = cp => cons => ({
           : k(Either.Right(stdout))))),
 
 
-  spawn: opts => args => cmdName =>
-    Emitter(k => {
-      const cmd = cp.spawn(cmdName, args, opts);
+  spawn: opts => args => cmdName => {debugger;
+    const cmd = cp.spawn(cmdName, args, opts);
 
-      const stdoutOb = Emitter.observe({
-        ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
-        emitter: Pair(cmd.stdout, "Node.Stream.In.data"),
-        init: "",
-        
-        listener: args => k => {
-          switch (args.type) {
-            case "Node.CP.error":
-            case "Node.CP.exit": return k(args);
-            
-            case "Node.Stream.In.data":
-              return args.state + args.dyn[0];
-          }
+    const stdoutOb = Emitter.observe({
+      ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
+      emitter: Pair(cmd.stdout, "Node.Stream.In.data"),
+      init: "",
+      
+      listener: args => k => {debugger;
+        switch (args.type) {
+          case "Node.CP.error":
+          case "Node.CP.exit": return k(args);
+          
+          case "Node.Stream.In.data":
+            return args.state + args.dyn[0];
         }
-      });
+      }
+    });
 
-      const stderrOb = Emitter.observe({
-        ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
-        emitter: Pair(cmd.stderr, "Node.Stream.In.data"),
-        init: "",
+    const stderrOb = Emitter.observe({
+      ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
+      emitter: Pair(cmd.stderr, "Node.Stream.In.data"),
+      init: "",
 
-        listener: args => k => {
-          switch (args.type) {
-            case "Node.CP.error":
-            case "Node.CP.exit": return k(args);
-            
-            case "Node.Stream.In.data":
-              return args.state + args.dyn[0];
-          }
+      listener: args => k => {debugger;
+        switch (args.type) {
+          case "Node.CP.error":
+          case "Node.CP.exit": return k(args);
+          
+          case "Node.Stream.In.data":
+            return args.state + args.dyn[0];
         }
-      });
+      }
+    });
 
-      return Emitter.or(stdoutOb) (stderrOb);
-    })
+    return Emitter.or(stdoutOb) (stderrOb);
+  }
 });
 
 
@@ -5664,23 +5663,26 @@ Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listene
     const timestamp = Date.now(),
       refs = [];
 
-    const listener2 = currType => (...dyn) => {
+    const listener2 = currType => (...dyn) => {debugger;
       state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
     };
     
     refs.push(listener2(type));
-    (once ? emitter.once : emitter.on) (type.split(".").pop(), refs[0]);
+    
+    if (once) emitter.once(type.split(".").pop(), refs[0]);
+    else emitter.on(type.split(".").pop(), refs[0]);
 
-    emitters.forEach(([emitter2, type2, once2 = true], i) => {
+    ctrls.forEach(([emitter2, type2, once2 = true], i) => {
       refs.push(listener2(type2));
-      (once2 ? emitter2.once : emitter2.on) (type2.split(".").pop(), refs[i + 1]);
+      if (once2) emitter2.once(type2.split(".").pop(), refs[i + 1]);
+      else emitter2.on(type2.split(".").pop(), refs[i + 1]);
     });
 
     r = {
       get cancel() {
         emitter.off(type.split(".").pop(), refs[0]);
 
-        emitters.forEach(
+        ctrls.forEach(
           ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
         
         return r;
