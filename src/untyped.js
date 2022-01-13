@@ -1331,15 +1331,19 @@ export const Process_ = cp => cons => ({
           : k(Either.Right(stdout))))),
 
 
-  spawn: opts => args => cmdName => {debugger;
+  spawn: opts => args => cmdName => Emitter(k => {
     const cmd = cp.spawn(cmdName, args, opts);
 
     const stdoutOb = Emitter.observe({
-      ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
-      emitter: Pair(cmd.stdout, "Node.Stream.In.data"),
+      emitters: [
+        Pair(cmd.stdout, "Node.Stream.In.data"),
+        Pair(cmd, "Node.CP.error"),
+        Pair(cmd, "Node.CP.exit")
+      ],
+
       init: "",
       
-      listener: args => k => {debugger;
+      listener: args => k => {
         switch (args.type) {
           case "Node.CP.error":
           case "Node.CP.exit": return k(args);
@@ -1351,11 +1355,15 @@ export const Process_ = cp => cons => ({
     });
 
     const stderrOb = Emitter.observe({
-      ctrls: [Pair(cmd, "Node.CP.error"), Pair(cmd, "Node.CP.exit")],
-      emitter: Pair(cmd.stderr, "Node.Stream.In.data"),
+      emitters: [
+        Pair(cmd.stderr, "Node.Stream.In.data"),
+        Pair(cmd, "Node.CP.error"),
+        Pair(cmd, "Node.CP.exit")
+      ],
+      
       init: "",
 
-      listener: args => k => {debugger;
+      listener: args => k => {
         switch (args.type) {
           case "Node.CP.error":
           case "Node.CP.exit": return k(args);
@@ -1366,8 +1374,8 @@ export const Process_ = cp => cons => ({
       }
     });
 
-    return Emitter.or(stdoutOb) (stderrOb);
-  }
+    return Emitter.or(stdoutOb) (stderrOb).run(k);
+  })
 });
 
 
@@ -5644,6 +5652,7 @@ runtime, i.e. when the asynchronous computation is actually run. */
 
 // TODO: maybe implement event delegation?
 // TODO: maybe use `Cont` and `Emitter` only as a namespace?
+// TODO: incorporate a final cleanup
 
 
 export const Emitter = k => ({
@@ -5652,7 +5661,7 @@ export const Emitter = k => ({
 });
 
 
-Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listener, once = false}) => {
+Emitter.observe = ({emitters: [[emitter, type, once = false], ...emitters], init = Option.None, listener}) => {
   const state = {run: init};
 
   let r;
@@ -5663,7 +5672,7 @@ Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listene
     const timestamp = Date.now(),
       refs = [];
 
-    const listener2 = currType => (...dyn) => {debugger;
+    const listener2 = currType => (...dyn) => {
       state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
     };
     
@@ -5672,7 +5681,7 @@ Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listene
     if (once) emitter.once(type.split(".").pop(), refs[0]);
     else emitter.on(type.split(".").pop(), refs[0]);
 
-    ctrls.forEach(([emitter2, type2, once2 = true], i) => {
+    emitters.forEach(([emitter2, type2, once2 = true], i) => {
       refs.push(listener2(type2));
       if (once2) emitter2.once(type2.split(".").pop(), refs[i + 1]);
       else emitter2.on(type2.split(".").pop(), refs[i + 1]);
@@ -5682,7 +5691,7 @@ Emitter.observe = ({ctrls, emitter: [emitter, type], init = Option.None, listene
       get cancel() {
         emitter.off(type.split(".").pop(), refs[0]);
 
-        ctrls.forEach(
+        emitters.forEach(
           ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
         
         return r;
