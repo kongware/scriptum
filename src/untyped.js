@@ -5610,7 +5610,7 @@ Obj.lazyProp = k => thunk => o =>
 Obj.clone = o => {
   const p = {};
 
-  for (k of objKeys(o))
+  for (const k of objKeys(o))
     Object.defineProperty( // getter/setter safe
       p, k, Object.getOwnPropertyDescriptor(o, k));
 
@@ -5650,11 +5650,6 @@ events. Observers of emitters are pure, because they only subscripe at effect
 runtime, i.e. when the asynchronous computation is actually run. */
 
 
-// TODO: maybe implement event delegation?
-// TODO: maybe use `Cont` and `Emitter` only as a namespace?
-// TODO: incorporate a final cleanup
-
-
 export const Emitter = k => ({
   [TAG]: "Emitter",
   run: k
@@ -5688,6 +5683,8 @@ Emitter.observe = ({emitters: [[emitter, type, once = false], ...emitters], init
     });
 
     r = {
+      [TAG]: "EmitterController",
+      
       get cancel() {
         emitter.off(type.split(".").pop(), refs[0]);
 
@@ -5703,6 +5700,9 @@ Emitter.observe = ({emitters: [[emitter, type, once = false], ...emitters], init
     return r;
   });
 };
+
+
+/***[ Conjunction ]***********************************************************/
 
 
 Emitter.and = tx => ty => {
@@ -5723,18 +5723,154 @@ Emitter.and = tx => ty => {
 };
 
 
+Emitter.allArr = () =>
+  A.seqA({
+    map: Emitter.map,
+    ap: Emitter.ap,
+    of: Emitter.of});
+
+
+/***[ Disjunction ]***********************************************************/
+
+
 Emitter.or = tx => ty => {
-  const guard = k => x =>
-    settled
-      ? false
-      : (settled = true, k(x));
+  const guard = (k, i) => x => {
+    if (settled) return false;
 
-  let settled = false;
+    else {
+      settled = true;
+      i === 0 ? ctrl2.cancel : ctrl1.cancel;
+      return k(x);
+    }
+  };
 
-  return Emitter(k => (
-    tx.run(guard(k)),
-    ty.run(guard(k))));
+  let settled = false, ctrl1, ctrl2;
+
+  return Emitter(k => {
+    ctrl1 = tx.run(guard(k, 0));
+    ctrl2 = ty.run(guard(k, 1));
+  });
 };
+
+
+Emitter.anyArr = () =>
+  A.foldl(acc => tx =>
+    Emitter.race.append(acc) (tx))
+      (Emitter.race.empty);
+
+
+/***[ Functor ]***************************************************************/
+
+
+Emitter.map = f => tx =>
+  Emitter(k => tx.run(x => k(f(x))));
+
+
+Emitter.Functor = {map: Emitter.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+Emitter.ap = tf => tx =>
+  Emitter(k =>
+    Emitter.and(tf) (tx)
+      .run(([f, x]) =>
+         k(f(x))));
+
+
+Emitter.Apply = {
+  ...Emitter.Functor,
+  ap: Emitter.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Emitter.of = x => Emitter(k => k(x));
+
+
+Emitter.Applicative = {
+  ...Emitter.Apply,
+  of: Emitter.of
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+// TODO: fromParallel/toParallel
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+Emitter.append = append => tx => ty =>
+  Emitter(k =>
+    Emitter.and(tx) (ty)
+      .run(([x, y]) =>
+        k(append(x) (y))));
+
+
+Emitter.prepend = Emitter.append;
+
+
+Emitter.Semigroup = {
+  append: Emitter.append,
+  prepend: Emitter.prepend
+};
+
+  
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+Emitter.empty = empty =>
+  Emitter(k => k(empty));
+
+
+Emitter.Monoid = {
+  ...Emitter.Semigroup,
+  empty: Emitter.empty
+};
+
+
+/***[ Semigroup (race) ]******************************************************/
+
+
+Emitter.race = {}; // TODO: make a newtype
+
+
+Emitter.race.append = Emitter.or;
+
+
+Emitter.race.prepend = Emitter.or;
+
+
+/***[ Semigroup :: Monoid (race) ]********************************************/
+
+
+Emitter.race.empty = Emitter(k => null);
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Emitter.flatmap = tx => fx =>
+  Emitter(k => tx.run(x => fx(x).run(k)));
+
+
+Emitter.flatten = ttx =>
+  Emitter(k => ttx.run(tx => tx.run(k)));
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+Emitter.allArr = Emitter.allArr();
+
+
+Emitter.anyArr = Emitter.anyArr();
 
 
 /******************************************************************************
