@@ -23,13 +23,22 @@ It has no dependencies and can be used both client- and server-side. */
 ******************************************************************************/
 
 
+const PREFIX = "$_"; // avoid property name collisions
+
+
+const BATCH = PREFIX + "batch";
+
+
+const FIGURES = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
 const NOOP = null; // no operation
 
 
-const PREFIX = "$_"; // avoid property name collisions
+const UNREF = PREFIX + "unref";
 
 
 /******************************************************************************
@@ -449,43 +458,6 @@ Loop3.done = x => ({[TAG]: "LoopDone", x});
 
 
 LoopM.of = LoopM.of();
-
-
-/******************************************************************************
-***************************[ SAFE IN-PLACE UPDATES ]***************************
-******************************************************************************/
-
-
-export const Ref = clone => ref => {
-  return _let({}, ref).in((o, ref) => {
-    let mutated = false;
-
-    o.consume = lazy(() => {
-      if (mutated) {
-        delete o.update;
-
-        o.update = _ => {
-          throw new TypeError(
-            "illegal in-place update of consumed data structure");
-        };
-      }
-
-      return ref;
-    });
-
-    o.update = k => {
-      if (!mutated) {
-        ref = clone(ref); // copy once on first write
-        mutated = true;
-      }
-
-      k(ref); // use the effect but discard the result
-      return o;
-    };
-
-    return (o[TAG] = "Ref", o);
-  });
-};
 
 
 /******************************************************************************
@@ -2301,6 +2273,7 @@ ReaderT.lift = mx => ReaderT(_const(mx));
 export const A = {};
 
 
+// TODO
 // * scanl/scanr
 // * mapAccuml/mapAccumR
 // * zip/zipWith
@@ -2327,6 +2300,152 @@ export const A = {};
 // * eq instance
 // * ord instance
 // * comonad instances
+
+
+// see description at `O.ref`
+
+A.ref = xs => new Proxy(xs, function (seal) {
+  return {
+    defineProperty: (xs, i, dtor) => {
+      if (seal === "all")
+        throw new TypeError("array is sealed");
+
+      else if (seal === "keys"
+        && !(i in xs))
+          throw new TypeError("array is sealed");
+
+      else Reflect.defineProperty(xs, i, dtor);
+      return p;
+    },
+
+    deleteProperty: (xs, i) => {
+      if (seal !== "none")
+        throw new TypeError("array is sealed");
+
+      else return delete xs[i];
+    },
+
+    get: (xs, i, p) => {
+      switch (i[0]) {
+        case "0":
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9": {
+          seal = "all";
+          return xs[i];
+        }
+
+        default: {
+          switch (i) {
+            case Symbol.iterator: {
+              return () => {
+                seal = "all";
+                return xs[Symbol.iterator] ();
+              };
+            }
+
+            case BATCH: f =>{
+              xs = f(xs);
+              return p;
+            }
+
+            case UNREF: return xs;
+
+            case "length": {
+              seal = "keys";
+              return xs.length;
+            }
+
+            case "keys": {
+              return () => {
+                seal = "keys";
+                return xs.keys();
+              }
+            }
+
+            case "fill":
+            case "push":
+            case "splice":
+            case "unshift": {
+              return (...args) => {
+                if (seal === "all")
+                  throw new TypeError("array is sealed");
+
+                else return xs[i] (...args);
+              }
+            }
+
+            case "pop":
+            case "shift": {
+              return (...args) => {
+                if (seal === "all")
+                  throw new TypeError("array is sealed");
+
+                else {
+                  seal = "all";
+                  return xs[i] (...args);
+                }
+              }
+            }
+
+            case "entries":
+            case "toLocaleString":
+            case "toString":
+            case "valueOf": 
+            case "values": {
+              return () => {
+                seal = "all";
+                return xs[i] ();
+              }
+            }
+
+            default: return xs[i];
+          }
+        }
+      }
+    },
+
+    getOwnPropertyDescriptor: (xs, i) => {
+      seal = "all";
+      return Reflex.getOwnPropertyDescriptor(xs, i);
+    },
+
+    has: (xs, i) => {
+      seal = "keys";
+      return i in xs;
+    },
+
+    ownKeys: xs => {
+      seal = "keys";
+      return Reflect.ownKeys(xs);
+    },
+
+    set: (xs, i, x, p) => {
+      if (seal === "all")
+        throw new TypeError("array is sealed");
+
+      else if (seal === "keys"
+        && !(i in xs))
+          throw new TypeError("array is sealed");
+
+      else xs[i] = x;
+      return x;
+    },
+
+    setPrototypeOf: (xs, proto) => {
+      if (seal !== "none")
+        throw new TypeError("object is sealed");
+
+      else return Reflect.setPrototypeOf(xs, proto);
+    }
+  }
+} ("none"));
 
 
 /***[ Clonable ]**************************************************************/
@@ -5517,9 +5636,115 @@ ListT.zero = ListT.zero();
 
 
 /******************************************************************************
-**********************************[ NUMBER ]***********************************
+************************************[ MAP ]************************************
 ******************************************************************************/
 
+
+const _Map = {};
+
+
+// see description at `O.ref`
+
+
+_Map.ref = m => new Proxy(m, function (seal) {
+  return {
+    get: (m, k, p) => {
+      switch (k) {
+        case Symbol.iterator:
+        case Symbol.toPrimitive: {
+          return () => {
+            seal = "all";
+            return m[k] ();
+          };
+        }
+
+        case [TAG]: return m[TAG];
+
+        case BATCH: f =>{
+          m = f(m);
+          return p;
+        }
+
+        case UNREF: return m;
+
+        case "clear": {
+          return () => {
+            if (seal !== "none")
+              throw new TypeError("map is sealed");
+
+            else m.clear();
+            return p;
+          };
+        }
+
+        case "delete": {
+          return k2 => {
+            if (seal !== "none")
+              throw new TypeError("map is sealed");
+
+            else m.delete(k2);
+            return p;
+          };
+        }
+
+        case "get": {
+          return k2 => {
+            seal = "all";
+            return m.get(k2);
+          };
+        }
+        
+        case "has": {
+          return k2 => {
+            seal = "keys";
+            return m.has(k2);
+          };
+        }
+
+        case "keys": {
+          return () => {
+            seal = "keys";
+            return m.keys();
+          };
+        }
+
+        case "set": {
+          return (k2, v) => {
+            if (seal === "all")
+              throw new TypeError("map is sealed");
+
+            else if (seal === "keys"
+              && !m.has(k2))
+                throw new TypeError("map is sealed");
+
+            else m.set(k2, v);
+            return p;
+          };
+        }
+
+        case "size": {
+          seal = "keys";
+          return m.size;
+        }
+
+        case "entries":
+        case "values": {
+          return () => {
+            seal = "all";
+            return m.values();
+          };
+        }
+
+        default: return m[k];
+      }
+    }
+  }
+});
+
+
+/******************************************************************************
+**********************************[ NUMBER ]***********************************
+******************************************************************************/
 
 
 export const Num = {};
@@ -5587,27 +5812,130 @@ Num.formatSep = sep => n => sep;
 ******************************************************************************/
 
 
-export const Obj = {};
+export const O = {};
 
 
-Obj.deferredProp = k => thunk => o =>
-  Object.defineProperty(o, k, {
-    get: function() {return thunk()},
-    configurable: true,
-    enumerable: true});
+/* An object reference represents a safe, mutable object, because it avoids
+sharing by keeping mutations local. An object reference can be mutated as long
+as no single value is exposed to the parent scope. A once exposed object
+reference cannot be mutated any further. Except for mutations they behave
+exactly like normal arrays and can be used in place. */
 
 
-Obj.lazyProp = k => thunk => o =>
-  Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = thunk()},
-    configurable: true,
-    enumerable: true});
+O.ref = o => new Proxy(o, function (seal) {
+  return {
+    defineProperty: (o, k, dtor) => {
+      if (seal === "all")
+        throw new TypeError("object is sealed");
+
+      else if (seal === "keys"
+        && !(k in o))
+          throw new TypeError("object is sealed");
+
+      else Reflect.defineProperty(o, k, dtor);
+      return p;
+    },
+
+    deleteProperty: (o, k) => {
+      if (seal !== "none")
+        throw new TypeError("object is sealed");
+
+      else return delete o[k];
+    },
+
+    get: (o, k, p) => {
+      switch (k) {
+        case Symbol.asyncIterator:
+        case Symbol.hasInstance:
+        case Symbol.isConcatSpreadable:
+        case Symbol.iterator:
+        case Symbol.toPrimitive:
+        case Symbol.toStringTag:
+          return o[k];
+
+        case BATCH: f =>{
+          o = f(o);
+          return p;
+        }
+
+        case UNREF: return o;
+
+        case "isPrototypeOf": return o[k];
+
+        case "hasOwnProperty":
+        case "propertyIsEnumerable": {
+          return k2 => {
+            seal = "keys";
+            return o[k] (k2);
+          }
+        }
+
+        case "toLocaleString":
+        case "toString":
+        case "valueOf": {
+          return () => {
+            seal = "all";
+            return o[k] ();
+          }
+        }
+
+        default: {
+          if (typeof o[k] === "function") {
+            return (...args) => {
+              seal = "all";
+              return o[k] (...args);
+            };
+          }
+
+          else {
+            seal = "all";
+            return o[k];
+          }
+        }
+      }
+    },
+
+    getOwnPropertyDescriptor: (o, k) => {
+      seal = "all";
+      return Reflex.getOwnPropertyDescriptor(o, k);
+    },
+
+    has: (o, k) => {
+      seal = "keys";
+      return k in o;
+    },
+
+    ownKeys: o => {
+      seal = "keys";
+      return Reflect.ownKeys(o);
+    },
+
+    set: (o, k, x, p) => {
+      if (seal === "all")
+        throw new TypeError("object is sealed");
+
+      else if (seal === "keys"
+        && !(k in o))
+          throw new TypeError("object is sealed");
+
+      else o[k] = x;
+      return x;
+    },
+
+    setPrototypeOf: (o, proto) => {
+      if (seal !== "none")
+        throw new TypeError("object is sealed");
+
+      else return Reflect.setPrototypeOf(o, proto);
+    }
+  };
+} ("none"));
 
 
 /***[ Clonable ]**************************************************************/
 
 
-Obj.clone = o => {
+O.clone = o => {
   const p = {};
 
   for (const k of objKeys(o))
@@ -5618,20 +5946,37 @@ Obj.clone = o => {
 };
 
 
-Obj.Clonable = {clone: Obj.clone};
+O.Clonable = {clone: O.clone};
+
+
+/***[ Extending ]*************************************************************/
+
+
+O.deferredProp = k => thunk => o =>
+  Object.defineProperty(o, k, {
+    get: function() {return thunk()},
+    configurable: true,
+    enumerable: true});
+
+
+O.lazyProp = k => thunk => o =>
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = thunk()},
+    configurable: true,
+    enumerable: true});
 
 
 /***[ Getters/Setters ]*******************************************************/
 
 
-Obj.getPath = ks => o => function go(o2, i) {
+O.getPath = ks => o => function go(o2, i) {
   if (i >= ks.length) return Option.Some(o2);
   else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
   else return Option.None;
 } (o, 0);
 
 
-Obj.getPathOr = x => ks => o => function go(o2, i) {
+O.getPathOr = x => ks => o => function go(o2, i) {
   if (i >= ks.length) return o2;
   else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
   else return x;
@@ -7204,6 +7549,85 @@ Serial.once = tx => {
 
 
 Serial.allArr = Serial.allArr();
+
+
+/******************************************************************************
+************************************[ SET ]************************************
+******************************************************************************/
+
+
+const _Set = {};
+
+
+// see description at `O.ref`
+
+_Set.ref = s => new Proxy(s, function (seal) {
+  return {
+    get: (s, k, p) => {
+      switch (k) {
+        case Symbol.iterator:
+        case Symbol.toPrimitive: {
+          return () => {
+            seal = "all";
+            return m[k] ();
+          };
+        }
+
+        case BATCH: f =>{
+          s = f(m);
+          return p;
+        }
+
+        case UNREF: return s;
+
+        case "clear": {
+          return () => {
+            if (seal !== "none")
+              throw new TypeError("set is sealed");
+
+            else s.clear();
+            return p;
+          };
+        }
+
+        case "add": 
+        case "delete": {
+          return k2 => {
+            if (seal !== "none")
+              throw new TypeError("set is sealed");
+
+            else s[k] (k2);
+            return p;
+          };
+        }
+
+        case "get":
+        case "has": {
+          return k2 => {
+            seal = "all";
+            return s[k] (k2);
+          };
+        }
+
+        case "size": {
+          seal = "all";
+          return s.size;
+        }
+
+        case "entries":
+        case "keys": 
+        case "values": {
+          return () => {
+            seal = "all";
+            return s[k] ();
+          };
+        }
+
+        default: return s[k];
+      }
+    }
+  }
+});
 
 
 /******************************************************************************
