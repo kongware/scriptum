@@ -38,6 +38,9 @@ const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 const NOOP = null; // no operation
 
 
+const REF = PREFIX + "ref";
+
+
 const UNREF = PREFIX + "unref";
 
 
@@ -299,6 +302,11 @@ class ThunkProxy {
 /***[ Guarded Recursion ]*****************************************************/
 
 
+/* Guarded recursion takes place if a lazy computation is being evaluated that
+yields any number of nested thunks, which are consumed one at a time in a
+stack-safe manner by a trampoline. */
+
+
 export const strictRec = x => {
   while (x && x[THUNK] === true)
     x = x[EVAL];
@@ -310,14 +318,19 @@ export const strictRec = x => {
 /***[ Monadic Recursion ]*****************************************************/
 
 
+/* Allow stack safe monadic recursion through a trampoline monad. Please note
+that this type is usually derived from the free monad transformer, but scriptum
+hasn't implemented one yet. */
+
+
 export const LoopM = {};
 
 
 LoopM.loop = o => {
-  while (o.tag === "LoopMNext")
+  while (o.tag === "NextM")
     o = o.f(o.x);
 
-  return o.tag === "LoopMDone"
+  return o.tag === "DoneM"
     ? o.x
     : _throw(new TypeError("invalid trampoline tag"));
 };
@@ -363,8 +376,8 @@ LoopM.Applicative = {
 
 
 LoopM.chain = mx => fm =>
-  mx.tag === "LoopMNext" ? LoopM.next(mx.x) (y => LoopM.chain(mx.f(y)) (fm))
-    : mx.tag === "LoopMDone" ? fm(mx.x)
+  mx.tag === "NextM" ? LoopM.next(mx.x) (y => LoopM.chain(mx.f(y)) (fm))
+    : mx.tag === "DoneM" ? fm(mx.x)
     : _throw(new TypeError("invalid trampoline tag"));
 
 
@@ -387,11 +400,11 @@ LoopM.Monad = {
 
 
 LoopM.next = x => f =>
-  ({tag: "LoopMNext", f, x});
+  ({tag: "NextM", f, x});
 
 
 LoopM.done = x =>
-  ({tag: "LoopMDone", x});
+  ({tag: "DoneM", x});
 
 
 /***[ Tail Recursion ]********************************************************/
@@ -400,58 +413,100 @@ LoopM.done = x =>
 export const Loop = f => x => {
   let o = f(x);
 
-  while (o[TAG] === "LoopNext")
-    o = f(o.x);
+  while (o[TAG] !== "Done") {
+    switch (o[TAG]) {
+      case "Call": {
+        o = o.f(o.x);
+        break;
+      }
 
-  return o[TAG] === "LoopDone"
-    ? o.x
-    : _throw(new TypeError("invalid constructor"));
+      case "Next": {
+        o = f(o.x);
+        break;
+      }
+
+      default: _throw(new TypeError("invalid constructor"));
+    }
+  }
+
+  return o.x;
 };
 
 
 export const Loop2 = f => (x, y) => {
   let o = f(x, y);
 
-  while (o[TAG] === "LoopNext")
-    o = f(o.x, o.y);
+  while (o[TAG] !== "Done") {
+    switch (o[TAG]) {
+      case "Call": {
+        o = o.f(o.x, o.y);
+        break;
+      }
 
-  return o[TAG] === "LoopDone"
-    ? o.x
-    : _throw(new TypeError("invalid constructor"));
+      case "Next": {
+        o = f(o.x, o.y);
+        break;
+      }
+
+      default: _throw(new TypeError("invalid constructor"));
+    }
+  }
+
+  return o.x;
 };
 
 
 export const Loop3 = f => (x, y, z) => {
   let o = f(x, y, z);
 
-  while (o[TAG] === "LoopNext")
-    o = f(o.x, o.y, o.z);
+  while (o[TAG] !== "Done") {
+    switch (o[TAG]) {
+      case "Call": {
+        o = o.f(o.x, o.y, o.z);
+        break;
+      }
 
-  return o[TAG] === "LoopDone"
-    ? o.x
-    : _throw(new TypeError("invalid constructor"));
+      case "Next": {
+        o = f(o.x, o.y, o.z);
+        break;
+      }
+
+      default: _throw(new TypeError("invalid constructor"));
+    }
+  }
+
+  return o.x;
 };
 
 
 // Tags
 
 
-Loop.next = x => ({[TAG]: "LoopNext", x});
+Loop.call = (f, x) => ({[TAG]: "Call", f, x});
 
 
-Loop.done = x => ({[TAG]: "LoopDone", x});
+Loop.next = x => ({[TAG]: "Next", x});
 
 
-Loop2.next = (x, y) => ({[TAG]: "LoopNext", x, y});
+Loop.done = x => ({[TAG]: "Done", x});
 
 
-Loop2.done = x => ({[TAG]: "LoopDone", x});
+Loop2.call = (f, x, y) => ({[TAG]: "Call", f, x, y});
 
 
-Loop3.next = (x, y, z) => ({[TAG]: "LoopNext", x, y, z});
+Loop2.next = (x, y) => ({[TAG]: "Next", x, y});
 
 
-Loop3.done = x => ({[TAG]: "LoopDone", x});
+Loop2.done = x => ({[TAG]: "Done", x});
+
+
+Loop3.call = (f, x, y, z) => ({[TAG]: "Call", f, x, y, z});
+
+
+Loop3.next = (x, y, z) => ({[TAG]: "Next", x, y, z});
+
+
+Loop3.done = x => ({[TAG]: "Done", x});
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -2302,152 +2357,6 @@ export const A = {};
 // * comonad instances
 
 
-// see description at `O.ref`
-
-A.ref = xs => new Proxy(xs, function (seal) {
-  return {
-    defineProperty: (xs, i, dtor) => {
-      if (seal === "all")
-        throw new TypeError("array is sealed");
-
-      else if (seal === "keys"
-        && !(i in xs))
-          throw new TypeError("array is sealed");
-
-      else Reflect.defineProperty(xs, i, dtor);
-      return p;
-    },
-
-    deleteProperty: (xs, i) => {
-      if (seal !== "none")
-        throw new TypeError("array is sealed");
-
-      else return delete xs[i];
-    },
-
-    get: (xs, i, p) => {
-      switch (i[0]) {
-        case "0":
-        case "1":
-        case "2":
-        case "3":
-        case "4":
-        case "5":
-        case "6":
-        case "7":
-        case "8":
-        case "9": {
-          seal = "all";
-          return xs[i];
-        }
-
-        default: {
-          switch (i) {
-            case Symbol.iterator: {
-              return () => {
-                seal = "all";
-                return xs[Symbol.iterator] ();
-              };
-            }
-
-            case BATCH: f =>{
-              xs = f(xs);
-              return p;
-            }
-
-            case UNREF: return xs;
-
-            case "length": {
-              seal = "keys";
-              return xs.length;
-            }
-
-            case "keys": {
-              return () => {
-                seal = "keys";
-                return xs.keys();
-              }
-            }
-
-            case "fill":
-            case "push":
-            case "splice":
-            case "unshift": {
-              return (...args) => {
-                if (seal === "all")
-                  throw new TypeError("array is sealed");
-
-                else return xs[i] (...args);
-              }
-            }
-
-            case "pop":
-            case "shift": {
-              return (...args) => {
-                if (seal === "all")
-                  throw new TypeError("array is sealed");
-
-                else {
-                  seal = "all";
-                  return xs[i] (...args);
-                }
-              }
-            }
-
-            case "entries":
-            case "toLocaleString":
-            case "toString":
-            case "valueOf": 
-            case "values": {
-              return () => {
-                seal = "all";
-                return xs[i] ();
-              }
-            }
-
-            default: return xs[i];
-          }
-        }
-      }
-    },
-
-    getOwnPropertyDescriptor: (xs, i) => {
-      seal = "all";
-      return Reflex.getOwnPropertyDescriptor(xs, i);
-    },
-
-    has: (xs, i) => {
-      seal = "keys";
-      return i in xs;
-    },
-
-    ownKeys: xs => {
-      seal = "keys";
-      return Reflect.ownKeys(xs);
-    },
-
-    set: (xs, i, x, p) => {
-      if (seal === "all")
-        throw new TypeError("array is sealed");
-
-      else if (seal === "keys"
-        && !(i in xs))
-          throw new TypeError("array is sealed");
-
-      else xs[i] = x;
-      return x;
-    },
-
-    setPrototypeOf: (xs, proto) => {
-      if (seal !== "none")
-        throw new TypeError("object is sealed");
-
-      else return Reflect.setPrototypeOf(xs, proto);
-    }
-  }
-} ("none"));
-
-
 /***[ Clonable ]**************************************************************/
 
 
@@ -2479,11 +2388,32 @@ A.init = xs =>
   xs.length === 0 ? Option.None : Option.Some(xs.slice(0, -1));
 
 
-// TODO: A.inits
+A.inits = xs => A.para(x => tail => acc => // TODO: increase efficiency
+  (acc.push(A.clone(tail)), acc))
+    (A.ref([]))
+      (xs);
 
 
 A.last = xs =>
   xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]);
+
+
+A.push = x => xs => (xs.push(x), xs);
+
+
+A.push_ = xs => x => (xs.push(x), xs);
+
+
+A.pop = xs => [
+  xs.length === 0 ? Option.None : Option.Some(xs.pop()),
+  xs
+];
+
+
+A.shift = xs => [
+  xs.length === 0 ? Option.None : Option.Some(xs.shift()),
+  xs
+];
 
 
 A.singleton = x => [x];
@@ -2511,37 +2441,16 @@ A.uncons = xs => [
 ];
 
 
-A.unsnoc = xs => [
-  xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]),
-  xs.slice(-1)
-];
-
-
-/***[ Destructive Setters ]***************************************************/
-
-
-A.push = x => xs => (xs.push(x), xs);
-
-
-A.push_ = xs => x => (xs.push(x), xs);
-
-
-A.pop = xs => [
-  xs.length === 0 ? Option.None : Option.Some(xs.pop()),
-  xs
-];
-
-
-A.shift = xs => [
-  xs.length === 0 ? Option.None : Option.Some(xs.shift()),
-  xs
-];
-
-
 A.unshift = x => xs => (xs.unshift(x), xs);
 
 
 A.unshift_ = xs => x => (xs.unshift(x), xs);
+
+
+A.unsnoc = xs => [
+  xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]),
+  xs.slice(-1)
+];
 
 
 /***[ Filterable ]************************************************************/
@@ -2566,6 +2475,12 @@ A.foldl = f => init => xs => {
 };
 
 
+A.foldk = f => init => xs =>
+  Loop2((acc, i) =>
+    f(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
+      (init, 0);
+
+
 A.foldr = f => init => xs => function go(i) {
   if (i === xs.length) return init;
   else return f(xs[i]) (lazy(() => go(i + 1)));
@@ -2586,12 +2501,12 @@ A.mapA = ({map, ap, of}) => ft => xs => {
 
   return A.foldl(ys => y =>
     liftA2_(A.push) (ft(y)) (ys))
-      (of([])) (xs);
+      (of(A.ref([]))) (xs);
 };
 
 
 A.seqA = ({map, ap, of}) => xs =>
-  A.foldl(liftA2({map, ap}) (A.push_)) (of([])) (xs);
+  A.foldl(liftA2({map, ap}) (A.push_)) (of(A.ref([]))) (xs);
 
 
 A.Traversable = () => ({
@@ -2641,7 +2556,7 @@ A.Plus = {
 A.ap = fs => xs =>
   fs.reduce((acc, f) =>
     xs.reduce((acc2, x) =>
-      (acc2.push(f(x)), acc2), acc), []);
+      (acc2.push(f(x)), acc2), acc), A.ref([]));
 
 
 A.Apply = {
@@ -2667,7 +2582,7 @@ A.Applicative = {
 
 A.chain = xs => fm =>
   xs.reduce((acc, x) =>
-    (acc.push.apply(acc, fm(x)), acc), []);
+    (acc.push.apply(acc, fm(x)), acc), A.ref([]));
 
 
 A.Chain = {
@@ -2708,7 +2623,7 @@ A.generator = f => function go(x) {
 
 
 A.generate = n => gx => {
-  const acc = [];
+  const acc = A.ref([]);
 
   do {
     if (gx.length === 0)
@@ -2731,6 +2646,242 @@ A.forEach = f => xs =>
   (xs.forEach((x, i) => xs[i] = f(x)), xs);
 
 
+/***[ Mutable Reference ]*****************************************************/
+
+
+/* see `O.ref` for inline comment */
+
+
+const arrRef = seal => {
+  return {
+    defineProperty: (xs, i, dtor) => {
+      if (seal === "all")
+        throw new TypeError("array is sealed");
+
+      else if (seal === "keys"
+        && !(i in xs))
+          throw new TypeError("array is sealed");
+
+      else Reflect.defineProperty(xs, i, dtor);
+      return p;
+    },
+
+    deleteProperty: (xs, i) => {
+      if (seal !== "none")
+        throw new TypeError("array is sealed");
+
+      else return delete xs[i];
+    },
+
+    get: (xs, i, p) => {
+
+      // array related properties
+
+      switch (i[0]) {
+        case "0":
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9": {
+          seal = "all";
+          return xs[i];
+        }
+
+        default: {
+          switch (i) {
+
+            // execute an impure algorithm within the reference
+
+            case BATCH: f =>{
+              if (seal !== "none")
+                throw new TypeError("array is sealed");
+
+              else xs = f(xs);
+              return p;
+            }
+
+            // unwrap the array
+
+            case UNREF: {
+              seal = all;
+              return xs;
+            }
+
+            // key-exposing properties
+
+            case "length": {
+              seal = "keys";
+              return xs.length;
+            }
+
+            // pure, array-element-exposing functions
+
+            case "every":
+            case "find":
+            case "findIndex":
+            case "includes":
+            case "indexOf":
+            case "join":
+            case "lastIndexOf":
+            case "some":
+            case "toLocaleString":
+            case "toString": {
+              const f = (...args) => {
+                seal = "all";
+                return xs[i] (...args);
+              }
+
+              f.apply = (_, args) => {
+                seal = "all";
+                return xs[i].apply(xs, args);
+              }
+
+              f.bind = _ => {throw new TypeError("bind is not supported")};
+              f.call = _ => {throw new TypeError("call is not supported")};
+              return f;
+            }
+
+            // pure, array-exposing functions
+
+            case "concat":
+            case "filter":
+            case "flat":
+            case "flatMap":
+            case "map":
+            case "reduce":
+            case "reduceRight":
+            case "slice":
+            case "valueOf": {
+              const f = (...args) =>
+                A.ref(xs[i] (...args));
+
+              f.apply = (_, args) =>
+                A.ref(xs[i].apply(xs, args));
+
+              f.bind = _ => {throw new TypeError("bind is not supported")};
+              f.call = _ => {throw new TypeError("call is not supported")};
+              return f;
+            }
+
+            // impure array-element-exposing functions
+
+            case "pop":
+            case "push":
+            case "shift":
+            case "unshift": {
+              const f = (...args) => {
+                if (seal !== "none")
+                  throw new TypeError("array is sealed");
+
+                return xs[i] (...args);
+              };
+
+              f.apply = (_, args) => {
+                if (seal !== "none")
+                  throw new TypeError("array is sealed");
+                
+                return xs[i].apply(xs, args);
+              };
+
+              f.bind = _ => {throw new TypeError("bind is not supported")};
+              f.call = _ => {throw new TypeError("call is not supported")};
+              return f;
+            }
+
+            // impure array-exposing functions
+
+            case "copyWithin":
+            case "fill":
+            case "reverse":
+            case "sort":
+            case "splice": {
+              const f = (...args) => {
+                if (seal !== "none")
+                  throw new TypeError("array is sealed");
+
+                else return A.ref(xs[i] (...args));
+              };
+
+              f.apply = (_, args) => {
+                if (seal !== "none")
+                  throw new TypeError("array is sealed");
+
+                return A.ref(xs[i].apply(xs, args));
+              };
+
+              f.bind = _ => {throw new TypeError("bind is not supported")};
+              f.call = _ => {throw new TypeError("call is not supported")};
+              return f;
+            }
+
+            default: {
+              if (typeof xs[i] === "function")
+                throw new TypeError("unknown method");
+
+              // non-exposing properties
+
+              else return xs[i];
+            }
+          }
+        }
+      }
+    },
+
+    getOwnPropertyDescriptor: (xs, i) => {
+      seal = "all";
+      return Reflex.getOwnPropertyDescriptor(xs, i);
+    },
+
+    has: (xs, i) => {
+      if (i === REF) return true;
+      
+      switch (i[0]) {
+        case "0":
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9": {
+          seal = "keys";
+          return i in xs;
+        }
+
+        default: return i in xs;
+      }
+    },
+
+    ownKeys: xs => {
+      seal = "keys";
+      return Reflect.ownKeys(xs);
+    },
+
+    set: (xs, i, x, p) => {
+      if (seal === "all")
+        throw new TypeError("array is sealed");
+
+      else if (seal === "keys"
+        && !(i in xs))
+          throw new TypeError("array is sealed");
+
+      else xs[i] = x;
+      return x;
+    },
+  }
+};
+
+
+A.ref = xs => REF in xs ? xs : new Proxy(xs, arrRef("none"));
+
+
 /***[ Recursion Schemes ]*****************************************************/
 
 
@@ -2738,7 +2889,7 @@ A.ana = A.unfold;
 
 
 A.apo = f => init => {
-  let acc = [], x = init, next;
+  let acc = A.ref([]), x = init, next;
 
   do {
     next = false;
@@ -2767,11 +2918,13 @@ A.cata = A.foldr;
 
 
 A.para = f => init => xs => {
-  const tail = xs.concat();
-  let acc = init;
+  let acc = init, x;
 
-  for (let i = xs.length - 1; i >= 0; i--)
-    acc = f(xs[i]) (A.pop(xs) [1]) (acc);
+  while (true) {
+    x = xs.pop();
+    if (x === undefined) break;
+    else acc = f(x) (xs) (acc);
+  }
 
   return acc;
 };
@@ -2808,7 +2961,7 @@ A.Monoid = {
 
 
 A.unfold = f => init => {
-  let acc = [], x = init, next;
+  let acc = A.ref([]), x = init, next;
 
   do {
     next = false;
@@ -5643,10 +5796,13 @@ ListT.zero = ListT.zero();
 const _Map = {};
 
 
-// see description at `O.ref`
+/***[ Mutable Reference ]*****************************************************/
 
 
-_Map.ref = m => new Proxy(m, function (seal) {
+/* see `O.ref` for inline comment */
+
+
+const mapRef = seal => {
   return {
     get: (m, k, p) => {
       switch (k) {
@@ -5661,11 +5817,17 @@ _Map.ref = m => new Proxy(m, function (seal) {
         case [TAG]: return m[TAG];
 
         case BATCH: f =>{
-          m = f(m);
+          if (seal !== "none")
+            throw new TypeError("map is sealed");
+
+          else m = f(m);
           return p;
         }
 
-        case UNREF: return m;
+        case UNREF: {
+          seal = all;
+          return m;
+        }
 
         case "clear": {
           return () => {
@@ -5739,7 +5901,10 @@ _Map.ref = m => new Proxy(m, function (seal) {
       }
     }
   }
-});
+};
+
+
+_Map.ref = m => REF in m ? m : new Proxy(m, mapRef("none"));
 
 
 /******************************************************************************
@@ -5813,123 +5978,6 @@ Num.formatSep = sep => n => sep;
 
 
 export const O = {};
-
-
-/* An object reference represents a safe, mutable object, because it avoids
-sharing by keeping mutations local. An object reference can be mutated as long
-as no single value is exposed to the parent scope. A once exposed object
-reference cannot be mutated any further. Except for mutations they behave
-exactly like normal arrays and can be used in place. */
-
-
-O.ref = o => new Proxy(o, function (seal) {
-  return {
-    defineProperty: (o, k, dtor) => {
-      if (seal === "all")
-        throw new TypeError("object is sealed");
-
-      else if (seal === "keys"
-        && !(k in o))
-          throw new TypeError("object is sealed");
-
-      else Reflect.defineProperty(o, k, dtor);
-      return p;
-    },
-
-    deleteProperty: (o, k) => {
-      if (seal !== "none")
-        throw new TypeError("object is sealed");
-
-      else return delete o[k];
-    },
-
-    get: (o, k, p) => {
-      switch (k) {
-        case Symbol.asyncIterator:
-        case Symbol.hasInstance:
-        case Symbol.isConcatSpreadable:
-        case Symbol.iterator:
-        case Symbol.toPrimitive:
-        case Symbol.toStringTag:
-          return o[k];
-
-        case BATCH: f =>{
-          o = f(o);
-          return p;
-        }
-
-        case UNREF: return o;
-
-        case "isPrototypeOf": return o[k];
-
-        case "hasOwnProperty":
-        case "propertyIsEnumerable": {
-          return k2 => {
-            seal = "keys";
-            return o[k] (k2);
-          }
-        }
-
-        case "toLocaleString":
-        case "toString":
-        case "valueOf": {
-          return () => {
-            seal = "all";
-            return o[k] ();
-          }
-        }
-
-        default: {
-          if (typeof o[k] === "function") {
-            return (...args) => {
-              seal = "all";
-              return o[k] (...args);
-            };
-          }
-
-          else {
-            seal = "all";
-            return o[k];
-          }
-        }
-      }
-    },
-
-    getOwnPropertyDescriptor: (o, k) => {
-      seal = "all";
-      return Reflex.getOwnPropertyDescriptor(o, k);
-    },
-
-    has: (o, k) => {
-      seal = "keys";
-      return k in o;
-    },
-
-    ownKeys: o => {
-      seal = "keys";
-      return Reflect.ownKeys(o);
-    },
-
-    set: (o, k, x, p) => {
-      if (seal === "all")
-        throw new TypeError("object is sealed");
-
-      else if (seal === "keys"
-        && !(k in o))
-          throw new TypeError("object is sealed");
-
-      else o[k] = x;
-      return x;
-    },
-
-    setPrototypeOf: (o, proto) => {
-      if (seal !== "none")
-        throw new TypeError("object is sealed");
-
-      else return Reflect.setPrototypeOf(o, proto);
-    }
-  };
-} ("none"));
 
 
 /***[ Clonable ]**************************************************************/
@@ -6140,6 +6188,168 @@ Emitter.Applicative = {
   ...Emitter.Apply,
   of: Emitter.of
 };
+
+
+/***[ Mutable Reference ]*****************************************************/
+
+
+/* A mutable reference represents a safely mutable object, because it avoids
+sharing by containing mutations locally. A value wrapped in a mutable reference
+can be mutated as long as no single property is exposed to the parent scope. A
+once exposed mutable object cannot be mutated any further. Please note that you
+can use objects wrapped in mutable references in place of their unwrapped
+counterparts, because they behave the same. */
+
+
+const objRef = seal => {
+  return {
+    defineProperty: (o, k, dtor) => {
+      if (seal === "all")
+        throw new TypeError("object is sealed");
+
+      else if (seal === "keys"
+        && !(k in o))
+          throw new TypeError("object is sealed");
+
+      else Reflect.defineProperty(o, k, dtor);
+      return p;
+    },
+
+    deleteProperty: (o, k) => {
+      if (seal !== "none")
+        throw new TypeError("object is sealed");
+
+      else return delete o[k];
+    },
+
+    get: (o, k, p) => {
+      switch (k) {
+
+        // execute an impure algorithm within the reference
+
+        case BATCH: f =>{
+          if (seal !== "none")
+            throw new TypeError("OBJECT is sealed");
+
+          else o = f(o);
+          return p;
+        }
+
+        // unwrap the array
+
+        case UNREF: {
+          seal = all;
+          return o;
+        }
+
+        // pure non-exposing functions:
+
+        case "isPrototypeOf": return o[k];
+
+        // pure key-exposing functions
+
+        case "hasOwnProperty":
+        case "propertyIsEnumerable": {
+          const f = (...args) => {
+            seal = "keys";
+            return o[k] (...args);
+          }
+
+          f.apply = (_, args) => {
+            seal = "keys";
+            return o[k].apply(xs, args);
+          }
+
+          f.bind = _ => {throw new TypeError("bind is not supported")};
+          f.call = _ => {throw new TypeError("call is not supported")};
+          return f;
+        }
+
+        // pure object-property-exposing functions
+
+        case "toLocaleString":
+        case "toString":
+        case "valueOf": {
+          const f = (...args) => {
+            seal = "all";
+            return o[k] (...args);
+          }
+
+          f.apply = (_, args) => {
+            seal = "all";
+            return o[k].apply(xs, args);
+          }
+
+          f.bind = _ => {throw new TypeError("bind is not supported")};
+          f.call = _ => {throw new TypeError("call is not supported")};
+          return f;
+        }
+
+        // impure object-exposing functions: N/A
+
+        default: {
+          if (typeof o[k] === "function")
+            throw new TypeError("unknown method");
+
+          // non-exposing properties
+
+          else return o[k];
+        }
+      }
+    },
+
+    getOwnPropertyDescriptor: (o, k) => {
+      seal = "all";
+      return Reflex.getOwnPropertyDescriptor(o, k);
+    },
+
+    has: (o, k) => {
+      switch (k) {
+        case "constructor":
+        case "hasOwnProperty":
+        case "isPrototypeOf":
+        case "propertyIsEnumerable":
+        case "toLocaleString":
+        case "toString":
+        case "valueOf": {
+          return k in o;
+        }
+        
+        default: {
+          seal = "keys";
+          return k in o;
+        }
+      }
+    },
+
+    ownKeys: o => {
+      seal = "keys";
+      return Reflect.ownKeys(o);
+    },
+
+    set: (o, k, x, p) => {
+      if (seal === "all")
+        throw new TypeError("object is sealed");
+
+      else if (seal === "keys"
+        && !(k in o))
+          throw new TypeError("object is sealed");
+
+      else o[k] = x;
+      return x;
+    },
+
+    setPrototypeOf: (o, proto) => {
+      if (seal !== "none")
+        throw new TypeError("object is sealed");
+
+      else return Reflect.setPrototypeOf(o, proto);
+    }
+  };
+};
+
+
+O.ref = o => REF in o ? o : new Proxy(o, objRef("none"));
 
 
 /***[ Natural Transformations ]***********************************************/
@@ -7559,9 +7769,13 @@ Serial.allArr = Serial.allArr();
 const _Set = {};
 
 
-// see description at `O.ref`
+/***[ Mutable Reference ]*****************************************************/
 
-_Set.ref = s => new Proxy(s, function (seal) {
+
+/* see `O.ref` for inline comment */
+
+
+const setRef = seal => {
   return {
     get: (s, k, p) => {
       switch (k) {
@@ -7574,11 +7788,17 @@ _Set.ref = s => new Proxy(s, function (seal) {
         }
 
         case BATCH: f =>{
-          s = f(m);
+          if (seal !== "none")
+            throw new TypeError("set is sealed");
+
+          else s = f(m);
           return p;
         }
 
-        case UNREF: return s;
+        case UNREF: {
+          seal = all;
+          return s;
+        }
 
         case "clear": {
           return () => {
@@ -7627,7 +7847,10 @@ _Set.ref = s => new Proxy(s, function (seal) {
       }
     }
   }
-});
+};
+
+
+_Set.ref = s => REF in s ? s : new Proxy(s, setRef("none"));
 
 
 /******************************************************************************
@@ -8314,6 +8537,12 @@ Pair.Foldable = {
 Pair.map = f => tx => Pair(tx[0], f(tx[1]));
 
 
+Pair.mapFst = f => tx => Pair(f(tx[0]), tx[1]);
+
+
+Pair.mapSnd = Pair.map;
+
+
 Pair.Functor = {map: Pair.map};
 
 
@@ -8409,12 +8638,6 @@ Pair.tell = x => Pair(null, x);
 
 
 /***[ Misc. ]*****************************************************************/
-
-
-Pair.mapFst = f => tx => Pair(f(tx[0]), tx[1]);
-
-
-Pair.mapSnd = Pair.map;
 
 
 Pair.swap = tx => Pair(tx[1], tx[0]);
@@ -8636,6 +8859,15 @@ Triple.thd = tx => tx[2];
 Triple.map = f => tx => Triple(tx[0], tx[1], f(tx[2]));
 
 
+Triple.mapFst = f => tx => Pair(f(tx[0]), tx[1], tx[2]);
+
+
+Triple.mapSnd = f => tx => Pair(tx[0], f(tx[1]), tx[2]);
+
+
+Triple.mapThd = Triple.map
+
+
 Triple.Functor = {map: Triple.map};
 
 
@@ -8646,15 +8878,6 @@ Pair.trimap = f => g => h => tx => Pair(f(tx[0]), g(tx[1]), h(tx[2]));
 
 
 /***[ Misc. ]*****************************************************************/
-
-
-Triple.mapFst = f => tx => Pair(f(tx[0]), tx[1], tx[2]);
-
-
-Triple.mapSnd = f => tx => Pair(tx[0], f(tx[1]), tx[2]);
-
-
-Triple.mapThd = Triple.map
 
 
 Triple.rotatel = tx => Pair(tx[1], tx[2], tx[0]);
