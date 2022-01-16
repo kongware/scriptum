@@ -2715,11 +2715,11 @@ const arrRef = seal => {
             // key-exposing properties
 
             case "length": {
-              seal = "keys";
+              if (seal === "none") seal = "keys";
               return xs.length;
             }
 
-            // pure, array-element-exposing functions
+            // pure array-element-exposing functions
 
             case "every":
             case "find":
@@ -2746,7 +2746,7 @@ const arrRef = seal => {
               return f;
             }
 
-            // pure, array-exposing functions
+            // pure array-exposing functions
 
             case "concat":
             case "filter":
@@ -2757,11 +2757,15 @@ const arrRef = seal => {
             case "reduceRight":
             case "slice":
             case "valueOf": {
-              const f = (...args) =>
-                A.ref(xs[i] (...args));
+              const f = (...args) => {
+                seal = "all";
+                return A.ref(xs[i] (...args));
+              }
 
-              f.apply = (_, args) =>
-                A.ref(xs[i].apply(xs, args));
+              f.apply = (_, args) => {
+                seal = "all";
+                return A.ref(xs[i].apply(xs, args));
+              }
 
               f.bind = _ => {throw new TypeError("bind is not supported")};
               f.call = _ => {throw new TypeError("call is not supported")};
@@ -2804,14 +2808,20 @@ const arrRef = seal => {
                 if (seal !== "none")
                   throw new TypeError("array is sealed");
 
-                else return A.ref(xs[i] (...args));
+                else {
+                  const ys = xs[i] (...args);
+                  return i === "splice" ? A.ref(ys) : p;
+                }
               };
 
               f.apply = (_, args) => {
                 if (seal !== "none")
                   throw new TypeError("array is sealed");
 
-                return A.ref(xs[i].apply(xs, args));
+                else {
+                  xs[i].apply(xs, args);
+                  return p;
+                }
               };
 
               f.bind = _ => {throw new TypeError("bind is not supported")};
@@ -2851,7 +2861,7 @@ const arrRef = seal => {
         case "7":
         case "8":
         case "9": {
-          seal = "keys";
+          if (seal === "none") seal = "keys";
           return i in xs;
         }
 
@@ -2860,7 +2870,7 @@ const arrRef = seal => {
     },
 
     ownKeys: xs => {
-      seal = "keys";
+      if (seal === "none") seal = "keys";
       return Reflect.ownKeys(xs);
     },
 
@@ -5858,14 +5868,14 @@ const mapRef = seal => {
         
         case "has": {
           return k2 => {
-            seal = "keys";
+            if (seal === "none") seal = "keys";
             return m.has(k2);
           };
         }
 
         case "keys": {
           return () => {
-            seal = "keys";
+            if (seal === "none") seal = "keys";
             return m.keys();
           };
         }
@@ -5885,7 +5895,7 @@ const mapRef = seal => {
         }
 
         case "size": {
-          seal = "keys";
+          if (seal === "none") seal = "keys";
           return m.size;
         }
 
@@ -6251,12 +6261,12 @@ const objRef = seal => {
         case "hasOwnProperty":
         case "propertyIsEnumerable": {
           const f = (...args) => {
-            seal = "keys";
+            if (seal === "none") seal = "keys";
             return o[k] (...args);
           }
 
           f.apply = (_, args) => {
-            seal = "keys";
+            if (seal === "none") seal = "keys";
             return o[k].apply(xs, args);
           }
 
@@ -6284,8 +6294,6 @@ const objRef = seal => {
           f.call = _ => {throw new TypeError("call is not supported")};
           return f;
         }
-
-        // impure object-exposing functions: N/A
 
         default: {
           if (typeof o[k] === "function")
@@ -6316,14 +6324,14 @@ const objRef = seal => {
         }
         
         default: {
-          seal = "keys";
+          if (seal === "none") seal = "keys";
           return k in o;
         }
       }
     },
 
     ownKeys: o => {
-      seal = "keys";
+      if (seal === "none") seal = "keys";
       return Reflect.ownKeys(o);
     },
 
