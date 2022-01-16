@@ -2339,9 +2339,7 @@ export const A = {};
 // * transpose
 // * subsequences
 // * permutations
-// * group
 // * find
-// * partition
 // * findIndex
 // * dedupe/union/intersect
 // * deleteBy
@@ -2390,7 +2388,7 @@ A.init = xs =>
 
 A.inits = xs => A.para(x => tail => acc => // TODO: increase efficiency
   (acc.push(A.clone(tail)), acc))
-    (A.ref([]))
+    ([])
       (xs);
 
 
@@ -2501,12 +2499,12 @@ A.mapA = ({map, ap, of}) => ft => xs => {
 
   return A.foldl(ys => y =>
     liftA2_(A.push) (ft(y)) (ys))
-      (of(A.ref([]))) (xs);
+      (of([])) (xs);
 };
 
 
 A.seqA = ({map, ap, of}) => xs =>
-  A.foldl(liftA2({map, ap}) (A.push_)) (of(A.ref([]))) (xs);
+  A.foldl(liftA2({map, ap}) (A.push_)) (of([])) (xs);
 
 
 A.Traversable = () => ({
@@ -2556,7 +2554,7 @@ A.Plus = {
 A.ap = fs => xs =>
   fs.reduce((acc, f) =>
     xs.reduce((acc2, x) =>
-      (acc2.push(f(x)), acc2), acc), A.ref([]));
+      (acc2.push(f(x)), acc2), acc), []);
 
 
 A.Apply = {
@@ -2582,7 +2580,7 @@ A.Applicative = {
 
 A.chain = xs => fm =>
   xs.reduce((acc, x) =>
-    (acc.push.apply(acc, fm(x)), acc), A.ref([]));
+    (acc.push.apply(acc, fm(x)), acc), []);
 
 
 A.Chain = {
@@ -2623,7 +2621,7 @@ A.generator = f => function go(x) {
 
 
 A.generate = n => gx => {
-  const acc = A.ref([]);
+  const acc = [];
 
   do {
     if (gx.length === 0)
@@ -2899,7 +2897,7 @@ A.ana = A.unfold;
 
 
 A.apo = f => init => {
-  let acc = A.ref([]), x = init, next;
+  let acc = [], x = init, next;
 
   do {
     next = false;
@@ -2967,11 +2965,60 @@ A.Monoid = {
 };
 
 
+/***[ Subarray ]**************************************************************/
+
+
+A.collateBy = f => g => xs => {
+  return xs.reduce((m, x) => {
+    const r = f(x);
+    return m.set(r, g(x) (m.get(r)));
+  }, new Map());
+};
+
+
+A.groupBy = p => xs => function go(acc, acc2, i) { // TODO: trampoline
+  const go2 = (acc3, acc4, j) => {
+    if (j >= xs.length) {
+      acc3.push(acc4);
+      return acc3;
+    }
+
+    else {
+      if (p(xs[i]) (xs[j])) {
+        acc4.push(xs[j]);
+        return go(acc3, acc4, i + 1);
+      }
+
+      else {
+        acc3.push(acc4);
+        return go(acc3, [xs[j]], i + 1);
+      }
+
+    }
+  };
+
+  if (i === xs.length)
+    return acc;
+
+  else
+    return go2(acc, acc2, i + 1);
+} ([], xs.length === 0 ? [] : [xs[0]], 0);
+
+
+A.span = p => xs =>
+  xs.reduce((acc, x) => {
+    if (acc[1].length > 0) acc[1].push(x);
+    else if (p(x)) acc[0].push(x);
+    else acc[1].push(x);
+    return acc;
+  }, Pair([], []));
+
+
 /***[ Unfoldable ]************************************************************/
 
 
 A.unfold = f => init => {
-  let acc = A.ref([]), x = init, next;
+  let acc = [], x = init, next;
 
   do {
     next = false;
@@ -6206,9 +6253,12 @@ Emitter.Applicative = {
 /* A mutable reference represents a safely mutable object, because it avoids
 sharing by containing mutations locally. A value wrapped in a mutable reference
 can be mutated as long as no single property is exposed to the parent scope. A
-once exposed mutable object cannot be mutated any further. Please note that you
-can use objects wrapped in mutable references in place of their unwrapped
-counterparts, because they behave the same. */
+once exposed mutable object cannot be mutated any further. Mutual references
+and their unwrapped counterparts behave the same in most scenarios. There are
+a few differences though:
+
+* refs don't support `bind`/`call`, only `apply`
+* `=` compares the proxy objects, not the wrapped values */
 
 
 const objRef = seal => {
@@ -6346,13 +6396,6 @@ const objRef = seal => {
       else o[k] = x;
       return x;
     },
-
-    setPrototypeOf: (o, proto) => {
-      if (seal !== "none")
-        throw new TypeError("object is sealed");
-
-      else return Reflect.setPrototypeOf(o, proto);
-    }
   };
 };
 
