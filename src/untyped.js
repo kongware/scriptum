@@ -2329,6 +2329,8 @@ export const A = {};
 
 
 // TODO
+// * subsequence (accumulate subsequent element of list that )
+// * permute (determine element permutations of list)
 // * scanl/scanr
 // * mapAccuml/mapAccumR
 // * zip/zipWith
@@ -3326,6 +3328,11 @@ Cont.Applicative = {
 
 
 Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+
+
+// stack safe version using a trampoline
+
+Cont.chainL = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k)));
 
 
 Cont.Chain = {
@@ -6925,7 +6932,15 @@ OptionT.Traversable = OptionT.Traversable();
 ******************************************************************************/
 
 
-export const Parallel = k => {
+export const Parallel = k => ({
+  [TAG]: "Parallel",
+  run: k
+});
+
+
+// stack safe version for some edge cases
+
+export const Parallel_ = k => {
   const o = {
     [TAG]: "Parallel",
     run: k
@@ -7650,7 +7665,15 @@ Rex.escape = s =>
 ******************************************************************************/
 
 
-export const Serial = k => {
+export const Serial = k => ({
+  [TAG]: "Serial",
+  run: k
+});
+
+
+// stack safe version for some edge cases
+
+export const Serial_ = k => {
   const o = {
     [TAG]: "Serial",
     run: k
