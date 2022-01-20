@@ -23,12 +23,6 @@ It has no dependencies and can be used both client- and server-side. */
 ******************************************************************************/
 
 
-const PREFIX = "$_"; // avoid property name collisions
-
-
-const BATCH = PREFIX + "batch";
-
-
 const FIGURES = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 
@@ -36,6 +30,9 @@ const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
 const NOOP = null; // no operation
+
+
+const PREFIX = "$_"; // avoid property name collisions
 
 
 const REF = PREFIX + "ref";
@@ -408,6 +405,12 @@ LoopM.done = x =>
 
 
 /***[ Tail Recursion ]********************************************************/
+
+
+/* While the `next`/`done` tags are the usual components of a trampoline
+mimicking tail recursion, the `call` tag is needed to break deeply nested
+function calls which otherwise would exhauste the call stack. You can look at
+the `A.chainL` combinator to get an idea of its use. */
 
 
 export const Loop = f => x => {
@@ -2652,204 +2655,103 @@ A.forEach = f => xs =>
 /* see `O.ref` for inline comment */
 
 
-const arrRef = seal => {
+const arrRef = (sealedProps, sealedObj) => {
   return {
     defineProperty: (xs, i, dtor) => {
-      if (seal === "all")
-        throw new TypeError("array is sealed");
-
-      else if (seal === "keys"
-        && !(i in xs))
-          throw new TypeError("array is sealed");
-
-      else Reflect.defineProperty(xs, i, dtor);
-      return p;
+      if (sealedObj) throw new TypeError("array is sealed");
+      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
+      else return Reflect.defineProperty(xs, i, dtor);
     },
 
     deleteProperty: (xs, i) => {
-      if (seal !== "none")
-        throw new TypeError("array is sealed");
-
+      if (sealedObj) throw new TypeError("array is sealed");
+      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
       else return delete xs[i];
     },
 
     get: (xs, i, p) => {
+      switch (i) {
 
-      // array related properties
+        // introspection
 
-      switch (i[0]) {
-        case "0":
-        case "1":
-        case "2":
-        case "3":
-        case "4":
-        case "5":
-        case "6":
-        case "7":
-        case "8":
-        case "9": {
-          seal = "all";
-          return xs[i];
+        case REF: return true;
+
+        // unwrap the array
+
+        case UNREF: return (sealedObj = true, xs);
+
+        case "copyWithin":
+        case "fill":
+        case "reverse":
+        case "sort":
+        case "splice": {
+          return (...args) => {
+            if (sealedObj) throw new TypeError("array is sealed");
+            else if (sealedProps.size > 0) throw new TypeError("array contains sealed properties");
+            const ys = xs[i] (...args);
+            return i === "splice" ? ys : p;
+          };
+        }
+
+        case "pop":
+        case "push": {
+          return (...args) => {
+            if (sealedObj) throw new TypeError("array is sealed");
+            
+            else if (sealedProps.has(String(xs.length - 1)))
+              throw new TypeError(`property "${xs.length - 1}" is sealed`);
+            
+            return xs[i] (...args);
+          }
+        }
+
+        case "shift":
+        case "unshift": {
+          return (...args) => {
+            if (sealedObj) throw new TypeError("array is sealed");
+            else if (sealedProps.has("0")) throw new TypeError(`property "0" is sealed`);
+            return xs[i] (...args);
+          }
         }
 
         default: {
-          switch (i) {
-
-            // execute an impure algorithm within the reference
-
-            case BATCH: f =>{
-              if (seal !== "none")
-                throw new TypeError("array is sealed");
-
-              else xs = f(xs);
-              return p;
-            }
-
-            // unwrap the array
-
-            case UNREF: {
-              seal = all;
-              return xs;
-            }
-
-            // key-exposing properties
-
-            case "length": {
-              if (seal === "none") seal = "keys";
-              return xs.length;
-            }
-
-            // pure array-element-exposing functions
-
-            case "every":
-            case "find":
-            case "findIndex":
-            case "includes":
-            case "indexOf":
-            case "join":
-            case "lastIndexOf":
-            case "some":
-            case "toLocaleString":
-            case "toString": {
-              const f = (...args) => {
-                seal = "all";
-                return xs[i] (...args);
-              }
-
-              f.apply = (_, args) => {
-                seal = "all";
-                return xs[i].apply(xs, args);
-              }
-
-              f.bind = _ => {throw new TypeError("bind is not supported")};
-              f.call = _ => {throw new TypeError("call is not supported")};
-              return f;
-            }
-
-            // pure array-exposing functions
-
-            case "concat":
-            case "filter":
-            case "flat":
-            case "flatMap":
-            case "map":
-            case "reduce":
-            case "reduceRight":
-            case "slice":
-            case "valueOf": {
-              const f = (...args) => {
-                seal = "all";
-                return A.ref(xs[i] (...args));
-              }
-
-              f.apply = (_, args) => {
-                seal = "all";
-                return A.ref(xs[i].apply(xs, args));
-              }
-
-              f.bind = _ => {throw new TypeError("bind is not supported")};
-              f.call = _ => {throw new TypeError("call is not supported")};
-              return f;
-            }
-
-            // impure array-element-exposing functions
-
-            case "pop":
-            case "push":
-            case "shift":
-            case "unshift": {
-              const f = (...args) => {
-                if (seal !== "none")
-                  throw new TypeError("array is sealed");
-
-                return xs[i] (...args);
-              };
-
-              f.apply = (_, args) => {
-                if (seal !== "none")
-                  throw new TypeError("array is sealed");
-                
-                return xs[i].apply(xs, args);
-              };
-
-              f.bind = _ => {throw new TypeError("bind is not supported")};
-              f.call = _ => {throw new TypeError("call is not supported")};
-              return f;
-            }
-
-            // impure array-exposing functions
-
-            case "copyWithin":
-            case "fill":
-            case "reverse":
-            case "sort":
-            case "splice": {
-              const f = (...args) => {
-                if (seal !== "none")
-                  throw new TypeError("array is sealed");
-
-                else {
-                  const ys = xs[i] (...args);
-                  return i === "splice" ? A.ref(ys) : p;
-                }
-              };
-
-              f.apply = (_, args) => {
-                if (seal !== "none")
-                  throw new TypeError("array is sealed");
-
-                else {
-                  xs[i].apply(xs, args);
-                  return p;
-                }
-              };
-
-              f.bind = _ => {throw new TypeError("bind is not supported")};
-              f.call = _ => {throw new TypeError("call is not supported")};
-              return f;
-            }
-
-            default: {
-              if (typeof xs[i] === "function")
-                throw new TypeError("unknown method");
-
-              // non-exposing properties
-
-              else return xs[i];
+          switch (i[0]) {
+            case "0":
+            case "1":
+            case "2":
+            case "3":
+            case "4":
+            case "5":
+            case "6":
+            case "7":
+            case "8":
+            case "9": {
+              sealedProps.add(i);
+              return xs[i];
             }
           }
+
+          if (i === "length") {
+            sealedProps.add(i);
+            return xs[i];
+          }
+
+          else return xs[i];
         }
       }
     },
 
     getOwnPropertyDescriptor: (xs, i) => {
-      seal = "all";
-      return Reflex.getOwnPropertyDescriptor(xs, i);
+      if (sealedObj) throw new TypeError("array is sealed");
+      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
+
+      else {
+        if (String(Number(i)) === i) sealedProps.add(i);
+        return Reflex.getOwnPropertyDescriptor(xs, i);
+      }
     },
 
     has: (xs, i) => {
-      if (i === REF) return true;
-      
       switch (i[0]) {
         case "0":
         case "1":
@@ -2861,35 +2763,32 @@ const arrRef = seal => {
         case "7":
         case "8":
         case "9": {
-          if (seal === "none") seal = "keys";
+          sealedProps.add(i);
           return i in xs;
         }
 
-        default: return i in xs;
+        default: {
+          if (i === REF) return true;
+          return i in xs;
+        }
       }
     },
 
     ownKeys: xs => {
-      if (seal === "none") seal = "keys";
+      sealedObj = true;
       return Reflect.ownKeys(xs);
     },
 
     set: (xs, i, x, p) => {
-      if (seal === "all")
-        throw new TypeError("array is sealed");
-
-      else if (seal === "keys"
-        && !(i in xs))
-          throw new TypeError("array is sealed");
-
-      else xs[i] = x;
-      return x;
-    },
+      if (sealedObj) throw new TypeError("array is sealed");
+      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
+      else return xs[i] = x;
+    }
   }
 };
 
 
-A.ref = xs => REF in xs ? xs : new Proxy(xs, arrRef("none"));
+A.ref = xs => REF in xs ? xs : new Proxy(xs, arrRef(new Set(), false));
 
 
 /***[ Recursion Schemes ]*****************************************************/
@@ -5866,99 +5765,88 @@ const _Map = {};
 /* see `O.ref` for inline comment */
 
 
-const mapRef = seal => {
+const mapRef = (sealedProps, sealedObj) => {
   return {
     get: (m, k, p) => {
       switch (k) {
-        case Symbol.iterator:
-        case Symbol.toPrimitive: {
+
+        // introspection
+
+        case REF: return true;
+
+        // unwrap the map
+
+        case UNREF: return (sealedObj = true, m);
+
+        case Symbol.iterator: {
           return () => {
-            seal = "all";
+            sealedObj = true;
             return m[k] ();
           };
         }
 
-        case [TAG]: return m[TAG];
-
-        case BATCH: f =>{
-          if (seal !== "none")
-            throw new TypeError("map is sealed");
-
-          else m = f(m);
-          return p;
-        }
-
-        case UNREF: {
-          seal = all;
-          return m;
-        }
-
         case "clear": {
           return () => {
-            if (seal !== "none")
-              throw new TypeError("map is sealed");
+            if (sealedObj) throw new TypeError("map is sealed");
+            else if (sealedProps.size > 0) throw new TypeError("map contains sealed properties");
 
-            else m.clear();
-            return p;
+            else {
+              m.clear();
+              return p;
+            }
           };
         }
 
         case "delete": {
           return k2 => {
-            if (seal !== "none")
-              throw new TypeError("map is sealed");
+            if (sealedObj) throw new TypeError("map is sealed");
+            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
 
-            else m.delete(k2);
-            return p;
+            else {
+              m.delete(k2);
+              return p;
+            }
           };
         }
 
         case "get": {
           return k2 => {
-            seal = "all";
+            sealedProps.add(k2);
             return m.get(k2);
           };
         }
         
         case "has": {
           return k2 => {
-            if (seal === "none") seal = "keys";
+            sealedProps.add(k2);
             return m.has(k2);
           };
         }
 
-        case "keys": {
+        case "keys":
+        case "entries":
+        case "values": {
           return () => {
-            if (seal === "none") seal = "keys";
-            return m.keys();
+            sealedObj = true;
+            return m[k] ();
           };
         }
 
         case "set": {
           return (k2, v) => {
-            if (seal === "all")
-              throw new TypeError("map is sealed");
+            if (sealedObj) throw new TypeError("map is sealed");
+            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
 
-            else if (seal === "keys"
-              && !m.has(k2))
-                throw new TypeError("map is sealed");
-
-            else m.set(k2, v);
-            return p;
+            else {
+              m.set(k2, v);
+              return p;
+            }
           };
         }
 
         case "size": {
-          if (seal === "none") seal = "keys";
+          sealedProps.add(k);
           return m.size;
-        }
-
-        case "entries":
-        case "values": {
-          return () => {
-            seal = "all";
-            return m.values();
-          };
         }
 
         default: return m[k];
@@ -5968,7 +5856,7 @@ const mapRef = seal => {
 };
 
 
-_Map.ref = m => REF in m ? m : new Proxy(m, mapRef("none"));
+_Map.ref = m => REF in m ? m : new Proxy(m, mapRef(new Set(), false));
 
 
 /******************************************************************************
@@ -6257,115 +6145,72 @@ Emitter.Applicative = {
 /***[ Mutable Reference ]*****************************************************/
 
 
-/* A mutable reference represents a safely mutable object, because it avoids
-sharing by containing mutations locally. A value wrapped in a mutable reference
-can be mutated as long as no single property is exposed to the parent scope. A
-once exposed mutable object cannot be mutated any further. Mutual references
-and their unwrapped counterparts behave the same in most scenarios. There are
-a few differences though:
+/* A mutable reference represents a safely mutable object by avoiding sharing.
+This is achieved by keeping the reference type local, i.e. not exposing it to
+the parent scope. A property of a compound value wrapped in a mutable reference
+can be mutated as long as it's value hasn't been exposed by a read access or
+its key by an introspection. An in such ways exposed property cannot be mutated
+any further. Mutual references and their unwrapped counterparts are
+distinguished in the following traits:
 
-* refs don't support `bind`/`call`, only `apply`
+* refs don't support `bind`/`call`/`apply`
+* refs shouldn't be used if a computation relies on prototypal inheritance
 * `=` compares the proxy objects, not the wrapped values */
 
 
-const objRef = seal => {
+const objRef = (sealedProps, sealedObj) => {
   return {
     defineProperty: (o, k, dtor) => {
-      if (seal === "all")
-        throw new TypeError("object is sealed");
-
-      else if (seal === "keys"
-        && !(k in o))
-          throw new TypeError("object is sealed");
-
-      else Reflect.defineProperty(o, k, dtor);
-      return p;
+      if (sealedObj) throw new TypeError("object is sealed");
+      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
+      else return Reflect.defineProperty(o, k, dtor);
     },
 
     deleteProperty: (o, k) => {
-      if (seal !== "none")
-        throw new TypeError("object is sealed");
-
+      if (sealedObj) throw new TypeError("object is sealed");
+      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
       else return delete o[k];
     },
 
     get: (o, k, p) => {
       switch (k) {
 
-        // execute an impure algorithm within the reference
+        // introspection
 
-        case BATCH: f =>{
-          if (seal !== "none")
-            throw new TypeError("OBJECT is sealed");
+        case REF: return true;
 
-          else o = f(o);
-          return p;
-        }
+        case UNREF: return (sealedObj = true, o);
 
-        // unwrap the array
-
-        case UNREF: {
-          seal = all;
-          return o;
-        }
-
-        // pure non-exposing functions:
-
-        case "isPrototypeOf": return o[k];
-
-        // pure key-exposing functions
-
+        case "constructor":
         case "hasOwnProperty":
-        case "propertyIsEnumerable": {
-          const f = (...args) => {
-            if (seal === "none") seal = "keys";
-            return o[k] (...args);
-          }
-
-          f.apply = (_, args) => {
-            if (seal === "none") seal = "keys";
-            return o[k].apply(xs, args);
-          }
-
-          f.bind = _ => {throw new TypeError("bind is not supported")};
-          f.call = _ => {throw new TypeError("call is not supported")};
-          return f;
-        }
-
-        // pure object-property-exposing functions
-
+        case "isPrototypeOf":
+        case "propertyIsEnumerable":
         case "toLocaleString":
         case "toString":
         case "valueOf": {
-          const f = (...args) => {
-            seal = "all";
-            return o[k] (...args);
-          }
-
-          f.apply = (_, args) => {
-            seal = "all";
-            return o[k].apply(xs, args);
-          }
-
-          f.bind = _ => {throw new TypeError("bind is not supported")};
-          f.call = _ => {throw new TypeError("call is not supported")};
-          return f;
+          return o[k];
         }
 
         default: {
-          if (typeof o[k] === "function")
-            throw new TypeError("unknown method");
-
-          // non-exposing properties
-
-          else return o[k];
+          if (typeof o[k] === "function") {
+            return (...args) => {
+              sealedObj = true;
+              return o[k] (...args);
+            }
+          }
+            
+          else {
+            sealedProps.add(k);
+            return o[k];
+          }
         }
       }
     },
 
     getOwnPropertyDescriptor: (o, k) => {
-      seal = "all";
-      return Reflex.getOwnPropertyDescriptor(o, k);
+      if (sealedObj) throw new TypeError("object is sealed");
+      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
+      else return Reflex.getOwnPropertyDescriptor(o, k);
     },
 
     has: (o, k) => {
@@ -6381,33 +6226,27 @@ const objRef = seal => {
         }
         
         default: {
-          if (seal === "none") seal = "keys";
+          sealedProps.add(k);
           return k in o;
         }
       }
     },
 
     ownKeys: o => {
-      if (seal === "none") seal = "keys";
+      sealedObj = true;
       return Reflect.ownKeys(o);
     },
 
     set: (o, k, x, p) => {
-      if (seal === "all")
-        throw new TypeError("object is sealed");
-
-      else if (seal === "keys"
-        && !(k in o))
-          throw new TypeError("object is sealed");
-
-      else o[k] = x;
-      return x;
+      if (sealedObj) throw new TypeError("object is sealed");
+      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
+      else return o[k] = x;
     },
   };
 };
 
 
-O.ref = o => REF in o ? o : new Proxy(o, objRef("none"));
+O.ref = o => REF in o ? o : new Proxy(o, objRef(new Set(), false));
 
 
 /***[ Natural Transformations ]***********************************************/
@@ -7849,72 +7688,81 @@ const _Set = {};
 /* see `O.ref` for inline comment */
 
 
-const setRef = seal => {
+const setRef = (sealedProps, sealedObj) => {
   return {
     get: (s, k, p) => {
       switch (k) {
-        case Symbol.iterator:
-        case Symbol.toPrimitive: {
+
+        // introspection
+
+        case REF: return true;
+
+        // unwrap the set
+
+        case UNREF: return (sealedObj = true, s);
+
+        case Symbol.iterator: {
           return () => {
-            seal = "all";
-            return m[k] ();
+            sealedObj = true;
+            return s[k] ();
           };
         }
 
-        case BATCH: f =>{
-          if (seal !== "none")
-            throw new TypeError("set is sealed");
+        case "add": {
+          return k2 => {
+            if (sealedObj) throw new TypeError("set is sealed");
+            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
 
-          else s = f(m);
-          return p;
-        }
-
-        case UNREF: {
-          seal = all;
-          return s;
+            else {
+              s.add(k2);
+              return p;
+            }
+          };
         }
 
         case "clear": {
           return () => {
-            if (seal !== "none")
-              throw new TypeError("set is sealed");
+            if (sealedObj) throw new TypeError("set is sealed");
+            else if (sealedProps.size > 0) throw new TypeError("set contains sealed properties");
 
-            else s.clear();
-            return p;
+            else {
+              s.clear();
+              return p;
+            }
           };
         }
 
-        case "add": 
         case "delete": {
           return k2 => {
-            if (seal !== "none")
-              throw new TypeError("set is sealed");
+            if (sealedObj) throw new TypeError("set is sealed");
+            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
 
-            else s[k] (k2);
-            return p;
+            else {
+              s.delete(k2);
+              return p;
+            }
           };
         }
 
-        case "get":
         case "has": {
           return k2 => {
-            seal = "all";
-            return s[k] (k2);
+            sealedProps.add(k2);
+            return s.has(k2);
+          };
+        }
+
+        case "keys":
+        case "entries":
+        case "values": {
+          return () => {
+            sealedObj = true;
+            return s[k] ();
           };
         }
 
         case "size": {
-          seal = "all";
+          sealedProps.add(k);
           return s.size;
-        }
-
-        case "entries":
-        case "keys": 
-        case "values": {
-          return () => {
-            seal = "all";
-            return s[k] ();
-          };
         }
 
         default: return s[k];
@@ -7924,7 +7772,7 @@ const setRef = seal => {
 };
 
 
-_Set.ref = s => REF in s ? s : new Proxy(s, setRef("none"));
+_Set.ref = s => REF in s ? s : new Proxy(s, setRef(new Set(), false));
 
 
 /******************************************************************************
