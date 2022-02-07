@@ -23,9 +23,6 @@ It has no dependencies and can be used both client- and server-side. */
 ******************************************************************************/
 
 
-const FIGURES = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-
-
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
@@ -1638,21 +1635,6 @@ export const neg = x => -x;
 
 
 export const sub = x => y => x - y;
-
-
-/***[ Bitwise Operators ]*****************************************************/
-
-
-export const bitAnd = x => y => x & y;
-
-
-export const bitNot = x => ~x;
-
-
-export const bitOr = x => y => x | y;
-
-
-export const bitXor = x => y => x ^ y;
 
 
 /***[ Category ]**************************************************************/
@@ -5959,6 +5941,9 @@ O.deferredProp = k => thunk => o =>
     enumerable: true});
 
 
+O.getter = o => k => getter => Object.defineProperty(o, k, getter);
+
+
 O.lazyProp = k => thunk => o =>
   Object.defineProperty(o, k, {
     get: function() {delete o[k]; return o[k] = thunk()},
@@ -7058,6 +7043,18 @@ Pred.Monoid = {
   ...Pred.Semigroup,
   empty: Pred.empty
 };
+
+
+/******************************************************************************
+**********************************[ PRIVATE ]**********************************
+******************************************************************************/
+
+
+/* Just a private namespace for non-exportable values and methods of other
+exported namespaces. */
+
+
+const Private = {};
 
 
 /******************************************************************************
