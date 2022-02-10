@@ -1501,6 +1501,50 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
+/* Monadic chaining is nested, hence the `infix` operator cannot be applied but
+one must resort to arity aware combinators. */
+
+
+export const chain2 = ({chain}) => mx => my => fm =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      fm(x) (y)));
+
+
+export const chain3 = ({chain}) => mx => my => mz => fm =>
+  chain(mx) (x =>
+    chain(my) (y =>
+      chain(mz) (z =>
+        fm(x) (y) (z))));
+
+
+export const chain4 = ({chain}) => mw => mx => my => mz => fm =>
+  chain(mw) (w =>
+    chain(mx) (x =>
+      chain(my) (y =>
+        chain(mz) (z =>
+          fm(w) (x) (y) (z)))));
+
+
+export const chain5 = ({chain}) => mv => mw => mx => my => mz => fm =>
+  chain(mv) (v =>
+    chain(mw) (w =>
+      chain(mx) (x =>
+        chain(my) (y =>
+          chain(mz) (z =>
+            fm(v) (w) (x) (y) (z))))));
+
+
+export const chain6 = ({chain}) => mu => mv => mw => mx => my => mz => fm =>
+  chain(mu) (u =>
+    chain(mv) (v =>
+      chain(mw) (w =>
+        chain(mx) (x =>
+          chain(my) (y =>
+            chain(mz) (z =>
+              fm(u) (v) (w) (x) (y) (z)))))));
+
+
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
@@ -3583,21 +3627,21 @@ D.formatDay = mode => d => {
 };
 
 
-D.formatMonth = arrNames => mode => d => {
+D.formatMonth = ({names = [], mode}) => d => {
   switch (mode) {
     case 1: return String(d.getUTCMonth() + 1);
     case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
-    case 3: return arrNames[String(d.getUTCMonth())];
+    case 3: return names[String(d.getUTCMonth())];
     default: throw new RangeError("invalid formatting mode");
   }
 };
 
 
-D.formatWeekday = arrNames => mode => d => {
+D.formatWeekday = ({names = [], mode}) => d => {
   switch (mode) {
     case 1: return String(d.getUTCDay());
     case 2: return String(d.getUTCDay()).padStart(2, "0");
-    case 3: return arrNames[String(d.getUTCDay())];
+    case 3: return names[String(d.getUTCDay())];
     default: throw new RangeError("invalid formatting mode");
   }
 };
@@ -3609,6 +3653,16 @@ D.formatYear = mode => d => {
     case 4: return String(d.getUTCFullYear());
     default: throw new RangeError("invalid formatting mode");
   }
+};
+
+
+D.fromString = s => {
+  const d = new Date(s);
+
+  if (Number.isNaN(d.valueOf()))
+    throw new TypeError("invalid date string");
+
+  else return d;
 };
 
 
@@ -5849,6 +5903,15 @@ _Map.ref = m => REF in m ? m : new Proxy(m, mapRef(new Set(), false));
 export const Num = {};
 
 
+/***[ Natural Transformation ]************************************************/
+
+
+Num.fromString = s => {
+  if (s.search(/^(?:\+|\-)?\d+(?:\.\d+)?$/) === 0) return Number(s);
+  else throw new TypeError(`invalid number string: ${s}`);
+};
+
+
 /***[ Precision ]*************************************************************/
 
 
@@ -5954,16 +6017,16 @@ O.lazyProp = k => thunk => o =>
 /***[ Getters/Setters ]*******************************************************/
 
 
-O.getPath = ks => o => function go(o2, i) {
-  if (i >= ks.length) return Option.Some(o2);
-  else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
+O.getPath = ks => o => function go(p, i) {
+  if (i >= ks.length) return Option.Some(p);
+  else if (ks[i] in p) return go(p[ks[i]], i + 1);
   else return Option.None;
 } (o, 0);
 
 
-O.getPathOr = x => ks => o => function go(o2, i) {
-  if (i >= ks.length) return o2;
-  else if (ks[i] in o2) return go(o2[ks[i]], i + 1);
+O.getPathOr = x => ks => o => function go(p, i) {
+  if (i >= ks.length) return p;
+  else if (ks[i] in p) return go(p[ks[i]], i + 1);
   else return x;
 } (o, 0);
 
