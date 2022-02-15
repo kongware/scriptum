@@ -62,7 +62,7 @@ export const GT = 1;
 /***[ Functor ]***************************************************************/
 
 
-export const Functor = typeClass("Fucntor", `(^a, b. {
+export const Functor = typeClass("Functor", `(^a, b. {
   map: ((a => b) => f<a> => f<b>)
 }) => Functor<f>`);
 
