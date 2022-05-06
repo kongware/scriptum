@@ -1437,6 +1437,12 @@ export const FS_ = fs => cons => thisify(o => {
         e ? _throw(new TypeError(e)) : k(xs)));
 
 
+  o.stat = path =>
+    cons(k =>
+      fs.stat(path, (e, o) =>
+        e ? _throw(new TypeError(e)) : k(o)));
+
+
   o.write = opt => path => s =>
     cons(k =>
       fs.writeFile(path, s, opt, e =>
