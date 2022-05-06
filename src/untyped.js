@@ -2009,6 +2009,11 @@ F.Closed = {
 export const effect = f => x => (f(x), x);
 
 
+export const excludeBottom = x =>
+  x === undefined || x === null
+    _throw(new TypeError("unexpected bottom type"));
+
+
 export const _throw = e => {
   throw strict(e);
 };
