@@ -26,7 +26,7 @@ It has no dependencies and can be used both client- and server-side. */
 const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
 
 
-const NOOP = null; // no operation
+export const NOOP = null; // no operation
 
 
 const PREFIX = "$_"; // avoid property name collisions
@@ -55,13 +55,13 @@ on methods and `this`. Beyond that it provides some handy utilities. */
 
 
 export const App = t => ({
-  to: x => App(t(x)), // applies the boxed fun
-  flipped: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
-  uncurry: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
-  lazy: x => App_({get run() {return t(x)}}), // applies the boxed fun lazily
-  by: f => App(f(t)),  // applies the fun
-  flippedBy: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
-  lazyBy: f => App_({get run() {return f(t)}}), // applies the fun lazily
+  app: x => App(t(x)), // applies the boxed fun
+  appFlipped: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
+  appUncurried: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
+  appLazy: x => App_({get run() {return t(x)}}), // applies the boxed fun lazily
+  map: f => App(f(t)),  // applies the fun
+  mapFlipped: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
+  mapLazy: f => App_({get run() {return f(t)}}), // applies the fun lazily
   get: t // gets the boxed value
 });
 
@@ -72,13 +72,13 @@ lazy operation counterparts. */
 
 
 const App_ = o => ({
-  to: x => App_({get run() {return o.run(x)}}),
-  flipped: y => App_({get run() {return x => o.run(x) (y)}}),
-  uncurry: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
-  strict: x => App(o.run(x)), // forces evaluation of the boxed lazy computation
-  by: f => App_({get run() {return f(o.run)}}),
-  flippedBy: f => App_({get run() {return x => f(x) (t)}}),
-  strictBy: f => App(f(o.run)), // forces evaluation of the boxed lazy computation
+  app: x => App_({get run() {return o.run(x)}}),
+  appFlipped: y => App_({get run() {return x => o.run(x) (y)}}),
+  appUncurried: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
+  appStrict: x => App(o.run(x)), // forces evaluation of the boxed lazy computation
+  map: f => App_({get run() {return f(o.run)}}),
+  mapFlipped: f => App_({get run() {return x => f(x) (t)}}),
+  mapStrict: f => App(f(o.run)), // forces evaluation of the boxed lazy computation
   get get() {const r = o.run; delete this.get; return this.get = {run: r}}
 });
 
@@ -1411,6 +1411,8 @@ export const Process_ = cp => cons => ({
 ******************************************************************************/
 
 
+// TODO: allow variants with alternative error handling
+
 export const FS_ = fs => cons => thisify(o => {
   o.copy = src => dest =>
     cons(k =>
@@ -1443,16 +1445,17 @@ export const FS_ = fs => cons => thisify(o => {
         e ? _throw(new TypeError(e)) : k(o)));
 
 
+  o.unlink = path =>
+    cons(k =>
+      fs.unlink(path, e =>
+        e ? _throw(new TypeError(e)) : k(path)));
+
+
   o.write = opt => path => s =>
     cons(k =>
       fs.writeFile(path, s, opt, e =>
         e ? _throw(new TypeError(e)) : k(s)));
 
-
-  o.unlink = path =>
-    cons(k =>
-      fs.unlink(path, e =>
-        e ? _throw(new TypeError(e)) : k(path)));
 
   return o;
 });
@@ -2419,6 +2422,10 @@ A.head = xs =>
   xs.length === 0 ? Option.None : Option.Some(xs[0]);
 
 
+A.headOr = x => xs =>
+  xs.length === 0 ? x : xs[0];
+
+
 A.index = i => xs => (i in xs)
   ? Option.Some(xs[i])
   : Option.None;
@@ -2438,22 +2445,32 @@ A.last = xs =>
   xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]);
 
 
+A.lastOr = x => xs =>
+  xs.length === 0 ? x : xs[xs.length - 1];
+
+
 A.push = x => xs => (xs.push(x), xs);
+
+
+A.pushn = ys => xs => (xs.push.apply(xs, ys), xs);
 
 
 A.push_ = xs => x => (xs.push(x), xs);
 
 
-A.pop = xs => [
+A.pushn_ = xs => ys => (xs.push.apply(xs, ys), xs);
+
+
+A.pop = xs => Pair(
   xs.length === 0 ? Option.None : Option.Some(xs.pop()),
   xs
-];
+);
 
 
-A.shift = xs => [
+A.shift = xs => Pair(
   xs.length === 0 ? Option.None : Option.Some(xs.shift()),
   xs
-];
+);
 
 
 A.singleton = x => [x];
@@ -2484,7 +2501,13 @@ A.uncons = xs => [
 A.unshift = x => xs => (xs.unshift(x), xs);
 
 
+A.unshiftn = ys => xs => (xs.unshift.apply(xs, ys), xs);
+
+
 A.unshift_ = xs => x => (xs.unshift(x), xs);
+
+
+A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 
 
 A.unsnoc = xs => [
@@ -2677,6 +2700,12 @@ A.generate = n => gx => {
 
   return acc;
 };
+
+
+/***[ Getter/Setter ]*********************************************************/
+
+
+A.get = i => xs => i > xs.length ? None : Some(xs[i]);
 
 
 /***[ Loop ]******************************************************************/
@@ -5806,6 +5835,15 @@ ListT.zero = ListT.zero();
 const _Map = {};
 
 
+/***[ Getter/Setter ]*********************************************************/
+
+
+_Map.pushArr = (k, v) => m => {
+  if (m.has(k)) return A.push(v) (m.get(k));
+  else return m.set(k, [v]);
+};
+
+
 /***[ Mutable Reference ]*****************************************************/
 
 
@@ -6619,15 +6657,15 @@ Option.isSome = tx =>
   });
 
 
-Option.get = tx =>
-  tx.run({none: null, some: id});
-
-
-Option.getOrThrow = e => tx =>
+Option.getOr = x => tx =>
   tx.run({
-    get none() {throw strict(e)},
-    some: x => x
+    none: x,
+    some: y => y
   });
+
+
+Option.unsafeGet = tx =>
+  tx.run({none: null, some: id});
 
 
 /******************************************************************************
@@ -8612,6 +8650,15 @@ Pair.Comonad = {
 };
 
 
+/***[ Getters/Setters ]*******************************************************/
+
+
+Pair.setFst = x => tx => (tx[0] = x, tx);
+
+
+Pair.setSnd = x => tx => (tx[1] = x, tx);
+
+
 /***[ Writer ]****************************************************************/
 
 
@@ -8864,10 +8911,22 @@ Triple.mapThd = Triple.map
 Triple.Functor = {map: Triple.map};
 
 
+/***[ Getters/Setters ]*******************************************************/
+
+
+Triple.setFst = x => tx => (tx[0] = x, tx);
+
+
+Triple.setSnd = x => tx => (tx[1] = x, tx);
+
+
+Triple.setThd = x => tx => (tx[2] = x, tx);
+
+
 /***[ Trifunctor ]************************************************************/
 
 
-Pair.trimap = f => g => h => tx => Pair(f(tx[0]), g(tx[1]), h(tx[2]));
+Triple.trimap = f => g => h => tx => Pair(f(tx[0]), g(tx[1]), h(tx[2]));
 
 
 /***[ Misc. ]*****************************************************************/
