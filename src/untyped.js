@@ -5888,10 +5888,8 @@ const _Map = {};
 /***[ Getter/Setter ]*********************************************************/
 
 
-_Map.pushArr = (k, v) => m => {
-  if (m.has(k)) return A.push(v) (m.get(k));
-  else return m.set(k, [v]);
-};
+_Map.getRef = ([k, init]) => m =>
+  m.has(k) ? m.get(k) : (m.set(k, init), init);
 
 
 /***[ Mutable Reference ]*****************************************************/
