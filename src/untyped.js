@@ -4874,6 +4874,54 @@ export const IOSet_ = cmp => {
 
 
 /******************************************************************************
+*********************************[ Iterator ]**********************************
+******************************************************************************/
+
+
+const It = {};
+
+
+It.fromIterable = iterable => iterable[Symbol.iterator] ();
+
+
+It.fold = f => acc => function* (ix) {
+  while (true) {
+    const {value, done} = ix.next();
+
+    if (done) break;
+    
+    else {
+      acc = f(acc) (value);
+      yield acc;
+    }
+  }
+};
+
+
+It.map = f => function* (ix) {
+  while (true) {
+    const {value, done} = ix.next();
+
+    if (done) break;
+    
+    else {
+      value = f(value);
+      yield value;
+    }
+  }
+};
+
+
+It.filter = p => function* (ix) {
+  while (true) {
+    const {value, done} = ix.next();
+
+    if (done) break;
+    else if (p(value)) yield value;
+  }
+};
+
+/******************************************************************************
 ***********************************[ LAST ]************************************
 ******************************************************************************/
 
