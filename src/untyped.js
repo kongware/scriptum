@@ -2540,8 +2540,10 @@ A.foldl = f => init => xs => {
 
 A.foldk = f => init => xs =>
   Loop2((acc, i) =>
-    f(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
-      (init, 0);
+    i === xs.length
+      ? Loop2.done(acc)
+      : f(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
+        (init, 0);
 
 
 A.foldr = f => init => xs => function go(i) {
