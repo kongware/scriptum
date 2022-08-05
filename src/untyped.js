@@ -2707,7 +2707,7 @@ A.generate = n => gx => {
 /***[ Getter/Setter ]*********************************************************/
 
 
-A.get = i => xs => i > xs.length ? Option.None : Option.Some(xs[i]);
+A.get = i => xs => i >= xs.length ? Option.None : Option.Some(xs[i]);
 
 
 /***[ Loop ]******************************************************************/
@@ -5888,9 +5888,9 @@ const _Map = {};
 /***[ Getter/Setter ]*********************************************************/
 
 
-_Map.pushArr = (k, v) => m => {	
-  if (m.has(k)) return A.push(v) (m.get(k));	
-  else return m.set(k, [v]);	
+_Map.pushArr = (k, v) => m => {
+  if (m.has(k)) return A.push(v) (m.get(k));
+  else return m.set(k, [v]);
 };
 
 
