@@ -4884,7 +4884,7 @@ const It = {};
 It.fromIterable = iterable => iterable[Symbol.iterator] ();
 
 
-It.fold = f => acc => function* (ix) {
+It.foldl = f => acc => function* (ix) {
   while (true) {
     const {value, done} = ix.next();
 
@@ -4920,6 +4920,7 @@ It.filter = p => function* (ix) {
     else if (p(value)) yield value;
   }
 };
+
 
 /******************************************************************************
 ***********************************[ LAST ]************************************
