@@ -1510,48 +1510,10 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-/* Monadic chaining is nested, hence the `infix` operator cannot be applied but
-one must resort to arity aware combinators. */
-
-
-export const chain2 = ({chain}) => mx => my => fm =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      fm(x) (y)));
-
-
-export const chain3 = ({chain}) => mx => my => mz => fm =>
-  chain(mx) (x =>
-    chain(my) (y =>
-      chain(mz) (z =>
-        fm(x) (y) (z))));
-
-
-export const chain4 = ({chain}) => mw => mx => my => mz => fm =>
-  chain(mw) (w =>
-    chain(mx) (x =>
-      chain(my) (y =>
-        chain(mz) (z =>
-          fm(w) (x) (y) (z)))));
-
-
-export const chain5 = ({chain}) => mv => mw => mx => my => mz => fm =>
-  chain(mv) (v =>
-    chain(mw) (w =>
-      chain(mx) (x =>
-        chain(my) (y =>
-          chain(mz) (z =>
-            fm(v) (w) (x) (y) (z))))));
-
-
-export const chain6 = ({chain}) => mu => mv => mw => mx => my => mz => fm =>
-  chain(mu) (u =>
-    chain(mv) (v =>
-      chain(mw) (w =>
-        chain(mx) (x =>
-          chain(my) (y =>
-            chain(mz) (z =>
-              fm(u) (v) (w) (x) (y) (z)))))));
+/* Monadic chaining is nested and represents conditional continuations, i.e.
+dynamic computations. Neither the `infix` operator nor arity aware combinators
+can be applied to flatten monadic computations without breaking the conditional
+property. */
 
 
 export const join = ({chain}) => ttx => chain(ttx) (id);
@@ -6586,7 +6548,7 @@ export const Lens = ({map}) => f => g => ({
 exception handling use. */
 
 
-export const Option = {}
+export const Option = {};
 
 
 Option.Some = x => ({
