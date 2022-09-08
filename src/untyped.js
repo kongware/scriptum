@@ -1624,7 +1624,7 @@ export const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-const infix = (...args) => x => { // arity-agnostic
+export const infix = (...args) => x => { // arity-agnostic
   if (args.length % 2 !== 0)
     throw new TypeError("invalid number of arguments");
 
@@ -1642,7 +1642,7 @@ const infix = (...args) => x => { // arity-agnostic
 };
 
 
-const infixIt = (...args) => value => { // stateless iterator
+export const infixIt = (...args) => value => { // stateless iterator
   if (args.length % 2 !== 0)
     throw new TypeError("invalid number of arguments");
 
@@ -1673,7 +1673,7 @@ const infixIt = (...args) => value => { // stateless iterator
 };
 
 
-const infixIt_ = (...args) => function* (x) { // stateful iterator
+export const infixIt_ = (...args) => function* (x) { // stateful iterator
   if (args.length % 2 !== 0)
     throw new TypeError("invalid number of arguments");
 
@@ -1780,63 +1780,41 @@ F.Contravariant = () => {contramap: F.contramap};
 /***[ Currying ]**************************************************************/
 
 
-export const curry = f => x => y => f(Pair(x, y));
-
-
-export const curry_ = f => x => y => f(x, y);
+export const curry = f => x => y => f(x, y);
 
 
 export const curry3 = f => x => y => z =>
-  f(Triple(x, y, z));
-
-
-export const curry3_ = f => x => y => z =>
   f(x, y, z);
 
 
 export const curry4 = f => w => x => y => z =>
-  f(Tuple(w, x, y, z));
-
-
-export const curry4_ = f => w => x => y => z =>
   f(w, x, y, z);
 
 
 export const curry5 = f => v => w => x => y => z =>
-  f(Tuple(v, w, x, y, z));
-
-
-export const curry5_ = f => v => w => x => y => z =>
   f(v, w, x, y, z);
 
 
-export const uncurry = f => ([x, y]) => f(x) (y);
+export const curry6 = f => u => v => w => x => y => z =>
+  f(v, w, x, y, z);
 
 
-export const uncurry_ = f => (x, y) => f(x) (y);
+export const uncurry = f => (x, y) => f(x) (y);
 
 
-export const uncurry3 = f => ([x, y, z]) =>
+export const uncurry3 = f => (x, y, z) =>
   f(x) (y) (z);
 
 
-export const uncurry3_ = f => (x, y, z) =>
-  f(x) (y) (z);
-
-
-export const uncurry4 = f => ([w, x, y, z]) =>
+export const uncurry4 = f => (w, x, y, z) =>
   f(w) (x) (y) (z);
 
 
-export const uncurry4_ = f => (w, x, y, z) =>
-  f(w) (x) (y) (z);
-
-
-export const uncurry5 = f => ([v, w, x, y, z]) =>
+export const uncurry5 = f => (v, w, x, y, z) =>
   f(v) (w) (x) (y) (z);
 
 
-export const uncurry5_ = f => (v, w, x, y, z) =>
+export const uncurry6 = f => (u, v, w, x, y, z) =>
   f(v) (w) (x) (y) (z);
 
 
@@ -8586,6 +8564,15 @@ export const Tuple = (r, s, t, u, v, w, x, y, z, _) => {
 
   return o;
 };
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Tuple.fromArgs = (...args) => args;
+
+
+Tuple.toArgs = f => args => f(...args);
 
 
 /******************************************************************************
