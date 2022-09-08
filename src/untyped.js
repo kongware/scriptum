@@ -1624,39 +1624,71 @@ export const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-export const infix7 = (s, f, t, g, u, h, v, i, w, j, x, k, y, l, z) =>
-  l(k(j(i(h(g(f(s) (t)) (u)) (v)) (w)) (x)) (y)) (z);
+const infix = (...args) => x => { // arity-agnostic
+  if (args.length % 2 !== 0)
+    throw new TypeError("invalid number of arguments");
 
+  let i = 0;
 
-export const infix8 = (r, f, s, g, t, h, u, i, v, j, w, k, x, l, y, m, z) =>
-  m(l(k(j(i(h(g(f(r) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z);
+  while (true) {
+    if (i >= args.length) break;
 
-
-export const infix9 = (q, f, r, g, s, h, t, i, u, j, v, k, w, l, x, m, y, n, z) =>
-  n(m(l(k(j(i(h(g(f(q) (r)) (s)) (t)) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-export const infix = (...args) => {
-  switch (args.length) {
-    case 3: return infix1(...args);
-    case 5: return infix2(...args);
-    case 7: return infix3(...args);
-    case 9: return infix4(...args);
-    case 11: return infix5(...args);
-    case 13: return infix6(...args);
-    case 15: return infix7(...args);
-    case 17: return infix8(...args);
-    case 19: return infix9(...args);
-
-    default: {
-      if (args.length > 19)
-        throw new TypeError(
-          "upper argument bound exceeded");
-
-      else throw new TypeError(
-        "invalid number of arguments");
+    else {
+      x = args[i++] (x) (args[i++]);
     }
   }
+
+  return x;
+};
+
+
+const infixIt = (...args) => value => { // stateless iterator
+  if (args.length % 2 !== 0)
+    throw new TypeError("invalid number of arguments");
+
+  const next = i => {
+    if (i >= args.length)
+      throw new TypeError("iterator is exhausted");
+
+    else {
+      value = args[i] (value) (args[i + 1]);
+      
+      return {
+        i,
+        value,
+
+        get next() {
+          const o = next(i + 2);
+          delete this.next;
+          this.next = o;
+          return o;
+        },
+
+        done: i + 2 < args.length ? false : true
+      };
+    }
+  };
+
+  return next(0);
+};
+
+
+const infixIt_ = (...args) => function* (x) { // stateful iterator
+  if (args.length % 2 !== 0)
+    throw new TypeError("invalid number of arguments");
+
+  let i = 0;
+
+  while (true) {
+    if (i >= args.length) break;
+
+    else {
+      x = args[i++] (x) (args[i++]);
+      yield x;
+    }
+  }
+
+  return x;
 };
 
 
