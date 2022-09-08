@@ -1519,10 +1519,13 @@ property. */
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
-export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
+// TODO: what does it mean to join two monadic layers (interpreter)
 
 
-export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
+export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm); // kleisli composition
+
+
+export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm); // kleisli pipe
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
