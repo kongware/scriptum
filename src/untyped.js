@@ -3684,11 +3684,11 @@ D.fromString = s => {
 
 
 D.getLastDayOfMonth = ({year, month}) =>
-  new Date(new Date(year, month, 1) - 1).getDate();
+  new Date(year, month, 0).getDate();
 
 
 D.isDayOfMonth = ({year, month}) => day =>
-  day > 0 && new Date(new Date(year, month, 1) - 1).getDate() >= day;
+  day > 0 && new Date(year, month, 0).getDate() >= day;
 
 
 /******************************************************************************
