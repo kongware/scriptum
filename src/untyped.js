@@ -7081,57 +7081,703 @@ Parallel.anyArr = Parallel.anyArr();
 
 
 /******************************************************************************
-***************************[ PARSER (APPLICATIVE) ]****************************
+**********************************[ PARSER ]***********************************
 ******************************************************************************/
 
+/* Parser are broadly distinguished by their context type (simplified): 
 
-// newtype Parser a = P (String -> (String, Either Error a))
+* applicative: newtype Parser a = P (String -> (String, Either Error a))
+* monadic:     newtype Parser m a = P (String -> (String, m a))
 
-export const Parser = ft => ({
+`Parser` is an applicative variant. */
+
+
+const Parser = f => ({
   [TAG]: "Parser",
-  run: ft
+  run: f
 });
 
 
-Parser.orElse = ft => gt =>
-  Parser((pair) => {
-    const [[s, i], tx] = ft.run(pair);
-
-    return tx.run({
-      left: e => gt.run(Pair(s, i)),
-      right: x => Pair(Pair(s, i), Either.Right(x))
-    });
-  });
+Parser.Result = {};
 
 
-Parser.satisfy = p =>
-  Parser(([s, i]) => s.length < i ? Pair(Pair(s, i), Either.Left("end of stream"))
-    : p(s[i]) ? Pair(Pair(s, i + 1), Either.Right(s[i]))
-    : Pair(Pair(s, i + 1), Either.Left("did not satisfy")));
-
-
-Parser.try = ft =>
-  Parser(pair => {
-    const [[s, j], tx] = ft.run(pair);
-
-    return tx.run({
-      left: e => Pair(Pair(s, i), Either.Left(e)),
-      right: x => Pair(Pair(s, j), Either.Right(x))
-    });
-  });
-
-
-/******************************************************************************
-*****************************[ PARSER (MONADIC) ]******************************
-******************************************************************************/
-
-
-// newtype Parser m a = P (String -> (String, m a))
-
-export const ParserM = fm => ({
-  [TAG]: "ParserM",
-  run: fm
+Parser.Result.Error = ({rest, state, msg}) => ({
+  [TAG]: "ParserResult",
+  run: ({error}) => error(x)
 });
+
+
+Parser.Result.Some = ({res, rest, state}) => ({
+  [TAG]: "ParserResult",
+  run: ({some}) => some(x)
+});
+
+
+Parser.Result.None = ({rest, state}) => ({
+  [TAG]: "ParserResult",
+  run: ({none}) => none(x)
+});
+
+
+Parser.accept = Parser(({text, i}) => state =>
+  i < text.length
+    ? [Parser.Result.Some({res: text[i], rest: {text, i: i + 1}, state})]
+    : [Parser.Result.Error({rest: {text, i}, state, msg: "end of text"})]);
+
+
+Parser.fail = msg => Parser(({text, i}) => state =>
+  [Parser.Result.Error({rest: {text, i}, state, msg})]);
+ 
+
+Parser.satisfy = msg => p => Parser(({text, i}) => state => {
+  if (i < text.length) {
+    return [
+      p(text[i])
+        ? Parser.Result.Some({res: text[i], rest: {text, i: i + 1}, state})
+        : Parser.Result.Error({rest: {text, i}, state, msg})
+    ];
+  }
+
+  else return [Parser.Result.Error({rest: {text, i}, state, msg: "end of text"})];
+});
+ 
+
+Parser.alt = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => {
+      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
+        some: p2 => [Parser.Result.Some(p2)],
+        none: q2 => [Parser.Result.None(q2)]
+      }));
+    },
+
+    some: p => [Parser.Result.Some(p)],
+    none: q => [Parser.Result.None(q)]
+  }));
+});
+
+
+Parser.xalt = parser => parser2 => Parser(rest => state => { // exclusive alternative
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => {
+      return parser2(rest) (state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
+        some: p2 => [Parser.Result.Some(p2)],
+        none: q2 => [Parser.Result.None(q2)]
+      }));
+    },
+
+    some: p => {
+      return parser2(rest) (state).map(ty => ty.run({
+        error: o2 => Parser.Result.Some(p),
+        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "non-exclusive alt"}),
+        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "non-exclusive alt"})
+      }));
+    },
+
+    none: p => {
+      return parser2(rest) (state).map(ty => ty.run({
+        error: o2 => Parser.Result.Some(p),
+        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "non-exclusive alt"}),
+        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "non-exclusive alt"})
+      }));
+    }
+  }));
+});
+
+
+Parser.amb = parser => parser2 => Parser(rest => state => { // ambiguity
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => {
+      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
+        some: p2 => [Parser.Result.Some(p2)],
+        none: q2 => [Parser.Result.None(q2)]
+      }));
+    },
+
+    some: p => {
+      return parser2(p.rest) (p.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Some(p)],
+        some: p2 => [Parser.Result.Some(p), Parser.Result.Some(p2)],
+        none: q2 => [Parser.Result.Some(p), Parser.Result.None(q2)]
+      }));
+    },
+
+    none: q => {
+      return parser2(q.rest) (q.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.None(q)],
+        some: p2 => [Parser.Result.None(q), Parser.Result.Some(p2)],
+        none: q2 => [Parser.Result.None(q), Parser.Result.None(q2)]
+      }));
+    }
+  }));
+});
+
+
+Parser.seq = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some({res: Pair(p.res, p2.res), rest: p2.rest, state: p2.state}),
+        none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
+      }));
+    },
+
+    none: q => {
+      return parser2(q.rest) (q.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some({res: p2.res, rest: p2.rest, state: p2.state}),
+        none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
+      }));
+    }
+  }));
+});
+
+
+Parser.seqLeft = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some({res: p.res, rest: p2.rest, state: p2.state}),
+        none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
+      }));
+    },
+
+    none: q => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.None({rest: p2.rest, state: p2.state}),
+        none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
+      }));
+    }
+  }));
+});
+ 
+
+Parser.notSeqLeft = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Some({res: p.res, rest: o2.rest, state: o2.state}),
+        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "unexpected sequence"}),
+        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "unexpected sequence"})
+      }));
+    },
+
+    none: q => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.None({rest: o2.rest, state: o2.state}),
+        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "unexpected sequence"}),
+        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "unexpected sequence"})
+      }));
+    },
+  }));
+});
+
+
+Parser.seqRight = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some(p2),
+        none: q2 => Parser.Result.None(q2)
+      }));
+    },
+
+    none: p => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some(p2),
+        none: q2 => Parser.Result.None(q2)
+      }));
+    }
+  }));
+});
+
+
+Parser.notSeqRight = parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => {
+      return parser2(p.rest) (p.state).map(ty => ty.run({
+        error: o2 => Parser.Result.Error(o2),
+        some: p2 => Parser.Result.Some(p2),
+        none: q2 => Parser.Result.None(q2)
+      }));
+    },
+
+    some: p => [Parser.Result.Error({rest: p.rest, state: p.state, msg: "unexpected sequence"})],
+    none: q => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})]
+  }));
+});
+
+
+Parser.seqMid = parser => parser2 => parser3 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Error(o2)],
+
+        some: p2 => {
+          return parser3(p2.rest) (p2.state).map(tz => tz.run({
+            error: o3 => Parser.Result.Error(o3),
+            some: p3 => Parser.Result.Some({res: p2.res, rest: p3.rest, state: p3.state}),
+            none: q3 => Parser.Result.Some({res: p2.res, rest: q3.rest, state: q3.state})
+          }));
+        },
+
+        none: q2 => {
+          return parser3(q2.rest) (q2.state).map(tz => tz.run({
+            error: o3 => Parser.Result.Error(o3),
+            some: p3 => Parser.Result.None({rest: p3.rest, state: p3.state}),
+            none: q3 => Parser.Result.None({rest: q3.rest, state: q3.state})
+          }));
+        }
+      }));
+    }
+  }));
+});
+ 
+
+Parser.notSeqMid = parser => parser2 => parser3 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => {
+      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
+        error: o2 => [Parser.Result.Error(o2)],
+
+        some: p2 => {
+          return parser3(p2.rest) (p2.state).map(tz => tz.run({
+            error: o3 => Parser.Result.Some({res: p2.res, rest: o3.rest, state: o3.state}),
+            some: p3 => Parser.Result.Error({rest: p3.rest, state: q3.state, msg: "unexpected sequence"}),
+            none: q3 => Parser.Result.Error({rest: q3.rest, state: q3.state, msg: "unexpected sequence"})
+          }));
+        },
+
+        none: q2 => {
+          return parser3(q2.rest) (q2.state).map(tz => tz.run({
+            error: o3 => Parser.Result.None({rest: o3.rest, state: o3.state}),
+            some: p3 => Parser.Result.Error({rest: p3.rest, state: q3.state, msg: "unexpected sequence"}),
+            none: q3 => Parser.Result.Error({rest: q3.rest, state: q3.state, msg: "unexpected sequence"})
+          }));
+        }
+      }));
+    },
+
+    some: p => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})],
+    none: q => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})]
+  }));
+});
+
+
+Parser.append = ({append}) => parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => {
+      return parser2(p.rest) (p.state).map(ty =>
+        ty.run({
+          error: o2 => Parser.Result.Error(o2),
+          some: p2 => Parser.Result.Some({res: append(p.res) (p2.res), rest: p2.rest, state: p2.state}),
+          none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
+        })
+      );
+    },
+
+    none: p => {
+      return parser2(p.rest) (p.state).map(ty =>
+        ty.run({
+          error: o2 => Parser.Result.Error(o2),
+          some: p2 => Parser.Result.Some({res: p2.res, rest: p2.rest, state: p2.state}),
+          none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
+        })
+      );
+    }
+  }));
+});
+
+
+Parser.empty = Parser.of = ({empty}) => Parser(rest => state =>
+  [Parser.Result.Some({res: empty, rest, state})]);
+
+
+Parser.map = f => parser => Parser(rest => state => {
+  return parser(rest) (state).map(tx => tx.run({
+    error: o => Parser.Result.Error(o),
+    some: p => Parser.Result.Some({res: f(p.res), rest: p.rest, state: p.state}),
+    none: q => Parser.Result.None({rest: q.rest, state: q.state})
+  }));
+});
+
+
+Parser.ap = ({empty}) => parser => parser2 => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+
+    some: p => parser2(p.rest) (p.state).map(ty => ty.run({
+      error: o2 => Parser.Result.Error(o2),
+      some: p2 => Parser.Result.Some({res: p.res(p2.res), rest: p2.rest, state: p2.state}),
+      none: q2 => Parser.Result.Some({res: p.res(empty), rest: q2.rest, state: q2.state})
+    }))
+  }));
+});
+
+
+Parser.of = x => Parser(rest => state =>
+  [Parser.Result.Some({res: x, rest, state})]);
+
+
+Parser.chain = ({empty}) => fm => parser => Parser(rest => state => {
+  return parser(rest) (state).flatMap(tx => tx.run({
+    error: o => [Parser.Result.Error(o)],
+    some: p => fm(p.res) (p.rest) (p.state),
+    none: q => fm(empty) (q.rest) (q.state)
+  }));
+});
+
+
+Parser.eof = Parser(rest => rest =>
+  rest.i === text.length
+    ? Parser.Result.Some({res: "", rest, state})
+    : Parser.Result.Error({rest, state, msg: "not end of file"}));
+
+
+Parser.const = x => parser => Parser(rest => state =>
+  [Parser.Result.Some({res: x, rest, state})]);
+
+
+Parser.opt = parser => Parser(rest => state => {
+  return parser(rest) (state).map(tx => tx.run({
+    error: o => Parser.Result.None({rest: o.rest, state: o.state}),
+    some: p => Parser.Result.Some(p),
+    none: q => Parser.Result.None(q)
+  }));
+});
+
+
+Parser.optOr = res => parser => Parser(rest => state => {
+  return parser(rest) (state).map(tx => tx.run({
+    error: o => Parser.Result.Some({res, rest: o.rest, state: o.state}),
+    some: p => Parser.Result.Some(p),
+    none: q => Parser.Result.Some({res, rest: q.rest, state: q.state})
+  }));
+});
+
+
+Parser.take = n => Parser(({text, i}) => state => {
+  const j = n + i < text.length ? n + i : text.length;
+  return [Parser.Result.Some({res: text.slice(0, j), rest: {text: text.slice(j), i: j}, state})];
+});
+
+
+Parser.take1 = n => Parser(({text, i}) => state => {
+  if (i + 1 === text.length)
+    return [Parser.Result.Error({rest, state, msg: "cannot take at least one element"})]
+
+  else {
+    const j = n + i < text.length ? n + i : text.length;
+    return [Parser.Result.Some({res: text.slice(0, j), rest: {text: text.slice(j), i: j}, state})];
+  }
+});
+
+
+Parser.takeWhile = f => init => parser => Parser(rest => state => {
+  return Loop3((acc, rest2, state2) => {
+    return parser(rest2) (state2).map(tx => tx.run({
+      error: o => Loop3.done(Parser.Result.Some({res: acc, rest: o.rest, state: o.state})),
+      some: p => Loop3.next(f(p.res) (acc), p.rest, p.state),
+      none: q => Loop3.next(acc, q.rest, q.state)
+    }));
+  }) (init, rest, state);
+});
+
+
+Parser.takeWhile1 = f => init => parser => Parser(rest => state => {
+  return parser(rest2) (state2).map(tx => tx.run({
+    error: o => Parser.Result.Some({res: init, rest: o.rest, state: o.state}),
+    
+    some: p => {
+      return Loop3((acc, rest2, state2) => {
+        return parser(rest2) (state2).map(tx => tx.run({
+          error: o2 => Loop3.done(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
+          some: p2 => Loop3.next(f(p2.res) (acc), p2.rest, p2.state),
+          none: q2 => Loop3.next(acc, q2.rest, q2.state)
+        }));
+      }) (f(p.res) (init), p.rest, p.state);
+    },
+
+    none: q => {
+      return Loop3((acc, rest2, state2) => {
+        return parser(rest2) (state2).map(tx => tx.run({
+          error: o2 => Loop3.done(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
+          some: p2 => Loop3.next(f(p2.res) (acc), p2.rest, p2.state),
+          none: q2 => Loop3.next(acc, q2.rest, q2.state)
+        }));
+      }) (init, p.rest, p.state);
+    }
+  }));
+});
+
+
+Parser.drop = n => Parser(({text, i}) => state => {
+  const j = n + i < text.length ? n + i : text.length;
+  return [Parser.Result.None({rest: {text, i: j}, state})];
+});
+
+
+Parser.dropWhile = parser => Parser(rest => state => {
+  return Loop2((rest2, state2) => {
+    return parser(rest2) (state2).map(tx => tx.run({
+      error: o => Loop2.done(Parser.Result.None({rest: o.rest, state: o.state})),
+      some: p => Loop2.next(p.rest, p.state),
+      none: q => Loop2.next(q.rest, q.state)
+    }));
+  }) (rest, state);
+});
+
+
+Parser.dropUntil = parser => Parser(rest => state => {
+  return Loop2((rest2, state2) => {
+    return parser(rest2) (state2).map(tx => tx.run({
+      error: o => Loop2.next(o.rest, o.state),
+      some: p => Loop2.done(Parser.Result.None({rest: p.rest, state: p.state})),
+      none: q => Loop2.done(Parser.Result.None({rest: p.rest, state: p.state}))
+    }));
+  }) (rest, state);
+});
+
+
+const CHAR_CLASSES = {
+  letter: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[a-z]/, "i");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{L}/, "u");
+      return this.utf8;
+    },
+
+    uc: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[A-Z]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Lu}/, "u");
+        return this.utf8;
+      }
+    },
+
+    lc: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[A-Z]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Lu}/, "u");
+        return this.utf8;
+      }
+    }
+  },
+
+  number: {
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{N}/, "u");
+      return this.utf8;
+    },
+
+    decimal: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[0-9]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[0-9]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Nd}/, "u");
+        return this.utf8;
+      }
+    }
+  },
+
+  alphanum: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(`${this.number.ascii.source}|${this.letter.ascci.source}`, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(`${this.number.latin1.source}|${this.letter.latin1.source}`, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(`${this.number.utf8.source}|${this.letter.utf8.source}`, "u");
+      return this.utf8;
+    }
+  },
+
+  control: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
+      return this.utf8;
+    }
+  },
+  
+  punctuation: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
+      return this.utf8;
+    }
+  },
+  
+  currency: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[$]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[¤$€£¥¢]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{Sc}/, "u");
+      return this.utf8;
+    }
+  },
+  
+  space: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/ /, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/  /, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{Zs}/, "u");
+      return this.utf8;
+    }
+  },
+
+  nonalphanum: {
+    get ascii() {
+      delete this.ascii;
+      
+      this.ascii = new RegExp(
+        `${this.control.ascii.source}|${this.punctuation.ascci.source}|${this.currency.ascci.source}|${this.space.ascci.source}`, "");
+      
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+
+      this.latin1 = new RegExp(
+        `${this.control.latin1.source}|${this.punctuation.latin1.source}|${this.currency.latin1.source}|${this.space.latin1.source}`, "");
+
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      
+      this.utf8 = new RegExp(
+        `${this.control.utf8.source}|${this.punctuation.utf8.source}|${this.currency.utf8.source}|${this.space.utf8.source}`, "u");
+
+      return this.utf8;
+    }
+  },
+};
 
 
 /******************************************************************************
