@@ -1589,18 +1589,15 @@ export const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
   k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
 
 
-export const infix = (...args) => x => { // arity-agnostic
-  if (args.length % 2 !== 0)
-    throw new TypeError("invalid number of arguments");
+export const infix = (...args) => { // arity-agnostic
+  if (args.length === 0)
+    throw new TypeError("no argument found");
 
-  let i = 0;
+  let i = 1, x = args[0];
 
-  while (true) {
-    if (i >= args.length) break;
-
-    else {
-      x = args[i++] (x) (args[i++]);
-    }
+  while (i < args.length) {
+    if (i + 1 === args.length) x = args[i++] (x);
+    else x = args[i++] (x) (args[i++]);
   }
 
   return x;
@@ -1714,6 +1711,12 @@ F.Category = {
 export const comp3 = f => g => h => x => f(g(h(x)));
 
 
+export const compn = (...fs) => x => {
+  for (let i = fs.length - 1; i > -1; i--) x = fs[i] (x);
+  return x;
+};
+
+
 export const comp2nd = f => g => x => y => f(x) (g(y));
 
 
@@ -1724,6 +1727,12 @@ export const compBoth = f => g => x => y => f(g(x)) (g(y));
 
 
 export const pipe = g => f => x => f(g(x));
+
+
+export const pipen = (...fs) => x => {
+  for (const f of fs) x = f(x);
+  return x;
+};
 
 
 /***[ Conditional Operator ]**************************************************/
