@@ -3227,10 +3227,10 @@ export const Cont = k => ({
 /***[ Delimitation (w/o Regions) ]********************************************/
 
 
-const reset = mx => Cont(k => k(mx.run(id)));
+Cont.reset = mx => Cont(k => k(mx.run(id)));
 
 
-const shift = fm => Cont(k => fm(k).run(id));
+Cont.shift = fm => Cont(k => fm(k).run(id));
 
 
 /***[ Functor ]***************************************************************/
