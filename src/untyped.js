@@ -3236,6 +3236,15 @@ export const Cont = k => ({
 /***[ Delimitation (w/o Regions) ]********************************************/
 
 
+Cont.abrupt = x => Cont(k => x);
+
+
+Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
+
+
+Cont.reify = k => x => Cont(k2 => k(x));
+
+
 Cont.reset = mx => Cont(k => k(mx.run(id)));
 
 
@@ -3339,13 +3348,39 @@ Cont.Monoid = {
 /***[ Misc. ]*****************************************************************/
 
 
-Cont.abrupt = x => Cont(k => x);
+Cont.eval = f => x => {
+  if (x[TAG] === "Cont") return x.run(f);
+  else return f(x);
+};
 
 
-Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
+Cont.eval2 = f => x => y => {
+  let g, r;
+
+  if (x[TAG] === "Cont") g = x.run(f);
+  else g = f(x);
+
+  if (y[TAG] === "Cont") r = y.run(g);
+  else r = g(y);
+
+  return r;
+};
 
 
-Cont.reify = k => x => Cont(k2 => k(x));
+Cont.eval3 = f => x => y => z => {
+  let g, h, r;
+
+  if (x[TAG] === "Cont") g = x.run(f);
+  else g = f(x);
+
+  if (y[TAG] === "Cont") h = y.run(g);
+  else g = h(y);
+
+  if (z[TAG] === "Cont") r = z.run(h);
+  else r = h(z);
+
+  return r;
+};
 
 
 /******************************************************************************
