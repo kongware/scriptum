@@ -333,8 +333,8 @@ LoopM.loop = o => {
 // Functor
 
 
-LoopM.map = f => tx =>
-  LoopM.chain(tx) (x => LoopM.of(f(x)));
+LoopM.map = f => mx =>
+  LoopM.chain(mx) (x => LoopM.of(f(x)));
 
 
 LoopM.Functor = {map: LoopM.map};
@@ -342,9 +342,9 @@ LoopM.Functor = {map: LoopM.map};
 
 // Functor :: Apply
 
-LoopM.ap = tf => tx =>
+LoopM.ap = tf => mx =>
   LoopM.chain(tf) (f =>
-    LoopM.chain(tx) (x =>
+    LoopM.chain(mx) (x =>
       LoopM.of(f(x))));
 
 
@@ -1531,8 +1531,8 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm); // kleisli 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-export const foldM = ({foldr}, {of, chain}) => f => acc => tx =>
-  foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (tx) (acc);
+export const foldM = ({foldr}, {of, chain}) => f => acc => mx =>
+  foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (mx) (acc);
 
 
 /******************************************************************************
@@ -3292,7 +3292,11 @@ Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
 
 // stack safe version using a trampoline
 
-Cont.chainL = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k)));
+Cont.chainL = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k))); // TODO: refise
+
+
+Cont.chain2 = ({chain}) => mx => my => fm => Cont(k =>
+  chain(mx) (x => chain(my) (y => fm(x) (y))).run(id));
 
 
 Cont.Chain = {
@@ -3345,7 +3349,13 @@ Cont.Monoid = {
 };
 
 
-/***[ Misc. ]*****************************************************************/
+/***[ Evaluator ]*************************************************************/
+
+
+/* Evaluators are most likely obsolete. Inside the effectful realm of the
+program all effects are either native (e.g. Array, null etc.) or vanished
+(e.g. async computations), hence values of type continuation that encoded
+these effects must be executed and gone. */
 
 
 Cont.eval = f => x => {
@@ -3381,6 +3391,66 @@ Cont.eval3 = f => x => y => z => {
 
   return r;
 };
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Cont.compFlat = k => k2 => fm => Cont(k3 =>
+  k(mx => k2(mx) (x => k3(fm(x)))).run(id));
+
+
+Cont.seqFlat = k => k2 => fm => Cont(k3 =>
+  k(x => k2(y => k3(fm(x) (y)))).run(id));
+
+
+Cont.Opt.chain = mx => fm => Cont.Opt(k =>
+  mx.run(x => {
+    if (x === null) return null
+
+    else {
+      const y = fm(x).run(id);
+      return y === null ? null : k(y);
+    }
+  }));
+
+
+/******************************************************************************
+*******************************[ CONT :: ARRAY ]*******************************
+******************************************************************************/
+
+
+Cont.Arr = k => ({
+  [TAG]: "ContArr",
+  run: k
+});
+
+
+Cont.Arr.chain = mx => fm => Cont.Arr(k =>
+  mx.run(xs => k(xs.flatMap(x => fm(x).run(id)))));
+
+
+Cont.Arr.of = x => Cont.Arr(k => k([x]));
+
+
+Cont.Arr.ofFlat = mx => Cont.Arr(k => k([mx.run(id)]));
+
+
+/******************************************************************************
+******************************[ CONT :: OPTION ]*******************************
+******************************************************************************/
+
+
+Cont.Opt = k => ({
+  [TAG]: "ContOpt",
+  run: k
+});
+
+
+Cont.Opt.of = x => Cont.Opt(k => k(x));
+
+
+Cont.Opt.ofFlat = x => Cont.Opt(k => k(x).run(id));
 
 
 /******************************************************************************
@@ -3924,8 +3994,8 @@ Either.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Either.chain = tx => fm =>
-  tx.run({
+Either.chain = mx => fm =>
+  mx.run({
     left: x => Either.Left(x),
     right: y => fm(y)
   });
@@ -6475,12 +6545,12 @@ Emitter.race.empty = Emitter(k => null);
 /***[ Misc. ]*****************************************************************/
 
 
-Emitter.flatmap = tx => fx =>
-  Emitter(k => tx.run(x => fx(x).run(k)));
+Emitter.flatmap = mx => fm =>
+  Emitter(k => mx.run(x => fm(x).run(k)));
 
 
 Emitter.flatten = ttx =>
-  Emitter(k => ttx.run(tx => tx.run(k)));
+  Emitter(k => ttx.run(mx => mx.run(k)));
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -6688,15 +6758,15 @@ Option.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Option.chain = tx => fm =>
-  tx.run({
+Option.chain = mx => fm =>
+  mx.run({
     none: Option.None,
     some: x => fm(x)
   });
 
 
-Option.chain_ = fm => tx =>
-  tx.run({
+Option.chain_ = fm => mx =>
+  mx.run({
     none: Option.None,
     some: x => fm(x)
   });
@@ -7107,12 +7177,12 @@ Parallel.race.empty = Parallel(k => null);
 /***[ Misc. ]*****************************************************************/
 
 
-Parallel.flatmap = tx => fx =>
-  Parallel(k => tx.run(x => fx(x).run(k)));
+Parallel.flatmap = mx => fm =>
+  Parallel(k => mx.run(x => fm(x).run(k)));
 
 
-Parallel.flatten = ttx =>
-  Parallel(k => ttx.run(tx => tx.run(k)));
+Parallel.flatten = mmx =>
+  Parallel(k => mmx.run(mx => mx.run(k)));
 
 
 /***[ Resolve Dependencies ]**************************************************/
