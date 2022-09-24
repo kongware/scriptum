@@ -3299,6 +3299,10 @@ Cont.chain2 = ({chain}) => mx => my => fm => Cont(k =>
   chain(mx) (x => chain(my) (y => fm(x) (y))).run(id));
 
 
+Cont.chain3 = ({chain}) => mx => my => mz => fm => Cont(k =>
+  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))).run(id));
+
+
 Cont.Chain = {
   ...Cont.Apply,
   chain: Cont.chain
