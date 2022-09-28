@@ -1516,6 +1516,9 @@ can be applied to flatten monadic computations without breaking the conditional
 property. */
 
 
+export const chain = ({map, join}) => mx => fm => join(map(fm) (mx));
+
+
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
