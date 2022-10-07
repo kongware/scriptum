@@ -1,19 +1,16 @@
 /*
-                                88                                                    
-                                ""              ,d                                    
-                                                88                                    
-,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
-I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
- `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
-aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
-`"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
-                                   88                                                 
-                                   88                                                 
+      ___           ___           ___                       ___           ___           ___           ___     
+     /\  \         /\  \         /\  \          ___        /\  \         /\  \         /\__\         /\__\    
+    /::\  \       /::\  \       /::\  \        /\  \      /::\  \        \:\  \       /:/  /        /::|  |   
+   /:/\ \  \     /:/\:\  \     /:/\:\  \       \:\  \    /:/\:\  \        \:\  \     /:/  /        /:|:|  |   
+  _\:\~\ \  \   /:/  \:\  \   /::\~\:\  \      /::\__\  /::\~\:\  \       /::\  \   /:/  /  ___   /:/|:|__|__ 
+ /\ \:\ \ \__\ /:/__/ \:\__\ /:/\:\ \:\__\  __/:/\/__/ /:/\:\ \:\__\     /:/\:\__\ /:/__/  /\__\ /:/ |::::\__\
+ \:\ \:\ \/__/ \:\  \  \/__/ \/_|::\/:/  / /\/:/  /    \/__\:\/:/  /    /:/  \/__/ \:\  \ /:/  / \/__/~~/:/  /
+  \:\ \:\__\    \:\  \          |:|::/  /  \::/__/          \::/  /    /:/  /       \:\  /:/  /        /:/  / 
+   \:\/:/  /     \:\  \         |:|\/__/    \:\__\           \/__/     \/__/         \:\/:/  /        /:/  /  
+    \::/  /       \:\__\        |:|  |       \/__/                                    \::/  /        /:/  /   
+     \/__/         \/__/         \|__|                                                 \/__/         \/__/    
 */
-
-
-/* This is the untyped version of scriptum's purely functional standard library.
-It has no dependencies and can be used both client- and server-side. */
 
 
 /******************************************************************************
@@ -23,24 +20,24 @@ It has no dependencies and can be used both client- and server-side. */
 ******************************************************************************/
 
 
-const MICROTASK_TRESHOLD = 0.01; // treshold for next microtask
-
-
 export const NOOP = null; // no operation
+
+
+export const NOT_FOUND = -1; // native search protocol
 
 
 const PREFIX = "$_"; // avoid property name collisions
 
 
-const REF = PREFIX + "ref";
+export const TAG = Symbol.toStringTag;
 
 
-const UNREF = PREFIX + "unref";
+const TICK_TRESHOLD = 0.01; // treshold for next microtask
 
 
 /******************************************************************************
 *******************************************************************************
-**************************[ CROSS-CUTTING CONCERNS ]***************************
+***************************[ CROSS-CUTTING ASPECTS ]***************************
 *******************************************************************************
 ******************************************************************************/
 
@@ -50,56 +47,32 @@ const UNREF = PREFIX + "unref";
 ******************************************************************************/
 
 
-/* Allows a flat syntax by utilizing method chaining without actually relying
-on methods and `this`. Beyond that it provides some handy utilities. */
+/* Enables flat syntax by utilizing method chaining without relying on methods
+and `this`. */
 
 
 export const App = t => ({
   app: x => App(t(x)), // applies the boxed fun
-  appFlipped: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
-  appUncurried: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
+  app_: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
+  appVar: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
   appLazy: x => App_({get run() {return t(x)}}), // applies the boxed fun lazily
   map: f => App(f(t)),  // applies the fun
-  mapFlipped: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
-  mapLazy: f => App_({get run() {return f(t)}}), // applies the fun lazily
+  map_: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
   get: t // gets the boxed value
 });
-
-
-/* Once an operation is lazy all subsequent operations are lazy as well until
-the strict operation is performed or the lazy computation is run. Provides the
-lazy operation counterparts. */
-
-
-const App_ = o => ({
-  app: x => App_({get run() {return o.run(x)}}),
-  appFlipped: y => App_({get run() {return x => o.run(x) (y)}}),
-  appUncurried: (...args) => App_({get run() {return args.reduce((f, x) => f(x), o.run)}}),
-  appStrict: x => App(o.run(x)), // forces evaluation of the boxed lazy computation
-  map: f => App_({get run() {return f(o.run)}}),
-  mapFlipped: f => App_({get run() {return x => f(x) (t)}}),
-  mapStrict: f => App(f(o.run)), // forces evaluation of the boxed lazy computation
-  get get() {const r = o.run; delete this.get; return this.get = {run: r}}
-});
-
-
-/******************************************************************************
-****************************[ JAVASCRIPT RELATED ]*****************************
-******************************************************************************/
-
-
-export const comparator = (m, n) => m < n ? LT : m === n ? EQ : GT;
-
-
-export const NOT_FOUND = -1;
-
-
-export const TAG = Symbol.toStringTag;
 
 
 /******************************************************************************
 ******************************[ LAZY EVALUATION ]******************************
 ******************************************************************************/
+
+
+/* Encodes lazy evaluated thunks. Thunks are expressions that are only
+evaluated if actually needed and only once. If evaluation kicks in, Javascript's
+normal run-to.completion rule applies. As soon as a thunk is used within a
+normal and thus eagerly evaluated expression, it is automatically evaluated.
+Hence you can use thunks as if they were normal expressions. They are
+completely transparent to the code. */
 
 
 /***[ Constants ]*************************************************************/
@@ -293,121 +266,12 @@ class ThunkProxy {
 ******************************************************************************/
 
 
-/***[ Guarded Recursion ]*****************************************************/
-
-
-/* Guarded recursion takes place if a lazy computation is being evaluated that
-yields any number of nested thunks, which are consumed one at a time in a
-stack-safe manner by a trampoline. */
-
-
-export const strictRec = x => {
-  while (x && x[THUNK] === true)
-    x = x[EVAL];
-
-  return x;
-};
-
-
-/***[ Monadic Recursion ]*****************************************************/
-
-
-/* Allow stack safe monadic recursion through a trampoline monad. Please note
-that this type is usually derived from the free monad transformer, but scriptum
-hasn't implemented one yet. */
-
-
-export const LoopM = {};
-
-
-LoopM.loop = o => {
-  while (o.tag === "NextM")
-    o = o.f(o.x);
-
-  return o.tag === "DoneM"
-    ? o.x
-    : _throw(new TypeError("invalid trampoline tag"));
-};
-
-
-// Functor
-
-
-LoopM.map = f => mx =>
-  LoopM.chain(mx) (x => LoopM.of(f(x)));
-
-
-LoopM.Functor = {map: LoopM.map};
-
-
-// Functor :: Apply
-
-LoopM.ap = tf => mx =>
-  LoopM.chain(tf) (f =>
-    LoopM.chain(mx) (x =>
-      LoopM.of(f(x))));
-
-
-LoopM.Apply = {
-  ...LoopM.Functor,
-  ap: LoopM.ap
-};
-
-
-// Functor :: Apply :: Applicative
-
-
-LoopM.of = () => LoopM.done;
-
-
-LoopM.Applicative = {
-  ...LoopM.Apply,
-  of: LoopM.of
-};
-
-
-// Functor :: Apply :: Chain
-
-
-LoopM.chain = mx => fm =>
-  mx.tag === "NextM" ? LoopM.next(mx.x) (y => LoopM.chain(mx.f(y)) (fm))
-    : mx.tag === "DoneM" ? fm(mx.x)
-    : _throw(new TypeError("invalid trampoline tag"));
-
-
-LoopM.Chain = {
-  ...LoopM.Apply,
-  chain: LoopM.chain
-};
-
-
-// Functor :: Apply :: Applicative :: Monad
-
-
-LoopM.Monad = {
-  ...LoopM.Applicative,
-  chain: LoopM.chain
-};
-
-
-// Tags
-
-
-LoopM.next = x => f =>
-  ({tag: "NextM", f, x});
-
-
-LoopM.done = x =>
-  ({tag: "DoneM", x});
-
-
 /***[ Tail Recursion ]********************************************************/
 
 
-/* While the `next`/`done` tags are the usual components of a trampoline
-mimicking tail recursion, the `call` tag is needed to break deeply nested
-function calls which otherwise would exhauste the call stack. You can look at
-the `A.chainL` combinator to get an idea of its use. */
+/* Stack safe tail recursion through trampolines. In addition the `call` tag
+allows iteratively calling nested function calls as a result of function
+composition. */
 
 
 export const Loop = f => x => {
@@ -509,972 +373,16 @@ Loop3.next = (x, y, z) => ({[TAG]: "Next", x, y, z});
 Loop3.done = x => ({[TAG]: "Done", x});
 
 
-/***[ Resolve Dependencies ]**************************************************/
-
-
-LoopM.of = LoopM.of();
-
-
-/******************************************************************************
-*********************************[ MICROTASK ]*********************************
-******************************************************************************/
-
-
-// defer continuation until next microtask
-
-export const deferMicro = k => f =>
-  Promise.resolve(null)
-    .then(_ => k(f));
-
-
-/******************************************************************************
-************************[ PERSISTENT DATA STRUCTURES ]*************************
-******************************************************************************/
-
-
-const RBT = {};
-
-
-/***[ Constants ]*************************************************************/
-
-
-RBT.RED = true;
-RBT.BLACK = false;
-
-
-/***[ Constructors ]**********************************************************/
-
-
-RBT.Leaf = {[Symbol.toStringTag]: "Leaf"};
-
-
-RBT.Node = (c, h, l, k, v, r) =>
-  ({[Symbol.toStringTag]: "Node", c, h, l, k, v, r});
-
-
-RBT.singleton = (k, v) =>
-  RBT.Node(RBT.BLACK, 1, RBT.Leaf, k, v, RBT.Leaf);
-
-
-/***[ Order (Default) ]*******************************************************/
-
-
-RBT.cmp = comparator;
-
-
-/***[ Auxiliary Functions ]***************************************************/
-
-
-RBT.balanceL = (c, h, l, k, v, r) => {
-  if (c === RBT.BLACK
-    && l[TAG] === "Node"
-    && l.c ===RBT.RED
-    && l.l[TAG] === "Node"
-    && l.l.c === RBT.RED)
-      return RBT.Node(
-        RBT.RED, h + 1, RBT.turnB(l.l), l.k, l.v, RBT.Node(RBT.BLACK, h, l.r, k, v, r));
-
-  else return RBT.Node(c, h, l, k, v, r);
-};
-
-
-RBT.balanceR = (c, h, l, k, v, r) => {
-  if (c === RBT.BLACK
-    && l[TAG] === "Node"
-    && r[TAG] === "Node"
-    && l.c === RBT.RED
-    && r.c === RBT.RED)
-      return RBT.Node(
-        RBT.RED, h + 1, RBT.turnB(l), k, v, RBT.turnB(r));
-
-  else if (r[TAG] === "Node"
-    && r.c === RBT.RED)
-      return RBT.Node(
-        c, h, RBT.Node(RBT.RED, r.h, l, k, v, r.l), r.k, r.v, r.r);
-
-  else return RBT.Node(c, h, l, k, v, r);
-};
-
-
-RBT.isBLB = t =>
-  t[TAG] === "Node"
-    && t.c === RBT.BLACK
-    && (t.l[TAG] === "Leaf" || t.l.c === RBT.BLACK)
-      ? true : false;
-
-
-RBT.isBLR = t =>
-  t[TAG] === "Node"
-    && t.c === RBT.BLACK
-    && t.l[TAG] === "Node"
-    && t.l.c === RBT.RED
-      ? true : false;
-
-
-RBT.rotateR = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RBT.RED)
-      return RBT.balanceR(
-        t.c, t.h, t.l.l, t.l.k, t.l.v, RBT.delMax_(RBT.Node(RBT.RED, t.h, t.l.r, t.k, t.v, t.r)));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.turnR = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return RBT.Node(
-    RBT.RED, h, l, k, v, r);
-};
-
-
-RBT.turnB = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return RBT.Node(
-    RBT.BLACK, h, l, k, v, r);
-};
-
-
-RBT.turnB_ = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-    case "Node": return RBT.Node(RBT.BLACK, t.h, t.l, t.k, t.v, t.r);
-    default: throw new TypeError("invalid value constructor");
-  }
-}
-
-
-/***[ Deletion ]**************************************************************/
-
-
-RBT.del = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-    
-    case "Node": {
-      const t2 = RBT.del_(RBT.turnR(t), k, cmp);
-
-      switch (t2[TAG]) {
-        case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RBT.del_ = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RBT.delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case EQ: return RBT.delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case GT: return RBT.delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RBT.delLT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RBT.RED
-    && RBT.isBLB(l)
-    && RBT.isBLR(r))
-      return RBT.Node(
-        RBT.RED,
-        h,
-        RBT.Node(RBT.BLACK, r.h, RBT.del_(RBT.turnR(l), k, cmp), k2, v2, r.l.l),
-        r.l.k,
-        r.l.v,
-        RBT.Node(RBT.BLACK, r.h, r.l.r, r.k, r.v, r.r));
-
-  else if (c === RBT.RED
-    && RBT.isBLB(l))
-      return RBT.balanceR(
-        RBT.BLACK, h - 1, RBT.del_(tunrR(l), k, cmp), k2, v2, RBT.turnR(r));
-
-  else return RBT.Node(c, h, RBT.del_(l, k, cmp), k2, v2, r);
-};
-
-
-RBT.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RBT.RED
-    && l[TAG] === "Leaf"
-    && r[TAG] === "Leaf")
-      return RBT.Leaf;
-
-  else if (l[TAG] === "Node"
-    && l.c === RBT.RED)
-      return RBT.balanceR(
-        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k2, v2, r), k, cmp));
-
-  else if (c === RBT.RED
-    && RBT.isBLB(r)
-    && RBT.isBLR(l))
-      return RBT.balanceR(
-        RBT.RED,
-        h,
-        RBT.turnB(l.l),
-        l.k,
-        l.v,
-        RBT.balanceR(RBT.BLACK, l.h, l.r, ...RBT.min(r), RBT.delMin_(RBT.turnR(r))));
-
-  else if (c === RBT.RED
-    && RBT.isBLB(r))
-      return RBT.balanceR(RBT.BLACK, h - 1, RBT.turnR(l), ...RBT.min(r), RBT.delMin_(RBT.turnR(r)));
-
-  else if (c === RBT.RED
-    && r[TAG] === "Node"
-    && r.c === RBT.BLACK)
-      return RBT.Node(
-        RBT.RED, h, l, ...RBT.min(r), RBT.Node(RBT.BLACK, r.h, RBT.delMin_(r.l), r.k, r.v, r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.delGT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (l[TAG] === "Node"
-    && l.c === RBT.RED)
-      return RBT.balanceR(
-        c, h, l.l, l.k, l.v, RBT.del_(RBT.Node(RBT.RED, h, l.r, k2, v2, r)), k, cmp);
-
-  else if (c === RBT.RED
-    && RBT.isBLB(r)
-    && RBT.isBLR(l))
-      return RBT.Node(
-        RBT.RED,
-        h,
-        RBT.turnB(l.l),
-        l.k,
-        l.v,
-        RBT.balanceR(RBT.BLACK, l.h, l.r, k2, v2, RBT.del_(RBT.turnR(r), k, cmp)));
-
-  else if (c === RBT.RED
-    && RBT.isBLB(r))
-      return RBT.balanceR(
-        RBT.BLACK, h - 1, RBT.turnR(l), k2, v2, RBT.del_(RBT.turnR(r), k, cmp));
-
-  else if (c === RBT.RED)
-    return RBT.Node(RBT.RED, h, l, k2, v2, RBT.del_(r, k, cmp));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-/***[ Getter ]****************************************************************/
-
-
-RBT.get = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return undefined;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RBT.get(t.l, k, cmp);
-        case EQ: return t.v;
-        case GT: return RBT.get(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-RBT.has = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return false;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RBT.has(t.l, k, cmp);
-        case EQ: return true;
-        case GT: return RBT.has(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/***[ Setter ]****************************************************************/
-
-
-RBT.set = (t, k, v, cmp) =>
-  RBT.turnB(RBT.set_(t, k, v, cmp));
-
-
-RBT.set_ = (t, k, v, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf":
-      return RBT.Node(RBT.RED, 1, RBT.Leaf, k, v, RBT.Leaf);
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RBT.balanceL(
-          t.c, t.h, RBT.set_(t.l, k, v, cmp), t.k, t.v, t.r);
-
-        case EQ: return RBT.Node(t.c, t.h, t.l, k, v, t.r);
-
-        case GT: return RBT.balanceR(
-          t.c, t.h, t.l, t.k, t.v, RBT.set_(t.r, k, v, cmp));
-
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/***[ Minimum/Maximum ]*******************************************************/
-
-
-RBT.min = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RBT.min(t.l);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-RBT.delMin = t =>{
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-
-    case "Node": {
-      const t2 = RBT.delMin_(RBT.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RBT.delMin_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RBT.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RBT.RED)
-      return RBT.Node(RBT.RED, t.h, RBT.delMin_(t.l), t.k, t.v, t.r);
-
-  else if (t[TAG] === "Node"
-    && RBT.isBLB(t.l)
-    && RBT.isBLR(t.r))
-      return RBT.delMin__(t);
-
-  else if (t[TAG] === "Node"
-    && RBT.isBLB((t.l)))
-      return RBT.balanceR(
-        RBT.BLACK, t.h - 1, RBT.delMin_(RBT.turnR(t.l)), t.k, t.v, RBT.turnR(t.r));
-
-  else if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RBT.BLACK)
-      return RBT.Node(
-        RBT.RED, t.h, RBT.Node(RBT.BLACK, t.l.h, RBT.delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.delMin__ = t => {
-  if(t[TAG] === "Node"
-    && t.c === RBT.RED
-    && t.r[TAG] === "Node"
-    && t.r.c === RBT.BLACK
-    && t.r.l[TAG] === "Node"
-    && t.r.l.c === RBT.RED)
-      return RBT.Node(
-        RBT.RED,
-        t.h,
-        RBT.Node(RBT.BLACK, t.r.h, RBT.delMin_(RBT.turnR(t.l)), t.k, t.v, t.r.l.l),
-        t.r.l.k,
-        t.r.l.v,
-        RBT.Node( RBT.BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.max = t => {
-  if (t[TAG] === "Node"
-    && t.r[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RBT.max(t.r);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-RBT.delMax = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-
-    case "Node": {
-      const t2 = RBT.delMax_(RBT.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RBT.Leaf;
-        case "Node": return RBT.turnB(t2);
-        default: TypeError("invalid value constructor");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-RBT.delMax_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RBT.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RBT.RED)
-      return RBT.rotateR(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && RBT.isBLB(t.r)
-    && RBT.isBLR(t.l))
-      return RBT.delMax__(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && RBT.isBLB(t.r))
-      return RBT.balanceR(
-        RBT.BLACK, t.h - 1, RBT.turnR(t.l), t.k, t.v, RBT.delMax_(RBT.turnR(t.r)));
-
-  else if (t[TAG] === "Node"
-    && t.c === RBT.RED)
-      return RBT.Node(RBT.RED, t.h, t.l, t.k, t.v, RBT.rotateR(t.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.delMax__ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RBT.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RBT.BLACK
-    && t.l.l[TAG] === "Node"
-    && t.l.l.c === RBT.RED)
-      return RBT.Node(
-        RBT.RED, t.h, RBT.turnB(t.l.l), t.l.k, t.l.v, RBT.balanceR(RBT.BLACK, t.l.h, t.l.r, t.k, t.v, RBT.delMax_(RBT.turnR(t.r))));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-/***[ Set Operations ]********************************************************/
-
-
-RBT.join = (t1, t2, k, v, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RBT.set(t2, k, v, cmp);
-
-  else if (t2[TAG] === "Leaf")
-    return RBT.set(t1, k, v, cmp);
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RBT.turnB(RBT.joinLT(t1, t2, k, v, t1.h, cmp));
-      case EQ: return RBT.Node(RBT.BLACK, t1.h + 1, t1, k, v, t2);
-      case GT: return RBT.turnB(RBT.joinGT(t1, t2, k, v, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-RBT.joinLT = (t1, t2, k, v, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RBT.Node(RBT.RED, t2.h + 1, t1, k, v, t2);
-
-  else if (t2[TAG] === "Node")
-    return RBT.balanceL(t2.c, t2.h, RBT.joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RBT.joinGT = (t1, t2, k, v, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RBT.Node(RBT.RED, t1.h + 1, t1, k, v, t2);
-
-  else if (t1[TAG] === "Node")
-    return RBT.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RBT.joinGT(t1.r, t2, k, v, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RBT.merge = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return t2;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RBT.turnB(RBT.mergeLT(t1, t2, t1.h, cmp));
-      case EQ: return RBT.turnB(RBT.mergeEQ(t1, t2, cmp));
-      case GT: return RBT.turnB(RBT.mergeGT(t1, t2, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-RBT.mergeLT = (t1, t2, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RBT.mergeEQ(t1, t2, cmp);
-
-  else if (t2[TAG] === "Node")
-    return RBT.balanceL(t2.c, t2.h, RBT.mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RBT.mergeEQ = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf"
-    && t2[TAG] === "Leaf")
-      return RBT.Leaf;
-
-  else if (t1[TAG] === "Node") {
-    const t2_ = RBT.delMin(t2),
-      [k, v] = RBT.min(t2);
-
-    if (t1.h === t2_.h)
-      return RBT.Node(RBT.RED, t1.h + 1, t1, k, v, t2_);
-
-    else if (t1.l[TAG] === "Node"
-      && t1.l.c === RBT.RED)
-        return RBT.Node(
-          RBT.RED, t1.h + 1, RBT.turnB(t1.l), t1.k, t1.v, RBT.Node(RBT.BLACK, t1.h, t1.r, k, v, t2_));
-
-    else return RBT.Node(
-      RBT.BLACK, t1.h, RBT.turnR(t1), k, v, t2_);
-  }
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RBT.mergeGT = (t1, t2, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RBT.mergeEQ(t1, t2, cmp);
-
-  else if (t1[TAG] === "Node")
-    return RBT.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RBT.mergeGT(t1.r, t2, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RBT.split = (t, k, cmp) => {
-  if (t[TAG] === "Leaf")
-    return [RBT.Leaf, RBT.Leaf];
-
-  else {
-    switch (cmp(k, t.k)) {
-      case LT: {
-        const [lt, gt] = RBT.split(t.l, k, cmp);
-        return [lt, RBT.join(gt, t.r, t.k, t.v, cmp)];
-      }
-
-      case EQ: return [RBT.turnB_(t.l), t.r];
-
-      case GT: {
-        const [lt, gt] = RBT.split(t.r, k, cmp);
-        return [RBT.join(t.l, lt, t.k, t.v, cmp), gt];
-      }
-
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-RBT.union = (t1, t2, cmp) => {
-  if (t2[TAG] === "Leaf")
-    return t1;
-
-  else if (t1[TAG] === "Leaf")
-    return RBT.turnB_(t2);
-
-  else {
-    const [l, r] = RBT.split(t1, t2.k, cmp);
-    return RBT.join(RBT.union(l, t2.l, cmp), RBT.union(r, t2.r, cmp), t2.k, t2.v, cmp);
-  }
-};
-
-
-RBT.intersect = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RBT.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return RBT.Leaf;
-
-  else {
-    const [l, r] = RBT.split(t1, t2.k, cmp);
-
-    if (RBT.has(t1, t2.k, cmp))
-      return RBT.join(
-        RBT.intersect(l, t2.l, cmp), RBT.intersect(r, t2.r, cmp), t2.k, t2.v, cmp);
-
-    else return RBT.merge(
-      RBT.intersect(l, t2.l, cmp), RBT.intersect(r, t2.r, cmp), cmp);
-  }
-};
-
-
-RBT.diff = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RBT.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    const [l, r] = RBT.split(t1, t2.k, cmp);
-    return RBT.merge(RBT.diff(l, t2.l, cmp), RBT.diff(r, t2.r, cmp));
-  }
-};
-
-
-/***[ Foldable ]**************************************************************/
-
-
-RBT.foldl = f => init => t => function go(acc, u) { // TODO: CPS + trampoline
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = go(acc, u.l);
-      const acc3 = f(acc2) (u.v);
-      return go(acc3, u.r);
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-} (init, t);
-
-
-RBT.foldr = f => init => t => function go(acc, u) {
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = lazy(() => go(acc, u.r));
-      const acc3 = f(u.v) (acc2);
-      return lazy(() => go(acc3, u.l));
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-} (init, t);
-
-
-/***[ Folds ]*****************************************************************/
-
-
-RBT.cata = node => leaf => function go(t) { // TODO: trampoline
-  return k => {
-    switch (t[TAG]) {
-      case "Leaf": return k(leaf);
-      
-      case "Node": return go(t.l) (t2 =>
-        go(t.r) (t3 =>
-          k(node([t.k, t.v]) (t2) (t3))));
-
-      default: throw new TypeError("invalid constructor");
-    }
-  }
-};
-
-
-RBT.cata_ = node => leaf => function go(t) {
-  switch (t[TAG]) {
-    case "Leaf": return leaf;
-    
-    case "Node": return node([t.k, t.v])
-      (lazy(() => go(t.l)))
-        (lazy(() => go(t.r)));
-
-    default: throw new TypeError("invalid constructor");
-  }
-};
-
-
-/***[ Functor ]***************************************************************/
-
-
-RBT.map = f => function go(t) { // TODO: CPS + trampoline
-  switch (t[TAG]) {
-    case "Leaf": return RBT.Leaf;
-    
-    case "Node": {
-      return RBT.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-};
-
-
-RBT.Functor = {map: RBT.map};
-
-
-/***[ Traversals ]************************************************************/
-
-
-RBT.preOrder = ({append, empty}) => f => t =>
-  RBT.cata(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t) (id);
-
-
-RBT.inOrder = ({append, empty}) => f => t =>
-  RBT.cata(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t) (id);
-
-
-RBT.postOrder = ({append, empty}) => f => t =>
-  RBT.cata(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t) (id);
-
-
-RBT.levelOrder = f => init => t => function go(acc, i, ts) { // TODO: trampoline
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return go(f(acc) ([ts[i].k, ts[i].v]), i + 1, ts);
-  }
-} (init, 0, [t]);
-
-
-RBT.preOrder_ = ({append, empty}) => f => t =>
-  RBT.cata_(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t);
-
-
-RBT.inOrder_ = ({append, empty}) => f => t =>
-  RBT.cata_(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t);
-
-
-RBT.postOrder_ = ({append, empty}) => f => t =>
-  RBT.cata_(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t);
-
-
-RBT.levelOrder_ = f => acc => t => function go(ts, i) {
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(ts, i + 1);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return f([ts[i].k, ts[i].v]) (lazy(() => go(ts, i + 1)));
-  }
-} ([t], 0);
-
-
 /******************************************************************************
 *******************************************************************************
-************************************[ IO ]*************************************
+**************************[ TYPE CLASS COMBINATORS ]***************************
 *******************************************************************************
 ******************************************************************************/
 
 
 /******************************************************************************
-*******************************[ CHILD PROCESS ]*******************************
+*********************************[ FOLDABLE ]**********************************
 ******************************************************************************/
-
-
-export const Process_ = cp => cons => ({
-  exec: opts => cmd =>
-    EitherT(cons(k =>
-      cp.exec(cmd, opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? k(Either.Left(stderr))
-          : k(Either.Right(stdout))))),
-
-
-  execFile: opts => args => cmdName =>
-    EitherT(cons(k =>
-      cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? k(Either.Left(stderr))
-          : k(Either.Right(stdout))))),
-
-
-  spawn: opts => args => cmdName => Emitter(k => {
-    const cmd = cp.spawn(cmdName, args, opts);
-
-    const stdoutOb = Emitter.observe({
-      emitters: [
-        Pair(cmd.stdout, "Node.Stream.In.data"),
-        Pair(cmd, "Node.CP.error"),
-        Pair(cmd, "Node.CP.exit")
-      ],
-
-      init: "",
-      
-      listener: args => k => {
-        switch (args.type) {
-          case "Node.CP.error":
-          case "Node.CP.exit": return k(args);
-          
-          case "Node.Stream.In.data":
-            return args.state + args.dyn[0];
-        }
-      }
-    });
-
-    const stderrOb = Emitter.observe({
-      emitters: [
-        Pair(cmd.stderr, "Node.Stream.In.data"),
-        Pair(cmd, "Node.CP.error"),
-        Pair(cmd, "Node.CP.exit")
-      ],
-      
-      init: "",
-
-      listener: args => k => {
-        switch (args.type) {
-          case "Node.CP.error":
-          case "Node.CP.exit": return k(args);
-          
-          case "Node.Stream.In.data":
-            return args.state + args.dyn[0];
-        }
-      }
-    });
-
-    return Emitter.or(stdoutOb) (stderrOb).run(k);
-  })
-});
-
-
-/******************************************************************************
-********************************[ FILE SYSTEM ]********************************
-******************************************************************************/
-
-
-// TODO: allow variants with alternative error handling
-
-export const FS_ = fs => cons => thisify(o => {
-  o.copy = src => dest =>
-    cons(k =>
-      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
-        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
-
-
-  o.move = src => dest =>
-    cons.chain(
-      cons.chain(o.copy(src) (dest))
-        (([src2]) => o.unlink(src2)))
-          (src => Serial.of(Pair(src, dest)));
-
-
-  o.read = opt => path =>
-    cons(k =>
-      fs.readFile(path, opt, (e, x) =>
-        e ? _throw(new TypeError(e)) : k(x)));
-
-
-  o.scanDir = path =>
-    cons(k =>
-      fs.readdir(path, (e, xs) =>
-        e ? _throw(new TypeError(e)) : k(xs)));
-
-
-  o.stat = path =>
-    cons(k =>
-      fs.stat(path, (e, o) =>
-        e ? _throw(new TypeError(e)) : k(o)));
-
-
-  o.unlink = path =>
-    cons(k =>
-      fs.unlink(path, e =>
-        e ? _throw(new TypeError(e)) : k(path)));
-
-
-  o.write = opt => path => s =>
-    cons(k =>
-      fs.writeFile(path, s, opt, e =>
-        e ? _throw(new TypeError(e)) : k(s)));
-
-
-  return o;
-});
-
-
-/******************************************************************************
-*******************************************************************************
-***********************[ AD-HOC POLYMORPHIC FUNCTIONS ]************************
-*******************************************************************************
-******************************************************************************/
-
-
-/***[ Foldable ]**************************************************************/
-
-
-export const concatArr = ({foldl}) => foldl(A.append) (A.empty);
-
-
-export const concatList = ({foldr}) => foldr(List.append) (List.empty);
 
 
 export const fold = ({fold}, {append, empty}) => tx =>
@@ -1489,13 +397,17 @@ export const foldMapr = ({foldr}, {append, empty}) => f =>
   foldr(comp(append) (f)) (empty);
 
 
-/***[ Functor ]***************************************************************/
+/******************************************************************************
+**********************************[ FUNCTOR ]**********************************
+******************************************************************************/
 
 
 export const mapEff = ({map}) => x => map(_ => x);
 
 
-/***[ Functor :: Apply ]******************************************************/
+/******************************************************************************
+*****************************[ FUNCTOR :: APPLY ]******************************
+******************************************************************************/
 
 
 export const apEff1 = ({map, ap}) => tx => ty => ap(map(_const) (tx)) (ty);
@@ -1507,35 +419,112 @@ export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff({map}) (id) (tx)) (ty
 export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 
 
-/***[ Functor :: Apply :: Chain ]*********************************************/
+/******************************************************************************
+*************************[ FUNCTOR :: APPLY :: CHAIN ]*************************
+******************************************************************************/
 
 
-/* Monadic chaining is nested and represents conditional continuations, i.e.
-dynamic computations. Neither the `infix` operator nor arity aware combinators
-can be applied to flatten monadic computations without breaking the conditional
-property. */
-
-
-export const chain = ({map, join}) => mx => fm => join(map(fm) (mx));
+/***[ Interpretation ]********************************************************/
 
 
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
-// TODO: what does it mean to join two monadic layers (interpreter)
+/***[ Kleisli ]***************************************************************/
 
 
-export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm); // kleisli composition
+export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
 
 
-export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm); // kleisli pipe
+export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 
 
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+export const chain2 = ({chain}) => mx => my => fm =>
+  chain(mx) (x => chain(my) (y => fm(x) (y)));
 
 
-export const foldM = ({foldr}, {of, chain}) => f => acc => mx =>
-  foldr(x => my => acc2 => chain(f(acc2) (x)) (my)) (of) (mx) (acc);
+export const chain3 = ({chain}) => mx => my => mz => fm =>
+  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
+
+
+/******************************************************************************
+***********************************[ MONAD ]***********************************
+******************************************************************************/
+
+
+/******************************************************************************
+***********************************[ MISC. ]***********************************
+******************************************************************************/
+
+
+/***[ Getter/Setter ]*********************************************************/
+
+
+/* Getters are just curried functions that take a box, unpack it and return
+another box or a scalar value. Such values can be composed. During composition,
+a stack is build up, which holds references to each box including the initial
+one. If the most nested box/value is reached, the process is reversed. For each
+reference in the stack, a setter performs a write operation until the stack is
+unwound. Setters are just curried functions that take a value and a box and
+return a modified box. A setter can either mutate the box or create a copy of
+it prior to any modifications. */
+
+
+// TODO: make more general and compoable
+
+
+const getRefPath = (...getters) => tx => {
+  const refs = [tx];
+
+  for (getter of getters) {
+    if (tx === null) return [];
+
+    else {
+      tx = getter(tx);
+      refs.push(tx);
+    }
+  }
+
+  return refs;
+};
+
+const get = (...getters) => tx => {
+  for (getter of getters) {
+    if (tx === null) return null
+    else tx = getter(tx);
+  }
+
+  return tx;
+};
+
+const set = (...setters) => v => refs => {
+  if (setters.length !== refs.length - 1)
+    throw new TypeError("setter/reference mismatch");
+
+  for (let i = refs.length - 2; i >= 0; i--)
+    v = setters[i] (v) (refs[i]);
+
+  return v;
+};
+
+const upd = (...setters) => f => refs => {
+  if (setters.length !== refs.length - 1)
+    throw new TypeError("setter/reference mismatch");
+
+  let v = f(refs[refs.length - 1]);
+
+  for (let i = refs.length - 2; i >= 0; i--)
+    v = setters[i] (v) (refs[i]);
+
+  return v;
+};
+
+
+/*const m = new Map([["foo", [111, 222]], ["bar", 11]]);
+const path = getRefPath(m => m.get("foo"), xs => xs[1]) (m);
+
+set(xs => m => m.set("foo", xs), x => xs => xs.concat(x)) (123) (path);
+upd(xs => m => m.set("foo", xs), x => xs => xs.concat(x)) (x => x - 22) (path);*/
 
 
 /******************************************************************************
@@ -1546,60 +535,204 @@ export const foldM = ({foldr}, {of, chain}) => f => acc => mx =>
 
 
 /******************************************************************************
+***********************************[ CONT ]************************************
+******************************************************************************/
+
+
+/* Represents synchronous computations encoded in continuation passing style.
+  Use `Serial`/`Parallel` for asynchronous evaluation.
+
+  The type has the following properties:
+
+  * synchronous, serial evaluation
+  * pure core/impure shell concept
+  * lazy by deferred nested functions
+  * reliable return values
+  * not stack-safe but in tail position
+  * flat composition/monadic chaining syntax
+  * delimited scopes */
+
+
+export const Cont = k => {
+  [TAG]: "Cont",
+  run: k,
+  unwind: x => Loop.call(k, x) // may prevent the stack from exhausting
+};
+
+
+export const C = Cont; // shortcut
+
+
+/***[ Delimited ]*************************************************************/
+
+
+C.abrupt = x => C(k => x);
+
+
+C.callcc = f => C(k => f(C.reify(k)) (k));
+
+
+C.reify = k => x => C(k2 => k(x));
+
+
+C.reset = mx => C(k => k(mx.run(id)));
+
+
+C.shift = fm => C(k => fm(k).run(id));
+
+
+/***[ Functor ]***************************************************************/
+
+
+C.map = f => tx => C(k => tx.run(x => k(f(x))));
+
+
+C.Functor = {map: C.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+C.ap = tf => tx => C(k => tf.run(f => tx.run(x => k(f(x)))));
+
+
+C.Apply = {
+  ...C.Functor,
+  ap: C.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+C.of = x => C(k => k(x));
+
+
+C.Applicative = {
+  ...C.Apply,
+  of: C.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+C.chain = mx => fm => C(k => mx.run(x => fm(x).run(k)));
+
+
+C.Chain = {
+  ...C.Apply,
+  chain: C.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+C.Monad = {
+  ...C.Applicative,
+  chain: C.chain
+};
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+C.append = ({append}) => tx => ty =>
+  C(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+C.prepend = ({append}) => ty => tx =>
+  C(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+C.Semigroup = {
+  append: C.append,
+  prepend: C.prepend
+};
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+C.empty = empty => C(k => k(empty));
+
+
+C.Monoid = {
+  ...C.Semigroup,
+  empty: C.empty
+};
+
+
+/******************************************************************************
 *********************************[ FUNCTION ]**********************************
 ******************************************************************************/
 
 
-export const F = {};
+export const Fun = k => ({
+  [TAG]: "Cont.Function",
+  run: k
+});
 
 
-/***[ Applicator ]************************************************************/
+export const F = Fun; // shortcut
+
+
+/***[ Applicators ]***********************************************************/
 
 
 export const app = f => x => f(x);
 
 
+export const appk = f => x => F(k => f(x).run(k));
+
+
 export const app_ = x => f => f(x);
+
+
+export const appk_ = x => f => F(k => f(x).run(k));
 
 
 export const appr = (f, y) => x => f(x) (y);
 
 
+export const appkr = (f, y) => x => F(k => f(x) (y).run(k));
+
+
+export const contify = f => x => F(k => k(f(x)));
+
+
+export const curry = f => x => y => f(x, y);
+
+
+export const curryk = f => x => y => F(k => f(x, y).run(k));
+
+
+export const uncurry = f => (x, y) => f(x) (y);
+
+
+export const uncurryk = f => (x, y) => F(k => f(x) (y).run(k));
+
+
 export const flip = f => y => x => f(x) (y);
 
 
-export const infix1 = (x, f, y) =>
-  f(x) (y);
+export const flipk = f => y => x => F(k => f(x) (y).run(k));
 
 
-export const infix2 = (x, f, y, g, z) =>
-  g(f(x) (y)) (z);
-
-
-export const infix3 = (w, f, x, g, y, h, z) =>
-  h(g(f(w) (x)) (y)) (z);
-
-
-export const infix4 = (v, f, w, g, x, h, y, i, z) =>
-  i(h(g(f(v) (w)) (x)) (y)) (z);
-
-
-export const infix5 = (u, f, v, g, w, h, x, i, y, j, z) =>
-  j(i(h(g(f(u) (v)) (w)) (x)) (y)) (z);
-
-
-export const infix6 = (t, f, u, g, v, h, w, i, x, j, y, k, z) =>
-  k(j(i(h(g(f(t) (u)) (v)) (w)) (x)) (y)) (z);
-
-
-export const infix = (...args) => { // arity-agnostic
-  if (args.length === 0)
-    throw new TypeError("no argument found");
+export const infix = (...args) => { // variadic
+  if (args.length === 0) throw new TypeError("no argument found");
 
   let i = 1, x = args[0];
 
   while (i < args.length) {
-    if (i + 1 === args.length) x = args[i++] (x);
+    if (i === 1) x = args[i++] (x) (args[i++]);
     else x = args[i++] (x) (args[i++]);
   }
 
@@ -1607,142 +740,99 @@ export const infix = (...args) => { // arity-agnostic
 };
 
 
-export const infixIt = (...args) => value => { // stateless iterator
-  if (args.length % 2 !== 0)
-    throw new TypeError("invalid number of arguments");
+export const infixk = (...args) => F(k => { // variadic
+  if (args.length === 0) throw new TypeError("no argument");
 
-  const next = i => {
-    if (i >= args.length)
-      throw new TypeError("iterator is exhausted");
+  else if (args.length % 2 === 0)
+    throw new TypeError("invalid no. of arguments")
 
-    else {
-      value = args[i] (value) (args[i + 1]);
-      
-      return {
-        i,
-        value,
+  let i = 1, x = args[0], tf;
 
-        get next() {
-          const o = next(i + 2);
-          delete this.next;
-          this.next = o;
-          return o;
-        },
-
-        done: i + 2 < args.length ? false : true
-      };
-    }
-  };
-
-  return next(0);
-};
-
-
-export const infixIt_ = (...args) => function* (x) { // stateful iterator
-  if (args.length % 2 !== 0)
-    throw new TypeError("invalid number of arguments");
-
-  let i = 0;
-
-  while (true) {
-    if (i >= args.length) break;
-
-    else {
-      x = args[i++] (x) (args[i++]);
-      yield x;
-    }
+  while (i < args.length) {
+    if (i === 1) tf = args[i++] (x) (args[i++]);
+    else tf = tf.run(args[i++]) (args[i++]);
   }
 
-  return x;
-};
+  return i === 1 ? k(x) : tf.run(k);
+});
 
 
-/***[ Arithmetic Operators ]**************************************************/
+// enable `let` bindings as expressions in a readable form
+
+export const _let = (...args) => ({in: f => f(...args)});
 
 
-export const add = x => y => x + y;
-
-
-export const div = x => y => x / y;
-
-
-export const exp = exp => base => base ** exp;
-
-
-export const dec = x => x - 1;
-
-
-export const inc = x => x + 1;
-
-
-export const mod = x => y => x % y;
-
-
-export const mul = x => y => x * y;
-
-
-export const neg = x => -x;
-
-
-export const sub = x => y => x - y;
+export const letk = (...args) => ({in: f => F(k => f(...args).run(k))});
 
 
 /***[ Category ]**************************************************************/
 
 
-export const comp = f => g => x => f(g(x));
-
-
 export const id = x => x;
 
 
-F.comp = comp;
-
-
-F.id = id;
-
-
 F.Category = {
-  comp: F.comp,
-  id: F.id
+  comp,
+  id
 };
 
 
 /***[ Composition ]***********************************************************/
 
 
+export const comp = f => g => x => f(g(x));
+
+
+export const compk = f => g => x => F(k => g(x).run(f).run(k));
+
+
 export const comp3 = f => g => h => x => f(g(h(x)));
 
 
-export const compn = (...fs) => x => {
-  for (let i = fs.length - 1; i > -1; i--) x = fs[i] (x);
-  return x;
-};
+export const compk3 = f => g => h => x => F(k => h(x).run(g).run(f).run(k));
 
 
 export const comp2nd = f => g => x => y => f(x) (g(y));
 
 
+export const compk2nd = f => g => x => y => F(k => g(y).run(f(x)).run(k);
+
+
 export const compBin = f => g => x => y => f(g(x) (y));
+
+
+export const compkBin = f => g => x => y => F(k => g(x) (y).run(f).run(k));
 
 
 export const compBoth = f => g => x => y => f(g(x)) (g(y));
 
 
+export const compkBoth = f => g => x => y =>
+  F(k => g(y).run(g(x).run(f)).run(k));
+
+
+export const liftFst = f => g => x => f(g(x)) (x);
+
+
+export const liftkFst = f => g => x => F(k => g(x).run(f) (x).run(k));
+
+
+export const liftSnd = f => g => x => f(x) (g(x));
+
+
+export const liftkSnd = f => g => x => F(k => g(x).run(f(x)).run(k));
+
+
 export const pipe = g => f => x => f(g(x));
 
 
-export const pipen = (...fs) => x => {
-  for (const f of fs) x = f(x);
-  return x;
-};
+export const pipek = g => f => x => F(k => f(x).run(g).run(k));
 
 
-/***[ Conditional Operator ]**************************************************/
+export const pipe3 = h => g => f => x => f(g(h(x)));
 
 
-export const cond = x => y => thunk =>
-  strict(thunk) ? x : y;
+export const pipek3 = h => g => f => x => F(k => f(x).run(g).run(h).run(k));
 
 
 /***[ Contravariant ]*********************************************************/
@@ -1751,48 +841,7 @@ export const cond = x => y => thunk =>
 F.contramap = () => pipe;
 
 
-F.Contravariant = () => {contramap: F.contramap};
-
-
-/***[ Currying ]**************************************************************/
-
-
-export const curry = f => x => y => f(x, y);
-
-
-export const curry3 = f => x => y => z =>
-  f(x, y, z);
-
-
-export const curry4 = f => w => x => y => z =>
-  f(w, x, y, z);
-
-
-export const curry5 = f => v => w => x => y => z =>
-  f(v, w, x, y, z);
-
-
-export const curry6 = f => u => v => w => x => y => z =>
-  f(v, w, x, y, z);
-
-
-export const uncurry = f => (x, y) => f(x) (y);
-
-
-export const uncurry3 = f => (x, y, z) =>
-  f(x) (y) (z);
-
-
-export const uncurry4 = f => (w, x, y, z) =>
-  f(w) (x) (y) (z);
-
-
-export const uncurry5 = f => (v, w, x, y, z) =>
-  f(v) (w) (x) (y) (z);
-
-
-export const uncurry6 = f => (u, v, w, x, y, z) =>
-  f(v) (w) (x) (y) (z);
+F.Contra = () => {contramap: F.contramap};
 
 
 /***[ Debugging ]*************************************************************/
@@ -1810,42 +859,31 @@ export const debugIf = p => f => (...args) => {
 };
 
 
-export const log = (...args) =>
-  (console.log(...args), args[0]);
+export const log = (x, tag = "") => {
+  const s = JSON.stringify(x);
 
+  if (tag) {
+    if (s) console.log(tag + ":", x, "=JSON=>",s);
+    else console.log(tag + ":", x);
+  }
 
-export const taggedLog = tag => (...args) =>
-  (console.log(tag, ...args), args[0]);
+  else {
+    if (s) console.log(x, "=JSON=>", s);
+    else console.log(tag + ":", x);
+  }
+  
+  return x;
+};
 
 
 export const trace = x =>
   (x => console.log(JSON.stringify(x) || x.toString()), x);
 
 
-/***[ Equality ]**************************************************************/
-
-
-export const eq = x => y => x === y;
-
-
-export const neq = x => y => x !== y;
-
-
-/***[ Fixpoint ]**************************************************************/
-
-
-export const fix = f => x =>
-  f(fix(f)) (x);
-
-
-export const fix_ = f =>
-  f(lazy(() => fix_(f)));
-
-
 /***[ Functor ]***************************************************************/
 
 
-F.map = comp;
+F.map = compk;
 
 
 F.Functor = {map: F.map};
@@ -1854,7 +892,7 @@ F.Functor = {map: F.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-F.ap = f => g => x => f(x) (g(x));
+F.ap = liftkSnd;
 
 
 F.Apply = {
@@ -1866,22 +904,19 @@ F.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-F.of = () => _const;
+export const _const = x => y => x;
 
 
 F.Applicative = {
   ...F.Apply,
-  of: F.of
+  of: _const
 };
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-F.chain = f => g => x => f(g(x)) (x);
-
-
-F.join = f => x => f(x) (x);
+F.chain = liftkFst;
 
 
 F.Chain = {
@@ -1891,6 +926,9 @@ F.Chain = {
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+F.join = f => x => F(k => k(f(x) (x)));
 
 
 F.Monad = {
@@ -1923,177 +961,25 @@ F.Comonad = {
 };
 
 
-/***[ Functor :: Profunctor ]*************************************************/
-
-
-F.dimap = f => g => tf => x => g(tf.run(f(x)));
-
-
-F.lmap = f => tg => x => f(tg.run(x));
-
-
-F.rmap = g => tf => x => tf.run(g(x));
-
-
-F.Profunctor = {
-  ...F.Functor,
-  dimap: F.dimap,
-  lmap: F.lmap,
-  rmap: F.rmap
-};
-
-
-/***[ Functor :: Profunctor :: Strong ]***************************************/
-
-
-F.first = f => tx => [f(tx.run[0]), tx.run[1]];
-
-
-F.second = f => tx => [tx.run[0], f(tx.run[1])];
-
-
-F.Strong = {
-  ...F.Profunctor,
-  first: F.first,
-  second: F.second
-};
-
-
-/***[ Functor :: Profunctor :: Choice ]***************************************/
-
-
-F.left = f => tx => tx.run({
-  left: x => Either.Left(f(x)),
-  right: x => Either.Right(x)
-});
-
-
-F.right = f => tx => tx.run({
-  left: x => Either.Left(x),
-  right: x => Either.Right(f(x))
-});
-
-
-F.Choice = {
-  ...F.Profunctor,
-  left: F.left,
-  right: F.right
-};
-
-
-/***[ Functor :: Profunctor :: Closed ]***************************************/
-
-
-F.closed = comp;
-
-
-F.Closed = {
-  ...F.Profunctor,
-  closed: F.closed
-};
-
-
 /***[ Impure ]****************************************************************/
-
-
-export const effect = f => x => (f(x), x);
-
-
-export const excludeBottom = x =>
-  x === undefined || x === null
-    _throw(new TypeError("unexpected bottom type"));
-
-
-export const _throw = e => {
-  throw strict(e);
-};
-
-
-export const throw_ = e =>
-  defer(() => {throw strict(e)});
-
-
-export const throwOn = p => e => x => {
-  if (p(x)) _throw(e);
-  else return x;
-};
-
-
-export const throwOnFalse = throwOn(x => x === false);
-
-
-export const throwOnFalsy = throwOn(x => !!x);
-
-
-export const throwOnNull = throwOn(x => x === undefined || x === null);
-
-
-/***[ Logical Operators ]*****************************************************/
-
-
-export const and = x => y => !!(x && y);
-
-
-export const andf = f => x => y => !!(f(x) && f(y));
-
-
-export const imply = x => y => !!(!x || y);
-
-
-export const not = x => !x;
-
-
-export const notf = f => x => !f(x);
-
-
-export const or = x => y => !!(x || y);
-
-
-export const orf = f => x => y => !!(f(x) || f(y));
-
-
-export const xor = x => y => !!(!x ^ !y);
-
-
-/***[ Meta Programming ]******************************************************/
 
 
 export const introspect = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
-export const tag = (type, o) =>
-  (o[Symbol.toStringTag] = type, o);
-
-
-/***[ Reader ]****************************************************************/
-
-
-F.ask = id;
-
-
-F.local = pipe; // a.k.a. withReader
-
-
-/***[ Relational Operators ]**************************************************/
-
-
-export const gt = x => y => x > y;
-
-
-export const gte = x => y => x >= y;
-
-
-export const lt = x => y => x < y;
-
-
-export const lte = x => y => x <= y;
+export const _throw = e => {
+  throw e;
+};
 
 
 /***[ Semigroup ]*************************************************************/
 
 
 F.append = ({append}) => f => g => x => append(f(x)) (g(x));
+
+
+F.prepend = ({prepend}) => g => f => x => prepend(f(x)) (g(x));
 
 
 F.Semigroup = {
@@ -2114,240 +1000,157 @@ F.Monoid = {
 };
 
 
-/***[ Short Circuiting ]******************************************************/
-
-
-export const and_ = x => y => x && y;
-
-
-export const andf_ = f => x => y => f(x) && f(y);
-
-
-export const or_ = x => y => x || y;
-
-
-export const orf_ = f => x => y => f(x) || f(y);
-
-
 /***[ Transducer ]************************************************************/
 
 
-export const filter = p => cons => x => p(x) ? cons(x) : id;
+export const drop = n => append => { 
+  let m = 0;
 
-
-export const filterk = p => cons => acc => x =>
-  Cont(k => p(x) ? cons(acc) (x).run(k) : k(acc));
-
-
-export const map = f => cons => x => cons(f(x));
-
-
-export const mapk = f => cons => acc => x =>
-  Cont(k => cons(acc) (f(x)).run(k));
-
-
-export const take = n => cons => function (n2) {
-  return x => n <= n2
-    ? id
-    : (n2++, cons(x));
-} (0);
-
-
-export const takek = n => cons => function (n2) {
   return acc => x =>
-    Cont(k => n <= n2
+    m < n
+      ? (m++, acc)
+      : append(acc) (x);
+};
+
+
+export const dropk = n => append => { 
+  let m = 0;
+
+  return acc => x => k =>
+      m < n
+        ? (m++, k(acc))
+        : append(acc) (x) (k)
+};
+
+
+export const dropr = n => append => { 
+  let m = 0;
+
+  return x => acc =>
+    m < n
+      ? (m++, acc)
+      : append(x) (acc);
+};
+
+
+export const dropWhile = p => append => {
+  let drop = true;
+
+  return acc => x => 
+    drop && p(x)
       ? acc
-      : (n2++, cons(acc) (x).run(k)));
-} (0);
+      : (drop = false, append(acc) (x));
+};
 
 
-/***[ Misc. ]*****************************************************************/
+export const dropWhilek = p => append => {
+  let drop = true;
+
+  return acc => x => k =>
+    drop && p(x)
+      ? k(acc)
+      : (drop = false, append(acc) (x) (k))
+};
 
 
-export const cat = (...lines) => lines.join("");
+export const dropWhiler = p => append => {
+  let drop = true;
+
+  return x => acc =>
+    drop && p(x)
+      ? acc
+      : (drop = false, append(x) (acc));
+};
 
 
-export const _const = x => y => x;
+export const filter = p => append => acc => x =>
+  p(x)
+    ? append(acc) (x)
+    : acc;
 
 
-export const express = f => f();
+export const filterk = p => append => acc => x => k =>
+  p(x)
+    ? append(acc) (x) (k)
+    : k(acc);
 
 
-export const _let = (...args) => ({in: f => f(...args)});
+export const filterr = p => append => x => acc =>
+  p(x)
+    ? append(x) (acc)
+    : acc;
 
 
-export const partial = (f, ...args) => (..._args) => f(...args, ..._args);
+export const map = f => append => acc => x =>
+  append(acc) (f(x));
 
 
-export const partialProps = (f, o) => p => f({...o, ...p});
+export const mapk = f => append => acc => x => k =>
+  append(acc) (f(x)) (k);
 
 
-export const thisify = f => f({});
+export const mapr = f => append => x => acc =>
+  append(f(x)) (acc);
 
 
-export const times = n => f => function go(m, r, done) {
-  return x => {
-    if (done) return r;
+export const take = n => append => { 
+  let m = 0;
 
-    else {
-      r = f(x);
-      done = --m <= 0 ? true : false;
-      return r;
-    }
-  }
-} (n, null, false);
+  return acc => x =>
+    m < n
+      ? (m++, append(acc) (x))
+      : acc;
+};
 
 
-export const once = times(1);
+export const takek = n => append => { 
+  let m = 0;
+
+  return acc => x => k =>
+    m < n
+      ? (m++, append(acc) (x) (k))
+      : acc;
 
 
-/***[ Resolve Dependencies ]**************************************************/
+export const taker = n => append => { 
+  let m = 0;
+
+  return x => acc =>
+    m < n
+      ? (m++, append(x) (acc))
+      : acc;
+};
+
+
+export const takeWhile = p => append => acc => x =>
+  p(x)
+    ? append(acc) (x)
+    : acc;
+
+
+export const takeWhilek = p => append => acc => x => k =>
+  p(x)
+    ? append(acc) (x)(k)
+    : acc;
+
+
+export const takeWhiler = p => append => x => acc =>
+  p(x)
+    ? append(x) (acc)
+    : acc;
+
+
+export const transduce = ({append}, {fold}) => f =>
+  fold(f(append));
+
+
+/***[ Resolve Deps ]**********************************************************/
 
 
 F.contramap = F.contramap();
 
 
-F.Contravariant = F.Contravariant();
-
-
-F.of = F.of();
-
-
-/******************************************************************************
-****************************[ FUNCTION :: READERT ]****************************
-******************************************************************************/
-
-
-export const ReaderT = mmf => ({
-  [TAG]: "ReaderT",
-  run: mmf
-});
-
-
-/***[ Contravariant ]*********************************************************/
-
-
-ReaderT.contramap = ({map, contramap: contramap2}) => f => mmg =>
-  x => ReaderT(map(contramap2(f) (mmg.run(x))));
-
-
-ReaderT.Contravariant = {contramap: ReaderT.contramap};
-
-
-/***[ Functor ]***************************************************************/
-
-
-ReaderT.map = ({map}) => f => ReaderT.mapBase(map(f));
-
-
-ReaderT.Functor = {map: ReaderT.map};
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-ReaderT.alt = ({alt}) => mmf => mmg =>
-  ReaderT(x => alt(mmf.run(x)) (mmg.run(x)));
-
-
-ReaderT.Alt = {
-  ...ReaderT.Functor,
-  alt: ReaderT.alt
-};
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-ReaderT.zero = ({zero}) => ReaderT.lift(zero);
-
-
-ReaderT.Plus = {
-  ...ReaderT.Alt,
-  chain: ReaderT.chain
-};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-ReaderT.ap = ({ap}) => mmf => mmg => ReaderT(x => ap(mmf.run(x)) (mmg.run(x)));
-
-
-ReaderT.Apply = {
-  ...ReaderT.Functor,
-  ap: ReaderT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-ReaderT.of = ({of}) => x => ReaderT.lift(of(x));
-
-
-ReaderT.Applicative = {
-  ...ReaderT.Apply,
-  of: ReaderT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-ReaderT.chain = ({chain}) => mmg => fmm =>
-  ReaderT(y => chain(mmg.run(y)) (x => fmm(x).run(y)));
-
-
-ReaderT.Chain = {
-  ...ReaderT.Apply,
-  chain: ReaderT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
-
-
-ReaderT.Alternative = {
-  ...ReaderT.Plus,
-  ...ReaderT.Applicative,
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-ReaderT.Monad = {
-  ...ReaderT.Applicative,
-  chain: ReaderT.chain
-};
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-ReaderT.mapBase = f => mmf => ReaderT(x => f(mmf.run(x)));
-
-
-/***[ Reader ]****************************************************************/
-
-
-ReaderT.ask = ({of}) => ReaderT(of);
-
-
-ReaderT.reader = ({of}) => f => ReaderT(x => of(f(x)));
-
-
-ReaderT.withReader = f => mmf => ReaderT(x => mmf.run(f(x)));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-ReaderT.lift = mx => ReaderT(_const(mx));
-
-
-// TODO
+F.Contra = F.Contra();
 
 
 /******************************************************************************
@@ -2355,36 +1158,16 @@ ReaderT.lift = mx => ReaderT(_const(mx));
 ******************************************************************************/
 
 
-export const A = {};
+export const Arr = k => ({
+  [TAG]: "Array",
+  run: k
+});
 
 
-// TODO
-// * subsequence (accumulate subsequent element of list that )
-// * permute (determine element permutations of list)
-// * scanl/scanr
-// * mapAccuml/mapAccumR
-// * zip/zipWith
-// * unzip
-// * elem/notElem
-// * splitAt/splitWith (span)
-// * reverse
-// * transpose
-// * subsequences
-// * permutations
-// * find
-// * findIndex
-// * dedupe/union/intersect
-// * deleteBy
-// * insertBy
-// * replaceAt/updateAt?
-// * sort/sortOn/sortBy
-// * min/max
-// * and/or
-// * all/any
-// * prod/sum
-// * eq instance
-// * ord instance
-// * comonad instances
+export const A = Arr; // shortcut
+
+
+A.arr = () => A.foldl; // elimination rule
 
 
 /***[ Clonable ]**************************************************************/
@@ -2405,35 +1188,22 @@ A.cons = x => xs => [x].concat(xs);
 A.cons_ = xs => x => [x].concat(xs);
 
 
-A.head = xs =>
-  xs.length === 0 ? Option.None : Option.Some(xs[0]);
+A.head = xs => xs.length === 0 ? Opt.none : Opt.some(xs[0]);
 
 
-A.headOr = x => xs =>
-  xs.length === 0 ? x : xs[0];
+A.headOr = x => xs => xs.length === 0 ? x : xs[0];
 
 
-A.index = i => xs => (i in xs)
-  ? Option.Some(xs[i])
-  : Option.None;
+A.index = i => xs => (i in xs) ? Opt.some(xs[i]) : Opt.none;
 
 
-A.init = xs =>
-  xs.length === 0 ? Option.None : Option.Some(xs.slice(0, -1));
+A.init = xs => xs.length === 0 ? Opt.none : Opt.some(xs.slice(0, -1));
 
 
-A.inits = xs => A.para(x => tail => acc => // TODO: increase efficiency
-  (acc.push(A.clone(tail)), acc))
-    ([])
-      (xs);
+A.last = xs => xs.length === 0 ? Opt.none : Opt.some(xs[xs.length - 1]);
 
 
-A.last = xs =>
-  xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]);
-
-
-A.lastOr = x => xs =>
-  xs.length === 0 ? x : xs[xs.length - 1];
+A.lastOr = x => xs => xs.length === 0 ? x : xs[xs.length - 1];
 
 
 A.push = x => xs => (xs.push(x), xs);
@@ -2448,16 +1218,10 @@ A.push_ = xs => x => (xs.push(x), xs);
 A.pushn_ = xs => ys => (xs.push.apply(xs, ys), xs);
 
 
-A.pop = xs => Pair(
-  xs.length === 0 ? Option.None : Option.Some(xs.pop()),
-  xs
-);
+A.pop = xs => Pair(xs.length === 0 ? Opt.none : Opt.some(xs.pop()), xs);
 
 
-A.shift = xs => Pair(
-  xs.length === 0 ? Option.None : Option.Some(xs.shift()),
-  xs
-);
+A.shift = xs => Pair(xs.length === 0 ? Opt.none : Opt.some(xs.shift()), xs);
 
 
 A.singleton = x => [x];
@@ -2469,20 +1233,10 @@ A.snoc = x => xs => xs.concat([x]);
 A.snoc_ = xs => x => xs.concat([x]);
 
 
-A.tail = xs =>
-  xs.length === 0 ? Option.None : Option.Some(xs.slice(1));
+A.tail = xs => xs.length === 0 ? Opt.none : Opt.some(xs.slice(1));
 
 
-A.tails = () => A.apo(xs =>
-  xs.length === 0
-    ? Option.Some(Pair([], Either.Left([])))
-    : Option.Some(Pair(xs, Either.Right(xs.slice(1)))));
-
-
-A.uncons = xs => [
-  xs.length === 0 ? Option.None : Option.Some(xs[0]),
-  xs.slice(1)
-];
+A.uncons = xs => Pair(xs.length === 0 ? Opt.none : Opt.some(xs[0]), xs.slice(1));
 
 
 A.unshift = x => xs => (xs.unshift(x), xs);
@@ -2497,10 +1251,9 @@ A.unshift_ = xs => x => (xs.unshift(x), xs);
 A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 
 
-A.unsnoc = xs => [
-  xs.length === 0 ? Option.None : Option.Some(xs[xs.length - 1]),
-  xs.slice(-1)
-];
+A.unsnoc = xs => Pair(xs.length === 0
+  ? Opt.none
+  : Opt.some(xs[xs.length - 1]), xs.slice(-1));
 
 
 /***[ Filterable ]************************************************************/
@@ -2515,7 +1268,7 @@ A.Filterable = {filter: A.filter};
 /***[ Foldable ]**************************************************************/
 
 
-A.foldl = f => init => xs => {
+A.foldl = f => init => xs => { // left-associative
   let acc = init;
 
   for (let i = 0; i < xs.length; i++)
@@ -2525,15 +1278,25 @@ A.foldl = f => init => xs => {
 };
 
 
-A.foldk = f => init => xs =>
+A.foldi = f => init => xs => { // left-associative with index
+  let acc = init;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc) (xs[i], i);
+
+  return acc;
+};
+
+
+A.foldk = ft => init => xs => // short circuitable
   Loop2((acc, i) =>
     i === xs.length
       ? Loop2.done(acc)
-      : f(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
+      : ft(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
         (init, 0);
 
 
-A.foldr = f => init => xs => function go(i) {
+A.foldr = f => init => xs => function go(i) { // lazy, right-associative
   if (i === xs.length) return init;
   else return f(xs[i]) (lazy(() => go(i + 1)));
 } (0);
@@ -2572,7 +1335,8 @@ A.Traversable = () => ({
 /***[ Functor ]***************************************************************/
 
 
-A.map = f => xs => xs.map(x => f(x));
+A.map = f => mx => A(k =>
+  mx.run(xs => k(xs.map(f))));
 
 
 A.Functor = {map: A.map};
@@ -2605,10 +1369,12 @@ A.Plus = {
 /***[ Functor :: Apply ]******************************************************/
 
 
-A.ap = fs => xs =>
-  fs.reduce((acc, f) =>
-    xs.reduce((acc2, x) =>
-      (acc2.push(f(x)), acc2), acc), []);
+A.ap = ft => tx => A(k =>
+  ft.run(fs =>
+    k(fs.reduce((acc, f) =>
+      tx.run(xs =>
+        xs.reduce((acc2, x) =>
+          (acc2.push(f(x)), acc2), acc)), []))));
 
 
 A.Apply = {
@@ -2620,7 +1386,10 @@ A.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-A.of = A.singleton;
+A.of = x => A(k => k([x]));
+
+
+A.fromNative = xs => A(k => k(xs));
 
 
 A.Applicative = {
@@ -2632,9 +1401,8 @@ A.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-A.chain = xs => fm =>
-  xs.reduce((acc, x) =>
-    (acc.push.apply(acc, fm(x)), acc), []);
+A.chain = mx => fm => A(k =>
+  mx.run(xs => k(xs.flatMap(x => fm(x).run(id))))); // `fm` is strict in its continuation
 
 
 A.Chain = {
@@ -2659,191 +1427,6 @@ A.Monad = {
   ...A.Applicative,
   chain: A.chain
 };
-
-
-/***[ Generator ]*************************************************************/
-
-
-A.generator = f => function go(x) {
-  return f(x).run({
-    none: [],
-
-    some: ([y, z]) =>
-      Pair(y, lazy(() => go(z)))
-  });
-};
-
-
-A.generate = n => gx => {
-  const acc = [];
-
-  do {
-    if (gx.length === 0)
-      break;
-
-    else {
-      acc.push(gx[0]);
-      gx = gx[1] [EVAL];
-    }
-  } while ((n-- > 0))
-
-  return acc;
-};
-
-
-/***[ Getter/Setter ]*********************************************************/
-
-
-A.get = i => xs => i >= xs.length ? Option.None : Option.Some(xs[i]);
-
-
-/***[ Loop ]******************************************************************/
-
-
-A.forEach = f => xs =>
-  (xs.forEach((x, i) => xs[i] = f(x)), xs);
-
-
-/***[ Mutable Reference ]*****************************************************/
-
-
-/* see `O.ref` for inline comment */
-
-
-const arrRef = (sealedProps, sealedObj) => {
-  return {
-    defineProperty: (xs, i, dtor) => {
-      if (sealedObj) throw new TypeError("array is sealed");
-      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
-      else return Reflect.defineProperty(xs, i, dtor);
-    },
-
-    deleteProperty: (xs, i) => {
-      if (sealedObj) throw new TypeError("array is sealed");
-      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
-      else return delete xs[i];
-    },
-
-    get: (xs, i, p) => {
-      switch (i) {
-
-        // introspection
-
-        case REF: return true;
-
-        // unwrap the array
-
-        case UNREF: return (sealedObj = true, xs);
-
-        case "copyWithin":
-        case "fill":
-        case "reverse":
-        case "sort":
-        case "splice": {
-          return (...args) => {
-            if (sealedObj) throw new TypeError("array is sealed");
-            else if (sealedProps.size > 0) throw new TypeError("array contains sealed properties");
-            const ys = xs[i] (...args);
-            return i === "splice" ? ys : p;
-          };
-        }
-
-        case "pop":
-        case "push": {
-          return (...args) => {
-            if (sealedObj) throw new TypeError("array is sealed");
-            
-            else if (sealedProps.has(String(xs.length - 1)))
-              throw new TypeError(`property "${xs.length - 1}" is sealed`);
-            
-            return xs[i] (...args);
-          }
-        }
-
-        case "shift":
-        case "unshift": {
-          return (...args) => {
-            if (sealedObj) throw new TypeError("array is sealed");
-            else if (sealedProps.has("0")) throw new TypeError(`property "0" is sealed`);
-            return xs[i] (...args);
-          }
-        }
-
-        default: {
-          switch (i[0]) {
-            case "0":
-            case "1":
-            case "2":
-            case "3":
-            case "4":
-            case "5":
-            case "6":
-            case "7":
-            case "8":
-            case "9": {
-              sealedProps.add(i);
-              return xs[i];
-            }
-          }
-
-          if (i === "length") {
-            sealedProps.add(i);
-            return xs[i];
-          }
-
-          else return xs[i];
-        }
-      }
-    },
-
-    getOwnPropertyDescriptor: (xs, i) => {
-      if (sealedObj) throw new TypeError("array is sealed");
-      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
-
-      else {
-        if (String(Number(i)) === i) sealedProps.add(i);
-        return Reflex.getOwnPropertyDescriptor(xs, i);
-      }
-    },
-
-    has: (xs, i) => {
-      switch (i[0]) {
-        case "0":
-        case "1":
-        case "2":
-        case "3":
-        case "4":
-        case "5":
-        case "6":
-        case "7":
-        case "8":
-        case "9": {
-          sealedProps.add(i);
-          return i in xs;
-        }
-
-        default: {
-          if (i === REF) return true;
-          return i in xs;
-        }
-      }
-    },
-
-    ownKeys: xs => {
-      sealedObj = true;
-      return Reflect.ownKeys(xs);
-    },
-
-    set: (xs, i, x, p) => {
-      if (sealedObj) throw new TypeError("array is sealed");
-      else if (sealedProps.has(i)) throw new TypeError(`property "${i}" is sealed`);
-      else return xs[i] = x;
-    }
-  }
-};
-
-
-A.ref = xs => REF in xs ? xs : new Proxy(xs, arrRef(new Set(), false));
 
 
 /***[ Recursion Schemes ]*****************************************************/
@@ -2921,55 +1504,6 @@ A.Monoid = {
 };
 
 
-/***[ Subarray ]**************************************************************/
-
-
-A.collateBy = f => g => xs => {
-  return xs.reduce((m, x) => {
-    const r = f(x);
-    return m.set(r, g(x) (m.get(r)));
-  }, new Map());
-};
-
-
-A.groupBy = p => xs => function go(acc, acc2, i) { // TODO: trampoline
-  const go2 = (acc3, acc4, j) => {
-    if (j >= xs.length) {
-      acc3.push(acc4);
-      return acc3;
-    }
-
-    else {
-      if (p(xs[i]) (xs[j])) {
-        acc4.push(xs[j]);
-        return go(acc3, acc4, i + 1);
-      }
-
-      else {
-        acc3.push(acc4);
-        return go(acc3, [xs[j]], i + 1);
-      }
-
-    }
-  };
-
-  if (i === xs.length)
-    return acc;
-
-  else
-    return go2(acc, acc2, i + 1);
-} ([], xs.length === 0 ? [] : [xs[0]], 0);
-
-
-A.span = p => xs =>
-  xs.reduce((acc, x) => {
-    if (acc[1].length > 0) acc[1].push(x);
-    else if (p(x)) acc[0].push(x);
-    else acc[1].push(x);
-    return acc;
-  }, Pair([], []));
-
-
 /***[ Unfoldable ]************************************************************/
 
 
@@ -2997,13 +1531,14 @@ A.unfold = f => init => {
 A.Unfoldable = {unfold: A.unfold};
 
 
-/***[ Resolve Dependencies ]**************************************************/
+
+/***[ Resolve Deps ]**********************************************************/
 
 
 A.alt = A.alt();
 
 
-A.tails = A.tails();
+A.arr = A.arr();
 
 
 A.Traversable = A.Traversable();
@@ -3013,122 +1548,23 @@ A.zero = A.zero();
 
 
 /******************************************************************************
-********************************[ COMPARATOR ]*********************************
+*************************[ ARRAY :: TRANS :: EXCEPT ]**************************
 ******************************************************************************/
 
 
-export const Ctor = {};
+A.Trans = {}; // namespace
 
 
-export const LT = ({
-  [TAG]: "Comparator",
-  run: ({lt}) => lt,
-  valueOf: () => -1
-});
+A.Trans.Except = {};
 
 
-Ctor.LT = LT;
+A.Trans.E = A.Trans.Except; // shortcut
 
 
-export const EQ = ({
-  [TAG]: "Comparator",
-  run: ({eq}) => eq,
-  valueOf: () => 0
-});
-
-
-Ctor.EQ = EQ;
-
-
-export const GT = ({
-  [TAG]: "Comparator",
-  run: ({gt}) => gt,
-  valueOf: () => 1
-});
-
-
-Ctor.GT = GT;
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Ctor.append = tx => ty =>
-  tx.run({lt: tx, eq: ty, gt: tx});
-
-
-Ctor.prepend = ty => tx =>
-  tx.run({lt: tx, eq: ty, gt: tx});
-
-
-Ctor.Semigroup = {
-  append: Ctor.append,
-  prepend: Ctor.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Ctor.empty = EQ;
-
-
-Ctor.Monoid = {
-  ...Ctor.Semigroup,
-  empty: Ctor.empty
-};
-
-
-/******************************************************************************
-**********************************[ COMPARE ]**********************************
-******************************************************************************/
-
-
-export const Compare = f => ({
-  [TAG]: "Compare",
-  run: f
-});
-
-
-/***[ Contravariant ]*********************************************************/
-
-
-Compare.contramap = f => tx =>
-  Compare(compBoth(tx.run) (f));
-
-
-Compare.Contravariant = {contramap: Compare.contramap};
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Compare.append = tx => ty =>
-  Compare(x => y =>
-    Ctor.append(tx.run(x) (y)) (ty.run(x) (y)));
-
-
-Compare.prepend = ty => tx =>
-  Compare(x => y =>
-    Ctor.append(tx.run(x) (y)) (ty.run(x) (y)));
-
-
-Compare.Semigroup = {
-  append: Compare.append,
-  prepend: Compare.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Compare.empty = _ => _ => EQ;
-
-
-Compare.Monoid = {
-  ...Compare.Semigroup,
-  empty: Compare.empty
-};
+A.Trans.E.chain = mmx => fmm => A.chain(mmx) (mx => mx.run({
+  throw: x => A.of(E.of(x)),
+  proceed: y => fmm(y)
+}));
 
 
 /******************************************************************************
@@ -3185,16 +1621,16 @@ Comp.Applicative = {
 ******************************************************************************/
 
 
-export const Const = x => ({
+export const Const = k => ({
   [TAG]: "Const",
-  run: x
+  run: k
 });
 
 
 /***[ Functor ]***************************************************************/
 
 
-Const.map = _ => tx => tx;
+Const.map = _ => tx => Const(k => tx.run(k));
 
 
 Const.Functor = {map: Const.map};
@@ -3203,8 +1639,7 @@ Const.Functor = {map: Const.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-Const.ap = ({append}) => tf => tx =>
-  Const(append(tf.run) (tx.run));
+Const.ap = ({append}) => tf => tx => Const(k => k(tx.run(tf.run(append))));
 
 
 Const.Apply = {
@@ -3216,7 +1651,7 @@ Const.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Const.of = ({empty}) => _ => Const(empty);
+Const.of = ({empty}) => _ => Const(k => k(empty));
 
 
 Const.Applicative = {
@@ -3226,1261 +1661,117 @@ Const.Applicative = {
 
 
 /******************************************************************************
-***********************************[ CONT ]************************************
+**********************************[ EXCEPT ]***********************************
 ******************************************************************************/
 
 
-export const Cont = k => ({
-  [TAG]: "Cont",
+export const Except = k => ({
+  [TAG]: "Cont.Except",
   run: k
 });
 
 
-/***[ Delimitation (w/o Regions) ]********************************************/
+export const E = Except; // shortcut
 
 
-Cont.abrupt = x => Cont(k => x);
+E.throw = x => E(ks => ks.throw(x));
 
 
-Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
+E.proceed = x => E(ks => ks.proceed(x));
 
 
-Cont.reify = k => x => Cont(k2 => k(x));
-
-
-Cont.reset = mx => Cont(k => k(mx.run(id)));
-
-
-Cont.shift = fm => Cont(k => fm(k).run(id));
-
-
-/***[ Functor ]***************************************************************/
-
-
-Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
-
-
-Cont.Functor = {map: Cont.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
-
-
-Cont.Apply = {
-  ...Cont.Functor,
-  ap: Cont.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Cont.of = x => Cont(k => k(x));
-
-
-Cont.Applicative = {
-  ...Cont.Apply,
-  of: Cont.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
-
-
-// stack safe version using a trampoline
-
-Cont.chainL = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k))); // TODO: refise
-
-
-Cont.chain2 = ({chain}) => mx => my => fm => Cont(k =>
-  chain(mx) (x => chain(my) (y => fm(x) (y))).run(id));
-
-
-Cont.chain3 = ({chain}) => mx => my => mz => fm => Cont(k =>
-  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))).run(id));
-
-
-Cont.Chain = {
-  ...Cont.Apply,
-  chain: Cont.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Cont.Monad = {
-  ...Cont.Applicative,
-  chain: Cont.chain
-};
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Cont.append = ({append}) => tx => ty =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(append(x) (y)))));
-
-
-Cont.prepend = ({append}) => ty => tx =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(append(x) (y)))));
-
-
-Cont.Semigroup = {
-  append: Cont.append,
-  prepend: Cont.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Cont.empty = empty => Cont(k => k(empty));
-
-
-Cont.Monoid = {
-  ...Cont.Semigroup,
-  empty: Cont.empty
-};
-
-
-/***[ Evaluator ]*************************************************************/
-
-
-/* Evaluators are most likely obsolete. Inside the effectful realm of the
-program all effects are either native (e.g. Array, null etc.) or vanished
-(e.g. async computations), hence values of type continuation that encoded
-these effects must be executed and gone. */
-
-
-Cont.eval = f => x => {
-  if (x[TAG] === "Cont") return x.run(f);
-  else return f(x);
-};
-
-
-Cont.eval2 = f => x => y => {
-  let g, r;
-
-  if (x[TAG] === "Cont") g = x.run(f);
-  else g = f(x);
-
-  if (y[TAG] === "Cont") r = y.run(g);
-  else r = g(y);
-
-  return r;
-};
-
-
-Cont.eval3 = f => x => y => z => {
-  let g, h, r;
-
-  if (x[TAG] === "Cont") g = x.run(f);
-  else g = f(x);
-
-  if (y[TAG] === "Cont") h = y.run(g);
-  else g = h(y);
-
-  if (z[TAG] === "Cont") r = z.run(h);
-  else r = h(z);
-
-  return r;
-};
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-Cont.compFlat = k => k2 => fm => Cont(k3 =>
-  k(mx => k2(mx) (x => k3(fm(x)))).run(id));
-
-
-Cont.seqFlat = k => k2 => fm => Cont(k3 =>
-  k(x => k2(y => k3(fm(x) (y)))).run(id));
-
-
-Cont.Opt.chain = mx => fm => Cont.Opt(k =>
-  mx.run(x => {
-    if (x === null) return null
-
-    else {
-      const y = fm(x).run(id);
-      return y === null ? null : k(y);
-    }
-  }));
-
-
-/******************************************************************************
-*******************************[ CONT :: ARRAY ]*******************************
-******************************************************************************/
-
-
-Cont.Arr = k => ({
-  [TAG]: "ContArr",
-  run: k
-});
-
-
-Cont.Arr.chain = mx => fm => Cont.Arr(k =>
-  mx.run(xs => k(xs.flatMap(x => fm(x).run(id)))));
-
-
-Cont.Arr.of = x => Cont.Arr(k => k([x]));
-
-
-Cont.Arr.ofFlat = mx => Cont.Arr(k => k([mx.run(id)]));
-
-
-/******************************************************************************
-******************************[ CONT :: OPTION ]*******************************
-******************************************************************************/
-
-
-Cont.Opt = k => ({
-  [TAG]: "ContOpt",
-  run: k
-});
-
-
-Cont.Opt.of = x => Cont.Opt(k => k(x));
-
-
-Cont.Opt.ofFlat = x => Cont.Opt(k => k(x).run(id));
-
-
-/******************************************************************************
-*********************************[ COROUTINE ]*********************************
-******************************************************************************/
-
-
-// TODO
-
-
-/******************************************************************************
-********************************[ COROUTINET ]*********************************
-******************************************************************************/
-
-
-/* Main use case is handling asynchronous events in conjunction with the
-`Serial` monad. */
-
-
-// m (Either (s (Coroutine s m r)) r) -> Coroutine s m r
-
-export const CoT = mmx => ({
-  [TAG]: "CoT",
-  run: mmx
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-// (a -> b) -> Coroutine s m a -> Coroutine s m b
-
-CoT.map = ({map}, {map: map2}) => f => function go(mmx) {
-  return CoT(map(mx => mx.run({
-    left: tx => Either.Left(lazy(() => map2(go) (tx))),
-    right: x => Either.Right(f(x))
-  })) (mmx.run));
-};
-
-
-// instance (Functor s, Functor m) => Functor (Coroutine s m)
-
-CoT.Functor = {map: CoT.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-// Coroutine s m (a -> b) -> Coroutine s m a -> Coroutine s m b
-
-CoT.ap = ({map, chain}, {map: map2}) => function go(mmf) {
-  return mmx =>
-    CoT(chain(mmf.run) (mf => mf.run({
-      left: tf => Either.Left(lazy(() => map2(go) (tf))),
-
-      right: f => map(mx => mx.run({
-        left: tx => Either.Left(lazy(() => map2(go) (tx))),
-        right: x => Either.Right(f(x))
-      })) (mmx.run)
-    })));
-};
-
-
-CoT.Apply = {
-  ...CoT.Functor,
-  ap: CoT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-// a -> Coroutine s m a
-
-CoT.of = ({of}) => x => CoT(of(Either.Right(x)));
-
-
-// instance (Functor s, Functor m, Monad m) => Applicative (Coroutine s m)
-
-CoT.Applicative = {
-  ...CoT.Apply,
-  of: CoT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-// Coroutine s m a -> (a -> Coroutine s m b) -> Coroutine s m b
-
-CoT.chain = ({map}, {of, chain}) => mmx => fmm => function go(mmx2) {
-  return chain(mmx2.run) (mx => mx.run({
-    left: tx => CoT(of(Either.Left(lazy(() => map(go) (tx))))),
-    right: x => fmm(x)
-  }));
-} (mmx);
-
-
-CoT.Chain = {
-  ...CoT.Apply,
-  chain: CoT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-// instance (Functor s, Monad m) => Monad (Coroutine s m)
-
-CoT.Monad = {
-  ...CoT.Applicative,
-  chain: CoT.chain
-};
-
-
-/***[ Transformer ]***********************************************************/
-
-
-// TODO
-
-
-/***[ Running ]***************************************************************/
-
-
-// (Monad m, Functor s) => (s (Coroutine s m x) -> Coroutine s m x) -> Coroutine s m x -> Coroutine s m x
-
-CoT.consume = ({of, chain}) => fm => mmx =>
-  chain(mmx.run) (mx => mx.run({
-    left: tx => fm(tx),
-    right: x => CoT(of(Either.Right(x)))
-  }));
-
-
-// Monad m => (s (Coroutine s m x) -> Coroutine s m x) -> Coroutine s m x -> m x
-
-CoT.exhaust = ({of, chain}) => f => function go(mmx) {
-  return chain(mmx.run) (mx => mx.run({
-    left: tx => go(f(tx)),
-    right: of
-  }));
-};
-
-
-// Monad m => (s (Coroutine s m x) -> m (Coroutine s m x)) -> Coroutine s m x -> m x
-
-CoT.exhaustM = ({of, chain}) => fm => function go(mmx) {
-  return chain(mmx.run) (mx => mx.run({
-    left: tx => chain(fm(tx)) (go),
-    right: of
-  }))
-};
-
-
-// Monad m => (a -> s (Coroutine s m x) -> (a, Coroutine s m x)) -> a -> Coroutine s m x -> m (a, x)
-
-CoT.fold = ({of, chain}) => f => init => mmx => function go([acc, mmx2]) {
-  return chain(mmx2.run) (mx => mx.run({
-    left: tx => go(f(acc) (tx)),
-    right: x => of(Pair(acc, x))
-  }));
-} (Pair(init, mmx));
-
-
-/***[ Suspending ]************************************************************/
-
-
-// (Monad m, Functor s) => s (Coroutine s m x) -> Coroutine s m x
-
-CoT.suspend = ({of}) => tx => CoT(of(Either.Left(tx)));
-
-
-/******************************************************************************
-****************************[ COROUTINET :: AWAIT ]****************************
-******************************************************************************/
-
-
-/* Encodes purely functional iteratee. Is equivalent to `(->)` but more
-descriptive. */
-
-
-// Await x y = Await (x -> y)
-
-export const Await = f => ({
-  [TAG]: "Await",
-  run: f
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-// (a -> b) -> Await x a -> Await x b
-
-Await.map = f => tg => Await(x => f(tg.run(x)));
-
-
-//instance Functor (Await x)
-
-Await.Functor = {map: Await.map};
-
-
-/***[ Suspending ]************************************************************/
-
-
-// Monad m => Coroutine (Await x) m x
-
-Await.await = ({of}) => CoT.suspend({of}) (Await(CoT.of({of})));
-
-
-/******************************************************************************
-****************************[ COROUTINET :: YIELD ]****************************
-******************************************************************************/
-
-
-/* Encodes purely functional generator. Is equivalent to `(,)` but more
-descriptive. */
-
-
-// Yield x y = Yield x y
-
-export const Yield = x => tx => ({
-  [TAG]: "Yield",
-  run: Pair(x, tx)
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-// (a -> b) -> Yield x a -> Yield x b
-
-Yield.map = f => tx => Yield(tx.run[0]) (f(tx.run[1]));
-
-
-// instance Functor (Yield x)
-
-Yield.Functor = {map: Yield.map};
-
-
-/***[ Suspending ]************************************************************/
-
-
-// Monad m => x -> Coroutine (Yield x) m ()
-
-Yield.yield = ({of}) => x => CoT.suspend({of}) (Yield(x) (CoT.of({of}) (null)));
-
-
-/******************************************************************************
-*************************[ COROUTINET :: TRAMPOLINE ]**************************
-******************************************************************************/
-
-
-/* Encodes stack-safe recursion within a monad. Is equivalent to `Id` but more
-descriptive. */
-
-
-// Trampoline y = Trampoline y
-
-export const Tramp = tx => ({
-  [TAG]: "Trampoline",
-  run: tx
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-// (a -> b) -> Trampoline x a -> Trampoline x b
-
-Tramp.map = f => tx => Tramp(f(tx.run));
-
-
-// instance Functor Trampoline
-
-Yield.Functor = {map: Yield.map};
-
-
-/***[ Suspending ]************************************************************/
-
-
-// Monad m => Coroutine Trampoline m ()
-
-Tramp.pause = ({of}) => CoT.suspend({of}) (Tramp(CoT.of({of}) (null)));
-
-
-/******************************************************************************
-***********************************[ DATE ]************************************
-******************************************************************************/
-
-
-export const D = {};
-
-
-D.format = sep => (...fs) => d =>
-  fs.map(f => f(d))
-    .join(sep);
-
-
-D.formatDay = mode => d => {
-  switch (mode) {
-    case 1: return String(d.getUTCDate());
-    case 2: return String(d.getUTCDate()).padStart(2, "0");
-    default: throw new RangeError("invalid formatting mode");
-  }
-};
-
-
-D.formatMonth = ({names = [], mode}) => d => {
-  switch (mode) {
-    case 1: return String(d.getUTCMonth() + 1);
-    case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
-    case 3: return names[String(d.getUTCMonth())];
-    default: throw new RangeError("invalid formatting mode");
-  }
-};
-
-
-D.formatWeekday = ({names = [], mode}) => d => {
-  switch (mode) {
-    case 1: return String(d.getUTCDay());
-    case 2: return String(d.getUTCDay()).padStart(2, "0");
-    case 3: return names[String(d.getUTCDay())];
-    default: throw new RangeError("invalid formatting mode");
-  }
-};
-
-
-D.formatYear = mode => d => {
-  switch (mode) {
-    case 2: return String(d.getUTCFullYear()).slice(2);
-    case 4: return String(d.getUTCFullYear());
-    default: throw new RangeError("invalid formatting mode");
-  }
-};
-
-
-D.fromString = s => {
-  const d = new Date(s);
-
-  if (Number.isNaN(d.valueOf()))
-    throw new TypeError("invalid date string");
-
-  else return d;
-};
-
-
-D.getLastDayOfMonth = ({year, month}) =>
-  new Date(year, month, 0).getDate();
-
-
-D.isDayOfMonth = ({year, month}) => day =>
-  day > 0 && new Date(year, month, 0).getDate() >= day;
-
-
-/******************************************************************************
-***********************************[ DEFER ]***********************************
-******************************************************************************/
-
-
-export const Defer = deferThunk => ({
-  [TAG]: "Defer",
-  run: deferThunk
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-Defer.map = f => tx => Defer(() => f(tx.run));
-
-
-Defer.Functor = {map: Defer.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Defer.ap = ft => tx => Defer(() => ft.run(tx.run));
-
-
-Defer.Apply = {
-  ...Defer.Functor,
-  ap: Defer.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Defer.of = x => Defer(() => x);
-
-
-Defer.Applicative = {
-  ...Defer.Apply,
-  of: Defer.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Defer.chain = mx => fm => Defer(() => fm(mx.run).run);
-
-
-Defer.Chain = {
-  ...Defer.Apply,
-  chain: Defer.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Defer.Monad = {
-  ...Defer.Applicative,
-  chain: Defer.chain
-};
-
-
-/******************************************************************************
-**********************************[ EITHER ]***********************************
-******************************************************************************/
-
-
-/* As a monad it encodes exception handling, logical exclusive or otherwise. */
-
-
-export const Either = {};
-
-
-Either.Left = x => ({
-  [TAG]: "Either",
-  run: ({left}) => left(x)
-});
-
-
-Either.Right = x => ({
-  [TAG]: "Either",
-  run: ({right}) => right(x)
-});
-
-
-Either.cata = left => right => tx => tx.run({left, right});
-
-
-/***[ Either ]****************************************************************/
-
-
-// TODO
+E.except = _throw => proceed => tx => tx.run({throw: _throw, proceed}); // elimination rule
 
 
 /***[ Foldable ]**************************************************************/
 
 
-Either.foldr = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(y) (acc)
-});
-
-
-Either.foldl = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(acc) (y)
-});
-
-
-Either.Foldable = {
-  left: Either.foldl,
-  right: Either.foldr
-};
-
-
 /***[ Foldable :: Traversable ]***********************************************/
-
-
-Either.mapA = ({map, of}) => ft => tx => tx.run({
-  left: x => of(Either.Left(x)),
-  right: y => map(Either.Right) (ft(y))
-});
-
-
-Either.seqA = ({of}) => tx => tx.run({
-  left: x => of(Either.Left(x)),
-  right: y => of(Either.Right(y))
-});
-
-
-Either.Traversable = () => ({
-  ...Either.Foldable,
-  ...Either.Functor,
-  mapA: Either.mapA,
-  seqA: Either.seqA
-});
 
 
 /***[ Functor ]***************************************************************/
 
 
-Either.map = f => tx =>
+E.map = f => tx => E(({throw: k, proceed: k2}) =>
   tx.run({
-    left: x => Either.Left(x),
-    right: y => Either.Right(f(y))
-  });
-
-
-Either.Functor = {map: Either.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Either.ap = tf => tx =>
-  tf.run({
-    left: x => Either.Left(x),
-
-    right: f => tx.run({
-      left: y => Either.Left(y),
-      right: z => Either.Right(f(z))
-    })
-  });
-
-
-Either.Apply = {
-  ...Either.Functor,
-  ap: Either.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Either.of = x => Either.Right(x);
-
-
-Either.Applicative = {
-  ...Either.Apply,
-  of: Either.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Either.chain = mx => fm =>
-  mx.run({
-    left: x => Either.Left(x),
-    right: y => fm(y)
-  });
-
-
-Either.Chain = {
-  ...Either.Apply,
-  chain: Either.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Either.Monad = {
-  ...Either.Applicative,
-  chain: Either.chain
-};
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-Either.Traversable = Either.Traversable();
-
-
-/******************************************************************************
-**********************************[ EITHERT ]**********************************
-******************************************************************************/
-
-
-export const EitherT = mmx => ({
-  [TAG]: "EitherT",
-  run: mmx
-});
-
-
-/***[ Either ]****************************************************************/
-
-
-EitherT.catch = ({of, chain}) => mmx => handle =>
-  chain(mmx.run) (mx => mx.run({
-    left: x => handle(x).run,
-    right: y => of(Either.Right(y))
+    throw: x => k(x),
+    proceed: y => k2(f(y))
   }));
 
 
-EitherT.finally = ({map, of, chain}) => mmx => thunk =>
-  chain(EitherT.try({map, of, chain}) (mmx)) (mx => {
-    strictRec(thunk);
-    return Either.cata(EitherT.throw) (of) (mx);
-  });
-
-
-EitherT.throw = ({of}) => x => EitherT(of(Either.Left(x)));
-
-
-EitherT.try = ({map, of, chain}) => mmx =>
-  EitherT.catch({of, chain})
-    (map(Either.Right) (mmx.run))
-      (x => of(Either.Left(x)));
-
-
-EitherT.withEither = ({map}) => f => mmx =>
-  EitherT(map(mx => mx.run({
-    left: x => Either.Left(f(x)),
-    right: Either.Right
-  })) (mmx.run));
-
-
-/***[ Foldable ]**************************************************************/
-
-
-EitherT.foldl = ({foldl}) => f => acc => mmx =>
-  foldl(Either.foldl(f)) (acc) (mmx.run);
-
-
-EitherT.foldr = ({foldr}) => f => acc => mmx =>
-  foldr(Either.foldr(f)) (acc) (mmx.run);
-
-
-EitherT.Foldable = {
-  foldl: EitherT.foldl,
-  foldr: EitherT.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-EitherT.mapA = ({map, of}, {mapA}) => ft => mmx =>
-  map(EitherT) (mapA(mx => mx.run({
-    left: x => of(Either.Left(x)),
-    right: y => map(Either.Right) (f(y))
-  })) (mmx.run));
-
-
-EitherT.seqA = ({map, of}, {mapA}) => ft => mmx =>
-  map(EitherT) (mapA(mx => mx.run({
-    left: x => of(Either.Left(x)),
-    right: y => of(Either.Right(y))
-  })) (mmx.run));
-
-
-EitherT.Traversable = {
-  ...EitherT.Foldable,
-  mapA: EitherT.mapA,
-  seqA: EitherT.seqA
-};
-
-
-/***[ Functor ]***************************************************************/
-
-
-EitherT.map = ({map}) => f => mmx =>
-  EitherT(map(mx => mx.run({
-    left: e => Either.Left(e),
-    right: x => Either.Right(f(x))
-  })) (mmx.run));
-
-
-EitherT.Functor = {map: EitherT.map};
+E.Functor = {map: E.map};
 
 
 /***[ Functor :: Alt ]********************************************************/
 
 
-EitherT.alt = ({map, of, chain}, {append}) => mmx => mmy =>
-  EitherT(chain(mmx.run) (mx => mx.run({
-    left: x => map(my => my.run({
-      left: x2 => Either.Left(append(x) (x2)),
-      right: EitherT.Right
-    })) (mmy.run),
-
-    right: y => of(Either.Right(y))
-  })));
-
-
-EitherT.Alt = {
-  ...EitherT.Functor,
-  alt: EitherT.alt
-};
-
-
 /***[ Functor :: Alt :: Plus ]************************************************/
-
-
-EitherT.zero = ({of}, {empty}) => EitherT(of(Either.Left(empty)));
-
-
-EitherT.Plus = {
-  ...EitherT.Alt,
-  zero: EitherT.zero
-};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-EitherT.ap = ({of, chain}) => mmf => mmx =>
-  EitherT(chain(mmf.run) (mf => mf.run({
-    left: e => of(Either.Left(e)),
-    right: f => chain(mmx.run) (mx => mx.run({
-      left: e => of(Either.Left(e)),
-      right: x => of(Either.Right(f(x)))
-    }))
-  })));
+E.ap = tf => tx => E(({throw: k, proceed: k2}) =>
+  tf.run({
+    throw: x => k(x),
+    
+    proceed: tf => tx.run({
+      throw: y => k(y),
+      proceed: z => k2(tf(z))
+    })
+  }));
 
 
-EitherT.Apply = {
-  ...EitherT.Functor,
-  ap: EitherT.ap
+E.Apply = {
+  ...E.Functor,
+  ap: E.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-EitherT.of = ({of}) => x => EitherT(of(Either.Right(x)));
+E.of = x => E(ks => ks.proceed(x));
 
 
-EitherT.Applicaitve = {
-  ...EitherT.Apply,
-  of: EitherT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-EitherT.chain = ({of, chain}) => mmx => fmm =>
-  EitherT(chain(mmx.run) (mx => mx.run({
-    left: e => of(Either.Left(e)),
-    right: x => fmm(x).run
-  })));
-
-
-EitherT.Chain = {
-  ...EitherT.Apply,
-  chain: EitherT.chain
+E.Applicative = {
+  ...E.Apply,
+  of: E.of
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Alternative ]************************/
 
 
-EitherT.Alternative = {
-  ...EitherT.Plus,
-  ...EitherT.Applicative
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+E.chain = mx => fm => E(({throw: k, proceed: k2}) =>
+  mx.run({
+    throw: x => k(x),
+    proceed: y => k2(fm(y))
+  }));
+
+
+E.Chain = {
+  ...E.Apply,
+  chain: E.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-EitherT.Monad = {
-  ...EitherT.Applicative,
-  chain: EitherT.chain
+E.Monad = {
+  ...E.Applicative,
+  chain: E.chain
 };
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-EitherT.mapBase = f => mmx => EitherT(f(mmx.run));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-EitherT.lift = ({map}) => mx => EitherT(map(Option.Right) (mx));
-
-
-EitherT.hoist = ({of}) => mx => EitherT(of(mx));
-
-
-EitherT.mapT = f => mmx => EitherT(f(mmx.run));
-
-
-EitherT.chainT = ({of, chain}) => fm => mmx =>
-  EitherT(chain(fm(mmx.run).run) (mx => of(mx.run({
-    left: Either.Left,
-  
-    right: mx2 => mx2.run({
-      left: Either.Left,
-      right: Either.Right
-    })
-  }))));
-
-
-EitherT.Transformer = {
-  chainT: EitherT.chainT,
-  hoist: EitherT.hoist,
-  lift: EitherT.lift,
-  mapT: EitherT.mapT
-};
-
-
-/******************************************************************************
-***********************************[ ENDO ]************************************
-******************************************************************************/
-
-
-export const Endo = f => ({
-  [TAG]: "Endo",
-  run: f
-});
 
 
 /***[ Semigroup ]*************************************************************/
 
 
-Endo.append = tf => tg => Endo(x => tf.run(tg.run(x)));
-
-
-Endo.prepend = tg => tf => Endo(x => tf.run(tg.run(x)));
-
-
-Endo.Semigroup = {
-  append: Endo.append,
-  prepend: Endo.prepend
-};
-
-
 /***[ Semigroup :: Monoid ]***************************************************/
-
-
-Endo.empty = Endo(id);
-
-
-Endo.Monoid = {
-  ...Endo.Semigroup,
-  empty: Endo.empty
-};
-
-
-/******************************************************************************
-***********************************[ ERROR ]***********************************
-******************************************************************************/
-
-
-export class ExtendableError extends Error {
-  constructor(s) {
-    super(s);
-    this.name = this.constructor.name;
-
-    if (typeof Error.captureStackTrace === "function")
-      Error.captureStackTrace(this, this.constructor);
-    
-    else
-      this.stack = (new Error(s)).stack;
-  }
-};
-
-
-export class ApplicationError extends ExtendableError {};
-
-
-export class DomainError extends ExtendableError {};
-
-
-export class ParseError extends ExtendableError {};
-
-
-/******************************************************************************
-***********************************[ EQUIV ]***********************************
-******************************************************************************/
-
-
-/* relaxed equality */
-
-
-export const Equiv = f => ({
-  [TAG]: "Equiv",
-  run: f
-});
-
-
-/***[ Contravariant ]*********************************************************/
-
-
-Equiv.contramap = f => tg => Equiv(compBoth(tg.run) (f));
-
-
-Equiv.Contravariant = {contramap: Equiv.contramap};
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Equiv.append = tx => ty =>
-  Equiv(x => y =>
-    tx.run(x) (y) && ty.run(x) (y));
-
-
-Equiv.prepend = Equiv.append;
-
-
-Equiv.Semigroup = {
-  append: Equiv.append,
-  prepend: Equiv.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Equiv.empty = Equiv(_ => _ => true);
-
-
-Equiv.Monoid = {
-  ...Equiv.Semigroup,
-  empty: Equiv.empty
-};
-
-
-/******************************************************************************
-***********************************[ FIRST ]***********************************
-******************************************************************************/
-
-
-export const First = tx => ({
-  [TAG]: "First",
-  run: tx
-});
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-First.append = ttx => tty =>
-  tx.run.run({
-    none: tty,
-    some: ttx
-  });
-
-
-First.prepend = Last => Last.append;
-
-
-First.Semigroup = {
-  append: First.append,
-  prepend: First.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-First.empty = () => First(Option.None);
-
-
-First.Monoid = {
-  ...First.Semigroup,
-  empty: First.empty
-};
-
-
-/******************************************************************************
-**********************************[ FORGET ]***********************************
-******************************************************************************/
-
-
-export const Forget = tf => ({ // TODO: add map/Functor
-  [TAG]: "Forget",
-  run: tf
-});
-
-
-/***[ Functor :: Profunctor ]*************************************************/
-
-
-Forget.dimap = g => _ => tf => Forget(x => tf.run(g(x)));
-
-
-Forget.lmap = g => tf => Forget(x => tf.run(g(x)));
-
-
-Forget.rmap = _ => tf => Forget(tf.run);
-
-
-Forget.Profunctor = {
-  ...Forget.Functor,
-  dimap: Forget.dimap,
-  lmap: Forget.lmap,
-  rmap: Forget.rmap
-};
-
-
-/******************************************************************************
-*********************************[ GENERATOR ]*********************************
-******************************************************************************/
-
-
-/* scriptum doesn't rely on native generators/iterators, because they are
-imperative, stateful types. They are still useful sometimes for object
-transformations without intermediate arrays. */
-
-
-export function* objEntries(o) {
-  for (let prop in o) {
-    yield Pair(prop, o[prop]);
-  }
-}
-
-
-export function* objKeys(o) {
-  for (let prop in o) {
-    yield prop;
-  }
-}
-
-
-export function* objValues(o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-}
 
 
 /******************************************************************************
@@ -4488,21 +1779,16 @@ export function* objValues(o) {
 ******************************************************************************/
 
 
-/* The identity type implements a couple of type classes that don't do anything
-but provide just enough structure to be lawful instances of their respective
-class. */
-
-
-export const Id = x => ({
+export const Id = k => ({
   [TAG]: "Id",
-  run: x
+  run: k
 });
 
 
 /***[Functor]*****************************************************************/
 
 
-Id.map = f => tx => Id(f(tx.run));
+Id.map = f => tx => Id(k => k(tx.run(f)));
 
 
 Id.Functor = {map: Id.map};
@@ -4511,7 +1797,7 @@ Id.Functor = {map: Id.map};
 /***[ Functor :: Apply ]******************************************************/
 
 
-Id.ap = tf => tx => Id(tf.run(tx.run));
+Id.ap = tf => tx => Id(k => k(tf.run(tx.run)));
 
 
 Id.Apply = {
@@ -4523,7 +1809,7 @@ Id.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Id.of = Id;
+Id.of = x => Id(k => k(x));
 
 
 Id.Applicative = {
@@ -4535,7 +1821,7 @@ Id.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Id.chain = mx => fm => fm(mx.run);
+Id.chain = mx => fm => mx.run(fm);
 
 
 Id.Chain = {
@@ -4554,1427 +1840,6 @@ Id.Monad = {
 
 
 /******************************************************************************
-***********************************[ IMAP ]************************************
-******************************************************************************/
-
-
-export const IMap_ = cmp => {
-  const IMap = (tree, size) => ({
-    [TAG]: "IMap",
-    tree,
-    size
-  });
-
-
-  IMap.empty = IMap(RBT.Leaf, 0);
-
-
-  /***[ Getters/Setters ]*****************************************************/
-
-
-  IMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    
-    return r === undefined
-      ? Option.None
-      : Option.Some(r);
-  };
-
-
-  IMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
-
-
-  IMap.mod = k => f => m => {
-    if (IMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.size);
-    }
-
-    else return m;
-  };
-
-
-  IMap.rem = k => m => {
-    let size = m.size;
-
-    if (IMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IMap(
-      RBT.del(m.tree, k, cmp),
-      size);
-  };
-
-
-  IMap.set = k => v => m => {
-    let size = m.size;
-
-    if (!IMap.has(k) (m))
-      size = m.size + 1;
-
-    return IMap(
-      RBT.set(m.tree, k, v, cmp),
-      size);
-  };
-
-
-  // TODO: IMap.singleton
-
-
-  /***[ Traversal ]***********************************************************/
-
-
-  IMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  return IMap;
-};
-
-
-/******************************************************************************
-***********************************[ IOMAP ]***********************************
-******************************************************************************/
-
-
-export const IOMap_ = cmp => {
-  const IOMap = (tree, keys, size, counter) => ({
-    [TAG]: "IOMap",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-  /***[ Getters/Setters ]*****************************************************/
-
-
-  IOMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    
-    return r === undefined
-      ? Option.None
-      : Option.Some(r);
-  };
-
-
-  IOMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
-
-
-  IOMap.mod = k => f => m => {
-    if (IOMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IOMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.keys,
-        m.size,
-        m.counter);
-    }
-
-    else return m;
-  };
-
-
-  IOMap.rem = k => m => {
-    let size = m.size;
-
-    if (IOMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IOMap(
-      RBT.del(m.tree, k, cmp),
-      m.keys, // no key removal
-      size,
-      m.counter);
-  };
-
-
-  IOMap.set = k => v => m => {
-    let size = m.size,
-      counter = m.counter;
-
-    if (!IOMap.has(k) (m)) {
-      size = m.size + 1;
-      counter = m.counter + 1;
-    }
-
-    return IOMap(
-      RBT.set(m.tree, k, v, cmp),
-      RBT.set(m.keys, m.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-  // TODO: IOMap.singleton
-
-
-  /***[ Traversal ]***********************************************************/
-
-
-  IOMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IOMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  IOMap.insertOrder = f => init => m => function go(acc, i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        tv = IOMap.get(k) (m);
-
-      return tv.run({
-        get none() {return go(acc, i + 1)},
-        some: v => go(f(acc) (Pair(k, v)), i + 1)
-      });
-    }
-  } (init, 0);
-
-
-  IOMap.insertOrder_ = f => acc => m => function go(i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        tv = IOMap.get(k) (m);
-
-      return tv.run({
-        get none() {return go(i + 1)},
-        some: v => f(Pair(k, v)) (lazy(() => go(i + 1)))
-      });
-    }
-  } (0);
-
-
-  return IOMap;
-};
-
-
-/******************************************************************************
-***********************************[ ISET ]************************************
-******************************************************************************/
-
-
-export const ISet_ = cmp => {
-  const ISet = (tree, size) => ({
-    [TAG]: "ISet",
-    tree,
-    size
-  });
-
-
-  ISet.empty = ISet(RBT.Leaf, 0);
-
-
-  /***[ Getters/Setters ]*****************************************************/
-
-
-  ISet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
-
-
-  ISet.mod = k => f => s => {
-    if (ISet.has(k) (s)) {
-      return ISet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.size);
-    }
-
-    else return s;
-  };
-
-
-  ISet.rem = k => s => {
-    let size = s.size;
-
-    if (ISet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return ISet(
-      RBT.del(s.tree, k, cmp),
-      size);
-  };
-
-
-  ISet.set = k => s => {
-    let size = s.size;
-
-    if (!ISet.has(k) (s))
-      size = s.size + 1;
-
-    return ISet(
-      RBT.set(s.tree, k, null, cmp),
-      size);
-  };
-
-
-  // TODO: ISet.singleton
-
-
-  /***[ Traversal ]***********************************************************/
-
-
-  ISet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  ISet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  return ISet;
-};
-
-
-/******************************************************************************
-***********************************[ IOSET ]***********************************
-******************************************************************************/
-
-
-export const IOSet_ = cmp => {
-  const IOSet = (tree, keys, size, counter) => ({
-    [TAG]: "IOSet",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOSet.empty = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-  /***[ Getters/Setters ]*****************************************************/
-
-
-  IOSet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
-
-
-  IOSet.mod = k => f => s => {
-    if (IOSet.has(k) (s)) {
-      return IOSet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.keys,
-        s.size,
-        s.counter);
-    }
-
-    else return s;
-  };
-
-
-  IOSet.rem = k => s => {
-    let size = s.size;
-
-    if (IOSet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return IOSet(
-      RBT.del(s.tree, k, cmp),
-      s.keys, // no key removal
-      size,
-      s.counter);
-  };
-
-
-  IOSet.set = k => s => {
-    let size = s.size,
-      counter = s.counter;
-
-    if (!IOSet.has(k) (s)) {
-      size = s.size + 1;
-      counter = s.counter + 1;
-    }
-
-    return IOSet(
-      RBT.set(s.tree, k, null, cmp),
-      RBT.set(s.keys, s.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-  // TODO: IOSet.singleton
-
-
-  /***[ Traversal ]***********************************************************/
-
-
-  IOSet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  IOSet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  IOSet.insertOrder = f => init => s => function go(acc, i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        tv = IOSet.get(k) (s);
-
-      return tv.run({
-        get none() {return go(acc, i + 1)},
-        some: v => go(f(acc) (v), i + 1)
-      });
-    }
-  } (init, 0);
-
-
-  IOSet.insertOrder_ = f => acc => s => function go(i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        tv = IOSet.get(k) (s);
-
-      return tv.run({
-        get none() {return go(i + 1)},
-        some: v => f(v) (lazy(() => go(i + 1)))
-      });
-    }
-  } (0);
-
-
-  return IOSet;
-};
-
-
-/******************************************************************************
-*********************************[ Iterator ]**********************************
-******************************************************************************/
-
-
-const It = {};
-
-
-It.fromIterable = iterable => iterable[Symbol.iterator] ();
-
-
-It.foldl = f => acc => function* (ix) {
-  while (true) {
-    const {value, done} = ix.next();
-
-    if (done) break;
-    
-    else {
-      acc = f(acc) (value);
-      yield acc;
-    }
-  }
-};
-
-
-It.map = f => function* (ix) {
-  while (true) {
-    const {value, done} = ix.next();
-
-    if (done) break;
-    
-    else {
-      value = f(value);
-      yield value;
-    }
-  }
-};
-
-
-It.filter = p => function* (ix) {
-  while (true) {
-    const {value, done} = ix.next();
-
-    if (done) break;
-    else if (p(value)) yield value;
-  }
-};
-
-
-/******************************************************************************
-***********************************[ LAST ]************************************
-******************************************************************************/
-
-
-export const Last = tx => ({
-  [TAG]: "Last",
-  run: tx
-});
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Last.append = ttx => tty =>
-  tty.run.run({
-    none: ttx,
-    some: tty
-  });
-
-
-Last.prepend = First.append;
-
-
-Last.Semigroup = {
-  append: Last.append,
-  prepend: Last.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Last.empty = () => Last(Option.None);
-
-
-Last.Monoid = {
-  ...Last.Semigroup,
-  empty: Last.empty
-};
-
-
-/******************************************************************************
-***********************************[ LAZY ]************************************
-******************************************************************************/
-
-
-export const Lazy = lazyThunk => ({
-  [TAG]: "Lazy",
-  run: lazyThunk
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-Lazy.map = f => tx => Lazy(() => f(tx.run));
-
-
-Lazy.Functor = {map: Lazy.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Lazy.ap = ft => tx => Lazy(() => ft.run(tx.run));
-
-
-Lazy.Apply = {
-  ...Lazy.Functor,
-  ap: Lazy.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Lazy.of = x => Lazy(() => x);
-
-
-Lazy.Applicative = {
-  ...Lazy.Apply,
-  of: Lazy.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Lazy.chain = mx => fm => Lazy(() => fm(mx.run).run);
-
-
-Lazy.Chain = {
-  ...Lazy.Apply,
-  chain: Lazy.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Lazy.Monad = {
-  ...Lazy.Applicative,
-  chain: Lazy.chain
-};
-
-
-/******************************************************************************
-***********************************[ LIST ]************************************
-******************************************************************************/
-
-
-export const List = {};
-
-
-List.Cons = x => xs => ({
-  [TAG]: "List",
-  run: ({cons}) => cons(x) (xs)
-});
-
-
-List.Cons_ = xs => x => ({
-  [TAG]: "List",
-  run: ({cons}) => cons(x) (xs)
-});
-
-
-List.Nil = ({
-  [TAG]: "List",
-  run: ({nil}) => nil
-});
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-// TODO: inits/tails
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-List.cons = List.Cons;
-
-
-List.cons_ = List.Cons_;
-
-
-List.head = xs =>
-  xs.run({
-    nil: Option.None,
-    some: x => xs => Option.Some(x)
-  });
-
-
-List.init = xs =>
-  xs.run({
-    nil: Option.None,
-
-    some: _ => {
-      const go = ys =>
-        ys.run({
-          nil: List.Nil,
-
-          cons: z => zs =>
-            ys.run({
-              nil: NOOP,
-              cons: _ => _ => List.Cons(z) (go(zs))
-            })
-        });
-
-      return Option.Some(go(xs));
-    }
-  });
-
-
-List.last = xs =>
-  xs.run({
-    nil: Option.None,
-
-    some: _ => {
-      const go = ys =>
-        ys.run({
-          nil: List.Nil,
-
-          cons: z => zs =>
-            ys.run({
-              nil: z,
-              cons: _ => _ => lazy(() => go(zs))
-            })
-        });
-
-      return Option.Some(go(xs));
-    }
-  });
-
-
-List.singleton = x => List.Cons(x) (List.Nil);
-
-
-List.tail = xs =>
-  xs.run({
-    nil: List.Nil,
-    cons: x => xs => xs
-  });
-
-
-List.uncons = xs =>
-  xs.run({
-    nil: Option.None,
-    cons: y => ys => Option.Some(Pair(y, ys))
-  });
-
-
-/***[ Foldable ]**************************************************************/
-
-
-List.foldl = f => init => xs => {
-  let acc = init, nil = false;
-
-  while (true) {
-    acc = xs.run({
-      get nil() {nil = true; return acc},
-      cons: y => ys => (xs = ys, f(acc) (y))
-    });
-
-    if (nil) break;
-  }
-
-  return acc;
-};
-
-
-List.foldr = f => acc => function go(xs) {
-  return xs.run({
-    nil: acc,
-
-    cons: y => ys =>
-      f(y) (lazy(() => go(ys)))
-  });
-};
-
-
-/***[ Functor ]***************************************************************/
-
-
-List.map = f =>
-  listFoldr(x => acc =>
-    List.Cons(f(x)) (acc))
-      (List.Nil);
-
-
-List.Functor = {map: List.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-List.ap = fs => xs =>
-  List.foldr(f => acc =>
-    List.append(List.map(f) (xs))
-      (acc)) (List.Nil) (fs);
-
-
-List.Apply = {
-  ...List.Functor,
-  ap: List.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-List.of = List.singleton;
-
-
-List.Applicative = {
-  ...List.Apply,
-  of: List.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-List.chain = xs => fm => function go(ys) {
-  return ys.run({
-    nil: List.Nil,
-    cons: z => zs => List.append(fm(z)) (lazy(() => go(zs)))
-  });
-} (xs);
-
-
-List.Chain = {
-  ...List.Apply,
-  chain: List.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-List.Monad = {
-  ...List.Applicative,
-  chain: List.chain
-};
-
-
-/***[ Infinite Lists ]********************************************************/
-
-
-List.iterate = f => function go(x) {
-  return List.Cons(x) (lazy(() => go(f(x))));
-};
-
-const repeat = x =>
-  List.Cons(x) (lazy(() => repeat(x)));
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-List.fromArr = A.foldr(x => xs => List.Cons(x) (xs)) (List.Nil);
-
-
-List.fromOption = tx => tx.run({
-  none: [],
-  some: x => [x]
-});
-
-
-List.toArr = () => List.foldl(A.snoc_) ([]);
-
-
-List.toOption = ({append, empty}) => xs =>
-  xs.length === 0
-    ? Option.None
-    : Option.Some(fold({fold: A.foldl}, {append, empty}) (xs));
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-List.append = xs => ys => function go(acc) {
-  return acc.run({
-    nil: ys,
-    cons: z => zs => List.Cons(z) (lazy(() => go(zs)))
-  });
-} (xs);
-
-
-List.prepend = ys => xs => function go(acc) {
-  return acc.run({
-    nil: ys,
-    cons: z => zs => List.Cons(z) (lazy(() => go(zs)))
-  });
-} (xs);
-
-
-List.Semigroup = {
-  append: List.append,
-  prepend: List.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-List.empty = List.Nil;
-
-
-List.Monoid = {
-  ...List.Semigroup,
-  empty: List.empty
-};
-
-
-/***[ Unfoldable ]************************************************************/
-
-
-List.unfold = f => function go(y) {
-  return f(y).run({
-    none: List.Nil,
-    some: ([x, y2]) => List.Cons(x) (lazy(() => go(y2)))
-  });
-};
-
-
-List.Unfoldable = {unfold: List.unfold};
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-List.reverse = List.foldl(List.Cons_) (List.Nil);
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-List.toArr = List.toArr();
-
-
-/******************************************************************************
-*******************************[ LIST :: DLIST ]*******************************
-******************************************************************************/
-
-
-export const DList = f => ({
-  [TAG]: "DList",
-  run: f
-});
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-DList.cons = x => xs => app(DList) (comp(List.Cons(x)) (xs.run));
-
-
-DList.singleton = comp(DList) (List.Cons);
-
-
-DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-DList.fromList = xs => comp(DList) (List.append);
-
-
-DList.toList = xs => comp(app_(List.Nil)) (xs.run);
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-DList.append = xs => ys => app(DList) (comp(xs.run) (ys.run));
-
-
-DList.prepend = ys => xs => app(DList) (comp(xs.run) (ys.run));
-
-
-DList.Semigroup = {
-  append: DList.append,
-  prepend: DList.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-DList.empty = DList(id);
-
-
-DList.Monoid = {
-  ...DList.Semigroup,
-  empty: DList.empty
-};
-
-
-/***[ Unfoldable ]************************************************************/
-
-
-DList.unfold = f => function go(y) {
-  return f(y).run({
-    none: DList.empty,
-    some: ([x, y2]) => DList.Cons(x) (lazy(() => go(y2)))
-  })
-};
-
-
-DList.Unfoldable = {unfold: DList.unfold};
-
-
-/******************************************************************************
-*******************************[ LIST :: LISTZ ]*******************************
-******************************************************************************/
-
-
-export const ListZ = ls => rs => ({
-  [TAG]: "ListZ",
-  run: {ls, rs}
-});
-
-
-/***[ Cursor ]****************************************************************/
-
-
-ListZ.isBegin = xs =>
-  xs.run.ls.run({
-    nil: true,
-    cons: _ => _ => false
-  });
-
-
-ListZ.isEnd = xs =>
-  xs.run.rs.run({
-    nil: true,
-    cons: _ => _ => false
-  });
-
-
-ListZ.start = xs =>
-  ListZ(List.Nil) (List.append(List.reverse(xs.run.ls)) (xs.run.rs))
-
-
-ListZ.end = xs =>
-  ListZ(List.Nil) (List.append(List.reverse(xs.run.rs)) (xs.run.ls))
-
-
-ListZ.cursor = xs =>
-  xs.run.rs.run({
-    nil: Option.None,
-    cons: x => _ => Option.Some(x)
-  });
-
-
-ListZ.left = xs =>
-  xs.run.ls.run({
-    nil: xs,
-    cons: y => ys => ListZ(ys) (List.Cons(y) (xs.run.rs))
-  });
-
-
-ListZ.right = xs =>
-  xs.run.rs.run({
-    nil: xs,
-    cons: y => ys => ListZ(List.Cons(y) (xs.run.ls)) (ys)
-  });
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-ListZ.singleton = x => ListZ(List.Nil) (List.cons(x) (List.Nil));
-
-
-/***[ Getters/Setters ]*******************************************************/
-
-
-ListZ.ins = x => xs =>
-  ListZ(xs.run.ls) (List.Cons(x) (xs.run.rs));
-
-
-ListZ.rem = xs =>
-  xs.run.rs.run({
-    nil: xs,
-    cons: _ => ys => ListZ(xs.run.ls) (ys)
-  });
-
-
-/***[ Foldable ]**************************************************************/
-
-
-/***[ Functor ]***************************************************************/
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-ListZ.fromList = xs => ListZ(List.Nil) (xs);
-
-
-ListZ.fromListEnd = xs => ListZ(List.reverse(xs)) (List.Nil);
-
-
-ListZ.toList = xs => List.append(List.reverse(xs.run.ls)) (xs.run.rs)
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-ListZ.empty = ListZ([], []);
-
-
-/*ListZ.Monoid = {
-  ...ListZ.Semigroup,
-  empty: ListZ.empty
-};*/
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-ListZ.isEmpty = xs =>
-  xs.run.ls.run({
-    nil: xs.run.rs.run({
-      nil: true,
-      cons: false
-    }),
-
-    cons: false
-  });
-
-
-/******************************************************************************
-******************************[ LIST :: NELIST ]*******************************
-******************************************************************************/
-
-
-// TODO: non-empty list
-
-/*
-
-Please note that NEList has two valid comonads: inits/tails
-
-data NonEmpty a = NonEmpty {
-  neHead :: a, -- ^ The head of the non-empty list.
-  neTail :: [a] -- ^ The tail of the non-empty list.
-} deriving (Eq, Ord, Typeable, Data)
-
-data NeverEmptyList a = NEL a [a]
-
-extend : (FullList a -> b) -> FullList a -> FullList b
-extend f (Single x) = Single (f (Single x))
-extend f (Cons x y) = Cons (f (Cons x y)) (extend f y)
-
-
-instance Copointed NonEmpty where
-  extract = neHead
-
-instance Comonad NonEmpty where
-  duplicate x@(NonEmpty _ t) = NonEmpty x (case toNonEmpty t of Nothing -> []
-                                        Just u  -> toList (duplicate u))
-
-instance Functor NonEmpty where
-  fmap f (NonEmpty h t) = NonEmpty (f h) (fmap f t)
-
-*/
-
-
-/******************************************************************************
-*******************************[ LIST :: ZLIST ]*******************************
-******************************************************************************/
-
-
-// TODO: list with applicative zip instance
-
-
-/******************************************************************************
-***********************************[ LISTT ]***********************************
-******************************************************************************/
-
-
-export const ListT = mmx => ({
-  [TAG]: "ListT",
-  run: mmx
-});
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-ListT.cons = ({of}) => x => mmx => ListT(of(Option.Some(Pair(x, mmx))));
-
-
-ListT.cons_ = ({of}) => mmx => x => ListT(of(Option.Some(Pair(x, mmx))));
-
-
-/***[ Foldable ]**************************************************************/
-
-
-ListT.foldl = ({of, chain}) => f => init => mmx => function go(acc, mmx2) { // TODO: trampoline
-  return chain(mmx.run) (mx => mx.run({
-    none: of(acc),
-    some: ([x, mmy]) => go(f(acc) (x), mmy)
-  }));
-} (init, mmx);
-
-
-ListT.foldr = ({of, chain}) => f => acc => function go(mmx) {
-  return chain(mmx.run) (mx => mx.run({
-    none: of(acc),
-    some: ([x, mmy]) => f(x) (lazy(() => go(mmy)))
-  }));
-};
-
-
-ListT.Foldable = {
-  foldl: ListT.foldl,
-  foldr: ListT.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-ListT.mapA = ({map, ap, of}, {of: of2, chain}) => ft => {
-  const liftA2_ = liftA2({map, ap});
-  
-  return ListT.foldr({chain})
-    (x => liftA2_(ListT.cons) (ft(x)))
-      (of(ListT.empty({of: of2})));
-};
-
-
-ListT.seqA = ({map, ap, of}, {of: of2, chain}) =>
-  ListT.foldr({chain}) (liftA2({map, ap}) (LiftT.cons))
-    (of(ListT.empty({of: of2})));
-
-
-ListT.Traversable = () => ({
-  ...ListT.Foldable,
-  ...ListT.Functor,
-  mapA: ListT.mapA,
-  seqA: ListT.seqA
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-ListT.map = ({map}) => f => function go(mmx) {
-  return ListT(map(mx => mx.run({
-    none: Option.None,
-    some: ([x, mmy]) => Option.Some(Pair(f(x), lazy(() => go(mmy))))})) (mmx.run));
-};
-
-
-ListT.Functor = {map: ListT.map};
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-ListT.alt = () => ListT.append;
-
-
-ListT.Alt = {
-  ...ListT.Functor,
-  alt: ListT.alt
-};
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-ListT.zero = () => ListT.empty;
-
-
-ListT.Plus = {
-  ...ListT.Alt,
-  zero: ListT.zero
-};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-ListT.ap = ({map, of, chain}) => function go(mmf) {
-  return mmx =>
-    ListT(chain(mmf.run) (mf => mf.run({
-      none: of(Option.None),
-
-      some: ([f, mmg]) => map(mx => mx.run({
-        none: Option.None,
-        some: ([x, mmy]) => Option.Some(Pair(f(x), go(mmg) (mmy)))
-      })) (mmx.run)
-    })))
-};
-
-
-ListT.Apply = {
-  ...ListT.Functor,
-  ap: ListT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-ListT.of = ({of}) => x =>
-  ListT(of(Option.Some(Pair(x, ListT(of(Option.None))))));
-
-
-ListT.Applicative = {
-  ...ListT.Apply,
-  of: ListT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-ListT.chain = ({of, chain}) => mmx => fm => function go(mmx2) {
-  return ListT(chain(mmx2.run) (mx => mx.run({
-    none: of(Option.None),
-    some: ([x, mmy]) => ListT.append(fm(x)) (lazy(() => go(mmy))).run
-  })));
-} (mmx);
-
-
-ListT.Chain = {
-  ...ListT.Apply,
-  chain: ListT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
-
-
-ListT.Alternative = {
-  ...ListT.Plus,
-  ...ListT.Applicative
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-ListT.Monad = {
-  ...ListT.Applicative,
-  chain: ListT.chain
-};
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-ListT.fromFoldable = ({of}, {foldl}) =>
-  foldl(f) (ListT.cons_) (ListT.empty({of}));
-
-
-// mapListT :: (m (List a) -> n (List b)) -> ListT m a -> ListT n b
-
-ListT.mapBase = f => mmx => ListT(f(mmx.run));
-
-
-ListT.toList = ({map, of, chain}) => function go(mmx) {
-  return chain(mmx.run) (mx => {
-    const my = mx.run({
-      none: List.Nil,
-      some: ([x, mmy]) => List.Cons(x) (lazy(() => go(mmy)))
-    });
-
-    return of(my);
-  });
-};
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-ListT.append = ({of, chain}) => function go(mmx) {
-  return mmy =>
-    ListT(chain(mmx.run) (mx =>
-      mx.run({
-        none: mmy,
-        some: ([x, mmz]) => of(Option.Some(Pair(x, lazy(() => go(mmz) (mmy)))))
-      })));
-};
-
-
-ListT.prepend = ({of, chain}) => function go(mmy) {
-  return mmx =>
-    ListT(chain(mmx.run) (mx =>
-      mx.run({
-        none: mmy,
-        some: ([x, mmz]) => of(Option.Some(Pair(x, layz(() => go(mmz) (mmy)))))
-      })));
-};
-
-
-ListT.Semigroup = {
-  append: ListT.append,
-  prepend: ListT.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-ListT.empty = ({of}) => ListT(of(Option.None));
-
-
-ListT.Monoid = {
-  ...ListT.Semigroup,
-  empty: ListT.empty
-};
-
-
-/***[ Transformer ]***********************************************************/
-
-
-// hoistListT :: List<a> => ListT<m, a>
-
-ListT.hoist = ({of}) => function go(xs) {
-  return xs.run({
-    nil: ListT.empty({of}),
-    cons: y => ys => ListT(of(Option.Some(Pair(y, lazy(() => go(ys))))))
-  });
-};
-
-
-// lift :: m<a> => ListT<m, a>
-
-ListT.lift = ({map, of}) =>
-  comp(ListT) (map(x => Option.Some(Pair(x, ListT.empty({of})))));
-
-
-// hoist :: (m<a> => n<a>) => ListT<m, a> => ListT<n, a>
-
-ListT.mapT = ({map}) => f => function go(mmx) {
-  return ListT(f(map(Option.map(Pair.map(mmy => lazy(() => go(mmy))))) (mmx.run)));
-};
-
-
-// embed :: (m<a> => ListT<n, a>) -> ListT<m, a> => ListT<n, a>
-
-ListT.chainT = ({of}) => fm => function go(mmx) { // TODO: review
-  return ListT.chain(fm(mmx.run)) (mx => mx.run({
-    none: ListT.empty({of}),
-    some: ([x, mmy]) => ListT(of(Option.Some(Pair(x, lazy(() => go(mmy))))))
-  }));
-};
-
-
-ListT.Transformer = {
-  chainT: ListT.chainT,
-  hoist: ListT.hoist,
-  lift: ListT.lift,
-  mapT: ListT.mapT
-};
-
-
-/***[ Unfoldable ]************************************************************/
-
-
-ListT.unfold = f => function go(x) {
-  return f(x).run({
-    none: ListT.empty({of}),
-    some: ([y, z]) => ListT.cons(y) (lazy(() => go(z)))
-  });
-};
-
-
-ListT.Unfoldable = {unfold: ListT.unfold};
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-ListT.alt = ListT.alt();
-
-
-ListT.Traversable = ListT.Traversable();
-
-
-ListT.zero = ListT.zero();
-
-
-/******************************************************************************
 ************************************[ MAP ]************************************
 ******************************************************************************/
 
@@ -5985,184 +1850,10 @@ const _Map = {};
 /***[ Getter/Setter ]*********************************************************/
 
 
-_Map.pushArr = (k, v) => m => {
-  if (m.has(k)) return A.push(v) (m.get(k));
-  else return m.set(k, [v]);
-};
+_Map.get = k => m => m.get(k);
 
 
-/***[ Mutable Reference ]*****************************************************/
-
-
-/* see `O.ref` for inline comment */
-
-
-const mapRef = (sealedProps, sealedObj) => {
-  return {
-    get: (m, k, p) => {
-      switch (k) {
-
-        // introspection
-
-        case REF: return true;
-
-        // unwrap the map
-
-        case UNREF: return (sealedObj = true, m);
-
-        case Symbol.iterator: {
-          return () => {
-            sealedObj = true;
-            return m[k] ();
-          };
-        }
-
-        case "clear": {
-          return () => {
-            if (sealedObj) throw new TypeError("map is sealed");
-            else if (sealedProps.size > 0) throw new TypeError("map contains sealed properties");
-
-            else {
-              m.clear();
-              return p;
-            }
-          };
-        }
-
-        case "delete": {
-          return k2 => {
-            if (sealedObj) throw new TypeError("map is sealed");
-            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
-
-            else {
-              m.delete(k2);
-              return p;
-            }
-          };
-        }
-
-        case "get": {
-          return k2 => {
-            sealedProps.add(k2);
-            return m.get(k2);
-          };
-        }
-        
-        case "has": {
-          return k2 => {
-            sealedProps.add(k2);
-            return m.has(k2);
-          };
-        }
-
-        case "keys":
-        case "entries":
-        case "values": {
-          return () => {
-            sealedObj = true;
-            return m[k] ();
-          };
-        }
-
-        case "set": {
-          return (k2, v) => {
-            if (sealedObj) throw new TypeError("map is sealed");
-            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
-
-            else {
-              m.set(k2, v);
-              return p;
-            }
-          };
-        }
-
-        case "size": {
-          sealedProps.add(k);
-          return m.size;
-        }
-
-        default: return m[k];
-      }
-    }
-  }
-};
-
-
-_Map.ref = m => REF in m ? m : new Proxy(m, mapRef(new Set(), false));
-
-
-/******************************************************************************
-**********************************[ NUMBER ]***********************************
-******************************************************************************/
-
-
-export const Num = {};
-
-
-/***[ Natural Transformation ]************************************************/
-
-
-Num.fromString = s => {
-  if (s.search(/^(?:\+|\-)?\d+(?:\.\d+)?$/) === 0) return Number(s);
-  else throw new TypeError(`invalid number string: ${s}`);
-};
-
-
-/***[ Precision ]*************************************************************/
-
-
-Num.decimalAdjust = (k, n, digits) => {
-  const p = Math.pow(10, digits);
-
-  if (Math.round(n * p) / p === n)
-    return n;
-
-  const m = (n * p) * (1 + Number.EPSILON);
-  return Math[k] (m) / p;
-};
-
-
-Num.ceil = digits => n =>
-  Num.decimalAdjust("ceil", n, digits);
-
-
-Num.floor = digits => n =>
-  Num.decimalAdjust("floor", n, digits);
-
-
-Num.round = digits => n =>
-  Num.decimalAdjust("round", n, digits);
-
-
-Num.trunc = digits => n =>
-  Num.decimalAdjust("trunc", n, digits);
-
-
-/***[ Serialization ]*********************************************************/
-
-
-Num.format = (...fs) => n =>
-  fs.map(f => f(n))
-    .join("");
-
-
-Num.formatFrac = digits => n =>
-  String(n)
-    .replace(/^[^.]+\.?/, "")
-    .padEnd(digits, "0");
-
-
-Num.formatInt = sep => n =>
-  String(Num.trunc(0) (n))
-    .replace(/^-/, "")
-    .replace(new RegExp("(\\d)(?=(?:\\d{3})+$)", "g"), `$1${sep}`);
-
-
-Num.formatSign = (pos, neg) => n =>
-  n > 0 ? pos : n < 0 ? neg : "";
-
-
-Num.formatSep = sep => n => sep;
+_Map.set = k => v => m.set(k, v);
 
 
 /******************************************************************************
@@ -6170,7 +1861,10 @@ Num.formatSep = sep => n => sep;
 ******************************************************************************/
 
 
-export const O = {};
+export const Obj = {}; // namespace
+
+
+export const O = Obj; // shortcut;
 
 
 /***[ Clonable ]**************************************************************/
@@ -6190,33 +1884,37 @@ O.clone = o => {
 O.Clonable = {clone: O.clone};
 
 
-/***[ Extending ]*************************************************************/
+/***[ Generators ]************************************************************/
 
 
-O.deferredProp = k => thunk => o =>
-  Object.defineProperty(o, k, {
-    get: function() {return thunk()},
-    configurable: true,
-    enumerable: true});
+O.entries = function* (o) {
+  for (let prop in o) {
+    yield Pair(prop, o[prop]);
+  }
+}
 
 
-O.getter = o => k => getter => Object.defineProperty(o, k, getter);
+O.keys = function* (o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
 
 
-O.lazyProp = k => thunk => o =>
-  Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = thunk()},
-    configurable: true,
-    enumerable: true});
+O.values = function* (o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
 
 
 /***[ Getters/Setters ]*******************************************************/
 
 
 O.getPath = ks => o => function go(p, i) {
-  if (i >= ks.length) return Option.Some(p);
+  if (i >= ks.length) return Opt.some(p);
   else if (ks[i] in p) return go(p[ks[i]], i + 1);
-  else return Option.None;
+  else return Opt.none;
 } (o, 0);
 
 
@@ -6227,440 +1925,76 @@ O.getPathOr = x => ks => o => function go(p, i) {
 } (o, 0);
 
 
-/******************************************************************************
-****************************[ OBSERVER :: EMITTER ]****************************
-******************************************************************************/
+O.delPath = (...ks) => o => // immutable
+  A.foldi(([p, ref, root]) => (k, i) => {
+    if (!(k in p))
+      return root;
 
-
-/* The `Emitter` type is based on continuations and allows both serial and
-parallel evaluation. This means the familiar continuation passing style
-machinery can be used to compose computations triggered by sync and async
-events. Observers of emitters are pure, because they only subscripe at effect
-runtime, i.e. when the asynchronous computation is actually run. */
-
-
-export const Emitter = k => ({
-  [TAG]: "Emitter",
-  run: k
-});
-
-
-Emitter.observe = ({emitters: [[emitter, type, once = false], ...emitters], init = Option.None, listener}) => {
-  const state = {run: init};
-
-  let r;
-
-  return Emitter(k => {
-    if (r) return r; // ensure idempotency
-
-    const timestamp = Date.now(),
-      refs = [];
-
-    const listener2 = currType => (...dyn) => {
-      state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
-    };
-    
-    refs.push(listener2(type));
-    
-    if (once) emitter.once(type.split(".").pop(), refs[0]);
-    else emitter.on(type.split(".").pop(), refs[0]);
-
-    emitters.forEach(([emitter2, type2, once2 = true], i) => {
-      refs.push(listener2(type2));
-      if (once2) emitter2.once(type2.split(".").pop(), refs[i + 1]);
-      else emitter2.on(type2.split(".").pop(), refs[i + 1]);
-    });
-
-    r = {
-      [TAG]: "EmitterController",
-      
-      get cancel() {
-        emitter.off(type.split(".").pop(), refs[0]);
-
-        emitters.forEach(
-          ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
-        
-        return r;
-      },
-
-      state: Cont(k2 => k2(state.run)) // value over time
-    };
-
-    return r;
-  });
-};
-
-
-/***[ Conjunction ]***********************************************************/
-
-
-Emitter.and = tx => ty => {
-  const guard = (k, i) => x => {
-    pair[i] = x;
-
-    return settled || !("0" in pair) || !("1" in pair)
-      ? false
-      : (settled = true, k(Pair(pair[0], pair[1])));
-  };
-
-  const pair = [];
-  let settled = false;
-
-  return Emitter(k => (
-    tx.run(guard(k, 0)),
-    ty.run(guard(k, 1))));
-};
-
-
-Emitter.allArr = () =>
-  A.seqA({
-    map: Emitter.map,
-    ap: Emitter.ap,
-    of: Emitter.of});
-
-
-/***[ Disjunction ]***********************************************************/
-
-
-Emitter.or = tx => ty => {
-  const guard = (k, i) => x => {
-    if (settled) return false;
-
-    else {
-      settled = true;
-      i === 0 ? ctrl2.cancel : ctrl1.cancel;
-      return k(x);
+    else if (i === ks.length - 1) {
+      delete p[k];
+      return root;
     }
-  };
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
 
-  let settled = false, ctrl1, ctrl2;
+    else
+      p[k] = Object.assign({}, ref[k]);
 
-  return Emitter(k => {
-    ctrl1 = tx.run(guard(k, 0));
-    ctrl2 = ty.run(guard(k, 1));
-  });
-};
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
-Emitter.anyArr = () =>
-  A.foldl(acc => tx =>
-    Emitter.race.append(acc) (tx))
-      (Emitter.race.empty);
+O.setPath = (...ks) => v => o => // immutable
+  A.foldi(([p, ref, root]) => (k, i) => {
+    if (i === ks.length - 1) {
+      p[k] = v;
+      return root;
+    }
+    
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
 
+    else
+      p[k] = Object.assign({}, ref[k]);
 
-/***[ Functor ]***************************************************************/
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
-Emitter.map = f => tx =>
-  Emitter(k => tx.run(x => k(f(x))));
+O.updPath = (...ks) => f => o => // immutable
+  A.foldi(([p, ref, root]) => (k, i) => {
+    if (!(k in p))
+      return root;
 
+    else if (i === ks.length - 1) {
+      p[k] = f(ref[k]);
+      return root;
+    }
 
-Emitter.Functor = {map: Emitter.map};
+    else if (Array.isArray(ref[k]))
+      p[k] = ref[k].concat();
 
+    else
+      p[k] = Object.assign({}, ref[k]);
 
-/***[ Functor :: Apply ]******************************************************/
-
-
-Emitter.ap = tf => tx =>
-  Emitter(k =>
-    Emitter.and(tf) (tx)
-      .run(([f, x]) =>
-         k(f(x))));
-
-
-Emitter.Apply = {
-  ...Emitter.Functor,
-  ap: Emitter.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Emitter.of = x => Emitter(k => k(x));
-
-
-Emitter.Applicative = {
-  ...Emitter.Apply,
-  of: Emitter.of
-};
-
-
-/***[ Mutable Reference ]*****************************************************/
-
-
-/* A mutable reference represents a safely mutable object by avoiding sharing.
-This is achieved by keeping the reference type local, i.e. not exposing it to
-the parent scope. A property of a compound value wrapped in a mutable reference
-can be mutated as long as it's value hasn't been exposed by a read access or
-its key by an introspection. An in such ways exposed property cannot be mutated
-any further. Mutual references and their unwrapped counterparts are
-distinguished in the following traits:
-
-* refs don't support `bind`/`call`/`apply`
-* refs shouldn't be used if a computation relies on prototypal inheritance
-* `=` compares the proxy objects, not the wrapped values */
-
-
-const objRef = (sealedProps, sealedObj) => {
-  return {
-    defineProperty: (o, k, dtor) => {
-      if (sealedObj) throw new TypeError("object is sealed");
-      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
-      else return Reflect.defineProperty(o, k, dtor);
-    },
-
-    deleteProperty: (o, k) => {
-      if (sealedObj) throw new TypeError("object is sealed");
-      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
-      else return delete o[k];
-    },
-
-    get: (o, k, p) => {
-      switch (k) {
-
-        // introspection
-
-        case REF: return true;
-
-        case UNREF: return (sealedObj = true, o);
-
-        case "constructor":
-        case "hasOwnProperty":
-        case "isPrototypeOf":
-        case "propertyIsEnumerable":
-        case "toLocaleString":
-        case "toString":
-        case "valueOf": {
-          return o[k];
-        }
-
-        default: {
-          if (typeof o[k] === "function") {
-            return (...args) => {
-              sealedObj = true;
-              return o[k] (...args);
-            }
-          }
-            
-          else {
-            sealedProps.add(k);
-            return o[k];
-          }
-        }
-      }
-    },
-
-    getOwnPropertyDescriptor: (o, k) => {
-      if (sealedObj) throw new TypeError("object is sealed");
-      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
-      else return Reflex.getOwnPropertyDescriptor(o, k);
-    },
-
-    has: (o, k) => {
-      switch (k) {
-        case "constructor":
-        case "hasOwnProperty":
-        case "isPrototypeOf":
-        case "propertyIsEnumerable":
-        case "toLocaleString":
-        case "toString":
-        case "valueOf": {
-          return k in o;
-        }
-        
-        default: {
-          sealedProps.add(k);
-          return k in o;
-        }
-      }
-    },
-
-    ownKeys: o => {
-      sealedObj = true;
-      return Reflect.ownKeys(o);
-    },
-
-    set: (o, k, x, p) => {
-      if (sealedObj) throw new TypeError("object is sealed");
-      else if (sealedProps.has(k)) throw new TypeError(`property "${k}" is sealed`);
-      else return o[k] = x;
-    },
-  };
-};
-
-
-O.ref = o => REF in o ? o : new Proxy(o, objRef(new Set(), false));
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-// TODO: fromParallel/toParallel
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Emitter.append = append => tx => ty =>
-  Emitter(k =>
-    Emitter.and(tx) (ty)
-      .run(([x, y]) =>
-        k(append(x) (y))));
-
-
-Emitter.prepend = Emitter.append;
-
-
-Emitter.Semigroup = {
-  append: Emitter.append,
-  prepend: Emitter.prepend
-};
-
-  
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Emitter.empty = empty =>
-  Emitter(k => k(empty));
-
-
-Emitter.Monoid = {
-  ...Emitter.Semigroup,
-  empty: Emitter.empty
-};
-
-
-/***[ Semigroup (race) ]******************************************************/
-
-
-Emitter.race = {}; // TODO: make a newtype
-
-
-Emitter.race.append = Emitter.or;
-
-
-Emitter.race.prepend = Emitter.or;
-
-
-/***[ Semigroup :: Monoid (race) ]********************************************/
-
-
-Emitter.race.empty = Emitter(k => null);
+    return [p[k], ref[k], root];
+  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
 
 
 /***[ Misc. ]*****************************************************************/
 
 
-Emitter.flatmap = mx => fm =>
-  Emitter(k => mx.run(x => fm(x).run(k)));
+O.lazyProp = k => thunk => o => // create lazy property that shares its result
+  Object.defineProperty(o, k, {
+    get: function() {delete o[k]; return o[k] = thunk()},
+    configurable: true,
+    enumerable: true});
 
 
-Emitter.flatten = ttx =>
-  Emitter(k => ttx.run(mx => mx.run(k)));
+// self referencing during object creation
 
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-Emitter.allArr = Emitter.allArr();
-
-
-Emitter.anyArr = Emitter.anyArr();
-
-
-/******************************************************************************
-****************************[ OBSERVER :: TRAGET ]*****************************
-******************************************************************************/
-
-
-/* The `Target` observer is modelled for typical DOM event scenarios. */
-
-
-// TODO
-
-
-/*export const Target = k => ({
-  [TAG]: "Target",
-  run: k
-});
-
-
-Target.observe = ({controller = Option.None, init = Option.None, listener, opts = {}, target, type}) => {
-  const state = {run: init},
-    subs = new Set();
-
-  let r;
-
-  return Target(k => {
-    if (r) return r; // ensure idempotency
-
-    const listener2 = next => {
-      state.run = listener({next, state: state.run}) (k);
-      subs.forEach(sub => sub({next, state: state.run}));
-    };
-
-    target.addEventListener(type, listener2, opts);
-    
-    r = {
-      controller,
-
-      get cancel() {
-        if (subs.length === 0) {
-          target.removeEventListener(type, listener2, opts);
-          return Either.Right(null);
-        }
-
-        else return Either.Left(
-          "cannot remove listener with pending subscriptions");
-      },
-
-      state: Cont(k2 => k2(state.run)), // state passed to the consumer
-      sub: k3 => (subs.add(k3), r),
-      unsub: k4 => (subs.delete(k4), r)
-    };
-
-    return r;
-  });
-};*/
-
-
-/******************************************************************************
-*****************************[ OPTICS :: GETTER ]******************************
-******************************************************************************/
-
-
-/******************************************************************************
-******************************[ OPTICS :: LENS ]*******************************
-******************************************************************************/
-
-
-// type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
-
-export const Lens = ({map}) => f => g => ({
-  [TAG]: "Lens",
-  run: ht => tx => map(g(tx)) (ht(f(tx)))
-});
-
-
-/******************************************************************************
-******************************[ OPTICS :: FOLD ]*******************************
-******************************************************************************/
-
-
-/******************************************************************************
-******************************[ OPTICS :: PRISM ]******************************
-******************************************************************************/
-
-
-/******************************************************************************
-*****************************[ OPTICS :: SETTER ]******************************
-******************************************************************************/
-
-
-/******************************************************************************
-****************************[ OPTICS :: TRAVERSAL ]****************************
-******************************************************************************/
+O.thisify = f => f({});
 
 
 /******************************************************************************
@@ -6668,346 +2002,113 @@ export const Lens = ({map}) => f => g => ({
 ******************************************************************************/
 
 
-/* Transforms partial functions into total ones. Resort to `Either` for
-exception handling use. */
-
-
-export const Option = {};
-
-
-Option.Some = x => ({
-  [TAG]: "Option",
-  run: ({some}) => some(x)
+export const Option = k => ({
+  [TAG]: "Cont.Option",
+  run: k
 });
 
 
-Option.None = {
-  [TAG]: "Option",
-  run: ({none}) => none
-};
+export const Opt = Option; // shortcut
 
 
-Option.cata = none => some => tx => tx.run({none, some});
+Opt.none = Opt(ks => ks.none);
+
+
+Opt.none = x => Opt(ks => ks.some(x));
+
+
+Opt.option = none => some => tx => tx.run({none, some}); // elimination rule
 
 
 /***[ Foldable ]**************************************************************/
 
 
-Option.foldl = f => acc => tx => tx.run({
-  none: acc,
-  some: x => f(acc) (x)
-});
-
-
-Option.foldr = f => acc => tx => tx.run({
-  none: acc,
-  some: x => f(x) (acc)
-});
-
-
-Option.Foldable = {
-  foldl: Option.foldl,
-  foldr: Option.foldr
-};
-
-
 /***[ Foldable :: Traversable ]***********************************************/
-
-
-// TODO
 
 
 /***[ Functor ]***************************************************************/
 
 
-Option.map = f => tx =>
+Opt.map = f => tx => Opt(({none: k, some: k2}) =>
   tx.run({
-    none: Option.None,
-    some: x => Option.Some(f(x))
-  });
+    none: null,
+    some: y => k2(f(y))
+  }));
 
 
-Option.Functor = {map: Option.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-Option.ap = tf => tx =>
-  tf.run({
-    none: Option.None,
-
-    some: f => tx.run({
-      none: Option.None,
-      some: x => Option.Some(f(x))
-    })
-  });
-
-
-Option.Apply = {
-  ...Option.Functor,
-  ap: Option.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-Option.of = x => Option.Some(x);
-
-
-Option.Applicative = {
-  ...Option.Apply,
-  of: Option.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-Option.chain = mx => fm =>
-  mx.run({
-    none: Option.None,
-    some: x => fm(x)
-  });
-
-
-Option.chain_ = fm => mx =>
-  mx.run({
-    none: Option.None,
-    some: x => fm(x)
-  });
-
-
-Option.Chain = {
-  ...Option.Apply,
-  chain: Option.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-Option.Monad = {
-  ...Option.Applicative,
-  chain: Option.chain
-};
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-Option.isSome = tx =>
-  tx.run({
-    none: false,
-    some: _const(true)
-  });
-
-
-Option.getOr = x => tx =>
-  tx.run({
-    none: x,
-    some: y => y
-  });
-
-
-Option.unsafeGet = tx =>
-  tx.run({none: null, some: id});
-
-
-/******************************************************************************
-**********************************[ OPTIONT ]**********************************
-******************************************************************************/
-
-
-export const OptionT = mmx => ({
-  [TAG]: "OptionT",
-  run: mmx
-});
-
-
-/***[ Foldable ]**************************************************************/
-
-
-OptionT.foldl = ({foldl}) => f => acc => foldl(Option.foldl(f)) (acc);
-
-
-OptionT.foldr = ({foldr}) => f => acc => foldr(Option.foldr(f)) (acc);
-
-
-OptionT.Foldable = {
-  foldl: OptionT.foldl,
-  foldr: OptionT.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-OptionT.mapA = ({mapA}, {map, ap, of}) => ft => mmx =>
-  map(OptionT) (
-    mapA({map, ap, of})
-      (Option.mapA({map, ap, of}) (ft))
-        (mmx.run));
-
-
-// TODO: seqA
-
-
-OptionT.Traversable = () => ({
-  ...OptionT.Foldable,
-  ...OptionT.Functor,
-  mapA: OptionT.mapA,
-  seqA: OptionT.seqA
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-OptionT.map = ({map}) => f => OptionT.mapBase(map(Option.map(f)));
-
-
-OptionT.Functor = {map: OptionT.map};
+Opt.Functor = {map: Opt.map};
 
 
 /***[ Functor :: Alt ]********************************************************/
 
 
-OptionT.alt = ({of, chain}) => mmx => mmy =>
-  OptionT(chain(mmx.run) (mx => mx.run({
-    none: mmy.run,
-    some: _ => of(mx)
-  })));
-
-
-OptionT.Alt = {
-  ...OptionT.Functor,
-  alt: OptionT.alt
-};
-
-
 /***[ Functor :: Alt :: Plus ]************************************************/
-
-
-OptionT.zero = ({of}) => of(Option.None);
-
-
-OptionT.Plus = {
-  ...OptionT.Alt,
-  zero: OptionT.zero
-};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-OptionT.ap = ({map, of, chain}) => mmf => mmx =>
-  OptionT(chain(mmf.run) (mf =>
-    mf.run({
-      none: of(Option.None),
-
-      some: f => chain(mmx.run) (mx =>
-        mx.run({
-          none: of(Option.None),
-          some: x => of(Option.Some(f(x)))
-        }))
-    })));
+Opt.ap = tf => tx => Opt(({none: k, some: k2}) =>
+  tf.run({
+    none: null,
+    
+    some: tf => tx.run({
+      none: null,
+      some: z => k2(tf(z))
+    })
+  }));
 
 
-OptionT.Apply = {
-  ...OptionT.Functor,
-  ap: OptionT.ap
+Opt.Apply = {
+  ...Opt.Functor,
+  ap: Opt.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-OptionT.of = ({of}) => x => OptionT(of(Option.Some(x)));
+Opt.of = Opt.some;
 
 
-OptionT.Applicative = {
-  ...OptionT.Apply,
-  of: OptionT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-OptionT.chain = ({of, chain}) => mmx => fmm =>
-  chain(mmx) (mx => mx.run({
-    none: of(Option.None),
-    some: x => fmm(x)
-  }));
-
-
-OptionT.Chain = {
-  ...OptionT.Apply,
-  chain: OptionT.chain
+Opt.Applicative = {
+  ...Opt.Apply,
+  of: Opt.of
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Alternative ]************************/
 
 
-OptionT.Alternative = {
-  ...OptionT.Plus,
-  ...OptionT.Applicative
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+Opt.chain = mx => fm => Opt(({none: k, some: k2}) =>
+  mx.run({
+    none: null,
+    some: y => k2(fm(y))
+  }));
+
+
+Opt.Chain = {
+  ...Opt.Apply,
+  chain: Opt.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-OptionT.Monad = {
-  ...OptionT.Applicative,
-  chain: OptionT.chain
+Opt.Monad = {
+  ...Opt.Applicative,
+  chain: Opt.chain
 };
 
 
-/***[ Natural Transformations ]***********************************************/
+/***[ Semigroup ]*************************************************************/
 
 
-OptionT.mapBase = fm => mmx => OptionT(fm(mmx.run));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-OptionT.hoist = ({of}) => mx => OptionT(of(mx));
-
-
-OptionT.lift = ({map}) => mx => OptionT(map(Option.Some) (mx));
-
-
-OptionT.mapT = f => mmx => OptionT(f(mmx.run));
-
-
-OptionT.chainT = ({of, chain}) => fm => mmx =>
-  OptionT(chain(f(mmx.run).run) (mx => of(mx.run({
-    none: Option.None,
-
-    some: mx2 => mx2.run({
-      none: Option.None,
-      some: Option.Some
-    })
-  }))));
-
-
-OptionT.Transformer = {
-  chainT: Option.chainT,
-  hoist: OptionT.hoist,
-  lift: OptionT.lift,
-  mapT: OptionT.mapT
-};
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-OptionT.Traversable = OptionT.Traversable();
+/***[ Semigroup :: Monoid ]***************************************************/
 
 
 /******************************************************************************
@@ -7015,25 +2116,31 @@ OptionT.Traversable = OptionT.Traversable();
 ******************************************************************************/
 
 
+/* Represents asynchronous computations evaluated in parallel. Use `Serial` for
+  asynchronous computations evaluated in serial. Use `Cont` for synchronous
+  computations encoded in CPS.
+
+  It has the following properties:
+
+  * asynchronous, parallel evaluation
+  * pure core/impure shell concept
+  * lazy by deferred nested functions
+  * non-reliable return values
+  * stack-safe due to asynchronous calls
+  * flat composition/monadic chaining syntax */
+
+
 export const Parallel = k => ({
   [TAG]: "Parallel",
-  run: k
+  run: k,
+
+  runAsync: f => { // extra stack-safety for edge cases
+    if (Math.random() < MICROTASK_TRESHOLD)
+      Promise.resolve(null).then(_ => k(f));
+
+    else k(f);
+  }
 });
-
-
-// stack safe version for some edge cases
-
-export const Parallel_ = k => {
-  const o = {
-    [TAG]: "Parallel",
-    run: k
-  };
-    
-  if (Math.random() < MICROTASK_TRESHOLD) // defer until next microtask
-    o.run = deferMicro(o.run);
-
-  return o;
-};
 
 
 /***[ Conjunction ]***********************************************************/
@@ -7166,22 +2273,26 @@ Parallel.Monoid = {
 /***[ Semigroup (race) ]******************************************************/
 
 
-Parallel.race = {}; // TODO: make a newtype
+Parallel.Race = {};
 
 
-Parallel.race.append = Parallel.or;
+Parallel.Race.append = Parallel.or;
 
 
-Parallel.race.prepend = Parallel.or;
+Parallel.Race.prepend = Parallel.or;
 
 
 /***[ Semigroup :: Monoid (race) ]********************************************/
 
 
-Parallel.race.empty = Parallel(k => null);
+Parallel.Race.empty = Parallel(k => null);
 
 
 /***[ Misc. ]*****************************************************************/
+
+
+/* The type doesn't implement monad, hence some combinators for monad-like
+behavior. */
 
 
 Parallel.flatmap = mx => fm =>
@@ -7206,10 +2317,8 @@ Parallel.anyArr = Parallel.anyArr();
 ******************************************************************************/
 
 /* Parser are broadly distinguished by their context type (simplified): 
-
 * applicative: newtype Parser a = P (String -> (String, Either Error a))
 * monadic:     newtype Parser m a = P (String -> (String, m a))
-
 `Parser` is an applicative variant. */
 
 
@@ -7859,7 +2968,7 @@ const CHAR_CLASSES = {
 
     get latin1() {
       delete this.latin1;
-      this.latin1 = new RegExp(/  /, "");
+      this.latin1 = new RegExp(/  /, "");
       return this.latin1;
     },
 
@@ -7902,529 +3011,35 @@ const CHAR_CLASSES = {
 
 
 /******************************************************************************
-***********************************[ PRED ]************************************
-******************************************************************************/
-
-
-export const Pred = p => ({
-  [TAG]: "Pred",
-  run: p
-});
-
-
-/***[ Contravariant ]*********************************************************/
-
-
-Pred.contramap = f => tq => x => Pred(tp.run(f(x)));
-
-
-Pred.Contravariant = {contramap: Pred.contramap};
-
-
-/***[ Semigroup ]*************************************************************/
-
-
-Pred.append = tp => tq =>
-  Pred(x => tp.run(x) && tq.run(x));
-
-
-Pred.prepend = tq => tp =>
-  Pred(x => tp.run(x) && tq.run(x));
-
-
-Pred.Semigroup = {
-  append: Pred.append,
-  prepend: Pred.prepend
-};
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
-
-
-Pred.empty = Pred(_ => true);
-
-
-Pred.Monoid = {
-  ...Pred.Semigroup,
-  empty: Pred.empty
-};
-
-
-/******************************************************************************
-**********************************[ PRIVATE ]**********************************
-******************************************************************************/
-
-
-/* Just a private namespace for non-exportable values and methods of other
-exported namespaces. */
-
-
-const Private = {};
-
-
-/******************************************************************************
-**********************************[ REGEXP ]***********************************
-******************************************************************************/
-
-
-export const Rex = {};
-
-
-Rex.cons = (...xs) =>
-  new RegExp(xs.join(""), "");
-
-
-Rex.consG = (...xs) =>
-  new RegExp(xs.join(""), "g");
-
-
-Rex.consI = (...xs) =>
-  new RegExp(xs.join(""), "i");
-
-
-Rex.consU = (...xs) =>
-  new RegExp(xs.join(""), "u");
-
-
-Rex.consGI = (...xs) =>
-  new RegExp(xs.join(""), "gi");
-
-
-Rex.consGU = (...xs) =>
-  new RegExp(xs.join(""), "gu");
-
-
-Rex.consIU = (...xs) =>
-  new RegExp(xs.join(""), "iu");
-
-
-Rex.consGIU = (...xs) =>
-  new RegExp(xs.join(""), "giu");
-
-
-/***[ Indexing ]**************************************************************/
-
-
-Rex.searchFirst = getOffset => rx => s => {
-  let ref = null;
-
-  for (const o of s.matchAll(rx)) {
-    const offset = getOffset(o);
-
-    return [{
-      start: o.index,
-      end: o.index + offset,
-      len: offset
-    }];
-  }
-
-  return [];
-};
-
-
-Rex.searchFirstBy = getOffset => p => rx => s => {
-  let ref = null;
-
-  for (const o of s.matchAll(rx)) {
-    if (p(o)) {
-      const offset = getOffset(o);
-
-      return [{
-        start: o.index,
-        end: o.index + offset,
-        len: offset
-      }];
-    }
-  }
-
-  return [];
-};
-
-
-Rex.searchNth = getOffset => nth => rx => s => {
-  for (const o of s.matchAll(rx)) {
-    if (--nth <= 0) {
-      const offset = getOffset(o);
-
-      return [{
-        start: o.index,
-        end: o.index + offset,
-        len: offset
-      }];
-    }
-  }
-
-  return [];
-};
-
-
-Rex.searchNthBy = getOffset => nth => p => rx => s => {
-  for (const o of s.matchAll(rx)) {
-    if (p(o)) {
-      if (--nth <= 0) {
-        const offset = getOffset(o);
-
-        return [{
-          start: o.index,
-          end: o.index + offset,
-          len: offset
-        }];
-      }
-    }
-  }
-
-  return [];
-};
-
-
-Rex.searchLast = getOffset => rx => s => {
-  let ref = null;
-
-  for (const o of s.matchAll(rx))
-    ref = o;
-
-  if (ref === null) return [];
-
-  else {
-    const offset = getOffset(ref);
-
-    return [{
-      start: ref.index,
-      end: ref.index + offset,
-      len: offset
-    }];
-  }
-};
-
-
-Rex.searchLastBy = getOffset => p => rx => s => {
-  let ref = null;
-
-  for (const o of s.matchAll(rx))
-    if (p(o)) ref = o;
-
-  if (ref === null) return [];
-
-  else {
-    const offset = getOffset(ref);
-
-    return [{
-      start: ref.index,
-      end: ref.index + offset,
-      len: offset
-    }];
-  }
-};
-
-
-Rex.searchAll = getOffset => rx => s => {
-  const os = [];
-
-  for (const o of s.matchAll(rx))
-    os.push(o);
-
-  return os.map(o => {
-    const offset = getOffset(o);
-    
-    return {
-      start: o.index,
-      end: o.index + offset,
-      len: offset
-    };
-  });
-};
-
-
-Rex.searchAllBy = getOffset => p => rx => s => {
-  const os = [];
-
-  for (const o of s.matchAll(rx))
-    if (p(o)) os.push(o);
-
-  return os.map(o => {
-    const offset = getOffset(o);
-    
-    return {
-      start: o.index,
-      end: o.index + offset,
-      len: offset
-    };
-  });
-};
-
-
-/***[ Offsetting ]************************************************************/
-
-
-Rex.discardOffset = o => 0;
-
-
-Rex.getTotalOffset = o => o[0].length;
-
-
-Rex.getIndexedOffset = name => o => o[i].length;
-
-
-Rex.getCapturedOffset = name => o => o.groups.name.length;
-
-
-/***[ String Operations ]*****************************************************/
-
-
-Rex.match = os => s =>
-  os.map(({start, end}) => s.slice(start, end));
-
-
-Rex.parse = os => s =>
-  os.reduceRight(([s2, acc], {start, end}) => [
-    s2.slice(0, start).concat(s2.slice(end)),
-    (acc.unshift(s2.slice(start, end)), acc)
-  ], Pair(s, []));
-
-
-Rex.matchSection = os => ps => s => {
-  const diff = ps.length - os.length;
-
-  return (diff === 0 || diff > 0 ? os : os.slice(0, diff))
-    .map(({end: start}, i) => 
-      s.slice(start, ps[i].end));
-};
-
-
-Rex.parseSection = os => ps => s => {
-  const diff = ps.length - os.length;
-
-  return (diff === 0 || diff > 0 ? os : os.slice(0, diff))
-    .reduceRight(([s2, acc], {end: start}, i) => [
-      s2.slice(0, start).concat(s2.slice(ps[i].end)),
-      (acc.unshift(s2.slice(start, ps[i].end)), acc)
-    ], Pair(s, []));
-};
-
-
-Rex.replace = s2 => os => s =>
-  os.reduceRight((acc, {start, end}) =>
-    acc.slice(0, start)
-      .concat(s2)
-      .concat(acc.slice(end)), s);
-
-
-Rex.modify = f => os => s =>
-  os.reduceRight((acc, {start, end}) =>
-    acc.slice(0, start)
-      .concat(f(acc.slice(start, end)))
-      .concat(acc.slice(end)), s);
-
-
-Rex.remove = os => s =>
-  os.reduceRight((acc, {start, end}) =>
-    acc.slice(0, start)
-      .concat(acc.slice(end)), s);
-
-
-Rex.insertBefore = s2 => os => s =>
-  os.reduceRight((acc, {start, end}) =>
-    acc.slice(0, start)
-      .concat(s2)
-      .concat(acc.slice(start)), s);
-
-
-Rex.insertAfter = s2 => os => s =>
-  os.reduceRight((acc, {start, end}) =>
-    acc.slice(0, end)
-      .concat(s2)
-      .concat(acc.slice(end)), s);
-
-
-Rex.split = os => s =>
-  os.reduceRight((acc, {start, end}) => {
-    const rest = acc[0].slice(0, start),
-      head = acc[0].slice(end);
-
-    acc[0] = head;
-    acc.unshift(rest);
-    return acc;
-  }, [s]);
-
-
-Rex.splitBefore = os => s =>
-  os.reduceRight((acc, {start, end}) => {
-    const rest = acc[0].slice(0, start),
-      head = acc[0].slice(start);
-
-    acc[0] = head;
-    acc.unshift(rest);
-    return acc;
-  }, [s]);
-    
-
-Rex.splitAfter = os => s =>
-  os.reduceRight((acc, {start, end}) => {
-    const rest = acc[0].slice(0, end),
-      head = acc[0].slice(end);
-
-    acc[0] = head;
-    acc.unshift(rest);
-    return acc;
-  }, [s]);
-
-
-/***[ Relative Position ]*****************************************************/
-
-
-Rex.areAdjacent = rx => ({end}) => ({start}) => {
-  const padding = s.slice(end, start);
-
-  if (end > start) return false;
-  
-  else return padding
-    .replace(rx, "").length === 0 ? true : false;
-};
-
-
-Rex.areOverlapping = ({end}) => ({start}) => end >= start;
-
-
-Rex.areNested = ({start, end}) => ({start: start2, end: end2}) =>
-  start <= start2 && end >= end2;
-
-
-/***[ Primitive Patterns ]****************************************************/
-
-
-Rex._ = " +"; // sequential spaces
-
-
-Rex.CRLF = "\\r?\\n"; // safe line feeds
-
-
-Rex.DOT = ".|[\\r\\n]";
-
-
-Rex.HYPHENS = "(?:—|–|-)"; // OCR safe hyphens
-
-
-Rex.NWC = "\\p{Z}|\\p{S}|\\p{P}|\\p{C}|\\p{M}"; // non-word character
-
-
-Rex.WBL = `(?<=^|${Rex.NWC})`; // unicode word boundary left
-
-
-Rex.WBR = `(?=$|${Rex.NWC})`; // unicode word boundary right
-
-
-/***[ Specific Patterns ]*****************************************************/
-
-
-Rex.makeDateDePat = ({sep, century = "", months = new Map()}) => ({
-  rex: Rex.consGU(
-    Rex.WBL,
-    "(?<d>\\d\\d?)",
-    sep,
-    months.size === 0
-      ? "(?<m>\\d\\d?)"
-      : `${Rex._}(?<m>\\p{Lu}\\p{Ll}+)(?:\\W)?${Rex._}`,
-    months.size === 0 ? sep : "",
-    `(?<y>${century}\\d\\d)`,
-    Rex.WBR),
-
-  pred: o => {
-    let y = Number(century + o.groups.y),
-      m = months.size === 0 ? Number(o.groups.m) : months.get(m) + 1,
-      d = Number(o.groups.d);
-
-    if (m === undefined || m < 1 || m > 12)
-      return false;
-
-    else if (!isDayOfMonth({year: y, month: m - 1}) (d))
-      return false;
-
-    else return true;
-  }
-});
-
-
-Rex.makeDateIsoPat = ({century = ""}) => ({
-  rex: Rex.consGU(
-    Rex.WBL,
-    `(?<y>${century}\\d\\d)\\.`,
-    "(?<m>\\d\\d).",
-    "(?<d>\\d\\d)",
-    Rex.WBR),
-
-  pred: o => {
-    let y = Number(century + o.groups.y),
-      m = Number(o.groups.m),
-      d = Number(o.groups.d);
-
-    if (m < 1 || m > 12)
-      return false;
-
-    else if (!isDayOfMonth({year: y, month: m - 1}) (d))
-      return false;
-
-    else return true;
-  }
-});
-
-
-Rex.makeDecimalPat = ({groupSep, decSep}) => ({
-  rex: Rex.consGU(
-    Rex.WBL,
-    `(?<int>[0-9${groupSep}]+)`,
-    decSep,
-    `(?<frac>\\d+)`,
-    Rex.WBR),
-
-  pred: o => {
-    if (o.groups.int.length > 1
-      && o.groups.int[0] === "0")
-        return false;
-
-    else if (o.groups.int.includes(groupSep)) {
-      const fst = o.groups.int.split(groupSep, 1) [0];
-      const snd = o.groups.int.split(groupSep).slice(1);
-
-      if (fst.length > 3) return false;
-      else return snd.every(s => s.length === 3);
-    }
-
-    else return true;
-  }
-});
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-Rex.escape = s =>
-  s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-
-/******************************************************************************
 **********************************[ SERIAL ]***********************************
 ******************************************************************************/
 
 
+/* Represents asynchronous computations evaluated in serial. Use `Parallel` for
+  asynchronous computations evaluated in parallel. Use `Cont` for synchronous
+  computations encoded in CPS.
+
+  It has the following properties:
+
+  * asynchronous, serial evaluation
+  * pure core/impure shell concept
+  * lazy by deferred nested functions
+  * non-reliable return values
+  * stack-safe due to asynchronous calls
+  * flat composition/monadic chaining syntax */
+
+
 export const Serial = k => ({
   [TAG]: "Serial",
-  run: k
+  run: k,
+
+  runAsync: f => { // extra stack-safety for edge cases
+    if (Math.random() < MICROTASK_TRESHOLD)
+      Promise.resolve(null).then(_ => k(f));
+
+    else k(f);
+  }
 });
-
-
-// stack safe version for some edge cases
-
-export const Serial_ = k => {
-  const o = {
-    [TAG]: "Serial",
-    run: k
-  };
-
-  if (Math.random() < MICROTASK_TRESHOLD) // defer until next microtask
-    o.run = deferMicro(o.run);
-
-  return o;
-};
 
 
 /***[ Conjunction ]***********************************************************/
@@ -8577,734 +3192,20 @@ Serial.allArr = Serial.allArr();
 
 
 /******************************************************************************
-************************************[ SET ]************************************
-******************************************************************************/
-
-
-const _Set = {};
-
-
-/***[ Mutable Reference ]*****************************************************/
-
-
-/* see `O.ref` for inline comment */
-
-
-const setRef = (sealedProps, sealedObj) => {
-  return {
-    get: (s, k, p) => {
-      switch (k) {
-
-        // introspection
-
-        case REF: return true;
-
-        // unwrap the set
-
-        case UNREF: return (sealedObj = true, s);
-
-        case Symbol.iterator: {
-          return () => {
-            sealedObj = true;
-            return s[k] ();
-          };
-        }
-
-        case "add": {
-          return k2 => {
-            if (sealedObj) throw new TypeError("set is sealed");
-            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
-
-            else {
-              s.add(k2);
-              return p;
-            }
-          };
-        }
-
-        case "clear": {
-          return () => {
-            if (sealedObj) throw new TypeError("set is sealed");
-            else if (sealedProps.size > 0) throw new TypeError("set contains sealed properties");
-
-            else {
-              s.clear();
-              return p;
-            }
-          };
-        }
-
-        case "delete": {
-          return k2 => {
-            if (sealedObj) throw new TypeError("set is sealed");
-            else if (sealedProps.has(k2)) throw new TypeError(`property "${k2}" is sealed`);
-
-            else {
-              s.delete(k2);
-              return p;
-            }
-          };
-        }
-
-        case "has": {
-          return k2 => {
-            sealedProps.add(k2);
-            return s.has(k2);
-          };
-        }
-
-        case "keys":
-        case "entries":
-        case "values": {
-          return () => {
-            sealedObj = true;
-            return s[k] ();
-          };
-        }
-
-        case "size": {
-          sealedProps.add(k);
-          return s.size;
-        }
-
-        default: return s[k];
-      }
-    }
-  }
-};
-
-
-_Set.ref = s => REF in s ? s : new Proxy(s, setRef(new Set(), false));
-
-
-/******************************************************************************
-***********************************[ STAR ]************************************
-******************************************************************************/
-
-
-export const Star = tf => ({ // TODO: add map/Functor
-  [TAG]: "Star",
-  run: tf
-});
-
-
-/***[ Functor :: Profunctor ]*************************************************/
-
-
-Star.dimap = ({map}) => h => f => tg =>
-  Star(x => map(f) (tg.run(h(x))));
-
-
-Star.lmap = g => tf =>
-  Star(x => tf.run(g(x)));
-
-
-Star.rmap = ({map}) => f => tg =>
-  Star(x => map(f) (tg.run(x)));
-
-
-Star.Profunctor = {
-  ...Star.Functor,
-  dimap: Star.dimap,
-  lmap: Star.lmap,
-  rmap: Star.rmap
-};
-
-
-/******************************************************************************
-***********************************[ STATE ]***********************************
-******************************************************************************/
-
-
-export const State = f => ({
-  [TAG]: "State",
-  run: f
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-State.map = f => tg =>
-  State(y => {
-    const [x, y2] = tg.run(y);
-    return Pair(f(x), y2);
-  });
-
-
-State.Functor = {map: State.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-State.ap = tf => tg =>
-  State(y => {
-    const [f, y2] = tf.run(y),
-      [x, y3] = tg.run(y2);
-
-    return Pair(f(x), y3);
-  });
-
-
-State.Apply = {
-  ...State.Functor,
-  ap: State.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-State.of = x => State(y => Pair(x, y));
-
-
-State.Applicative = {
-  ...State.Apply,
-  of: State.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-State.chain = mg => fm =>
-  State(y => {
-    const [x, y2] = mg.run(y);
-    return fm(x).run(y2);
-  });
-
-
-State.Chain = {
-  ...State.Apply,
-  chain: State.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-State.Monad = {
-  ...State.Applicative,
-  chain: State.chain
-};
-
-
-/***[ State ]*****************************************************************/
-
-
-State.eval = tf => x => tf.run(x) [0];
-
-
-State.exec = tf => x => tf.run(x) [1];
-
-
-State.get = State(x => Pair(x, x));
-
-
-State.gets = f => State(x => Pair(f(x), x));
-
-
-State.mod = f => State(x => Pair(null, f(x)));
-
-
-State.put = x => State(_ => Pair(null, x));
-
-
-State.withState = f => tg => State(x => tg.run(f(x)));
-
-
-/******************************************************************************
-**********************************[ STATET ]***********************************
-******************************************************************************/
-
-
-export const StateT = mmf => ({
-  [TAG]: "StateT",
-  run: mmf
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-StateT.map = ({map}) => f => mmg =>
-  StateT(y => map(mx => Pair(f(mx[0]), mx[1])) (mmg.run(y)));
-
-
-StateT.Functor = {map: StateT.map};
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-StateT.alt = ({alt}) => mmf => mmg => StateT(y => alt(mmf.run(y)) (mmg.run(y)));
-
-
-StateT.Alt = {
-  ...StateT.Functor,
-  map: StateT.map
-};
-
-
-/***[ Functor :: Plus ]*******************************************************/
-
-
-StateT.zero = ({zero}) => StateT(_ => zero);
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-StateT.ap = ({of, chain}) => mmf => mmg =>
-  StateT(y => chain(mmf.run(y)) (mx =>
-    chain(mmg.run(mx[1])) (my =>
-      of(Pair(mx[0] (my[0]), my[1])))));
-
-
-StateT.Apply = {
-  ...StateT.Functor,
-  ap: StateT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-StateT.of = x => StateT(y => of(Pair(x, y)));
-
-
-StateT.Applicative = {
-  ...StateT.Apply,
-  of: StateT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-StateT.chain = ({of, chain}) => mmg => fmm =>
-  StateT(y => chain(mmg.run(y)) (mx =>
-    fmm(mx[0]).run(mx[1])));
-
-
-StateT.Chain = {
-  ...StateT.Apply,
-  chain: StateT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
-
-
-StateT.Alternative = {
-  ...StateT.Plus,
-  ...StateT.Applicative
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-StateT.Monad = {
-  ...StateT.Applicative,
-  chain: StateT.chain
-};
-
-
-/***[ State ]*****************************************************************/
-
-
-StateT.eval = ({of, chain}) => mmf => x => of(mmf.run(x) [0]);
-
-
-StateT.exec = ({of, chain}) => mmf => x => of(mmf.run(x) [1]);
-
-
-StateT.get = () => StateT.state(x => Pair(x, x));
-
-
-StateT.gets = f => StateT.state(x => Pair(f(x), x));
-
-
-StateT.mod = f => StateT.state(x => Pair(null, f(x)));
-
-
-StateT.put = x => StateT.state(_ => Pair(null, x));
-
-
-StateT.state = ({of}) => f => StateT(x => of(f(x)));
-
-
-StateT.withState = f => mmg => StateT(x => mmg.run(f(x)));
-
-
-/***[ Natural Transformation ]************************************************/
-
-
-StateT.mapBase = f => mmg => StateT(x => f(mmg.run(x)));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-StateT.lift = ({of, chain}) => mx =>
-  StateT(y => chain(mx) (x => of(Pair(x, y))));
-
-
-// TODO
-
-
-/***[ Resolve Dependencies ]**************************************************/
-
-
-StateT.get = StateT.get();
-
-
-/******************************************************************************
-**********************************[ STREAMT ]**********************************
-******************************************************************************/
-
-
-// data Stream f m r = Step !(f (Stream f m r)) | Eff (m (Stream f m r)) | Done r
-
-export const StreamT = {};
-
-
-StreamT.Step = mmx => ({
-  [TAG]: "StreamT",
-  run: ({step}) => step(mmx)
-});
-
-
-StreamT.Eff = mmx => ({
-  [TAG]: "StreamT",
-  run: ({eff}) => eff(mmx)
-});
-
-
-StreamT.Done = mmx => ({
-  [TAG]: "StreamT",
-  run: ({done}) => done(mmx)
-});
-
-
-StreamT.cata = ({map}, {of, chain}) => step => eff => done => mmx => 
-  eff(function go(mmx2) {
-    return mmx2.run({
-      step: tx => of(step(map(x => eff(go(x)) (tx)))),
-      eff: mx => chain(mx) (go),
-      done: x => of(done(x))
-    });
-  } (mmx));
-
-
-/***[ Functor ]***************************************************************/
-
-
-StreamT.map = ({map}, {of, chain}) => f => function go(mmx) {
-  return mmx.run({
-    step: tx => Step(map(go) (tx)),
-    eff: mx => Eff(chain(mx) (x => of(go(x)))),
-    done: x => Done(f(x))
-  });
-};
-
-
-StreamT.Functor = {map: StreamT.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-StreamT.ap = mmf => mmx =>
-  StreamT.chain(mmf) (f =>
-    StreamT.chain(mmx) (x =>
-      StreamT.of(f(x))));
-
-
-StreamT.Apply = {
-  ...StreamT.Functor,
-  ap: StreamT.ap
-};
-
-
-/***[ Functor :: Applicative ]************************************************/
-
-
-StreamT.of = StreamT.Done;
-
-
-StreamT.Applicative = {
-  ...StreamT.Functor,
-  ...StreamT.Apply,
-  of: StreamT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-StreamT.chain = ({map}, {map2}) => mmx => fmm => function go(mmx2) {
-  return mmx2.run({
-    step: tx => Step(map(go) (tx)),
-    eff: mx => Eff(map2(go) (mx)),
-    done: x => fmm(x)
-  });
-} (mmx);
-
-
-StreamT.Chain = {
-  ...StreamT.Apply,
-  chain: StreamT.chain
-};
-
-
-/***[ Functor :: Applicative :: Monad ]***************************************/
-
-
-StreamT.Monad = {
-  ...StreamT.Applicative,
-  chain: StreamT.chain
-};
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-// TODO
-
-
-/******************************************************************************
-*******************************[ STREAMT :: OF ]*******************************
-******************************************************************************/
-
-
-// TODO: functor of StreamT.Step
-
-
-/******************************************************************************
-**********************************[ STRING ]***********************************
-******************************************************************************/
-
-
-export const Str = {};
-
-
-Str.derivedLetters = new Map([
-  ["Æ", "AE"], ["æ", "ae"], ["Œ", "OE"], ["œ", "oe"], ["ẞ", "ss"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"], ["ɑ", "a"], ["ɐ", "a"],
-  ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"], ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"], ["ᶀ", "b"], ["Ƈ", "C"],
-  ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"], ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"], ["Đ", "D"], ["đ", "d"],
-  ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"], ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"], ["ɠ", "g"], ["Ǥ", "G"],
-  ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"], ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"], ["ɥ", "h"], ["ɦ", "h"],
-  ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"], ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"], ["Ƙ", "K"], ["ƙ", "k"],
-  ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"], ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"], ["Ⱡ", "L"], ["ⱡ", "l"],
-  ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"], ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"], ["ŋ", "n"], ["Ɲ", "N"],
-  ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"], ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"], ["ɵ", "o"], ["Ƥ", "P"],
-  ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"], ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"], ["Ʀ", "R"], ["ʀ", "r"],
-  ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"], ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"], ["ᵴ", "s"], ["ᶊ", "s"],
-  ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"], ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"], ["ʉ", "u"], ["Ʋ", "V"],
-  ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"], ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"], ["ƴ", "y"], ["Ɏ", "Y"],
-  ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"], ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"], ["ⱬ", "z"], ["Ʒ", "Z"],
-  ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"], ["Ʒ", "Z"], ["ʒ", "z"]]);
-
-
-Str.foldl = f => init => s => {
-  let acc = init;
-  
-  for (let i = 0; i < s.length; i++)
-    acc = f(acc) (s[i]);
-
-  return acc;
-};
-
-
-Str.normalize = s => {
-  const composedChars = /[\u0300-\u036F]/g,
-    normalForm = s.normalize('NFKD').replace(composedChars, "")
-  
-  return Str.foldl(acc => c =>
-    acc.concat(
-      Str.derivedLetters.has(c)
-        ? Str.derivedLetters.get(c) : c))
-          ("") (normalForm);
-};
-
-
-Str.foldRex = rx => f => acc => s => {
-  let r, acc2 = acc;
-
-  while (r = rx.exec(s)) {
-    acc2 = f(acc2) (r[0]);
-  }
-
-  return acc2;
-};
-
-
-/******************************************************************************
-***********************************[ THESE ]***********************************
-******************************************************************************/
-
-
-/* encodes logical or */
-
-export const These = {};
-
-
-These.This = x => ({
-  [TAG]: "These",
-  run: ({this: _this}) => _this(x)
-});
-
-
-These.That = y => ({
-  [TAG]: "These",
-  run: ({that}) => that(y)
-});
-
-
-These.Both = x => y => ({
-  [TAG]: "These",
-  run: ({both}) => both(x) (y)
-});
-
-
-These.cata = f => g => h => tx => tx.run({
-  this: f,
-  that: g,
-  both: h
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-These.map = f => tx => tx.run({
-  this: These.This,
-  that: y => These.That(f(y)),
-  both: x => y => These.Both(x) (f(y))
-});
-
-
-These.Functor = {map: These.map};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-These.ap = ({append}) => tf => tx => tf.run({
-  this: These.This,
-
-  that: f => tx.run({
-    this: These.This,
-    that: y => These.That(f(y)),
-    both: x => y => These.Both(x) (f(y))
-  }),
-
-  both: x => f => tx.run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y => These.Both(x) (f(y)),
-    both: x2 => y => These.Both(append(x) (x2)) (f(y))
-  })
-});
-
-
-These.Apply = {
-  ...These.Functor,
-  ap: These.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-These.of = These.That;
-
-
-These.Applicative = {
-  ...These.Apply,
-  of: These.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-These.chain = ({append}) => mx => fm => mx.run({
-  this: These.This,
-  that: y => fm(y),
-
-  both: x => y => fm(y).run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y2 => These.Both(x) (y2),
-    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
-  })
-});
-
-
-These.Chain = {
-  ...These.Apply,
-  chain: These.chain
-};
-
-
-/***[ Functor :: Applicative :: Monad ]***************************************/
-
-
-These.Monad = {
-  ...These.Applicative,
-  chain: These.chain
-};
-
-
-/******************************************************************************
 ***********************************[ TUPLE ]***********************************
 ******************************************************************************/
 
 
-export const Tuple = (r, s, t, u, v, w, x, y, z, _) => {
-  if (_ !== undefined)
-    throw new TypeError("upper bound exceeded");
-
-  const o = {[TAG]: "Tuple"};
-  let len = 0;
-
-  if (r !== undefined) {o[0] = r; len = 1}
-  if (s !== undefined) {o[1] = s; len = 2}
-  if (t !== undefined) {o[2] = t; len = 3}
-  if (u !== undefined) {o[3] = u; len = 4}
-  if (v !== undefined) {o[4] = v; len = 5}
-  if (w !== undefined) {o[5] = w; len = 6}
-  if (x !== undefined) {o[6] = x; len = 7}
-  if (y !== undefined) {o[7] = y; len = 8}
-  if (z !== undefined) {o[8] = z; len = 9}
-
-  o.length = len;
-
-  o[Symbol.iterator] = function*() {
-    if (r !== undefined) yield r;
-    if (s !== undefined) yield s;
-    if (t !== undefined) yield t;
-    if (u !== undefined) yield u;
-    if (v !== undefined) yield v;
-    if (w !== undefined) yield w;
-    if (x !== undefined) yield x;
-    if (y !== undefined) yield y;
-    if (z !== undefined) yield z;
-  }  
-
-  return o;
-};
+export const Tuple = k => ({
+  [TAG]: "Cont.Tuple",
+  run: k
+});
 
 
-/***[ Misc. ]*****************************************************************/
+Tuple.pair = (x, y) => Tuple(k => k(x, y));
 
 
-Tuple.fromArgs = (...args) => args;
-
-
-Tuple.toArgs = f => args => f(...args);
+Tuple.triple = (x, y, z) => Tuple(k => k(x, y, z));
 
 
 /******************************************************************************
@@ -9314,8 +3215,8 @@ Tuple.toArgs = f => args => f(...args);
 
 export const Pair = (x, y) => ({
   [TAG]: "Pair",
-  0: x,
-  1: y,
+  1: x,
+  2: y,
   length: 2,
 
  [Symbol.iterator]: function*() {
@@ -9325,31 +3226,28 @@ export const Pair = (x, y) => ({
 });
 
 
-Pair.curried = curry_(Pair);
-
-
 /***[ Bifunctor ]*************************************************************/
 
 
-Pair.bimap = f => g => tx => Pair(f(tx[0]), g(tx[1]));
+Pair.bimap = f => g => tx => Tuple(k => tx.run((x, y) => Pair(f(x), g(y))));
 
 
 /***[ Extracting ]************************************************************/
 
 
-Pair.fst = tx => tx[0];
+Pair.fst = tx => tx[1];
 
 
-Pair.snd = tx => tx[1];
+Pair.snd = tx => tx[2];
 
 
 /***[ Foldable ]**************************************************************/
 
 
-Pair.foldl = f => acc => tx => f(acc) (tx[1]);
+Pair.foldl = f => acc => tx => f(acc) (tx);
 
 
-Pair.foldr = f => acc => tx => f(tx[1]) (acc);
+Pair.foldr = f => acc => tx => f(tx) (acc);
 
 
 Pair.Foldable = {
@@ -9358,23 +3256,11 @@ Pair.Foldable = {
 };
 
 
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-// TODO
-
-
 /***[ Functor ]***************************************************************/
 
 
-Pair.map = f => tx => Pair(tx[0], f(tx[1]));
-
-
-Pair.mapFst = f => tx => Pair(f(tx[0]), tx[1]);
-
-
-Pair.mapSnd = Pair.map;
-
+Pair.map = f => tx => Tuple(k => tx.run((x, y) => Pair(x, f(y))));
+  
 
 Pair.Functor = {map: Pair.map};
 
@@ -9383,7 +3269,7 @@ Pair.Functor = {map: Pair.map};
 
 
 Pair.ap = ({append, empty}) => tf => tx =>
-  Pair(append(tf[0]) (tx[0]), tf[1] (tx[1]));
+  tf.run((x, f) => tx.run((y, z) => Pair(append(x) (y), f(z))));
 
 
 Pair.Apply = {
@@ -9395,7 +3281,7 @@ Pair.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Pair.of = ({empty}) => x => Pair(empty, x);
+Pair.of = ({empty}) => x => Tuple(k => k(empty) (x));
 
 
 Pair.Applicative = {
@@ -9407,10 +3293,8 @@ Pair.Applicative = {
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Pair.chain = ({append}) => fm => mx => {
-  const my = fm(mx[1]);
-  return Pair(append(mx[0]) (my[0]), my[1]);
-};
+Pair.chain = ({append}) => fm => mx => mx.run((x, y) =>
+  fm(y).run((x2, y2) => Pair(append(x) (x2), y2)));
 
 
 Pair.Chain = {
@@ -9431,7 +3315,7 @@ Pair.Monad = {
 /***[ Functor :: Extend ]*****************************************************/
 
 
-Pair.extend = fw => wx => Pair(wx[0], fw(wx));
+Pair.extend = fw => wx => Pair(wx[1], fw(wx));
 
 
 Pair.Extend = {
@@ -9455,10 +3339,10 @@ Pair.Comonad = {
 /***[ Getters/Setters ]*******************************************************/
 
 
-Pair.setFst = x => tx => (tx[0] = x, tx);
+Pair.setFst = x => tx => Pair(x, tx[2]);
 
 
-Pair.setSnd = x => tx => (tx[1] = x, tx);
+Pair.setSnd = x => tx => Pair(tx[1], x);
 
 
 /***[ Writer ]****************************************************************/
@@ -9482,176 +3366,10 @@ Pair.tell = x => Pair(null, x);
 /***[ Misc. ]*****************************************************************/
 
 
+Pair.mapFst = f => tx => Tuple(k => tx.run((x, y) => Pair(f(x), y)));
+
+
 Pair.swap = tx => Pair(tx[1], tx[0]);
-
-
-/******************************************************************************
-*************************[ TUPLE :: PAIR :: WRITERT ]**************************
-******************************************************************************/
-
-
-export const WriterT = mmx => ({
-  [TAG]: "WriterT",
-  run: mmx
-});
-
-
-/***[ Contravariant ]*********************************************************/
-
-
-WriterT.contramap = ({contramap}) => f => mmx =>
-  WriterT(contramap(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
-
-
-WriterT.Contravariant = {contramap: WriterT.contramap};
-
-
-/***[ Foldable ]**************************************************************/
-
-
-WriterT.foldl = ({foldl}) => f => acc => foldl(Option.foldl(f)) (acc);
-
-
-WriterT.foldr = ({foldr}) => f => acc => foldr(Option.foldr(f)) (acc);
-
-
-WriterT.Foldable = {
-  foldl: WriterT.foldl,
-  foldr: WriterT.foldr
-};
-
-
-/***[ Foldable :: Traversable ]***********************************************/
-
-
-// TODO
-
-
-/***[ Functor ]***************************************************************/
-
-
-WriterT.map = ({map}) => f => mmx =>
-  WriterT(map(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
-
-
-WriterT.Functor = {map: WriterT.map};
-
-
-/***[ Functor :: Alt ]********************************************************/
-
-
-WriterT.alt = ({alt}) => mmx => mmy => WriterT(alt(mmx.run) (mmy.run));
-
-
-WriterT.Alt = {
-  ...WriterT.Functor,
-  alt: WriterT.alt
-};
-
-
-/***[ Functor :: Alt :: Plus ]************************************************/
-
-
-WriterT.zero = ({zero}) => WriterT(zero);
-
-
-WriterT.Plus = {
-  ...WriterT.Alt,
-  zero: WriterT.zero
-};
-
-
-/***[ Functor :: Apply ]******************************************************/
-
-
-WriterT.ap = ({append}, {map, ap}) => mmf => mmx =>
-  WriterT(ap(map(
-    ([f, y]) => ([x, y2]) => Pair(f(x), append(y) (y2))) (mmf.run)) (mmx.run));
-
-
-WriterT.Apply = {
-  ...WriterT.Functor,
-  ap: WriterT.ap
-};
-
-
-/***[ Functor :: Apply :: Applicative ]***************************************/
-
-
-WriterT.of = ({empty}) => x => WriterT(Pair(x, empty));
-
-
-WriterT.Applicative = {
-  ...WriterT.Apply,
-  of: WriterT.of
-};
-
-
-/***[ Functor :: Apply :: Chain ]*********************************************/
-
-
-WriterT.chain = ({append}, {of, chain}) => mmx => fmm =>
-  WriterT(chain(mmx.run) ((x, y) =>
-    chain(fmm(x)) (([x2, y2]) =>
-      of(Pair(x2, append(y) (y2))))));
-
-
-WriterT.Chain = {
-  ...WriterT.Apply,
-  chain: WriterT.chain
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
-
-
-WriterT.Alternative = {
-  ...WriterT.Plus,
-  ...WriterT.Applicative
-};
-
-
-/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
-
-
-WriterT.Monad = {
-  ...WriterT.Applicative,
-  chain: WriterT.chain
-};
-
-
-/***[ Natural Transformations ]***********************************************/
-
-
-WriterT.mapBase = f => mmx => WriterT(f(mmx.run));
-
-
-/***[ Transformer ]***********************************************************/
-
-
-WriterT.lift = ({empty}, {of, chain}) => mx =>
-  WriterT(chain(mx) (x => of(Pair(x, empty))));
-
-
-// TODO
-
-
-/***[ Writer ]****************************************************************/
-
-
-WriterT.censor = f => tx => WriterT(of(Pair(tx[0], f(tx[1]))));
-
-
-WriterT.listen = tx => WriterT(of(Pair(Pair(tx[0], tx[1]), tx[1])));
-
-
-WriterT.listens = f => tx => WriterT(of(Pair(Pair(tx[0], f(tx[1])), tx[1])));
-
-
-WriterT.pass = f => tx => WriterT(of(Pair(tx[0] [0], tx[0] [1] (tx[1]))));
-
-
-WriterT.tell = x => WriterT(of(Pair(null, x)));
 
 
 /******************************************************************************
@@ -9661,9 +3379,9 @@ WriterT.tell = x => WriterT(of(Pair(null, x)));
 
 export const Triple = (x, y, z) => ({
   [TAG]: "Triple",
-  0: x,
-  1: y,
-  2: z,
+  1: x,
+  2: y,
+  3: z,
   length: 3,
 
  [Symbol.iterator]: function*() {
@@ -9674,205 +3392,314 @@ export const Triple = (x, y, z) => ({
 });
 
 
-Triple.curried = curry3_(Triple);
-
-
 /***[ Bifunctor ]*************************************************************/
 
 
-Triple.bimap = f => g => tx => Triple(tx[0], f(tx[1]), g(tx[2]));
+Triple.bimap = f => g => tx =>
+  Tuple(k => tx.run((x, y, z) => Triple(x, f(y), g(z))));
 
 
 /***[ Extracting ]************************************************************/
 
 
-Triple.fst = tx => tx[0];
+Triple.fst = tx => tx[1];
 
 
-Triple.snd = tx => tx[1];
+Triple.snd = tx => tx[2];
 
 
-Triple.thd = tx => tx[2];
-
-
-/***[ Functor ]***************************************************************/
-
-
-Triple.map = f => tx => Triple(tx[0], tx[1], f(tx[2]));
-
-
-Triple.mapFst = f => tx => Pair(f(tx[0]), tx[1], tx[2]);
-
-
-Triple.mapSnd = f => tx => Pair(tx[0], f(tx[1]), tx[2]);
-
-
-Triple.mapThd = Triple.map
-
-
-Triple.Functor = {map: Triple.map};
-
-
-/***[ Getters/Setters ]*******************************************************/
-
-
-Triple.setFst = x => tx => (tx[0] = x, tx);
-
-
-Triple.setSnd = x => tx => (tx[1] = x, tx);
-
-
-Triple.setThd = x => tx => (tx[2] = x, tx);
-
-
-/***[ Trifunctor ]************************************************************/
-
-
-Triple.trimap = f => g => h => tx => Pair(f(tx[0]), g(tx[1]), h(tx[2]));
-
-
-/***[ Misc. ]*****************************************************************/
-
-
-Triple.rotatel = tx => Pair(tx[1], tx[2], tx[0]);
-
-
-Triple.rotater = tx => Pair(tx[2], tx[0], tx[1]);
-
-
-/******************************************************************************
-**********************************[ VECTOR ]***********************************
-******************************************************************************/
-
-
-export const Vector = (tree, length, offset) => ({
-  [TAG]: "Vector",
-  tree,
-  length,
-  offset
-})
-
-
-Vector.empty = Vector(RBT.Leaf, 0, 0);
-
-
-/***[ Con-/Deconstruction ]***************************************************/
-
-
-Vector.cons = x => xs => {
-  const offset = xs.length === 0 ? 0 : xs.offset - 1,
-    tree = RBT.set(xs.tree, offset, x, RBT.cmp);
-
-  return Vector(tree, xs.length + 1, offset);
-};
-
-
-Vector.snoc = x => xs => {
-  const tree = RBT.set(xs.tree, xs.length + xs.offset, x, RBT.cmp);
-  return Vector(tree, xs.length + 1, xs.offset);
-};
-
-
-/***[ Getters/Setters ]*******************************************************/
-
-
-Vector.get = i => xs => {
-  const r = RBT.get(xs.tree, i + xs.offset, RBT.cmp);
-  
-  return r === null
-    ? Option.None
-    : Option.Some(r);
-};
-
-
-Vector.has = i => xs =>
-  RBT.has(xs.tree, i + xs.offset, RBT.cmp);
-
-
-// TODO: Vector.ins
-
-
-Vector.mod = i => f => xs => {
-  if (i < 0 || i % 1 !== 0)
-    throw new RangeError("invalid index");
-
-  else if (i - xs.length >= 0) return xs;
-
-  else {
-    const x = RBT.get(xs.tree, i + xs.offset, RBT.cmp);
-
-    return Vector(
-      RBT.set(xs.tree, i + xs.offset, f(x), RBT.cmp),
-      xs.length,
-      xs.offset);
-  }
-};
-
-
-Vector.rem = i => xs => {
-  if (i < 0 || i % 1 !== 0)
-    throw new RangeError("invalid index");
-
-  else if (i - xs.length >= 0) return xs;
-
-  // TODO: reassign indexes using an in-order traversal
-
-  else return Vector(
-    RBT.del(xs.tree, i + xs.offset, RBT.cmp),
-    xs.length - 1,
-    xs.offset);
-};
-
-
-Vector.set = i => x => xs => {
-  if (i < 0 || i % 1 !== 0)
-    throw new RangeError("invalid index");
-
-  else if (i - xs.length > 0)
-    throw new RangeError("index is out of range");
-
-  else return Vector(
-    RBT.set(xs.tree, i + xs.offset, x, RBT.cmp),
-    i === xs.length ? xs.length + 1 : xs.length,
-    xs.offset);
-};
-
-
-// TODO: Vector.singleton
+Triple.thd = tx => tx[3];
 
 
 /***[ Foldable ]**************************************************************/
 
 
-Vector.foldl = f => acc => xs =>
-  RBT.foldl(f) (acc) (xs.tree);
+Triple.foldl = f => acc => tx => f(acc) (tx);
 
 
-Vector.foldr = f => acc => xs =>
-  RBT.foldr(f) (acc) (xs.tree);
+Triple.foldr = f => acc => tx => f(tx) (acc);
+
+
+Triple.Foldable = {
+  foldl: Triple.foldl,
+  foldr: Triple.foldr
+};
 
 
 /***[ Functor ]***************************************************************/
 
 
-Vector.map = f => xs =>
-  Vector(
-    RBT.map(f) (xs.tree),
-    xs.length,
-    xs.offset);
+Triple.map = f => tx => Tuple(k => tx.run((x, y, z) => Triple(x, y, f(z))));
+  
+
+Triple.Functor = {map: Triple.map};
 
 
-Vector.Functor = {map: Vector.map};
+/***[ Functor :: Apply ]******************************************************/
+
+
+Triple.ap = ({append, empty}) => tf => tx =>
+  tf.run((x, y, f) =>
+    tx.run((x2, y2, z) =>
+      Triple(append(x) (y), append(x2) (y2), f(z))));
+
+
+Triple.Apply = {
+  ...Triple.Functor,
+  ap: Triple.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Triple.of = ({empty}) => x => Tuple(k => k(empty) (empty) (x));
+
+
+Triple.Applicative = {
+  ...Triple.Apply,
+  of: Triple.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+Triple.chain = ({append}) => fm => mx => mx.run((x, y, z) =>
+  fm(y).run((x2, y2, z2) => Triple(append(x) (x2), append(y) (y2), z2)));
+
+
+Triple.Chain = {
+  ...Triple.Apply,
+  chain: Triple.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+Triple.Monad = {
+  ...Triple.Applicative,
+  chain: Triple.chain
+};
+
+
+/***[ Functor :: Extend ]*****************************************************/
+
+
+Triple.extend = fw => wx => Triple(wx[1], wx[2], fw(wx));
+
+
+Triple.Extend = {
+  ...Triple.Functor,
+  extend: Triple.extend
+};
+
+
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+Triple.extract = Triple.thd;
+
+
+Triple.Comonad = {
+  ...Triple.Extend,
+  extract: Triple.extract
+};
+
+
+/***[ Getters/Setters ]*******************************************************/
+
+
+Triple.setFst = x => tx => Pair(x, tx[2], tx[3]);
+
+
+Triple.setSnd = x => tx => Pair(tx[1], x, tx[3]);
+
+
+Triple.setThd = x => tx => Pair(tx[1], tx[2], x);
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Triple.mapFst = f => tx => Tuple(k => tx.run((x, y, z) => Triple(f(x), y, z)));
+
+
+Triple.mapSnd = f => tx => Tuple(k => tx.run((x, y, z) => Triple(x, f(y), z)));
+
+
+Triple.swap = tx => Triple(tx[1], tx[0]);
+
+
+/***[ Trifunctor ]************************************************************/
+
+
+Triple.trimap = f => g => h => tx =>
+  Tuple(k => tx.run((x, y, z) => Triple(f(x), g(y), h(z))));
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Triple.rotatel = tx => Triple(tx[2], tx[3], tx[1]);
+
+
+Triple.rotater = tx => Triple(tx[3], tx[1], tx[2]);
 
 
 /******************************************************************************
 *******************************************************************************
-***************************[ RESOLVE DEPENDENCIES ]****************************
+************************************[ IO ]*************************************
 *******************************************************************************
 ******************************************************************************/
 
 
-First.empty = First.empty();
+/******************************************************************************
+*******************************[ CHILD PROCESS ]*******************************
+******************************************************************************/
 
 
-Last.empty = Last.empty();
+export const Process_ = cp => cons => ({
+  exec: opts => cmd =>
+    EitherT(cons(k =>
+      cp.exec(cmd, opts, (e, stdout, stderr) =>
+        e ? _throw(new TypeError(e))
+          : stderr ? k(Either.Left(stderr))
+          : k(Either.Right(stdout))))),
+
+
+  execFile: opts => args => cmdName =>
+    EitherT(cons(k =>
+      cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
+        e ? _throw(new TypeError(e))
+          : stderr ? k(Either.Left(stderr))
+          : k(Either.Right(stdout))))),
+
+
+  spawn: opts => args => cmdName => Emitter(k => {
+    const cmd = cp.spawn(cmdName, args, opts);
+
+    const stdoutOb = Emitter.observe({
+      emitters: [
+        Pair(cmd.stdout, "Node.Stream.In.data"),
+        Pair(cmd, "Node.CP.error"),
+        Pair(cmd, "Node.CP.exit")
+      ],
+
+      init: "",
+      
+      listener: args => k => {
+        switch (args.type) {
+          case "Node.CP.error":
+          case "Node.CP.exit": return k(args);
+          
+          case "Node.Stream.In.data":
+            return args.state + args.dyn[0];
+        }
+      }
+    });
+
+    const stderrOb = Emitter.observe({
+      emitters: [
+        Pair(cmd.stderr, "Node.Stream.In.data"),
+        Pair(cmd, "Node.CP.error"),
+        Pair(cmd, "Node.CP.exit")
+      ],
+      
+      init: "",
+
+      listener: args => k => {
+        switch (args.type) {
+          case "Node.CP.error":
+          case "Node.CP.exit": return k(args);
+          
+          case "Node.Stream.In.data":
+            return args.state + args.dyn[0];
+        }
+      }
+    });
+
+    return Emitter.or(stdoutOb) (stderrOb).run(k);
+  })
+});
+
+
+/******************************************************************************
+********************************[ FILE SYSTEM ]********************************
+******************************************************************************/
+
+
+// TODO: allow variants with alternative error handling
+
+export const FS_ = fs => cons => thisify(o => {
+  o.copy = src => dest =>
+    cons(k =>
+      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
+        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
+
+
+  o.move = src => dest =>
+    cons.chain(
+      cons.chain(o.copy(src) (dest))
+        (([src2]) => o.unlink(src2)))
+          (src => Serial.of(Pair(src, dest)));
+
+
+  o.read = opt => path =>
+    cons(k =>
+      fs.readFile(path, opt, (e, x) =>
+        e ? _throw(new TypeError(e)) : k(x)));
+
+
+  o.scanDir = path =>
+    cons(k =>
+      fs.readdir(path, (e, xs) =>
+        e ? _throw(new TypeError(e)) : k(xs)));
+
+
+  o.stat = path =>
+    cons(k =>
+      fs.stat(path, (e, o) =>
+        e ? _throw(new TypeError(e)) : k(o)));
+
+
+  o.unlink = path =>
+    cons(k =>
+      fs.unlink(path, e =>
+        e ? _throw(new TypeError(e)) : k(path)));
+
+
+  o.write = opt => path => s =>
+    cons(k =>
+      fs.writeFile(path, s, opt, e =>
+        e ? _throw(new TypeError(e)) : k(s)));
+
+
+  return o;
+});
+
+
+/******************************************************************************
+*******************************************************************************
+***********************************[ TODO ]************************************
+*******************************************************************************
+******************************************************************************/
+
+/*
+
+  * add logical and type
+  * add logical andOr type
+  * add logical or type
+  * add logical xor type
+  * add memo monad
+  * add List
+  * add DList
+  * add ListZ
+  * add NEList
+  * add ZList
+  * add State type/monad
+  * add Stream
+  * add monad combinators
+
+*/
