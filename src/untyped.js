@@ -269,9 +269,7 @@ class ThunkProxy {
 /***[ Tail Recursion ]********************************************************/
 
 
-/* Stack safe tail recursion through trampolines. In addition the `call` tag
-allows iteratively calling nested function calls as a result of function
-composition. */
+// stack-safe tail recursion and mutual tail recursion through a trampoline
 
 
 export const Loop = f => x => {
@@ -373,6 +371,79 @@ Loop3.next = (x, y, z) => ({[TAG]: "Next", x, y, z});
 Loop3.done = x => ({[TAG]: "Done", x});
 
 
+/***[ Unary Tree Stack Recurison ]********************************************/
+
+
+/* Encodes stack-based recursion using a list (unary tree) as its explicit
+stack structure. The list stack can only handle a single recursive case. The
+list processes itermediate results in reverse order.
+
+The nested structure below arises from the expression:
+  
+  `Rec.Unary.call(f(x), Rec.Unary.next(y))`
+
+where `x` is the current argument and `y` the rest of the data to be computed,
+i.e. the modulo part. */
+
+Rec = f => x => {
+  const stack = [];
+  let o = f(x);
+
+  while (o.tag !== "Done") {
+    stack.push(o.f);
+    o = f(o.x.x); // nested structure
+  }
+
+  let r = o.x;
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    r = stack[i] (r);
+    
+    if (r && r.tag === "Done") {
+      r = r.x;
+      break;
+    }
+  }
+
+  return r;
+};
+
+
+// Tags
+
+
+Rec.call = (f, x) => ({[TAG]: "Call", f, x});
+
+
+Rec.next = x => ({[TAG]: "Next", x});
+
+
+Rec.done = x => ({[TAG]: "Done", x});
+
+
+/***[ Binary Tree Stack Recursion ]*******************************************/
+
+
+/* Encodes stack-based recursion using a binary tree as its explicit stack
+structure. The binary tree stack can handle up to two recursive cases. The tree
+processes intermediate results in reverse order and is traversed in pre-order. */
+
+
+// TODO: BinRec
+
+
+// Tags
+
+
+Rec2.call = (f, x) => ({[TAG]: "Call", f, x});
+
+
+Rec2.next = x => ({[TAG]: "Next", x});
+
+
+Rec2.done = x => ({[TAG]: "Done", x});
+
+
 /******************************************************************************
 *******************************************************************************
 **************************[ TYPE CLASS COMBINATORS ]***************************
@@ -424,6 +495,14 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 ******************************************************************************/
 
 
+export const chain2 = ({chain}) => mx => my => fm =>
+  chain(mx) (x => chain(my) (y => fm(x) (y)));
+
+
+export const chain3 = ({chain}) => mx => my => mz => fm =>
+  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
+
+
 /***[ Interpretation ]********************************************************/
 
 
@@ -437,14 +516,6 @@ export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
 
 
 export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
-
-
-export const chain2 = ({chain}) => mx => my => fm =>
-  chain(mx) (x => chain(my) (y => fm(x) (y)));
-
-
-export const chain3 = ({chain}) => mx => my => mz => fm =>
-  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
 
 
 /******************************************************************************
@@ -2013,6 +2084,12 @@ Optic.upd = setter => f => optic =>
   optic.path === null
     ? Optic(setter(f(optic.ref)) (optic.ref), null)
     : Optic(setter(f(optic.ref)) (optic.path.ref), optic.path.path);
+
+
+Optic.unnest = optic => optic.path
+
+
+Optic.unpath = optic => optic.ref
 
 
 /******************************************************************************
