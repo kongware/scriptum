@@ -289,7 +289,7 @@ export const Loop = f => x => {
         break;
       }
 
-      default: _throw(new TypeError("invalid constructor"));
+      default: throw new TypeError("invalid constructor");
     }
   }
 
@@ -312,7 +312,7 @@ export const Loop2 = f => (x, y) => {
         break;
       }
 
-      default: _throw(new TypeError("invalid constructor"));
+      default: throw new TypeError("invalid constructor");
     }
   }
 
@@ -335,7 +335,7 @@ export const Loop3 = f => (x, y, z) => {
         break;
       }
 
-      default: _throw(new TypeError("invalid constructor"));
+      default: throw new TypeError("invalid constructor");
     }
   }
 
@@ -390,7 +390,7 @@ export const fold = ({fold}, {append, empty}) => tx =>
 
 
 export const foldMapl = ({foldl}, {append, empty}) => f =>
-  foldl(comp2nd(append) (f)) (empty);
+  foldl(compSnd(append) (f)) (empty);
 
 
 export const foldMapr = ({foldr}, {append, empty}) => f =>
@@ -717,10 +717,16 @@ export const comp3 = f => g => h => x => f(g(h(x)));
 export const compk3 = f => g => h => x => F(k => h(x).run(g).run(f).run(k));
 
 
-export const comp2nd = f => g => x => y => f(x) (g(y));
+export const compSnd = f => g => x => y => f(x) (g(y));
 
 
-export const compk2nd = f => g => x => y => F(k => g(y).run(f(x)).run(k);
+export const compkSnd = f => g => x => y => F(k => g(y).run(f(x)).run(k);
+
+
+export const compThd = f => g => x => y => z => f(x) (y) (g(z));
+
+
+export const compkThd = f => g => x => y => z => F(k => g(z).run(f(x) (y)).run(k);
 
 
 export const compBin = f => g => x => y => f(g(x) (y));
@@ -1120,6 +1126,9 @@ A.headOr = x => xs => xs.length === 0 ? x : xs[0];
 
 
 A.index = i => xs => (i in xs) ? Opt.some(xs[i]) : Opt.none;
+
+
+A.indexOr = x => i => xs => (i in xs) ? xs[i] : x;
 
 
 A.init = xs => xs.length === 0 ? Opt.none : Opt.some(xs.slice(0, -1));
@@ -1778,7 +1787,7 @@ const _Map = {};
 _Map.get = k => m => m.get(k);
 
 
-_Map.set = k => v => m.set(k, v);
+_Map.set = k => v => m => m.set(k, v);
 
 
 /******************************************************************************
@@ -1833,78 +1842,37 @@ O.values = function* (o) {
 }
 
 
-/***[ Getters/Setters ]*******************************************************/
+/***[ Getter/Setter ]*********************************************************/
 
 
-O.getPath = ks => o => function go(p, i) {
-  if (i >= ks.length) return Opt.some(p);
-  else if (ks[i] in p) return go(p[ks[i]], i + 1);
-  else return Opt.none;
-} (o, 0);
+O.add = ({append}) => k => v => o => {
+  if (k in o) return (o[k] = append(o[k]) (v), o);
+  else return (o[k] = v, o);
+}
 
 
-O.getPathOr = x => ks => o => function go(p, i) {
-  if (i >= ks.length) return p;
-  else if (ks[i] in p) return go(p[ks[i]], i + 1);
-  else return x;
-} (o, 0);
+O.del = k => o => (delete o[k], o);
 
 
-O.delPath = (...ks) => o => // immutable
-  A.foldi(([p, ref, root]) => (k, i) => {
-    if (!(k in p))
-      return root;
-
-    else if (i === ks.length - 1) {
-      delete p[k];
-      return root;
-    }
-    
-    else if (Array.isArray(ref[k]))
-      p[k] = ref[k].concat();
-
-    else
-      p[k] = Object.assign({}, ref[k]);
-
-    return [p[k], ref[k], root];
-  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+O.get = k => o => k in o ? Opt.some(o[k]) : Opt.none;
 
 
-O.setPath = (...ks) => v => o => // immutable
-  A.foldi(([p, ref, root]) => (k, i) => {
-    if (i === ks.length - 1) {
-      p[k] = v;
-      return root;
-    }
-    
-    else if (Array.isArray(ref[k]))
-      p[k] = ref[k].concat();
-
-    else
-      p[k] = Object.assign({}, ref[k]);
-
-    return [p[k], ref[k], root];
-  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+O.getOr = x => k => o => k in o ? o[k] : x;
 
 
-O.updPath = (...ks) => f => o => // immutable
-  A.foldi(([p, ref, root]) => (k, i) => {
-    if (!(k in p))
-      return root;
+O.set = k => v => o => (o[k] = v, o);
 
-    else if (i === ks.length - 1) {
-      p[k] = f(ref[k]);
-      return root;
-    }
 
-    else if (Array.isArray(ref[k]))
-      p[k] = ref[k].concat();
+O.upd = k => f => o => {
+  if (k in o) (o[k] = f(o[k]), E.right(o));
+  else return E.left(o);
+};
 
-    else
-      p[k] = Object.assign({}, ref[k]);
 
-    return [p[k], ref[k], root];
-  }) (thisify(p => [Object.assign(p, o), o, p])) (ks);
+O.updOr = x => k => f => o => {
+  if (k in o) return (o[k] = f(o[k]), o);
+  else return (o[k] = x, o);
+};
 
 
 /***[ Misc. ]*****************************************************************/
@@ -1927,7 +1895,10 @@ O.thisify = f => f({});
 ******************************************************************************/
 
 
-/* Encodes composable getter/setter where the latter keep the root reference. */
+/* Encodes composable getters/setters where the latter keep the root reference.
+The type itself is immutable but the overall property depends on the purity or
+impurity of involved getters/setters. */
+
 
 export const Optic = (ref, path) => ({
   [TAG]: "Optic",
@@ -1960,13 +1931,42 @@ Optic.pipeSet = setter2 => setter => x => optic => {
 /***[ Functor ]***************************************************************/
 
 
+Optic.map = Optic.upd(id);
+
+
+Optic.Functor = {map: Optic.map};
+
+
 /***[ Functor :: Apply ]******************************************************/
+
+
+/* If the innermost values of two `Optic`s are combined, there is no meaningful
+rule to decide which path to keep. For the functor instance keeping the first
+is assumed as a convention. */
+
+
+Optic.apFst = ft => tx => Optic(ft.ref(tx.ref), ft.path);
+
+
+Optic.apSnd = ft => tx => Optic(ft.ref(tx.ref), tx.path);
+
+
+Optic.Apply = {
+  ...Optic.Functor,
+  ap: Optic.apFst
+};
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
 Optic.of = ref => Optic(ref, null);
+
+
+Optic.Applicative = {
+  ...Optic.Apply,
+  of: Optic.of
+};
 
 
 /***[ Getter/Setter ]*********************************************************/
@@ -2313,8 +2313,10 @@ Parallel.anyArr = Parallel.anyArr();
 ******************************************************************************/
 
 /* Parser are broadly distinguished by their context type (simplified): 
-* applicative: newtype Parser a = P (String -> (String, Either Error a))
-* monadic:     newtype Parser m a = P (String -> (String, m a))
+
+  * applicative: newtype Parser a = P (String -> (String, Either Error a))
+  * monadic:     newtype Parser m a = P (String -> (String, m a))
+
 `Parser` is an applicative variant. */
 
 
@@ -2324,7 +2326,10 @@ const Parser = f => ({
 });
 
 
-Parser.Result = {};
+Parser.Result = {}; // namespace
+
+
+// value constructors
 
 
 Parser.Result.Error = ({rest, state, msg}) => ({
@@ -2343,6 +2348,232 @@ Parser.Result.None = ({rest, state}) => ({
   [TAG]: "ParserResult",
   run: ({none}) => none(x)
 });
+
+
+/***[ Character Classes ]*****************************************************/
+
+
+const CHAR_CLASSES = {
+  letter: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[a-z]/, "i");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{L}/, "u");
+      return this.utf8;
+    },
+
+    uc: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[A-Z]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Lu}/, "u");
+        return this.utf8;
+      }
+    },
+
+    lc: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[A-Z]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Lu}/, "u");
+        return this.utf8;
+      }
+    }
+  },
+
+  number: {
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{N}/, "u");
+      return this.utf8;
+    },
+
+    decimal: {
+      get ascii() {
+        delete this.ascii;
+        this.ascii = new RegExp(/[0-9]/, "");
+        return this.ascii;
+      },
+
+      get latin1() {
+        delete this.latin1;
+        this.latin1 = new RegExp(/[0-9]/, "");
+        return this.latin1;
+      },
+
+      get utf8() {
+        delete this.utf8;
+        this.utf8 = new RegExp(/\p{Nd}/, "u");
+        return this.utf8;
+      }
+    }
+  },
+
+  alphanum: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(`${this.number.ascii.source}|${this.letter.ascci.source}`, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(`${this.number.latin1.source}|${this.letter.latin1.source}`, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(`${this.number.utf8.source}|${this.letter.utf8.source}`, "u");
+      return this.utf8;
+    }
+  },
+
+  control: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
+      return this.utf8;
+    }
+  },
+  
+  punctuation: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
+      return this.utf8;
+    }
+  },
+  
+  currency: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/[$]/, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/[¤$€£¥¢]/, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{Sc}/, "u");
+      return this.utf8;
+    }
+  },
+  
+  space: {
+    get ascii() {
+      delete this.ascii;
+      this.ascii = new RegExp(/ /, "");
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+      this.latin1 = new RegExp(/  /, "");
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      this.utf8 = new RegExp(/\p{Zs}/, "u");
+      return this.utf8;
+    }
+  },
+
+  nonalphanum: {
+    get ascii() {
+      delete this.ascii;
+      
+      this.ascii = new RegExp(
+        `${this.control.ascii.source}|${this.punctuation.ascci.source}|${this.currency.ascci.source}|${this.space.ascci.source}`, "");
+      
+      return this.ascii;
+    },
+
+    get latin1() {
+      delete this.latin1;
+
+      this.latin1 = new RegExp(
+        `${this.control.latin1.source}|${this.punctuation.latin1.source}|${this.currency.latin1.source}|${this.space.latin1.source}`, "");
+
+      return this.latin1;
+    },
+
+    get utf8() {
+      delete this.utf8;
+      
+      this.utf8 = new RegExp(
+        `${this.control.utf8.source}|${this.punctuation.utf8.source}|${this.currency.utf8.source}|${this.space.utf8.source}`, "u");
+
+      return this.utf8;
+    }
+  },
+};
+
+
+/***[ Combinator ]************************************************************/
 
 
 Parser.accept = Parser(({text, i}) => state =>
@@ -2786,226 +3017,6 @@ Parser.dropUntil = parser => Parser(rest => state => {
 });
 
 
-const CHAR_CLASSES = {
-  letter: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[a-z]/, "i");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{L}/, "u");
-      return this.utf8;
-    },
-
-    uc: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[A-Z]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Lu}/, "u");
-        return this.utf8;
-      }
-    },
-
-    lc: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[A-Z]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Lu}/, "u");
-        return this.utf8;
-      }
-    }
-  },
-
-  number: {
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{N}/, "u");
-      return this.utf8;
-    },
-
-    decimal: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[0-9]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[0-9]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Nd}/, "u");
-        return this.utf8;
-      }
-    }
-  },
-
-  alphanum: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(`${this.number.ascii.source}|${this.letter.ascci.source}`, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(`${this.number.latin1.source}|${this.letter.latin1.source}`, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(`${this.number.utf8.source}|${this.letter.utf8.source}`, "u");
-      return this.utf8;
-    }
-  },
-
-  control: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
-      return this.utf8;
-    }
-  },
-  
-  punctuation: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
-      return this.utf8;
-    }
-  },
-  
-  currency: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[$]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[¤$€£¥¢]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{Sc}/, "u");
-      return this.utf8;
-    }
-  },
-  
-  space: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/ /, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/  /, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{Zs}/, "u");
-      return this.utf8;
-    }
-  },
-
-  nonalphanum: {
-    get ascii() {
-      delete this.ascii;
-      
-      this.ascii = new RegExp(
-        `${this.control.ascii.source}|${this.punctuation.ascci.source}|${this.currency.ascci.source}|${this.space.ascci.source}`, "");
-      
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-
-      this.latin1 = new RegExp(
-        `${this.control.latin1.source}|${this.punctuation.latin1.source}|${this.currency.latin1.source}|${this.space.latin1.source}`, "");
-
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      
-      this.utf8 = new RegExp(
-        `${this.control.utf8.source}|${this.punctuation.utf8.source}|${this.currency.utf8.source}|${this.space.utf8.source}`, "u");
-
-      return this.utf8;
-    }
-  },
-};
-
-
 /******************************************************************************
 **********************************[ SERIAL ]***********************************
 ******************************************************************************/
@@ -3188,6 +3199,23 @@ Serial.allArr = Serial.allArr();
 
 
 /******************************************************************************
+************************************[ MAP ]************************************
+******************************************************************************/
+
+
+const _Set = {};
+
+
+/***[ Getter/Setter ]*********************************************************/
+
+
+_Set.get = k => s => s.get(k);
+
+
+_Set.set = k => v => s => s.set(k, v);
+
+
+/******************************************************************************
 ***********************************[ TUPLE ]***********************************
 ******************************************************************************/
 
@@ -3332,7 +3360,7 @@ Pair.Comonad = {
 };
 
 
-/***[ Getters/Setters ]*******************************************************/
+/***[ Getter/Setter ]*********************************************************/
 
 
 Pair.setFst = x => tx => Pair(x, tx[2]);
@@ -3504,7 +3532,7 @@ Triple.Comonad = {
 };
 
 
-/***[ Getters/Setters ]*******************************************************/
+/***[ Getter/Setter ]*********************************************************/
 
 
 Triple.setFst = x => tx => Pair(x, tx[2], tx[3]);
