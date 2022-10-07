@@ -453,81 +453,6 @@ export const chain3 = ({chain}) => mx => my => mz => fm =>
 
 
 /******************************************************************************
-***********************************[ MISC. ]***********************************
-******************************************************************************/
-
-
-/***[ Getter/Setter ]*********************************************************/
-
-
-/* Getters are just curried functions that take a box, unpack it and return
-another box or a scalar value. Such values can be composed. During composition,
-a stack is build up, which holds references to each box including the initial
-one. If the most nested box/value is reached, the process is reversed. For each
-reference in the stack, a setter performs a write operation until the stack is
-unwound. Setters are just curried functions that take a value and a box and
-return a modified box. A setter can either mutate the box or create a copy of
-it prior to any modifications. */
-
-
-// TODO: make more general and compoable
-
-
-const getRefPath = (...getters) => tx => {
-  const refs = [tx];
-
-  for (getter of getters) {
-    if (tx === null) return [];
-
-    else {
-      tx = getter(tx);
-      refs.push(tx);
-    }
-  }
-
-  return refs;
-};
-
-const get = (...getters) => tx => {
-  for (getter of getters) {
-    if (tx === null) return null
-    else tx = getter(tx);
-  }
-
-  return tx;
-};
-
-const set = (...setters) => v => refs => {
-  if (setters.length !== refs.length - 1)
-    throw new TypeError("setter/reference mismatch");
-
-  for (let i = refs.length - 2; i >= 0; i--)
-    v = setters[i] (v) (refs[i]);
-
-  return v;
-};
-
-const upd = (...setters) => f => refs => {
-  if (setters.length !== refs.length - 1)
-    throw new TypeError("setter/reference mismatch");
-
-  let v = f(refs[refs.length - 1]);
-
-  for (let i = refs.length - 2; i >= 0; i--)
-    v = setters[i] (v) (refs[i]);
-
-  return v;
-};
-
-
-/*const m = new Map([["foo", [111, 222]], ["bar", 11]]);
-const path = getRefPath(m => m.get("foo"), xs => xs[1]) (m);
-
-set(xs => m => m.set("foo", xs), x => xs => xs.concat(x)) (123) (path);
-upd(xs => m => m.set("foo", xs), x => xs => xs.concat(x)) (x => x - 22) (path);*/
-
-
-/******************************************************************************
 *******************************************************************************
 ***********************************[ TYPES ]***********************************
 *******************************************************************************
@@ -1995,6 +1920,77 @@ O.lazyProp = k => thunk => o => // create lazy property that shares its result
 // self referencing during object creation
 
 O.thisify = f => f({});
+
+
+/******************************************************************************
+***********************************[ OPTIC ]***********************************
+******************************************************************************/
+
+
+/* Encodes composable getter/setter where the latter keep the root reference. */
+
+export const Optic = (ref, path) => ({
+  [TAG]: "Optic",
+  ref,
+  path
+});
+
+
+/***[ Composition ]***********************************************************/
+
+
+Optic.compGet = comp;
+
+
+Optic.compSet = setter => setter2 => x => optic => {
+  const optic2 = setter2(x) (optic);
+  return setter(optic2.ref) (optic2.path);
+};
+
+
+Optic.pipeGet = pipe;
+
+
+Optic.pipeSet = setter2 => setter => x => optic => {
+  const optic2 = setter2(x) (optic);
+  return setter(optic2.ref) (optic2.path);
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Optic.of = ref => Optic(ref, null);
+
+
+/***[ Getter/Setter ]*********************************************************/
+
+
+/* Use to delete the innermost reference value from inside a nested structure.
+If the innermost value is a scalar, use the parent reference value. */
+
+Optic.del = optic => optic.path === null ? optic : optic.path;
+
+
+Optic.get = getter => optic => Optic(getter(optic.ref), optic);
+
+
+Optic.set = setter => x => optic =>
+  optic.path === null
+    ? Optic(setter(x) (optic.ref), null)
+    : Optic(setter(x) (optic.path.ref), optic.path.path);
+
+
+Optic.upd = setter => f => optic =>
+  optic.path === null
+    ? Optic(setter(f(optic.ref)) (optic.ref), null)
+    : Optic(setter(f(optic.ref)) (optic.path.ref), optic.path.path);
 
 
 /******************************************************************************
