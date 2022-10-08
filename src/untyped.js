@@ -269,7 +269,10 @@ class ThunkProxy {
 /***[ Tail Recursion ]********************************************************/
 
 
-// stack-safe tail recursion and mutual tail recursion through a trampoline
+/* Stack-safe tail-recursion and mutual tail-recursion using a trampoline. The
+`next` and `done` tags are used to encode recursive and the base cases
+respectively. In addition, the `call` tag can be used to defer function
+invokations. */
 
 
 export const Loop = f => x => {
@@ -371,77 +374,96 @@ Loop3.next = (x, y, z) => ({[TAG]: "Next", x, y, z});
 Loop3.done = x => ({[TAG]: "Done", x});
 
 
-/***[ Unary Tree Stack Recurison ]********************************************/
+/***[ Loop Stack-based ]******************************************************/
 
 
-/* Encodes stack-based recursion using a list (unary tree) as its explicit
-stack structure. The list stack can only handle a single recursive case. The
-list processes itermediate results in reverse order.
+/* Stack-based trampoline to enable recursive cases not in tail call position.
 
-The nested structure below arises from the expression:
-  
-  `Rec.Unary.call(f(x), Rec.Unary.next(y))`
+The original Fibbonacci algorithm
 
-where `x` is the current argument and `y` the rest of the data to be computed,
-i.e. the modulo part. */
+  const fib_ = n =>
+    n <= 1 ? n
+      : fib_(n - 1) + fib_(n - 2);
 
-Rec = f => x => {
-  const stack = [];
-  let o = f(x);
+is transformed into a trampolining version:
 
-  while (o.tag !== "Done") {
-    stack.push(o.f);
-    o = f(o.x.x); // nested structure
-  }
+  const add = x => y => x + y;
 
-  let r = o.x;
+  const fib = Loops(n =>
+    n <= 1
+      ? Loops.done(n)
+      : Loops.call2(
+          Loops.next(n - 1),
+          add,
+          Loops.next(n - 2))); */
 
-  for (let i = stack.length - 1; i >= 0; i--) {
-    r = stack[i] (r);
-    
-    if (r && r.tag === "Done") {
-      r = r.x;
-      break;
+
+const Loops = f => x => {
+  const stack = [f(x)];
+
+  while (stack.length > 1 || stack[0] [TAG] !== "Done") {
+    let o = stack[stack.length - 1];
+
+    switch (o[TAG]) {
+      case "Call":      
+      case "Call2": {
+        o = f(o.x.x); // 1st x of call and 2nd x of next tag
+        stack.push(o);
+        break;
+      }
+
+      case "Next": {
+        o = f(o.x);
+        break;
+      }
+
+      case "Done": {
+        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Done") {
+          const p = (stack.pop(), stack.pop());
+
+          switch (p[TAG]) {
+            case "Call": {
+              o = Loops.done(p.f(o.x));
+              stack.push(o);
+
+              break;
+            }
+
+            case "Call2": {
+              o = Loops.call(p.f(o.x), p.y);
+              stack.push(o);
+              break;
+            }
+
+            default: throw new TypeError("unexpected tag");
+          }
+        }
+
+        break;
+      }
+
+      default: throw new TypeError("unexpected tag");
     }
   }
 
-  return r;
+  return stack[0].x;
 };
 
 
 // Tags
 
 
-Rec.call = (f, x) => ({[TAG]: "Call", f, x});
+Loops.call = (f, x) => ({[TAG]: "Call", f, x});
 
 
-Rec.next = x => ({[TAG]: "Next", x});
+Loops.call2 = (x, f, y) => ({[TAG]: "Call2", f, x, y});
 
 
-Rec.done = x => ({[TAG]: "Done", x});
+Loops.next = x => ({[TAG]: "Next", x});
 
 
-/***[ Binary Tree Stack Recursion ]*******************************************/
+Loops.done = x => ({[TAG]: "Done", x});
 
-
-/* Encodes stack-based recursion using a binary tree as its explicit stack
-structure. The binary tree stack can handle up to two recursive cases. The tree
-processes intermediate results in reverse order and is traversed in pre-order. */
-
-
-// TODO: BinRec
-
-
-// Tags
-
-
-Rec2.call = (f, x) => ({[TAG]: "Call", f, x});
-
-
-Rec2.next = x => ({[TAG]: "Next", x});
-
-
-Rec2.done = x => ({[TAG]: "Done", x});
 
 
 /******************************************************************************
