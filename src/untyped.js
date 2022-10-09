@@ -13,6 +13,12 @@
 */
 
 
+/* The library uses continuation passing style to define functors, applicatives
+and monads and to encode sum types. Please note that product/product-like types
+(e.g. Array) and single constructor types are supplied in both forms direct and
+continuation passing style, so that they seamlessly fit into both worlds. */
+
+
 /******************************************************************************
 *******************************************************************************
 *********************************[ CONSTANTS ]*********************************
@@ -479,15 +485,15 @@ Loops.done = x => ({[TAG]: "Done", x});
 
 
 export const fold = ({fold}, {append, empty}) => tx =>
-  fold(append) (empty) (tx);
+  A.fold(append) (empty) (tx);
 
 
 export const foldMapl = ({foldl}, {append, empty}) => f =>
-  foldl(compSnd(append) (f)) (empty);
+  A.foldl(compSnd(append) (f)) (empty);
 
 
 export const foldMapr = ({foldr}, {append, empty}) => f =>
-  foldr(comp(append) (f)) (empty);
+  A.foldr(comp(append) (f)) (empty);
 
 
 /******************************************************************************
@@ -1189,7 +1195,10 @@ F.Contra = F.Contra();
 ******************************************************************************/
 
 
-// enocodes the effect of computations that may have no, one or several results
+/* Enocodes the effect of computations that may have no, one or several results.
+Array is not a functional data type, because it isn't defined recursifely. As a
+consequence, you cannot combine them with other monads in a lawful/predictable
+manner. */
 
 
 export const Arr = k => ({
@@ -1372,11 +1381,14 @@ A.Traversable = () => ({
 /***[ Functor ]***************************************************************/
 
 
-A.map = f => mx => A(k =>
-  mx.run(xs => k(xs.map(f))));
+A.mapCPS = f => tx => A(k => // continuation passing style
+  tx.run(xs => k(xs.map(f))));
 
 
-A.Functor = {map: A.map};
+A.mapDS = f => tx => tx.map(f);
+
+
+A.Functor = {map: A.mapCPS};
 
 
 /***[ Functor :: Alt ]********************************************************/
@@ -3337,6 +3349,112 @@ _Set.get = k => s => s.get(k);
 
 
 _Set.set = k => v => s => s.set(k, v);
+
+
+/******************************************************************************
+*******************************[ TREE (N-ARY) ]********************************
+******************************************************************************/
+
+
+/* Represents a usual Javascript tree where nodes are encoded as objects with
+two fields, one for the value and another for the branch. The latter is encoded
+as an array. It is unbalanced and thus has no unambigious construction rule. It
+is merely meant as a proof of concept you can infer your own trees from. */
+
+
+const Tree = {};
+
+
+Tree.Node = x => branch => ({
+  [TAG]: "Tree",
+  x,
+  branch
+});
+
+
+/***[ Catamorphism ]**********************************************************/
+
+
+/* Tree traversal is considered stack-safe, because the depth of a balanced
+tree usually doesn't exhaust the call stack except for a functional list, which
+is a varaint of an unbalanced tree and thus an edge case. */
+
+
+Tree.cata = node => function go({x, branch}) {
+  return node(x) (branch.map(go));
+};
+
+
+// extended catamorphism
+
+Tree.catax = node => tx => function go({x, branch}, depth, i, length) {
+  return node(x) 
+    ({depth, i, length})
+      (branch.map((ty, i, xs) => go(ty, depth + 1, i, xs.length)));
+} (tx, 0, 0, 1);
+
+
+/***[ Foladable ]*************************************************************/
+
+
+// left-associative fold with depth, index and length of respective branch
+
+Tree.foldi = f => init => tx => function go({x, branch}, acc, depth, i, length) {
+  return branch.reduce((acc2, ty, i, ys) => {
+    return go(ty, acc2, depth + 1, i, ys.length);
+  }, f(acc) (x, {depth, i, length}));
+} (tx, init, 0, 0, 1);
+
+
+Tree.foldl = compThd(A.foldl) (Tree.linearize); // pre-order
+
+
+Tree.foldLevel = tx => Tree.levels(tx) // level-order
+  .reduce((acc, xs) => (acc.push.apply(acc, xs), acc));
+
+
+Tree.foldr = compThd(A.foldr) (Tree.linearize); // post-order
+
+
+/***[ Functor ]***************************************************************/
+
+
+Tree.map = f => Tree.cata(x => xs => Tree.Node(f(x)) (xs));
+
+
+/***[ Induction ]*************************************************************/
+
+
+Tree.height = Tree.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
+
+
+Tree.levels = Tree.foldi(acc => (x, {depth}) => {
+  if (!(depth in acc)) acc[depth] = [];
+  return (acc[depth].push(x), acc);
+}) ([]);
+
+
+Tree.paths = tx => {
+  const {x, branch: xs} = tx;
+
+  if (xs.length === 0) return [[x]];
+
+  else return A.mapDS(A.unshift(x))
+    (foldMapl(
+      {fold: A.foldl},
+      {append: A.append, empty: []})
+        (treePaths) (xs));
+};
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Tree.linearize = Tree.cata(x => xss => {
+  const xs = [x];
+  xs.push.apply(xs, xss);
+  return xs;
+});
 
 
 /******************************************************************************
