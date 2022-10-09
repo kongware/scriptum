@@ -700,7 +700,7 @@ C.Monoid = {
 
 
 export const Fun = k => ({
-  [TAG]: "Cont.Function",
+  [TAG]: "Function",
   run: k
 });
 
@@ -1724,7 +1724,7 @@ Const.Applicative = {
 
 
 export const Except = k => ({
-  [TAG]: "Cont.Except",
+  [TAG]: "Except",
   run: k
 });
 
@@ -2135,7 +2135,7 @@ Optic.unpath = optic => optic.ref
 
 
 export const Option = k => ({
-  [TAG]: "Cont.Option",
+  [TAG]: "Option",
   run: k
 });
 
@@ -3352,6 +3352,107 @@ _Set.set = k => v => s => s.set(k, v);
 
 
 /******************************************************************************
+**********************************[ STREAM ]***********************************
+******************************************************************************/
+
+
+const Stream = {}; // namespace
+
+
+Stream.Step = x => f => ({
+  [TAG]: "Stream",
+
+  run: ({step}) => step({
+    yield: x,
+    get next() {return f(x)}
+  })
+});
+
+
+Stream.Done = x => ({
+  [TAG]: "Stream",
+  run: ({done}) => done({yield: x})
+});
+
+
+Stream.None = ({
+  [TAG]: "Stream",
+  run: ({none}) => none
+});
+
+
+Stream.Step.lazy = o => ({
+  [TAG]: "Stream",
+  run: ({step}) => step(o)
+});
+
+
+/***[ Filterable ]************************************************************/
+
+
+Stream.filter = pred => function go(tx) {
+  return tx.run({
+    step: o => {
+      if (pred(o.yield)) {
+        return Stream.Step.lazy({
+          yield: o.yield,
+          get next() {return go(o.next)}
+        });
+      }
+
+      else return go(o.next);
+    },
+
+    done: p => {
+      if (pred(p.yield)) return Stream.Done(p.yield);
+      else return Stream.None;
+    },
+
+    none: Stream.None
+  });
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+Stream.map = f => function go(tx) {
+  return tx.run({
+    step: o => Stream.Step.lazy({
+      yield: f(o.yield),
+      get next() {return go(o.next)}
+    }),
+
+    done: p => Stream.Done(f(p.yield)),
+    none: Stream.None
+  });
+};
+
+
+/***[ Conversion ]************************************************************/
+
+
+Stream.takeArr = n => tx => function go(acc, ty, m) {
+  if (m <= 0) return acc;
+
+  else {
+    return ty.run({
+      step: o => {
+        acc.push(o.yield)
+        return go(acc, o.next, m - 1);
+      },
+      
+      done: p => (acc.push(p.yield), acc),
+      none: acc
+    });
+  }
+} ([], tx, n);
+
+
+// TODO: Stream.takeList
+
+
+/******************************************************************************
 *******************************[ TREE (N-ARY) ]********************************
 ******************************************************************************/
 
@@ -3466,7 +3567,7 @@ Tree.linearize = Tree.cata(x => xss => {
 
 
 export const Tuple = k => ({
-  [TAG]: "Cont.Tuple",
+  [TAG]: "Tuple",
   run: k
 });
 
@@ -3968,7 +4069,6 @@ export const FS_ = fs => cons => thisify(o => {
   * add NEList
   * add ZList
   * add State type/monad
-  * add Stream
   * add monad combinators
 
 */
