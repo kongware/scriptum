@@ -1910,8 +1910,7 @@ export const Except = k => ({ // CPS version
 export const E = Except; // shortcut
 
 
-E.catak = _throw => proceed => tx => // eliminiation rule
-  tx.run({throw: _throw, proceed});
+E.catak = raise => proceed => tx => tx.run({raise, proceed}); // eliminiation rule
 
 
 /***[ Foldable ]**************************************************************/
@@ -1953,9 +1952,9 @@ E.map = f => tx =>
   introspect(tx) === "Error" ? tx : f(tx);
 
 
-E.mapk = f => tx => E(({throw: k, proceed: k2}) => // CPS version
+E.mapk = f => tx => E(({raise: k, proceed: k2}) => // CPS version
   tx.run({
-    throw: x => k(x),
+    raise: x => k(x),
     proceed: y => k2(f(y))
   }));
 
@@ -1978,12 +1977,12 @@ E.ap = tf => tx =>
     : tf(tx);
 
 
-E.apk = tf => tx => E(({throw: k, proceed: k2}) => // CPS version
+E.apk = tf => tx => E(({raise: k, proceed: k2}) => // CPS version
   tf.run({
-    throw: x => k(x),
+    raise: x => k(x),
     
     proceed: f => tx.run({
-      throw: y => k(y),
+      raise: y => k(y),
       proceed: z => k2(f(z))
     })
   }));
@@ -2019,9 +2018,9 @@ E.Applicative = {
 E.chain = mx => fm => introspect(mx) === "Error" ? mx : fm(mx);
 
 
-E.chaink = mx => fm => E(({throw: k, proceed: k2}) => // CPS version
+E.chaink = mx => fm => E(({raise: k, proceed: k2}) => // CPS version
   mx.run({
-    throw: x => k(x),
+    raise: x => k(x),
     proceed: y => k2(fm(y))
   }));
 
@@ -4175,9 +4174,10 @@ export const Process_ = cp => cons => ({
 ******************************************************************************/
 
 
-// TODO: allow variants with alternative error handling
+export const FileSys = {}; // namespace
 
-export const FS_ = fs => cons => thisify(o => {
+
+FileSys.error = fs => cons => thisify(o => {
   o.copy = src => dest =>
     cons(k =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
@@ -4193,6 +4193,54 @@ export const FS_ = fs => cons => thisify(o => {
 
   o.read = opt => path =>
     cons(k =>
+      fs.readFile(path, opt, (e, x) =>
+        e ? _throw(new TypeError(e)) : k(x)));
+
+
+  o.scanDir = path =>
+    cons(k =>
+      fs.readdir(path, (e, xs) =>
+        e ? _throw(new TypeError(e)) : k(xs)));
+
+
+  o.stat = path =>
+    cons(k =>
+      fs.stat(path, (e, o) =>
+        e ? _throw(new TypeError(e)) : k(o)));
+
+
+  o.unlink = path =>
+    cons(k =>
+      fs.unlink(path, e =>
+        e ? _throw(new TypeError(e)) : k(path)));
+
+
+  o.write = opt => path => s =>
+    cons(k =>
+      fs.writeFile(path, s, opt, e =>
+        e ? _throw(new TypeError(e)) : k(s)));
+
+
+  return o;
+});
+
+
+FileSys.except = fs => cons => thisify(o => {
+  o.copy = src => dest =>
+    cons(({raise, proceed}) =>
+      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
+        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
+
+
+  o.move = src => dest =>
+    cons.chain(
+      cons.chain(o.copy(src) (dest))
+        (([src2]) => o.unlink(src2)))
+          (src => Serial.of(Pair(src, dest)));
+
+
+  o.read = opt => path =>
+    cons(ks =>
       fs.readFile(path, opt, (e, x) =>
         e ? _throw(new TypeError(e)) : k(x)));
 
