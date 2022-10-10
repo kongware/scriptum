@@ -566,10 +566,9 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 
   * synchronous, serial evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested functions
+  * lazy by deferred nested function call stack
   * reliable return values
   * not stack-safe but in tail position
-  * flat composition/monadic chaining syntax
   * delimited scopes */
 
 
@@ -1736,7 +1735,7 @@ Const.Applicative = {
 // encodes the most fundamental sum type - logical or - A || B
 
 
-export const Either = {};
+export const Either = {}; // TODO: CPS version
 
 
 Either.Left = x => ({
@@ -2579,10 +2578,9 @@ Opt.Monoid = {
 
   * asynchronous, parallel evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested functions
+  * lazy by deferred nested function call stack
   * non-reliable return values
-  * stack-safe due to asynchronous calls
-  * flat composition/monadic chaining syntax */
+  * stack-safe due to asynchronous calls */
 
 
 export const Parallel = k => ({
@@ -2598,10 +2596,13 @@ export const Parallel = k => ({
 });
 
 
+export const P = Parallel; // shortcut
+
+
 /***[ Conjunction ]***********************************************************/
 
 
-Parallel.and = tx => ty => {
+P.and = tx => ty => {
   const guard = (k, i) => x => {
     pair[i] = x;
 
@@ -2613,23 +2614,26 @@ Parallel.and = tx => ty => {
   const pair = [];
   let settled = false;
 
-  return Parallel(k => (
+  return P(k => (
     tx.run(guard(k, 0)),
     ty.run(guard(k, 1))));
 };
 
 
-Parallel.allArr = () =>
+P.allArr = () =>
   A.seqA({
-    map: Parallel.map,
-    ap: Parallel.ap,
-    of: Parallel.of});
+    map: P.map,
+    ap: P.ap,
+    of: P.of});
+
+
+// TODO: P.allList
 
 
 /***[ Disjunction ]***********************************************************/
 
 
-Parallel.or = tx => ty => {
+P.or = tx => ty => {
   const guard = k => x =>
     settled
       ? false
@@ -2637,53 +2641,53 @@ Parallel.or = tx => ty => {
 
   let settled = false;
 
-  return Parallel(k => (
+  return P(k => (
     tx.run(guard(k)),
     ty.run(guard(k))));
 };
 
 
-Parallel.anyArr = () =>
+P.anyArr = () =>
   A.foldl(acc => tx =>
-    Parallel.Race.append(acc) (tx))
-      (Parallel.Race.empty);
+    P.Race.append(acc) (tx))
+      (P.Race.empty);
 
 
 /***[ Functor ]***************************************************************/
 
 
-Parallel.map = f => tx =>
-  Parallel(k => tx.run(x => k(f(x))));
+P.map = f => tx =>
+  P(k => tx.run(x => k(f(x))));
 
 
-Parallel.Functor = {map: Parallel.map};
+P.Functor = {map: P.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-Parallel.ap = tf => tx =>
-  Parallel(k =>
-    Parallel.and(tf) (tx)
+P.ap = tf => tx =>
+  P(k =>
+    P.and(tf) (tx)
       .run(([f, x]) =>
          k(f(x))));
 
 
-Parallel.Apply = {
-  ...Parallel.Functor,
-  ap: Parallel.ap
+P.Apply = {
+  ...P.Functor,
+  ap: P.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Parallel.of = x => Parallel(k => k(x));
+P.of = x => P(k => k(x));
 
 
-Parallel.Applicative = {
-  ...Parallel.Apply,
-  of: Parallel.of
+P.Applicative = {
+  ...P.Apply,
+  of: P.of
 };
 
 
@@ -2696,51 +2700,51 @@ Parallel.Applicative = {
 /***[ Semigroup ]*************************************************************/
 
 
-Parallel.append = append => tx => ty =>
-  Parallel(k =>
-    Parallel.and(tx) (ty)
+P.append = ({append}) => tx => ty =>
+  P(k =>
+    P.and(tx) (ty)
       .run(([x, y]) =>
         k(append(x) (y))));
 
 
-Parallel.prepend = Parallel.append;
+P.prepend = P.append;
 
 
-Parallel.Semigroup = {
-  append: Parallel.append,
-  prepend: Parallel.prepend
+P.Semigroup = {
+  append: P.append,
+  prepend: P.prepend
 };
 
   
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Parallel.empty = empty =>
-  Parallel(k => k(empty));
+P.empty = empty =>
+  P(k => k(empty));
 
 
-Parallel.Monoid = {
-  ...Parallel.Semigroup,
-  empty: Parallel.empty
+P.Monoid = {
+  ...P.Semigroup,
+  empty: P.empty
 };
 
 
 /***[ Semigroup (race) ]******************************************************/
 
 
-Parallel.Race = {};
+P.Race = {};
 
 
-Parallel.Race.append = Parallel.or;
+P.Race.append = P.or;
 
 
-Parallel.Race.prepend = Parallel.or;
+P.Race.prepend = P.or;
 
 
 /***[ Semigroup :: Monoid (race) ]********************************************/
 
 
-Parallel.Race.empty = Parallel(k => null);
+P.Race.empty = P(k => null);
 
 
 /***[ Misc. ]*****************************************************************/
@@ -2750,21 +2754,50 @@ Parallel.Race.empty = Parallel(k => null);
 behavior. */
 
 
-Parallel.flatmap = mx => fm =>
-  Parallel(k => mx.run(x => fm(x).run(k)));
+P.flatmap = mx => fm =>
+  P(k => mx.run(x => fm(x).run(k)));
 
 
-Parallel.flatten = mmx =>
-  Parallel(k => mmx.run(mx => mx.run(k)));
+P.flatten = mmx =>
+  P(k => mmx.run(mx => mx.run(k)));
 
 
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Parallel.allArr = Parallel.allArr();
+P.allArr = P.allArr();
 
 
-Parallel.anyArr = Parallel.anyArr();
+P.anyArr = P.anyArr();
+
+
+/******************************************************************************
+****************************[ PARALLEL :: EXCEPT ]*****************************
+******************************************************************************/
+
+
+/* `Parallel` extended to asynchronous exceptions. A similar behavior can be
+achieved by using `Parallel` as a monad transformer and handling exceptions
+inside the `run` method (the impure shell) using the `Except` type. */
+
+
+export const ParallelExcept = ks => ({
+  [TAG]: "Parallel.Except",
+  run: ks,
+
+  runAsync: o => { // extra stack-safety for edge cases
+    if (Math.random() < MICROTASK_TRESHOLD)
+      Promise.resolve(null).then(_ => ks(o));
+
+    else ks(o);
+  }
+});
+
+
+export const Pex = ParallelExcept; // shortcut
+
+
+// TODO
 
 
 /******************************************************************************
@@ -3489,10 +3522,9 @@ Parser.dropUntil = parser => Parser(rest => state => {
 
   * asynchronous, serial evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested functions
+  * lazy by deferred nested function call stacks
   * non-reliable return values
-  * stack-safe due to asynchronous calls
-  * flat composition/monadic chaining syntax */
+  * stack-safe due to asynchronous calls */
 
 
 export const Serial = k => ({
@@ -3508,80 +3540,86 @@ export const Serial = k => ({
 });
 
 
+export const S = Serial; // shortcut
+
+
 /***[ Conjunction ]***********************************************************/
 
 
-Serial.and = tx => ty =>
-  Serial(k =>
+S.and = tx => ty =>
+  S(k =>
     tx.run(x =>
       ty.run(y =>
         k(Pair(x, y)))));
 
 
-Serial.allArr = () =>
+S.allArr = () =>
   A.seqA({
-    map: Serial.map,
-    ap: Serial.ap,
-    of: Serial.of});
+    map: S.map,
+    ap: S.ap,
+    of: S.of});
+
+
+// TODO: S.allList
 
 
 /***[ Functor ]***************************************************************/
 
 
-Serial.map = f => tx =>
-  Serial(k => tx.run(x => k(f(x))));
+S.map = f => tx =>
+  S(k => tx.run(x => k(f(x))));
 
 
-Serial.Functor = {map: Serial.map};
+S.Functor = {map: S.map};
 
 
 /***[ Functor :: Apply ]******************************************************/
 
 
-Serial.ap = tf => tx =>
-  Serial(k =>
-    Serial.and(tf) (tx)
+S.ap = tf => tx =>
+  S(k =>
+    S.and(tf) (tx)
       .run(([f, x]) =>
          k(f(x))));
 
 
-Serial.Apply = {
-  ...Serial.Functor,
-  ap: Serial.ap
+S.Apply = {
+  ...S.Functor,
+  ap: S.ap
 };
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Serial.of = x => Serial(k => k(x));
+S.of = x => S(k => k(x));
 
 
-Serial.Applicative = {
-  ...Serial.Apply,
-  of: Serial.of
+S.Applicative = {
+  ...S.Apply,
+  of: S.of
 };
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
-Serial.chain = mx => fm =>
-  Serial(k => mx.run(x => fm(x).run(k)));
+S.chain = mx => fm =>
+  S(k => mx.run(x => fm(x).run(k)));
 
 
-Serial.Chain = {
-  ...Serial.Apply,
-  chain: Serial.chain
+S.Chain = {
+  ...S.Apply,
+  chain: S.chain
 };
 
 
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-Serial.Monad = {
-  ...Serial.Applicative,
-  chain: Serial.chain
+S.Monad = {
+  ...S.Applicative,
+  chain: S.chain
 };
 
 
@@ -3594,36 +3632,36 @@ Serial.Monad = {
 /***[ Semigroup ]*************************************************************/
 
 
-Serial.append = append => tx => ty =>
-  Serial(k => Serial.and(tx) (ty)
+S.append = ({append}) => tx => ty =>
+  S(k => S.and(tx) (ty)
     .run(([x, y]) => k(append(x) (y))));
 
 
-Serial.prepend = Serial.append;
+S.prepend = S.append;
 
 
-Serial.Semigroup = {
-  append: Serial.append,
-  prepend: Serial.prepend
+S.Semigroup = {
+  append: S.append,
+  prepend: S.prepend
 };
 
 
 /***[ Semigroup :: Monoid ]***************************************************/
 
 
-Serial.empty = empty => Serial(k => k(empty));
+S.empty = empty => S(k => k(empty));
 
 
-Serial.Monoid = {
-  ...Serial.Semigroup,
-  empty: Serial.empty
+S.Monoid = {
+  ...S.Semigroup,
+  empty: S.empty
 };
 
 
 /***[ Misc. ]*****************************************************************/
 
 
-Serial.once = tx => {
+S.once = tx => {
   let x = lazy(() => {
     throw new TypeError("race condition detected");
   });
@@ -3647,14 +3685,218 @@ Serial.once = tx => {
     }
   };
 
-  return Serial(k);
+  return S(k);
 };
 
 
 /***[ Resolve Dependencies ]**************************************************/
 
 
-Serial.allArr = Serial.allArr();
+S.allArr = S.allArr();
+
+
+/******************************************************************************
+*****************************[ SERIAL :: EXCEPT ]******************************
+******************************************************************************/
+
+
+/* `Serail` extended to asynchronous exceptions. A similar behavior can be
+achieved by using `Serial` as a monad transformer and handling exceptions
+inside the `run` method (the impure shell) using the `Except` type. */
+
+
+export const SerialExcept = ks => ({
+  [TAG]: "Serial.Except",
+  run: ks,
+
+  runAsync: o => { // extra stack-safety for edge cases
+    if (Math.random() < MICROTASK_TRESHOLD)
+      Promise.resolve(null).then(_ => ks(o));
+
+    else ks(o);
+  }
+});
+
+
+export const Sex = SerialExcept; // shortcut
+
+
+/***[ Conjunction ]***********************************************************/
+
+
+Sex.and = tx => ty =>
+  Sex(({raise: k, proceed: k2}) =>
+    tx.run({
+      raise: k,
+      proceed: x =>
+        ty.run({
+          raise: k,
+          proceed: y => k2(Pair(x, y))
+        })
+    }));
+
+
+Sex.allArr = () =>
+  A.seqA({
+    map: Sex.map,
+    ap: Sex.ap,
+    of: Sex.of});
+
+
+/***[ Functor ]***************************************************************/
+
+
+Sex.map = f => tx =>
+  Sex(({raise: k, proceed: k2}) =>
+    tx.run({
+      raise: k,
+      proceed: x => k2(f(x))
+    }));
+
+
+Sex.Functor = {map: Sex.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+Sex.ap = tf => tx =>
+  Sex(({raise: k, proceed: k2}) =>
+    Sex.and(tf) (tx)
+      .run({
+        raise: k,
+        proceed: ([f, x]) => k(f(x))
+      }));
+
+
+Sex.Apply = {
+  ...Sex.Functor,
+  ap: Sex.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Sex.of = x => Sex(({raise: k, proceed: k2}) => k2(x));
+
+
+Sex.Applicative = {
+  ...Sex.Apply,
+  of: Sex.of
+};
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+Sex.chain = mx => fm =>
+  Sex(({raise: k, proceed: k2}) =>
+    mx.run({
+      raise: k,
+      proceed: x => fm(x).run(k2)
+    }));
+
+
+Sex.Chain = {
+  ...Sex.Apply,
+  chain: Sex.chain
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
+
+
+Sex.Monad = {
+  ...Sex.Applicative,
+  chain: Sex.chain
+};
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+// TODO: fromParallel/toParallel
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+Sex.append = ({append}) => tx => ty =>
+  Sex(({raise: k, proceed: k2}) =>
+    Sex.and(tx) (ty).run({
+      raise: k,
+      proceed: ([x, y]) => k(append(x) (y))
+    }));
+
+
+Sex.prepend = Sex.append;
+
+
+Sex.Semigroup = {
+  append: Sex.append,
+  prepend: Sex.prepend
+};
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+Sex.empty = empty => Sex(({raise: k, proceed: k2}) => k2(empty));
+
+
+Sex.Monoid = {
+  ...Sex.Semigroup,
+  empty: Sex.empty
+};
+
+
+/***[ Misc. ]*****************************************************************/
+
+
+Sex.once = tx => {
+  let x = lazy(() => {
+    throw new TypeError("race condition detected");
+  });
+
+  let done = false;
+
+  const ks = {
+    raise: id, // don't memoize exception case
+
+    proceed: f => {
+      if (done) {
+        f(x);
+        return ks;
+      }
+
+      else {
+        tx.run({
+          raise: y => {
+            x = y; f(y);
+            return ks;
+          },
+
+          proceed: z => {
+            x = z; f(z);
+            return ks;
+          }
+        });
+
+        done = true; // sync
+        return ks;
+      }
+    }
+  };
+
+  return Sex(ks);
+};
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+Sex.allArr = Sex.allArr();
 
 
 /******************************************************************************
@@ -4174,6 +4416,21 @@ export const Process_ = cp => cons => ({
 ******************************************************************************/
 
 
+/* The library avoids the node.js file system dependency by encoding it as a
+parameter. The file system can be accessed within the continuation monad using
+different settings:
+
+  * immeditate error throwing OR exception handling
+  * serial processing OR parallel processing
+
+The first choice has to be made by picking the respective object in the
+`FileSys` namespace. The second one depends on the supplied `cons` constructor.
+While technically the `Parallel`/`Serial` types have matching interfaces the
+shouldn't be mixed, since they logically differ in their conjunctions and
+disjunctions and in their semigroup/monoid instances.
+
+*/
+
 export const FileSys = {}; // namespace
 
 
@@ -4185,10 +4442,9 @@ FileSys.error = fs => cons => thisify(o => {
 
 
   o.move = src => dest =>
-    cons.chain(
-      cons.chain(o.copy(src) (dest))
-        (([src2]) => o.unlink(src2)))
-          (src => Serial.of(Pair(src, dest)));
+    cons.and(
+      o.copy(src) (dest))
+        (o.unlink(src));
 
 
   o.read = opt => path =>
@@ -4227,46 +4483,45 @@ FileSys.error = fs => cons => thisify(o => {
 
 FileSys.except = fs => cons => thisify(o => {
   o.copy = src => dest =>
-    cons(({raise, proceed}) =>
+    cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
-        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
+        e ? k(new TypeError(e)) : k2(Pair(src, dest))));
 
 
   o.move = src => dest =>
-    cons.chain(
-      cons.chain(o.copy(src) (dest))
-        (([src2]) => o.unlink(src2)))
-          (src => Serial.of(Pair(src, dest)));
+    cons.and(
+      o.copy(src) (dest))
+        (o.unlink(src));
 
 
   o.read = opt => path =>
-    cons(ks =>
+    cons(({raise: k, proceed: k2}) =>
       fs.readFile(path, opt, (e, x) =>
-        e ? _throw(new TypeError(e)) : k(x)));
+        e ? k(new TypeError(e)) : k2(x)));
 
 
   o.scanDir = path =>
-    cons(k =>
+    cons(({raise: k, proceed: k2}) =>
       fs.readdir(path, (e, xs) =>
-        e ? _throw(new TypeError(e)) : k(xs)));
+        e ? k(new TypeError(e)) : k2(xs)));
 
 
   o.stat = path =>
-    cons(k =>
+    cons(({raise: k, proceed: k2}) =>
       fs.stat(path, (e, o) =>
-        e ? _throw(new TypeError(e)) : k(o)));
+        e ? k(new TypeError(e)) : k2(o)));
 
 
   o.unlink = path =>
-    cons(k =>
+    cons(({raise: k, proceed: k2}) =>
       fs.unlink(path, e =>
-        e ? _throw(new TypeError(e)) : k(path)));
+        e ? k(new TypeError(e)) : k2(path)));
 
 
   o.write = opt => path => s =>
-    cons(k =>
+    cons(({raise: k, proceed: k2}) =>
       fs.writeFile(path, s, opt, e =>
-        e ? _throw(new TypeError(e)) : k(s)));
+        e ? k(new TypeError(e)) : k2(s)));
 
 
   return o;
