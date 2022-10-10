@@ -4059,16 +4059,16 @@ Stream.map = f => function go(tx) {
 };
 
 
-Stream.of = x => Stream.Step.lazy({
-  yield: x,
-  get next() {return of(x)}
-});
-
-
 /***[ Functor :: Apply ]******************************************************/
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+Stream.of = x => Stream.Step.lazy({ // infinite stream
+  yield: x,
+  get next() {return Stream.of(x)}
+});
 
 
 /***[ Functor :: Apply :: Chain ]*********************************************/
