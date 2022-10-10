@@ -573,11 +573,11 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
   * delimited scopes */
 
 
-export const Cont = k => {
+export const Cont = k => ({
   [TAG]: "Cont",
   run: k,
   unwind: x => Loop.call(k, x) // may prevent the stack from exhausting
-};
+});
 
 
 /***[ Delimited ]*************************************************************/
@@ -788,7 +788,7 @@ export const letk = (...args) => ({in: f => F(k => f(...args).run(k))});
 export const id = x => x;
 
 
-F.Category = {
+F.Category = () => {
   comp,
   id
 };
@@ -812,13 +812,13 @@ export const compk3 = f => g => h => x => F(k => h(x).run(g).run(f).run(k));
 export const compSnd = f => g => x => y => f(x) (g(y));
 
 
-export const compkSnd = f => g => x => y => F(k => g(y).run(f(x)).run(k);
+export const compkSnd = f => g => x => y => F(k => g(y).run(f(x)).run(k));
 
 
 export const compThd = f => g => x => y => z => f(x) (y) (g(z));
 
 
-export const compkThd = f => g => x => y => z => F(k => g(z).run(f(x) (y)).run(k);
+export const compkThd = f => g => x => y => z => F(k => g(z).run(f(x) (y)).run(k));
 
 
 export const compBin = f => g => x => y => f(g(x) (y));
@@ -1143,6 +1143,7 @@ export const takek = n => append => {
     m < n
       ? (m++, append(acc) (x) (k))
       : acc;
+};
 
 
 export const taker = n => append => { 
@@ -1178,6 +1179,9 @@ export const transduce = ({append}, {fold}) => f =>
 
 
 /***[ Resolve Deps ]**********************************************************/
+
+
+F.Category = F.Category();
 
 
 F.contramap = F.contramap();
@@ -2287,7 +2291,7 @@ Optic.pipeSet = setter2 => setter => x => optic => {
 /***[ Functor ]***************************************************************/
 
 
-Optic.map = Optic.upd(id);
+Optic.map = () => Optic.upd(id);
 
 
 Optic.Functor = {map: Optic.map};
@@ -2353,6 +2357,12 @@ Optic.unnest = optic => optic.path
 
 
 Optic.unpath = optic => optic.ref
+
+
+/***[ Resolve Dependencies ]**************************************************/
+
+
+Optic.map = Optic.map();
 
 
 /******************************************************************************
@@ -2636,8 +2646,8 @@ Parallel.or = tx => ty => {
 
 Parallel.anyArr = () =>
   A.foldl(acc => tx =>
-    Parallel.race.append(acc) (tx))
-      (Parallel.race.empty);
+    Parallel.Race.append(acc) (tx))
+      (Parallel.Race.empty);
 
 
 /***[ Functor ]***************************************************************/
@@ -3917,10 +3927,10 @@ Pair.bimapk = f => g => tx => // CPS version
   Tuple(k => tx.run((x, y) => Pair(f(x), g(y))));
 
 
-Pair.Bifunctor = () => {
+Pair.Bifunctor = () => ({
   ...Pair.Functor,
   bimap: Pair.bimap
-};
+});
 
 
 /***[ Extracting ]************************************************************/
@@ -3993,13 +4003,13 @@ Pair.Applicative = {
 
 
 Pair.chain = ({append}) => fm => ({1: x, 2: y}) => {
-  const ({1: x2, 2: y2}) = fm(y);
+  const {1: x2, 2: y2} = fm(y);
   return Pair(append(x) (x2), y2);
 };
 
 
 Pair.chaink = ({append}) => fm => mx => mx.run((x, y) => // CPS version
-  Tuple(k => fm(y).run((x2, y2) => k(append(x) (x2), y2)));
+  Tuple(k => fm(y).run((x2, y2) => k(append(x) (x2), y2))));
 
 
 Pair.Chain = {
