@@ -2236,16 +2236,22 @@ O.updOr = x => k => f => o => {
 /***[ Misc. ]*****************************************************************/
 
 
-O.lazyProp = k => thunk => o => // create lazy property that shares its result
+export const lazyProp = k => thunk => o => // create lazy property that shares its result
   Object.defineProperty(o, k, {
     get: function() {delete o[k]; return o[k] = thunk()},
     configurable: true,
     enumerable: true});
 
 
+O.lazyProp = lazyProp;
+
+
 // self referencing during object creation
 
-O.thisify = f => f({});
+export const thisify = f => f({});
+
+
+O.thisify = thisify;
 
 
 /******************************************************************************
@@ -4417,19 +4423,15 @@ export const Process_ = cp => cons => ({
 
 
 /* The library avoids the node.js file system dependency by encoding it as a
-parameter. The file system can be accessed within the continuation monad using
-different settings:
+parameter. The file system can be accessed within a continuation monad using
+different encodings that yield oposing semantics:
 
-  * immeditate error throwing OR exception handling
-  * serial processing OR parallel processing
+  * error throwing vs. exeption handling
+  * serial vs. parallel processing
 
 The first choice has to be made by picking the respective object in the
-`FileSys` namespace. The second one depends on the supplied `cons` constructor.
-While technically the `Parallel`/`Serial` types have matching interfaces the
-shouldn't be mixed, since they logically differ in their conjunctions and
-disjunctions and in their semigroup/monoid instances.
+`FileSys` namespace. The second one depends on the passed `cons` constructor. */
 
-*/
 
 export const FileSys = {}; // namespace
 
