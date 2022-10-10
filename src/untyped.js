@@ -742,7 +742,19 @@ export const flip = f => y => x => f(x) (y);
 export const flipk = f => y => x => F(k => f(x) (y).run(k));
 
 
-export const infix = (...args) => { // variadic
+/* Allows the application of several binary combinators in sequence while
+maintaining a flat syntax. Describes the following function call stack:
+
+  (x, f, y, g, z) => g(f(x) (y)) (z)
+
+While composing functors leads to the incompatible structure
+
+  (x, f, y, g, z) => g(z) (f(x) (y))
+
+it doesn't matter because the passed pure functions should be composed,
+not the underlying functor itself. */
+
+export const infix = (...args) => {
   if (args.length === 0) throw new TypeError("no argument found");
 
   let i = 1, x = args[0];
@@ -756,7 +768,7 @@ export const infix = (...args) => { // variadic
 };
 
 
-export const infixk = (...args) => F(k => { // variadic
+export const infixk = (...args) => F(k => {
   if (args.length === 0) throw new TypeError("no argument");
 
   else if (args.length % 2 === 0)
@@ -773,7 +785,7 @@ export const infixk = (...args) => F(k => { // variadic
 });
 
 
-// enable `let` bindings as expressions in a readable form
+// enables `let` bindings as expressions in a readable form
 
 export const _let = (...args) => ({in: f => f(...args)});
 
@@ -1735,7 +1747,10 @@ Const.Applicative = {
 // encodes the most fundamental sum type - logical or - A || B
 
 
-export const Either = {}; // TODO: CPS version
+export const Either = {}; // namespace
+
+
+// value constructors
 
 
 Either.Left = x => ({
@@ -2129,6 +2144,41 @@ Id.Monad = {
   ...Id.Applicative,
   chain: Id.chain
 };
+
+
+/******************************************************************************
+***********************************[ LIST ]************************************
+******************************************************************************/
+
+
+export const List = {}; // namespace
+
+
+// value constructors
+
+
+List.Cons = x => xs => ({
+  [TAG]: "List",
+  run: ({cons}) => cons(x) (xs)
+});
+
+
+List.Cons_ = xs => x => ({
+  [TAG]: "List",
+  run: ({cons}) => cons(x) (xs)
+});
+
+
+List.Nil = ({
+  [TAG]: "List",
+  run: ({nil}) => nil
+});
+
+
+export const L = List; // shortcut
+
+
+// TODO
 
 
 /******************************************************************************
@@ -3923,11 +3973,20 @@ _Set.set = k => v => s => s.set(k, v);
 
 
 /******************************************************************************
-**********************************[ STREAM ]***********************************
+*******************************[ STREAM (SYNC) ]*******************************
 ******************************************************************************/
 
 
+/* Encodes the concept of supplying a meaningful chunk of data synchronously
+one at a time from a much larger source (e.g. a huge array) together with a
+function to request another chunk. The type uses a lazy object getter to 
+suspend the process. */
+
+
 const Stream = {}; // namespace
+
+
+// value constructors
 
 
 Stream.Step = x => f => ({
@@ -3946,9 +4005,9 @@ Stream.Done = x => ({
 });
 
 
-Stream.None = ({
+Stream.Nis = ({
   [TAG]: "Stream",
-  run: ({none}) => none
+  run: ({nis}) => nis
 });
 
 
@@ -3976,10 +4035,10 @@ Stream.filter = pred => function go(tx) {
 
     done: p => {
       if (pred(p.yield)) return Stream.Done(p.yield);
-      else return Stream.None;
+      else return Stream.Nis;
     },
 
-    none: Stream.None
+    nis: Stream.Nis
   });
 };
 
@@ -3995,9 +4054,72 @@ Stream.map = f => function go(tx) {
     }),
 
     done: p => Stream.Done(f(p.yield)),
-    none: Stream.None
+    nis: Stream.Nis
   });
 };
+
+
+Stream.of = x => Stream.Step.lazy({
+  yield: x,
+  get next() {return of(x)}
+});
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+/***[ Functor :: Apply :: Chain ]*********************************************/
+
+
+/* For each iteration, creates a new stream by applying `fm` with the current
+element of the original stream. Then yields its elements until the new stream
+is exhausted and starts a new iteration until the original stream is exhausted
+as well. */
+
+Stream.chain = fm => function go(mx) {
+
+  return tx.run({
+    step: o => {
+      const my = fm(o.yield);
+
+      my.run({
+        step: o2 => Stream.Step.lazy({
+          yield: o2.yield,
+          get next() {return go(o2.next)}
+        }),
+
+        done: p2 => Stream.Step.lazy({
+          yield: p2.yield,
+          get next() {return go(o.next)}
+        }),
+
+        get nis() {return go(o.next)}
+      });
+    },
+
+    done: p => {
+      const my = fm(p.yield);
+
+      my.run({
+        step: o2 => Stream.Step.lazy({
+          yield: o2.yield,
+          get next() {return go(o2.next)}
+        }),
+
+        done: p2 => Stream.Done(p2.yield),
+        nis: Stream.Nis
+      });
+    },
+
+    nis: Stream.Nis
+  });
+};
+
+
+/***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
 /***[ Conversion ]************************************************************/
@@ -4014,7 +4136,7 @@ Stream.takeArr = n => tx => function go(acc, ty, m) {
       },
       
       done: p => (acc.push(p.yield), acc),
-      none: acc
+      nis: acc
     });
   }
 } ([], tx, n);
@@ -4348,76 +4470,6 @@ Pair.Bifunctor = Pair.Bifunctor();
 
 
 /******************************************************************************
-*******************************[ CHILD PROCESS ]*******************************
-******************************************************************************/
-
-
-export const Process_ = cp => cons => ({
-  exec: opts => cmd =>
-    EitherT(cons(k =>
-      cp.exec(cmd, opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? k(Either.Left(stderr))
-          : k(Either.Right(stdout))))),
-
-
-  execFile: opts => args => cmdName =>
-    EitherT(cons(k =>
-      cp.execFile(cmdName, args, opts, (e, stdout, stderr) =>
-        e ? _throw(new TypeError(e))
-          : stderr ? k(Either.Left(stderr))
-          : k(Either.Right(stdout))))),
-
-
-  spawn: opts => args => cmdName => Emitter(k => {
-    const cmd = cp.spawn(cmdName, args, opts);
-
-    const stdoutOb = Emitter.observe({
-      emitters: [
-        Pair(cmd.stdout, "Node.Stream.In.data"),
-        Pair(cmd, "Node.CP.error"),
-        Pair(cmd, "Node.CP.exit")
-      ],
-
-      init: "",
-      
-      listener: args => k => {
-        switch (args.type) {
-          case "Node.CP.error":
-          case "Node.CP.exit": return k(args);
-          
-          case "Node.Stream.In.data":
-            return args.state + args.dyn[0];
-        }
-      }
-    });
-
-    const stderrOb = Emitter.observe({
-      emitters: [
-        Pair(cmd.stderr, "Node.Stream.In.data"),
-        Pair(cmd, "Node.CP.error"),
-        Pair(cmd, "Node.CP.exit")
-      ],
-      
-      init: "",
-
-      listener: args => k => {
-        switch (args.type) {
-          case "Node.CP.error":
-          case "Node.CP.exit": return k(args);
-          
-          case "Node.Stream.In.data":
-            return args.state + args.dyn[0];
-        }
-      }
-    });
-
-    return Emitter.or(stdoutOb) (stderrOb).run(k);
-  })
-});
-
-
-/******************************************************************************
 ********************************[ FILE SYSTEM ]********************************
 ******************************************************************************/
 
@@ -4539,17 +4591,15 @@ FileSys.except = fs => cons => thisify(o => {
 /*
 
   * add logical and type
-  * add logical andOr type
-  * add logical or type
-  * add logical xor type
   * add memo monad
+  * add Array/List Zipper Applicative instance
   * add List
   * add DList
   * add ListZ
   * add NEList
-  * add ZList
   * add State type/monad
+  * add Pairs with Writer monad/combinators
   * add monad combinators
-  * add Either CPS version
+  * conceive async Stream
 
 */
