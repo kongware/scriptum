@@ -4137,7 +4137,7 @@ Stream.seqA = ({map, of}) => function go(ttx) {
 };
 
 
-Stream.mapA = ({map}) => ft => function go(tx) {
+Stream.mapA = ({map, of}) => ft => function go(tx) {
   return tx.run({
     step: o => map(x => Stream.Step.lazy({
       yield: x,
@@ -4208,6 +4208,9 @@ Stream.Functor = {map: Stream.map};
 
 /***[ Functor :: Alt ]********************************************************/
 
+
+/* Takes two streams and exhauts the first and then the second one directly one
+after the other. This is the way the traversable list instance  works. */
 
 Stream.alt = tx => ty => function go(tz, done) {
   return tz.run({
