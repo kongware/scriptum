@@ -1207,9 +1207,17 @@ F.Contra = F.Contra();
 
 
 /* Enocodes the effect of computations that may have no, one or several results.
-Array is not a functional data type, because it isn't defined recursifely. As a
-consequence, you cannot combine them with other monads in a lawful/predictable
-manner. */
+Array is not a functional data type, because it has a non recursive definition.
+While it has a valid monad instance, there is no valid transformer. Use list or
+streams instead.
+
+When to use which immutable collection type:
+
+  * Array: random element read access
+  * List: cons/uncons operations
+  * DList: append operation
+  * Vector: insert/delete/update operations */
+
 
 
 export const Arr = k => ({ // CPS version
@@ -2151,6 +2159,21 @@ Id.Monad = {
 ******************************************************************************/
 
 
+/* Encodes non-determinism just like arrays but is recursively defined and
+forms a completely unbalanced tree structure. There are two trchniques to make
+operations on the type stack-safe:
+
+  * guarded recursion through lazy evaluation
+  * tail recursion modulo cons using a stack based trampoline
+
+When to use which immutable collection type:
+
+  * Array: random element read access
+  * List: cons/uncons operations
+  * DList: append operation
+  * Vector: insert/delete/update operations */
+
+
 export const List = {}; // namespace
 
 
@@ -2178,22 +2201,98 @@ List.Nil = ({
 export const L = List; // shortcut
 
 
-// TODO
+/***[ Foldable ]**************************************************************/
+
+
+List.foldl = f => init => xs => Loop2((ys, acc) =>
+  ys.run({
+    nil: acc,
+
+    cons: z => zs => Loop2.next(zs, f(acc) (z))
+  })) (xs, init);
+
+
+List.foldr = f => acc => function go(xs) {
+  return xs.run({
+    nil: acc,
+    cons: y => ys => f(y) (lazy(() => go(ys)))
+  });
+};
+
+
+L.Foldable = {
+  foldl: L.foldl,
+  foldr: L.foldr
+};
+
+
+/***[ Functor ]***************************************************************/
+
+
+L.map = f => Loops(tx => 
+  tx.run({
+    cons: y => ty => Loops.call(
+      L.Cons(f(y)),
+      Loops.next(ty)),
+    nil: Loops.done(L.Nil)
+  }));
 
 
 L.mapLazy = f => function go(tx) {
   return tx.run({
-    cons: x => ty => f(x) (lazy(() => go(ty))),
+    cons: y => ty => L.Cons(f(y)) (lazy(() => go(ty))),
     nil: L.Nil
   });
 };
 
 
-L.mapStrict = f => Loop(tx =>
-  tx.run({
-    cons: x => ty => f(x) (Loop.call(go, ty)),
+L.Functor = {map: L.map};
+
+
+/***[ Functor :: Apply ]******************************************************/
+
+
+L.ap = tf => Loops(tx => // TODO: test
+  tf.run({
+    cons: g => tg =>
+      tx.run({
+        cons: y => ty => Loops.call(
+          L.Cons(g(y)),
+          Loops.call2(tg, L.ap, ty)), // nested calls probably don't work
+        nil: Loops.done(L.Nil)
+      })
     nil: L.Nil
   }));
+
+
+L.apLazy = tf => tx =>
+  tf.run({
+    cons: g => tg =>
+      tx.run({
+        cons: y => ty => L.Cons(g(y)) (lazy(() => L.ap(tg) (ty))),
+        nil: L.Nil
+      })
+    nil: L.Nil
+  });
+
+
+
+L.Apply = {
+  ...L.Functor,
+  ap: L.ap
+};
+
+
+/***[ Functor :: Apply :: Applicative ]***************************************/
+
+
+L.of = L.Nil;
+
+
+L.Applicative = {
+  ...L.Apply,
+  of: L.of
+};
 
 
 /******************************************************************************
@@ -2201,7 +2300,7 @@ L.mapStrict = f => Loop(tx =>
 ******************************************************************************/
 
 
-const _Map = {};
+const _Map = {}; // namespace
 
 
 /***[ Getter/Setter ]*********************************************************/
@@ -3975,7 +4074,7 @@ Sex.allArr = Sex.allArr();
 ******************************************************************************/
 
 
-const _Set = {};
+const _Set = {}; // namespace
 
 
 /***[ Getter/Setter ]*********************************************************/
