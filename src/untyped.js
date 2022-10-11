@@ -2181,6 +2181,21 @@ export const L = List; // shortcut
 // TODO
 
 
+L.mapLazy = f => function go(tx) {
+  return tx.run({
+    cons: x => ty => f(x) (lazy(() => go(ty))),
+    nil: L.Nil
+  });
+};
+
+
+L.mapStrict = f => Loop(tx =>
+  tx.run({
+    cons: x => ty => f(x) (Loop.call(go, ty)),
+    nil: L.Nil
+  }));
+
+
 /******************************************************************************
 ************************************[ MAP ]************************************
 ******************************************************************************/
@@ -4005,7 +4020,7 @@ Stream.Done = x => ({
 });
 
 
-Stream.Nis = ({
+Stream.Nis = ({ // not in stream
   [TAG]: "Stream",
   run: ({nis}) => nis
 });
@@ -4014,6 +4029,132 @@ Stream.Nis = ({
 Stream.Step.lazy = o => ({
   [TAG]: "Stream",
   run: ({step}) => step(o)
+});
+
+
+/***[ Conversion ]************************************************************/
+
+
+Stream.fromArr = xs => function go(i) {
+  if (i === xs.length - 1) return Stream.Done(xs[i]);
+  else return Stream.Step(xs[i]) (_ => go(i + 1));
+} (0);
+
+
+Stream.takeArr = n => tx => function go(acc, ty, m) {
+  if (m <= 0) return acc;
+
+  else {
+    return ty.run({
+      step: o => {
+        acc.push(o.yield)
+        return go(acc, o.next, m - 1);
+      },
+      
+      done: p => (acc.push(p.yield), acc),
+      nis: acc
+    });
+  }
+} ([], tx, n);
+
+
+// TODO: Stream.takeList
+
+
+Stream.toArr = tx => Loop2((ty, acc) => {
+  ty.run({
+    step: o => {
+      acc.push(o.yield);
+      return Loop2.next(o.next);
+    },
+
+    done: p => {
+      acc.push(p.yield);
+      return Loop2.done(acc);
+    },
+
+    nis: Loop2.done(acc)
+  });
+}) (tx, []);
+
+
+/***[ Foldable ]**************************************************************/
+
+
+Stream.foldl = f => init => tx => function go(ty, acc) {
+  return tx.run({
+    step: o => {
+      acc = f(acc) (o.yield);
+
+      Stream.Step.lazy({
+        yield: acc,
+        get next() {return go(o.next, acc)}
+      })
+    },
+
+    done: p => Stream.Done(f(acc) (p.yield)),
+    nis: acc
+  });
+} (tx, init);
+
+
+Stream.foldr = f => init => tx => function go(ty, acc) {
+  return tx.run({
+    step: o => {
+      acc = f(o.yield) (acc);
+
+      Stream.Step.lazy({
+        yield: acc,
+        get next() {return go(o.next, acc)}
+      })
+    },
+
+    done: p => Stream.Done(f(p.yield) (acc)),
+    nis: acc
+  });
+} (tx, init);
+
+
+Stream.Foldable = {
+  left: Stream.foldl,
+  right: Stream.foldr
+};
+
+
+/***[ Foldable :: Traversable ]***********************************************/
+
+
+Stream.seqA = ({map, of}) => function go(ttx) {
+  return ttx.run({
+    step: tx => map(o => Stream.Step.lazy({
+      yield: o.yield,
+      get next() {return go(o.next)}
+    })) (tx),
+
+    done: ty => map(p => Stream.Done(p.yield)) (ty),
+    nis: of(Stream.Nis)
+  });
+};
+
+
+Stream.mapA = ({map}) => ft => function go(tx) {
+  return tx.run({
+    step: o => map(x => Stream.Step.lazy({
+      yield: x,
+      get next() {return go(o.next)}
+    }) (ft(o.yield)),
+
+    done: p => map(p => Stream.Done(p.yield)) (ty),
+    nis: of(Stream.Nis)
+  });
+};
+
+
+Stream.Traversable = () => ({
+  ...Stream.Foldable,
+  ...Stream.Functor,
+  mapA: Stream.mapA,
+  seqA: Stream.seqA
 });
 
 
@@ -4043,6 +4184,9 @@ Stream.filter = pred => function go(tx) {
 };
 
 
+Stream.Filterable = {filter: Stream.filter};
+
+
 /***[ Functor ]***************************************************************/
 
 
@@ -4059,7 +4203,85 @@ Stream.map = f => function go(tx) {
 };
 
 
+Stream.Functor = {map: Stream.map};
+
+
+/***[ Functor :: Alt ]********************************************************/
+
+
+Stream.alt = tx => ty => function go(tz, done) {
+  return tz.run({
+    step: o => Stream.Step.lazy({
+      yield: o.yield,
+      get next() {return go(o.next, done)}
+    }),
+
+    done: p => {
+      if (done) return Stream.Done(p.yield);
+
+      else return Stream.Step.lazy({
+        yield: p.yield,
+        get next() {return go(ty, true)}
+      });
+    },
+
+    nis: Stream.Nis
+  });
+} (tx, false);
+
+
+A.Alt = {
+  ...A.Functor,
+  alt: A.alt
+};
+
+
+/***[ Functor :: Alt :: Plus ]************************************************/
+
+
+Stream.zero = Stream.Nis;
+
+
+Stream.Plus = {
+  ...Stream.Alt,
+  zero: Stream.zero
+};
+
+
 /***[ Functor :: Apply ]******************************************************/
+
+
+/* Takes two streams one yielding partially applied functions and another
+yielding values and applies the function to the value. Both streams don't need
+to have the same length, even though this may lead to information loss. */
+
+Stream.ap = ft => tx => function go(gt, ty) {
+  return gt.run({
+    step: o => ty.run({
+      step: o2 => Stream.Step.lazy({
+        yield: o.yield(o2.yield),
+        get next() {return go(o.next, o2.next)}
+      }),
+
+      done: p2 => Stream.Done(o.yield(p2.yield)), // information loss
+      nis: Stream.Nis // information loss
+    }),
+
+    done: p => ty.run({
+      step: o2 => Stream.Done(p.yield(o2.yield)), // information loss
+      done: p2 => Stream.Done(p.yield(p2.yield)),
+      nis: Stream.Nis // information loss
+    }),
+    
+    nis: Stream.Nis // potential information loss
+  }) (ft, tx);
+};
+
+
+Stream.Apply = {
+  ...Stream.Functor,
+  ap: Stream.ap
+};
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
@@ -4071,6 +4293,12 @@ Stream.of = x => Stream.Step.lazy({ // infinite stream
 });
 
 
+Stream.Applicative = {
+  ...Stream.Apply,
+  of: Stream.of
+};
+
+
 /***[ Functor :: Apply :: Chain ]*********************************************/
 
 
@@ -4080,7 +4308,6 @@ is exhausted and starts a new iteration until the original stream is exhausted
 as well. */
 
 Stream.chain = fm => function go(mx) {
-
   return tx.run({
     step: o => {
       const my = fm(o.yield);
@@ -4119,30 +4346,87 @@ Stream.chain = fm => function go(mx) {
 };
 
 
+Stream.Chain = {
+  ...Stream.Apply,
+  chain: Stream.chain
+};
+
+
 /***[ Functor :: Apply :: Applicative :: Monad ]******************************/
 
 
-/***[ Conversion ]************************************************************/
+Stream.Monad = {
+  ...Stream.Applicative,
+  chain: Stream.chain
+};
 
 
-Stream.takeArr = n => tx => function go(acc, ty, m) {
-  if (m <= 0) return acc;
+/***[ Semigroup ]*************************************************************/
 
-  else {
-    return ty.run({
-      step: o => {
-        acc.push(o.yield)
-        return go(acc, o.next, m - 1);
-      },
+
+Stream.append = ({append}) => tx => ty => function go(tx2, ty2) {
+  return tx2.run({
+    step: o => ty2.run({
+      step: o2 => Stream.Step.lazy({
+        yield: append(o.yield) (o2.yield),
+        get next() {return go(o.next, o2.next)}
+      }),
       
-      done: p => (acc.push(p.yield), acc),
-      nis: acc
-    });
-  }
-} ([], tx, n);
+      done: p2 => Stream.Step.lazy({
+        yield: append(o.yield) (p2.yield),
+        get next() {return go(o.next, Stream.Nis)}
+      }),
+
+      get nis() {
+        return Stream.Step.lazy({
+          yield: o.yield,
+          get next() {return go(o.next, Stream.Nis)}
+        })
+      }
+    }),
+
+    done: p => ty2.run({
+      step: o2 => Stream.Step.lazy({
+        yield: append(p.yield) (o2.yield),
+        get next() {return go(Stream.Nis, o2.next)}
+      }),
+      
+      done: p2 => Stream.Done(append(p.yield) (p2.yield)),
+      get nis() {return Stream.Done(p.yield)}
+    }),
+
+    get nis() {
+      ty2.run({
+        step: o2 => Stream.Step.lazy({
+          yield: o2.yield,
+          get next() {return go(Stream.Nis, o2.next)}
+        }),
+        
+        done: p2 => Stream.Step.Done(p2.yield),
+        nis: Stream.Nis
+      })
+
+    }
+  });
+} (tx, ty);
 
 
-// TODO: Stream.takeList
+Stream.Semigroup = {
+  append: Stream.append,
+  prepend: Stream.prepend
+};
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+Stream.empty = Stream.Nis;
+
+
+Stream.Monoid = {
+  ...Stream.Semigroup,
+  empty: Stream.empty
+};
 
 
 /******************************************************************************
@@ -4177,15 +4461,6 @@ is a varaint of an unbalanced tree and thus an edge case. */
 Tree.cata = node => function go({x, branch}) {
   return node(x) (branch.map(go));
 };
-
-
-// extended catamorphism
-
-Tree.catax = node => tx => function go({x, branch}, depth, i, length) {
-  return node(x) 
-    ({depth, i, length})
-      (branch.map((ty, i, xs) => go(ty, depth + 1, i, xs.length)));
-} (tx, 0, 0, 1);
 
 
 /***[ Foladable ]*************************************************************/
@@ -4233,7 +4508,7 @@ Tree.paths = tx => {
 
   if (xs.length === 0) return [[x]];
 
-  else return A.mapDS(A.unshift(x))
+  else return A.map(A.unshift(x))
     (foldMapl(
       {fold: A.foldl},
       {append: A.append, empty: []})
@@ -4592,14 +4867,13 @@ FileSys.except = fs => cons => thisify(o => {
 
   * add logical and type
   * add memo monad
-  * add Array/List Zipper Applicative instance
-  * add List
+  * add Array/List Zip Applicative instance
   * add DList
-  * add ListZ
   * add NEList
   * add State type/monad
   * add Pairs with Writer monad/combinators
   * add monad combinators
   * conceive async Stream
+  * add EventStream/Emitter
 
 */
