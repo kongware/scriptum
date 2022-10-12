@@ -64,6 +64,28 @@ export const App = t => ({
 
 
 /******************************************************************************
+*********************************[ EXCEPTION ]*********************************
+******************************************************************************/
+
+
+export class ExtendableError extends Error {
+  constructor(s) {
+    super(s);
+    this.name = this.constructor.name;
+
+    if (typeof Error.captureStackTrace === "function")
+      Error.captureStackTrace(this, this.constructor);
+    
+    else
+      this.stack = (new Error(s)).stack;
+  }
+};
+
+
+export class Exception extends ExtendableError {};
+
+
+/******************************************************************************
 ******************************[ LAZY EVALUATION ]******************************
 ******************************************************************************/
 
@@ -771,19 +793,10 @@ export const F = Fun; // shortcut
 export const app = f => x => f(x);
 
 
-export const appk = f => x => F(k => f(x).run(k));
-
-
 export const app_ = x => f => f(x);
 
 
-export const appk_ = x => f => F(k => f(x).run(k));
-
-
 export const appr = (f, y) => x => f(x) (y);
-
-
-export const appkr = (f, y) => x => F(k => f(x) (y).run(k));
 
 
 export const contify = f => x => F(k => k(f(x)));
@@ -792,19 +805,10 @@ export const contify = f => x => F(k => k(f(x)));
 export const curry = f => x => y => f(x, y);
 
 
-export const curryk = f => x => y => F(k => f(x, y).run(k));
-
-
 export const uncurry = f => (x, y) => f(x) (y);
 
 
-export const uncurryk = f => (x, y) => F(k => f(x) (y).run(k));
-
-
 export const flip = f => y => x => f(x) (y);
-
-
-export const flipk = f => y => x => F(k => f(x) (y).run(k));
 
 
 /* Allows the application of several binary combinators in sequence while
@@ -838,29 +842,9 @@ export const infix = makeInfix(true);
 export const infix_ = makeInfix(false);
 
 
-export const infixk = (...args) => F(k => {
-  if (args.length === 0) throw new TypeError("no argument");
-
-  else if (args.length % 2 === 0)
-    throw new TypeError("invalid no. of arguments")
-
-  let i = 1, x = args[0], tf;
-
-  while (i < args.length) {
-    if (i === 1) tf = args[i++] (x) (args[i++]);
-    else tf = tf.run(args[i++]) (args[i++]);
-  }
-
-  return i === 1 ? k(x) : tf.run(k);
-});
-
-
 // enables `let` bindings as expressions in a readable form
 
 export const _let = (...args) => ({in: f => f(...args)});
-
-
-export const letk = (...args) => ({in: f => F(k => f(...args).run(k))});
 
 
 /***[ Category ]**************************************************************/
@@ -881,62 +865,31 @@ F.Category = () => {
 export const comp = f => g => x => f(g(x));
 
 
-export const compk = f => g => x => F(k => g(x).run(f).run(k));
-
-
 export const comp3 = f => g => h => x => f(g(h(x)));
-
-
-export const compk3 = f => g => h => x => F(k => h(x).run(g).run(f).run(k));
 
 
 export const compSnd = f => g => x => y => f(x) (g(y));
 
 
-export const compkSnd = f => g => x => y => F(k => g(y).run(f(x)).run(k));
-
-
 export const compThd = f => g => x => y => z => f(x) (y) (g(z));
-
-
-export const compkThd = f => g => x => y => z => F(k => g(z).run(f(x) (y)).run(k));
 
 
 export const compBin = f => g => x => y => f(g(x) (y));
 
 
-export const compkBin = f => g => x => y => F(k => g(x) (y).run(f).run(k));
-
-
 export const compBoth = f => g => x => y => f(g(x)) (g(y));
-
-
-export const compkBoth = f => g => x => y =>
-  F(k => g(y).run(g(x).run(f)).run(k));
 
 
 export const liftFst = f => g => x => f(g(x)) (x);
 
 
-export const liftkFst = f => g => x => F(k => g(x).run(f) (x).run(k));
-
-
 export const liftSnd = f => g => x => f(x) (g(x));
-
-
-export const liftkSnd = f => g => x => F(k => g(x).run(f(x)).run(k));
 
 
 export const pipe = g => f => x => f(g(x));
 
 
-export const pipek = g => f => x => F(k => f(x).run(g).run(k));
-
-
 export const pipe3 = h => g => f => x => f(g(h(x)));
-
-
-export const pipek3 = h => g => f => x => F(k => f(x).run(g).run(h).run(k));
 
 
 /***[ Contravariant ]*********************************************************/
@@ -987,7 +940,7 @@ export const trace = x =>
 /***[ Functor ]***************************************************************/
 
 
-F.map = compk;
+F.map = comp;
 
 
 F.Functor = {map: F.map};
@@ -999,7 +952,7 @@ F.Functor = {map: F.map};
 // identical to Chain
 
 
-F.ap = liftkSnd;
+F.ap = liftSnd;
 
 
 F.Apply = {
@@ -1030,7 +983,7 @@ F.Applicative = {
 function composition. */ 
 
 
-F.chain = liftkFst;
+F.chain = liftFst;
 
 
 F.Chain = {
@@ -1290,10 +1243,7 @@ When to use which immutable collection type:
 
 
 
-export const Arr = k => ({ // CPS version
-  [TAG]: "Cont.Array",
-  run: k
-});
+export const Arr = {}; // namespace
 
 
 export const A = Arr; // shortcut
@@ -1473,10 +1423,6 @@ A.Traversable = () => ({
 A.map = f => tx => tx.map(f);
 
 
-A.mapk = f => tx => A(k => // CPS version
-  tx.run(xs => k(xs.map(f))));
-
-
 A.Functor = {map: A.map};
 
 
@@ -1513,14 +1459,6 @@ A.ap = fs => xs =>
       (acc2.push(f(x)), acc2), acc), []);
 
 
-A.apk = ft => tx => A(k => // CPS version
-  ft.run(fs =>
-    k(fs.reduce((acc, f) =>
-      tx.run(xs =>
-        xs.reduce((acc2, x) =>
-          (acc2.push(f(x)), acc2), acc)), []))));
-
-
 A.Apply = {
   ...A.Functor,
   ap: A.ap
@@ -1531,12 +1469,6 @@ A.Apply = {
 
 
 A.of = A.singleton;
-
-
-A.ofk = x => A(k => k([x]));
-
-
-A.fromNativek = xs => A(k => k(xs));
 
 
 A.Applicative = {
@@ -1551,13 +1483,6 @@ A.Applicative = {
 A.chain = xs => fm =>
   xs.reduce((acc, x) =>
     (acc.push.apply(acc, fm(x)), acc), []);
-
-
-/* `fm` needs to be eagerly evaluated because Javascript arrays don't form a
-lawful monad. */
-
-A.chaink = mx => fm => A(k => // CPS version
-  mx.run(xs => k(xs.flatMap(x => fm(x).run(id)))));
 
 
 A.Chain = {
@@ -1602,7 +1527,7 @@ A.Monad = {
 A.ana = A.unfold;
 
 
-A.apo = f => init => {
+A.apo = f => init => { // TODO: adapt to new Option type
   let acc = [], x = init, next;
 
   do {
@@ -1671,6 +1596,17 @@ A.Monoid = {
 };
 
 
+/***[ Streaming ]*************************************************************/
+
+
+A.stream = xs => {
+  return function go(i) {
+    if (i === xs.length - 1) return Stream.Done(Pair(i, xs[i]));
+    else return Stream.Step(Pair(i, xs[i])) (_ => go(i + 1));
+  } (0);
+};
+
+
 /***[ Unfoldable ]************************************************************/
 
 
@@ -1712,6 +1648,20 @@ A.Traversable = A.Traversable();
 
 
 A.zero = A.zero();
+
+
+/******************************************************************************
+*****************************[ ARRAY :: NEARRAY ]******************************
+******************************************************************************/
+
+
+/* The non-empty array type. Since in dynamically typed Javascript there is no
+means to ensure non-emtyness the, type comes with a more rigid constraint: Once
+constructed only new elements can be added but none deleted. Since the
+constructor enforces at least one element the non-empty property holds. */
+
+
+// TODO
 
 
 /******************************************************************************
@@ -1780,19 +1730,10 @@ export const Const = x => ({
 });
 
 
-export const Constk = k => ({ // CPS version
-  [TAG]: "Cont.Const",
-  run: k
-});
-
-
 /***[ Functor ]***************************************************************/
 
 
 Const.map = const_;
-
-
-Const.mapk = _ => tx => Constk(k => tx.run(k));
 
 
 Const.Functor = {map: Const.map};
@@ -1802,10 +1743,6 @@ Const.Functor = {map: Const.map};
 
 
 Const.ap = ({append}) => tf => tx => Const(append(tf.run) (tx.run));
-
-
-Const.apk = ({append}) => tf => tx =>
-  Constk(k => k(tx.run(tf.run(append)))); // CPS version
 
 
 Const.Apply = {
@@ -1818,9 +1755,6 @@ Const.Apply = {
 
 
 Const.of = ({empty}) => _ => Const(empty);
-
-
-Const.ofk = ({empty}) => _ => Constk(k => k(empty)); // CPS verison
 
 
 Const.Applicative = {
@@ -1855,7 +1789,7 @@ Either.Right = x => ({
 });
 
 
-Either.cata = left => right => tx => tx.run({left, right});
+Either.cata = left => right => tx => tx.run({left, right}); // elimination rule
 
 
 /***[ Foldable ]**************************************************************/
@@ -1975,6 +1909,22 @@ Either.Monad = {
 };
 
 
+/***[ Semigroup ]*************************************************************/
+
+
+/* TODO:
+
+instance (Monoid a, Monoid b) => Monoid (Either a b) where
+    mempty = Right mempty
+    Left x  `mappend` Left y  = Left (x <> y)
+    Left x  `mappend` _       = Left x
+    _       `mappend` Left y  = Left y
+    Right x `mappend` Right y = Right (x <> y)*/
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
 /***[ Resolve Dependencies ]**************************************************/
 
 
@@ -2002,19 +1952,19 @@ Either.Traversable = Either.Traversable();
 ******************************************************************************/
 
 
-// encodes the effect of computations that might throw an exception
+/* Encodes the effect of computations that might raise an exception. Since
+Javascript comprises an error class, it isn't defined as a sum type but relies
+on error class objects. This approach makes it both less cumbersome to use but
+also less explicit.
+
+Throughout this lib a new error subclass `Exception` is used to indicate an
+exception. */
 
 
-export const Except = k => ({ // CPS version
-  [TAG]: "Cont.Except",
-  run: k
-});
+export const Except = {}; // namespace
 
 
 export const E = Except; // shortcut
-
-
-E.catak = raise => proceed => tx => tx.run({raise, proceed}); // eliminiation rule
 
 
 /***[ Foldable ]**************************************************************/
@@ -2038,7 +1988,7 @@ E.Foldable = {
 E.mapA = ({of}) => ft => tx => introspect(tx) === "Error" ? of(tx) : ft(tx);
 
 
-E.seqA = ({of}) => tx => of(tx);
+E.seqA = ({of}) => tx => introspect(tx) === "Error" ? of(tx) : tx;
 
 
 E.Traversable = () => ({
@@ -2052,15 +2002,10 @@ E.Traversable = () => ({
 /***[ Functor ]***************************************************************/
 
 
-E.map = f => tx =>
-  introspect(tx) === "Error" ? tx : f(tx);
+/* Since the type isn't defined as a sum type some imperative introspection is
+required. */
 
-
-E.mapk = f => tx => E(({raise: k, proceed: k2}) => // CPS version
-  tx.run({
-    raise: x => k(x),
-    proceed: y => k2(f(y))
-  }));
+E.map = f => tx => introspect(tx) === "Error" ? tx : f(tx);
 
 
 E.Functor = {map: E.map};
@@ -2081,17 +2026,6 @@ E.ap = tf => tx =>
     : tf(tx);
 
 
-E.apk = tf => tx => E(({raise: k, proceed: k2}) => // CPS version
-  tf.run({
-    raise: x => k(x),
-    
-    proceed: f => tx.run({
-      raise: y => k(y),
-      proceed: z => k2(f(z))
-    })
-  }));
-
-
 E.Apply = {
   ...E.Functor,
   ap: E.ap
@@ -2102,9 +2036,6 @@ E.Apply = {
 
 
 E.of = x => introspect(x) === "Error" ? _throw("unexpected exception") : x;
-
-
-E.ofk = x => E(ks => ks.proceed(x)); // CPS version
 
 
 E.Applicative = {
@@ -2122,13 +2053,6 @@ E.Applicative = {
 E.chain = mx => fm => introspect(mx) === "Error" ? mx : fm(mx);
 
 
-E.chaink = mx => fm => E(({raise: k, proceed: k2}) => // CPS version
-  mx.run({
-    raise: x => k(x),
-    proceed: y => k2(fm(y))
-  }));
-
-
 E.Chain = {
   ...E.Apply,
   chain: E.chain
@@ -2144,10 +2068,7 @@ E.Monad = {
 };
 
 
-/***[ Semigroup ]*************************************************************/
-
-
-/***[ Semigroup :: Monoid ]***************************************************/
+/***[ Functor :: Bifunctor ]**************************************************/
 
 
 /******************************************************************************
@@ -2164,19 +2085,10 @@ export const Id = x => ({
 });
 
 
-export const Idk = k => ({
-  [TAG]: "Cont.Id",
-  run: k
-});
-
-
 /***[Functor]*****************************************************************/
 
 
 Id.map = f => tx => Id(f(tx.run));
-
-
-Id.mapk = f => tx => Idk(k => k(tx.run(f))); // CPS version
 
 
 Id.Functor = {map: Id.map};
@@ -2186,9 +2098,6 @@ Id.Functor = {map: Id.map};
 
 
 Id.ap = tf => tx => Id(tf.run(tx.run));
-
-
-Id.ap = tf => tx => Idk(k => k(tf.run(tx.run))); // CPS version
 
 
 Id.Apply = {
@@ -2203,9 +2112,6 @@ Id.Apply = {
 Id.of = Id;
 
 
-Id.of = x => Idk(k => k(x)); // CPS version
-
-
 Id.Applicative = {
   ...Id.Apply,
   of: Id.of
@@ -2216,9 +2122,6 @@ Id.Applicative = {
 
 
 Id.chain = mx => fm => fm(mx.run);
-
-
-Id.chain = mx => fm => Idk(k => k(mx.run(fm))); // CPS version
 
 
 Id.Chain = {
@@ -2399,10 +2302,37 @@ const _Map = {}; // namespace
 /***[ Getter/Setter ]*********************************************************/
 
 
-_Map.get = k => m => m.get(k);
+_Map.add = ({append}) => k => v => m => {
+  if (m.has(k)) return m.set(k, append(m.get(k)) (v));
+  else return m.set(k, v);
+};
+
+
+_Map.get = k => m => m.has(k) ? m.get(k) : null;
+
+
+_Map.getOr = x => k => m => m.has(k) ? m.get(k) : x;
+
+
+_Map.has = k => m => m.has(k);
 
 
 _Map.set = k => v => m => m.set(k, v);
+
+
+_Map.del = k => m => m.delete(k);
+
+
+_Map.upd = k => f => m => {
+  if (m.has(k)) (o[k] = f(o[k]), o);
+  else return new Exception("missing property to be updated");
+};
+
+
+_Map.updOr = x => k => f => o => {
+  if (k in o) return (o[k] = f(o[k]), o);
+  else return (o[k] = x, o);
+};
 
 
 /******************************************************************************
@@ -2433,37 +2363,13 @@ O.clone = o => {
 O.Clonable = {clone: O.clone};
 
 
-/***[ Generators ]************************************************************/
-
-
-O.entries = function* (o) {
-  for (let prop in o) {
-    yield Pair(prop, o[prop]);
-  }
-}
-
-
-O.keys = function* (o) {
-  for (let prop in o) {
-    yield prop;
-  }
-}
-
-
-O.values = function* (o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-}
-
-
 /***[ Getter/Setter ]*********************************************************/
 
 
 O.add = ({append}) => k => v => o => {
   if (k in o) return (o[k] = append(o[k]) (v), o);
   else return (o[k] = v, o);
-}
+};
 
 
 O.del = k => o => (delete o[k], o);
@@ -2479,14 +2385,47 @@ O.set = k => v => o => (o[k] = v, o);
 
 
 O.upd = k => f => o => {
-  if (k in o) (o[k] = f(o[k]), E.right(o));
-  else return E.left(o);
+  if (k in o) (o[k] = f(o[k]), o);
+  else return new Exception("missing property to be updated");
 };
 
 
 O.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
+};
+
+
+/***[ Streaming ]*************************************************************/
+
+
+O.keyStream = o => {
+  const keys = Object.entries(o);
+
+  return function go(i) {
+    if (i === keys.length - 1) return Stream.Done(keys[i]);
+    else return Stream.Step(keys[i]) (_ => go(i + 1));
+  } (0);
+};
+
+
+O.propStream = o => {
+  const props = Object.entries(o);
+
+  return function go(i) {
+    if (i === props.length - 1) return Stream.Done(props[i]);
+    else return Stream.Step(props[i]) (_ => go(i + 1));
+  } (0);
+};
+
+
+O.valueStream = o => {
+  const values = Object.values(o);
+
+  return function go(i) {
+    if (i === values.length - 1) return Stream.Done(values[i]);
+    else return Stream.Step(values[i]) (_ => go(i + 1));
+  } (0);
 };
 
 
@@ -2631,25 +2570,16 @@ Optic.map = Optic.map();
 ******************************************************************************/
 
 
-// encodes the effect of computations that might not yield a result
+/* Encodes the effect of computations that might not yield a result. Since
+Javascript comprises a `null` value, it isn't defined as a sum type but relies
+on this value. This approach makes it both less cumbersome to use but also less
+explicit. */
 
 
-export const Option = k => ({ // CPS version
-  [TAG]: "Cont.Option",
-  run: k
-});
+export const Option = k => (); // namespace
 
 
 export const Opt = Option; // shortcut
-
-
-Opt.none = Opt(ks => ks.none);
-
-
-Opt.some = x => Opt(ks => ks.some(x));
-
-
-Opt.optionk = none => some => tx => tx.run({none, some}); // elimination rule
 
 
 /***[ Foldable ]**************************************************************/
@@ -2673,7 +2603,7 @@ Opt.Foldable = {
 Opt.mapA = ({of}) => ft => tx => tx === null ? of(tx) : ft(tx);
 
 
-Opt.seqA = ({of}) => tx => of(tx);
+Opt.seqA = ({of}) => tx => tx === null ? of(tx) : tx;
 
 
 Opt.Traversable = () => ({
@@ -2688,13 +2618,6 @@ Opt.Traversable = () => ({
 
 
 Opt.map = f => tx => tx === null ? null : f(tx);
-
-
-Opt.mapk = f => tx => Opt(({none: k, some: k2}) => // CPS version
-  tx.run({
-    none: null,
-    some: y => k2(f(y))
-  }));
 
 
 Opt.Functor = {map: Opt.map};
@@ -2732,17 +2655,6 @@ Opt.ap = tf => tx =>
     : tf(tx);
 
 
-Opt.ap = tf => tx => Opt(({none: k, some: k2}) => // CPS version
-  tf.run({
-    none: null,
-    
-    some: tf => tx.run({
-      none: null,
-      some: z => k2(tf(z))
-    })
-  }));
-
-
 Opt.Apply = {
   ...Opt.Functor,
   ap: Opt.ap
@@ -2752,10 +2664,10 @@ Opt.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
+/* Since the type isn't defined as a sum type some imperative introspection is
+required. */
+
 Opt.of = x => x === null ? _throw("unexpected null") : x;
-
-
-Opt.ofk = Opt.some; // CPS version
 
 
 Opt.Applicative = {
@@ -2777,13 +2689,6 @@ Opt.Alternative = {
 
 
 Opt.chain = mx => fm => mx === null ? null : fm(mx);
-
-
-Opt.chaink = mx => fm => Opt(({none: k, some: k2}) => // CPS version
-  mx.run({
-    none: null,
-    some: y => k2(fm(y))
-  }));
 
 
 Opt.Chain = {
@@ -3032,6 +2937,34 @@ P.flatmap = mx => fm =>
 
 P.flatten = mmx =>
   P(k => mmx.run(mx => mx.run(k)));
+
+
+P.once = tx => {
+  let x = lazy(() => {
+    throw new TypeError("race condition detected");
+  });
+
+  let done = false;
+
+  const k = f => {
+    if (done) {
+      f(x);
+      return k;
+    }
+
+    else {
+      tx.run(y => {
+        x = y; f(y);
+        return k;
+      });
+
+      done = true; // sync
+      return k;
+    }
+  };
+
+  return S(k);
+};
 
 
 /***[ Resolve Dependencies ]**************************************************/
@@ -4191,10 +4124,13 @@ const _Set = {}; // namespace
 /***[ Getter/Setter ]*********************************************************/
 
 
-_Set.get = k => s => s.get(k);
+_Set.has = k => s => s.has(k);
 
 
-_Set.set = k => v => s => s.set(k, v);
+_Set.set = k => s => s.add(k);
+
+
+_Set.del = k => s => s.delete(k);
 
 
 /******************************************************************************
@@ -4208,7 +4144,7 @@ function to request another chunk. The type uses a lazy object getter to
 suspend the process. */
 
 
-const Stream = {}; // namespace
+export const Stream = {}; // namespace
 
 
 // value constructors
@@ -4326,25 +4262,12 @@ Stream.foldr = f => init => tx => function go(ty, acc) {
 
 
 Stream.Foldable = {
-  left: Stream.foldl,
-  right: Stream.foldr
+  foldl: Stream.foldl,
+  foldr: Stream.foldr
 };
 
 
 /***[ Foldable :: Traversable ]***********************************************/
-
-
-Stream.seqA = ({map, of}) => function go(ttx) {
-  return ttx.run({
-    step: tx => map(o => Stream.Step.lazy({
-      yield: o.yield,
-      get next() {return go(o.next)}
-    })) (tx),
-
-    done: ty => map(p => Stream.Done(p.yield)) (ty),
-    nis: of(Stream.Nis)
-  });
-};
 
 
 Stream.mapA = ({map, of}) => ft => function go(tx) {
@@ -4355,6 +4278,19 @@ Stream.mapA = ({map, of}) => ft => function go(tx) {
     }) (ft(o.yield))),
 
     done: p => map(p => Stream.Done(p.yield)) (ty),
+    nis: of(Stream.Nis)
+  });
+};
+
+
+Stream.seqA = ({map, of}) => function go(ttx) {
+  return ttx.run({
+    step: tx => map(o => Stream.Step.lazy({
+      yield: o.yield,
+      get next() {return go(o.next)}
+    })) (tx),
+
+    done: ty => map(p => Stream.Done(p.yield)) (ty),
     nis: of(Stream.Nis)
   });
 };
@@ -4747,13 +4683,7 @@ Tree.linearize = Tree.cata(x => xss => {
 // encodes the most fundamental product type
 
 
-export const Tuple = k => ({ // CPS version
-  [TAG]: "Tuple",
-  run: k
-});
-
-
-Tuple.pairk = (x, y) => Tuple(k => k(x, y));
+export const Tuple = {}; // namespace
 
 
 /******************************************************************************
@@ -4778,10 +4708,6 @@ export const Pair = (x, y) => ({
 
 
 Pair.bimap = f => g => tx => Pair(f(tx[1]), g(tx[2]));
-
-
-Pair.bimapk = f => g => tx => // CPS version
-  Tuple(k => tx.run((x, y) => Pair(f(x), g(y))));
 
 
 Pair.Bifunctor = () => ({
@@ -4820,10 +4746,6 @@ Pair.Foldable = {
 Pair.map = f => ({1: x, 2: y}) => Pair(x, f(y));
 
 
-Pair.mapk = f => tx =>
-  Tuple(k => tx.run((x, y) => k(x, f(y)))); // CPS version
-  
-
 Pair.Functor = {map: Pair.map};
 
 
@@ -4832,10 +4754,6 @@ Pair.Functor = {map: Pair.map};
 
 Pair.ap = ({append}) => ({1: x, 2: f}) => ({1: y, 2: z}) =>
   Pair(append(x) (y), f(z));
-
-
-Pair.apk = ({append}) => tf => tx => // CPS version
-  Tuple(k => tf.run((x, f) => tx.run((y, z) => k(append(x) (y), f(z)))));
 
 
 Pair.Apply = {
@@ -4847,7 +4765,7 @@ Pair.Apply = {
 /***[ Functor :: Apply :: Applicative ]***************************************/
 
 
-Pair.of = ({empty}) => x => Tuple(k => k(empty) (x));
+Pair.of = ({empty}) => x => Pair(empty, x);
 
 
 Pair.Applicative = {
@@ -4863,10 +4781,6 @@ Pair.chain = ({append}) => fm => ({1: x, 2: y}) => {
   const {1: x2, 2: y2} = fm(y);
   return Pair(append(x) (x2), y2);
 };
-
-
-Pair.chaink = ({append}) => fm => mx => mx.run((x, y) => // CPS version
-  Tuple(k => fm(y).run((x2, y2) => k(append(x) (x2), y2))));
 
 
 Pair.Chain = {
