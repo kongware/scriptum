@@ -1514,6 +1514,18 @@ A.Monad = {
 };
 
 
+/***[ Functor :: Extend ]*****************************************************/
+
+
+// TODO: extend entailing index on focused element + entire array
+
+
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+// TODO: extract extracting the focused element
+
+
 /***[ Recursion Schemes ]*****************************************************/
 
 
@@ -2234,7 +2246,7 @@ L.map = f => Loops(tx =>
     cons: y => ty => Loops.call(
       L.Cons(f(y)),
       Loops.next(ty)),
-    nil: Loops.done(L.Nil)
+    get nil() {return Loops.done(L.Nil)}
   }));
 
 
@@ -2259,8 +2271,9 @@ L.ap = tf => Loops(tx => // TODO: test
         cons: y => ty => Loops.call(
           L.Cons(g(y)),
           Loops.call2(tg, L.ap, ty)), // nested calls probably don't work
-        nil: Loops.done(L.Nil)
-      })
+        get nil() {return Loops.done(L.Nil)}
+      }),
+
     nil: L.Nil
   }));
 
@@ -2269,9 +2282,10 @@ L.apLazy = tf => tx =>
   tf.run({
     cons: g => tg =>
       tx.run({
-        cons: y => ty => L.Cons(g(y)) (lazy(() => L.ap(tg) (ty))),
+        cons: y => ty => L.Cons(g(y)) (lazy(() => L.apLazy(tg) (ty))),
         nil: L.Nil
-      })
+      }),
+
     nil: L.Nil
   });
 
@@ -4241,7 +4255,7 @@ Stream.mapA = ({map, of}) => ft => function go(tx) {
     step: o => map(x => Stream.Step.lazy({
       yield: x,
       get next() {return go(o.next)}
-    }) (ft(o.yield)),
+    }) (ft(o.yield))),
 
     done: p => map(p => Stream.Done(p.yield)) (ty),
     nis: of(Stream.Nis)
