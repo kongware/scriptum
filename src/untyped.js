@@ -55,11 +55,10 @@ and `this`. */
 
 export const App = t => ({
   app: x => App(t(x)), // applies the boxed fun
-  app_: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
-  appVar: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
-  appLazy: x => App_({get run() {return t(x)}}), // applies the boxed fun lazily
+  appFlip: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
+  appUncurry: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
   map: f => App(f(t)),  // applies the fun
-  map_: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
+  mapFlip: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
   get: t // gets the boxed value
 });
 
@@ -380,6 +379,8 @@ Loop3.base = x => ({[TAG]: "Base", x});
 
 
 /* Stack-based trampoline to enable recursive cases not in tail call position.
+This way we can mimick Haskell's guarded recursion using tail recursion modulo
+cons and beyond.
 
 The original Fibbonacci algorithm
 
@@ -807,29 +808,34 @@ export const flipk = f => y => x => F(k => f(x) (y).run(k));
 
 
 /* Allows the application of several binary combinators in sequence while
-maintaining a flat syntax. Describes the following function call stack:
+maintaining a flat syntax. Describes the following function call stacks:
 
   (x, f, y, g, z) => g(f(x) (y)) (z)
-
-While composing functors leads to the incompatible structure
-
   (x, f, y, g, z) => g(z) (f(x) (y))
 
-it doesn't matter because the passed pure functions should be composed,
-not the underlying functor itself. */
+Which stack emerges from a combinator depends on the argument the computation
+is nested in. The applicative `ap`, for instance, defines its nested call
+within the first argument, whereas the functorial `map` nests in the second one. */
 
-export const infix = (...args) => {
+const makeInfix = nestFirst => (...args) => {
   if (args.length === 0) throw new TypeError("no argument found");
 
   let i = 1, x = args[0];
 
   while (i < args.length) {
     if (i === 1) x = args[i++] (x) (args[i++]);
-    else x = args[i++] (x) (args[i++]);
+    else if (nestFirst) x = args[i++] (x) (args[i++]);
+    else x = args[i++] (args[i++]) (x);
   }
 
   return x;
 };
+
+
+export const infix = makeInfix(true);
+
+
+export const infix_ = makeInfix(false);
 
 
 export const infixk = (...args) => F(k => {
@@ -2325,7 +2331,7 @@ L.mapLazy = f => function go(tx) {
 L.Functor = {map: L.map};
 
 
-/***[ Functor :: Apply (non-determinism) ]************************************/
+/***[ Functor :: Apply (Non-Determinism) ]************************************/
 
 
 // TODO
@@ -2337,7 +2343,7 @@ L.Functor = {map: L.map};
 };*/
 
 
-/***[ Functor :: Apply (zip list) ]*******************************************/
+/***[ Functor :: Apply (Zip List) ]*******************************************/
 
 
 L.ZipList = {};
@@ -2951,7 +2957,16 @@ P.Applicative = {
 /***[ Natural Transformations ]***********************************************/
 
 
-// TODO: fromSerial/toSerial
+/* Values of type Parallel/Serial are structurally equal but differ in their
+logical conjunctions/disjunctions. Hence, natural transformations are merely
+documenting for improved comprehensibility. */
+
+
+P.fromSerial = tx => ({
+  [TAG]: "Parallel",
+  run: tx.k,
+  runAsync: tx.runAsync
+});
 
 
 /***[ Semigroup ]*************************************************************/
@@ -3883,7 +3898,16 @@ S.Monad = {
 /***[ Natural Transformations ]***********************************************/
 
 
-// TODO: fromParallel/toParallel
+/* Values of type Parallel/Serial are structurally equal but differ in their
+logical conjunctions/disjunctions. Hence, natural transformations are merely
+documenting for improved comprehensibility. */
+
+
+S.fromParallel = tx => ({
+  [TAG]: "Serial",
+  run: tx.k,
+  runAsync: tx.runAsync
+});
 
 
 /***[ Semigroup ]*************************************************************/
