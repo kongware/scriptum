@@ -280,14 +280,14 @@ invokations. */
 export const Loop = f => x => {
   let o = f(x);
 
-  while (o[TAG] !== "Done") {
+  while (o[TAG] !== "Base") {
     switch (o[TAG]) {
       case "Call": {
         o = o.f(o.x);
         break;
       }
 
-      case "Next": {
+      case "Rec": {
         o = f(o.x);
         break;
       }
@@ -303,14 +303,14 @@ export const Loop = f => x => {
 export const Loop2 = f => (x, y) => {
   let o = f(x, y);
 
-  while (o[TAG] !== "Done") {
+  while (o[TAG] !== "Base") {
     switch (o[TAG]) {
       case "Call": {
         o = o.f(o.x, o.y);
         break;
       }
 
-      case "Next": {
+      case "Rec": {
         o = f(o.x, o.y);
         break;
       }
@@ -326,14 +326,14 @@ export const Loop2 = f => (x, y) => {
 export const Loop3 = f => (x, y, z) => {
   let o = f(x, y, z);
 
-  while (o[TAG] !== "Done") {
+  while (o[TAG] !== "Base") {
     switch (o[TAG]) {
       case "Call": {
         o = o.f(o.x, o.y, o.z);
         break;
       }
 
-      case "Next": {
+      case "Rec": {
         o = f(o.x, o.y, o.z);
         break;
       }
@@ -352,28 +352,28 @@ export const Loop3 = f => (x, y, z) => {
 Loop.call = (f, x) => ({[TAG]: "Call", f, x});
 
 
-Loop.next = x => ({[TAG]: "Next", x});
+Loop.rec = x => ({[TAG]: "Rec", x});
 
 
-Loop.done = x => ({[TAG]: "Done", x});
+Loop.base = x => ({[TAG]: "Base", x});
 
 
 Loop2.call = (f, x, y) => ({[TAG]: "Call", f, x, y});
 
 
-Loop2.next = (x, y) => ({[TAG]: "Next", x, y});
+Loop2.rec = (x, y) => ({[TAG]: "Rec", x, y});
 
 
-Loop2.done = x => ({[TAG]: "Done", x});
+Loop2.base = x => ({[TAG]: "Base", x});
 
 
 Loop3.call = (f, x, y, z) => ({[TAG]: "Call", f, x, y, z});
 
 
-Loop3.next = (x, y, z) => ({[TAG]: "Next", x, y, z});
+Loop3.rec = (x, y, z) => ({[TAG]: "Rec", x, y, z});
 
 
-Loop3.done = x => ({[TAG]: "Done", x});
+Loop3.base = x => ({[TAG]: "Base", x});
 
 
 /***[ Loop Stack-based ]******************************************************/
@@ -393,17 +393,17 @@ is transformed into a trampolining version:
 
   const fib = Loops(n =>
     n <= 1
-      ? Loops.done(n)
+      ? Loops.base(n)
       : Loops.call2(
-          Loops.next(n - 1),
+          Loops.rec(n - 1),
           add,
-          Loops.next(n - 2))); */
+          Loops.rec(n - 2))); */
 
 
 const Loops = f => x => {
   const stack = [f(x)];
 
-  while (stack.length > 1 || stack[0] [TAG] !== "Done") {
+  while (stack.length > 1 || stack[0] [TAG] !== "Base") {
     let o = stack[stack.length - 1];
 
     switch (o[TAG]) {
@@ -414,18 +414,18 @@ const Loops = f => x => {
         break;
       }
 
-      case "Next": {
+      case "Rec": {
         o = f(o.x);
         break;
       }
 
-      case "Done": {
-        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Done") {
+      case "Base": {
+        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Base") {
           const p = (stack.pop(), stack.pop());
 
           switch (p[TAG]) {
             case "Call": {
-              o = Loops.done(p.f(o.x));
+              o = Loops.base(p.f(o.x));
               stack.push(o);
 
               break;
@@ -452,19 +452,83 @@ const Loops = f => x => {
 };
 
 
+const Loops2 = f => (x, y) => {
+  const stack = [f(x, y)];
+
+  while (stack.length > 1 || stack[0] [TAG] !== "Base") {
+    let o = stack[stack.length - 1];
+
+    switch (o[TAG]) {
+      case "Call":      
+      case "Call2": {
+        o = f(o.x.x, o.x.y);
+        stack.push(o);
+        break;
+      }
+
+      case "Rec": {
+        o = f(o.x, o.y);
+        break;
+      }
+
+      case "Base": {
+        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Base") {
+          const p = (stack.pop(), stack.pop());
+
+          switch (p[TAG]) {
+            case "Call": {
+              o = Loops.base(p.f(o.x, o.y));
+              stack.push(o);
+
+              break;
+            }
+
+            case "Call2": {
+              o = Loops.call(p.f(o.x, o.y), p.y);
+              stack.push(o);
+              break;
+            }
+
+            default: throw new TypeError("unexpected tag");
+          }
+        }
+
+        break;
+      }
+
+      default: throw new TypeError("unexpected tag");
+    }
+  }
+
+  return stack[0].x;
+};
+
+
 // Tags
 
 
 Loops.call = (f, x) => ({[TAG]: "Call", f, x});
 
 
-Loops.call2 = (x, f, y) => ({[TAG]: "Call2", f, x, y});
+Loops.call2 = (f, x, y) => ({[TAG]: "Call2", f, x, y});
 
 
-Loops.next = x => ({[TAG]: "Next", x});
+Loops.rec = x => ({[TAG]: "Rec", x});
 
 
-Loops.done = x => ({[TAG]: "Done", x});
+Loops.base = x => ({[TAG]: "Base", x});
+
+
+Loops2.call = (f, x) => ({[TAG]: "Call", f, x});
+
+
+Loops2.call2 = (f, x, y) => ({[TAG]: "Call2", f, x, y});
+
+
+Loops2.rec = x => y => ({[TAG]: "Rec", x, y});
+
+
+Loops2.base = x => ({[TAG]: "Base", x});
 
 
 
@@ -1356,8 +1420,8 @@ A.foldi = f => init => xs => { // left-associative with index
 A.foldk = ft => init => xs => // short circuitable
   Loop2((acc, i) =>
     i === xs.length
-      ? Loop2.done(acc)
-      : ft(acc) (xs[i]) (acc2 => Loop2.next(acc2, i + 1)))
+      ? Loop2.base(acc)
+      : ft(acc) (xs[i]) (acc2 => Loop2.rec(acc2, i + 1)))
         (init, 0);
 
 
@@ -2220,7 +2284,7 @@ List.foldl = f => init => xs => Loop2((ys, acc) =>
   ys.run({
     nil: acc,
 
-    cons: z => zs => Loop2.next(zs, f(acc) (z))
+    cons: z => zs => Loop2.rec(zs, f(acc) (z))
   })) (xs, init);
 
 
@@ -2245,8 +2309,8 @@ L.map = f => Loops(tx =>
   tx.run({
     cons: y => ty => Loops.call(
       L.Cons(f(y)),
-      Loops.next(ty)),
-    get nil() {return Loops.done(L.Nil)}
+      Loops.rec(ty)),
+    get nil() {return Loops.base(L.Nil)}
   }));
 
 
@@ -2261,40 +2325,49 @@ L.mapLazy = f => function go(tx) {
 L.Functor = {map: L.map};
 
 
-/***[ Functor :: Apply ]******************************************************/
+/***[ Functor :: Apply (non-determinism) ]************************************/
 
 
-L.ap = tf => Loops(tx => // TODO: test
+// TODO
+
+
+/*L.Apply = {
+  ...L.Functor,
+  ap: L.ap
+};*/
+
+
+/***[ Functor :: Apply (zip list) ]*******************************************/
+
+
+L.ZipList = {};
+
+
+L.ZipList.ap = tf => tx => Loops2((tf, tx) => 
   tf.run({
     cons: g => tg =>
       tx.run({
-        cons: y => ty => Loops.call(
+        cons: y => ty => Loops2.call(
           L.Cons(g(y)),
-          Loops.call2(tg, L.ap, ty)), // nested calls probably don't work
-        get nil() {return Loops.done(L.Nil)}
+          Loops2.call2(L.ZipList.ap, tg, ty)),
+
+        get nil() {return Loops2.base(L.Nil)}
       }),
 
-    nil: L.Nil
-  }));
+    get nil() {return Loops2.base(L.Nil)}
+  })) (tf, tx);
 
 
-L.apLazy = tf => tx =>
+L.ZipList.apLazy = tf => tx =>
   tf.run({
     cons: g => tg =>
       tx.run({
-        cons: y => ty => L.Cons(g(y)) (lazy(() => L.apLazy(tg) (ty))),
+        cons: y => ty => L.Cons(g(y)) (lazy(() => L.ZipList.apLazy(tg) (ty))),
         nil: L.Nil
       }),
 
     nil: L.Nil
   });
-
-
-
-L.Apply = {
-  ...L.Functor,
-  ap: L.ap
-};
 
 
 /***[ Functor :: Apply :: Applicative ]***************************************/
@@ -3630,9 +3703,9 @@ Parser.take1 = n => Parser(({text, i}) => state => {
 Parser.takeWhile = f => init => parser => Parser(rest => state => {
   return Loop3((acc, rest2, state2) => {
     return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop3.done(Parser.Result.Some({res: acc, rest: o.rest, state: o.state})),
-      some: p => Loop3.next(f(p.res) (acc), p.rest, p.state),
-      none: q => Loop3.next(acc, q.rest, q.state)
+      error: o => Loop3.base(Parser.Result.Some({res: acc, rest: o.rest, state: o.state})),
+      some: p => Loop3.rec(f(p.res) (acc), p.rest, p.state),
+      none: q => Loop3.rec(acc, q.rest, q.state)
     }));
   }) (init, rest, state);
 });
@@ -3645,9 +3718,9 @@ Parser.takeWhile1 = f => init => parser => Parser(rest => state => {
     some: p => {
       return Loop3((acc, rest2, state2) => {
         return parser(rest2) (state2).map(tx => tx.run({
-          error: o2 => Loop3.done(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
-          some: p2 => Loop3.next(f(p2.res) (acc), p2.rest, p2.state),
-          none: q2 => Loop3.next(acc, q2.rest, q2.state)
+          error: o2 => Loop3.base(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
+          some: p2 => Loop3.rec(f(p2.res) (acc), p2.rest, p2.state),
+          none: q2 => Loop3.rec(acc, q2.rest, q2.state)
         }));
       }) (f(p.res) (init), p.rest, p.state);
     },
@@ -3655,9 +3728,9 @@ Parser.takeWhile1 = f => init => parser => Parser(rest => state => {
     none: q => {
       return Loop3((acc, rest2, state2) => {
         return parser(rest2) (state2).map(tx => tx.run({
-          error: o2 => Loop3.done(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
-          some: p2 => Loop3.next(f(p2.res) (acc), p2.rest, p2.state),
-          none: q2 => Loop3.next(acc, q2.rest, q2.state)
+          error: o2 => Loop3.base(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
+          some: p2 => Loop3.rec(f(p2.res) (acc), p2.rest, p2.state),
+          none: q2 => Loop3.rec(acc, q2.rest, q2.state)
         }));
       }) (init, p.rest, p.state);
     }
@@ -3674,9 +3747,9 @@ Parser.drop = n => Parser(({text, i}) => state => {
 Parser.dropWhile = parser => Parser(rest => state => {
   return Loop2((rest2, state2) => {
     return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop2.done(Parser.Result.None({rest: o.rest, state: o.state})),
-      some: p => Loop2.next(p.rest, p.state),
-      none: q => Loop2.next(q.rest, q.state)
+      error: o => Loop2.base(Parser.Result.None({rest: o.rest, state: o.state})),
+      some: p => Loop2.rec(p.rest, p.state),
+      none: q => Loop2.rec(q.rest, q.state)
     }));
   }) (rest, state);
 });
@@ -3685,9 +3758,9 @@ Parser.dropWhile = parser => Parser(rest => state => {
 Parser.dropUntil = parser => Parser(rest => state => {
   return Loop2((rest2, state2) => {
     return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop2.next(o.rest, o.state),
-      some: p => Loop2.done(Parser.Result.None({rest: p.rest, state: p.state})),
-      none: q => Loop2.done(Parser.Result.None({rest: p.rest, state: p.state}))
+      error: o => Loop2.rec(o.rest, o.state),
+      some: p => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state})),
+      none: q => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state}))
     }));
   }) (rest, state);
 });
@@ -4178,15 +4251,15 @@ Stream.toArr = tx => Loop2((ty, acc) => {
   ty.run({
     step: o => {
       acc.push(o.yield);
-      return Loop2.next(o.next);
+      return Loop2.rec(o.next);
     },
 
     done: p => {
       acc.push(p.yield);
-      return Loop2.done(acc);
+      return Loop2.base(acc);
     },
 
-    nis: Loop2.done(acc)
+    nis: Loop2.base(acc)
   });
 }) (tx, []);
 
@@ -4983,7 +5056,7 @@ FileSys.except = fs => cons => thisify(o => {
 
   * add logical and type
   * add memo monad
-  * add Array/List Zip Applicative instance
+  * add Array Zip Applicative instance
   * add DList
   * add NEList
   * add State type/monad
