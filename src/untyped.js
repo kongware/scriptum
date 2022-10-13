@@ -90,12 +90,13 @@ export class Exception extends ExtendableError {};
 ******************************************************************************/
 
 
-/* Encodes lazy evaluated thunks. Thunks are expressions that are only
-evaluated if actually needed and only once. If evaluation kicks in, Javascript's
-normal run-to.completion rule applies. As soon as a thunk is used within a
-normal and thus eagerly evaluated expression, it is automatically evaluated.
-Hence you can use thunks as if they were normal expressions. They are
-completely transparent to the code. */
+/* Encodes either deferred or lazy evaluated thunks in an ad-hoc manner:
+
+  * deferred thunks are only evaluated if and when needed
+  * lazy thunks are only evaluated once if and when needed
+
+If you want deferred or lazy evaluation wihtin functors, applicatives and
+monads use the `Defer` and `Lazy` data types. */
 
 
 /***[ Constants ]*************************************************************/
@@ -1509,18 +1510,6 @@ A.Monad = {
 };
 
 
-/***[ Functor :: Extend ]*****************************************************/
-
-
-// TODO: extend entailing index on focused element + entire array
-
-
-/***[ Functor :: Extend :: Comonad ]******************************************/
-
-
-// TODO: extract extracting the focused element
-
-
 /***[ Recursion Schemes ]*****************************************************/
 
 
@@ -1656,12 +1645,41 @@ A.zero = A.zero();
 
 
 /* The non-empty array type. Since in dynamically typed Javascript there is no
-means to ensure non-emtyness the, type comes with a more rigid constraint: Once
-constructed only new elements can be added but none deleted. Since the
-constructor enforces at least one element the non-empty property holds. */
+means to ensure non-emtyness, the type comes with a more rigid constraint:
+Once constructed only new elements can be added but none deleted. Since the
+constructor enforces at least one element the non-empty property holds. From
+a functional perspective the biggest drawback of this approach is the lack of
+a filter and slice function. */
 
 
-// TODO
+class NEArray extends Array {
+  constructor(xs) {
+    if (xs.length === 0) throw new TypeError("cannot construct empty array");
+
+    else {
+      super(0);
+      this.push.apply(this, xs);
+    }
+  }
+
+  filter() {throw new TypeError("illegal operation")}
+  pop() {throw new TypeError("illegal operation")}
+  shift() {throw new TypeError("illegal operation")}
+  slice() {throw new TypeError("illegal operation")}
+  splice() {throw new TypeError("illegal operation")}
+};
+
+
+/***[ Functor :: Extend ]*****************************************************/
+
+
+// TODO: extend entailing index on focused element + entire array
+
+
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+// TODO: extract extracting the focused element
 
 
 /******************************************************************************
@@ -1760,6 +1778,35 @@ Const.of = ({empty}) => _ => Const(empty);
 Const.Applicative = {
   ...Const.Apply,
   of: Const.of
+};
+
+
+/******************************************************************************
+***********************************[ DEFER ]***********************************
+******************************************************************************/
+
+
+/* Encodes deferred evaluated thunks in a more principled manner than the 
+proxy-based `defer` and `lazy` combinators. Use the `Lazy` type if you need
+sharing.
+
+  * deferred thunks are only evaluated if and when needed
+  * lazy thunks are only evaluated once if and when needed */
+
+
+export const Defer = thunk => ({ // constructor
+  [TAG]: "Defer",
+  get run_() {return thunk()}
+});
+
+
+// Transformer
+
+Defer.T = ({...o}) => { // type classes
+  map: f => ttx => Defer(() => o.map(f) (ttx.run)),
+  ap: ttf => ttx => Defer(() => o.ap(ttf.run) (ttx.run)),
+  of: x => Defer(() => o.of(x)),
+  chain: mmx => fmm => Defer(() => o.chain(mmx.run) (fmm).run)
 };
 
 
@@ -2140,6 +2187,40 @@ Id.Monad = {
 
 
 /******************************************************************************
+***********************************[ LAZY ]************************************
+******************************************************************************/
+
+
+/* Encodes lazy evaluated thunks in a more principled manner than the 
+proxy-based `defer` and `lazy` combinators. Use the `Defer` type if you don't
+need sharing.
+
+  * deferred thunks are only evaluated if and when needed
+  * lazy thunks are only evaluated once if and when needed */
+
+
+export const Lazy = thunk => ({
+  [TAG]: "Lazy",
+
+  get run() {
+    const r = thunk(); // sharing
+    delete this.run;
+    return this.run = r;
+  }
+});
+
+
+// Transformer
+
+Lazy.T = ({...o}) => { // type classes
+  map: f => ttx => Lazy(() => o.map(f) (ttx.run)),
+  ap: ttf => ttx => Lazy(() => o.ap(ttf.run) (ttx.run)),
+  of: x => Lazy(() => o.of(x)),
+  chain: mmx => fmm => Defer(() => o.chain(mmx.run) (fmm).run)
+};
+
+
+/******************************************************************************
 ***********************************[ LIST ]************************************
 ******************************************************************************/
 
@@ -2289,6 +2370,79 @@ L.Applicative = {
   ...L.Apply,
   of: L.of
 };
+
+
+/******************************************************************************
+*******************************[ LIST :: DLIST ]*******************************
+******************************************************************************/
+
+
+export const DList = f => ({
+  [TAG]: "DList",
+  run: f
+});
+
+
+/***[ Con-/Deconstruction ]***************************************************/
+
+
+DList.cons = x => xs => app(DList) (comp(List.Cons(x)) (xs.run));
+
+
+DList.singleton = comp(DList) (List.Cons);
+
+
+DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
+
+
+/***[ Natural Transformations ]***********************************************/
+
+
+DList.fromList = xs => comp(DList) (List.append);
+
+
+DList.toList = xs => comp(app_(List.Nil)) (xs.run);
+
+
+/***[ Semigroup ]*************************************************************/
+
+
+DList.append = xs => ys => app(DList) (comp(xs.run) (ys.run));
+
+
+DList.prepend = ys => xs => app(DList) (comp(xs.run) (ys.run));
+
+
+DList.Semigroup = {
+  append: DList.append,
+  prepend: DList.prepend
+};
+
+
+/***[ Semigroup :: Monoid ]***************************************************/
+
+
+DList.empty = DList(id);
+
+
+DList.Monoid = {
+  ...DList.Semigroup,
+  empty: DList.empty
+};
+
+
+/***[ Unfoldable ]************************************************************/
+
+
+DList.unfold = f => function go(y) {
+  return f(y).run({
+    none: DList.empty,
+    some: ([x, y2]) => DList.Cons(x) (lazy(() => go(y2)))
+  })
+};
+
+
+DList.Unfoldable = {unfold: DList.unfold};
 
 
 /******************************************************************************
@@ -2576,7 +2730,7 @@ on this value. This approach makes it both less cumbersome to use but also less
 explicit. */
 
 
-export const Option = k => (); // namespace
+export const Option = {}; // namespace
 
 
 export const Opt = Option; // shortcut
@@ -4510,6 +4664,18 @@ Stream.Monad = {
 };
 
 
+/***[ Functor :: Extend ]*****************************************************/
+
+
+// TODO: head of the stream
+
+
+/***[ Functor :: Extend :: Comonad ]******************************************/
+
+
+// TODO: f applied to each tail of the stream (i.e. stream.next)
+
+
 /***[ Semigroup ]*************************************************************/
 
 
@@ -4992,7 +5158,6 @@ FileSys.except = fs => cons => thisify(o => {
 
 /*
 
-  * add logical and type
   * add memo monad
   * add Array Zip Applicative instance
   * add DList
