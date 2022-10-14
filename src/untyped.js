@@ -15,6 +15,31 @@
 
 
 
+/* Scriptum doesn't have type classes, hence type dictionaries have to be
+passed to polymorphic functions explicitly. Type classes of the same type
+are passed as a single type dictionary. If type classes of more than one
+type are needed, several dictionaries are supplied:
+
+Comp.map = ({map}, {map: map2}) => f => ttx => Comp(map(map2(f)) (ttx));
+            ^^^^^  ^^^^^^^^^^^
+             td1       td2
+
+The lib encodes effects as values of monadic types. Monad composition is
+alliviated by monad transformers, which are functions that take a type 
+dictionary of type classes of the outer monad and then return the transformer
+operations of the combined outer and inner monad:
+
+({...type classes}) => ({map: ..., ap: ..., of: ..., chain: ...})
+
+The schematic type of a monad transformer is: m (n a)
+
+where m is the outer monad and n the inner base monad that mainly determines
+the transformer's behavior. For instance the Array monad transformer has the
+type: m [a] */
+
+
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████████ CONSTANTS ██████████████████████████████████
@@ -1926,18 +1951,36 @@ sharing.
 
 export const Defer = thunk => ({ // constructor
   [TAG]: "Defer",
-  get run_() {return thunk()}
+  get run() {return thunk()}
 });
 
 
-// Transformer
+Defer.of = x => Defer(x); // minimal context
 
-Defer.T = ({...o}) => ({ // type classes
-  map: f => ttx => Defer(() => o.map(f) (ttx.run)),
-  ap: ttf => ttx => Defer(() => o.ap(ttf.run) (ttx.run)),
-  of: x => Defer(() => o.of(x)),
-  //mapA: ftt => ttx => 
-  chain: mmx => fmm => Defer(() => o.chain(mmx.run) (fmm).run)
+
+// Transformer: m (Defer a)
+
+
+Defer.T = ({...outer}) => ({ // type classes
+  map: f => mmx => outer.map(mx => Defer(() => f(mx.run))) (mmx),
+  
+  ap: mmf => mmx => outer.chain(mmf) (mf =>
+    outer.chain(mmx) (mx =>
+      outer.of(Defer(() => mf.run(mx.run))))),
+  
+  of: x => outer.of(Defer.of(x)),
+
+  // schematic process: [Defer a] -> a -> f b -> f [Defer b]
+
+  mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (Defer.of)) (ft(mx.run))),
+
+  // schematic process: [Defer (f a)] -> f [Defer a]
+
+  seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (Defer.of)) (mx.run)),
+
+  chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
 });
 
 
@@ -2388,14 +2431,32 @@ export const Lazy = thunk => ({
 });
 
 
-// Transformer
+Lazy.of = x => Lazy(x); // minimal context
 
-Lazy.T = ({...o}) => ({ // type classes
-  map: f => ttx => Lazy(() => o.map(f) (ttx.run)),
-  ap: ttf => ttx => Lazy(() => o.ap(ttf.run) (ttx.run)),
-  of: x => Lazy(() => o.of(x)),
-  //mapA: ftt => ttx => 
-  chain: mmx => fmm => Lazy(() => o.chain(mmx.run) (fmm).run)
+
+// Transformer: m (Lazy a)
+
+
+Lazy.T = ({...outer}) => ({ // type classes
+  map: f => mmx => outer.map(mx => Lazy(() => f(mx.run))) (mmx),
+  
+  ap: mmf => mmx => outer.chain(mmf) (mf =>
+    outer.chain(mmx) (mx =>
+      outer.of(Lazy(() => mf.run(mx.run))))),
+  
+  of: x => outer.of(Lazy.of(x)),
+
+  // schematic process: [Lazy a ] -> a -> f b -> f [Lazy b]
+
+  mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (Lazy.of)) (ft(mx.run))),
+
+  // schematic process: [Lazy (f a)] -> f [Lazy a]
+
+  seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (Lazy.of)) (mx.run)),
+
+  chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
 });
 
 
