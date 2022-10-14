@@ -99,7 +99,8 @@ If you want deferred or lazy evaluation wihtin functors, applicatives and
 monads use the `Defer` and `Lazy` data types. */
 
 
-//███ Constants ███████████████████████████████████████████████████████████████
+/*
+█████ Constants ███████████████████████████████████████████████████████████████*/
 
 
 const EVAL = PREFIX + "eval";
@@ -111,7 +112,8 @@ const NULL = PREFIX + "null";
 const THUNK = PREFIX + "thunk";
 
 
-//███ API █████████████████████████████████████████████████████████████████████
+/*
+█████ API █████████████████████████████████████████████████████████████████████*/
 
 
 export const strict = x =>
@@ -126,7 +128,8 @@ export const defer = thunk =>
   new Proxy(thunk, new ThunkProxy(false));
 
 
-//███ Implementation ██████████████████████████████████████████████████████████
+/*
+█████ Implementation ██████████████████████████████████████████████████████████*/
 
 
 class ThunkProxy {
@@ -290,7 +293,8 @@ class ThunkProxy {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-//███ Tail Recursion ██████████████████████████████████████████████████████████
+/*
+█████ Tail Recursion ██████████████████████████████████████████████████████████*/
 
 
 /* Stack-safe tail-recursion and mutual tail-recursion using a trampoline. The
@@ -398,7 +402,8 @@ Loop3.rec = (x, y, z) => ({[TAG]: "Rec", x, y, z});
 Loop3.base = x => ({[TAG]: "Base", x});
 
 
-//███ Loop Stack-based ████████████████████████████████████████████████████████
+/*
+█████ Loop Stack-based ████████████████████████████████████████████████████████*/
 
 
 /* Stack-based trampoline to enable recursive cases not in tail call position.
@@ -615,13 +620,15 @@ export const chain3 = ({chain}) => mx => my => mz => fm =>
   chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
 
 
-//███ Interpretation ██████████████████████████████████████████████████████████
+/*
+█████ Interpretation ██████████████████████████████████████████████████████████*/
 
 
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
-//███ Kleisli █████████████████████████████████████████████████████████████████
+/*
+█████ Kleisli █████████████████████████████████████████████████████████████████*/
 
 
 export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
@@ -647,8 +654,8 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Represents synchronous computations encoded in continuation passing style.
-  Use `Serial`/`Parallel` for asynchronous evaluation.
+/* Encodes synchronous I/O computations. Use `Serial`/`Parallel` for
+asynchronous evaluation either in serial or in parallel.
 
   The type has the following properties:
 
@@ -656,18 +663,23 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
   * pure core/impure shell concept
   * lazy by deferred nested function call stack
   * reliable return values
-  * not stack-safe but in tail position
-  * delimited scopes */
+  * not stack-safe but can be unwinded
+  * delimited scopes
+
+Calling `unwind` is possible due to reliable return values. It returns the
+`call` trampoline tag, hence the involved computation must be wrapped in one of
+the available trampoline interpeters, `Loop` for instance. */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
   run: k,
-  unwind: x => Loop.call(k, x) // may prevent the stack from exhausting
+  unwind: x => Loop.call(k, x) // the stack from exhausting
 });
 
 
-//███ Delimited ███████████████████████████████████████████████████████████████
+/*
+█████ Delimited ███████████████████████████████████████████████████████████████*/
 
 
 Cont.abrupt = x => Cont(k => x);
@@ -685,7 +697,8 @@ Cont.reset = mx => Cont(k => k(mx.run(id)));
 Cont.shift = fm => Cont(k => fm(k).run(id));
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
@@ -694,7 +707,8 @@ Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
 Cont.Functor = {map: Cont.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
@@ -706,7 +720,8 @@ Cont.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Cont.of = x => Cont(k => k(x));
@@ -718,7 +733,8 @@ Cont.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
@@ -730,7 +746,8 @@ Cont.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Cont.Monad = {
@@ -739,7 +756,8 @@ Cont.Monad = {
 };
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 Cont.append = ({append}) => tx => ty =>
@@ -762,7 +780,8 @@ Cont.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 Cont.empty = empty => Cont(k => k(empty));
@@ -788,7 +807,8 @@ export const Fun = k => ({
 export const F = Fun; // shortcut
 
 
-//███ Applicators █████████████████████████████████████████████████████████████
+/*
+█████ Applicators █████████████████████████████████████████████████████████████*/
 
 
 export const app = f => x => f(x);
@@ -848,7 +868,8 @@ export const infix_ = makeInfix(false);
 export const _let = (...args) => ({in: f => f(...args)});
 
 
-//███ Category ████████████████████████████████████████████████████████████████
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
 
 
 export const id = x => x;
@@ -860,7 +881,8 @@ F.Category = () => {
 };
 
 
-//███ Composition █████████████████████████████████████████████████████████████
+/*
+█████ Composition █████████████████████████████████████████████████████████████*/
 
 
 export const comp = f => g => x => f(g(x));
@@ -887,13 +909,17 @@ export const liftFst = f => g => x => f(g(x)) (x);
 export const liftSnd = f => g => x => f(x) (g(x));
 
 
+export const liftBoth = f => g => h => x => f(g(x)) (h(x));
+
+
 export const pipe = g => f => x => f(g(x));
 
 
 export const pipe3 = h => g => f => x => f(g(h(x)));
 
 
-//███ Contravariant ███████████████████████████████████████████████████████████
+/*
+█████ Contravariant ███████████████████████████████████████████████████████████*/
 
 
 F.contramap = () => pipe;
@@ -902,7 +928,8 @@ F.contramap = () => pipe;
 F.Contra = () => {contramap: F.contramap};
 
 
-//███ Debugging ███████████████████████████████████████████████████████████████
+/*
+█████ Debugging ███████████████████████████████████████████████████████████████*/
 
 
 export const debug = f => (...args) => {
@@ -952,7 +979,8 @@ export const trace = x =>
   (x => console.log(JSON.stringify(x) || x.toString()), x);
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 F.map = comp;
@@ -961,7 +989,8 @@ F.map = comp;
 F.Functor = {map: F.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 // identical to Chain
@@ -976,7 +1005,8 @@ F.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 export const _const = x => y => x;
@@ -991,7 +1021,8 @@ F.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 /* Encodes the effect of implicitly threading an argument through a large
@@ -1007,7 +1038,8 @@ F.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 F.join = f => x => F(k => k(f(x) (x)));
@@ -1019,7 +1051,21 @@ F.Monad = {
 };
 
 
-//███ Functor :: Extend ███████████████████████████████████████████████████████
+/*
+█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+
+
+F.bimap = f => g => x => k => k(f(x)) (g(x));
+
+
+F.Bifunctor = ({
+  ...F.Functor,
+  bimap: F.bimap
+});
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
 F.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
@@ -1031,7 +1077,8 @@ F.Extend = {
 };
 
 
-//███ Functor :: Extend :: Comonad ████████████████████████████████████████████
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
 F.extract = ({empty}) => f => f(empty);
@@ -1043,7 +1090,37 @@ F.Comonad = {
 };
 
 
-//███ Impure ██████████████████████████████████████████████████████████████████
+/*
+█████ Functor :: Profunctor ███████████████████████████████████████████████████*/
+
+
+/* bimap/dimap comparison:
+
+  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
+            ^^^^^^
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
+            ^^^^^^                                                  */
+
+
+F.dimap = h => g => f => x => g(f(h(x)));
+          
+
+F.lmap = pipe;
+
+
+F.rmap = comp;
+
+
+F.Profunctor = {
+  ...F.Functor,
+  dimap: F.dimap,
+  lmap: F.lmap,
+  rmap: F.rmap
+};
+
+
+/*
+█████ Impure ██████████████████████████████████████████████████████████████████*/
 
 
 export const introspect = x =>
@@ -1062,7 +1139,8 @@ effects. */
 export const eff = (...exps) => exps[exps.length - 1];
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 F.append = ({append}) => f => g => x => append(f(x)) (g(x));
@@ -1077,7 +1155,8 @@ F.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 F.empty = ({empty}) => _ => empty;
@@ -1089,7 +1168,8 @@ F.Monoid = {
 };
 
 
-//███ Transducer ██████████████████████████████████████████████████████████████
+/*
+█████ Transducer ██████████████████████████████████████████████████████████████*/
 
 
 export const drop = n => append => { 
@@ -1234,7 +1314,8 @@ export const transduce = ({append}, {fold}) => f =>
   fold(f(append));
 
 
-//███ Resolve Deps ████████████████████████████████████████████████████████████
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 F.Category = F.Category();
@@ -1274,7 +1355,8 @@ export const A = Arr; // shortcut
 A.arr = () => A.foldl; // elimination rule
 
 
-//███ Clonable ████████████████████████████████████████████████████████████████
+/*
+█████ Clonable ████████████████████████████████████████████████████████████████*/
 
 
 A.clone = xs => xs.concat();
@@ -1283,7 +1365,8 @@ A.clone = xs => xs.concat();
 A.Clonable = {clone: A.clone};
 
 
-//███ Con-/Deconstruction █████████████████████████████████████████████████████
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
 A.cons = x => xs => [x].concat(xs);
@@ -1363,7 +1446,8 @@ A.unsnoc = xs => Pair(
   xs.slice(-1));
 
 
-//███ Filterable ██████████████████████████████████████████████████████████████
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
 
 
 A.filter = p => xs => xs.filter(x => p(x));
@@ -1372,7 +1456,8 @@ A.filter = p => xs => xs.filter(x => p(x));
 A.Filterable = {filter: A.filter};
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 A.foldl = f => init => xs => { // left-associative
@@ -1415,7 +1500,8 @@ A.Foldable = {
 };
 
 
-//███ Foldable :: Traversable █████████████████████████████████████████████████
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
 A.mapA = ({map, ap, of}) => ft => xs => {
@@ -1439,7 +1525,8 @@ A.Traversable = () => ({
 });
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 A.map = f => tx => tx.map(f);
@@ -1448,7 +1535,8 @@ A.map = f => tx => tx.map(f);
 A.Functor = {map: A.map};
 
 
-//███ Functor :: Alt ██████████████████████████████████████████████████████████
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
 A.alt = () => A.append;
@@ -1460,7 +1548,8 @@ A.Alt = {
 };
 
 
-//███ Functor :: Alt :: Plus ██████████████████████████████████████████████████
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
 A.zero = () => A.empty;
@@ -1472,7 +1561,8 @@ A.Plus = {
 };
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 A.ap = fs => xs =>
@@ -1487,7 +1577,8 @@ A.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 A.of = A.singleton;
@@ -1499,7 +1590,8 @@ A.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 A.chain = xs => fm =>
@@ -1513,7 +1605,8 @@ A.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Alternative ██████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
 
 
 A.Alternative = {
@@ -1522,7 +1615,8 @@ A.Alternative = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 A.Monad = {
@@ -1531,7 +1625,8 @@ A.Monad = {
 };
 
 
-//███ Recursion Schemes ███████████████████████████████████████████████████████
+/*
+█████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
 A.ana = A.unfold;
@@ -1579,7 +1674,8 @@ A.para = f => init => xs => {
 };
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 A.append = xs => ys => xs.concat(ys);
@@ -1594,7 +1690,8 @@ A.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 A.empty = [];
@@ -1606,7 +1703,8 @@ A.Monoid = {
 };
 
 
-//███ Streaming ███████████████████████████████████████████████████████████████
+/*
+█████ Streaming ███████████████████████████████████████████████████████████████*/
 
 
 A.stream = xs => {
@@ -1617,7 +1715,8 @@ A.stream = xs => {
 };
 
 
-//███ Unfoldable ██████████████████████████████████████████████████████████████
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
 A.unfold = f => init => {
@@ -1645,7 +1744,8 @@ A.Unfoldable = {unfold: A.unfold};
 
 
 
-//███ Resolve Deps ████████████████████████████████████████████████████████████
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 A.alt = A.alt();
@@ -1691,13 +1791,15 @@ class NEArray extends Array {
 };
 
 
-//███ Functor :: Extend ███████████████████████████████████████████████████████
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
 // TODO: extend entailing index on focused element + entire array
 
 
-//███ Functor :: Extend :: Comonad ████████████████████████████████████████████
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
 // TODO: extract extracting the focused element
@@ -1717,10 +1819,12 @@ export const Comp = ttx => ({
 });
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Comp.map = ({map}, {map: map2}) => f => ttx =>
@@ -1730,7 +1834,8 @@ Comp.map = ({map}, {map: map2}) => f => ttx =>
 Comp.Functor = {map: Comp.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Comp.ap = ({map, ap}, {ap: ap2}) => ttf => ttx =>
@@ -1743,7 +1848,8 @@ Comp.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Comp.of = ({of}, {of: of2}) => x => Comp(of(of2(x)));
@@ -1769,7 +1875,8 @@ export const Const = x => ({
 });
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Const.map = const_;
@@ -1778,7 +1885,8 @@ Const.map = const_;
 Const.Functor = {map: Const.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Const.ap = ({append}) => tf => tx => Const(append(tf.run) (tx.run));
@@ -1790,7 +1898,8 @@ Const.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Const.of = ({empty}) => _ => Const(empty);
@@ -1827,6 +1936,7 @@ Defer.T = ({...o}) => ({ // type classes
   map: f => ttx => Defer(() => o.map(f) (ttx.run)),
   ap: ttf => ttx => Defer(() => o.ap(ttf.run) (ttx.run)),
   of: x => Defer(() => o.of(x)),
+  //mapA: ftt => ttx => 
   chain: mmx => fmm => Defer(() => o.chain(mmx.run) (fmm).run)
 });
 
@@ -1860,7 +1970,8 @@ Either.Right = x => ({
 Either.cata = left => right => tx => tx.run({left, right}); // elimination rule
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 Either.foldl = f => acc => tx => tx.run({
@@ -1881,7 +1992,8 @@ Either.Foldable = {
 };
 
 
-//███ Foldable :: Traversable █████████████████████████████████████████████████
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
 Either.mapA = ({map, of}) => ft => tx => tx.run({
@@ -1904,7 +2016,8 @@ Either.Traversable = () => ({
 });
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Either.map = f => tx =>
@@ -1917,7 +2030,8 @@ Either.map = f => tx =>
 Either.Functor = {map: Either.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Either.ap = tf => tx =>
@@ -1940,7 +2054,8 @@ Either.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 // omit the ambiguous type class
@@ -1952,7 +2067,8 @@ Either.ofLeft = x => Either.Left(x);
 Either.ofRight = x => Either.Right(x);
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Either.chain = mx => fm =>
@@ -1968,7 +2084,8 @@ Either.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Either.Monad = {
@@ -1977,7 +2094,30 @@ Either.Monad = {
 };
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+
+
+/* bimap/dimap comparison:
+
+  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
+            ^^^^^^
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
+            ^^^^^^                                                  */
+
+
+Either.bimap = f => g => tx => tx.run({left: f, right: g}); 
+
+
+Either.Bifunctor = ({
+  ...Either.Functor,
+  bimap: Either.bimap
+});
+
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 /* TODO:
@@ -1990,10 +2130,12 @@ instance (Monoid a, Monoid b) => Monoid (Either a b) where
     Right x `mappend` Right y = Right (x <> y)*/
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-//███ Resolve Dependencies ████████████████████████████████████████████████████
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
 
 
 Either.Traversable = Either.Traversable();
@@ -2035,7 +2177,8 @@ export const Except = {}; // namespace
 export const E = Except; // shortcut
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 E.foldl = f => acc => tx => introspect(tx) === "Error" ? acc : f(acc) (tx);
@@ -2050,7 +2193,8 @@ E.Foldable = {
 };
 
 
-//███ Foldable :: Traversable █████████████████████████████████████████████████
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
 E.mapA = ({of}) => ft => tx => introspect(tx) === "Error" ? of(tx) : ft(tx);
@@ -2067,7 +2211,8 @@ E.Traversable = () => ({
 });
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 /* Since the type isn't defined as a sum type some imperative introspection is
@@ -2079,13 +2224,16 @@ E.map = f => tx => introspect(tx) === "Error" ? tx : f(tx);
 E.Functor = {map: E.map};
 
 
-//███ Functor :: Alt ██████████████████████████████████████████████████████████
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-//███ Functor :: Alt :: Plus ██████████████████████████████████████████████████
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 E.ap = tf => tx =>
@@ -2100,7 +2248,8 @@ E.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 E.of = x => introspect(x) === "Error" ? _throw("unexpected exception") : x;
@@ -2112,10 +2261,12 @@ E.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Alternative ██████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 E.chain = mx => fm => introspect(mx) === "Error" ? mx : fm(mx);
@@ -2127,7 +2278,8 @@ E.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 E.Monad = {
@@ -2136,7 +2288,8 @@ E.Monad = {
 };
 
 
-//███ Functor :: Bifunctor ████████████████████████████████████████████████████
+/*
+█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2162,7 +2315,8 @@ Id.map = f => tx => Id(f(tx.run));
 Id.Functor = {map: Id.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Id.ap = tf => tx => Id(tf.run(tx.run));
@@ -2174,7 +2328,8 @@ Id.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Id.of = Id;
@@ -2186,7 +2341,8 @@ Id.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Id.chain = mx => fm => fm(mx.run);
@@ -2198,410 +2354,13 @@ Id.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Id.Monad = {
   ...Id.Applicative,
   chain: Id.chain
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IMAP █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const IMap_ = cmp => {
-  const IMap = (tree, size) => ({
-    [TAG]: "IMap",
-    tree,
-    size
-  });
-
-
-  IMap.empty = IMap(RBT.Leaf, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  IMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    return r === undefined ? null : r;
-  };
-
-
-  IMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
-
-
-  IMap.upd = k => f => m => {
-    if (IMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.size);
-    }
-
-    else return m;
-  };
-
-
-  IMap.del = k => m => {
-    let size = m.size;
-
-    if (IMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IMap(
-      RBT.del(m.tree, k, cmp),
-      size);
-  };
-
-
-  IMap.set = k => v => m => {
-    let size = m.size;
-
-    if (!IMap.has(k) (m))
-      size = m.size + 1;
-
-    return IMap(
-      RBT.set(m.tree, k, v, cmp),
-      size);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  return IMap;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IOMAP ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const IOMap_ = cmp => {
-  const IOMap = (tree, keys, size, counter) => ({
-    [TAG]: "IOMap",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  IOMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    return r === undefined ? null : r;
-  };
-
-
-  IOMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
-
-
-  IOMap.upd = k => f => m => {
-    if (IOMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IOMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.keys,
-        m.size,
-        m.counter);
-    }
-
-    else return m;
-  };
-
-
-  IOMap.del = k => m => {
-    let size = m.size;
-
-    if (IOMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IOMap(
-      RBT.del(m.tree, k, cmp),
-      m.keys, // no key removal
-      size,
-      m.counter);
-  };
-
-
-  IOMap.set = k => v => m => {
-    let size = m.size,
-      counter = m.counter;
-
-    if (!IOMap.has(k) (m)) {
-      size = m.size + 1;
-      counter = m.counter + 1;
-    }
-
-    return IOMap(
-      RBT.set(m.tree, k, v, cmp),
-      RBT.set(m.keys, m.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IOMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IOMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  IOMap.insertOrder = f => init => m => function go(acc, i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        v = IOMap.get(k) (m);
-
-      if (v === null) return go(acc, i + 1);
-      else return go(f(acc) (Pair(k, v)), i + 1)
-    }
-  } (init, 0);
-
-
-  IOMap.insertOrder_ = f => acc => m => function go(i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        v = IOMap.get(k) (m);
-
-      if (v === null) return go(i + 1);
-      else return f(Pair(k, v)) (lazy(() => go(i + 1)));
-    }
-  } (0);
-
-
-  return IOMap;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ ISET █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const ISet_ = cmp => {
-  const ISet = (tree, size) => ({
-    [TAG]: "ISet",
-    tree,
-    size
-  });
-
-
-  ISet.empty = ISet(RBT.Leaf, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  ISet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
-
-
-  ISet.upd = k => f => s => {
-    if (ISet.has(k) (s)) {
-      return ISet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.size);
-    }
-
-    else return s;
-  };
-
-
-  ISet.del = k => s => {
-    let size = s.size;
-
-    if (ISet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return ISet(
-      RBT.del(s.tree, k, cmp),
-      size);
-  };
-
-
-  ISet.set = k => s => {
-    let size = s.size;
-
-    if (!ISet.has(k) (s))
-      size = s.size + 1;
-
-    return ISet(
-      RBT.set(s.tree, k, null, cmp),
-      size);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  ISet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  ISet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  return ISet;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IOSET ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const IOSet_ = cmp => {
-  const IOSet = (tree, keys, size, counter) => ({
-    [TAG]: "IOSet",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOSet.empty = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  IOSet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
-
-
-  IOSet.upd = k => f => s => {
-    if (IOSet.has(k) (s)) {
-      return IOSet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.keys,
-        s.size,
-        s.counter);
-    }
-
-    else return s;
-  };
-
-
-  IOSet.del = k => s => {
-    let size = s.size;
-
-    if (IOSet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return IOSet(
-      RBT.del(s.tree, k, cmp),
-      s.keys, // no key removal
-      size,
-      s.counter);
-  };
-
-
-  IOSet.set = k => s => {
-    let size = s.size,
-      counter = s.counter;
-
-    if (!IOSet.has(k) (s)) {
-      size = s.size + 1;
-      counter = s.counter + 1;
-    }
-
-    return IOSet(
-      RBT.set(s.tree, k, null, cmp),
-      RBT.set(s.keys, s.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IOSet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  IOSet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  IOSet.insertOrder = f => init => s => function go(acc, i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        v = IOSet.get(k) (s);
-
-      if (v === null) return go(acc, i + 1);
-      else return go(f(acc) (v), i + 1);
-    }
-  } (init, 0);
-
-
-  IOSet.insertOrder_ = f => acc => s => function go(i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        v = IOSet.get(k) (s);
-
-      if (v === null) return go(i + 1);
-      else return f(v) (lazy(() => go(i + 1)));
-    }
-  } (0);
-
-
-  return IOSet;
 };
 
 
@@ -2635,7 +2394,8 @@ Lazy.T = ({...o}) => ({ // type classes
   map: f => ttx => Lazy(() => o.map(f) (ttx.run)),
   ap: ttf => ttx => Lazy(() => o.ap(ttf.run) (ttx.run)),
   of: x => Lazy(() => o.of(x)),
-  chain: mmx => fmm => Defer(() => o.chain(mmx.run) (fmm).run)
+  //mapA: ftt => ttx => 
+  chain: mmx => fmm => Lazy(() => o.chain(mmx.run) (fmm).run)
 });
 
 
@@ -2686,7 +2446,8 @@ List.Nil = ({
 export const L = List; // shortcut
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 List.foldl = f => init => xs => Loop2((ys, acc) =>
@@ -2711,7 +2472,8 @@ L.Foldable = {
 };
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 L.map = f => Loops(tx => 
@@ -2734,7 +2496,8 @@ L.mapLazy = f => function go(tx) {
 L.Functor = {map: L.map};
 
 
-//███ Functor :: Apply (Non-Determinism) ██████████████████████████████████████
+/*
+█████ Functor :: Apply (Non-Determinism) ██████████████████████████████████████*/
 
 
 // TODO
@@ -2746,7 +2509,8 @@ L.Functor = {map: L.map};
 };*/
 
 
-//███ Functor :: Apply (Zip List) █████████████████████████████████████████████
+/*
+█████ Functor :: Apply (Zip List) █████████████████████████████████████████████*/
 
 
 L.ZipList = {};
@@ -2779,7 +2543,8 @@ L.ZipList.apLazy = tf => tx =>
   });
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 L.of = L.Nil;
@@ -2802,7 +2567,8 @@ export const DList = f => ({
 });
 
 
-//███ Con-/Deconstruction █████████████████████████████████████████████████████
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
 DList.cons = x => xs => app(DList) (comp(List.Cons(x)) (xs.run));
@@ -2814,7 +2580,8 @@ DList.singleton = comp(DList) (List.Cons);
 DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
 
 
-//███ Natural Transformations █████████████████████████████████████████████████
+/*
+█████ Natural Transformations █████████████████████████████████████████████████*/
 
 
 DList.fromList = xs => comp(DList) (List.append);
@@ -2823,7 +2590,8 @@ DList.fromList = xs => comp(DList) (List.append);
 DList.toList = xs => comp(app_(List.Nil)) (xs.run);
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 DList.append = xs => ys => app(DList) (comp(xs.run) (ys.run));
@@ -2838,7 +2606,8 @@ DList.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 DList.empty = DList(id);
@@ -2850,7 +2619,8 @@ DList.Monoid = {
 };
 
 
-//███ Unfoldable ██████████████████████████████████████████████████████████████
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
 DList.unfold = f => function go(y) {
@@ -2872,7 +2642,8 @@ DList.Unfoldable = {unfold: DList.unfold};
 const _Map = {}; // namespace
 
 
-//███ Getter/Setter ███████████████████████████████████████████████████████████
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
 _Map.add = ({append}) => k => v => m => {
@@ -2919,7 +2690,8 @@ export const Obj = {}; // namespace
 export const O = Obj; // shortcut;
 
 
-//███ Clonable ████████████████████████████████████████████████████████████████
+/*
+█████ Clonable ████████████████████████████████████████████████████████████████*/
 
 
 O.clone = o => {
@@ -2936,7 +2708,8 @@ O.clone = o => {
 O.Clonable = {clone: O.clone};
 
 
-//███ Getter/Setter ███████████████████████████████████████████████████████████
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
 O.add = ({append}) => k => v => o => {
@@ -2969,7 +2742,8 @@ O.updOr = x => k => f => o => {
 };
 
 
-//███ Streaming ███████████████████████████████████████████████████████████████
+/*
+█████ Streaming ███████████████████████████████████████████████████████████████*/
 
 
 O.keyStream = o => {
@@ -3002,7 +2776,8 @@ O.valueStream = o => {
 };
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 export const lazyProp = k => thunk => o => // create lazy property that shares its result
@@ -3040,7 +2815,8 @@ export const Optic = (ref, path) => ({
 });
 
 
-//███ Composition █████████████████████████████████████████████████████████████
+/*
+█████ Composition █████████████████████████████████████████████████████████████*/
 
 
 Optic.compGet = comp;
@@ -3061,7 +2837,8 @@ Optic.pipeSet = setter2 => setter => x => optic => {
 };
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Optic.map = () => Optic.upd(id);
@@ -3070,7 +2847,8 @@ Optic.map = () => Optic.upd(id);
 Optic.Functor = {map: Optic.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 /* If the innermost values of two `Optic`s are combined, there is no meaningful
@@ -3090,7 +2868,8 @@ Optic.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Optic.of = ref => Optic(ref, null);
@@ -3102,7 +2881,8 @@ Optic.Applicative = {
 };
 
 
-//███ Getter/Setter ███████████████████████████████████████████████████████████
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
 /* Use to delete the innermost reference value from inside a nested structure.
@@ -3132,7 +2912,8 @@ Optic.unnest = optic => optic.path
 Optic.unpath = optic => optic.ref
 
 
-//███ Resolve Dependencies ████████████████████████████████████████████████████
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
 
 
 Optic.map = Optic.map();
@@ -3155,7 +2936,8 @@ export const Option = {}; // namespace
 export const Opt = Option; // shortcut
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 Opt.foldl = f => acc => tx => tx === null ? acc : f(acc) (tx);
@@ -3170,7 +2952,8 @@ Opt.Foldable = {
 };
 
 
-//███ Foldable :: Traversable █████████████████████████████████████████████████
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
 Opt.mapA = ({of}) => ft => tx => tx === null ? of(tx) : ft(tx);
@@ -3187,7 +2970,8 @@ Opt.Traversable = () => ({
 });
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Opt.map = f => tx => tx === null ? null : f(tx);
@@ -3196,7 +2980,8 @@ Opt.map = f => tx => tx === null ? null : f(tx);
 Opt.Functor = {map: Opt.map};
 
 
-//███ Functor :: Alt ██████████████████████████████████████████████████████████
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
 Opt.alt = tx => ty => tx === null ? ty : tx;
@@ -3207,7 +2992,8 @@ Opt.Alt = {
 };
 
 
-//███ Functor :: Alt :: Plus ██████████████████████████████████████████████████
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
 Opt.zero = null;
@@ -3219,7 +3005,8 @@ Opt.Plus = {
 };
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Opt.ap = tf => tx =>
@@ -3234,7 +3021,8 @@ Opt.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 /* Since the type isn't defined as a sum type some imperative introspection is
@@ -3249,7 +3037,8 @@ Opt.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Alternative ██████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
 
 
 Opt.Alternative = {
@@ -3258,7 +3047,8 @@ Opt.Alternative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Opt.chain = mx => fm => mx === null ? null : fm(mx);
@@ -3270,7 +3060,8 @@ Opt.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Opt.Monad = {
@@ -3279,7 +3070,8 @@ Opt.Monad = {
 };
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 Opt.append = ({append}) => tx => ty =>
@@ -3294,7 +3086,8 @@ Opt.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 Opt.empty = null;
@@ -3311,9 +3104,8 @@ Opt.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Represents asynchronous computations evaluated in parallel. Use `Serial` for
-  asynchronous computations evaluated in serial. Use `Cont` for synchronous
-  computations encoded in CPS.
+/* Encodes asynchronous I/O computations evaluated in parallel. Use `Serial` for
+  serial evaluation. Use `Cont` to encode synchronous I/O effects.
 
   It has the following properties:
 
@@ -3340,7 +3132,8 @@ export const Parallel = k => ({
 export const P = Parallel; // shortcut
 
 
-//███ Conjunction █████████████████████████████████████████████████████████████
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
 P.and = tx => ty => {
@@ -3371,7 +3164,8 @@ P.allArr = () =>
 // TODO: P.allList
 
 
-//███ Disjunction █████████████████████████████████████████████████████████████
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
 P.or = tx => ty => {
@@ -3394,7 +3188,8 @@ P.anyArr = () =>
       (P.Race.empty);
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 P.map = f => tx =>
@@ -3404,7 +3199,8 @@ P.map = f => tx =>
 P.Functor = {map: P.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 P.ap = tf => tx =>
@@ -3420,7 +3216,8 @@ P.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 P.of = x => P(k => k(x));
@@ -3432,7 +3229,8 @@ P.Applicative = {
 };
 
 
-//███ Natural Transformations █████████████████████████████████████████████████
+/*
+█████ Natural Transformations █████████████████████████████████████████████████*/
 
 
 /* Values of type Parallel/Serial are structurally equal but differ in their
@@ -3447,7 +3245,8 @@ P.fromSerial = tx => ({
 });
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 P.append = ({append}) => tx => ty =>
@@ -3466,7 +3265,8 @@ P.Semigroup = {
 };
 
   
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 P.empty = empty =>
@@ -3479,7 +3279,8 @@ P.Monoid = {
 };
 
 
-//███ Semigroup (race) ████████████████████████████████████████████████████████
+/*
+█████ Semigroup (race) ████████████████████████████████████████████████████████*/
 
 
 P.Race = {};
@@ -3491,13 +3292,15 @@ P.Race.append = P.or;
 P.Race.prepend = P.or;
 
 
-//███ Semigroup :: Monoid (race) ██████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid (race) ██████████████████████████████████████████████*/
 
 
 P.Race.empty = P(k => null);
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 /* The type doesn't implement monad, hence some combinators for monad-like
@@ -3540,7 +3343,8 @@ P.once = tx => {
 };
 
 
-//███ Resolve Dependencies ████████████████████████████████████████████████████
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
 
 
 P.allArr = P.allArr();
@@ -3620,7 +3424,8 @@ Parser.Result.None = ({rest, state}) => ({
 });
 
 
-//███ Character Classes ███████████████████████████████████████████████████████
+/*
+█████ Character Classes ███████████████████████████████████████████████████████*/
 
 
 const CHAR_CLASSES = {
@@ -3843,7 +3648,8 @@ const CHAR_CLASSES = {
 };
 
 
-//███ Combinator ██████████████████████████████████████████████████████████████
+/*
+█████ Combinator ██████████████████████████████████████████████████████████████*/
 
 
 Parser.accept = Parser(({text, i}) => state =>
@@ -4292,9 +4098,8 @@ Parser.dropUntil = parser => Parser(rest => state => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Represents asynchronous computations evaluated in serial. Use `Parallel` for
-  asynchronous computations evaluated in parallel. Use `Cont` for synchronous
-  computations encoded in CPS.
+/* Encodes asynchronous I/O computations evaluated in serial. Use `Serial` for
+  parallel evaluation. Use `Cont` to encode synchronous I/O effects.
 
   It has the following properties:
 
@@ -4321,7 +4126,8 @@ export const Serial = k => ({
 export const S = Serial; // shortcut
 
 
-//███ Conjunction █████████████████████████████████████████████████████████████
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
 S.and = tx => ty =>
@@ -4341,7 +4147,8 @@ S.allArr = () =>
 // TODO: S.allList
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 S.map = f => tx =>
@@ -4351,7 +4158,8 @@ S.map = f => tx =>
 S.Functor = {map: S.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 S.ap = tf => tx =>
@@ -4367,7 +4175,8 @@ S.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 S.of = x => S(k => k(x));
@@ -4379,7 +4188,8 @@ S.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 S.chain = mx => fm =>
@@ -4392,7 +4202,8 @@ S.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 S.Monad = {
@@ -4401,7 +4212,8 @@ S.Monad = {
 };
 
 
-//███ Natural Transformations █████████████████████████████████████████████████
+/*
+█████ Natural Transformations █████████████████████████████████████████████████*/
 
 
 /* Values of type Parallel/Serial are structurally equal but differ in their
@@ -4416,7 +4228,8 @@ S.fromParallel = tx => ({
 });
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 S.append = ({append}) => tx => ty =>
@@ -4433,7 +4246,8 @@ S.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 S.empty = empty => S(k => k(empty));
@@ -4445,7 +4259,8 @@ S.Monoid = {
 };
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 S.once = tx => {
@@ -4476,7 +4291,8 @@ S.once = tx => {
 };
 
 
-//███ Resolve Dependencies ████████████████████████████████████████████████████
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
 
 
 S.allArr = S.allArr();
@@ -4508,7 +4324,8 @@ export const SerialExcept = ks => ({
 export const Sex = SerialExcept; // shortcut
 
 
-//███ Conjunction █████████████████████████████████████████████████████████████
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
 Sex.and = tx => ty =>
@@ -4530,7 +4347,8 @@ Sex.allArr = () =>
     of: Sex.of});
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Sex.map = f => tx =>
@@ -4544,7 +4362,8 @@ Sex.map = f => tx =>
 Sex.Functor = {map: Sex.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Sex.ap = tf => tx =>
@@ -4562,7 +4381,8 @@ Sex.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Sex.of = x => Sex(({raise: k, proceed: k2}) => k2(x));
@@ -4574,7 +4394,8 @@ Sex.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Sex.chain = mx => fm =>
@@ -4591,7 +4412,8 @@ Sex.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Sex.Monad = {
@@ -4600,13 +4422,15 @@ Sex.Monad = {
 };
 
 
-//███ Natural Transformations █████████████████████████████████████████████████
+/*
+█████ Natural Transformations █████████████████████████████████████████████████*/
 
 
 // TODO: fromParallel/toParallel
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 Sex.append = ({append}) => tx => ty =>
@@ -4626,7 +4450,8 @@ Sex.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 Sex.empty = empty => Sex(({raise: k, proceed: k2}) => k2(empty));
@@ -4638,7 +4463,8 @@ Sex.Monoid = {
 };
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 Sex.once = tx => {
@@ -4680,7 +4506,8 @@ Sex.once = tx => {
 };
 
 
-//███ Resolve Dependencies ████████████████████████████████████████████████████
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
 
 
 Sex.allArr = Sex.allArr();
@@ -4694,7 +4521,8 @@ Sex.allArr = Sex.allArr();
 const _Set = {}; // namespace
 
 
-//███ Getter/Setter ███████████████████████████████████████████████████████████
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
 _Set.has = k => s => s.has(k);
@@ -4751,7 +4579,8 @@ Stream.Step.lazy = o => ({
 });
 
 
-//███ Conversion ██████████████████████████████████████████████████████████████
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 Stream.fromArr = xs => function go(i) {
@@ -4797,7 +4626,8 @@ Stream.toArr = tx => Loop2((ty, acc) => {
 }) (tx, []);
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 Stream.foldl = f => init => tx => function go(ty, acc) {
@@ -4840,7 +4670,8 @@ Stream.Foldable = {
 };
 
 
-//███ Foldable :: Traversable █████████████████████████████████████████████████
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
 Stream.mapA = ({map, of}) => ft => function go(tx) {
@@ -4877,7 +4708,8 @@ Stream.Traversable = () => ({
 });
 
 
-//███ Filterable ██████████████████████████████████████████████████████████████
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
 
 
 Stream.filter = pred => function go(tx) {
@@ -4906,7 +4738,8 @@ Stream.filter = pred => function go(tx) {
 Stream.Filterable = {filter: Stream.filter};
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Stream.map = f => function go(tx) {
@@ -4925,7 +4758,8 @@ Stream.map = f => function go(tx) {
 Stream.Functor = {map: Stream.map};
 
 
-//███ Functor :: Alt ██████████████████████████████████████████████████████████
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
 /* Takes two streams and exhauts the first and then the second one directly one
@@ -4958,7 +4792,8 @@ A.Alt = {
 };
 
 
-//███ Functor :: Alt :: Plus ██████████████████████████████████████████████████
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
 Stream.zero = Stream.Nis;
@@ -4970,7 +4805,8 @@ Stream.Plus = {
 };
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 /* Takes two streams one yielding partially applied functions and another
@@ -5006,7 +4842,8 @@ Stream.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Stream.of = x => Stream.Step.lazy({ // infinite stream
@@ -5021,7 +4858,8 @@ Stream.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 /* For each iteration, creates a new stream by applying `fm` with the current
@@ -5074,7 +4912,8 @@ Stream.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Stream.Monad = {
@@ -5083,19 +4922,22 @@ Stream.Monad = {
 };
 
 
-//███ Functor :: Extend ███████████████████████████████████████████████████████
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
 // TODO: head of the stream
 
 
-//███ Functor :: Extend :: Comonad ████████████████████████████████████████████
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
 // TODO: f applied to each tail of the stream (i.e. stream.next)
 
 
-//███ Semigroup ███████████████████████████████████████████████████████████████
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 Stream.append = ({append}) => tx => ty => function go(tx2, ty2) {
@@ -5151,7 +4993,8 @@ Stream.Semigroup = {
 };
 
 
-//███ Semigroup :: Monoid █████████████████████████████████████████████████████
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 Stream.empty = Stream.Nis;
@@ -5184,7 +5027,8 @@ Tree.Node = x => branch => ({
 });
 
 
-//███ Catamorphism ████████████████████████████████████████████████████████████
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
 /* Tree traversal is considered stack-safe, because the depth of a balanced
@@ -5197,7 +5041,8 @@ Tree.cata = node => function go({x, branch}) {
 };
 
 
-//███ Foladable ███████████████████████████████████████████████████████████████
+/*
+█████ Foladable ███████████████████████████████████████████████████████████████*/
 
 
 // left-associative fold with depth, index and length of respective branch
@@ -5219,13 +5064,15 @@ Tree.foldLevel = tx => Tree.levels(tx) // level-order
 Tree.foldr = compThd(A.foldr) (Tree.linearize); // post-order
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Tree.map = f => Tree.cata(x => xs => Tree.Node(f(x)) (xs));
 
 
-//███ Induction ███████████████████████████████████████████████████████████████
+/*
+█████ Induction ███████████████████████████████████████████████████████████████*/
 
 
 Tree.height = Tree.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
@@ -5250,7 +5097,8 @@ Tree.paths = tx => {
 };
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 Tree.linearize = Tree.cata(x => xss => {
@@ -5289,19 +5137,8 @@ export const Pair = (x, y) => ({
 });
 
 
-//███ Bifunctor ███████████████████████████████████████████████████████████████
-
-
-Pair.bimap = f => g => tx => Pair(f(tx[1]), g(tx[2]));
-
-
-Pair.Bifunctor = () => ({
-  ...Pair.Functor,
-  bimap: Pair.bimap
-});
-
-
-//███ Extracting ██████████████████████████████████████████████████████████████
+/*
+█████ Extracting ██████████████████████████████████████████████████████████████*/
 
 
 Pair.fst = tx => tx[1];
@@ -5310,7 +5147,8 @@ Pair.fst = tx => tx[1];
 Pair.snd = tx => tx[2];
 
 
-//███ Foldable ████████████████████████████████████████████████████████████████
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 Pair.foldl = f => acc => tx => f(acc) (tx);
@@ -5325,7 +5163,8 @@ Pair.Foldable = {
 };
 
 
-//███ Functor █████████████████████████████████████████████████████████████████
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Pair.map = f => ({1: x, 2: y}) => Pair(x, f(y));
@@ -5334,7 +5173,8 @@ Pair.map = f => ({1: x, 2: y}) => Pair(x, f(y));
 Pair.Functor = {map: Pair.map};
 
 
-//███ Functor :: Apply ████████████████████████████████████████████████████████
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Pair.ap = ({append}) => ({1: x, 2: f}) => ({1: y, 2: z}) =>
@@ -5347,7 +5187,8 @@ Pair.Apply = {
 };
 
 
-//███ Functor :: Apply :: Applicative █████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
 Pair.of = ({empty}) => x => Pair(empty, x);
@@ -5359,7 +5200,8 @@ Pair.Applicative = {
 };
 
 
-//███ Functor :: Apply :: Chain ███████████████████████████████████████████████
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
 Pair.chain = ({append}) => fm => ({1: x, 2: y}) => {
@@ -5374,7 +5216,8 @@ Pair.Chain = {
 };
 
 
-//███ Functor :: Apply :: Applicative :: Monad ████████████████████████████████
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 Pair.Monad = {
@@ -5383,7 +5226,29 @@ Pair.Monad = {
 };
 
 
-//███ Functor :: Extend ███████████████████████████████████████████████████████
+/*
+█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+
+
+/* bimap/dimap comparison:
+
+  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
+            ^^^^^^
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
+            ^^^^^^                                                  */
+
+
+Pair.bimap = f => g => tx => Pair(f(tx[1]), g(tx[2]));
+
+
+Pair.Bifunctor = ({
+  ...Pair.Functor,
+  bimap: Pair.bimap
+});
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
 Pair.extend = fw => wx => Pair(wx[1], fw(wx));
@@ -5395,7 +5260,8 @@ Pair.Extend = {
 };
 
 
-//███ Functor :: Extend :: Comonad ████████████████████████████████████████████
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
 Pair.extract = Pair.snd;
@@ -5407,7 +5273,8 @@ Pair.Comonad = {
 };
 
 
-//███ Getter/Setter ███████████████████████████████████████████████████████████
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
 Pair.setFst = x => tx => Pair(x, tx[2]);
@@ -5416,7 +5283,8 @@ Pair.setFst = x => tx => Pair(x, tx[2]);
 Pair.setSnd = x => tx => Pair(tx[1], x);
 
 
-//███ Writer ██████████████████████████████████████████████████████████████████
+/*
+█████ Writer ██████████████████████████████████████████████████████████████████*/
 
 
 Pair.censor = f => tx => Pair(tx[0], f(tx[1]));
@@ -5434,19 +5302,14 @@ Pair.pass = f => tx => Pair(tx[0] [0], tx[0] [1] (tx[1]));
 Pair.tell = x => Pair(null, x);
 
 
-//███ Misc. ███████████████████████████████████████████████████████████████████
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 Pair.mapFst = f => tx => Tuple(k => tx.run((x, y) => Pair(f(x), y)));
 
 
 Pair.swap = tx => Pair(tx[1], tx[0]);
-
-
-//███ Resolve Deps ████████████████████████████████████████████████████████████
-
-
-Pair.Bifunctor = Pair.Bifunctor();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5567,847 +5430,6 @@ FileSys.except = fs => cons => thisify(o => {
 
   return o;
 });
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-███████████████████████████ SELF-BALANCING R/B-TREE ███████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* The data type isn't supposed to be used directly but to construct persistant
-data structures. */
-
-
-const RB = {}; // namespace
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ CONSTANTS ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.RED = true;
-RB.BLACK = false;
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ CONSTRUCTORS █████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.Leaf = {[Symbol.toStringTag]: "Leaf"};
-
-
-RB.Node = (c, h, l, k, v, r) =>
-  ({[Symbol.toStringTag]: "Node", c, h, l, k, v, r});
-
-
-RB.singleton = (k, v) =>
-  RB.Node(RB.BLACK, 1, RB.Leaf, k, v, RB.Leaf);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ BALANCING ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.balanceL = (c, h, l, k, v, r) => {
-  if (c === RB.BLACK
-    && l[TAG] === "Node"
-    && l.c ===RB.RED
-    && l.l[TAG] === "Node"
-    && l.l.c === RB.RED)
-      return RB.Node(
-        RB.RED, h + 1, RB.turnB(l.l), l.k, l.v, RB.Node(RB.BLACK, h, l.r, k, v, r));
-
-  else return RB.Node(c, h, l, k, v, r);
-};
-
-
-RB.balanceR = (c, h, l, k, v, r) => {
-  if (c === RB.BLACK
-    && l[TAG] === "Node"
-    && r[TAG] === "Node"
-    && l.c === RB.RED
-    && r.c === RB.RED)
-      return RB.Node(
-        RB.RED, h + 1, RB.turnB(l), k, v, RB.turnB(r));
-
-  else if (r[TAG] === "Node"
-    && r.c === RB.RED)
-      return RB.Node(
-        c, h, RB.Node(RB.RED, r.h, l, k, v, r.l), r.k, r.v, r.r);
-
-  else return RB.Node(c, h, l, k, v, r);
-};
-
-
-RB.isBLB = t =>
-  t[TAG] === "Node"
-    && t.c === RB.BLACK
-    && (t.l[TAG] === "Leaf" || t.l.c === RB.BLACK)
-      ? true : false;
-
-
-RB.isBLR = t =>
-  t[TAG] === "Node"
-    && t.c === RB.BLACK
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED
-      ? true : false;
-
-
-RB.rotateR = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED)
-      return RB.balanceR(
-        t.c, t.h, t.l.l, t.l.k, t.l.v, RB.delMax_(RB.Node(RB.RED, t.h, t.l.r, t.k, t.v, t.r)));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.turnR = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return RB.Node(
-    RB.RED, h, l, k, v, r);
-};
-
-
-RB.turnB = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
-
-  else return RB.Node(
-    RB.BLACK, h, l, k, v, r);
-};
-
-
-RB.turnB_ = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    case "Node": return RB.Node(RB.BLACK, t.h, t.l, t.k, t.v, t.r);
-    default: throw new TypeError("invalid value constructor");
-  }
-}
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████████ API █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-RB.cata = node => leaf => function go(t) {
-  return k => {
-    switch (t[TAG]) {
-      case "Leaf": return k(leaf);
-      
-      case "Node": return go(t.l) (t2 =>
-        go(t.r) (t3 =>
-          k(node([t.k, t.v]) (t2) (t3))));
-
-      default: throw new TypeError("invalid constructor");
-    }
-  }
-};
-
-
-RB.cata_ = node => leaf => function go(t) { // lazy version
-  switch (t[TAG]) {
-    case "Leaf": return leaf;
-    
-    case "Node": return node([t.k, t.v])
-      (lazy(() => go(t.l)))
-        (lazy(() => go(t.r)));
-
-    default: throw new TypeError("invalid constructor");
-  }
-};
-
-
-/*
-█████ Deletion ████████████████████████████████████████████████████████████████*/
-
-
-RB.del = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    
-    case "Node": {
-      const t2 = RB.del_(RB.turnR(t), k, cmp);
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RB.delLT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RB.RED
-    && RB.isBLB(l)
-    && RB.isBLR(r))
-      return RB.Node(
-        RB.RED,
-        h,
-        RB.Node(RB.BLACK, r.h, RB.del_(RB.turnR(l), k, cmp), k2, v2, r.l.l),
-        r.l.k,
-        r.l.v,
-        RB.Node(RB.BLACK, r.h, r.l.r, r.k, r.v, r.r));
-
-  else if (c === RB.RED
-    && RB.isBLB(l))
-      return RB.balanceR(
-        RB.BLACK, h - 1, RB.del_(tunrR(l), k, cmp), k2, v2, RB.turnR(r));
-
-  else return RB.Node(c, h, RB.del_(l, k, cmp), k2, v2, r);
-};
-
-
-RB.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RB.RED
-    && l[TAG] === "Leaf"
-    && r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (l[TAG] === "Node"
-    && l.c === RB.RED)
-      return RB.balanceR(
-        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r), k, cmp));
-
-  else if (c === RB.RED
-    && RB.isBLB(r)
-    && RB.isBLR(l))
-      return RB.balanceR(
-        RB.RED,
-        h,
-        RB.turnB(l.l),
-        l.k,
-        l.v,
-        RB.balanceR(RB.BLACK, l.h, l.r, ...RB.min(r), RB.delMin_(RB.turnR(r))));
-
-  else if (c === RB.RED
-    && RB.isBLB(r))
-      return RB.balanceR(RB.BLACK, h - 1, RB.turnR(l), ...RB.min(r), RB.delMin_(RB.turnR(r)));
-
-  else if (c === RB.RED
-    && r[TAG] === "Node"
-    && r.c === RB.BLACK)
-      return RB.Node(
-        RB.RED, h, l, ...RB.min(r), RB.Node(RB.BLACK, r.h, RB.delMin_(r.l), r.k, r.v, r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.delGT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (l[TAG] === "Node"
-    && l.c === RB.RED)
-      return RB.balanceR(
-        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r)), k, cmp);
-
-  else if (c === RB.RED
-    && RB.isBLB(r)
-    && RB.isBLR(l))
-      return RB.Node(
-        RB.RED,
-        h,
-        RB.turnB(l.l),
-        l.k,
-        l.v,
-        RB.balanceR(RB.BLACK, l.h, l.r, k2, v2, RB.del_(RB.turnR(r), k, cmp)));
-
-  else if (c === RB.RED
-    && RB.isBLB(r))
-      return RB.balanceR(
-        RB.BLACK, h - 1, RB.turnR(l), k2, v2, RB.del_(RB.turnR(r), k, cmp));
-
-  else if (c === RB.RED)
-    return RB.Node(RB.RED, h, l, k2, v2, RB.del_(r, k, cmp));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.delMin = t =>{
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      const t2 = RB.delMin_(RB.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RB.delMax = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      const t2 = RB.delMax_(RB.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: TypeError("invalid value constructor");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-// helper
-
-
-RB.del_ = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case EQ: return RB.delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case GT: return RB.delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: throw new TypeError("invalid value constructor");
-  }
-};
-
-
-RB.delMin_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED)
-      return RB.Node(RB.RED, t.h, RB.delMin_(t.l), t.k, t.v, t.r);
-
-  else if (t[TAG] === "Node"
-    && RB.isBLB(t.l)
-    && RB.isBLR(t.r))
-      return RB.delMin__(t);
-
-  else if (t[TAG] === "Node"
-    && RB.isBLB((t.l)))
-      return RB.balanceR(
-        RB.BLACK, t.h - 1, RB.delMin_(RB.turnR(t.l)), t.k, t.v, RB.turnR(t.r));
-
-  else if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.BLACK)
-      return RB.Node(
-        RB.RED, t.h, RB.Node(RB.BLACK, t.l.h, RB.delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.delMin__ = t => {
-  if(t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.r[TAG] === "Node"
-    && t.r.c === RB.BLACK
-    && t.r.l[TAG] === "Node"
-    && t.r.l.c === RB.RED)
-      return RB.Node(
-        RB.RED,
-        t.h,
-        RB.Node(RB.BLACK, t.r.h, RB.delMin_(RB.turnR(t.l)), t.k, t.v, t.r.l.l),
-        t.r.l.k,
-        t.r.l.v,
-        RB.Node( RB.BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.delMax_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED)
-      return RB.rotateR(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && RB.isBLB(t.r)
-    && RB.isBLR(t.l))
-      return RB.delMax__(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && RB.isBLB(t.r))
-      return RB.balanceR(
-        RB.BLACK, t.h - 1, RB.turnR(t.l), t.k, t.v, RB.delMax_(RB.turnR(t.r)));
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED)
-      return RB.Node(RB.RED, t.h, t.l, t.k, t.v, RB.rotateR(t.r));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.delMax__ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.BLACK
-    && t.l.l[TAG] === "Node"
-    && t.l.l.c === RB.RED)
-      return RB.Node(
-        RB.RED, t.h, RB.turnB(t.l.l), t.l.k, t.l.v, RB.balanceR(RB.BLACK, t.l.h, t.l.r, t.k, t.v, RB.delMax_(RB.turnR(t.r))));
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-RB.foldl = f => init => t => function go(acc, u) {
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = go(acc, u.l);
-      const acc3 = f(acc2) (u.v);
-      return go(acc3, u.r);
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-} (init, t);
-
-
-RB.foldr = f => init => t => function go(acc, u) {
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = lazy(() => go(acc, u.r));
-      const acc3 = f(u.v) (acc2);
-      return lazy(() => go(acc3, u.l));
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-} (init, t);
-
-
-RB.Foldable = {
-  foldl: RB.foldl,
-  foldr: RB.foldr
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-RB.map = f => function go(t) {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    
-    case "Node": {
-      return RB.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
-    }
-
-    default: throw new TypeError("invalid constructor");
-  }
-};
-
-
-RB.Functor = {map: RB.map};
-
-
-/*
-█████ Getter ██████████████████████████████████████████████████████████████████*/
-
-
-RB.get = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return undefined;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.get(t.l, k, cmp);
-        case EQ: return t.v;
-        case GT: return RB.get(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/*
-█████ Member ██████████████████████████████████████████████████████████████████*/
-
-
-RB.has = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return false;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.has(t.l, k, cmp);
-        case EQ: return true;
-        case GT: return RB.has(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/*
-█████ Min/Max █████████████████████████████████████████████████████████████████*/
-
-
-RB.min = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RB.min(t.l);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-RB.max = t => {
-  if (t[TAG] === "Node"
-    && t.r[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RB.max(t.r);
-
-  else throw new TypeError("unexpected Leaf");
-};
-
-
-/*
-█████ Setter ██████████████████████████████████████████████████████████████████*/
-
-
-RB.set = (t, k, v, cmp) =>
-  RB.turnB(RB.set_(t, k, v, cmp));
-
-
-// helper
-
-
-RB.set_ = (t, k, v, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf":
-      return RB.Node(RB.RED, 1, RB.Leaf, k, v, RB.Leaf);
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.balanceL(
-          t.c, t.h, RB.set_(t.l, k, v, cmp), t.k, t.v, t.r);
-
-        case EQ: return RB.Node(t.c, t.h, t.l, k, v, t.r);
-
-        case GT: return RB.balanceR(
-          t.c, t.h, t.l, t.k, t.v, RB.set_(t.r, k, v, cmp));
-
-        default: throw new TypeError("invalid comparator");
-      }
-    }
-
-    default: TypeError("invalid value constructor");
-  }
-};
-
-
-/*
-█████ SET OPERATIONS ██████████████████████████████████████████████████████████*/
-
-
-RB.union = (t1, t2, cmp) => {
-  if (t2[TAG] === "Leaf")
-    return t1;
-
-  else if (t1[TAG] === "Leaf")
-    return RB.turnB_(t2);
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-    return RB.join(RB.union(l, t2.l, cmp), RB.union(r, t2.r, cmp), t2.k, t2.v, cmp);
-  }
-};
-
-
-RB.intersect = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-
-    if (RB.has(t1, t2.k, cmp))
-      return RB.join(
-        RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), t2.k, t2.v, cmp);
-
-    else return RB.merge(
-      RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), cmp);
-  }
-};
-
-
-RB.diff = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-    return RB.merge(RB.diff(l, t2.l, cmp), RB.diff(r, t2.r, cmp));
-  }
-};
-
-
-// helper
-
-
-RB.join = (t1, t2, k, v, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.set(t2, k, v, cmp);
-
-  else if (t2[TAG] === "Leaf")
-    return RB.set(t1, k, v, cmp);
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RB.turnB(RB.joinLT(t1, t2, k, v, t1.h, cmp));
-      case EQ: return RB.Node(RB.BLACK, t1.h + 1, t1, k, v, t2);
-      case GT: return RB.turnB(RB.joinGT(t1, t2, k, v, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-RB.joinLT = (t1, t2, k, v, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RB.Node(RB.RED, t2.h + 1, t1, k, v, t2);
-
-  else if (t2[TAG] === "Node")
-    return RB.balanceL(t2.c, t2.h, RB.joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RB.joinGT = (t1, t2, k, v, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2);
-
-  else if (t1[TAG] === "Node")
-    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.joinGT(t1.r, t2, k, v, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RB.merge = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return t2;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RB.turnB(RB.mergeLT(t1, t2, t1.h, cmp));
-      case EQ: return RB.turnB(RB.mergeEQ(t1, t2, cmp));
-      case GT: return RB.turnB(RB.mergeGT(t1, t2, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-RB.mergeLT = (t1, t2, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RB.mergeEQ(t1, t2, cmp);
-
-  else if (t2[TAG] === "Node")
-    return RB.balanceL(t2.c, t2.h, RB.mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RB.mergeEQ = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf"
-    && t2[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t1[TAG] === "Node") {
-    const t2_ = RB.delMin(t2),
-      [k, v] = RB.min(t2);
-
-    if (t1.h === t2_.h)
-      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2_);
-
-    else if (t1.l[TAG] === "Node"
-      && t1.l.c === RB.RED)
-        return RB.Node(
-          RB.RED, t1.h + 1, RB.turnB(t1.l), t1.k, t1.v, RB.Node(RB.BLACK, t1.h, t1.r, k, v, t2_));
-
-    else return RB.Node(
-      RB.BLACK, t1.h, RB.turnR(t1), k, v, t2_);
-  }
-
-  else throw new TypeError("unexpected branch");
-};
-
-
-RB.mergeGT = (t1, t2, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RB.mergeEQ(t1, t2, cmp);
-
-  else if (t1[TAG] === "Node")
-    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.mergeGT(t1.r, t2, h2, cmp));
-
-  else throw new TypeError("unexpected leaf");
-};
-
-
-RB.split = (t, k, cmp) => {
-  if (t[TAG] === "Leaf")
-    return [RB.Leaf, RB.Leaf];
-
-  else {
-    switch (cmp(k, t.k)) {
-      case LT: {
-        const [lt, gt] = RB.split(t.l, k, cmp);
-        return [lt, RB.join(gt, t.r, t.k, t.v, cmp)];
-      }
-
-      case EQ: return [RB.turnB_(t.l), t.r];
-
-      case GT: {
-        const [lt, gt] = RB.split(t.r, k, cmp);
-        return [RB.join(t.l, lt, t.k, t.v, cmp), gt];
-      }
-
-      default: throw new TypeError("invalid comparator");
-    }
-  }
-};
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-RB.preOrder = ({append, empty}) => f => t =>
-  RB.cata(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t) (id);
-
-
-RB.preOrder_ = ({append, empty}) => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t);
-
-
-RB.inOrder = ({append, empty}) => f => t =>
-  RB.cata(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t) (id);
-
-
-RB.inOrder_ = ({append, empty}) => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t);
-
-
-RB.postOrder = ({append, empty}) => f => t =>
-  RB.cata(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t) (id);
-
-
-RB.postOrder_ = ({append, empty}) => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t);
-
-
-RB.levelOrder = f => init => t => function go(acc, i, ts) {
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return go(f(acc) ([ts[i].k, ts[i].v]), i + 1, ts);
-  }
-} (init, 0, [t]);
-
-
-RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(ts, i + 1);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return f([ts[i].k, ts[i].v]) (lazy(() => go(ts, i + 1)));
-  }
-} ([t], 0);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
