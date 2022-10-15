@@ -31,7 +31,8 @@ operations of the combined outer and inner monad:
 
 ({...type classes}) => ({map: ..., ap: ..., of: ..., chain: ...})
 
-The schematic type of a monad transformer is: m (n a)
+The schematic type of the most simplext monad transformer is `m (n a)` but
+more complex types like `m (Option (n m a)`
 
 where m is the outer monad and n the inner base monad that mainly determines
 the transformer's behavior. For instance the Array monad transformer has the
@@ -1786,6 +1787,15 @@ A.zero = A.zero();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ ARRAY :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* `Array` and `List` transformer are equivalent hence there is only an
+implementation for the latter. */
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████ ARRAY :: NEARRAY ███████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -1942,8 +1952,9 @@ Const.Applicative = {
 
 
 /* Encodes deferred evaluated thunks in a more principled manner than the 
-proxy-based `defer` and `lazy` combinators. Use the `Lazy` type if you need
-sharing.
+proxy-based `defer` and `lazy` combinators. Since the type on its own is not
+particularly useful, it is mainly supplied as a monad transformer. Use the
+`Lazy` type if you need sharing.
 
   * deferred thunks are only evaluated if and when needed
   * lazy thunks are only evaluated once if and when needed */
@@ -1958,10 +1969,15 @@ export const Defer = thunk => ({ // constructor
 Defer.of = x => Defer(x); // minimal context
 
 
-// Transformer: m (Defer a)
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ DEFER :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
 
-Defer.T = ({...outer}) => ({ // type classes
+// structure: m (Defer a)
+
+
+Defer.T = outer => ({ // outer monad's type classes
   map: f => mmx => outer.map(mx => Defer(() => f(mx.run))) (mmx),
   
   ap: mmf => mmx => outer.chain(mmf) (mf =>
@@ -1973,12 +1989,12 @@ Defer.T = ({...outer}) => ({ // type classes
   // schematic process: [Defer a] -> a -> f b -> f [Defer b]
 
   mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (Defer.of)) (ft(mx.run))),
+    map(comp(outer.of) (x => Defer(() => x))) (ft(mx.run))),
 
   // schematic process: [Defer (f a)] -> f [Defer a]
 
   seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (Defer.of)) (mx.run)),
+    map(comp(outer.of) (x => Defer(() => x))) (mx.run)),
 
   chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
 });
@@ -2413,8 +2429,9 @@ Id.Monad = {
 
 
 /* Encodes lazy evaluated thunks in a more principled manner than the 
-proxy-based `defer` and `lazy` combinators. Use the `Defer` type if you don't
-need sharing.
+proxy-based `defer` and `lazy` combinators. Since the type on its own is not
+particularly useful, it is mainly supplied as a monad transformer. Use the
+`Defer` type if you don't need sharing.
 
   * deferred thunks are only evaluated if and when needed
   * lazy thunks are only evaluated once if and when needed */
@@ -2434,10 +2451,21 @@ export const Lazy = thunk => ({
 Lazy.of = x => Lazy(x); // minimal context
 
 
-// Transformer: m (Lazy a)
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ LAZY :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
 
-Lazy.T = ({...outer}) => ({ // type classes
+// structure: m (Lazy a)
+
+
+Lazy.T = outer => ({ // outer monad's type classes
+  foldl: f => acc => mmx => outer.chain(mmx) (mx =>
+    outer.of(Lazy(() => f(acc) (mx.run)))),
+
+  foldr: f => acc => mmx => outer.chain(mmx) (mx =>
+    outer.of(Lazy(() => f(mx.run) (acc)))),
+
   map: f => mmx => outer.map(mx => Lazy(() => f(mx.run))) (mmx),
   
   ap: mmf => mmx => outer.chain(mmf) (mf =>
@@ -2449,12 +2477,12 @@ Lazy.T = ({...outer}) => ({ // type classes
   // schematic process: [Lazy a ] -> a -> f b -> f [Lazy b]
 
   mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (Lazy.of)) (ft(mx.run))),
+    map(comp(outer.of) (x => Lazy(() => x)))) (ft(mx.run)),
 
   // schematic process: [Lazy (f a)] -> f [Lazy a]
 
   seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (Lazy.of)) (mx.run)),
+    map(comp(outer.of) (x => Lazy(() => x)))) (mx.run),
 
   chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
 });
@@ -2483,28 +2511,28 @@ When to use which immutable collection type:
 export const List = {}; // namespace
 
 
+export const L = List; // shortcut
+
+
 // value constructors
 
 
-List.Cons = x => xs => ({
+L.Cons = x => xs => ({
   [TAG]: "List",
   run: ({cons}) => cons(x) (xs)
 });
 
 
-List.Cons_ = xs => x => ({
+L.Cons_ = xs => x => ({
   [TAG]: "List",
   run: ({cons}) => cons(x) (xs)
 });
 
 
-List.Nil = ({
+L.Nil = ({
   [TAG]: "List",
   run: ({nil}) => nil
 });
-
-
-export const L = List; // shortcut
 
 
 /*
@@ -2615,6 +2643,255 @@ L.Applicative = {
   ...L.Apply,
   of: L.of
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ LIST :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: m (List m a)
+
+
+L.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+  o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
+    return outer.chain(mmx) (mx =>
+      mx.run({
+        cons: y => mmy => Loop2.next(mmy, f(acc) (y)),
+        nil: Loop2.done(acc)
+      }));
+  }) (mmx, []);
+
+
+  o.foldr = f => acc => function go(mmx) {
+    return outer.chain(mmx) (mx =>
+      mx.run({
+        cons: y => mmy => f(y) (lazy(() => go(mmy))),
+        nil: acc
+      }));
+  };
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+  o.mapA = ({map, ap, of}) => ft => {
+    const liftA2_ = liftA2({map, ap});
+    
+    return o.foldr(x =>
+      liftA2_(x => mmx =>
+        outer.of(L.Cons(x) (mmx))) (ft(x))) (of(o.empty));
+  };
+
+
+  o.seqA = ({map, ap, of}) => {
+    const liftA2_ = liftA2({map, ap});
+
+    return o.foldr(liftA2_(x => mmx =>
+      outer.of(L.Cons(x) (mmx)))) (of(o.empty));
+  };
+
+
+  o.Traversable = () => ({
+    ...o.Foldable,
+    ...o.Functor,
+    mapA: o.mapA,
+    seqA: o.seqA
+  });
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => mmx =>
+    o.foldr(x => mx => outer.of(L.Cons(f(x)) (mx))) (outer.of(L.Nil)) (mmx);
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+  o.alt = () => o.append;
+
+
+  o.Alt = {
+    ...o.Functor,
+    alt: o.alt
+  };
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+  o.zero = () => o.empty;
+
+
+  o.Plus = {
+    ...o.Alt,
+    zero: o.zero
+  };
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx =>
+    o.foldr(f => my =>
+      o.foldr(x => mx =>
+        outer.of(L.Cons(f(x)) (mx))) (my) (mmx))
+          (outer.of(L.Nil))
+            (mmf);
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = x => outer.of(L.Cons(x) (outer.of(L.Nil)));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm =>
+    o.foldr(x => o.append(fmm(x))) (outer.of(L.Nil)) (mmx);
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+
+
+  o.Alternative = {
+    ...o.Plus,
+    ...o.Applicative
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Natural Transformation ██████████████████████████████████████████████████*/
+
+
+  o.fromFoldable = ({foldr}) => foldr(L.Cons) (o.empty);
+
+
+  o.toList = mmx =>
+    outer.of(o.foldr(x => mx => L.Cons(x) (mx)) (L.Nil) (mmx));
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = mmx => mmy =>
+    o.foldr(x => mx => outer.of(L.Cons(x) (mx))) (mmx) (mmy);
+
+
+  o.prepend = mmy => mmx =>
+    o.foldr(x => mx => outer.of(L.Cons(x) (mx))) (mmx) (mmy);
+
+
+  o.Semigroup = {
+    append: o.append,
+    prepend: o.prepend
+  };
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = outer.of(L.Nil);
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // List a -> m (List m a)
+  o.liftList = tx => L.foldr(x => mx => outer.of(L.Cons(x) (mx))) (o.empty) (tx);
+
+
+  // m a -> m (List m a)
+  o.lift = mx => outer.chain(mx) (o.of);
+
+
+  // (m a -> n a) -> m (List m a) -> n (List n a)
+  // o.mapBase = fm => mmx => TODO
+
+
+  // (m a -> n (List n a)) -> m (List m a) => n (List n a)
+  //o.chainBase = fmm => TODO
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+  // TODO
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+  o.alt = o.alt();
+
+
+  o.Traversable = o.Traversable();
+
+
+  o.zero = o.zero();
+
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5374,6 +5651,94 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ YONEDA ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Encodes dynamic function composition within a functor. Useful in cases when
+the composition cannot be defined manually upfront but only at runtime. */
+
+
+export const Yoneda = k => ({
+  [TAG]: "Yoneda",
+  run: k
+});
+
+
+export const Yo = Yoneda; // shortcut
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Yo.map = f => tx => Yo(g => tx.run(comp(g) (f)));
+
+
+Yo.Functor = {map: Yo.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Yo.ap = ({ap}) => tf => tx => Yo(f => ap(tf.run(comp(f))) (tx.run(id)));
+
+
+Yo.Apply = {
+  ...Yo.Functor,
+  ap: Yo.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Yo.of = ({of}) => x => Yo(f => of(f(x)));
+
+
+Yo.Applicative = {
+  ...Yo.Apply,
+  of: Yo.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Yo.chain = ({chain}) => mx => fm =>
+  Yo(f => chain(mx.run(id)) (x => fm(x).run(f)));
+    
+
+Yo.Chain = {
+  ...Yo.Apply,
+  chain: Yo.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Yo.Monad = {
+  ...Yo.Applicative,
+  chain: Yo.chain
+};
+
+
+/*
+█████ Lift/Unlift █████████████████████████████████████████████████████████████*/
+
+
+Yo.lift = ({map}) => tx => Yo(f => map(f) (tx));
+
+
+Yo.lower = tx => tx.run(id);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ IO ██████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
@@ -5504,9 +5869,7 @@ FileSys.except = fs => cons => thisify(o => {
   * add memo monad
   * add Array Zip Applicative instance
   * add DList
-  * add NEList
-  * add State type/monad
-  * add Pairs with Writer monad/combinators
+  * add Pairs with Writer/State monad/combinators
   * add monad combinators
   * conceive async Stream
   * add EventStream/Emitter
