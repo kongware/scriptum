@@ -118,8 +118,8 @@ export class Exception extends ExtendableError {};
 
 /* Encodes either deferred or lazy evaluated thunks in an ad-hoc manner:
 
-  * deferred thunks are only evaluated if and when needed
-  * lazy thunks are only evaluated once if and when needed
+  * deferred thunks are only evaluated when needed
+  * lazy thunks are only evaluated when needed and only once (sharing)
 
 If you want deferred or lazy evaluation wihtin functors, applicatives and
 monads use the `Defer` and `Lazy` data types. */
@@ -312,6 +312,20 @@ class ThunkProxy {
     throw new TypeError("must not mutate thunk");
   }
 }
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ OVERLOADED ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// Javascript built-in overloaded operators as functions
+
+
+export const max = x => y => x >= y ? x : y;
+
+
+export const min = x => y => x <= y ? x : y;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -609,6 +623,12 @@ export const foldMapl = ({foldl}, {append, empty}) => f =>
 
 export const foldMapr = ({foldr}, {append, empty}) => f =>
   A.foldr(comp(append) (f)) (empty);
+
+
+export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
+
+
+export const foldMin = ({foldl}, {min}) => tx => foldl1(min) (tx);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1378,7 +1398,7 @@ export const Arr = {}; // namespace
 export const A = Arr; // shortcut
 
 
-A.arr = () => A.foldl; // elimination rule
+A.arr = () => A.foldl; // elimination rule (see `Either.cata` for explanation)
 
 
 /*
@@ -1496,6 +1516,16 @@ A.foldl = f => init => xs => { // left-associative
 };
 
 
+A.foldl1 = f => xs => { // left-associative
+  let acc = xs[0];
+
+  for (let i = 1; i < xs.length; i++)
+    acc = f(acc) (xs[i]);
+
+  return acc;
+};
+
+
 A.foldi = f => init => xs => { // left-associative with index
   let acc = init;
 
@@ -1520,9 +1550,17 @@ A.foldr = f => init => xs => function go(i) { // lazy, right-associative
 } (0);
 
 
+A.foldr1 = f => xs => function go(i) { // lazy, right-associative
+  if (i === xs.length - 1) return xs[i];
+  else return f(xs[i]) (lazy(() => go(i + 1)));
+} (1);
+
+
 A.Foldable = {
   foldl: A.foldl,
-  foldr: A.foldr
+  foldl1: A.foldl1,
+  foldr: A.foldr,
+  foldr1: A.foldr1
 };
 
 
@@ -1792,7 +1830,9 @@ A.zero = A.zero();
 
 
 /* `Array` and `List` transformer are equivalent hence there is only an
-implementation for the latter. */
+implementation for the latter but arrays can be easily processed:
+
+L.fromFoldable({foldr: A.foldr}) ([1,2,3]) */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1957,7 +1997,7 @@ particularly useful, it is mainly supplied as a monad transformer. Use the
 `Lazy` type if you need sharing.
 
   * deferred thunks are only evaluated if and when needed
-  * lazy thunks are only evaluated once if and when needed */
+  * lazy thunks are only evaluated when needed and only once (sharing) */
 
 
 export const Defer = thunk => ({ // constructor
@@ -1977,26 +2017,110 @@ Defer.of = x => Defer(x); // minimal context
 // structure: m (Defer a)
 
 
-Defer.T = outer => ({ // outer monad's type classes
-  map: f => mmx => outer.map(mx => Defer(() => f(mx.run))) (mmx),
-  
-  ap: mmf => mmx => outer.chain(mmf) (mf =>
-    outer.chain(mmx) (mx =>
-      outer.of(Defer(() => mf.run(mx.run))))),
-  
-  of: x => outer.of(Defer.of(x)),
+Defer.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+  o.foldl = f => acc => outer.map(mx => f(acc) (mx.run));
+
+
+  o.foldr = f => acc => outer.map(mx => f(mx.run) (acc));
+
+
+  o.Foldable = {
+    foldl: o.foldl,
+    foldr: o.foldr
+  };
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
 
   // schematic process: [Defer a] -> a -> f b -> f [Defer b]
 
-  mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Defer(() => x))) (ft(mx.run))),
+  o.mapA = ({map}) => ft => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (x => Defer(() => x))) (ft(mx.run)));
+
 
   // schematic process: [Defer (f a)] -> f [Defer a]
 
-  seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Defer(() => x))) (mx.run)),
+  o.seqA = ({map}) => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (x => Defer(() => x))) (mx.run));
 
-  chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
+
+  o.Traversable = () => ({
+    ...o.Foldable,
+    ...o.Functor,
+    mapA: o.mapA,
+    seqA: o.seqA
+  });
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => mmx => outer.map(mx => Defer(() => f(mx.run))) (mmx);
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
+    outer.chain(mmx) (mx =>
+      outer.of(Defer(() => mf.run(mx.run)))));
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  of: x => outer.of(Defer.of(x)),
+
+
+  Applicative = {
+    ...o.Apply,
+    of: o.of
+  },
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => outer.chain(mmx) (mx => Defer(() => fmm(mx.run).run));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
 });
 
 
@@ -2026,7 +2150,17 @@ Either.Right = x => ({
 });
 
 
-Either.cata = left => right => tx => tx.run({left, right}); // elimination rule
+/* The elimination rule of the type. Catamorphisms are more general and thus
+more expressive than folds, because they factor all value constructors in.
+`Either` has two constructors and the catamorphism receives two functions
+accordingly, one for each constructor. A fold on the other hand has only a
+single function `f` and a constant `acc`, i.e. it is one function short to
+fully cover `Either`'s cases. For this reason catamorphism and fold coincide
+for `List` and `Option`, because both types comprise one type constructor
+(`Cons`/`Some`) and one type constant (`Nil`/`None`). */
+
+
+Either.cata = left => right => tx => tx.run({left, right});
 
 
 /*
@@ -2433,8 +2567,8 @@ proxy-based `defer` and `lazy` combinators. Since the type on its own is not
 particularly useful, it is mainly supplied as a monad transformer. Use the
 `Defer` type if you don't need sharing.
 
-  * deferred thunks are only evaluated if and when needed
-  * lazy thunks are only evaluated once if and when needed */
+  * deferred thunks are only evaluated when needed
+  * lazy thunks are only evaluated when needed and only once (sharing) */
 
 
 export const Lazy = thunk => ({
@@ -2459,32 +2593,110 @@ Lazy.of = x => Lazy(x); // minimal context
 // structure: m (Lazy a)
 
 
-Lazy.T = outer => ({ // outer monad's type classes
-  foldl: f => acc => mmx => outer.chain(mmx) (mx =>
-    outer.of(Lazy(() => f(acc) (mx.run)))),
+Lazy.T = outer => thisify(o => { // outer monad's type classes
 
-  foldr: f => acc => mmx => outer.chain(mmx) (mx =>
-    outer.of(Lazy(() => f(mx.run) (acc)))),
 
-  map: f => mmx => outer.map(mx => Lazy(() => f(mx.run))) (mmx),
-  
-  ap: mmf => mmx => outer.chain(mmf) (mf =>
-    outer.chain(mmx) (mx =>
-      outer.of(Lazy(() => mf.run(mx.run))))),
-  
-  of: x => outer.of(Lazy.of(x)),
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+  o.foldl = f => acc => outer.map(mx => f(acc) (mx.run));
+
+
+  o.foldr = f => acc => outer.map(mx => f(mx.run) (acc));
+
+
+  o.Foldable = {
+    foldl: o.foldl,
+    foldr: o.foldr
+  };
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
 
   // schematic process: [Lazy a ] -> a -> f b -> f [Lazy b]
 
-  mapA: ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Lazy(() => x)))) (ft(mx.run)),
+  o.mapA = ({map}) => ft => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (x => Lazy(() => x)))) (ft(mx.run));
+
 
   // schematic process: [Lazy (f a)] -> f [Lazy a]
 
-  seqA: ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Lazy(() => x)))) (mx.run),
+  o.seqA = ({map}) => mmx => outer.chain(mmx) (mx =>
+    map(comp(outer.of) (x => Lazy(() => x)))) (mx.run);
 
-  chain: mmx => fmm => outer.chain(mmx) (mx => fmm(mx.run))
+
+  o.Traversable = () => ({
+    ...o.Foldable,
+    ...o.Functor,
+    mapA: o.mapA,
+    seqA: o.seqA
+  });
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => mmx => outer.map(mx => Lazy(() => f(mx.run))) (mmx);
+  
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
+    outer.chain(mmx) (mx =>
+      outer.of(Lazy(() => mf.run(mx.run)))));
+  
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = x => outer.of(Lazy.of(x));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => outer.chain(mmx) (mx => Lazy(() => fmm(mx.run).run));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
 });
 
 
@@ -5365,14 +5577,10 @@ Tree.Node = x => branch => ({
 });
 
 
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-/* Tree traversal is considered stack-safe, because the depth of a balanced
-tree usually doesn't exhaust the call stack except for a functional list, which
-is a varaint of an unbalanced tree and thus an edge case. */
-
+/* The elimination rule of the type (see `Either.cata` for full explanation).
+The catamorphism is recursively encoded because the depth of a balanced tree
+should regularly not exhaust the call stack. Usually the combinator would be
+defined as an imperative loop. */
 
 Tree.cata = node => function go({x, branch}) {
   return node(x) (branch.map(go));
@@ -5414,6 +5622,13 @@ Tree.map = f => Tree.cata(x => xs => Tree.Node(f(x)) (xs));
 
 
 Tree.height = Tree.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
+
+
+// alternative implementation using the tree catamorphism
+
+Tree.height_ = function (foldMax_) {
+  return Tree.cata(_ => branch => 1 + foldMax_(branch))
+} (foldMax({foldl1: A.foldl1}, {max}));
 
 
 Tree.levels = Tree.foldi(acc => (x, {depth}) => {
