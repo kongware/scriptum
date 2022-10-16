@@ -1517,7 +1517,8 @@ A.foldl = f => init => xs => { // left-associative
 
 
 A.foldl1 = f => xs => { // left-associative
-  let acc = xs[0];
+  let acc = xs.length === 0
+    ? _throw(new TypeError("empty array")) : xs[0];
 
   for (let i = 1; i < xs.length; i++)
     acc = f(acc) (xs[i]);
@@ -1550,10 +1551,16 @@ A.foldr = f => init => xs => function go(i) { // lazy, right-associative
 } (0);
 
 
-A.foldr1 = f => xs => function go(i) { // lazy, right-associative
-  if (i === xs.length - 1) return xs[i];
-  else return f(xs[i]) (lazy(() => go(i + 1)));
-} (1);
+A.foldr1 = f => xs => {
+  const go = i => {
+    if (i === xs.length - 1) return xs[i];
+    else return f(xs[i]) (lazy(() => go(i + 1)));
+  };
+
+  return xs.length === 0
+    ? _throw(new TypeError("empty array"))
+    : go(0);
+};
 
 
 A.Foldable = {
@@ -3226,6 +3233,37 @@ _Map.upd = k => f => m => {
 _Map.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ NATURAL NUMBERS ███████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+
+export const Natural = {}; // namespace
+
+
+export const Nat = Natural; // shortcut
+
+
+/* The elemination rule of the type. Applying structural recursion on natural
+numbers might be a little unusual but is quite powerful. Here is an
+implementaiton of the fibonacci sequence:
+
+  const fib = comp(Pair.fst)
+    (Nat.cata(Pair(0, 1)) (([a, b]) => Pair(b, a + b))); */
+
+Nat.cata = zero => succ => n => {
+  let r = zero;
+
+  while (n > 0) {
+    r = succ(r);
+    n -= 1;
+  }
+
+  return r;
 };
 
 
@@ -6088,5 +6126,7 @@ FileSys.except = fs => cons => thisify(o => {
   * add monad combinators
   * conceive async Stream
   * add EventStream/Emitter
+  * add foldl1/foldr1
+  * add cata for each sum type
 
 */
