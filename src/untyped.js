@@ -696,150 +696,6 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ CONT █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Encodes synchronous I/O computations. Use `Serial`/`Parallel` for
-asynchronous evaluation either in serial or in parallel.
-
-  The type has the following properties:
-
-  * synchronous, serial evaluation
-  * pure core/impure shell concept
-  * lazy by deferred nested function call stack
-  * reliable return values
-  * not stack-safe but can be unwinded
-  * delimited scopes
-
-Calling `unwind` is possible due to reliable return values. It returns the
-`call` trampoline tag, hence the involved computation must be wrapped in one of
-the available trampoline interpeters, `Loop` for instance. */
-
-
-export const Cont = k => ({
-  [TAG]: "Cont",
-  run: k,
-  unwind: x => Loop.call(k, x) // the stack from exhausting
-});
-
-
-/*
-█████ Delimited ███████████████████████████████████████████████████████████████*/
-
-
-Cont.abrupt = x => Cont(k => x);
-
-
-Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
-
-
-Cont.reify = k => x => Cont(k2 => k(x));
-
-
-Cont.reset = mx => Cont(k => k(mx.run(id)));
-
-
-Cont.shift = fm => Cont(k => fm(k).run(id));
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
-
-
-Cont.Functor = {map: Cont.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
-
-
-Cont.Apply = {
-  ...Cont.Functor,
-  ap: Cont.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Cont.of = x => Cont(k => k(x));
-
-
-Cont.Applicative = {
-  ...Cont.Apply,
-  of: Cont.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
-
-
-Cont.Chain = {
-  ...Cont.Apply,
-  chain: Cont.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Cont.Monad = {
-  ...Cont.Applicative,
-  chain: Cont.chain
-};
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Cont.append = ({append}) => tx => ty =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(append(x) (y)))));
-
-
-Cont.prepend = ({append}) => ty => tx =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(append(x) (y)))));
-
-
-Cont.Semigroup = {
-  append: Cont.append,
-  prepend: Cont.prepend
-};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-Cont.empty = empty => Cont(k => k(empty));
-
-
-Cont.Monoid = {
-  ...Cont.Semigroup,
-  empty: Cont.empty
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████████ FUNCTION ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -1700,39 +1556,44 @@ A.Monad = {
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
+/* Since arrays are an imperative data type, all schemes are strictly evaluated.
+`List` provides lazy evaluated recursion schemes. */
+
 A.ana = A.unfold;
 
 
-A.apo = f => init => { // TODO: adapt to new Option type
+A.apo = f => init => { 
   let acc = [], x = init, next;
 
   do {
+    const pair = f(x);
     next = false;
 
-    acc = f(x).run({
-      none: acc,
+    if (pair === null) continue;
 
-      some: ([y, tx]) =>
-        tx.run({
-          left: _ => (acc.push(y), acc),
+    else {
+      const [y, tz] = pair;
 
-          right: z => {
-            x = z;
-            next = true;
-            return (acc.push(y), acc);
-          }
-        })
-    });
+      tz.run({
+        left: _ => (acc.push(y), acc),
+
+        right: z => {
+          x = z;
+          next = true;
+          return (acc.push(y), acc);
+        }
+      });
+    }
   } while (next);
 
   return acc;
 };
 
 
-A.cata = A.foldr;
+A.cata = A.foldl;
 
 
-A.para = f => init => xs => {
+A.para = f => init => xs => { 
   let acc = init, x;
 
   while (true) {
@@ -1790,21 +1651,21 @@ A.stream = xs => {
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
-A.unfold = f => init => {
+A.unfold = f => init => { // strict
   let acc = [], x = init, next;
 
   do {
+    const r = f(x);
     next = false;
 
-    acc = f(x).run({
-      none: acc,
+    if (pair === null) continue;
 
-      some: ([y, z]) => {
-        x = z;
-        next = true;
-        return (acc.push(y), acc);
-      }
-    });
+    else {
+      const [y, z] = pair;
+      x = z;
+      next = true;
+      return (acc.push(y), acc);
+    }
   } while (next);
 
   return acc;
@@ -1812,7 +1673,6 @@ A.unfold = f => init => {
 
 
 A.Unfoldable = {unfold: A.unfold};
-
 
 
 /*
@@ -1991,6 +1851,234 @@ Const.Applicative = {
   ...Const.Apply,
   of: Const.of
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ CONT █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Encodes synchronous I/O computations. Use `Serial`/`Parallel` for
+asynchronous evaluation either in serial or in parallel.
+
+  The type has the following properties:
+
+  * synchronous, serial evaluation
+  * pure core/impure shell concept
+  * lazy by deferred nested function call stack
+  * reliable return values
+  * not stack-safe but can be unwinded
+  * delimited scopes
+
+Calling `unwind` is possible due to reliable return values. It returns the
+`call` trampoline tag, hence the involved computation must be wrapped in one of
+the available trampoline interpeters, `Loop` for instance. */
+
+
+export const Cont = k => ({
+  [TAG]: "Cont",
+  run: k,
+  unwind: x => Loop.call(k, x) // the stack from exhausting
+});
+
+
+/*
+█████ Delimited ███████████████████████████████████████████████████████████████*/
+
+
+Cont.abrupt = x => Cont(k => x);
+
+
+Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
+
+
+Cont.reify = k => x => Cont(k2 => k(x));
+
+
+Cont.reset = mx => Cont(k => k(mx.run(id)));
+
+
+Cont.shift = fm => Cont(k => fm(k).run(id));
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
+
+
+Cont.Functor = {map: Cont.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
+
+
+Cont.Apply = {
+  ...Cont.Functor,
+  ap: Cont.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Cont.of = x => Cont(k => k(x));
+
+
+Cont.Applicative = {
+  ...Cont.Apply,
+  of: Cont.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+
+
+Cont.Chain = {
+  ...Cont.Apply,
+  chain: Cont.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Cont.Monad = {
+  ...Cont.Applicative,
+  chain: Cont.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Cont.append = ({append}) => tx => ty =>
+  Cont(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+Cont.prepend = ({append}) => ty => tx =>
+  Cont(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(append(x) (y)))));
+
+
+Cont.Semigroup = {
+  append: Cont.append,
+  prepend: Cont.prepend
+};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Cont.empty = empty => Cont(k => k(empty));
+
+
+Cont.Monoid = {
+  ...Cont.Semigroup,
+  empty: Cont.empty
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ DATE █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const DateTime = {}; // namespace
+
+
+export const D = DateTime; // shortcut
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+D.fromString = s => {
+  const d = new Date(s);
+
+  if (Number.isNaN(d.valueOf()))
+    throw new TypeError("invalid date string");
+
+  else return d;
+};
+
+
+/*
+█████ Format ██████████████████████████████████████████████████████████████████*/
+
+
+D.format = sep => (...fs) => d =>
+  fs.map(f => f(d))
+    .join(sep);
+
+
+D.formatDay = mode => d => {
+  switch (mode) {
+    case 1: return String(d.getUTCDate());
+    case 2: return String(d.getUTCDate()).padStart(2, "0");
+    default: throw new RangeError("invalid formatting mode");
+  }
+};
+
+
+D.formatMonth = ({names = [], mode}) => d => {
+  switch (mode) {
+    case 1: return String(d.getUTCMonth() + 1);
+    case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
+    case 3: return names[String(d.getUTCMonth())];
+    default: throw new RangeError("invalid formatting mode");
+  }
+};
+
+
+D.formatWeekday = ({names = [], mode}) => d => {
+  switch (mode) {
+    case 1: return String(d.getUTCDay());
+    case 2: return String(d.getUTCDay()).padStart(2, "0");
+    case 3: return names[String(d.getUTCDay())];
+    default: throw new RangeError("invalid formatting mode");
+  }
+};
+
+
+D.formatYear = mode => d => {
+  switch (mode) {
+    case 2: return String(d.getUTCFullYear()).slice(2);
+    case 4: return String(d.getUTCFullYear());
+    default: throw new RangeError("invalid formatting mode");
+  }
+};
+
+
+/*
+█████ Getter ██████████████████████████████████████████████████████████████████*/
+
+
+D.getLastDayOfMonth = ({year, month}) =>
+  new Date(year, month, 0).getDate();
+
+
+D.isDayOfMonth = ({year, month}) => day =>
+  day > 0 && new Date(year, month, 0).getDate() >= day;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2335,7 +2423,7 @@ instance (Monoid a, Monoid b) => Monoid (Either a b) where
 
 
 /*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 Either.Traversable = Either.Traversable();
@@ -2355,6 +2443,123 @@ Either.Traversable = Either.Traversable();
 
 
 // encodes a fundamental sum type - logical and/or - (A & B) || A || B
+
+
+export const These = {}; // namespace
+
+
+// value constructors
+
+
+These.This = x => ({
+  [TAG]: "These",
+  run: ({this: _this}) => _this(x)
+});
+
+
+These.That = y => ({
+  [TAG]: "These",
+  run: ({that}) => that(y)
+});
+
+
+These.Both = x => y => ({
+  [TAG]: "These",
+  run: ({both}) => both(x) (y)
+});
+
+
+These.cata = _this => that => both => tx => tx.run({ // elimination rule
+  this: _this,
+  that,
+  both
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+These.map = f => tx => tx.run({
+  this: These.This,
+  that: y => These.That(f(y)),
+  both: x => y => These.Both(x) (f(y))
+});
+
+
+These.Functor = {map: These.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+These.ap = ({append}) => tf => tx => tf.run({
+  this: These.This,
+
+  that: f => tx.run({
+    this: These.This,
+    that: y => These.That(f(y)),
+    both: x => y => These.Both(x) (f(y))
+  }),
+
+  both: x => f => tx.run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y => These.Both(x) (f(y)),
+    both: x2 => y => These.Both(append(x) (x2)) (f(y))
+  })
+});
+
+
+These.Apply = {
+  ...These.Functor,
+  ap: These.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+These.of = These.That;
+
+
+These.Applicative = {
+  ...These.Apply,
+  of: These.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+These.chain = ({append}) => mx => fm => mx.run({
+  this: These.This,
+  that: y => fm(y),
+
+  both: x => y => fm(y).run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y2 => These.Both(x) (y2),
+    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
+  })
+});
+
+
+These.Chain = {
+  ...These.Apply,
+  chain: These.chain
+};
+
+
+/*
+█████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
+
+
+These.Monad = {
+  ...These.Applicative,
+  chain: These.chain
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2876,6 +3081,17 @@ L.T = outer => thisify(o => { // outer monad's type classes
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromFoldable = ({foldr}) => foldr(L.Cons) (o.empty);
+
+
+  o.toList = mmx =>
+    outer.of(o.foldr(x => mx => L.Cons(x) (mx)) (L.Nil) (mmx));
+
+
+/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
@@ -3028,17 +3244,6 @@ L.T = outer => thisify(o => { // outer monad's type classes
 
 
 /*
-█████ Natural Transformation ██████████████████████████████████████████████████*/
-
-
-  o.fromFoldable = ({foldr}) => foldr(L.Cons) (o.empty);
-
-
-  o.toList = mmx =>
-    outer.of(o.foldr(x => mx => L.Cons(x) (mx)) (L.Nil) (mmx));
-
-
-/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -3138,7 +3343,7 @@ DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
 
 
 /*
-█████ Natural Transformations █████████████████████████████████████████████████*/
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 DList.fromList = xs => comp(DList) (List.append);
@@ -3237,7 +3442,53 @@ _Map.updOr = x => k => f => o => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ NATURAL NUMBERS ███████████████████████████████
+███████████████████████████████████ NUMBER ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Num = {}; // namespace
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Num.fromString = s => {
+  if (s.search(/^(?:\+|\-)?\d+(?:\.\d+)?$/) === 0) return Number(s);
+  else throw new TypeError(`invalid number string: ${s}`);
+};
+
+
+/*
+█████ Serialization ███████████████████████████████████████████████████████████*/
+
+
+Num.format = (...fs) => n =>
+  fs.map(f => f(n))
+    .join("");
+
+
+Num.formatFrac = digits => n =>
+  String(n)
+    .replace(/^[^.]+\.?/, "")
+    .padEnd(digits, "0");
+
+
+Num.formatInt = sep => n =>
+  String(Num.trunc(0) (n))
+    .replace(/^-/, "")
+    .replace(new RegExp("(\\d)(?=(?:\\d{3})+$)", "g"), `$1${sep}`);
+
+
+Num.formatSign = (pos, neg) => n =>
+  n > 0 ? pos : n < 0 ? neg : "";
+
+
+Num.formatSep = sep => n => sep;
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████ NUMBER :: NATURAL ██████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -3265,6 +3516,48 @@ Nat.cata = zero => succ => n => {
 
   return r;
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████ NUMBER :: DECIMAL ██████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Decimal = {}; // namespace
+
+
+export const Dec = Decimal; // shortcut
+
+
+/*
+█████ Precision ███████████████████████████████████████████████████████████████*/
+
+
+Dec.decimalAdjust = (k, n, digits) => {
+  const p = Math.pow(10, digits);
+
+  if (Math.round(n * p) / p === n)
+    return n;
+
+  const m = (n * p) * (1 + Number.EPSILON);
+  return Math[k] (m) / p;
+};
+
+
+Dec.ceil = digits => n =>
+  Dec.decimalAdjust("ceil", n, digits);
+
+
+Dec.floor = digits => n =>
+  Dec.decimalAdjust("floor", n, digits);
+
+
+Dec.round = digits => n =>
+  Dec.decimalAdjust("round", n, digits);
+
+
+Dec.trunc = digits => n =>
+  Dec.decimalAdjust("trunc", n, digits);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3501,7 +3794,7 @@ Optic.unpath = optic => optic.ref
 
 
 /*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 Optic.map = Optic.map();
@@ -3932,7 +4225,7 @@ P.once = tx => {
 
 
 /*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 P.allArr = P.allArr();
@@ -4880,7 +5173,7 @@ S.once = tx => {
 
 
 /*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 S.allArr = S.allArr();
@@ -5095,7 +5388,7 @@ Sex.once = tx => {
 
 
 /*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
 Sex.allArr = Sex.allArr();
@@ -5591,6 +5884,40 @@ Stream.empty = Stream.Nis;
 Stream.Monoid = {
   ...Stream.Semigroup,
   empty: Stream.empty
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ STRING ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Str = {}; // namespace
+
+
+Str.NORMALIZER = {
+
+  // map all letters derived from the latin alphabet to their ASCII representation
+
+  get derivedLetters() {
+    return new Map([
+      ["Æ", "AE"], ["æ", "ae"], ["Œ", "OE"], ["œ", "oe"], ["ẞ", "ss"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"], ["ɑ", "a"], ["ɐ", "a"],
+      ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"], ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"], ["ᶀ", "b"], ["Ƈ", "C"],
+      ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"], ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"], ["Đ", "D"], ["đ", "d"],
+      ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"], ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"], ["ɠ", "g"], ["Ǥ", "G"],
+      ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"], ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"], ["ɥ", "h"], ["ɦ", "h"],
+      ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"], ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"], ["Ƙ", "K"], ["ƙ", "k"],
+      ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"], ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"], ["Ⱡ", "L"], ["ⱡ", "l"],
+      ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"], ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"], ["ŋ", "n"], ["Ɲ", "N"],
+      ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"], ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"], ["ɵ", "o"], ["Ƥ", "P"],
+      ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"], ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"], ["Ʀ", "R"], ["ʀ", "r"],
+      ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"], ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"], ["ᵴ", "s"], ["ᶊ", "s"],
+      ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"], ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"], ["ʉ", "u"], ["Ʋ", "V"],
+      ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"], ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"], ["ƴ", "y"], ["Ɏ", "Y"],
+      ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"], ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"], ["ⱬ", "z"], ["Ʒ", "Z"],
+      ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"], ["Ʒ", "Z"], ["ʒ", "z"]
+    ]);
+  }
 };
 
 
@@ -6119,14 +6446,13 @@ FileSys.except = fs => cons => thisify(o => {
 
 /*
 
-  * add memo monad
   * add Array Zip Applicative instance
-  * add DList
   * add Pairs with Writer/State monad/combinators
   * add monad combinators
   * conceive async Stream
   * add EventStream/Emitter
-  * add foldl1/foldr1
+  * add foldl1/foldr1 to all container types
+  * rename fold into cata for all non-container types
   * add cata for each sum type
 
 */
