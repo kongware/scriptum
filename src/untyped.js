@@ -805,10 +805,10 @@ export const compBin = f => g => x => y => f(g(x) (y));
 export const compBoth = f => g => x => y => f(g(x)) (g(y));
 
 
-export const liftFst = f => g => x => f(g(x)) (x);
+export const liftFst = f => g => x => g(f(x)) (x); // chain
 
 
-export const liftSnd = f => g => x => f(x) (g(x));
+export const liftSnd = f => g => x => f(x) (g(x)); // ap
 
 
 export const liftBoth = f => g => h => x => f(g(x)) (h(x));
@@ -3587,6 +3587,16 @@ O.clone = o => {
 
 
 O.Clonable = {clone: O.clone};
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
+
+
+O.toPairs = Objects.entries;
 
 
 /*
