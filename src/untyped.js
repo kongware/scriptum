@@ -666,6 +666,13 @@ export const chain3 = ({chain}) => mx => my => mz => fm =>
   chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
 
 
+// variadic chaining
+
+export const chainn = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
+  return chain(mx) (x => ms.length === 0 ? fm(x) : go(fm(x), ms));
+} (fm, ms);
+
+
 /*
 █████ Interpretation ██████████████████████████████████████████████████████████*/
 
@@ -734,6 +741,11 @@ export const uncurry = f => (x, y) => f(x) (y);
 export const flip = f => y => x => f(x) (y);
 
 
+// enables `let` bindings as expressions in a readable form
+
+export const _let = (...args) => ({in: f => f(...args)});
+
+
 /* Allows the application of several binary combinators in sequence while
 maintaining a flat syntax. Describes the following function call stacks:
 
@@ -763,11 +775,6 @@ export const infix = makeInfix(true);
 
 
 export const infix_ = makeInfix(false);
-
-
-// enables `let` bindings as expressions in a readable form
-
-export const _let = (...args) => ({in: f => f(...args)});
 
 
 /*
@@ -1029,16 +1036,37 @@ export const introspect = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
-export const _throw = e => { // throw as a first class expression
-  throw e;
-};
-
-
 /* takes an arbitrary number of expressions and returns the evaluated value
 of the last one. The omitted expressions are merely evaluated for their
 effects. */
 
 export const eff = (...exps) => exps[exps.length - 1];
+
+
+export const _throw = e => { // throw as a first class expression
+  throw e;
+};
+
+
+// try/catch block as an expression
+
+export const _try = f => x => ({
+  catch: handler => {
+    try {return f(x)}
+    catch(e) {return handler(x) (e)};
+  }
+});
+
+
+/* As _try but expects a thunk instead of a function as argument. The thunk is
+just a means to defer evaluation of the expression to be passed. */
+
+export const try_ = thunk => ({
+  catch: handler => {
+    try {return thunk()}
+    catch(e) {return handler(x) (e)};
+  }
+});
 
 
 /*
@@ -1217,6 +1245,13 @@ export const transduce = ({append}, {fold}) => f =>
 
 
 /*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+export const xor = x => y => !!(!!x ^ !!y);
+
+
+/*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
@@ -1227,6 +1262,86 @@ F.contramap = F.contramap();
 
 
 F.Contra = F.Contra();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████ FUNCTION :: READER :: TRANSFORMER ██████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: a -> m b
+
+/* Unlike other monad transformers Reader gets its own type wrapper to
+distinguish normal function calls from monadic ones. */
+
+
+export const Reader = fmm => ({ // constructor
+  [TAG]: "Reader",
+  run: fmm
+});
+
+
+export const R = Reader; // shortcut
+
+
+R.T = outer => thisify(o => { // outer monad's type classes
+
+
+  o.map = f => mmx => Reader(r => outer.map(f) (mmx.run(r));
+
+
+  o.ap = mmf => mmx => Reader(r => outer.ap(mmf.run(r)) (mmx.run(r)))
+
+
+  o.of = x => Reader(_ => outer.of(x));
+
+
+  o.chain = mmx => fmm =>
+    Reader(r => outer.chain(mmx.run(r)) (x => fmm(x).run(r)));
+
+
+  o.lift = mx => Reader(_ => mx);
+
+
+  o.ask = Reader(outer.of);
+
+
+  o.reader = f => Reader(r => outer.of(f(r)));
+
+
+  o.withReader = f => mmx => Reader(r => mmx.run(f(r));
+
+  
+  o.mapBase = f => mmx => Reader(r => f(mmx.run(r)));
+  
+
+  return o;
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████ FUNCTION :: STATE :: TRANSFORMER ███████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: b -> m (a, b)
+
+
+export const State = fmm => ({ // constructor
+  [TAG]: "State",
+  run: fmm
+});
+
+
+export const St = State; // shortcut
+
+
+St.T = outer => thisify(o => { // outer monad's type classes
+
+  // TODO
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2069,18 +2184,6 @@ D.formatYear = mode => d => {
 };
 
 
-/*
-█████ Getter ██████████████████████████████████████████████████████████████████*/
-
-
-D.getLastDayOfMonth = ({year, month}) =>
-  new Date(year, month, 0).getDate();
-
-
-D.isDayOfMonth = ({year, month}) => day =>
-  day > 0 && new Date(year, month, 0).getDate() >= day;
-
-
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ DEFER ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -2430,136 +2533,70 @@ Either.Traversable = Either.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ CONT :: XEITHER ███████████████████████████████
+███████████████████████████████████ EMITTER ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// encodes a fundamental sum type - logical xor - (A && !B) || (!A && B)
+/* TODO: description */
+
+
+export const Emitter = k => ({
+  [TAG]: "Emitter",
+  run: k
+});
+
+
+Emitter.emit = ({emitters: [[emitter, type, once = false], ...emitters], init = null, listener}) => {
+  const state = {run: init};
+  let r;
+
+  return Emitter(k => {
+    if (r) return r; // ensure idempotency
+
+    const timestamp = Date.now(),
+      refs = [];
+
+    const listener2 = currType => (...dyn) => {
+      state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
+    };
+    
+    refs.push(listener2(type));
+    
+    if (once) emitter.once(type.split(".").pop(), refs[0]);
+    else emitter.on(type.split(".").pop(), refs[0]);
+
+    emitters.forEach(([emitter2, type2, once2 = true], i) => {
+      refs.push(listener2(type2));
+      if (once2) emitter2.once(type2.split(".").pop(), refs[i + 1]);
+      else emitter2.on(type2.split(".").pop(), refs[i + 1]);
+    });
+
+    r = {
+      [TAG]: "EmitterController",
+      
+      get cancel() {
+        emitter.off(type.split(".").pop(), refs[0]);
+
+        emitters.forEach(
+          ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
+        
+        return r;
+      },
+
+      state: Cont(k2 => k2(state.run)) // value over time
+    };
+
+    return r;
+  });
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ CONT :: THESE ████████████████████████████████
+████████████████████████████████████ ERROR ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// encodes a fundamental sum type - logical and/or - (A & B) || A || B
-
-
-export const These = {}; // namespace
-
-
-// value constructors
-
-
-These.This = x => ({
-  [TAG]: "These",
-  run: ({this: _this}) => _this(x)
-});
-
-
-These.That = y => ({
-  [TAG]: "These",
-  run: ({that}) => that(y)
-});
-
-
-These.Both = x => y => ({
-  [TAG]: "These",
-  run: ({both}) => both(x) (y)
-});
-
-
-These.cata = _this => that => both => tx => tx.run({ // elimination rule
-  this: _this,
-  that,
-  both
-});
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-These.map = f => tx => tx.run({
-  this: These.This,
-  that: y => These.That(f(y)),
-  both: x => y => These.Both(x) (f(y))
-});
-
-
-These.Functor = {map: These.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-These.ap = ({append}) => tf => tx => tf.run({
-  this: These.This,
-
-  that: f => tx.run({
-    this: These.This,
-    that: y => These.That(f(y)),
-    both: x => y => These.Both(x) (f(y))
-  }),
-
-  both: x => f => tx.run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y => These.Both(x) (f(y)),
-    both: x2 => y => These.Both(append(x) (x2)) (f(y))
-  })
-});
-
-
-These.Apply = {
-  ...These.Functor,
-  ap: These.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-These.of = These.That;
-
-
-These.Applicative = {
-  ...These.Apply,
-  of: These.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-These.chain = ({append}) => mx => fm => mx.run({
-  this: These.This,
-  that: y => fm(y),
-
-  both: x => y => fm(y).run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y2 => These.Both(x) (y2),
-    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
-  })
-});
-
-
-These.Chain = {
-  ...These.Apply,
-  chain: These.chain
-};
-
-
-/*
-█████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
-
-
-These.Monad = {
-  ...These.Applicative,
-  chain: These.chain
-};
+export const Err = TypeError; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3596,7 +3633,7 @@ O.Clonable = {clone: O.clone};
 O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
 
 
-O.toPairs = Objects.entries;
+O.toPairs = Object.entries;
 
 
 /*
@@ -5426,7 +5463,7 @@ _Set.del = k => s => s.delete(k);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ STREAM (SYNC) ████████████████████████████████
+███████████████████████████████████ STREAM ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -5932,6 +5969,131 @@ Str.NORMALIZER = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ THESE ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// encodes a fundamental sum type - logical and/or - (A & B) || A || B
+
+
+export const These = {}; // namespace
+
+
+// value constructors
+
+
+These.This = x => ({
+  [TAG]: "These",
+  run: ({this: _this}) => _this(x)
+});
+
+
+These.That = y => ({
+  [TAG]: "These",
+  run: ({that}) => that(y)
+});
+
+
+These.Both = x => y => ({
+  [TAG]: "These",
+  run: ({both}) => both(x) (y)
+});
+
+
+These.cata = _this => that => both => tx => tx.run({ // elimination rule
+  this: _this,
+  that,
+  both
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+These.map = f => tx => tx.run({
+  this: These.This,
+  that: y => These.That(f(y)),
+  both: x => y => These.Both(x) (f(y))
+});
+
+
+These.Functor = {map: These.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+These.ap = ({append}) => tf => tx => tf.run({
+  this: These.This,
+
+  that: f => tx.run({
+    this: These.This,
+    that: y => These.That(f(y)),
+    both: x => y => These.Both(x) (f(y))
+  }),
+
+  both: x => f => tx.run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y => These.Both(x) (f(y)),
+    both: x2 => y => These.Both(append(x) (x2)) (f(y))
+  })
+});
+
+
+These.Apply = {
+  ...These.Functor,
+  ap: These.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+These.of = These.That;
+
+
+These.Applicative = {
+  ...These.Apply,
+  of: These.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+These.chain = ({append}) => mx => fm => mx.run({
+  this: These.This,
+  that: y => fm(y),
+
+  both: x => y => fm(y).run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y2 => These.Both(x) (y2),
+    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
+  })
+});
+
+
+These.Chain = {
+  ...These.Apply,
+  chain: These.chain
+};
+
+
+/*
+█████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
+
+
+These.Monad = {
+  ...These.Applicative,
+  chain: These.chain
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████ TREE (N-ARY) █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -6241,6 +6403,22 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████ TUPLE :: PAIR :: TRANSFORMER █████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: m (a, b)
+
+
+Pair.T = outer => thisify(o => { // outer monad's type classes
+
+  // TODO
+  
+  return o;
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ YONEDA ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -6457,12 +6635,12 @@ FileSys.except = fs => cons => thisify(o => {
 /*
 
   * add Array Zip Applicative instance
-  * add Pairs with Writer/State monad/combinators
   * add monad combinators
   * conceive async Stream
   * add EventStream/Emitter
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
+  * add trampoline monad
 
 */
