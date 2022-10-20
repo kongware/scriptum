@@ -1863,6 +1863,22 @@ class NEArray extends Array {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ BEHAVIOR ███████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/*
+  * multicast
+  * async
+  * pull
+  * lazy
+  * not cancelable */
+
+
+// TODO
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ COMPOSE ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4066,6 +4082,35 @@ O.thisify = thisify;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ OBSERVABLE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Encodes asynchronos event streams. It has the following properties:
+
+  * unicast
+  * sync/async
+  * push
+  * lazy
+  * cancelable
+
+Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
+chaging values. */
+
+
+const Observable = observe => ({ // constructor
+  [Symbol.toStringTag]: "Observable",
+  run: observe
+});
+
+
+const Ob = Observable; // shortcut
+
+
+Ob.subscribe = observer => observable => observable.run(observer);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ OPTIC ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -5808,8 +5853,17 @@ _Set.del = k => s => s.delete(k);
 
 /* Encodes the concept of supplying a meaningful chunk of data synchronously
 one at a time from a much larger source (e.g. a huge array) together with a
-function to request another chunk. The type uses a lazy object getter to 
-suspend the process. */
+function to request the next chunk. The type uses a lazy object getter to 
+suspend the process. It has the following properties:
+
+  * unicast
+  * sync
+  * pull
+  * lazy
+  * cancelable (pull)
+
+Use `Observable` for asynchronous event streams and `Behavior` for asynchronous
+time chaging values. */
 
 
 export const Stream = {}; // namespace
@@ -7821,5 +7875,8 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * rename fold into cata for all non-container types
   * add cata for each sum type
   * add trampoline monad
+  * study Haskell's STM
+  * Stream: add error case
+  * Stream: merge NIS with Done
 
 */
