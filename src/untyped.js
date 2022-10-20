@@ -4170,25 +4170,39 @@ Ob.fromPormise = p => Ob(observer =>
 
 Ob.map = f => tx => Ob(observer =>
   tx.run({
-    next(x) {return observer.next(f(x))},
-    error(e) {return observer.error(e)},
-    done(y) {return observer.done(y)}
+    next: x => observer.next(f(x)),
+    error: e => observer.error(e),
+    done: y => observer.done(y)
+  })
+);
+
+
+Ob.ap = tf => tx => Ob(observer =>
+  tf.run({
+    next: f => tx.run({
+      next: x => observer.next(f(x)),
+      error: e2 => observer.error(e2),
+      done: y => observer.done(y)
+    }),
+
+    error: e => observer.error(e),
+    done: y => observer.done(y)
   })
 );
 
 
 Ob.chain = tx => fm => Ob(observer =>
   tx.run({
-    next(x) {
+    next: x => {
       return fm(x).run({
-        next(x2) {return observer.next(x2)},
-        error(e2) {return observer.error(e2)},
-        done(y2) {return observer.done(y2)}
+        next: x2 => observer.next(x2),
+        error: e2 => observer.error(e2),
+        done: y2 => observer.done(y2)
       })
     },
     
-    error(e) {return observer.error(e)},
-    done(y) {return observer.done(y)}
+    error: e => observer.error(e),
+    done: y => observer.done(y)
   })
 );
 
@@ -7889,13 +7903,10 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add Array Zip Applicative instance
   * add monad combinators
   * conceive async Stream
-  * add EventStream/DataStream
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
   * add trampoline monad
   * study Haskell's STM
-  * Stream: add error case
-  * Stream: merge NIS with Done
 
 */
