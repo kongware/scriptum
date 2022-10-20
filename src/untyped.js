@@ -2533,65 +2533,6 @@ Either.Traversable = Either.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ EMITTER ███████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* TODO: description */
-
-
-export const Emitter = k => ({
-  [TAG]: "Emitter",
-  run: k
-});
-
-
-Emitter.emit = ({emitters: [[emitter, type, once = false], ...emitters], init = null, listener}) => {
-  const state = {run: init};
-  let r;
-
-  return Emitter(k => {
-    if (r) return r; // ensure idempotency
-
-    const timestamp = Date.now(),
-      refs = [];
-
-    const listener2 = currType => (...dyn) => {
-      state.run = listener({dyn, type: currType, state: state.run, timestamp}) (k);
-    };
-    
-    refs.push(listener2(type));
-    
-    if (once) emitter.once(type.split(".").pop(), refs[0]);
-    else emitter.on(type.split(".").pop(), refs[0]);
-
-    emitters.forEach(([emitter2, type2, once2 = true], i) => {
-      refs.push(listener2(type2));
-      if (once2) emitter2.once(type2.split(".").pop(), refs[i + 1]);
-      else emitter2.on(type2.split(".").pop(), refs[i + 1]);
-    });
-
-    r = {
-      [TAG]: "EmitterController",
-      
-      get cancel() {
-        emitter.off(type.split(".").pop(), refs[0]);
-
-        emitters.forEach(
-          ([emitter2, type2], i) => emitter2.off(type2.split(".").pop(), refs[i + 1]));
-        
-        return r;
-      },
-
-      state: Cont(k2 => k2(state.run)) // value over time
-    };
-
-    return r;
-  });
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ ERROR ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -2803,6 +2744,404 @@ Id.Chain = {
 Id.Monad = {
   ...Id.Applicative,
   chain: Id.chain
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ IMAP █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const IMap_ = cmp => {
+  const IMap = (tree, size) => ({
+    [TAG]: "IMap",
+    tree,
+    size
+  });
+
+
+  IMap.empty = IMap(RBT.Leaf, 0);
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+  IMap.get = k => m => {
+    const r = RBT.get(m.tree, k, cmp);
+    return r === undefined ? null : r;
+  };
+
+
+  IMap.has = k => m =>
+    RBT.has(m.tree, k, cmp);
+
+
+  IMap.upd = k => f => m => {
+    if (IMap.has(k) (m)) {
+      const v = RBT.get(m.tree, k, cmp);
+
+      return IMap(
+        RBT.set(m.tree, k, f(v), cmp),
+        m.size);
+    }
+
+    else return m;
+  };
+
+
+  IMap.del = k => m => {
+    let size = m.size;
+
+    if (IMap.has(k) (m))
+      size = m.size - 1;
+    
+    else return m;
+
+    return IMap(
+      RBT.del(m.tree, k, cmp),
+      size);
+  };
+
+
+  IMap.set = k => v => m => {
+    let size = m.size;
+
+    if (!IMap.has(k) (m))
+      size = m.size + 1;
+
+    return IMap(
+      RBT.set(m.tree, k, v, cmp),
+      size);
+  };
+
+
+/*
+█████ Traversal ███████████████████████████████████████████████████████████████*/
+
+
+  IMap.inOrder = ({append, empty}) => f => m =>
+    RBT.inOrder({append, empty}) (f) (m.tree);
+
+
+  IMap.inOrder_ = ({append, empty}) => f => m =>
+    RBT.inOrder_({append, empty}) (f) (m.tree);
+
+
+  return IMap;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ IOMAP ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const IOMap_ = cmp => {
+  const IOMap = (tree, keys, size, counter) => ({
+    [TAG]: "IOMap",
+    tree,
+    keys,
+    size,
+    counter
+  });
+
+
+  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+  IOMap.get = k => m => {
+    const r = RBT.get(m.tree, k, cmp);
+    return r === undefined ? null : r;
+  };
+
+
+  IOMap.has = k => m =>
+    RBT.has(m.tree, k, cmp);
+
+
+  IOMap.upd = k => f => m => {
+    if (IOMap.has(k) (m)) {
+      const v = RBT.get(m.tree, k, cmp);
+
+      return IOMap(
+        RBT.set(m.tree, k, f(v), cmp),
+        m.keys,
+        m.size,
+        m.counter);
+    }
+
+    else return m;
+  };
+
+
+  IOMap.del = k => m => {
+    let size = m.size;
+
+    if (IOMap.has(k) (m))
+      size = m.size - 1;
+    
+    else return m;
+
+    return IOMap(
+      RBT.del(m.tree, k, cmp),
+      m.keys, // no key removal
+      size,
+      m.counter);
+  };
+
+
+  IOMap.set = k => v => m => {
+    let size = m.size,
+      counter = m.counter;
+
+    if (!IOMap.has(k) (m)) {
+      size = m.size + 1;
+      counter = m.counter + 1;
+    }
+
+    return IOMap(
+      RBT.set(m.tree, k, v, cmp),
+      RBT.set(m.keys, m.counter, k, RBT.cmp),
+      size,
+      counter);
+  };
+
+
+/*
+█████ Traversal ███████████████████████████████████████████████████████████████*/
+
+
+  IOMap.inOrder = ({append, empty}) => f => m =>
+    RBT.inOrder({append, empty}) (f) (m.tree);
+
+
+  IOMap.inOrder_ = ({append, empty}) => f => m =>
+    RBT.inOrder_({append, empty}) (f) (m.tree);
+
+
+  IOMap.insertOrder = f => init => m => function go(acc, i) {
+    if (i >= m.counter) return acc;
+
+    else {
+      const k = RBT.get(m.keys, i, RBT.cmp),
+        v = IOMap.get(k) (m);
+
+      if (v === null) return go(acc, i + 1);
+      else return go(f(acc) (Pair(k, v)), i + 1)
+    }
+  } (init, 0);
+
+
+  IOMap.insertOrder_ = f => acc => m => function go(i) {
+    if (i >= m.counter) return acc;
+
+    else {
+      const k = RBT.get(m.keys, i, RBT.cmp),
+        v = IOMap.get(k) (m);
+
+      if (v === null) return go(i + 1);
+      else return f(Pair(k, v)) (lazy(() => go(i + 1)));
+    }
+  } (0);
+
+
+  return IOMap;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ ISET █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const ISet_ = cmp => {
+  const ISet = (tree, size) => ({
+    [TAG]: "ISet",
+    tree,
+    size
+  });
+
+
+  ISet.empty = ISet(RBT.Leaf, 0);
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+  ISet.has = k => s =>
+    RBT.has(s.tree, k, cmp);
+
+
+  ISet.upd = k => f => s => {
+    if (ISet.has(k) (s)) {
+      return ISet(
+        RBT.set(s.tree, f(k), null, cmp),
+        s.size);
+    }
+
+    else return s;
+  };
+
+
+  ISet.del = k => s => {
+    let size = s.size;
+
+    if (ISet.has(k) (s))
+      size = s.size - 1;
+    
+    else return s;
+
+    return ISet(
+      RBT.del(s.tree, k, cmp),
+      size);
+  };
+
+
+  ISet.set = k => s => {
+    let size = s.size;
+
+    if (!ISet.has(k) (s))
+      size = s.size + 1;
+
+    return ISet(
+      RBT.set(s.tree, k, null, cmp),
+      size);
+  };
+
+
+/*
+█████ Traversal ███████████████████████████████████████████████████████████████*/
+
+
+  ISet.inOrder = ({append, empty}) => f => s =>
+    RBT.inOrder({append, empty}) (f) (s.tree);
+
+
+  ISet.inOrder_ = ({append, empty}) => f => s =>
+    RBT.inOrder_({append, empty}) (f) (s.tree);
+
+
+  return ISet;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ IOSET ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const IOSet_ = cmp => {
+  const IOSet = (tree, keys, size, counter) => ({
+    [TAG]: "IOSet",
+    tree,
+    keys,
+    size,
+    counter
+  });
+
+
+  IOSet.empty = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+  IOSet.has = k => s =>
+    RBT.has(s.tree, k, cmp);
+
+
+  IOSet.upd = k => f => s => {
+    if (IOSet.has(k) (s)) {
+      return IOSet(
+        RBT.set(s.tree, f(k), null, cmp),
+        s.keys,
+        s.size,
+        s.counter);
+    }
+
+    else return s;
+  };
+
+
+  IOSet.del = k => s => {
+    let size = s.size;
+
+    if (IOSet.has(k) (s))
+      size = s.size - 1;
+    
+    else return s;
+
+    return IOSet(
+      RBT.del(s.tree, k, cmp),
+      s.keys, // no key removal
+      size,
+      s.counter);
+  };
+
+
+  IOSet.set = k => s => {
+    let size = s.size,
+      counter = s.counter;
+
+    if (!IOSet.has(k) (s)) {
+      size = s.size + 1;
+      counter = s.counter + 1;
+    }
+
+    return IOSet(
+      RBT.set(s.tree, k, null, cmp),
+      RBT.set(s.keys, s.counter, k, RBT.cmp),
+      size,
+      counter);
+  };
+
+
+/*
+█████ Traversal ███████████████████████████████████████████████████████████████*/
+
+
+  IOSet.inOrder = ({append, empty}) => f => s =>
+    RBT.inOrder({append, empty}) (f) (s.tree);
+
+
+  IOSet.inOrder_ = ({append, empty}) => f => s =>
+    RBT.inOrder_({append, empty}) (f) (s.tree);
+
+
+  IOSet.insertOrder = f => init => s => function go(acc, i) {
+    if (i >= s.counter) return acc;
+
+    else {
+      const k = RBT.get(s.keys, i, RBT.cmp),
+        v = IOSet.get(k) (s);
+
+      if (v === null) return go(acc, i + 1);
+      else return go(f(acc) (v), i + 1);
+    }
+  } (init, 0);
+
+
+  IOSet.insertOrder_ = f => acc => s => function go(i) {
+    if (i >= s.counter) return acc;
+
+    else {
+      const k = RBT.get(s.keys, i, RBT.cmp),
+        v = IOSet.get(k) (s);
+
+      if (v === null) return go(i + 1);
+      else return f(v) (lazy(() => go(i + 1)));
+    }
+  } (0);
+
+
+  return IOSet;
 };
 
 
@@ -6628,6 +6967,846 @@ FileSys.except = fs => cons => thisify(o => {
 
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
+█████████████████████████ PERSISTANT DATA STRUCTURES ██████████████████████████
+███████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// self-balancing red/black tree to construct persistent data structures
+
+
+const RB = {}; // namespace
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ CONSTANTS ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+RB.RED = true;
+RB.BLACK = false;
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ CONSTRUCTORS █████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+RB.Leaf = {[Symbol.toStringTag]: "Leaf"};
+
+
+RB.Node = (c, h, l, k, v, r) =>
+  ({[Symbol.toStringTag]: "Node", c, h, l, k, v, r});
+
+
+RB.singleton = (k, v) =>
+  RB.Node(RB.BLACK, 1, RB.Leaf, k, v, RB.Leaf);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ BALANCING ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+RB.balanceL = (c, h, l, k, v, r) => {
+  if (c === RB.BLACK
+    && l[TAG] === "Node"
+    && l.c ===RB.RED
+    && l.l[TAG] === "Node"
+    && l.l.c === RB.RED)
+      return RB.Node(
+        RB.RED, h + 1, RB.turnB(l.l), l.k, l.v, RB.Node(RB.BLACK, h, l.r, k, v, r));
+
+  else return RB.Node(c, h, l, k, v, r);
+};
+
+
+RB.balanceR = (c, h, l, k, v, r) => {
+  if (c === RB.BLACK
+    && l[TAG] === "Node"
+    && r[TAG] === "Node"
+    && l.c === RB.RED
+    && r.c === RB.RED)
+      return RB.Node(
+        RB.RED, h + 1, RB.turnB(l), k, v, RB.turnB(r));
+
+  else if (r[TAG] === "Node"
+    && r.c === RB.RED)
+      return RB.Node(
+        c, h, RB.Node(RB.RED, r.h, l, k, v, r.l), r.k, r.v, r.r);
+
+  else return RB.Node(c, h, l, k, v, r);
+};
+
+
+RB.isBLB = t =>
+  t[TAG] === "Node"
+    && t.c === RB.BLACK
+    && (t.l[TAG] === "Leaf" || t.l.c === RB.BLACK)
+      ? true : false;
+
+
+RB.isBLR = t =>
+  t[TAG] === "Node"
+    && t.c === RB.BLACK
+    && t.l[TAG] === "Node"
+    && t.l.c === RB.RED
+      ? true : false;
+
+
+RB.rotateR = t => {
+  if (t[TAG] === "Node"
+    && t.l[TAG] === "Node"
+    && t.l.c === RB.RED)
+      return RB.balanceR(
+        t.c, t.h, t.l.l, t.l.k, t.l.v, RB.delMax_(RB.Node(RB.RED, t.h, t.l.r, t.k, t.v, t.r)));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.turnR = ({[TAG]: type, h, l, k, v, r}) => {
+  if (type === "Leaf")
+    throw new TypeError("leaves cannot turn color");
+
+  else return RB.Node(
+    RB.RED, h, l, k, v, r);
+};
+
+
+RB.turnB = ({[TAG]: type, h, l, k, v, r}) => {
+  if (type === "Leaf")
+    throw new TypeError("leaves cannot turn color");
+
+  else return RB.Node(
+    RB.BLACK, h, l, k, v, r);
+};
+
+
+RB.turnB_ = t => {
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+    case "Node": return RB.Node(RB.BLACK, t.h, t.l, t.k, t.v, t.r);
+    default: throw new TypeError("invalid value constructor");
+  }
+}
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████████ API █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
+
+
+RB.cata = node => leaf => function go(t) {
+  return k => {
+    switch (t[TAG]) {
+      case "Leaf": return k(leaf);
+      
+      case "Node": return go(t.l) (t2 =>
+        go(t.r) (t3 =>
+          k(node([t.k, t.v]) (t2) (t3))));
+
+      default: throw new TypeError("invalid constructor");
+    }
+  }
+};
+
+
+RB.cata_ = node => leaf => function go(t) { // lazy version
+  switch (t[TAG]) {
+    case "Leaf": return leaf;
+    
+    case "Node": return node([t.k, t.v])
+      (lazy(() => go(t.l)))
+        (lazy(() => go(t.r)));
+
+    default: throw new TypeError("invalid constructor");
+  }
+};
+
+
+/*
+█████ Deletion ████████████████████████████████████████████████████████████████*/
+
+
+RB.del = (t, k, cmp) => {
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+    
+    case "Node": {
+      const t2 = RB.del_(RB.turnR(t), k, cmp);
+
+      switch (t2[TAG]) {
+        case "Leaf": return RB.Leaf;
+        case "Node": return RB.turnB(t2);
+        default: throw new TypeError("invalid value constructor");
+      }
+    }
+
+    default: throw new TypeError("invalid value constructor");
+  }
+};
+
+
+RB.delLT = (k, c, h, l, k2, v2, r, cmp) => {
+  if (c === RB.RED
+    && RB.isBLB(l)
+    && RB.isBLR(r))
+      return RB.Node(
+        RB.RED,
+        h,
+        RB.Node(RB.BLACK, r.h, RB.del_(RB.turnR(l), k, cmp), k2, v2, r.l.l),
+        r.l.k,
+        r.l.v,
+        RB.Node(RB.BLACK, r.h, r.l.r, r.k, r.v, r.r));
+
+  else if (c === RB.RED
+    && RB.isBLB(l))
+      return RB.balanceR(
+        RB.BLACK, h - 1, RB.del_(tunrR(l), k, cmp), k2, v2, RB.turnR(r));
+
+  else return RB.Node(c, h, RB.del_(l, k, cmp), k2, v2, r);
+};
+
+
+RB.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
+  if (c === RB.RED
+    && l[TAG] === "Leaf"
+    && r[TAG] === "Leaf")
+      return RB.Leaf;
+
+  else if (l[TAG] === "Node"
+    && l.c === RB.RED)
+      return RB.balanceR(
+        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r), k, cmp));
+
+  else if (c === RB.RED
+    && RB.isBLB(r)
+    && RB.isBLR(l))
+      return RB.balanceR(
+        RB.RED,
+        h,
+        RB.turnB(l.l),
+        l.k,
+        l.v,
+        RB.balanceR(RB.BLACK, l.h, l.r, ...RB.min(r), RB.delMin_(RB.turnR(r))));
+
+  else if (c === RB.RED
+    && RB.isBLB(r))
+      return RB.balanceR(RB.BLACK, h - 1, RB.turnR(l), ...RB.min(r), RB.delMin_(RB.turnR(r)));
+
+  else if (c === RB.RED
+    && r[TAG] === "Node"
+    && r.c === RB.BLACK)
+      return RB.Node(
+        RB.RED, h, l, ...RB.min(r), RB.Node(RB.BLACK, r.h, RB.delMin_(r.l), r.k, r.v, r.r));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.delGT = (k, c, h, l, k2, v2, r, cmp) => {
+  if (l[TAG] === "Node"
+    && l.c === RB.RED)
+      return RB.balanceR(
+        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r)), k, cmp);
+
+  else if (c === RB.RED
+    && RB.isBLB(r)
+    && RB.isBLR(l))
+      return RB.Node(
+        RB.RED,
+        h,
+        RB.turnB(l.l),
+        l.k,
+        l.v,
+        RB.balanceR(RB.BLACK, l.h, l.r, k2, v2, RB.del_(RB.turnR(r), k, cmp)));
+
+  else if (c === RB.RED
+    && RB.isBLB(r))
+      return RB.balanceR(
+        RB.BLACK, h - 1, RB.turnR(l), k2, v2, RB.del_(RB.turnR(r), k, cmp));
+
+  else if (c === RB.RED)
+    return RB.Node(RB.RED, h, l, k2, v2, RB.del_(r, k, cmp));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.delMin = t =>{
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+
+    case "Node": {
+      const t2 = RB.delMin_(RB.turnR(t));
+
+      switch (t2[TAG]) {
+        case "Leaf": return RB.Leaf;
+        case "Node": return RB.turnB(t2);
+        default: throw new TypeError("invalid value constructor");
+      }
+    }
+
+    default: throw new TypeError("invalid value constructor");
+  }
+};
+
+
+RB.delMax = t => {
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+
+    case "Node": {
+      const t2 = RB.delMax_(RB.turnR(t));
+
+      switch (t2[TAG]) {
+        case "Leaf": return RB.Leaf;
+        case "Node": return RB.turnB(t2);
+        default: TypeError("invalid value constructor");
+      }
+    }
+
+    default: TypeError("invalid value constructor");
+  }
+};
+
+
+// helper
+
+
+RB.del_ = (t, k, cmp) => {
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+
+    case "Node": {
+      switch (cmp(k, t.k)) {
+        case LT: return RB.delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
+        case EQ: return RB.delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
+        case GT: return RB.delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
+        default: throw new TypeError("invalid comparator");
+      }
+    }
+
+    default: throw new TypeError("invalid value constructor");
+  }
+};
+
+
+RB.delMin_ = t => {
+  if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && t.l[TAG] === "Leaf"
+    && t.r[TAG] === "Leaf")
+      return RB.Leaf;
+
+  else if (t[TAG] === "Node"
+    && t.c === RB.RED)
+      return RB.Node(RB.RED, t.h, RB.delMin_(t.l), t.k, t.v, t.r);
+
+  else if (t[TAG] === "Node"
+    && RB.isBLB(t.l)
+    && RB.isBLR(t.r))
+      return RB.delMin__(t);
+
+  else if (t[TAG] === "Node"
+    && RB.isBLB((t.l)))
+      return RB.balanceR(
+        RB.BLACK, t.h - 1, RB.delMin_(RB.turnR(t.l)), t.k, t.v, RB.turnR(t.r));
+
+  else if (t[TAG] === "Node"
+    && t.l[TAG] === "Node"
+    && t.l.c === RB.BLACK)
+      return RB.Node(
+        RB.RED, t.h, RB.Node(RB.BLACK, t.l.h, RB.delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.delMin__ = t => {
+  if(t[TAG] === "Node"
+    && t.c === RB.RED
+    && t.r[TAG] === "Node"
+    && t.r.c === RB.BLACK
+    && t.r.l[TAG] === "Node"
+    && t.r.l.c === RB.RED)
+      return RB.Node(
+        RB.RED,
+        t.h,
+        RB.Node(RB.BLACK, t.r.h, RB.delMin_(RB.turnR(t.l)), t.k, t.v, t.r.l.l),
+        t.r.l.k,
+        t.r.l.v,
+        RB.Node( RB.BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.delMax_ = t => {
+  if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && t.l[TAG] === "Leaf"
+    && t.r[TAG] === "Leaf")
+      return RB.Leaf;
+
+  else if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && t.l[TAG] === "Node"
+    && t.l.c === RB.RED)
+      return RB.rotateR(t);
+
+  else if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && RB.isBLB(t.r)
+    && RB.isBLR(t.l))
+      return RB.delMax__(t);
+
+  else if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && RB.isBLB(t.r))
+      return RB.balanceR(
+        RB.BLACK, t.h - 1, RB.turnR(t.l), t.k, t.v, RB.delMax_(RB.turnR(t.r)));
+
+  else if (t[TAG] === "Node"
+    && t.c === RB.RED)
+      return RB.Node(RB.RED, t.h, t.l, t.k, t.v, RB.rotateR(t.r));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.delMax__ = t => {
+  if (t[TAG] === "Node"
+    && t.c === RB.RED
+    && t.l[TAG] === "Node"
+    && t.l.c === RB.BLACK
+    && t.l.l[TAG] === "Node"
+    && t.l.l.c === RB.RED)
+      return RB.Node(
+        RB.RED, t.h, RB.turnB(t.l.l), t.l.k, t.l.v, RB.balanceR(RB.BLACK, t.l.h, t.l.r, t.k, t.v, RB.delMax_(RB.turnR(t.r))));
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+RB.foldl = f => init => t => function go(acc, u) {
+  switch (u[TAG]) {
+    case "Leaf": return acc;
+    
+    case "Node": {
+      const acc2 = go(acc, u.l);
+      const acc3 = f(acc2) (u.v);
+      return go(acc3, u.r);
+    }
+
+    default: throw new TypeError("invalid constructor");
+  }
+} (init, t);
+
+
+RB.foldr = f => init => t => function go(acc, u) {
+  switch (u[TAG]) {
+    case "Leaf": return acc;
+    
+    case "Node": {
+      const acc2 = lazy(() => go(acc, u.r));
+      const acc3 = f(u.v) (acc2);
+      return lazy(() => go(acc3, u.l));
+    }
+
+    default: throw new TypeError("invalid constructor");
+  }
+} (init, t);
+
+
+RB.Foldable = {
+  foldl: RB.foldl,
+  foldr: RB.foldr
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+RB.map = f => function go(t) {
+  switch (t[TAG]) {
+    case "Leaf": return RB.Leaf;
+    
+    case "Node": {
+      return RB.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
+    }
+
+    default: throw new TypeError("invalid constructor");
+  }
+};
+
+
+RB.Functor = {map: RB.map};
+
+
+/*
+█████ Getter ██████████████████████████████████████████████████████████████████*/
+
+
+RB.get = (t, k, cmp) => {
+  switch (t[TAG]) {
+    case "Leaf": return undefined;
+
+    case "Node": {
+      switch (cmp(k, t.k)) {
+        case LT: return RB.get(t.l, k, cmp);
+        case EQ: return t.v;
+        case GT: return RB.get(t.r, k, cmp);
+        default: throw new TypeError("invalid comparator");
+      }
+    }
+
+    default: TypeError("invalid value constructor");
+  }
+};
+
+
+/*
+█████ Member ██████████████████████████████████████████████████████████████████*/
+
+
+RB.has = (t, k, cmp) => {
+  switch (t[TAG]) {
+    case "Leaf": return false;
+
+    case "Node": {
+      switch (cmp(k, t.k)) {
+        case LT: return RB.has(t.l, k, cmp);
+        case EQ: return true;
+        case GT: return RB.has(t.r, k, cmp);
+        default: throw new TypeError("invalid comparator");
+      }
+    }
+
+    default: TypeError("invalid value constructor");
+  }
+};
+
+
+/*
+█████ Min/Max █████████████████████████████████████████████████████████████████*/
+
+
+RB.min = t => {
+  if (t[TAG] === "Node"
+    && t.l[TAG] === "Leaf")
+      return [t.k, t.v];
+
+  else if (t[TAG] === "Node")
+    return RB.min(t.l);
+
+  else throw new TypeError("unexpected Leaf");
+};
+
+
+RB.max = t => {
+  if (t[TAG] === "Node"
+    && t.r[TAG] === "Leaf")
+      return [t.k, t.v];
+
+  else if (t[TAG] === "Node")
+    return RB.max(t.r);
+
+  else throw new TypeError("unexpected Leaf");
+};
+
+
+/*
+█████ Setter ██████████████████████████████████████████████████████████████████*/
+
+
+RB.set = (t, k, v, cmp) =>
+  RB.turnB(RB.set_(t, k, v, cmp));
+
+
+// helper
+
+
+RB.set_ = (t, k, v, cmp) => {
+  switch (t[TAG]) {
+    case "Leaf":
+      return RB.Node(RB.RED, 1, RB.Leaf, k, v, RB.Leaf);
+
+    case "Node": {
+      switch (cmp(k, t.k)) {
+        case LT: return RB.balanceL(
+          t.c, t.h, RB.set_(t.l, k, v, cmp), t.k, t.v, t.r);
+
+        case EQ: return RB.Node(t.c, t.h, t.l, k, v, t.r);
+
+        case GT: return RB.balanceR(
+          t.c, t.h, t.l, t.k, t.v, RB.set_(t.r, k, v, cmp));
+
+        default: throw new TypeError("invalid comparator");
+      }
+    }
+
+    default: TypeError("invalid value constructor");
+  }
+};
+
+
+/*
+█████ SET OPERATIONS ██████████████████████████████████████████████████████████*/
+
+
+RB.union = (t1, t2, cmp) => {
+  if (t2[TAG] === "Leaf")
+    return t1;
+
+  else if (t1[TAG] === "Leaf")
+    return RB.turnB_(t2);
+
+  else {
+    const [l, r] = RB.split(t1, t2.k, cmp);
+    return RB.join(RB.union(l, t2.l, cmp), RB.union(r, t2.r, cmp), t2.k, t2.v, cmp);
+  }
+};
+
+
+RB.intersect = (t1, t2, cmp) => {
+  if (t1[TAG] === "Leaf")
+    return RB.Leaf;
+
+  else if (t2[TAG] === "Leaf")
+    return RB.Leaf;
+
+  else {
+    const [l, r] = RB.split(t1, t2.k, cmp);
+
+    if (RB.has(t1, t2.k, cmp))
+      return RB.join(
+        RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), t2.k, t2.v, cmp);
+
+    else return RB.merge(
+      RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), cmp);
+  }
+};
+
+
+RB.diff = (t1, t2, cmp) => {
+  if (t1[TAG] === "Leaf")
+    return RB.Leaf;
+
+  else if (t2[TAG] === "Leaf")
+    return t1;
+
+  else {
+    const [l, r] = RB.split(t1, t2.k, cmp);
+    return RB.merge(RB.diff(l, t2.l, cmp), RB.diff(r, t2.r, cmp));
+  }
+};
+
+
+// helper
+
+
+RB.join = (t1, t2, k, v, cmp) => {
+  if (t1[TAG] === "Leaf")
+    return RB.set(t2, k, v, cmp);
+
+  else if (t2[TAG] === "Leaf")
+    return RB.set(t1, k, v, cmp);
+
+  else {
+    switch (cmp(t1.h, t2.h)) {
+      case LT: return RB.turnB(RB.joinLT(t1, t2, k, v, t1.h, cmp));
+      case EQ: return RB.Node(RB.BLACK, t1.h + 1, t1, k, v, t2);
+      case GT: return RB.turnB(RB.joinGT(t1, t2, k, v, t2.h, cmp));
+      default: throw new TypeError("invalid comparator");
+    }
+  }
+};
+
+
+RB.joinLT = (t1, t2, k, v, h1, cmp) => {
+  if (t2[TAG] === "Node"
+    && t2.h === h1)
+      return RB.Node(RB.RED, t2.h + 1, t1, k, v, t2);
+
+  else if (t2[TAG] === "Node")
+    return RB.balanceL(t2.c, t2.h, RB.joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
+
+  else throw new TypeError("unexpected leaf");
+};
+
+
+RB.joinGT = (t1, t2, k, v, h2, cmp) => {
+  if (t1[TAG] === "Node"
+    && t1.h === h2)
+      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2);
+
+  else if (t1[TAG] === "Node")
+    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.joinGT(t1.r, t2, k, v, h2, cmp));
+
+  else throw new TypeError("unexpected leaf");
+};
+
+
+RB.merge = (t1, t2, cmp) => {
+  if (t1[TAG] === "Leaf")
+    return t2;
+
+  else if (t2[TAG] === "Leaf")
+    return t1;
+
+  else {
+    switch (cmp(t1.h, t2.h)) {
+      case LT: return RB.turnB(RB.mergeLT(t1, t2, t1.h, cmp));
+      case EQ: return RB.turnB(RB.mergeEQ(t1, t2, cmp));
+      case GT: return RB.turnB(RB.mergeGT(t1, t2, t2.h, cmp));
+      default: throw new TypeError("invalid comparator");
+    }
+  }
+};
+
+
+RB.mergeLT = (t1, t2, h1, cmp) => {
+  if (t2[TAG] === "Node"
+    && t2.h === h1)
+      return RB.mergeEQ(t1, t2, cmp);
+
+  else if (t2[TAG] === "Node")
+    return RB.balanceL(t2.c, t2.h, RB.mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
+
+  else throw new TypeError("unexpected leaf");
+};
+
+
+RB.mergeEQ = (t1, t2, cmp) => {
+  if (t1[TAG] === "Leaf"
+    && t2[TAG] === "Leaf")
+      return RB.Leaf;
+
+  else if (t1[TAG] === "Node") {
+    const t2_ = RB.delMin(t2),
+      [k, v] = RB.min(t2);
+
+    if (t1.h === t2_.h)
+      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2_);
+
+    else if (t1.l[TAG] === "Node"
+      && t1.l.c === RB.RED)
+        return RB.Node(
+          RB.RED, t1.h + 1, RB.turnB(t1.l), t1.k, t1.v, RB.Node(RB.BLACK, t1.h, t1.r, k, v, t2_));
+
+    else return RB.Node(
+      RB.BLACK, t1.h, RB.turnR(t1), k, v, t2_);
+  }
+
+  else throw new TypeError("unexpected branch");
+};
+
+
+RB.mergeGT = (t1, t2, h2, cmp) => {
+  if (t1[TAG] === "Node"
+    && t1.h === h2)
+      return RB.mergeEQ(t1, t2, cmp);
+
+  else if (t1[TAG] === "Node")
+    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.mergeGT(t1.r, t2, h2, cmp));
+
+  else throw new TypeError("unexpected leaf");
+};
+
+
+RB.split = (t, k, cmp) => {
+  if (t[TAG] === "Leaf")
+    return [RB.Leaf, RB.Leaf];
+
+  else {
+    switch (cmp(k, t.k)) {
+      case LT: {
+        const [lt, gt] = RB.split(t.l, k, cmp);
+        return [lt, RB.join(gt, t.r, t.k, t.v, cmp)];
+      }
+
+      case EQ: return [RB.turnB_(t.l), t.r];
+
+      case GT: {
+        const [lt, gt] = RB.split(t.r, k, cmp);
+        return [RB.join(t.l, lt, t.k, t.v, cmp), gt];
+      }
+
+      default: throw new TypeError("invalid comparator");
+    }
+  }
+};
+
+
+/*
+█████ Traversal ███████████████████████████████████████████████████████████████*/
+
+
+RB.preOrder = ({append, empty}) => f => t =>
+  RB.cata(pair => l => r =>
+    append(append(f(pair)) (l)) (r)) (empty) (t) (id);
+
+
+RB.preOrder_ = ({append, empty}) => f => t => // lazy version
+  RB.cata_(pair => l => r =>
+    append(append(f(pair)) (l)) (r)) (empty) (t);
+
+
+RB.inOrder = ({append, empty}) => f => t =>
+  RB.cata(pair => l => r =>
+    append(append(l) (f(pair))) (r)) (empty) (t) (id);
+
+
+RB.inOrder_ = ({append, empty}) => f => t => // lazy version
+  RB.cata_(pair => l => r =>
+    append(append(l) (f(pair))) (r)) (empty) (t);
+
+
+RB.postOrder = ({append, empty}) => f => t =>
+  RB.cata(pair => l => r =>
+    append(append(l) (r)) (f(pair))) (empty) (t) (id);
+
+
+RB.postOrder_ = ({append, empty}) => f => t => // lazy version
+  RB.cata_(pair => l => r =>
+    append(append(l) (r)) (f(pair))) (empty) (t);
+
+
+RB.levelOrder = f => init => t => function go(acc, i, ts) {
+  if (i >= ts.length) return acc;
+  else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
+  
+  else {
+    ts.push(ts[i].l, ts[i].r);
+    return go(f(acc) ([ts[i].k, ts[i].v]), i + 1, ts);
+  }
+} (init, 0, [t]);
+
+
+RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
+  if (i >= ts.length) return acc;
+  else if (ts[i] [TAG] === "Leaf") return go(ts, i + 1);
+  
+  else {
+    ts.push(ts[i].l, ts[i].r);
+    return f([ts[i].k, ts[i].v]) (lazy(() => go(ts, i + 1)));
+  }
+} ([t], 0);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ TODO █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -6637,7 +7816,7 @@ FileSys.except = fs => cons => thisify(o => {
   * add Array Zip Applicative instance
   * add monad combinators
   * conceive async Stream
-  * add EventStream/Emitter
+  * add EventStream/DataStream
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
