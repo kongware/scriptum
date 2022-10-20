@@ -5921,15 +5921,9 @@ Stream.Step = x => f => ({
 });
 
 
-Stream.Done = x => ({
+Stream.Done = ({
   [TAG]: "Stream",
-  run: ({done}) => done({yield: x})
-});
-
-
-Stream.Nis = ({ // not in stream
-  [TAG]: "Stream",
-  run: ({nis}) => nis
+  run: ({done}) => done
 });
 
 
@@ -5944,7 +5938,7 @@ Stream.Step.lazy = o => ({
 
 
 Stream.fromArr = xs => function go(i) {
-  if (i === xs.length - 1) return Stream.Done(xs[i]);
+  if (i === xs.length) return Stream.Done;
   else return Stream.Step(xs[i]) (_ => go(i + 1));
 } (0);
 
@@ -5959,8 +5953,7 @@ Stream.takeArr = n => tx => function go(acc, ty, m) {
         return go(acc, o.next, m - 1);
       },
       
-      done: p => (acc.push(p.yield), acc),
-      nis: acc
+      done: acc
     });
   }
 } ([], tx, n);
@@ -5976,12 +5969,7 @@ Stream.toArr = tx => Loop2((ty, acc) => {
       return Loop2.rec(o.next);
     },
 
-    done: p => {
-      acc.push(p.yield);
-      return Loop2.base(acc);
-    },
-
-    nis: Loop2.base(acc)
+    done: Loop2.base(acc)
   });
 }) (tx, []);
 
@@ -5991,7 +5979,7 @@ Stream.toArr = tx => Loop2((ty, acc) => {
 
 
 Stream.foldl = f => init => tx => function go(ty, acc) {
-  return tx.run({
+  return ty.run({
     step: o => {
       acc = f(acc) (o.yield);
 
@@ -6001,14 +5989,13 @@ Stream.foldl = f => init => tx => function go(ty, acc) {
       })
     },
 
-    done: p => Stream.Done(f(acc) (p.yield)),
-    nis: acc
+    done: acc
   });
 } (tx, init);
 
 
 Stream.foldr = f => init => tx => function go(ty, acc) {
-  return tx.run({
+  return ty.run({
     step: o => {
       acc = f(o.yield) (acc);
 
@@ -6018,8 +6005,7 @@ Stream.foldr = f => init => tx => function go(ty, acc) {
       })
     },
 
-    done: p => Stream.Done(f(p.yield) (acc)),
-    nis: acc
+    done: acc
   });
 } (tx, init);
 
@@ -6041,8 +6027,7 @@ Stream.mapA = ({map, of}) => ft => function go(tx) {
       get next() {return go(o.next)}
     }) (ft(o.yield))),
 
-    done: p => map(p => Stream.Done(p.yield)) (ty),
-    nis: of(Stream.Nis)
+    done: of(Stream.Done)
   });
 };
 
@@ -6054,8 +6039,7 @@ Stream.seqA = ({map, of}) => function go(ttx) {
       get next() {return go(o.next)}
     })) (tx),
 
-    done: ty => map(p => Stream.Done(p.yield)) (ty),
-    nis: of(Stream.Nis)
+    done: of(Stream.Done)
   });
 };
 
@@ -6085,12 +6069,7 @@ Stream.filter = pred => function go(tx) {
       else return go(o.next);
     },
 
-    done: p => {
-      if (pred(p.yield)) return Stream.Done(p.yield);
-      else return Stream.Nis;
-    },
-
-    nis: Stream.Nis
+    done: Stream.Done
   });
 };
 
@@ -6109,8 +6088,7 @@ Stream.map = f => function go(tx) {
       get next() {return go(o.next)}
     }),
 
-    done: p => Stream.Done(f(p.yield)),
-    nis: Stream.Nis
+    done: Stream.Done
   });
 };
 
@@ -6125,23 +6103,21 @@ Stream.Functor = {map: Stream.map};
 /* Takes two streams and exhauts the first and then the second one directly one
 after the other. This is the way the traversable list instance  works. */
 
-Stream.alt = tx => ty => function go(tz, done) {
+Stream.alt = tx => ty => function go(tz, done_) {
   return tz.run({
     step: o => Stream.Step.lazy({
       yield: o.yield,
-      get next() {return go(o.next, done)}
+      get next() {return go(o.next, done_)}
     }),
 
-    done: p => {
-      if (done) return Stream.Done(p.yield);
+    get done() {
+      if (done_) return Stream.Done; 
 
       else return Stream.Step.lazy({
         yield: p.yield,
         get next() {return go(ty, true)}
       });
-    },
-
-    nis: Stream.Nis
+    }
   });
 } (tx, false);
 
@@ -6156,7 +6132,7 @@ A.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-Stream.zero = Stream.Nis;
+Stream.zero = Stream.Done;
 
 
 Stream.Plus = {
@@ -6181,17 +6157,10 @@ Stream.ap = ft => tx => function go(gt, ty) {
         get next() {return go(o.next, o2.next)}
       }),
 
-      done: p2 => Stream.Done(o.yield(p2.yield)), // information loss
-      nis: Stream.Nis // information loss
+      done: Stream.Done
     }),
 
-    done: p => ty.run({
-      step: o2 => Stream.Done(p.yield(o2.yield)), // information loss
-      done: p2 => Stream.Done(p.yield(p2.yield)),
-      nis: Stream.Nis // information loss
-    }),
-    
-    nis: Stream.Nis // potential information loss
+    done: Stream.Done
   }) (ft, tx);
 };
 
@@ -6228,7 +6197,7 @@ is exhausted and starts a new iteration until the original stream is exhausted
 as well. */
 
 Stream.chain = fm => function go(mx) {
-  return tx.run({
+  return mx.run({
     step: o => {
       const my = fm(o.yield);
 
@@ -6238,30 +6207,11 @@ Stream.chain = fm => function go(mx) {
           get next() {return go(o2.next)}
         }),
 
-        done: p2 => Stream.Step.lazy({
-          yield: p2.yield,
-          get next() {return go(o.next)}
-        }),
-
-        get nis() {return go(o.next)}
+        get done() {return go(o.next)}
       });
     },
 
-    done: p => {
-      const my = fm(p.yield);
-
-      my.run({
-        step: o2 => Stream.Step.lazy({
-          yield: o2.yield,
-          get next() {return go(o2.next)}
-        }),
-
-        done: p2 => Stream.Done(p2.yield),
-        nis: Stream.Nis
-      });
-    },
-
-    nis: Stream.Nis
+    done: Stream.Done
   });
 };
 
@@ -6308,40 +6258,23 @@ Stream.append = ({append}) => tx => ty => function go(tx2, ty2) {
         get next() {return go(o.next, o2.next)}
       }),
       
-      done: p2 => Stream.Step.lazy({
-        yield: append(o.yield) (p2.yield),
-        get next() {return go(o.next, Stream.Nis)}
-      }),
-
-      get nis() {
+      get done() {
         return Stream.Step.lazy({
           yield: o.yield,
-          get next() {return go(o.next, Stream.Nis)}
-        })
+          get next() {return go(o.next, Stream.Done)}
+        });
       }
     }),
 
-    done: p => ty2.run({
-      step: o2 => Stream.Step.lazy({
-        yield: append(p.yield) (o2.yield),
-        get next() {return go(Stream.Nis, o2.next)}
-      }),
-      
-      done: p2 => Stream.Done(append(p.yield) (p2.yield)),
-      get nis() {return Stream.Done(p.yield)}
-    }),
-
-    get nis() {
-      ty2.run({
+    get done() {
+      return ty2.run({
         step: o2 => Stream.Step.lazy({
           yield: o2.yield,
-          get next() {return go(Stream.Nis, o2.next)}
+          get next() {return go(Stream.Done, o2.next)}
         }),
         
-        done: p2 => Stream.Step.Done(p2.yield),
-        nis: Stream.Nis
-      })
-
+        done: Stream.Done
+      });
     }
   });
 } (tx, ty);
