@@ -5891,9 +5891,9 @@ _Set.del = k => s => s.delete(k);
 
 
 /* Encodes the concept of supplying a meaningful chunk of data synchronously
-one at a time from a much larger source (e.g. a huge array) together with a
-function to request the next chunk. The type uses a lazy object getter to 
-suspend the process. It has the following properties:
+one at a time from a potentially infinite source along with a function to
+request the next chunk. The type uses a lazy object getter to  suspend the
+process. It has the following properties:
 
   * unicast
   * sync
