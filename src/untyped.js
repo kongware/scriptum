@@ -1864,15 +1864,59 @@ class NEArray extends Array {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/*
+/* Encodes a time changing value that is asynchronously mutated over time by
+events. It is implemented as an object property defined as a lazy getter. As
+opposed to normal streams a time changing value or the property holding it
+always has a current value, either by initialization or by the latest processed
+event. The type has the following properties:
+
   * multicast
   * async
   * pull
   * lazy
-  * not cancelable */
+  * cancelable
+
+A behavior takes an initial value and a function that in turn takes this
+initial value and returns an intermediate object:
+
+initialValue => {state: {run: actualState}, cancel: () => {...}}
+
+The intermediate object (A) must have two properties holding the state object (A) and a nullary
+cancellation function (B). Here is a simple example:
+
+  const secCounter = Behavior(0) (init => {
+    const state = {run: init}, // (B)
+      id = setInterval(state2 => state2.run++, 1000, state); // event source
+
+    return {state, cancel: () => clearInterval(id)}; // (A)
+  });
+
+Since behaviors are multicast cancelation is an issue since other parts of the
+code base may rely on them. Usually, cancelation just means the behavior keeps
+holding the value of the last processed event. It is more safe to throw an
+exception in case of post cancellation access, though. This can be easily
+defined inside the nullary `cancel` function.
+
+Use `Stream` for synchronous data streams and `Observable` for asynchronous
+event streams. */
 
 
-// TODO
+const Behavior = init => behave => ({ // constructor
+  [Symbol.toStringTag]: "Behavior",
+  
+  get run() {
+    delete this.run;
+    const  {state, cancel} = behave(init);
+    Object.defineProperty(this, "run", {get() {return state.run}});
+    this.cancel = cancel;
+    return init;
+  },
+
+  cancel() {}
+});
+
+
+const Be = Behavior; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4095,13 +4139,13 @@ Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
 chaging values. */
 
 
-const Observable = observe => ({ // constructor
-  [Symbol.toStringTag]: "Observable",
+export const Observable = observe => ({ // constructor
+  [TAG]: "Observable",
   run: observe
 });
 
 
-const Ob = Observable; // shortcut
+export const Ob = Observable; // shortcut
 
 
 Ob.subscribe = observer => observable => observable.run(observer);
@@ -6055,6 +6099,9 @@ Stream.Traversable = () => ({
 /*
 █████ Filterable ██████████████████████████████████████████████████████████████*/
 
+
+/* If the data source is infinite the combinator can lead to infinite recursion
+provided no data chunk satisfies the predicate. */
 
 Stream.filter = pred => function go(tx) {
   return tx.run({
