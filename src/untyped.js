@@ -75,16 +75,13 @@ const TICK_TRESHOLD = 0.01; // treshold for next microtask
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Enables flat syntax by utilizing method chaining without relying on methods
-and `this`. */
-
+// enables flat syntax by utilizing method chaining without relying on `this`
 
 export const App = t => ({
   app: x => App(t(x)), // applies the boxed fun
-  appFlip: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
-  appUncurry: (...args) => App(args.reduce((f, x) => f(x), t)), // uncurries the boxed fun
+  app_: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
   map: f => App(f(t)),  // applies the fun
-  mapFlip: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
+  map_: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
   get: t // gets the boxed value
 });
 
@@ -4108,6 +4105,48 @@ const Ob = Observable; // shortcut
 
 
 Ob.subscribe = observer => observable => observable.run(observer);
+
+
+Ob.fromEvent = target => event => Ob(observer => {
+  const handler = e => observer.next(e);
+  target.addEventListener(event, handler);
+  return () => {target.removeEventListener(event, handler)};
+});
+
+
+Ob.fromPormise = p => Ob(observer =>
+  p.then(x => {
+    observer.next(x);
+    observer.done();
+  }).catch(e => {
+    observer.error(e);
+    observer.done();
+  }));
+
+
+Ob.map = f => tx => Ob(observer =>
+  tx.run({
+    next(x) {return observer.next(f(x))},
+    error(e) {return observer.error(e)},
+    done(y) {return observer.done(y)}
+  })
+);
+
+
+Ob.chain = tx => fm => Ob(observer =>
+  tx.run({
+    next(x) {
+      return fm(x).run({
+        next(x2) {return observer.next(x2)},
+        error(e2) {return observer.error(e2)},
+        done(y2) {return observer.done(y2)}
+      })
+    },
+    
+    error(e) {return observer.error(e)},
+    done(y) {return observer.done(y)}
+  })
+);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
