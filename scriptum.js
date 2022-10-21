@@ -331,6 +331,96 @@ export const min = x => y => x <= y ? x : y;
 
 
 /*
+█████ Monad Recursion █████████████████████████████████████████████████████████*/
+
+
+/* Allow stack-safe recursion within a monad through a trampoline. It is based
+on a continuation monad and as such doesn't have a monad transformer, i.e. it
+can only be used as the outermost base monad of a transformer stack. */
+
+
+export const Loopm = o => {
+  while (o.tag === "Rec")
+    o = o.f(o.x);
+
+  return o.tag === "Base"
+    ? o.x
+    : _throw(new TypeError("invalid trampoline tag"));
+};
+
+
+// Functor
+
+
+Loopm.map = f => tx =>
+  Loopm.chain(tx) (x => Loopm.of(f(x)));
+
+
+Loopm.Functor = {map: Loopm.map};
+
+
+// Functor :: Apply
+
+Loopm.ap = tf => tx =>
+  Loopm.chain(tf) (f =>
+    Loopm.chain(tx) (x =>
+      Loopm.of(f(x))));
+
+
+Loopm.Apply = {
+  ...Loopm.Functor,
+  ap: Loopm.ap
+};
+
+
+// Functor :: Apply :: Applicative
+
+
+Loopm.of = () => Loopm.done;
+
+
+Loopm.Applicative = {
+  ...Loopm.Apply,
+  of: Loopm.of
+};
+
+
+// Functor :: Apply :: Chain
+
+
+Loopm.chain = mx => fm =>
+  mx.tag === "Rec" ? Loopm.next(mx.x) (y => Loopm.chain(mx.f(y)) (fm))
+    : mx.tag === "Base" ? fm(mx.x)
+    : _throw(new TypeError("invalid trampoline tag"));
+
+
+Loopm.Chain = {
+  ...Loopm.Apply,
+  chain: Loopm.chain
+};
+
+
+// Functor :: Apply :: Applicative :: Monad
+
+
+Loopm.Monad = {
+  ...Loopm.Applicative,
+  chain: Loopm.chain
+};
+
+
+// Tags
+
+
+Loopm.next = x => f =>
+  ({tag: "Rec", f, x});
+
+
+Loopm.done = x =>
+  ({tag: "Base", x});
+
+
+/*
 █████ Tail Recursion ██████████████████████████████████████████████████████████*/
 
 
@@ -2044,6 +2134,7 @@ asynchronous evaluation either in serial or in parallel.
   * reliable return values
   * not stack-safe but can be unwinded
   * delimited scopes
+  * no transformer available (only as base monad)
 
 Calling `unwind` is possible due to reliable return values. It returns the
 `call` trampoline tag, hence the involved computation must be wrapped in one of
@@ -4795,7 +4886,8 @@ Opt.Monoid = {
   * pure core/impure shell concept
   * lazy by deferred nested function call stack
   * non-reliable return values
-  * stack-safe due to asynchronous calls */
+  * stack-safe due to asynchronous calls
+  * no transformer available (only as base monad) */
 
 
 export const Parallel = k => ({
@@ -5042,7 +5134,8 @@ P.anyArr = P.anyArr();
 
 /* `Parallel` extended to asynchronous exceptions. A similar behavior can be
 achieved by using `Parallel` as a monad transformer and handling exceptions
-inside the `run` method (the impure shell) using the `Except` type. */
+inside the `run` method (the impure shell) using the `Except` type. As with
+all continuation based monads there is no transformer available. */
 
 
 export const ParallelExcept = ks => ({
@@ -5789,7 +5882,8 @@ Parser.dropUntil = parser => Parser(rest => state => {
   * pure core/impure shell concept
   * lazy by deferred nested function call stacks
   * non-reliable return values
-  * stack-safe due to asynchronous calls */
+  * stack-safe due to asynchronous calls
+  * no transformer available (only as base monad) */
 
 
 export const Serial = k => ({
@@ -5987,7 +6081,8 @@ S.allArr = S.allArr();
 
 /* `Serail` extended to asynchronous exceptions. A similar behavior can be
 achieved by using `Serial` as a monad transformer and handling exceptions
-inside the `run` method (the impure shell) using the `Except` type. */
+inside the `run` method (the impure shell) using the `Except` type. As with
+all continuation based monads there is no transformer available. */
 
 
 export const SerialExcept = ks => ({
@@ -8179,7 +8274,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
-  * add trampoline monad
   * study Haskell's STM
 
 */
