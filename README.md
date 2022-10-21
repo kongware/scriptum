@@ -26,10 +26,10 @@ Current Project:
 scriptum is a functional programming lib featuring
 
 * ad-hoc lazy evaluation with implicit thunks
-* principled lazy evaluation with `Defer`/`Lazy` monad
+* principled deferred/lazy evaluation
 * stack-safe tail recursion, tail recursion modulo cons, monad recursion
 * persistent data structures based on R/B tree implementation
-* immutable un/ordered map + un/ordered set + vector
+* immutable un-/ordered map + un-/ordered set + vector
 * flat, comrpehensible composition syntax through infix operators
 * simple function-encoded sum types
 * principled, pure asynchronous computations in serial/parallel
