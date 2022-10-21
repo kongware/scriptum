@@ -1040,6 +1040,9 @@ effects. */
 export const eff = (...exps) => exps[exps.length - 1];
 
 
+export const eff0 = (...exps) => exps[0];
+
+
 export const _throw = e => { // throw as a first class expression
   throw e;
 };
@@ -2167,6 +2170,52 @@ Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ COROUTINE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* This is basically just a type study. Implementing and applying coroutines is
+quite hard but with some luck I may reach a point where it actually becomes
+usefull. Here is the type structure:
+
+Co     s m r = m (Either (s (Co s m r)) r)
+Result s m r =    Either (s (Co s m r)) r
+Step s m r =              s (Co s m r)
+
+s = step functor
+m = outer monad
+r = result value
+
+resume  :: (Monad m, Functor s) => m (Either (s (Co s m r)) r)
+suspend :: (Monad m, Functor s) =>            s (Co s m r)     */
+
+
+export const Co = mmx => ({
+  [TAG]: "Coroutine",
+  run: mmx
+});
+
+
+/***[ Functor ]***************************************************************/
+
+
+/* `map` lifts the `f` into the outer monad `m`. `map2` unwraps the next
+coroutine that is inside the step functor `s`. */
+
+Co.map = ({map}, {map: map2}) => f => function go(mmx) {
+  return Co(map(mx => mx.run({
+    left: tx => Either.Left(lazy(() => map2(go) (tx))),
+    right: x => Either.Right(f(x))
+  })) (mmx.run));
+};
+
+
+// instance (Functor s, Functor m) => Functor (Coroutine s m)
+
+CoT.Functor = {map: CoT.map};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4148,7 +4197,8 @@ export const Observable = observe => ({ // constructor
 export const Ob = Observable; // shortcut
 
 
-Ob.subscribe = observer => observable => observable.run(observer);
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 Ob.fromEvent = target => event => Ob(observer => {
@@ -4168,6 +4218,51 @@ Ob.fromPormise = p => Ob(observer =>
   }));
 
 
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+// folds only work for finite event streams
+
+
+Ob.foldl = f => init => tx => Ob(observer => function go(acc) {
+  tx.run({
+    next: x => go(f(acc) (x)),
+    error: e => observer.error(e),
+    done: y => eff0(observer.next(acc), observer.done(y))
+  })} (init));
+
+
+Ob.foldr = f => acc => tx => Ob(observer => function go(g) {
+  tx.run({
+    next: x => go(y => f(x) (lazy(() => g(y)))),
+    error: e => observer.error(e),
+    done: y => eff0(observer.next(g(acc)), observer.done(y))
+  })} (id));
+
+
+Ob.Foldable = {
+  foldl: Ob.foldl,
+  foldr: Ob.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+/*Ob.Traversable = () => ({
+  ...Ob.Foldable,
+  ...Ob.Functor,
+  mapA: Ob.mapA,
+  seqA: Ob.seqA
+});*/
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
 Ob.map = f => tx => Ob(observer =>
   tx.run({
     next: x => observer.next(f(x)),
@@ -4175,6 +4270,33 @@ Ob.map = f => tx => Ob(observer =>
     done: y => observer.done(y)
   })
 );
+
+
+Ob.Functor = {map: Ob.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+/*Ob.Alt = {
+  ...Ob.Functor,
+  alt: Ob.alt
+};*/
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+/*Ob.Plus = {
+  ...Ob.Alt,
+  zero: Ob.zero
+};*/
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 Ob.ap = tf => tx => Ob(observer =>
@@ -4191,6 +4313,39 @@ Ob.ap = tf => tx => Ob(observer =>
 );
 
 
+Ob.Apply = {
+  ...Ob.Functor,
+  ap: Ob.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Ob.of = x => Ob(observer => observer.next(x));
+
+
+Ob.Applicative = {
+  ...Ob.Apply,
+  of: Ob.of
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+Ob.Alternative = {
+  ...Ob.Plus,
+  ...Ob.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
 Ob.chain = tx => fm => Ob(observer =>
   tx.run({
     next: x => {
@@ -4205,6 +4360,124 @@ Ob.chain = tx => fm => Ob(observer =>
     done: y => observer.done(y)
   })
 );
+
+
+Ob.Chain = {
+  ...Ob.Apply,
+  chain: Ob.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Ob.Monad = {
+  ...Ob.Applicative,
+  chain: Ob.chain
+};
+
+
+/*
+█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
+
+
+Ob.append = ({append}) => tx => ty => Ob(observer =>
+  tx.run({
+    next: x => ty.run({
+      next: x2 => observer.next(append(x) (x2)),
+      error: e2 => observer.error(e2),
+      done: y2 => observer.done(y2)
+    }),
+
+    error: e => observer.error(e),
+    done: y => observer.done(y)
+  }));
+
+
+Ob.prepend = ({append}) => ty => tx => Ob(observer =>
+  tx.run({
+    next: x => ty.run({
+      next: x2 => observer.next(append(x) (x2)),
+      error: e2 => observer.error(e2),
+      done: y2 => observer.done(y2)
+    }),
+
+    error: e => observer.error(e),
+    done: y => observer.done(y)
+  }));
+
+
+Ob.Semigroup = {
+  append: Ob.append,
+  prepend: Ob.prepend
+};
+
+
+/*
+█████ Semigroup (Race) ████████████████████████████████████████████████████████*/
+
+
+Ob.Race = {}; // namespace
+
+
+Ob.Race.append = tx => ty => Ob(observer => {
+  const o = {
+    next: x => {
+      p.next = () => {};
+      return observer.next(x);
+    },
+    
+    error: e => observer.error(e),
+
+    done: y => {
+      p.done = y2 => observer.done(y2);
+    }
+  };
+
+  const p = {
+    next: x => {
+      o.next = () => {};
+      return observer.next(x);
+    },
+    
+    error: e => observer.error(e),
+
+    done: y => {
+      o.done = y2 => observer.done(y2);
+    }
+  };
+});
+
+
+Ob.Race.prepend = Ob.Race.append; // there is no order
+
+
+/*
+█████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
+
+
+Ob.empty = ({empty}) => Ob(observer => observer.next(empty));
+
+
+Ob.Monoid = {
+  ...Ob.Semigroup,
+  empty: Ob.empty
+};
+
+
+/*
+█████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
+
+
+Ob.Race.empty = Ob(observer => observer.done(null));
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+Ob.subscribe = observer => observable => observable.run(observer);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4655,7 +4928,7 @@ P.fromSerial = tx => ({
 
 
 /*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
+█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
 
 
 P.append = ({append}) => tx => ty =>
@@ -4675,7 +4948,20 @@ P.Semigroup = {
 
   
 /*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+█████ Semigroup (Race) ████████████████████████████████████████████████████████*/
+
+
+P.Race = {};
+
+
+P.Race.append = P.or;
+
+
+P.Race.prepend = P.or; // there is no order
+
+
+/*
+█████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
 
 
 P.empty = empty =>
@@ -4689,20 +4975,7 @@ P.Monoid = {
 
 
 /*
-█████ Semigroup (race) ████████████████████████████████████████████████████████*/
-
-
-P.Race = {};
-
-
-P.Race.append = P.or;
-
-
-P.Race.prepend = P.or;
-
-
-/*
-█████ Semigroup :: Monoid (race) ██████████████████████████████████████████████*/
+█████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
 
 
 P.Race.empty = P(k => null);
