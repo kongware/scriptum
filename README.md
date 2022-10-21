@@ -1,53 +1,57 @@
-                                    88                                                    
-                                    ""              ,d                                    
-                                                    88                                    
-    ,adPPYba,  ,adPPYba, 8b,dPPYba, 88 8b,dPPYba, MM88MMM 88       88 88,dPYba,,adPYba,   
-    I8[    "" a8"     "" 88P'   "Y8 88 88P'    "8a  88    88       88 88P'   "88"    "8a  
-     `"Y8ba,  8b         88         88 88       d8  88    88       88 88      88      88  
-    aa    ]8I "8a,   ,aa 88         88 88b,   ,a8"  88,   "8a,   ,a88 88      88      88  
-    `"YbbdP"'  `"Ybbd8"' 88         88 88`YbbdP"'   "Y888  `"YbbdP'Y8 88      88      88  
-                                       88                                                 
-                                       88                                                 
+      ___           ___           ___                       ___           ___           ___           ___     
+     /\  \         /\  \         /\  \          ___        /\  \         /\  \         /\__\         /\__\    
+    /::\  \       /::\  \       /::\  \        /\  \      /::\  \        \:\  \       /:/  /        /::|  |   
+   /:/\ \  \     /:/\:\  \     /:/\:\  \       \:\  \    /:/\:\  \        \:\  \     /:/  /        /:|:|  |   
+  _\:\~\ \  \   /:/  \:\  \   /::\~\:\  \      /::\__\  /::\~\:\  \       /::\  \   /:/  /  ___   /:/|:|__|__ 
+ /\ \:\ \ \__\ /:/__/ \:\__\ /:/\:\ \:\__\  __/:/\/__/ /:/\:\ \:\__\     /:/\:\__\ /:/__/  /\__\ /:/ |::::\__\
+ \:\ \:\ \/__/ \:\  \  \/__/ \/_|::\/:/  / /\/:/  /    \/__\:\/:/  /    /:/  \/__/ \:\  \ /:/  / \/__/~~/:/  /
+  \:\ \:\__\    \:\  \          |:|::/  /  \::/__/          \::/  /    /:/  /       \:\  /:/  /        /:/  / 
+   \:\/:/  /     \:\  \         |:|\/__/    \:\__\           \/__/     \/__/         \:\/:/  /        /:/  /  
+    \::/  /       \:\__\        |:|  |       \/__/                                    \::/  /        /:/  /   
+     \/__/         \/__/         \|__|                                                 \/__/         \/__/    
                                    
-# Gradual Typed Functional Programming with Javascript
 
-scriptum consists of two parts
+# Haskell-style Functional Programming Adapted to Client-/Server-side Javascript
 
-* a [typed standard functional library](https://github.com/kongware/scriptum/blob/master/src/library.js) based upon a [higher-rank/kinded runtime type validator](https://github.com/kongware/scriptum/blob/master/src/validator.js)
-* and an [untyped standard functional library](https://github.com/kongware/scriptum/blob/master/src/untyped.js)
+Previous contents:
 
-The untyped library serves as a playground to explore Haskell idioms and translate them to Javascript. In a second step these translations are type annotated and incorporated into the typed library. Please note that scriptum supports a wide range of Haskell idioms, because it ships with
+* [in-depth functional programming course](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/course/ch-001.md)
+* [higher-rank/kinded runtime type validator source code](https://github.com/kongware/scriptum/blob/master/src/validator.js)
+* [higher-rank/kinded runtime type validator manpage](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/validator.md)
 
-* lazy evaluation with implicit thunks (and thus guarded recursion)
-* tail recursion through trampolines
-* persistent data structures based on R/B trees
-* safe mutations without sharing
-* Scott encoded sum types (augmented with record syntax)
-* type classes through dictionary passing (with lots of pre-defined dictionaries)
-* effect system based on monad transformers
-* pure concurrency through async operations (parallel/serial)
-* loop fusion with transducers
-* functorial fusion with yoneda/coyoneda
-* flat syntax through special applicator type and infix operators
+Current Project:
 
-## Status
+scriptum is a functional programming lib featuring
 
-Unstable (v0.9.2)
+* ad-hoc lazy evaluation with implicit thunks
+* principled lazy evaluation with `Defer`/`Lazy` monad
+* stack-safe tail recursion, tail recursion modulo cons, monad recursion
+* persistent data structures based on R/B tree implementation
+* immutable un/ordered map + un/ordered set + vector
+* flat, comrpehensible composition syntax through infix operators
+* simple function-encoded sum types
+* principled, pure asynchronous computations in serial/parallel
+* functional I/O handling (pure core/impure shell)
+* lots of type class definitions
+* lots of pre-implemented monad transformers
+* lots of predefined polymorphic functions
+* lots of monad machinery
+* static loop fusion with transducers
+* dynamic functorial fusion using yoneda
+* let expressions
+* linked lists, non-empty list, difference list, list zipper
+* catamorpisms and other recursion schemes for many data types
+* data streams, event streams, behaviors
+* functional optics
+* parser combinators
+* functor composition
+* delimited continuations
+* functional exception handling
+* n-ary tree handling
 
-## Goals
+## Future Studies
 
-In order to create an ecosystem for the functional paradigm in Javascript the following main aspects need to be supplied:
-
-- [x] type safety
-- [x] algebraic data types
-- [x] value level type classes
-- [x] lazy evaluation with thunks
-- [x] persistent data structures
-- [x] safe in-place updates
-- [x] stack-safe sync/async recursion
-- [x] effect handling and composition
 - [ ] probabilistic data structures
-- [ ] software transaction memory (STM)
-- [ ] distributed programs based on STMs
+- [ ] software transaction memory (STM) and distributed applications
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] strong eventual consistency (CRDTs)
