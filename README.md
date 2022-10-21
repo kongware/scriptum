@@ -23,7 +23,7 @@ Previous contents:
 
 Current Project:
 
-scriptum is a functional programming lib featuring
+[scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js) is a functional programming lib featuring
 
 * ad-hoc lazy evaluation with implicit thunks
 * principled deferred/lazy evaluation
