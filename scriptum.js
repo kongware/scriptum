@@ -337,7 +337,7 @@ export const min = x => y => x <= y ? x : y;
 /* Stack-safe tail-recursion and mutual tail-recursion using a trampoline. The
 `next` and `done` tags are used to encode recursive and the base cases
 respectively. In addition, the `call` tag can be used to defer function
-invokations. */
+invocations. */
 
 
 export const Loop = f => x => {
@@ -1753,7 +1753,7 @@ A.Monoid = {
 
 A.stream = xs => {
   return function go(i) {
-    if (i === xs.length - 1) return Stream.Done(Pair(i, xs[i]));
+    if (i === xs.length) return Stream.Done;
     else return Stream.Step(Pair(i, xs[i])) (_ => go(i + 1));
   } (0);
 };
@@ -4074,7 +4074,7 @@ O.keyStream = o => {
   const keys = Object.entries(o);
 
   return function go(i) {
-    if (i === keys.length - 1) return Stream.Done(keys[i]);
+    if (i === keys.length) return Stream.Done;
     else return Stream.Step(keys[i]) (_ => go(i + 1));
   } (0);
 };
@@ -4084,7 +4084,7 @@ O.propStream = o => {
   const props = Object.entries(o);
 
   return function go(i) {
-    if (i === props.length - 1) return Stream.Done(props[i]);
+    if (i === props.length) return Stream.Done;
     else return Stream.Step(props[i]) (_ => go(i + 1));
   } (0);
 };
@@ -4094,7 +4094,7 @@ O.valueStream = o => {
   const values = Object.values(o);
 
   return function go(i) {
-    if (i === values.length - 1) return Stream.Done(values[i]);
+    if (i === values.length) return Stream.Done;
     else return Stream.Step(values[i]) (_ => go(i + 1));
   } (0);
 };
