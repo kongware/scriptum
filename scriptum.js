@@ -1396,7 +1396,7 @@ export const R = Reader; // shortcut
 R.T = outer => thisify(o => { // outer monad's type classes
 
 
-  o.map = f => mmx => Reader(r => outer.map(f) (mmx.run(r));
+  o.map = f => mmx => Reader(r => outer.map(f) (mmx.run(r)));
 
 
   o.ap = mmf => mmx => Reader(r => outer.ap(mmf.run(r)) (mmx.run(r)))
@@ -1418,7 +1418,7 @@ R.T = outer => thisify(o => { // outer monad's type classes
   o.reader = f => Reader(r => outer.of(f(r)));
 
 
-  o.withReader = f => mmx => Reader(r => mmx.run(f(r));
+  o.withReader = f => mmx => Reader(r => mmx.run(f(r)));
 
   
   o.mapBase = f => mmx => Reader(r => f(mmx.run(r)));
@@ -1903,9 +1903,6 @@ A.Unfoldable = {unfold: A.unfold};
 A.alt = A.alt();
 
 
-A.arr = A.arr();
-
-
 A.Traversable = A.Traversable();
 
 
@@ -2322,7 +2319,7 @@ Co.map = ({map}, {map: map2}) => f => function go(mmx) {
 
 // instance (Functor s, Functor m) => Functor (Coroutine s m)
 
-CoT.Functor = {map: CoT.map};
+Co.Functor = {map: Co.map};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2628,11 +2625,7 @@ instance (Monoid a, Monoid b) => Monoid (Either a b) where
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Either.Traversable = Either.Traversable();
+// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
