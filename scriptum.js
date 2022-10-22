@@ -798,7 +798,8 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// TODO
+export const foldM = ({foldl}, {chain, of}) => fm => init => mx =>
+  foldl(gm => x => acc => chain(fm(acc) (x)) (gm)) (of) (mx) (init);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2521,13 +2522,12 @@ Defer.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// encodes the most fundamental sum type - logical or - A || B
+/* Encodes the effect of short circuiting a computation. This differs from
+exceptions in being able to return any value in case of short circuting,
+whereas `Except` is set on always returning an `Error` object. */
 
 
 export const Either = {}; // namespace
-
-
-// value constructors
 
 
 Either.Left = x => ({
@@ -2542,74 +2542,7 @@ Either.Right = x => ({
 });
 
 
-/* The elimination rule of the type. Catamorphisms are more general and thus
-more expressive than folds, because they factor all value constructors in.
-`Either` has two constructors and the catamorphism receives two functions
-accordingly, one for each constructor. A fold on the other hand has only a
-single function `f` and a constant `acc`, i.e. it is one function short to
-fully cover `Either`'s cases. For this reason catamorphism and fold coincide
-for `List` and `Option`, because both types comprise one type constructor
-(`Cons`/`Some`) and one type constant (`Nil`/`None`). */
-
-
 Either.cata = left => right => tx => tx.run({left, right});
-
-
-/*
-█████ Bifoldable ██████████████████████████████████████████████████████████████*/
-
-
-// TDOO
-
-
-/*
-█████ Bifoldable :: Bitraversable █████████████████████████████████████████████*/
-
-
-// TODO
-
-
-/*
-█████ Bifunctor ███████████████████████████████████████████████████████████████*/
-
-
-/* bimap/dimap comparison:
-
-  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
-            ^^^^^^
-  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
-            ^^^^^^                                                  */
-
-
-Either.bimap = f => g => tx => tx.run({left: f, right: g}); 
-
-
-Either.Bifunctor = ({
-  ...Either.Functor,
-  bimap: Either.bimap
-});
-
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-/* TODO:
-
-instance (Monoid a, Monoid b) => Monoid (Either a b) where
-    mempty = Right mempty
-    Left x  `mappend` Left y  = Left (x <> y)
-    Left x  `mappend` _       = Left x
-    _       `mappend` Left y  = Left y
-    Right x `mappend` Right y = Right (x <> y)*/
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2628,7 +2561,7 @@ export const Err = TypeError; // shortcut
 /* Encodes the effect of computations that might raise an exception. Since
 Javascript comprises an error class, it isn't defined as a sum type but relies
 on error class objects. This approach makes it both less cumbersome to use but
-also less explicit.
+also less explicit. Use `Either` if you need short circuit semantics
 
 Throughout this lib a new error subclass `Exception` is used to indicate an
 exception. */
@@ -2691,8 +2624,14 @@ E.Functor = {map: E.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
+// TODO
+
+
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+// TODO
 
 
 /*
@@ -2752,7 +2691,32 @@ E.Monad = {
 
 
 /*
-█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+E.append = ({append}) => tx => ty =>
+  introspect(tx) === "Error" ? tx
+    : introspect(ty) === "Error" ? ty
+    : append(tx) (ty);
+
+
+E.prepend = ({append}) => ty => tx =>
+  introspect(tx) === "Error" ? tx
+    : introspect(ty) === "Error" ? ty
+    : append(tx) (ty);
+
+
+E.Semigroup = {
+  append: E.append,
+  prepend: E.prepend
+};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+// Except doesn't have a  meaningful Monoid instance
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6794,10 +6758,18 @@ Tree.Node = x => branch => ({
 });
 
 
-/* The elimination rule of the type (see `Either.cata` for full explanation).
-The catamorphism is recursively encoded because the depth of a balanced tree
-should regularly not exhaust the call stack. Usually the combinator would be
-defined as an imperative loop. */
+/* The elimination rule of the type. Catamorphisms are more general and thus
+more expressive than folds, because they factor all value constructors in.
+`Either` has two constructors and the catamorphism receives two functions
+accordingly, one for each constructor. A fold on the other hand has only a
+single function `f` and a constant `acc`, i.e. it is one function short to
+fully cover `Either`'s cases. For this reason catamorphism and fold coincide
+for `List` and `Option`, because both types comprise one type constructor
+(`Cons`/`Some`) and one type constant (`Nil`/`None`).
+
+Catamorphisms are usually defined as a loop to avoid stack overflows. However,
+the depth of a more or less balanced tree should regularly not exhaust the call
+stack, hence it is recursively defined. */
 
 Tree.cata = node => function go({x, branch}) {
   return node(x) (branch.map(go));
@@ -8140,7 +8112,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
   * add Array Zip Applicative instance
   * add monad combinators
-  * conceive async Stream
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
