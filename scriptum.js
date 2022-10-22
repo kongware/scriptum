@@ -745,30 +745,46 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const chain2 = ({chain}) => mx => my => fm =>
-  chain(mx) (x => chain(my) (y => fm(x) (y)));
+/* Variadic chaining combinator for flat monadic chaining syntax but without
+the typical monadic dependency between the previous computation and the next
+value. Use `chain2` for dependent chaining. */
 
-
-export const chain3 = ({chain}) => mx => my => mz => fm =>
-  chain(mx) (x => chain(my) (y => chain(mz) (z => fm(x) (y) (z))));
-
-
-// variadic chaining
-
-export const chainn = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
+export const chain = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
   return chain(mx) (x => ms.length === 0 ? fm(x) : go(fm(x), ms));
 } (fm, ms);
+
+
+/* Chaining combinator that composes the monadic continuations of two monads of
+the same type, i.e. two partially applied `chain` functions. The composition
+preserves the potential dependency between the result of the first computation
+and the subsequent one. Here is an example:
+
+  const chainAp_ = chainAp({chain: A.chain, of: A.of});
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                  type class
+
+  chainAp_(A.chain([1,2])) (A.chain([3,4])) (x => y => [x + y]);
+           ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^        ^^^^^^^^^^^^
+              1. monad         2. monad     next call may depend on x */
+
+export const chain2 = ({chain, of}) => f => g => hm =>
+  chain(f(x => of(hm(x)))) (h => g(y => h(y)));
 
 
 /*
 █████ Interpretation ██████████████████████████████████████████████████████████*/
 
 
+// collapsing two monadic contexts (of the same type) is the essence of a monad
+
 export const join = ({chain}) => ttx => chain(ttx) (id);
 
 
 /*
 █████ Kleisli █████████████████████████████████████████████████████████████████*/
+
+
+// composing of monadic actions: `a -> m a`
 
 
 export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
@@ -780,6 +796,9 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ MONAD ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
+
+
+// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1457,9 +1476,6 @@ export const Arr = {}; // namespace
 
 
 export const A = Arr; // shortcut
-
-
-A.arr = () => A.foldl; // elimination rule (see `Either.cata` for explanation)
 
 
 /*
@@ -2559,131 +2575,21 @@ Either.cata = left => right => tx => tx.run({left, right});
 
 
 /*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
+█████ Bifoldable ██████████████████████████████████████████████████████████████*/
 
 
-Either.foldl = f => acc => tx => tx.run({
-  left: x => f(acc) (x),
-  right: y => f(acc) (y)
-});
-
-
-Either.foldr = f => acc => tx => tx.run({
-  left: x => f(x) (acc),
-  right: y => f(y) (acc)
-});
-
-
-Either.Foldable = {
-  left: Either.foldl,
-  right: Either.foldr
-};
+// TDOO
 
 
 /*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+█████ Bifoldable :: Bitraversable █████████████████████████████████████████████*/
 
 
-Either.mapA = ({map, of}) => ft => tx => tx.run({
-  left: x => map(Either.Left) (ft(x)),
-  right: y => map(Either.Right) (ft(y))
-});
-
-
-Either.seqA = ({of}) => tx => tx.run({
-  left: x => of(Either.Left(x)),
-  right: y => of(Either.Right(y))
-});
-
-
-Either.Traversable = () => ({
-  ...Either.Foldable,
-  ...Either.Functor,
-  mapA: Either.mapA,
-  seqA: Either.seqA
-});
+// TODO
 
 
 /*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Either.map = f => tx =>
-  tx.run({
-    left: x => Either.Left(f(x)),
-    right: y => Either.Right(f(y))
-  });
-
-
-Either.Functor = {map: Either.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Either.ap = tf => tx =>
-  tf.run({
-    left: f => tx.run({
-      left: x => Either.Left(f(x)),
-      get right() {throw new TypeError("unexpected Either.Right")}
-    }),
-
-    right: f => tx.run({
-      get left() {throw new TypeError("unexpected Either.Left")},
-      right: y => Either.Right(f(y))
-    })
-  });
-
-
-Either.Apply = {
-  ...Either.Functor,
-  ap: Either.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-// omit the ambiguous type class
-
-
-Either.ofLeft = x => Either.Left(x);
-
-
-Either.ofRight = x => Either.Right(x);
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Either.chain = mx => fm =>
-  mx.run({
-    left: x => fm(x),
-    right: y => fm(y)
-  });
-
-
-Either.Chain = {
-  ...Either.Apply,
-  chain: Either.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Either.Monad = {
-  ...Either.Applicative,
-  chain: Either.chain
-};
-
-
-/*
-█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+█████ Bifunctor ███████████████████████████████████████████████████████████████*/
 
 
 /* bimap/dimap comparison:
@@ -4512,6 +4418,9 @@ Ob.Semigroup = {
 Ob.Race = {}; // namespace
 
 
+/* TODO: race for every data chunk not onyl the 1st. Maybe make it the
+Alternative type class. */
+
 Ob.Race.append = tx => ty => Ob(observer => {
   const o = {
     next: x => {
@@ -4572,7 +4481,7 @@ Ob.subscribe = observer => observable => observable.run(observer);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ OPTIC ████████████████████████████████████
+███████████████████████████████████ OPTICS ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -7029,22 +6938,6 @@ Pair.fst = tx => tx[1];
 
 
 Pair.snd = tx => tx[2];
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-Pair.foldl = f => acc => tx => f(acc) (tx);
-
-
-Pair.foldr = f => acc => tx => f(tx) (acc);
-
-
-Pair.Foldable = {
-  foldl: Pair.foldl,
-  foldr: Pair.foldr
-};
 
 
 /*
