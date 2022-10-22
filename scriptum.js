@@ -530,7 +530,7 @@ Loop3.base = x => ({[TAG]: "Base", x});
 
 
 /*
-█████ Loop Stack-based ████████████████████████████████████████████████████████*/
+█████ Tail Recurson Modulo Cons & Beyond ██████████████████████████████████████*/
 
 
 /* Stack-based trampoline to enable recursive cases not in tail call position.
@@ -759,11 +759,11 @@ the same type, i.e. two partially applied `chain` functions. The composition
 preserves the potential dependency between the result of the first computation
 and the subsequent one. Here is an example:
 
-  const chainAp_ = chainAp({chain: A.chain, of: A.of});
+  const chain2_ = chain2({chain: A.chain, of: A.of});
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
                                   type class
 
-  chainAp_(A.chain([1,2])) (A.chain([3,4])) (x => y => [x + y]);
+  chain2_(A.chain([1,2])) (A.chain([3,4])) (x => y => [x + y]);
            ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^        ^^^^^^^^^^^^
               1. monad         2. monad     next call may depend on x */
 
@@ -813,10 +813,7 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Fun = k => ({
-  [TAG]: "Function",
-  run: k
-});
+export const Fun = {}; // namespace
 
 
 export const F = Fun; // shortcut
@@ -835,7 +832,7 @@ export const app_ = x => f => f(x);
 export const appr = (f, y) => x => f(x) (y);
 
 
-export const contify = f => x => F(k => k(f(x)));
+export const contify = f => x => k => k(f(x));
 
 
 export const curry = f => x => y => f(x, y);
@@ -1057,26 +1054,13 @@ F.Chain = {
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
-F.join = f => x => F(k => k(f(x) (x)));
+F.join = f => x => f(x) (x);
 
 
 F.Monad = {
   ...F.Applicative,
   chain: F.chain
 };
-
-
-/*
-█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
-
-
-F.bimap = f => g => x => k => k(f(x)) (g(x));
-
-
-F.Bifunctor = ({
-  ...F.Functor,
-  bimap: F.bimap
-});
 
 
 /*
