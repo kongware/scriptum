@@ -2523,7 +2523,7 @@ Defer.T = outer => thisify(o => { // outer monad's type classes
 
 
 /* Encodes the effect of short circuiting a computation. This differs from
-exceptions in being able to return any value in case of short circuting,
+exceptions in being able to return any value in case of short circuit,
 whereas `Except` is set on always returning an `Error` object. */
 
 
@@ -2543,6 +2543,134 @@ Either.Right = x => ({
 
 
 Either.cata = left => right => tx => tx.run({left, right});
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+Either.foldr = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(y) (acc)
+});
+
+
+Either.foldl = f => acc => tx => tx.run({
+  left: _ => acc,
+  right: y => f(acc) (y)
+});
+
+
+Either.Foldable = {
+  left: Either.foldl,
+  right: Either.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+Either.mapA = ({map, of}) => ft => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => map(Either.Right) (ft(y))
+});
+
+
+Either.seqA = ({of}) => tx => tx.run({
+  left: x => of(Either.Left(x)),
+  right: y => of(Either.Right(y))
+});
+
+
+Either.Traversable = () => ({
+  ...Either.Foldable,
+  ...Either.Functor,
+  mapA: Either.mapA,
+  seqA: Either.seqA
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Either.map = f => tx =>
+  tx.run({
+    left: x => Either.Left(x),
+    right: y => Either.Right(f(y))
+  });
+
+
+Either.Functor = {map: Either.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Either.ap = tf => tx =>
+  tf.run({
+    left: x => Either.Left(x),
+
+    right: f => tx.run({
+      left: y => Either.Left(y),
+      right: z => Either.Right(f(z))
+    })
+  });
+
+
+Either.Apply = {
+  ...Either.Functor,
+  ap: Either.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Either.of = x => Either.Right(x);
+
+
+Either.Applicative = {
+  ...Either.Apply,
+  of: Either.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Either.chain = tx => fm =>
+  tx.run({
+    left: x => Either.Left(x),
+    right: y => fm(y)
+  });
+
+
+Either.Chain = {
+  ...Either.Apply,
+  chain: Either.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Either.Monad = {
+  ...Either.Applicative,
+  chain: Either.chain
+};
+
+
+/*
+█████ Resolve Dependencies ████████████████████████████████████████████████████*/
+
+
+Either.Traversable = Either.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2624,18 +2752,36 @@ E.Functor = {map: E.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-// TODO
+// encodes the semantics of left biased picking
+
+E.alt = tx => ty => introspect(tx) === "Error" ? ty : tx;
+
+
+E.Alt = {
+  ...E.Functor,
+  alt: E.alt
+};
 
 
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-// TODO
+/* An error without a message seems to be the only way to provide an identity
+without relying on an extra monoid constraint, which is already used by the
+semigroup instance. */
+
+E.zero = Err("");
+
+
+E.Plus = {
+  ...E.Alt,
+  zero: E.zero
+};
 
 
 /*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+█████ Functor :: Apply (Short Circuit) ████████████████████████████████████████*/
 
 
 E.ap = tf => tx =>
@@ -2651,10 +2797,35 @@ E.Apply = {
 
 
 /*
+█████ Functor :: Apply (Validation) ███████████████████████████████████████████*/
+
+
+/* Instead of short circuiting at the first exception the validation
+applicative instance collects both exceptions if both values raise one. */
+
+
+E.Validation = {}; // namespace
+
+
+E.Valid = E.Validation; // shortcut
+
+
+E.Valid.ap = ({append}) => tf => tx => {
+  if (introspect(tf) === "Error") {
+    if (introspect(tx) === "Error") return new Err(append(tf) (tx));
+    else return tf;
+  }
+
+  else if (introspect(tx) === "Error") return tx;
+  else return tf(tx);
+};
+
+
+/*
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-E.of = x => introspect(x) === "Error" ? _throw("unexpected exception") : x;
+E.of = id; // just id since no sum type encoding is used
 
 
 E.Applicative = {
@@ -2665,6 +2836,12 @@ E.Applicative = {
 
 /*
 █████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+E.Alternative = {
+  ...E.Plus,
+  ...E.Applicative
+};
 
 
 /*
@@ -2716,7 +2893,13 @@ E.Semigroup = {
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-// Except doesn't have a  meaningful Monoid instance
+E.empty = ({empty}) => empty;
+
+
+E.Monoid = {
+  ...E.Semigroup,
+  empty: E.empty
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
