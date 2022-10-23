@@ -3566,28 +3566,34 @@ L.Nil = ({
 █████ Infinity ████████████████████████████████████████████████████████████████*/
 
 
-List.iterate = f => function go(x) {
-  return List.Cons(x) (lazy(() => go(f(x))));
+L.iterate = f => function go(x) {
+  return L.Cons(x) (lazy(() => go(f(x))));
 };
 
 
-List.repeat = x =>
-  List.Cons(x) (lazy(() => repeat(x)));
+L.repeat = x =>
+  L.Cons(x) (lazy(() => repeat(x)));
 
 
 /*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-List.foldl = f => init => tx => Loop2((ys, acc) =>
-  ys.run({
-    nil: acc,
+L.foldl = f => init => tx => {
+  let acc = init, done = false;
 
-    cons: z => zs => Loop2.rec(zs, f(acc) (z))
-  })) (tx, init);
+  do {
+    tx = tx.run({
+      cons: x => ty => (acc = f(acc) (x), ty),
+      get nil() {done = true; return acc}
+    });
+  } while (!done);
+
+  return acc;
+};
 
 
-List.foldr = f => acc => function go(tx) {
+L.foldr = f => acc => function go(tx) {
   return tx.run({
     nil: acc,
     cons: y => ty => f(y) (lazy(() => go(ty)))
@@ -3605,21 +3611,10 @@ L.Foldable = {
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-L.map = f => Loops(tx => 
-  tx.run({
-    cons: y => ty => Loops.call(
-      L.Cons(f(y)),
-      Loops.rec(ty)),
-    get nil() {return Loops.base(L.Nil)}
-  }));
+L.map = f => L.foldl(acc => x => L.Cons(f(x)) (acc)) (L.Nil);
 
 
-L.map_ = f => function go(tx) {
-  return tx.run({
-    cons: y => ty => L.Cons(f(y)) (lazy(() => go(ty))),
-    nil: L.Nil
-  });
-};
+L.map_ = f => L.foldr(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
 
 
 L.Functor = {map: L.map};
@@ -3629,29 +3624,14 @@ L.Functor = {map: L.map};
 █████ Functor :: Apply (Non-Determinism) ██████████████████████████████████████*/
 
 
-L.ap = Loops2((tf, tx) =>
-  tf.run({
-  cons: f => tg => tx.run({
-    cons: x => ty => Loops2.call2(
-      L.Cons(f(x)),
-      Loops2.rec(tg),
-      Loops2.rec(ty)),
-
-    get nil() {return Loops2.base(L.Nil)}
-  }),
-
-  nil: L.Nil
-}));
+L.ap = tf => tx =>
+  L.foldl(acc => f =>
+    L.prepend(L.map(f) (tx)) (acc)) (L.Nil) (tf);
 
 
-L.ap_ = tf => tx => tf.run({
-  cons: f => tg => tx.run({
-    cons: x => ty => Cons(f(x)) (lazy(() => L.ap(tg) (ty))),
-    nil: L.Nil
-  }),
-
-  nil: L.Nil
-});
+L.ap_ = tf => tx =>
+  L.foldr(f => acc =>
+    L.append(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
 
 
 L.Apply = {
@@ -3666,6 +3646,8 @@ L.Apply = {
 
 L.ZipList = {};
 
+
+// TODO: implementation based on foldl/foldr
 
 L.ZipList.ap = tf => tx => Loops2((tf, tx) => 
   tf.run({
@@ -3682,7 +3664,7 @@ L.ZipList.ap = tf => tx => Loops2((tf, tx) =>
   })) (tf, tx);
 
 
-L.ZipList.apLazy = tf => tx =>
+L.ZipList.ap_ = tf => tx =>
   tf.run({
     cons: g => tg =>
       tx.run({
@@ -3708,7 +3690,72 @@ L.Applicative = {
 
 
 /*
-█████ Unfoldable █████████████████████████████████████████████████████████████████*/
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+L.chain = mx => fm => foldl(acc => x => L.append(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.chain_ = mx => fm => foldr(x => acc => L.append(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.Chain = {
+  ...L.Apply,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+L.Monad = {
+  ...L.Applicative,
+  chain: L.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+L.append = tx => ty => function go(tz) {
+  return tz.run({
+    nil: ty,
+    cons: z => tz => L.Cons(z) (lazy(() => go(tz)))
+  });
+} (tx);
+
+
+L.prepend = ty => tx => function go(tz) {
+  return tz.run({
+    nil: ty,
+    cons: z => tz => L.Cons(z) (lazy(() => go(tz)))
+  });
+} (tx);
+
+
+L.Semigroup = {
+  append: L.append,
+  prepend: L.prepend
+};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+L.empty = L.Nil;
+
+
+L.Monoid = {
+  ...L.Semigroup,
+  empty: L.empty
+};
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
 L.unfold = f => function go(y) {
