@@ -551,8 +551,8 @@ is transformed into a trampolining version:
     n <= 1
       ? Loops.base(n)
       : Loops.call2(
-          Loops.rec(n - 1),
           add,
+          Loops.rec(n - 1),
           Loops.rec(n - 2))); */
 
 
@@ -3563,21 +3563,34 @@ L.Nil = ({
 
 
 /*
+█████ Infinity ████████████████████████████████████████████████████████████████*/
+
+
+List.iterate = f => function go(x) {
+  return List.Cons(x) (lazy(() => go(f(x))));
+};
+
+
+List.repeat = x =>
+  List.Cons(x) (lazy(() => repeat(x)));
+
+
+/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-List.foldl = f => init => xs => Loop2((ys, acc) =>
+List.foldl = f => init => tx => Loop2((ys, acc) =>
   ys.run({
     nil: acc,
 
     cons: z => zs => Loop2.rec(zs, f(acc) (z))
-  })) (xs, init);
+  })) (tx, init);
 
 
-List.foldr = f => acc => function go(xs) {
-  return xs.run({
+List.foldr = f => acc => function go(tx) {
+  return tx.run({
     nil: acc,
-    cons: y => ys => f(y) (lazy(() => go(ys)))
+    cons: y => ty => f(y) (lazy(() => go(ty)))
   });
 };
 
@@ -3601,7 +3614,7 @@ L.map = f => Loops(tx =>
   }));
 
 
-L.mapLazy = f => function go(tx) {
+L.map_ = f => function go(tx) {
   return tx.run({
     cons: y => ty => L.Cons(f(y)) (lazy(() => go(ty))),
     nil: L.Nil
@@ -3616,13 +3629,35 @@ L.Functor = {map: L.map};
 █████ Functor :: Apply (Non-Determinism) ██████████████████████████████████████*/
 
 
-// TODO
+L.ap = Loops2((tf, tx) =>
+  tf.run({
+  cons: f => tg => tx.run({
+    cons: x => ty => Loops2.call2(
+      L.Cons(f(x)),
+      Loops2.rec(tg),
+      Loops2.rec(ty)),
+
+    get nil() {return Loops2.base(L.Nil)}
+  }),
+
+  nil: L.Nil
+}));
 
 
-/*L.Apply = {
+L.ap_ = tf => tx => tf.run({
+  cons: f => tg => tx.run({
+    cons: x => ty => Cons(f(x)) (lazy(() => L.ap(tg) (ty))),
+    nil: L.Nil
+  }),
+
+  nil: L.Nil
+});
+
+
+L.Apply = {
   ...L.Functor,
   ap: L.ap
-};*/
+};
 
 
 /*
@@ -3670,6 +3705,25 @@ L.Applicative = {
   ...L.Apply,
   of: L.of
 };
+
+
+/*
+█████ Unfoldable █████████████████████████████████████████████████████████████████*/
+
+
+L.unfold = f => function go(y) {
+  const tx = f(y);
+
+  if (r === null) return L.Nil;
+
+  else {
+    const [x, y2] = tx;
+    return L.Cons(x) (lazy(() => go(y2)))
+  }
+};
+
+
+L.Unfoldable = {unfold: L.unfold};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
