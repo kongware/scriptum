@@ -3626,12 +3626,12 @@ L.Functor = {map: L.map};
 
 L.ap = tf => tx =>
   L.foldl(acc => f =>
-    L.prepend(L.map(f) (tx)) (acc)) (L.Nil) (tf);
+    L.append(acc) (L.map(f) (tx))) (L.Nil) (tf);
 
 
 L.ap_ = tf => tx =>
   L.foldr(f => acc =>
-    L.append(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
+    L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
 
 
 L.Apply = {
@@ -3693,10 +3693,10 @@ L.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-L.chain = mx => fm => foldl(acc => x => L.append(fm(x)) (acc)) (L.Nil) (mx);
+L.chain = mx => fm => foldl(acc => x => L.append(acc) (fm(x))) (L.Nil) (mx);
 
 
-L.chain_ = mx => fm => foldr(x => acc => L.append(fm(x)) (acc)) (L.Nil) (mx);
+L.chain_ = mx => fm => foldr(x => acc => L.append_(fm(x)) (acc)) (L.Nil) (mx);
 
 
 L.Chain = {
@@ -3719,20 +3719,16 @@ L.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-L.append = tx => ty => function go(tz) {
-  return tz.run({
-    nil: ty,
-    cons: z => tz => L.Cons(z) (lazy(() => go(tz)))
-  });
-} (tx);
+L.append = tx => ty => foldl(L.Cons_) (ty) (L.reverse(tx));
 
 
-L.prepend = ty => tx => function go(tz) {
-  return tz.run({
-    nil: ty,
-    cons: z => tz => L.Cons(z) (lazy(() => go(tz)))
-  });
-} (tx);
+L.prepend = ty => tx => foldl(L.Cons_) (ty) (L.reverse(tx));
+
+
+L.append_ = flip(foldr(L.Cons));
+
+
+L.prepend_ = foldr(L.Cons);
 
 
 L.Semigroup = {
@@ -3771,6 +3767,13 @@ L.unfold = f => function go(y) {
 
 
 L.Unfoldable = {unfold: L.unfold};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+L.reverse = L.foldl(L.Cons_) (L.Nil);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
