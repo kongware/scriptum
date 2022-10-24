@@ -13,8 +13,6 @@
 */
 
 
-
-
 /* Scriptum doesn't have type classes, hence type dictionaries have to be
 passed to polymorphic functions explicitly. Type classes of the same type
 are passed as a single type dictionary. If type classes of more than one
@@ -37,8 +35,6 @@ more complex types like `m (Option (n m a)`
 where m is the outer monad and n the inner base monad that mainly determines
 the transformer's behavior. For instance the Array monad transformer has the
 type: m [a] */
-
-
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1584,6 +1580,9 @@ A.unsnoc = xs => Pair(
   xs.slice(-1));
 
 
+A.fromList = () => L.foldl(A.snoc_) ([]);
+
+
 /*
 █████ Filterable ██████████████████████████████████████████████████████████████*/
 
@@ -2601,6 +2600,21 @@ Either.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
+// TODO
+
+
+/*Either.Traversable = () => ({
+  ...Either.Foldable,
+  ...Either.Functor,
+  mapA: Either.mapA,
+  seqA: Either.seqA
+});*/
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
 Either.mapA = ({map, of}) => ft => tx => tx.run({
   left: x => of(Either.Left(x)),
   right: y => map(Either.Right) (ft(y))
@@ -2633,6 +2647,32 @@ Either.map = f => tx =>
 
 
 Either.Functor = {map: Either.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*Either.Alt = {
+  ...Either.Functor,
+  alt: Either.alt
+};*/
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*Either.Plus = {
+  ...Either.Alt,
+  zero: Either.zero
+};*/
 
 
 /*
@@ -3585,6 +3625,37 @@ L.Nil = ({
 
 
 /*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+L.head = tx => tx.run({nil: null, some: x => _ => x});
+
+
+// avoid due to inefficiency, use `Array` instead
+
+L.init = foldr(x => acc => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+
+
+L.singleton = x => L.Cons(x) (L.Nil);
+
+
+L.tail = tx => tx.run({cons: _ => ty => ty, nil: L.Nil});
+
+
+L.uncons = tx => tx.run({cons: y => ty => Pair(y, ty), nil: null});
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+L.fromArr = A.foldr(L.Cons) (L.Nil);
+
+
+// TODO: L.fromDList
+
+
+/*
 █████ Infinity ████████████████████████████████████████████████████████████████*/
 
 
@@ -3630,6 +3701,21 @@ L.Foldable = {
 
 
 /*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*L.Traversable = () => ({
+  ...L.Foldable,
+  ...L.Functor,
+  mapA: L.mapA,
+  seqA: L.seqA
+});*/
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -3640,6 +3726,32 @@ L.map_ = f => L.foldr(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
 
 
 L.Functor = {map: L.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*L.Alt = {
+  ...L.Functor,
+  alt: L.alt
+};*/
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*L.Plus = {
+  ...L.Alt,
+  zero: L.zero
+};*/
 
 
 /*
@@ -3738,6 +3850,31 @@ L.Monad = {
 
 
 /*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+// TODO: inits/tails
+
+/*L.Extend = {
+  ...L.Functor,
+  extend: L.extend
+};*/
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*L.Comonad = {
+  ...L.Extend,
+  extract: L.extract
+};*/
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -3793,6 +3930,9 @@ L.Unfoldable = {unfold: L.unfold};
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+L.isNil = tx => tx.run({cons: false, nil: true});
 
 
 L.reverse = L.foldl(L.Cons_) (L.Nil);
@@ -4052,6 +4192,9 @@ L.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// TODO: revise complete type
+
+
 export const DList = f => ({
   [TAG]: "DList",
   run: f
@@ -4062,33 +4205,33 @@ export const DList = f => ({
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
-DList.cons = x => xs => app(DList) (comp(List.Cons(x)) (xs.run));
+DList.cons = x => tx => DList.run(comp(List.Cons(x)) (tx.run));
 
 
 DList.singleton = comp(DList) (List.Cons);
 
 
-DList.snoc = x => xs => app(DList) (comp(xs.run) (List.Cons(x)));
+DList.snoc = x => tx => DList.run(comp(tx.run) (List.Cons(x)));
+
+
+// TODO: efficient init possible?
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-DList.fromList = xs => comp(DList) (List.append);
-
-
-DList.toList = xs => comp(app_(List.Nil)) (xs.run);
+DList.fromList = tx => comp(DList) (List.append);
 
 
 /*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-DList.append = xs => ys => app(DList) (comp(xs.run) (ys.run));
+DList.append = tx => ty => DList.run(comp(tx.run) (ty.run));
 
 
-DList.prepend = ys => xs => app(DList) (comp(xs.run) (ys.run));
+DList.prepend = ty => tx => DList.run(comp(tx.run) (ty.run));
 
 
 DList.Semigroup = {
@@ -5359,7 +5502,7 @@ Parser.Result.None = ({rest, state}) => ({
 
 
 /*
-█████ Character Classes ███████████████████████████████████████████████████████*/
+█████ Constants ███████████████████████████████████████████████████████████████*/
 
 
 const CHAR_CLASSES = {
@@ -5580,6 +5723,52 @@ const CHAR_CLASSES = {
     }
   },
 };
+
+
+/* map all letters derived from the latin alphabet to their most appropriate
+ASCII representation. */
+
+Object.defineProperty(Parser, "DERIVED_LETTERS", {
+  get() {
+    const m = new Map([
+      ["Æ", "AE"], ["æ", "ae"], ["Ä", "Ae"], ["ä", "ae"], ["Œ", "OE"],
+      ["œ", "oe"], ["Ö", "Oe"], ["ö", "oe"], ["ß", "ss"], ["ẞ", "ss"],
+      ["Ü", "Ue"], ["ü", "ue"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"],
+      ["ɑ", "a"], ["ɐ", "a"], ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"],
+      ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"],
+      ["ᶀ", "b"], ["Ƈ", "C"], ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"],
+      ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"],
+      ["Đ", "D"], ["đ", "d"], ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"],
+      ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"],
+      ["ɠ", "g"], ["Ǥ", "G"], ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"],
+      ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"],
+      ["ɥ", "h"], ["ɦ", "h"], ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"],
+      ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"],
+      ["Ƙ", "K"], ["ƙ", "k"], ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"],
+      ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"],
+      ["Ⱡ", "L"], ["ⱡ", "l"], ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"],
+      ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"],
+      ["ŋ", "n"], ["Ɲ", "N"], ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"],
+      ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"],
+      ["ɵ", "o"], ["Ƥ", "P"], ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"],
+      ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"],
+      ["Ʀ", "R"], ["ʀ", "r"], ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"],
+      ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"],
+      ["ᵴ", "s"], ["ᶊ", "s"], ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"],
+      ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"],
+      ["ʉ", "u"], ["Ʋ", "V"], ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"],
+      ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"],
+      ["ƴ", "y"], ["Ɏ", "Y"], ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"],
+      ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"],
+      ["ⱬ", "z"], ["Ʒ", "Z"], ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"],
+      ["Ʒ", "Z"], ["ʒ", "z"]
+    ]);
+
+    delete this.DERIVED_LETTERS;
+    this.DERIVED_LETTERS = m;
+    return m;
+  }
+});
 
 
 /*
@@ -6884,40 +7073,6 @@ Stream.empty = Stream.Nis;
 Stream.Monoid = {
   ...Stream.Semigroup,
   empty: Stream.empty
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ STRING ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Str = {}; // namespace
-
-
-Str.NORMALIZER = {
-
-  // map all letters derived from the latin alphabet to their ASCII representation
-
-  get derivedLetters() {
-    return new Map([
-      ["Æ", "AE"], ["æ", "ae"], ["Œ", "OE"], ["œ", "oe"], ["ẞ", "ss"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"], ["ɑ", "a"], ["ɐ", "a"],
-      ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"], ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"], ["ᶀ", "b"], ["Ƈ", "C"],
-      ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"], ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"], ["Đ", "D"], ["đ", "d"],
-      ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"], ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"], ["ɠ", "g"], ["Ǥ", "G"],
-      ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"], ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"], ["ɥ", "h"], ["ɦ", "h"],
-      ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"], ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"], ["Ƙ", "K"], ["ƙ", "k"],
-      ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"], ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"], ["Ⱡ", "L"], ["ⱡ", "l"],
-      ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"], ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"], ["ŋ", "n"], ["Ɲ", "N"],
-      ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"], ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"], ["ɵ", "o"], ["Ƥ", "P"],
-      ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"], ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"], ["Ʀ", "R"], ["ʀ", "r"],
-      ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"], ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"], ["ᵴ", "s"], ["ᶊ", "s"],
-      ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"], ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"], ["ʉ", "u"], ["Ʋ", "V"],
-      ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"], ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"], ["ƴ", "y"], ["Ɏ", "Y"],
-      ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"], ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"], ["ⱬ", "z"], ["Ʒ", "Z"],
-      ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"], ["Ʒ", "Z"], ["ʒ", "z"]
-    ]);
-  }
 };
 
 
