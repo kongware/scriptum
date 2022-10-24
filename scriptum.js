@@ -108,6 +108,9 @@ export class ExtendableError extends Error {
 export class Exception extends ExtendableError {};
 
 
+export const Err = TypeError; // shortcut
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████ LAZY EVALUATION ███████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -1127,6 +1130,23 @@ export const introspect = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
+/* `NaN`/`Infinity`/`Invalid Date` are treaded as bottom, because they aren't
+the neutral elements of their respective types but rather cover exceptions.
+`null` on the other hand is part of the `Option` monad and just a nullary
+value constructor, not a bottom value. */
+
+export const isBottom = x => {
+  if (x === undefined) return true;
+  else if (x !== x) return true // NaN
+  
+  else if (typeof x === "object"
+    && x !== null
+    && "getTime" in x
+    && Number.isNaN(x.getTime()))
+      return true;  
+};
+
+
 /* takes an arbitrary number of expressions and returns the evaluated value
 of the last one. The omitted expressions are merely evaluated for their
 effects. */
@@ -1140,6 +1160,16 @@ export const eff0 = (...exps) => exps[0];
 export const _throw = e => { // throw as a first class expression
   throw e;
 };
+
+
+export const throwAt = p => e => x => {
+  if (p(x)) throw e;
+  else return x;
+};
+
+
+export const throwAtBottom = throwAt(
+  isBottom) (new Err("unexpected bottom type"));
 
 
 // try/catch block as an expression
@@ -2674,14 +2704,6 @@ Either.Traversable = Either.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ ERROR ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Err = TypeError; // shortcut
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ EXCEPT ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -3719,16 +3741,16 @@ L.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-L.append = tx => ty => foldl(L.Cons_) (ty) (L.reverse(tx));
+L.append = tx => ty => L.foldl(L.Cons_) (ty) (L.reverse(tx));
 
 
-L.prepend = ty => tx => foldl(L.Cons_) (ty) (L.reverse(tx));
+L.prepend = ty => tx => L.foldl(L.Cons_) (ty) (L.reverse(tx));
 
 
-L.append_ = flip(foldr(L.Cons));
+L.append_ = flip(L.foldr(L.Cons));
 
 
-L.prepend_ = foldr(L.Cons);
+L.prepend_ = L.foldr(L.Cons);
 
 
 L.Semigroup = {
