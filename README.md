@@ -15,7 +15,7 @@
 
 # Haskell-style Functional Programming Adapted to Client-/Server-side Javascript
 
-Previous contents:
+Previous projects:
 
 * [in-depth functional programming course](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/course/ch-001.md)
 * [higher-rank/kinded runtime type validator source code](https://github.com/kongware/scriptum/blob/master/src/validator.js)
@@ -50,6 +50,12 @@ Current Project:
 * delimited continuations
 * functional exception handling
 * n-ary tree handling
+
+## Status
+
+_unstable_
+
+While concepts and functional idioms are mature most function implementations are not tested yet and might be affected by future code revisions.
 
 ## Future Studies
 
