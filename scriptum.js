@@ -1474,12 +1474,12 @@ Array is not a functional data type, because it has a non recursive definition.
 While it has a valid monad instance, there is no valid transformer. Use list or
 streams instead.
 
-When to use which immutable collection type:
+Efficient operation guide:
 
-  * Array: random element read access
-  * List: cons/uncons operations
-  * DList: append operation
-  * Vector: insert/delete/update operations */
+  * Array: random element access, mutations
+  * List: cons/uncons
+  * DList: append/prepend, cons/snoc
+  * Vector: element update, snoc/unsnoc, init/last */
 
 
 
@@ -3574,12 +3574,12 @@ operations on the type stack-safe:
   * guarded recursion through lazy evaluation
   * tail recursion modulo cons using a stack based trampoline
 
-When to use which immutable collection type:
+Efficient operation guide:
 
-  * Array: random element read access
-  * List: cons/uncons operations
-  * DList: append operation
-  * Vector: insert/delete/update operations */
+  * Array: random element access, mutations
+  * List: cons/uncons
+  * DList: append/prepend, cons/snoc
+  * Vector: element update, snoc/unsnoc, init/last */
 
 
 export const List = {}; // namespace
@@ -3616,7 +3616,7 @@ L.Nil = ({
 L.head = tx => tx.run({nil: null, some: x => _ => x});
 
 
-// avoid due to inefficiency, use `Array` instead
+// avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
 
 L.init = () => L.foldr(x => acc => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
 
@@ -7493,6 +7493,21 @@ Pair.T = outer => thisify(o => { // outer monad's type classes
   
   return o;
 });
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ VECTOR ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/*
+  efficient for operations that either doesn't change the key mapping at all or
+  only at the end of the vector, like
+
+  * update of existing elements
+  * snoc/uncons
+  * init/last
+*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
