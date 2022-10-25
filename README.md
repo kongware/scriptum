@@ -55,7 +55,7 @@ Current Project:
 
 _unstable_
 
-While concepts and functional idioms are mature most function implementations are not tested yet and might be affected by future code revisions.
+While concepts and functional idioms are mature most function implementations are not tested yet and implementation details might be affected by future code revisions.
 
 ## Future Studies
 
