@@ -2600,21 +2600,6 @@ Either.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-// TODO
-
-
-/*Either.Traversable = () => ({
-  ...Either.Foldable,
-  ...Either.Functor,
-  mapA: Either.mapA,
-  seqA: Either.seqA
-});*/
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
 Either.mapA = ({map, of}) => ft => tx => tx.run({
   left: x => of(Either.Left(x)),
   right: y => map(Either.Right) (ft(y))
@@ -3633,7 +3618,7 @@ L.head = tx => tx.run({nil: null, some: x => _ => x});
 
 // avoid due to inefficiency, use `Array` instead
 
-L.init = foldr(x => acc => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+L.init = () => L.foldr(x => acc => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
 
 
 L.singleton = x => L.Cons(x) (L.Nil);
@@ -3652,7 +3637,7 @@ L.uncons = tx => tx.run({cons: y => ty => Pair(y, ty), nil: null});
 L.fromArr = A.foldr(L.Cons) (L.Nil);
 
 
-// TODO: L.fromDList
+L.fromDList = tx => comp(app_(L.Nil)) (tx.run);
 
 
 /*
@@ -3938,6 +3923,13 @@ L.isNil = tx => tx.run({cons: false, nil: true});
 L.reverse = L.foldl(L.Cons_) (L.Nil);
 
 
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.init = L.init();
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████ LIST :: TRANSFORMER █████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -4192,7 +4184,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// TODO: revise complete type
+// efficient append/prepend and cons/snoc operations
 
 
 export const DList = f => ({
@@ -4205,33 +4197,33 @@ export const DList = f => ({
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
-DList.cons = x => tx => DList.run(comp(List.Cons(x)) (tx.run));
+DList.cons = x => tx => DList(comp(L.Cons(x)) (tx.run));
 
 
-DList.singleton = comp(DList) (List.Cons);
+DList.singleton = comp(DList) (L.Cons);
 
 
-DList.snoc = x => tx => DList.run(comp(tx.run) (List.Cons(x)));
-
-
-// TODO: efficient init possible?
+DList.snoc = x => tx => DList(comp(tx.run) (L.Cons(x)));
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-DList.fromList = tx => comp(DList) (List.append);
+DList.fromList = tx => comp(DList) (L.append);
+
+
+DList.fromArr = xs => comp(DList) (A.append);
 
 
 /*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-DList.append = tx => ty => DList.run(comp(tx.run) (ty.run));
+DList.append = tx => ty => DList(comp(tx.run) (ty.run));
 
 
-DList.prepend = ty => tx => DList.run(comp(tx.run) (ty.run));
+DList.prepend = ty => tx => DList(comp(tx.run) (ty.run));
 
 
 DList.Semigroup = {
@@ -4251,21 +4243,6 @@ DList.Monoid = {
   ...DList.Semigroup,
   empty: DList.empty
 };
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-DList.unfold = f => function go(y) {
-  return f(y).run({
-    none: DList.empty,
-    some: ([x, y2]) => DList.Cons(x) (lazy(() => go(y2)))
-  })
-};
-
-
-DList.Unfoldable = {unfold: DList.unfold};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
