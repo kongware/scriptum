@@ -844,6 +844,11 @@ export const uncurry = f => (x, y) => f(x) (y);
 export const flip = f => y => x => f(x) (y);
 
 
+// more readable immediately invoked functon expression
+
+export const iife = f => f();
+
+
 // enables `let` bindings as expressions in a readable form
 
 export const _let = (...args) => ({in: f => f(...args)});
@@ -1479,8 +1484,8 @@ Efficient operation guide:
   * Array: random element access, mutations
   * List: cons/uncons
   * DList: append/prepend, cons/snoc
-  * Vector: element update, snoc/unsnoc, init/last */
-
+  * Vector: element update, snoc/unsnoc, init/last
+  * Sequence: element insert/delete */
 
 
 export const Arr = {}; // namespace
@@ -3579,7 +3584,8 @@ Efficient operation guide:
   * Array: random element access, mutations
   * List: cons/uncons
   * DList: append/prepend, cons/snoc
-  * Vector: element update, snoc/unsnoc, init/last */
+  * Vector: element update, snoc/unsnoc, init/last
+  * Sequence: element insert/delete */
 
 
 export const List = {}; // namespace
@@ -6194,6 +6200,23 @@ Parser.dropUntil = parser => Parser(rest => state => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ SEQUENCE ███████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* List-like immutable structure but with references instead of nesting. Allows
+the following operations to be efficient:
+
+  * insert
+  * delete
+
+Bases on the r/b tree persistant data structure. */
+
+
+// TODO
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ SERIAL ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -7500,14 +7523,17 @@ Pair.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/*
-  efficient for operations that either doesn't change the key mapping at all or
-  only at the end of the vector, like
+/* Efficient for operations that either doesn't change the key mapping at all
+or only at the end of the vector, like
 
   * update of existing elements
   * snoc/uncons
   * init/last
-*/
+
+Bases on the r/b tree persistant data structure. */
+
+
+// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
