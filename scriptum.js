@@ -3624,7 +3624,12 @@ L.head = tx => tx.run({nil: null, some: x => _ => x});
 
 // avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
 
-L.init = () => L.foldr(x => acc => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+L.init = tx => L.foldl(acc => x => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+
+
+// avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
+
+L.last = tx => L.Cons(L.foldl(const_) (null) (tx)) (L.Nil);
 
 
 L.singleton = x => L.Cons(x) (L.Nil);
@@ -3772,7 +3777,7 @@ L.Apply = {
 L.ZipList = {};
 
 
-// TODO: implementation based on foldl/foldr
+// TODO: implementation with zipWith
 
 L.ZipList.ap = tf => tx => Loops2((tf, tx) => 
   tf.run({
