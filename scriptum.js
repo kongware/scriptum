@@ -844,11 +844,6 @@ export const uncurry = f => (x, y) => f(x) (y);
 export const flip = f => y => x => f(x) (y);
 
 
-// more readable immediately invoked functon expression
-
-export const iife = f => f();
-
-
 // enables `let` bindings as expressions in a readable form
 
 export const _let = (...args) => ({in: f => f(...args)});
@@ -883,6 +878,11 @@ export const infix = makeInfix(true);
 
 
 export const infix_ = makeInfix(false);
+
+
+// more readable immediately invoked functon expression
+
+export const scope = f => f();
 
 
 /*
@@ -1195,6 +1195,13 @@ export const try_ = thunk => ({
 
 
 /*
+█████ Logic ███████████████████████████████████████████████████████████████████*/
+
+
+export const xor = x => y => !!(!!x ^ !!y);
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -1367,13 +1374,6 @@ export const takeWhiler = p => append => x => acc =>
 
 export const transduce = ({append}, {fold}) => f =>
   fold(f(append));
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-export const xor = x => y => !!(!!x ^ !!y);
 
 
 /*
@@ -1641,10 +1641,18 @@ A.foldk = ft => init => xs => // short circuitable
         (init, 0);
 
 
-A.foldr = f => init => xs => function go(i) { // lazy, right-associative
-  if (i === xs.length) return init;
+A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
+  if (i === xs.length) return acc;
   else return f(xs[i]) (lazy(() => go(i + 1)));
 } (0);
+
+
+A.foldr_ = f => acc => xs => Loops(i => { // eager, right-associative
+  if (i === xs.length) return Loops.base(acc);
+  else return Loops.call(
+    f(xs[i]),
+    Loops.call(go, i + 1);
+}) (0);
 
 
 A.foldr1 = f => xs => {
@@ -1732,10 +1740,13 @@ A.Plus = {
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
+/* There is no applicative `ZipArr` instance because we cannot construct a
+infinite array for the most minimal context. */
+
+
 A.ap = fs => xs =>
   fs.reduce((acc, f) =>
-    xs.reduce((acc2, x) =>
-      (acc2.push(f(x)), acc2), acc), []);
+    (acc.push.apply(acc, xs.map(x => f(x))), acc), []);
 
 
 A.Apply = {
@@ -2833,7 +2844,7 @@ E.Plus = {
 
 
 /*
-█████ Functor :: Apply (Short Circuit) ████████████████████████████████████████*/
+█████ Functor :: Apply (Exception) ████████████████████████████████████████████*/
 
 
 E.ap = tf => tx =>
@@ -2874,7 +2885,7 @@ E.Valid.ap = ({append}) => tf => tx => {
 
 
 /*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+█████ Functor :: Apply :: Applicative (Exception) █████████████████████████████*/
 
 
 E.of = id; // just id since no sum type encoding is used
@@ -2884,6 +2895,13 @@ E.Applicative = {
   ...E.Apply,
   of: E.of
 };
+
+
+/*
+█████ Functor :: Apply :: Applicative (Validation) ████████████████████████████*/
+
+
+E.Valid.of = id; // same as exception instance
 
 
 /*
@@ -3624,7 +3642,8 @@ L.head = tx => tx.run({nil: null, some: x => _ => x});
 
 // avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
 
-L.init = tx => L.foldl(acc => x => L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+L.init = tx => L.foldr(x => acc =>
+  L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
 
 
 // avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
@@ -3682,12 +3701,26 @@ L.foldl = f => init => tx => {
 };
 
 
+// stack-safe only if `f` is non-strict in its second argument
+
 L.foldr = f => acc => function go(tx) {
   return tx.run({
     nil: acc,
     cons: y => ty => f(y) (lazy(() => go(ty)))
   });
 };
+
+
+// stack-safe even if `f` is strict in its second argument
+
+L.foldr_ = f => acc => Loops(tx => {
+  return tx.run({
+    nil: Loops.base(acc),
+    cons: y => ty => Loops.call(
+      f(y),
+      Loops.call(go, ty))
+  });
+});
 
 
 L.Foldable = {
@@ -3777,37 +3810,11 @@ L.Apply = {
 L.ZipList = {};
 
 
-// TODO: implementation with zipWith
-
-L.ZipList.ap = tf => tx => Loops2((tf, tx) => 
-  tf.run({
-    cons: g => tg =>
-      tx.run({
-        cons: y => ty => Loops2.call(
-          L.Cons(g(y)),
-          Loops2.call2(L.ZipList.ap, tg, ty)),
-
-        get nil() {return Loops2.base(L.Nil)}
-      }),
-
-    get nil() {return Loops2.base(L.Nil)}
-  })) (tf, tx);
-
-
-L.ZipList.ap_ = tf => tx =>
-  tf.run({
-    cons: g => tg =>
-      tx.run({
-        cons: y => ty => L.Cons(g(y)) (lazy(() => L.ZipList.apLazy(tg) (ty))),
-        nil: L.Nil
-      }),
-
-    nil: L.Nil
-  });
+L.ZipList.ap = () => L.zipWith(app);
 
 
 /*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+█████ Functor :: Apply :: Applicative (Non-Determinism) ███████████████████████*/
 
 
 L.of = L.Nil;
@@ -3817,6 +3824,13 @@ L.Applicative = {
   ...L.Apply,
   of: L.of
 };
+
+
+/*
+█████ Functor :: Apply :: Applicative (ZipList) ███████████████████████████████*/
+
+
+L.ZipList.of = L.repeat;
 
 
 /*
@@ -3877,10 +3891,10 @@ L.Monad = {
 L.append = tx => ty => L.foldl(L.Cons_) (ty) (L.reverse(tx));
 
 
-L.prepend = ty => tx => L.foldl(L.Cons_) (ty) (L.reverse(tx));
-
-
 L.append_ = flip(L.foldr(L.Cons));
+
+
+L.prepend = ty => tx => L.foldl(L.Cons_) (ty) (L.reverse(tx));
 
 
 L.prepend_ = L.foldr(L.Cons);
@@ -3925,6 +3939,26 @@ L.Unfoldable = {unfold: L.unfold};
 
 
 /*
+█████ Zipping █████████████████████████████████████████████████████████████████*/
+
+
+L.zipWith = f => tx => ty => function go(tx2, tz2) {
+  return tx.run({
+    cons: x3 => tx3 => ty.run({
+      cons: y3 => ty3 => L.Cons(f(x3) (y3)) (lazy(() => go(tx3, ty3))),
+      nil: L.Nil
+    }),
+
+    nil: L.Nil
+  });
+};
+
+
+L.unzip = L.foldr(([x, y]) => ([tx, ty]) =>
+  Pair(L.Cons(x) (tx), L.Cons(y) (ty))) (Pair(L.Nil, L.Nil));
+
+
+/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
@@ -3938,7 +3972,7 @@ L.reverse = L.foldl(L.Cons_) (L.Nil);
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-L.init = L.init();
+L.ZipList.ap = L.ZipList.ap();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4262,6 +4296,51 @@ DList.Monoid = {
 
 
 const _Map = {}; // namespace
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+_Map.foldl = f => acc => m => {
+  for ([k, v] of m) acc = f(acc) (v);
+  return acc;
+};
+
+
+_Map.foldk = f => acc => m => { // with key
+  for ([k, v] of m) acc = f(acc) (v, k);
+  return acc;
+};
+
+
+_Map.foldr = f => acc => m => {
+  const ix = m[Symbol.iterator] ();
+
+  return go = ({value, done}) => done
+    ? acc
+    : f(value[1]) (go(ix.next()));
+};
+
+
+_Map.Foldable = {
+  foldl: _Map.foldl,
+  foldr: _Map.foldr
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+_Map.map = f => m => {
+  const m2 = new Map();
+  for ([k, v] of m) m2.set(k, f(v));
+  return m2;
+};
+
+
+_Map.Functor = {map: _Map.map};
 
 
 /*
@@ -8597,7 +8676,7 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
-  * add Array Zip Applicative instance
+  * add Array ZipList Applicative instance
   * add monad combinators
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
