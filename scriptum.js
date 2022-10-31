@@ -59,6 +59,37 @@ export const TAG = Symbol.toStringTag;
 const TICK_TRESHOLD = 0.01; // treshold for next microtask
 
 
+/*
+█████ Order Protocol ██████████████████████████████████████████████████████████*/
+
+
+// Javascript's order protocol but reference identity with a tagged object
+
+
+export const LT = {
+  [TAG]: "Ordering",
+  run: -1,
+  valueOf: () => -1,
+  toString: () => "-1"
+};
+
+
+export const EQ = {
+  [TAG]: "Ordering",
+  run: 0,
+  valueOf: () => 0,
+  toString: () => "0"
+};
+
+
+export const GT = {
+  [TAG]: "Ordering",
+  run: 1,
+  valueOf: () => 1,
+  toString: () => "1"
+};
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ████████████████████████████ CROSS-CUTTING ASPECTS ████████████████████████████
@@ -316,6 +347,9 @@ class ThunkProxy {
 
 
 // Javascript built-in overloaded operators as functions
+
+
+export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
 
 
 export const max = x => y => x >= y ? x : y;
@@ -1505,6 +1539,13 @@ A.Clonable = {clone: A.clone};
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
@@ -1737,11 +1778,7 @@ A.Plus = {
 
 
 /*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-/* There is no applicative `ZipArr` instance because we cannot construct a
-infinite array for the most minimal context. */
+█████ Functor :: Apply (Non-Determinism) ██████████████████████████████████████*/
 
 
 A.ap = fs => xs =>
@@ -1756,7 +1793,21 @@ A.Apply = {
 
 
 /*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+█████ Functor :: Apply (ZipArr) ███████████████████████████████████████████████*/
+
+
+A.ZipArr = {}; // namespace
+
+
+A.ZipArr.ap = () => A.zipWith(app);
+
+
+/*
+█████ Functor :: Apply :: Applicative (Non-Determinism) ███████████████████████*/
+
+
+/* There is no applicative `ZipArr` instance because we cannot construct an
+infinite array for the most minimal context. */
 
 
 A.of = A.singleton;
@@ -1801,6 +1852,20 @@ A.Monad = {
   ...A.Applicative,
   chain: A.chain
 };
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+// there seems to be no useful instance
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+// there seems to be no useful instance
 
 
 /*
@@ -1861,10 +1926,16 @@ A.para = f => init => xs => {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-A.append = xs => ys => xs.concat(ys);
+A.append = xs => ys => xs.push.apply(xs, ys);
 
 
-A.prepend = ys => xs => xs.concat(ys);
+A.append_ = xs => ys => xs.concat(ys);
+
+
+A.prepend = ys => xs => xs.push.apply(xs, ys);
+
+
+A.prepend_ = ys => xs => xs.concat(ys);
 
 
 A.Semigroup = {
@@ -1927,6 +1998,21 @@ A.Unfoldable = {unfold: A.unfold};
 
 
 /*
+█████ Zipping █████████████████████████████████████████████████████████████████*/
+
+
+A.zipWith = f => xs => ys => Loop2((acc, i) => {
+  if (i === xs.length) return Loop2.base(acc);
+  else if (i === ys.length) return Loop2.base(acc);
+  else return Loop2.rec((acc.push(f(xs[i]) (ys[i])), acc), i + 1);
+}) ([], 0);
+
+
+A.unzip = A.foldl(([x, y]) => ([xs, ys]) =>
+  Pair((xs.push(x), xs), (ys.push(y), ys))) (Pair([], []));
+
+
+/*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
@@ -1937,6 +2023,9 @@ A.Traversable = A.Traversable();
 
 
 A.zero = A.zero();
+
+
+A.ZipArr.ap = A.ZipArr.ap();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1955,44 +2044,64 @@ L.fromFoldable({foldr: A.foldr}) ([1,2,3]) */
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* The non-empty array type. Since in dynamically typed Javascript there is no
-means to ensure non-emtyness, the type comes with a more rigid constraint:
-Once constructed only new elements can be added but none deleted. Since the
-constructor enforces at least one element the non-empty property holds. From
-a functional perspective the biggest drawback of this approach is the lack of
-a filter and slice function. */
+/* The non-empty array type. Due to the presence of mutations using the array
+constructor to enforce at least a single element doesn't suffice. Therefore an
+independent head property is used to guarantee the non-empty invariance. This
+renders working with indices harder, though. */
 
 
-class NEArray extends Array {
-  constructor(xs) {
-    if (xs.length === 0) throw new TypeError("cannot construct empty array");
+export const NEArray = head => tail => ({
+  [TAG]: "NEArray",
+  head,
+  tail
+});
 
-    else {
-      super(0);
-      this.push.apply(this, xs);
-    }
-  }
 
-  filter() {throw new TypeError("illegal operation")}
-  pop() {throw new TypeError("illegal operation")}
-  shift() {throw new TypeError("illegal operation")}
-  slice() {throw new TypeError("illegal operation")}
-  splice() {throw new TypeError("illegal operation")}
+export const Nea = NEArray; // shortcut
+
+
+Nea.map = f => ({head, tail}) => Nea(f(head)) (tail.map(f));
+
+
+Nea.head = ({head}) => head;
+
+
+Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
+
+
+Nea.singleton = x => Nea(x) ([]);
+
+
+Nea.uncons = ({head, tail}) => Pair(
+  head,
+  tail.length === 0 ? null : Nea(tail[0]) (tail.slice(1)));
+
+
+Nea.length = tx.tail.length + 1;
+
+
+Nea.tail = ({head, tail}) => tail;
+
+
+Nea.init = ({head, tail}) => _let(tail.slice(-1))
+  .in(xs => (xs.unshift(head), xs));
+
+
+Nea.append = ({head, tail}) => ({head: head2, tail: tail2}) => {
+  tail.push(head);
+  tail.push.apply(tail, tail2);
+  return Nea(head) (tail);
 };
 
 
-/*
-█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+Nea.prepend = ({head, tail}) => ({head: head2, tail: tail2}) => {
+  tail.push(head);
+  tail.push.apply(tail, tail2);
+  return Nea(head) (tail);
+};
 
 
-// TODO: extend entailing index on focused element + entire array
-
-
-/*
-█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
-
-
-// TODO: extract extracting the focused element
+Nea.of = singleton;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3863,7 +3972,7 @@ L.Monad = {
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
-// TODO: inits/tails
+// TODO: tails
 
 /*L.Extend = {
   ...L.Functor,
