@@ -733,9 +733,6 @@ Loops2.base = x => ({[TAG]: "Base", x});
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const fold = ({fold}, {append, empty}) => tx =>
-  A.fold(append) (empty) (tx);
-
 
 export const foldMapl = ({foldl}, {append, empty}) => f =>
   A.foldl(compSnd(append) (f)) (empty);
@@ -748,7 +745,10 @@ export const foldMapr = ({foldr}, {append, empty}) => f =>
 export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
 
 
-export const foldMin = ({foldl}, {min}) => tx => foldl1(min) (tx);
+export const foldMin = ({foldl1}, {min}) => tx => foldl1(min) (tx);
+
+
+//export const foldAll = ({foldl}) => p => foldl(acc => x =>) (true);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1690,9 +1690,10 @@ A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
 
 A.foldr_ = f => acc => xs => Loops(i => { // eager, right-associative
   if (i === xs.length) return Loops.base(acc);
+
   else return Loops.call(
     f(xs[i]),
-    Loops.call(go, i + 1);
+    Loops.call(go, i + 1));
 }) (0);
 
 
@@ -2008,7 +2009,7 @@ A.zipWith = f => xs => ys => Loop2((acc, i) => {
 }) ([], 0);
 
 
-A.unzip = A.foldl(([x, y]) => ([xs, ys]) =>
+A.unzip = () => A.foldl(([x, y]) => ([xs, ys]) =>
   Pair((xs.push(x), xs), (ys.push(y), ys))) (Pair([], []));
 
 
@@ -2053,7 +2054,8 @@ renders working with indices harder, though. */
 export const NEArray = head => tail => ({
   [TAG]: "NEArray",
   head,
-  tail
+  tail,
+  length: tail.length + 1
 });
 
 
@@ -2077,9 +2079,6 @@ Nea.uncons = ({head, tail}) => Pair(
   tail.length === 0 ? null : Nea(tail[0]) (tail.slice(1)));
 
 
-Nea.length = tx.tail.length + 1;
-
-
 Nea.tail = ({head, tail}) => tail;
 
 
@@ -2101,7 +2100,7 @@ Nea.prepend = ({head, tail}) => ({head: head2, tail: tail2}) => {
 };
 
 
-Nea.of = singleton;
+Nea.of = Nea.singleton;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4063,7 +4062,7 @@ L.zipWith = f => tx => ty => function go(tx2, tz2) {
 };
 
 
-L.unzip = L.foldr(([x, y]) => ([tx, ty]) =>
+L.unzip = () => L.foldr(([x, y]) => ([tx, ty]) =>
   Pair(L.Cons(x) (tx), L.Cons(y) (ty))) (Pair(L.Nil, L.Nil));
 
 
@@ -7818,6 +7817,17 @@ Yo.lower = tx => tx.run(id);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ RESOLVE DEP █████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+A.unzip = A.unzip();
+
+  
+L.unzip = L.unzip();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ IO ██████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
@@ -8785,7 +8795,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
-  * add Array ZipList Applicative instance
   * add monad combinators
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
