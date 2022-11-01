@@ -733,7 +733,6 @@ Loops2.base = x => ({[TAG]: "Base", x});
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-
 export const foldMapl = ({foldl}, {append, empty}) => f =>
   A.foldl(compSnd(append) (f)) (empty);
 
@@ -748,7 +747,12 @@ export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
 export const foldMin = ({foldl1}, {min}) => tx => foldl1(min) (tx);
 
 
-//export const foldAll = ({foldl}) => p => foldl(acc => x =>) (true);
+export const foldAll = ({foldr}) => p => foldr(x => acc =>
+  p(x) ? strict(acc) : false) (true); // force evaluation of acc thunk
+
+
+export const foldAny = ({foldr}) => p => foldr(x => acc =>
+  p(x) ? true : strict(acc)) (false); // force evaluation of acc thunk
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1232,6 +1236,9 @@ export const try_ = thunk => ({
 █████ Logic ███████████████████████████████████████████████████████████████████*/
 
 
+export const not = x => !x;
+
+
 export const xor = x => y => !!(!!x ^ !!y);
 
 
@@ -1630,6 +1637,60 @@ A.fromList = () => L.foldl(A.snoc_) ([]);
 
 
 /*
+█████ Creation ████████████████████████████████████████████████████████████████*/
+
+
+// scanl/scanr
+// mapAccuml/mapAccumr
+
+
+/*
+█████ Focusing ████████████████████████████████████████████████████████████████*/
+
+
+/* Sets a focus along with its left/right remainders on the element at the
+given index. */
+
+A.focusAt = i => xs => Triple(
+  xs.slice(0, i - 1),
+  xs[i],
+  xs.slice(i + 1));
+
+
+/* Sets a focus along with its left/right reminders on an array at the first
+place the predicate fails. Many other combinators like insert and delete can be
+derived from it. */
+
+A.focusOn = p => xs => Loop(i => {
+  if (p(xs[i])) return Loop.rec(i + 1);
+  
+  else return Loop.base(Triple(
+    xs.slice(0, i),
+    xs[i],
+    xs.slice(i + 1)));
+}) (0);
+
+
+/* Like `A.focusOn` but allows non-determinism at the focus by collecting all
+consecutive elements that fail the perdicate starting with the first one. */
+
+A.focusOn_ = p => xs => Loop2((i, j) => {
+  if (j === 0) {
+    if (p(xs[i])) return Loop2.rec(i + 1, 0);
+    else return Loop2.rec(i, i + 1);
+  }
+
+  else {
+    if (!p(xs[j])) return Loop2.rec(i, j + 1)
+    else return Loop.base(Triple(
+      xs.slice(0, i),
+      xs.slice(i, j),
+      xs.slice(j)));
+  }
+}) (0, 0);
+
+
+/*
 █████ Filterable ██████████████████████████████████████████████████████████████*/
 
 
@@ -1870,6 +1931,35 @@ A.Monad = {
 
 
 /*
+█████ Ordering ████████████████████████████████████████████████████████████████*/
+
+
+// sort
+// sortOn
+
+
+/*
+█████ Partition ███████████████████████████████████████████████████████████████*/
+
+
+// like `filter` but doesn't drop the unfiltered elements
+
+A.partition = p => xs => xs.reduce((pair, x)=> {
+  if (p(x)) return (pair[1].push(x), pair);
+  else return (pair[2].push(x), pair);
+}, Pair([], []));
+
+
+/* A more general version of `A.parition` that allows the accumulation function
+to be picked. */
+
+A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
+  const k = f(x);
+  return acc.set(k, g(x) (acc.get(k)));
+}, new Map());
+
+
+/*
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
@@ -1924,6 +2014,14 @@ A.para = f => init => xs => {
 
 
 /*
+█████ Searching ███████████████████████████████████████████████████████████████*/
+
+
+// find
+// findIndex
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -1959,6 +2057,14 @@ A.Monoid = {
 
 
 /*
+█████ Set Operations ██████████████████████████████████████████████████████████*/
+
+
+// union/intersect/diff
+// dedupe
+
+
+/*
 █████ Streaming ███████████████████████████████████████████████████████████████*/
 
 
@@ -1968,6 +2074,15 @@ A.stream = xs => {
     else return Stream.Step(Pair(i, xs[i])) (_ => go(i + 1));
   } (0);
 };
+
+
+/*
+█████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+// permutations
+// subsequences
+// transpose
 
 
 /*
