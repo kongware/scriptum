@@ -352,6 +352,9 @@ class ThunkProxy {
 export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
 
 
+const compareOn_ = () => compBoth(compare);
+
+
 export const max = x => y => x >= y ? x : y;
 
 
@@ -876,9 +879,6 @@ export const contify = f => x => k => k(f(x));
 export const curry = f => x => y => f(x, y);
 
 
-export const uncurry = f => (x, y) => f(x) (y);
-
-
 export const flip = f => y => x => f(x) (y);
 
 
@@ -921,6 +921,9 @@ export const infix_ = makeInfix(false);
 // more readable immediately invoked functon expression
 
 export const scope = f => f();
+
+
+export const uncurry = f => (x, y) => f(x) (y);
 
 
 /*
@@ -1645,7 +1648,7 @@ A.fromList = () => L.foldl(A.snoc_) ([]);
 
 
 /*
-█████ Focusing ████████████████████████████████████████████████████████████████*/
+█████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
 /* Sets a focus along with its left/right remainders on the element at the
@@ -1657,9 +1660,9 @@ A.focusAt = i => xs => Triple(
   xs.slice(i + 1));
 
 
-/* Sets a focus along with its left/right reminders on an array at the first
-place the predicate fails. Many other combinators like insert and delete can be
-derived from it. */
+/* Sets a focus along with its left/right reminders on an element at the first
+element the predicate fails. Many other combinators like insert and delete can
+be derived from it. */
 
 A.focusOn = p => xs => Loop(i => {
   if (p(xs[i])) return Loop.rec(i + 1);
@@ -1672,7 +1675,8 @@ A.focusOn = p => xs => Loop(i => {
 
 
 /* Like `A.focusOn` but allows non-determinism at the focus by collecting all
-consecutive elements that fail the perdicate starting with the first one. */
+consecutive elements that doesn't meet the perdicate starting with the first
+one. */
 
 A.focusOn_ = p => xs => Loop2((i, j) => {
   if (j === 0) {
@@ -1934,8 +1938,13 @@ A.Monad = {
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
-// sort
-// sortOn
+A.sort = ({compare}) => xs => xs.sort(uncurry(compare));
+
+
+A.sortBy = f => xs => xs.sort(uncurry(f));
+
+
+A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compareOn));
 
 
 /*
@@ -7937,6 +7946,9 @@ Yo.lower = tx => tx.run(id);
 
 
 A.unzip = A.unzip();
+
+
+export const compareOn = compareOn_();
 
   
 L.unzip = L.unzip();
