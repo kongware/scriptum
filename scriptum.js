@@ -1643,8 +1643,16 @@ A.fromList = () => L.foldl(A.snoc_) ([]);
 █████ Creation ████████████████████████████████████████████████████████████████*/
 
 
-// scanl/scanr
-// mapAccuml/mapAccumr
+/* mapAccum isn't required for arrays because the last element representing the
+final value can be easily accessed through the index. */
+
+
+A.scanl = f => init => A.foldl(acc => x =>
+  (acc.push(f(acc[acc.length - 1]) (x)), acc)) ([init]);
+
+
+A.scanr = f => init => A.foldr(x => acc =>
+  (acc.unshift(f(x) (acc[0])), acc)) ([init]);
 
 
 /*
@@ -2026,8 +2034,10 @@ A.para = f => init => xs => {
 █████ Searching ███████████████████████████████████████████████████████████████*/
 
 
-// find
-// findIndex
+A.find = p => xs => xs.find(x => p(x));
+
+
+A.findIndex = p => xs => xs.findIndex(x => p(x));
 
 
 /*
@@ -2069,8 +2079,67 @@ A.Monoid = {
 █████ Set Operations ██████████████████████████████████████████████████████████*/
 
 
-// union/intersect/diff
-// dedupe
+A.dedupe = xs => Array.from(new Set(xs));
+
+
+// ignores duplicates 
+
+A.diff = xs => ys => {
+  const s = new Set(xs),
+    s2 = new Set(ys)
+    acc = new Set();
+
+  for (x of s)
+    if (!s2.has(x)) acc.add(x);
+
+  for (y of s2)
+    if (!s.has(y)) acc.add(y);
+
+  return Array.from(acc);
+};
+
+
+// ignores duplicates 
+
+A.diffl = xs => ys => {
+  const s = new Set(xs),
+    s2 = new Set(ys),
+    acc = [];
+
+  for (x of s)
+    if (!s2.has(x)) acc.push(x);
+
+  return acc;
+};
+
+
+// ignores duplicates 
+
+A.diffr = xs => ys => {
+  const s = new Set(xs),
+    s2 = new Set(ys),
+    acc = [];
+
+  for (y of s2)
+    if (!s.has(y)) acc.push(y);
+
+  return acc;
+};
+
+
+// ignores duplicates 
+
+A.intersect = xs => ys => {
+  const s = new Set(ys);
+
+  return Array.from(xs.reduce(
+    (acc, x) => s.has(x) ? acc.add(x) : acc, new Set()));
+};
+
+
+// ignores duplicates 
+
+A.union = xs => ys => Array.from(new Set(xs.concat(ys)));
 
 
 /*
