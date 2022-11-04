@@ -736,6 +736,17 @@ Loops2.base = x => ({[TAG]: "Base", x});
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+export const foldAll = ({foldr}) => p => foldr(x => acc =>
+  p(x) ? acc : false) (true);
+
+
+export const foldAnd = ({foldr}) => foldr(b => acc => b && acc) (true);
+
+
+export const foldAny = ({foldr}) => p => foldr(x => acc =>
+  p(x) ? true : acc) (false);
+
+
 export const foldMapl = ({foldl}, {append, empty}) => f =>
   A.foldl(compSnd(append) (f)) (empty);
 
@@ -750,16 +761,11 @@ export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
 export const foldMin = ({foldl1}, {min}) => tx => foldl1(min) (tx);
 
 
-export const foldAll = ({foldr}) => p => foldr(x => acc =>
-  p(x) ? strict(acc) : false) (true); // force evaluation of acc thunk
-
-
-export const foldAny = ({foldr}) => p => foldr(x => acc =>
-  p(x) ? true : strict(acc)) (false); // force evaluation of acc thunk
+export const foldOr = ({foldr}) => foldr(b => acc => b || acc) (true);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-*██████████████████████████████████ FUNCTOR ███████████████████████████████████
+███████████████████████████████████ FUNCTOR ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -1747,13 +1753,19 @@ A.foldi = f => init => xs => { // left-associative with index
 };
 
 
-A.foldk = ft => init => xs => // short circuitable
+/* A fold with `f` encoded in continuation passing style so that it can decide
+whether to continue or abort the left-associative fold. */
+
+A.foldk = f => init => xs =>
   Loop2((acc, i) =>
     i === xs.length
       ? Loop2.base(acc)
-      : ft(acc) (xs[i]) (acc2 => Loop2.rec(acc2, i + 1)))
+      : f(acc) (xs[i]) (acc2 => Loop2.rec(acc2, i + 1)))
         (init, 0);
 
+
+/* Lazy, right-associative fold. Stack-safe if `f` is non-strict in its second
+argument. */
 
 A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
   if (i === xs.length) return acc;
@@ -1761,7 +1773,9 @@ A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
 } (0);
 
 
-A.foldr_ = f => acc => xs => Loops(i => { // eager, right-associative
+// eager, right-associative fold
+
+A.foldr_ = f => acc => xs => Loops(i => {
   if (i === xs.length) return Loops.base(acc);
 
   else return Loops.call(
@@ -2152,6 +2166,26 @@ A.stream = xs => {
     else return Stream.Step(Pair(i, xs[i])) (_ => go(i + 1));
   } (0);
 };
+
+
+/*
+█████ Subarrays ███████████████████████████████████████████████████████████████*/
+
+
+/* `take`/`drop` combinators are not provided because arrays can be trivially
+sliced. */
+
+
+A.dropWhile = p => xs => Loop((acc, i) => {
+  if (i === xs.length) return acc;
+  else return p(xs[i]) ? go(acc, i + 1) : xs.slice(i);
+}) ([], 0);
+
+
+A.takeWhile = p => xs => Loop((acc, i) => {
+  if (i === xs.length) return acc;
+  else return p(xs[i]) ? go((acc.push(xs[i]), acc), i + 1) : acc;
+}) ([], 0);
 
 
 /*
