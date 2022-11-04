@@ -2158,9 +2158,45 @@ A.stream = xs => {
 █████ Transformation ██████████████████████████████████████████████████████████*/
 
 
-// permutations
-// subsequences
-// transpose
+/* Determines permutations of a given array. If an array includes duplicates,
+so will the list of array permutations. Stack-safety isn't required because a
+large array would exhaust the heap before the call stack. */
+
+A.perms = xs => {
+  if (xs.length === 0) return [[]];
+  
+  else return xs.flatMap((x, i) =>
+    perms(xs.filter((y, j) => i !== j))
+      .map(ys => [x, ...ys]));
+};
+
+
+/* Collects all subsequences of an array. If an array includes duplicates,
+so will the list of array subsequences. Stack-safety isn't required because
+a large array would exhaust the heap before the call stack. */
+
+A.subseqs = xs => function go(i) {
+  if (i === xs.length) return [[]];
+  
+  else {
+    const yss = go(i + 1);
+
+    const zss = yss.map(ys => {
+      const zs = [xs[i]];
+      return (zs.push.apply(zs, ys), zs);
+    });
+
+    return (zss.push.apply(zss, yss), zss);
+  }
+} (0);
+
+
+A.transpose = xss =>
+  xss.reduce((acc, xs) =>
+    xs.map((x, i) => {
+      const ys = acc[i] || [];
+      return (ys.push(x), ys);
+    }), []);
 
 
 /*
