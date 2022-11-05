@@ -766,7 +766,7 @@ export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
 export const foldMin = ({foldl1}, {min}) => tx => foldl1(min) (tx);
 
 
-export const foldOr = ({foldr}) => foldr(b => acc => b || acc) (true);
+export const foldOr = ({foldr}) => foldr(b => acc => b || acc) (false);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2181,15 +2181,15 @@ A.stream = xs => {
 sliced. */
 
 
-A.dropWhile = p => xs => Loop((acc, i) => {
-  if (i === xs.length) return acc;
-  else return p(xs[i]) ? go(acc, i + 1) : xs.slice(i);
+A.dropWhile = p => xs => Loop2((acc, i) => {
+  if (i === xs.length) return Loop2.base(acc);
+  else return p(xs[i]) ? Loop2.rec(acc, i + 1) : Loop2.base(xs.slice(i));
 }) ([], 0);
 
 
-A.takeWhile = p => xs => Loop((acc, i) => {
-  if (i === xs.length) return acc;
-  else return p(xs[i]) ? go((acc.push(xs[i]), acc), i + 1) : acc;
+A.takeWhile = p => xs => Loop2((acc, i) => {
+  if (i === xs.length) return Loop2.base(acc);
+  else return p(xs[i]) ? Loop2.rec((acc.push(xs[i]), acc), i + 1) : Loop2.base(acc);
 }) ([], 0);
 
 
@@ -2205,7 +2205,7 @@ A.perms = xs => {
   if (xs.length === 0) return [[]];
   
   else return xs.flatMap((x, i) =>
-    perms(xs.filter((y, j) => i !== j))
+    A.perms(xs.filter((y, j) => i !== j))
       .map(ys => [x, ...ys]));
 };
 
