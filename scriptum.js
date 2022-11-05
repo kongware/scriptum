@@ -169,8 +169,10 @@ const THUNK = PREFIX + "thunk";
 █████ API █████████████████████████████████████████████████████████████████████*/
 
 
-export const strict = x =>
-  x && x[THUNK] ? x[EVAL] : x;
+export const strict = x => {
+  while (x && x[THUNK]) x = x[EVAL];
+  return x;
+};
 
 
 export const lazy = thunk =>
@@ -193,18 +195,16 @@ class ThunkProxy {
 
   apply(f, that, args) {
 
-    // force evalutation to WHNF
+    // enforce evalutation to WHNF
 
     if (this.memo === NULL) {
       let g = f();
-      
-      while (g && g[THUNK] === true)
-        g = g[EVAL];
 
+      while (g && g[THUNK] === true) g = g[EVAL];
       if (this.share) this.memo = g;
 
       if (typeof g !== "function")
-        throw new TypeError(`cannot invoke thunk of type "${introspect(g)}"`);
+        throw new TypeError("invocation of non-functional thunk");
 
       return g(...args);
     }
@@ -217,10 +217,9 @@ class ThunkProxy {
     // prevent evaluation in case of introspection
     
     if (k === THUNK) return true;
+    else if (k === Symbol.toStringTag) return "Thunk";
 
-    else if (k === Symbol.toStringTag) return "Proxy";
-
-    // force evaluation of one layer
+    // enforce evaluation of a single layer
 
     else if (k === EVAL) {
       if (this.memo === NULL) {
@@ -229,51 +228,63 @@ class ThunkProxy {
         return o;
       }
 
+      else if (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
+
       else return this.memo;
     }
 
-    // force evaluation to WHNF due to array context
+    // intercept implicit type casts
+
+    else if (k === "valueOf" || k === "toString") {
+      if (this.memo === NULL) {
+        let o = f();
+        
+        while (o && o[THUNK] === true) o = o[EVAL];
+        if (this.share) this.memo = o;
+        if (Object(o) === o) return o[k];
+        else if (k === "valueOf") return () => o;
+        else return () => String(o);
+      }
+
+      else if (Object(this.memo) === this.memo) return this.memo[k];
+      else if (k === "valueOf") return () => this.memo;
+      else return () => String(this.memo);
+    }
+
+    // enforce evaluation to WHNF due to array context
 
     else if (k === Symbol.isConcatSpreadable) {
       if (this.memo === NULL) {
         let o = f();
 
-        while (o && o[THUNK] === true)
-          o = o[EVAL];
-
+        while (o && o[THUNK] === true) o = o[EVAL];
         if (this.share) this.memo = o;
-
         if (Array.isArray(o) || o[Symbol.isConcatSpreadable]) return true;
         else return false;
       }
 
       else {
-        if (Array.isArray(this.memo) || this.memo[Symbol.isConcatSpreadable]) return true;
+        if (Array.isArray(this.memo) || this.memo[Symbol.isConcatSpreadable])
+          return true;
+
         else return false;
       }
     }
 
-    // force evaluation to WHNF due to property access
+    // enforce evaluation to WHNF due to property access
 
     else {
       if (this.memo === NULL) {
         let o = f();
 
-        while (o && o[THUNK] === true)
-          o = o[EVAL];
+        while (o && o[THUNK] === true) o = o[EVAL];
 
         // take method binding into account
 
-        if (o === Object(o) && o[k] && o[k].bind) o[k] = o[k].bind(o);
-
+        if (Object(o) === o && o[k] && o[k].bind) o[k] = o[k].bind(o);
         if (this.share) this.memo = o;
-
-        // restrict duck typing
-
-        if (typeof k !== "symbol" && o[k] === undefined)
-          throw new TypeError(`unknown property "${k}" access`);
-
-        else return o[k];
+        return o[k];
       }
 
       else return this.memo[k];
@@ -287,9 +298,7 @@ class ThunkProxy {
     if (this.memo === NULL) {
       let o = f();
 
-      while (o && o[THUNK] === true)
-        o = o[EVAL];
-
+      while (o && o[THUNK] === true) o = o[EVAL];
       if (this.share) this.memo = o;
       return Reflect.getOwnPropertyDescriptor(o, k);
     }
@@ -308,9 +317,7 @@ class ThunkProxy {
     if (this.memo === NULL) {
       let o = f();
 
-      while (o && o[THUNK] === true)
-        o = o[EVAL];
-
+      while (o && o[THUNK] === true) o = o[EVAL];
       if (this.share) this.memo = o;
       return k in o;
     }
@@ -325,9 +332,7 @@ class ThunkProxy {
     if (this.memo === NULL) {
       let o = f();
 
-      while (o && o[THUNK] === true)
-        o = o[EVAL];
-
+      while (o && o[THUNK] === true) o = o[EVAL];
       if (this.share) this.memo = o;
       return Reflect.ownKeys(o);
     }
@@ -336,7 +341,7 @@ class ThunkProxy {
   }
 
   set(o) {
-    throw new TypeError("must not mutate thunk");
+    throw new TypeError("Thunk values must not be mutated");
   }
 }
 
