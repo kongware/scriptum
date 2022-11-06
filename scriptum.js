@@ -1730,6 +1730,22 @@ A.Filterable = {filter: A.filter};
 
 
 /*
+█████ Filter-like █████████████████████████████████████████████████████████████*/
+
+
+A.find = p => xs => xs.find(x => p(x));
+
+
+A.findIndex = p => xs => xs.findIndex(x => p(x));
+
+
+A.partition = p => xs => xs.reduce((pair, x)=> {
+  if (p(x)) return (pair[1].push(x), pair);
+  else return (pair[2].push(x), pair);
+}, Pair([], []));
+
+
+/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
@@ -1982,27 +1998,6 @@ A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compBoth(compare) (f)));
 
 
 /*
-█████ Partition ███████████████████████████████████████████████████████████████*/
-
-
-// like `filter` but doesn't drop the unfiltered elements
-
-A.partition = p => xs => xs.reduce((pair, x)=> {
-  if (p(x)) return (pair[1].push(x), pair);
-  else return (pair[2].push(x), pair);
-}, Pair([], []));
-
-
-/* A more general version of `A.parition` that allows the accumulation function
-to be picked. */
-
-A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
-  const k = f(x);
-  return acc.set(k, g(x) (acc.get(k)));
-}, new Map());
-
-
-/*
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
@@ -2054,16 +2049,6 @@ A.para = f => init => xs => {
 
   return acc;
 };
-
-
-/*
-█████ Searching ███████████████████████████████████████████████████████████████*/
-
-
-A.find = p => xs => xs.find(x => p(x));
-
-
-A.findIndex = p => xs => xs.findIndex(x => p(x));
 
 
 /*
@@ -2202,6 +2187,15 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 
 /*
 █████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+/* A more general version of `A.parition` that allows key generation and value
+accumulation to be passed as arguments. */
+
+A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
+  const k = f(x);
+  return acc.set(k, g(x) (acc.get(k)));
+}, new Map());
 
 
 /* Determines permutations of a given array. If an array includes duplicates,
