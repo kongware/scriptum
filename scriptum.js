@@ -1775,24 +1775,25 @@ A.foldk = f => init => xs =>
         (init, 0);
 
 
-/* Lazy, right-associative fold. Stack-safe, if `f` is non-strict in its second
-argument. */
+// eager, right-associative and yet stack-safe fold
 
-A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
-  if (i === xs.length) return acc;
-  else return f(xs[i]) (lazy(() => go(i + 1)));
-} (0);
-
-
-// eager, right-associative fold
-
-A.foldr_ = f => acc => xs => Loops(i => {
+A.foldr = f => acc => xs => Loops(i => {
   if (i === xs.length) return Loops.base(acc);
 
   else return Loops.call(
     f(xs[i]),
     Loops.call(go, i + 1));
 }) (0);
+
+
+/* Lazy, right-associative fold. Stack-safe, if `f` is non-strict in its second
+argument. Since there is no such meaningful function for arrays, this fold has
+only an educative purpose. */
+
+A.foldr_ = f => acc => xs => function go(i) { // lazy, right-associative
+  if (i === xs.length) return acc;
+  else return f(xs[i]) (lazy(() => go(i + 1)));
+} (0);
 
 
 A.foldr1 = f => xs => {
