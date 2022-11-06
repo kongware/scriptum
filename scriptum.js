@@ -1563,7 +1563,7 @@ A.Clonable = {clone: A.clone};
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-// TODO
+A.fromList = () => L.foldl(A.snoc_) ([]);
 
 
 /*
@@ -1647,9 +1647,6 @@ A.unsnoc = xs => Pair(
   xs.slice(-1));
 
 
-A.fromList = () => L.foldl(A.snoc_) ([]);
-
-
 /*
 █████ Creation ████████████████████████████████████████████████████████████████*/
 
@@ -1674,7 +1671,7 @@ A.scanr = f => init => A.foldr(x => acc =>
 given index. */
 
 A.focusAt = i => xs => Triple(
-  xs.slice(0, i - 1),
+  xs.slice(0, i),
   xs[i],
   xs.slice(i + 1));
 
@@ -1684,7 +1681,8 @@ element the predicate fails. Many other combinators like insert and delete can
 be derived from it. */
 
 A.focusOn = p => xs => Loop(i => {
-  if (p(xs[i])) return Loop.rec(i + 1);
+  if (i === xs.length) return Loop.base(Triple(xs, null, []));
+  else if (p(xs[i])) return Loop.rec(i + 1);
   
   else return Loop.base(Triple(
     xs.slice(0, i),
@@ -1698,13 +1696,21 @@ consecutive elements that doesn't meet the perdicate starting with the first
 one. */
 
 A.focusOn_ = p => xs => Loop2((i, j) => {
-  if (j === 0) {
+  if (i === xs.length) return Loop.base(Triple(xs, [], []));
+
+  else if (j === 0) {
     if (p(xs[i])) return Loop2.rec(i + 1, 0);
     else return Loop2.rec(i, i + 1);
   }
 
+  else if (j === xs.length) return Loop.base(Triple(
+    xs.slice(0, i),
+    xs.slice(i),
+    []));
+
   else {
-    if (!p(xs[j])) return Loop2.rec(i, j + 1)
+    if (!p(xs[j])) return Loop2.rec(i, j + 1);
+
     else return Loop.base(Triple(
       xs.slice(0, i),
       xs.slice(i, j),
@@ -1769,7 +1775,7 @@ A.foldk = f => init => xs =>
         (init, 0);
 
 
-/* Lazy, right-associative fold. Stack-safe if `f` is non-strict in its second
+/* Lazy, right-associative fold. Stack-safe, if `f` is non-strict in its second
 argument. */
 
 A.foldr = f => acc => xs => function go(i) { // lazy, right-associative
@@ -1971,7 +1977,7 @@ A.sort = ({compare}) => xs => xs.sort(uncurry(compare));
 A.sortBy = f => xs => xs.sort(uncurry(f));
 
 
-A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compareOn));
+A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compBoth(compare) (f)));
 
 
 /*
@@ -2105,13 +2111,13 @@ A.dedupe = xs => Array.from(new Set(xs));
 
 A.diff = xs => ys => {
   const s = new Set(xs),
-    s2 = new Set(ys)
+    s2 = new Set(ys),
     acc = new Set();
 
-  for (x of s)
+  for (const x of s)
     if (!s2.has(x)) acc.add(x);
 
-  for (y of s2)
+  for (const y of s2)
     if (!s.has(y)) acc.add(y);
 
   return Array.from(acc);
@@ -2125,7 +2131,7 @@ A.diffl = xs => ys => {
     s2 = new Set(ys),
     acc = [];
 
-  for (x of s)
+  for (const x of s)
     if (!s2.has(x)) acc.push(x);
 
   return acc;
@@ -2139,7 +2145,7 @@ A.diffr = xs => ys => {
     s2 = new Set(ys),
     acc = [];
 
-  for (y of s2)
+  for (const y of s2)
     if (!s.has(y)) acc.push(y);
 
   return acc;
@@ -7979,6 +7985,26 @@ Pair.T = outer => thisify(o => { // outer monad's type classes
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ TUPLE :: TRIPLE ███████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Triple = (x, y, z) => ({
+  [TAG]: "Triple",
+  1: x,
+  2: y,
+  3: z,
+  length: 3,
+
+ [Symbol.iterator]: function*() {
+    yield x;
+    yield y;
+    yield z;
+  }  
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ VECTOR ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -8087,6 +8113,9 @@ Yo.lower = tx => tx.run(id);
 /*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████ RESOLVE DEP █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
+
+
+A.fromList = A.fromList();
 
 
 A.unzip = A.unzip();
