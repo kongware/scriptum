@@ -1733,10 +1733,10 @@ A.Filterable = {filter: A.filter};
 █████ Filter-like █████████████████████████████████████████████████████████████*/
 
 
-A.find = p => xs => xs.find(x => p(x));
+A.find = p => xs => xs.find(x => p(x) ? x : null);
 
 
-A.findIndex = p => xs => xs.findIndex(x => p(x));
+A.findIndex = p => xs => xs.findIndex(i => p(i) ? i : null);
 
 
 A.partition = p => xs => xs.reduce((pair, x)=> {
@@ -1803,8 +1803,8 @@ A.foldr = f => acc => xs => Loops(i => {
 
 
 /* Lazy, right-associative fold. Stack-safe, if `f` is non-strict in its second
-argument. Since there is no such meaningful function for arrays, this fold has
-only an educative purpose. */
+argument. This only works for folds that result type isn't an imperative array
+because array construction is always strict in both its arguments. */
 
 A.foldr_ = f => acc => xs => function go(i) { // lazy, right-associative
   if (i === xs.length) return acc;
@@ -2316,8 +2316,8 @@ L.fromFoldable({foldr: A.foldr}) ([1,2,3]) */
 
 /* The non-empty array type. Due to the presence of mutations using the array
 constructor to enforce at least a single element doesn't suffice. Therefore an
-independent head property is used to guarantee the non-empty invariance. This
-renders working with indices harder, though. */
+extra head property is used to guarantee the non-empty invariance. This renders
+working with indices more elaborate, though. */
 
 
 export const NEArray = head => tail => ({
@@ -2331,10 +2331,15 @@ export const NEArray = head => tail => ({
 export const Nea = NEArray; // shortcut
 
 
-Nea.map = f => ({head, tail}) => Nea(f(head)) (tail.map(f));
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
 Nea.head = ({head}) => head;
+
+
+Nea.init = ({head, tail}) => _let(tail.slice(-1))
+  .in(xs => (xs.unshift(head), xs));
 
 
 Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
@@ -2343,16 +2348,55 @@ Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
 Nea.singleton = x => Nea(x) ([]);
 
 
+Nea.tail = ({head, tail}) => tail;
+
+
 Nea.uncons = ({head, tail}) => Pair(
   head,
   tail.length === 0 ? null : Nea(tail[0]) (tail.slice(1)));
 
 
-Nea.tail = ({head, tail}) => tail;
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Nea.init = ({head, tail}) => _let(tail.slice(-1))
-  .in(xs => (xs.unshift(head), xs));
+Nea.map = f => ({head, tail}) => Nea(f(head)) (tail.map(f));
+
+
+Nea.Functor = {map: Nea.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Nea.ap = ({head: headf, tail: tailf}) => ({head: headx, tail: tailx}) =>
+  Nea(headf(headx))
+    (tailf.reduce((acc, f) =>
+      (acc.push.apply(acc, tailx.map(x => f(x))), acc), []));
+
+
+Nea.Apply = {
+  ...Nea.Functor,
+  ap: Nea.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Nea.Applicative = {
+  ...Nea.Apply,
+  of: Nea.of
+};
+
+
+Nea.of = Nea.singleton;
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 Nea.append = ({head, tail}) => ({head: head2, tail: tail2}) => {
@@ -2362,14 +2406,24 @@ Nea.append = ({head, tail}) => ({head: head2, tail: tail2}) => {
 };
 
 
-Nea.prepend = ({head, tail}) => ({head: head2, tail: tail2}) => {
+Nea.prepend = ({head: head2, tail: tail2}) => ({head, tail}) => {
   tail.push(head);
   tail.push.apply(tail, tail2);
   return Nea(head) (tail);
 };
 
 
-Nea.of = Nea.singleton;
+Nea.Semigroup = {
+  append: Nea.append,
+  prepend: Nea.prepend
+};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+// the non-empty array doesn't form a monoid
 
 
 /*█████████████████████████████████████████████████████████████████████████████
