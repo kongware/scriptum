@@ -2357,6 +2357,37 @@ Nea.uncons = ({head, tail}) => Pair(
 
 
 /*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+// there is no delete op because NEArray must not be empty
+
+
+Nea.get = i => ({head, tail}) => i === 0 ? head : tail[i - 1];
+
+
+Nea.has = i => ({head, tail}) => i === 0 ? true : i - 1 in tail;
+
+
+Nea.set = i => x => ({head, tail}) => {
+  if (i === 0) return Nea(x) (tail);
+  else if (i - 1 < tail.length) return Nea(head) ((tail[i - 1] = x, tail));
+  else if (i - 1 === tail.length) return Nea(head) ((tail.push(x), tail));
+  else throw new TypeError("illegal index");
+};
+
+
+Nea.upd = i => f => ({head, tail}) => {
+  if (i === 0) return Nea(f(head)) (tail);
+  
+  else if (i - 1 < tail.length)
+    return Nea(head) ((tail[i - 1] = f(tail[i - 1]), tail));
+  
+  else throw new TypeError("illegal index");
+};
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -2386,13 +2417,51 @@ Nea.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
+Nea.of = Nea.singleton;
+
+
 Nea.Applicative = {
   ...Nea.Apply,
   of: Nea.of
 };
 
 
-Nea.of = Nea.singleton;
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+/* Since the NEArray constructor always expects at least a head element `fm`
+cannot produce an empty array and chaining is thus a safe operation. */
+
+Nea.chain = ({head, tail}) => fm => {
+  const {head: head2, tail: tail2} = fm(head);
+
+  const tail3 = tail.reduce((acc, x) => {
+    const o = fm(x);
+    acc.push.(o.head);
+    acc.push.apply(acc, o.tail);
+    return acc;
+  }, []);
+
+  tail2.push.apply(tail2, tail3);
+  return Nea(head2) (tail2);
+};
+
+
+Nea.Chain = {
+  ...Nea.Apply,
+  chain: Nea.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Nea.Monad = {
+  ...Nea.Applicative,
+  chain: Nea.chain
+};
 
 
 /*
@@ -4775,7 +4844,7 @@ _Map.Functor = {map: _Map.map};
 
 
 /*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
 _Map.add = ({append}) => k => v => m => {
@@ -4970,7 +5039,7 @@ O.toPairs = Object.entries;
 
 
 /*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
 O.add = ({append}) => k => v => o => {
@@ -5455,7 +5524,7 @@ Optic.Applicative = {
 
 
 /*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
 /* Use to delete the innermost reference value from inside a nested structure.
@@ -7162,7 +7231,7 @@ const _Set = {}; // namespace
 
 
 /*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
 _Set.has = k => s => s.has(k);
@@ -7979,7 +8048,7 @@ Pair.Comonad = {
 
 
 /*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
 Pair.setFst = x => tx => Pair(x, tx[2]);
