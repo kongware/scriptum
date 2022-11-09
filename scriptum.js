@@ -1667,56 +1667,117 @@ A.scanr = f => init => A.foldr(x => acc =>
 █████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
-/* Sets a focus along with its left/right remainders on the element at the
-given index. */
+/* Sets a focus on the first element that satisfies the given predicate and
+holds references to the left/right remainders. The reminders are lazy, i.e.
+only evaluated once and when actually needed. */
 
-A.focusAt = i => xs => Triple(
-  xs.slice(0, i),
-  xs[i],
-  xs.slice(i + 1));
+A.focusAt = p => xs => Loop(i => {
+  if (i === xs.length || p(xs[i])) {
+    return Loop.base(Triple_({
+      get "1"() {
+        delete this["1"];
+        this["1"] = xs.slice(0, i);
+        return this["1"];
+      },
 
+      2: i in xs ? xs[i] : null,
+      
+      get "3"() {
+        delete this["3"];
+        this["3"] = xs.slice(i + 1);
+        return this["3"];
+      }
+    }));
+  }
 
-/* Sets a focus along with its left/right reminders on an element at the first
-element the predicate fails. Many other combinators like insert and delete can
-be derived from it. */
-
-A.focusOn = p => xs => Loop(i => {
-  if (i === xs.length) return Loop.base(Triple(xs, null, []));
-  else if (p(xs[i])) return Loop.rec(i + 1);
+  else Loop.rec(i + 1);
+}) (0);
   
-  else return Loop.base(Triple(
-    xs.slice(0, i),
-    xs[i],
-    xs.slice(i + 1)));
+
+/* Sets a focus on the first consecutive elements satisfying the given predicate
+and holds references to the left/right remainders. All fields of the resulting
+triple are lazy, i.e. only evaluated once and when actually needed. */
+
+A.focusOn = p => xs => Loop2((i, j) => {
+  if (i === xs.length) return Loop2.base(Triple(xs, [], []));
+
+  else if (j === 0) {
+    if (p(xs[i])) return Loop2.rec(i, i + 1);
+    else return Loop2.rec(i + 1, j);
+  }
+
+  else {
+    if (j < xs.length && p(xs[j])) return Loop2.rec(i, j + 1);
+    
+    else {
+      return Loop2.base(Triple_({
+        get "1"() {
+          delete this["1"];
+          this["1"] = xs.slice(0, i);
+          return this["1"];
+        },
+
+        get "2"() {
+          delete this["2"];
+          this["2"] = xs.slice(i, j);
+          return this["2"];
+        },
+
+        get "3"() {
+          delete this["3"];
+          this["3"] = xs.slice(j);
+          return this["3"];
+        }
+      }));
+    }
+  }
+}) (0, 0);
+
+
+// like `takeWhile` but keeps the tail
+
+A.focusInit = p => xs => Loop(i => {
+  if (i < xs.length && p(xs[i])) return Loop.rec(i + 1);
+
+  else {
+    return Loop.base(Pair_({
+      get "1"() {
+        delete this["1"];
+        this["1"] = xs.slice(0, i);
+        return this["1"];
+      },
+
+      get "2"() {
+        delete this["2"];
+        this["2"] = xs.slice(i);
+        return this["2"];
+      }
+    }));
+  }
 }) (0);
 
 
-/* Like `A.focusOn` but allows non-determinism at the focus by collecting all
-consecutive elements that doesn't meet the perdicate starting with the first
-one. */
+// like `dropWhile` but keeps the init
 
-A.focusOn_ = p => xs => Loop2((i, j) => {
-  if (i === xs.length) return Loop.base(Triple(xs, [], []));
-
-  else if (j === 0) {
-    if (p(xs[i])) return Loop2.rec(i + 1, 0);
-    else return Loop2.rec(i, i + 1);
-  }
-
-  else if (j === xs.length) return Loop.base(Triple(
-    xs.slice(0, i),
-    xs.slice(i),
-    []));
+A.focusTail = p => xs => Loop(i => {
+  if (i >= 0 && p(xs[i])) return Loop.rec(i - 1);
 
   else {
-    if (!p(xs[j])) return Loop2.rec(i, j + 1);
+    return Loop.base(Pair_({
+      get "1"() {
+        delete this["1"];
+        this["1"] = xs.slice(0, i);
+        return this["1"];
+      },
 
-    else return Loop.base(Triple(
-      xs.slice(0, i),
-      xs.slice(i, j),
-      xs.slice(j)));
+      get "2"() {
+        delete this["2"];
+        this["2"] = xs.slice(i);
+        return this["2"];
+      }
+    }));
   }
-}) (0, 0);
+}) (xs.length - 1);
 
 
 /*
@@ -2169,8 +2230,8 @@ A.stream = xs => {
 █████ Subarrays ███████████████████████████████████████████████████████████████*/
 
 
-/* `take`/`drop` combinators are not provided because arrays can be trivially
-sliced. */
+/* `take`/`drop` combinators are not provided because arrays aren't lazy and 
+can be sliced trivially. */
 
 
 A.dropWhile = p => xs => Loop2((acc, i) => {
@@ -2187,6 +2248,15 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 
 /*
 █████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+A.groupBy = p => xs => function go(acc, p2, i) {
+  if (i === xs.length) return acc;
+
+  else {
+    p(xs[i])
+  }
+} ([], 0);
 
 
 /* A more general version of `A.parition` that allows key generation and value
@@ -2271,6 +2341,9 @@ A.Unfoldable = {unfold: A.unfold};
 █████ Zipping █████████████████████████████████████████████████████████████████*/
 
 
+// TODO: A.zip
+
+
 A.zipWith = f => xs => ys => Loop2((acc, i) => {
   if (i === xs.length) return Loop2.base(acc);
   else if (i === ys.length) return Loop2.base(acc);
@@ -2335,6 +2408,15 @@ export const Nea = NEArray; // shortcut
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
+Nea.appendArr = ({head, tail}) => xs => {
+  tail.push.apply(tail, xs);
+  return Nea(head) (tail);
+};
+
+
+Nea.cons = x => ({head, tail}) => Nea(x) ((tail.unshift(head), tail));
+
+
 Nea.head = ({head}) => head;
 
 
@@ -2343,6 +2425,12 @@ Nea.init = ({head, tail}) => _let(tail.slice(-1))
 
 
 Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
+
+
+Nea.prependArr = xs => ({head, tail}) => {
+  tail.push.apply(tail, xs);
+  return Nea(head) (tail);
+};
 
 
 Nea.singleton = x => Nea(x) ([]);
@@ -2357,6 +2445,13 @@ Nea.uncons = ({head, tail}) => Pair(
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
@@ -2367,6 +2462,9 @@ Nea.get = i => ({head, tail}) => i === 0 ? head : tail[i - 1];
 
 
 Nea.has = i => ({head, tail}) => i === 0 ? true : i - 1 in tail;
+
+
+Nea.len = tx => tx.tail.length + 1;
 
 
 Nea.set = i => x => ({head, tail}) => {
@@ -2438,7 +2536,7 @@ Nea.chain = ({head, tail}) => fm => {
 
   const tail3 = tail.reduce((acc, x) => {
     const o = fm(x);
-    acc.push.(o.head);
+    acc.push(o.head);
     acc.push.apply(acc, o.tail);
     return acc;
   }, []);
@@ -7927,6 +8025,21 @@ export const Pair = (x, y) => ({
 });
 
 
+// constructor to define lazy getters
+
+export const Pair_ = o => {
+  o[TAG] = "Pair";
+  o.length = 2;
+
+  o[Symbol.iterator] = function*() {
+    yield o[1];
+    yield o[2];
+  };
+
+  return o;
+};
+
+
 /*
 █████ Extracting ██████████████████████████████████████████████████████████████*/
 
@@ -8114,12 +8227,28 @@ export const Triple = (x, y, z) => ({
   3: z,
   length: 3,
 
- [Symbol.iterator]: function*() {
+  [Symbol.iterator]: function*() {
     yield x;
     yield y;
     yield z;
-  }  
+  }
 });
+
+
+// constructor to define lazy getters
+
+export const Triple_ = o => {
+  o[TAG] = "Triple";
+  o.length = 3;
+
+  o[Symbol.iterator] = function*() {
+    yield o[1];
+    yield o[2];
+    yield o[3];
+  };
+
+  return o;
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9214,6 +9343,8 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 /*
 
   * add monad combinators
+  * add Represantable type class
+  * add Distributive type class
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
