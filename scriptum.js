@@ -1652,7 +1652,7 @@ A.unsnoc = xs => Pair(
 
 
 /* mapAccum isn't required for arrays because the last element representing the
-final value can be easily accessed through the index. */
+final value can be easily accessed through its index. */
 
 
 A.scanl = f => init => A.foldl(acc => x =>
@@ -1859,7 +1859,7 @@ A.foldr = f => acc => xs => Loops(i => {
 
   else return Loops.call(
     f(xs[i]),
-    Loops.call(go, i + 1));
+    Loops.rec(i + 1));
 }) (0);
 
 
@@ -2250,13 +2250,28 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 █████ Transformation ██████████████████████████████████████████████████████████*/
 
 
-A.groupBy = p => xs => function go(acc, p2, i) {
-  if (i === xs.length) return acc;
+/* Groups all consecutive elements where each previous and next element must
+satisfy a binary predicate. If such a pair fail the test a new group is
+appended. */
 
-  else {
-    p(xs[i])
+A.groupBy = p => xs => Loop3((acc, i) => {
+  if (i === xs.length) {
+    acc[acc.length - 1].push(xs[i - 1]);
+    return Loop3.base(acc);
   }
-} ([], 0);
+
+  else if (p(xs[i - 1]) (xs[i])) {
+    if (acc.length === 0) acc.push([]);
+    acc[acc.length - 1].push(xs[i - 1]);
+    return Loop3.rec(acc, i + 1);
+  }
+  
+  else {
+    acc[acc.length - 1].push(xs[i - 1]);
+    acc.push([]);
+    return Loop3.rec(acc, i + 1);
+  }
+}) ([], 1);
 
 
 /* A more general version of `A.parition` that allows key generation and value
@@ -2341,7 +2356,15 @@ A.Unfoldable = {unfold: A.unfold};
 █████ Zipping █████████████████████████████████████████████████████████████████*/
 
 
-// TODO: A.zip
+A.zip = () => xs => ys => Loop2((acc, i) => {
+  if (i === xs.length) return Loop2.base(acc);
+  else if (i === ys.length) return Loop2.base(acc);
+
+  else {
+    acc.push(Pair(xs[i], ys[i]));
+    return Loop2.rec(acc, i + 1);
+  }
+}) ([], 0);
 
 
 A.zipWith = f => xs => ys => Loop2((acc, i) => {
@@ -2401,7 +2424,19 @@ export const NEArray = head => tail => ({
 });
 
 
+// allows tail property to be a lazy getter
+
+export const NEArray_ = o => {
+  o[TAG] = "NEArray";
+  o.length = o.length + 1;
+  return o;
+};
+
+
 export const Nea = NEArray; // shortcut
+
+
+export const Nea_ = NEArray_; // shortcut
 
 
 /*
@@ -2448,7 +2483,15 @@ Nea.uncons = ({head, tail}) => Pair(
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-// TODO
+Nea.fromArr = xs => Nea_({
+  head: xs[0],
+
+  get tail() {
+    delete this.tail;
+    this.tail = xs.slice(1);
+    return this.tail;
+  }
+});
 
 
 /*
@@ -3167,7 +3210,7 @@ Defer.T = outer => thisify(o => { // outer monad's type classes
 
 /* Encodes the effect of short circuiting a computation. This differs from
 exceptions in being able to return any value in case of short circuit,
-whereas `Except` is set on always returning an `Error` object. */
+whereas `Except` is fixed with `Error` object as its return type. */
 
 
 export const Either = {}; // namespace
@@ -3252,26 +3295,25 @@ Either.Functor = {map: Either.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-// TODO
+// encodes the semantics of right biased picking to avoid short circution
+
+Either.alt = tx => ty => tx.run({
+  left: _ => ty,
+  right: _ => tx
+})
 
 
-/*Either.Alt = {
+Either.Alt = {
   ...Either.Functor,
   alt: Either.alt
-};*/
+};
 
 
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-// TODO
-
-
-/*Either.Plus = {
-  ...Either.Alt,
-  zero: Either.zero
-};*/
+// there seems to be no meaningful instance for short circuiting
 
 
 /*
@@ -3333,6 +3375,59 @@ Either.Monad = {
   ...Either.Applicative,
   chain: Either.chain
 };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Either.append = ({append}) => tx => ty => tx.run({
+  left: _ => ty,
+
+  right: x => ty.run({
+    left: _ => tx,
+    right: y => Either.Right(append(x) (y))
+  })
+});
+
+
+Either.prepend = ({append}) => ty => tx => tx.run({
+  left: _ => ty,
+
+  right: x => ty.run({
+    left: _ => tx,
+    right: y => Either.Right(append(x) (y))
+  })
+});
+
+
+Either.Semigroup = {
+  append: Either.append,
+  prepend: Either.prepend
+};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Either.empty = ({empty}) => Either.Left(empty);
+
+
+Either.Monoid = {
+  ...Either.Semigroup,
+  empty: Either.empty
+};
+
+
+/*
+█████ Mesc. ███████████████████████████████████████████████████████████████████*/
+
+
+Either.isLeft = tx => tx.run({left: _ => true, right: _ => false});
+
+
+Either.isRight = tx => tx.run({left: _ => false, right: _ => true});
 
 
 /*
@@ -3413,9 +3508,20 @@ E.Functor = {map: E.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-// encodes the semantics of left biased picking
+/* Encodes the semantics of left biased picking. In case of errors in both
+arguments, the non-empty error is picked with a left bias again. */
 
-E.alt = tx => ty => introspect(tx) === "Error" ? ty : tx;
+E.alt = tx => ty => {
+  if (introspect(tx) === "Error") {
+    if (introspect(ty) === "Error") {
+      return tx.message === "" ? ty : tx;
+    }
+
+    else return ty;
+  }
+
+  else return tx;
+};
 
 
 E.Alt = {
@@ -3427,10 +3533,6 @@ E.Alt = {
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
-
-/* An error without a message seems to be the only way to provide an identity
-without relying on an extra monoid constraint, which is already used by the
-semigroup instance. */
 
 E.zero = Err("");
 
@@ -4316,7 +4418,7 @@ L.foldr_ = f => acc => Loops(tx => {
     nil: Loops.base(acc),
     cons: y => ty => Loops.call(
       f(y),
-      Loops.call(go, ty))
+      Loops.rec(ty))
   });
 });
 
@@ -4331,7 +4433,16 @@ L.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-// TODO
+L.mapA = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map: L.map, ap: L.ap}) (L.Cons);
+  return f => L.foldr(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
+};
+
+
+L.mapA_ = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map: L.map, ap: L.ap}) (L.Cons);
+  return f => L.foldr(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
+};
 
 
 /*L.Traversable = () => ({
@@ -4560,7 +4671,10 @@ L.unzip = () => L.foldr(([x, y]) => ([tx, ty]) =>
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-L.isNil = tx => tx.run({cons: false, nil: true});
+L.isCons = tx => tx.run({cons: x => tx => true, nil: false});
+
+
+L.isNil = tx => tx.run({cons: x => tx => false, nil: true});
 
 
 L.reverse = L.foldl(L.Cons_) (L.Nil);
@@ -8200,14 +8314,23 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████ TUPLE :: PAIR :: TRANSFORMER █████████████████████████
+███████████████████ TUPLE :: PAIR :: WRITER :: TRANSFORMER ████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
 // structure: m (a, b)
 
 
-Pair.T = outer => thisify(o => { // outer monad's type classes
+export const Writer = mmx => ({ // constructor
+  [TAG]: "Writer",
+  run: mmx
+});
+
+
+export const W = Writer; // shortcut
+
+
+W.T = outer => thisify(o => { // outer monad's type classes
 
   // TODO
   
