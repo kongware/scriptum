@@ -4337,18 +4337,24 @@ L.Nil = ({
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
-L.head = tx => tx.run({nil: null, some: x => _ => x});
+L.head = tx => tx.run({cons: x => _ => x, nil: null});
 
 
 // avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
 
-L.init = tx => L.foldr(x => acc =>
-  L.isNil(acc) ? acc : L.Cons(x) (acc)) (L.Nil);
+L.init = Loops(tx => tx.run({
+  cons: y => ty => ty.run({
+    cons: _ => _ => Loops.call(L.Cons(y), Loops.rec(ty)),
+    nil: Loops.base(L.Nil)
+  }),
+
+  nil: Loops.base(null)
+}));
 
 
 // avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
 
-L.last = tx => L.Cons(L.foldl(const_) (null) (tx)) (L.Nil);
+L.last = tx => L.foldl(const_) (null) (tx)
 
 
 L.singleton = x => L.Cons(x) (L.Nil);
@@ -4401,19 +4407,9 @@ L.foldl = f => init => tx => {
 };
 
 
-// stack-safe only if `f` is non-strict in its second argument
-
-L.foldr = f => acc => function go(tx) {
-  return tx.run({
-    nil: acc,
-    cons: y => ty => f(y) (lazy(() => go(ty)))
-  });
-};
-
-
 // stack-safe even if `f` is strict in its second argument
 
-L.foldr_ = f => acc => Loops(tx => {
+L.foldr = f => acc => Loops(tx => {
   return tx.run({
     nil: Loops.base(acc),
     cons: y => ty => Loops.call(
@@ -4421,6 +4417,16 @@ L.foldr_ = f => acc => Loops(tx => {
       Loops.rec(ty))
   });
 });
+
+
+// stack-safe only if `f` is non-strict in its second argument
+
+L.foldr_ = f => acc => function go(tx) {
+  return tx.run({
+    nil: acc,
+    cons: y => ty => f(y) (lazy(() => go(ty)))
+  });
+};
 
 
 L.Foldable = {
@@ -4434,14 +4440,14 @@ L.Foldable = {
 
 
 L.mapA = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map: L.map, ap: L.ap}) (L.Cons);
+  const liftA2_ = liftA2({map, ap}) (L.Cons);
   return f => L.foldr(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
 };
 
 
 L.mapA_ = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map: L.map, ap: L.ap}) (L.Cons);
-  return f => L.foldr(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
+  const liftA2_ = liftA2({map, ap}) (L.Cons);
+  return f => L.foldr_(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
 };
 
 
@@ -4457,10 +4463,10 @@ L.mapA_ = ({map, ap, of}) => {
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-L.map = f => L.foldl(acc => x => L.Cons(f(x)) (acc)) (L.Nil);
+L.map = f => L.foldr(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
 
 
-L.map_ = f => L.foldr(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
+L.map_ = f => L.foldr_(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
 
 
 L.Functor = {map: L.map};
@@ -4497,12 +4503,12 @@ L.Functor = {map: L.map};
 
 
 L.ap = tf => tx =>
-  L.foldl(acc => f =>
-    L.append(acc) (L.map(f) (tx))) (L.Nil) (tf);
+  L.foldr(f => acc =>
+    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
 
 
 L.ap_ = tf => tx =>
-  L.foldr(f => acc =>
+  L.foldr_(f => acc =>
     L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
 
 
@@ -4526,7 +4532,7 @@ L.ZipList.ap = () => L.zipWith(app);
 █████ Functor :: Apply :: Applicative (Non-Determinism) ███████████████████████*/
 
 
-L.of = L.Nil;
+L.of = L.singleton;
 
 
 L.Applicative = {
@@ -4546,10 +4552,10 @@ L.ZipList.of = L.repeat;
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-L.chain = mx => fm => foldl(acc => x => L.append(acc) (fm(x))) (L.Nil) (mx);
+L.chain = mx => fm => L.foldr(x => acc => L.append(fm(x)) (acc)) (L.Nil) (mx);
 
 
-L.chain_ = mx => fm => foldr(x => acc => L.append_(fm(x)) (acc)) (L.Nil) (mx);
+L.chain_ = mx => fm => L.foldr_(x => acc => L.append_(fm(x)) (acc)) (L.Nil) (mx);
 
 
 L.Chain = {
@@ -4597,16 +4603,16 @@ L.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-L.append = tx => ty => L.foldl(L.Cons_) (ty) (L.reverse(tx));
+L.append = flip(L.foldr(L.Cons));
 
 
-L.append_ = flip(L.foldr(L.Cons));
+L.append_ = flip(L.foldr_(L.Cons));
 
 
-L.prepend = ty => tx => L.foldl(L.Cons_) (ty) (L.reverse(tx));
+L.prepend = L.foldr(L.Cons);
 
 
-L.prepend_ = L.foldr(L.Cons);
+L.prepend_ = L.foldr_(L.Cons);
 
 
 L.Semigroup = {
