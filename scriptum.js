@@ -143,13 +143,29 @@ export const Err = TypeError; // shortcut
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes either deferred or lazy evaluated thunks in an ad-hoc manner:
+/* Encodes either deferred or lazy evaluated thunks in an ad-hoc fashion:
 
-  * deferred thunks are only evaluated when needed
-  * lazy thunks are only evaluated when needed and only once (sharing)
+  * evaluate only when needed
+  * evaluate only as far as necessary (to WHNF)
 
-If you want deferred or lazy evaluation wihtin functors, applicatives and
-monads use the `Defer` and `Lazy` data types. */
+  only lazy:
+
+  * evaluate only once (sharing of results)
+
+If you want more principled deferred/lazy evaluation use `Defer`/`Lazy` types
+along with the appropriate type classes like functor, monad or traversable.
+
+The technique is based on `Proxy` based thunks that behave like placeholders
+for any expression in most cases. There are some known limitations, though:
+
+  * `==`/`===` doesn't force evaluation of thunks
+  * `throw` doesn't force evaluatio of thunks
+
+The equality issue in particular is a serious issue. YOU NEED TO TAKE THIS
+ISSUE INTO ACCOUNT IF YOU RELY ON PROXY-BASED THUNKS.
+
+There will probably a thunk aware `Eq` type classe as a more robusr alternative
+to the overloaded `==`/`===` operators. */
 
 
 /*
@@ -1211,12 +1227,12 @@ export const eff0 = (...exps) => exps[0];
 
 
 export const _throw = e => { // throw as a first class expression
-  throw e;
+  throw strict(e);
 };
 
 
 export const throwAt = p => e => x => {
-  if (p(x)) throw e;
+  if (p(x)) throw strict(e);
   else return x;
 };
 
@@ -2062,8 +2078,8 @@ A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compBoth(compare) (f)));
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
-/* Since arrays are an imperative data type, all schemes are strictly evaluated.
-`List` provides lazy evaluated recursion schemes. */
+// strict due to imperative arrays
+
 
 A.ana = A.unfold;
 
@@ -2072,13 +2088,13 @@ A.apo = f => init => {
   let acc = [], x = init, next;
 
   do {
-    const pair = f(x);
+    const r = f(x);
     next = false;
 
-    if (pair === null) continue;
+    if (r === null) continue;
 
     else {
-      const [y, tz] = pair;
+      const [y, tz] = r;
 
       tz.run({
         left: _ => (acc.push(y), acc),
@@ -2335,10 +2351,10 @@ A.unfold = f => init => { // strict
     const r = f(x);
     next = false;
 
-    if (pair === null) continue;
+    if (r === null) continue;
 
     else {
-      const [y, z] = pair;
+      const [y, z] = r;
       x = z;
       next = true;
       return (acc.push(y), acc);
@@ -5800,10 +5816,10 @@ export const Opt = Option; // shortcut
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-Opt.foldl = f => acc => tx => tx === null ? acc : f(acc) (tx);
+Opt.foldl = f => acc => tx => strict(tx) === null ? acc : f(acc) (tx);
 
 
-Opt.foldr = f => acc => tx => tx === null ? acc : f(tx) (acc);
+Opt.foldr = f => acc => tx => strict(tx) === null ? acc : f(tx) (acc);
 
 
 Opt.Foldable = {
@@ -5816,10 +5832,10 @@ Opt.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-Opt.mapA = ({of}) => ft => tx => tx === null ? of(tx) : ft(tx);
+Opt.mapA = ({of}) => ft => tx => strict(tx) === null ? of(tx) : ft(tx);
 
 
-Opt.seqA = ({of}) => tx => tx === null ? of(tx) : tx;
+Opt.seqA = ({of}) => tx => tx === strict(null) ? of(tx) : tx;
 
 
 Opt.Traversable = () => ({
@@ -5834,7 +5850,7 @@ Opt.Traversable = () => ({
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Opt.map = f => tx => tx === null ? null : f(tx);
+Opt.map = f => tx => strict(tx) === null ? null : f(tx);
 
 
 Opt.Functor = {map: Opt.map};
@@ -5844,7 +5860,7 @@ Opt.Functor = {map: Opt.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-Opt.alt = tx => ty => tx === null ? ty : tx;
+Opt.alt = tx => ty => strict(tx) === null ? ty : tx;
 
 Opt.Alt = {
   ...Opt.Functor,
@@ -5870,8 +5886,8 @@ Opt.Plus = {
 
 
 Opt.ap = tf => tx =>
-  tf === null ? null
-    : tx === null ? null
+  strict(tf) === null ? null
+    : strict(tx) === null ? null
     : tf(tx);
 
 
@@ -5888,7 +5904,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => x === null ? _throw("unexpected null") : x;
+Opt.of = x => strict(x) === null ? _throw("unexpected null") : x;
 
 
 Opt.Applicative = {
@@ -5911,7 +5927,7 @@ Opt.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Opt.chain = mx => fm => mx === null ? null : fm(mx);
+Opt.chain = mx => fm => strict(mx) === null ? null : fm(mx);
 
 
 Opt.Chain = {
@@ -5935,9 +5951,15 @@ Opt.Monad = {
 
 
 Opt.append = ({append}) => tx => ty =>
-  tx === null ? ty
-    : ty === null ? tx
+  strict(tx) === null ? ty
+    : strict(ty) === null ? tx
     : append(tx) (ty);
+
+
+Opt.prepend = ({prepend}) => ty => tx =>
+  strict(tx) === null ? ty
+    : strict(ty) === null ? tx
+    : prepend(ty) (tx);
 
 
 Opt.Semigroup = {
