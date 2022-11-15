@@ -143,17 +143,15 @@ export const Err = TypeError; // shortcut
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes either deferred or lazy evaluated thunks in an ad-hoc fashion:
+/* Encodes either deferred or lazy evaluated thunks in an ad-hoc fashion. Both
+tpyes have the following properties:
 
   * evaluate only when needed
   * evaluate only as far as necessary (to WHNF)
 
-  only lazy:
+  Lazy thunks come with result sharing as an extra:
 
-  * evaluate only once (sharing of results)
-
-If you want more principled deferred/lazy evaluation use `Defer`/`Lazy` types
-along with the appropriate type classes like functor, monad or traversable.
+  * evaluate at most once
 
 The technique is based on `Proxy` based thunks that behave like placeholders
 for any expression in most cases. There are some known limitations, though:
@@ -165,7 +163,10 @@ The equality issue in particular is a serious issue. YOU NEED TO TAKE THIS
 ISSUE INTO ACCOUNT IF YOU RELY ON PROXY-BASED THUNKS.
 
 There will probably a thunk aware `Eq` type classe as a more robusr alternative
-to the overloaded `==`/`===` operators. */
+to the overloaded `==`/`===` operators.
+
+If you need a more principled approach use `Defer`/`Lazy` types as monad
+transformers. */
 
 
 /*
@@ -4313,6 +4314,9 @@ operations on the type stack-safe:
   * guarded recursion through lazy evaluation
   * tail recursion modulo cons using a stack based trampoline
 
+For most type class member functions both variants are implemented with a bias
+on modulo cons.
+
 Efficient operation guide:
 
   * Array: random element access, mutations
@@ -4457,22 +4461,34 @@ L.Foldable = {
 
 L.mapA = ({map, ap, of}) => {
   const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return f => L.foldr(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
 };
 
 
 L.mapA_ = ({map, ap, of}) => {
   const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return f => L.foldr_(x => acc =>liftA2_(f(x)) (acc)) (of(L.Nil));
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
 };
 
 
-/*L.Traversable = () => ({
+L.seqA = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+};
+
+
+L.seqA_ = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+};
+
+
+L.Traversable = () => ({
   ...L.Foldable,
   ...L.Functor,
   mapA: L.mapA,
   seqA: L.seqA
-});*/
+});
 
 
 /*
