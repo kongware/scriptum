@@ -813,30 +813,38 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Variadic chaining combinator for flat chaining syntax but without preserving
-the potential monad dependency between the previous computation and the next
-value. Use `chain2` for proper value dependent monadic chaining. */
+/* It is possible to chain several monads of the same type in a principled
+fashion while maintaining a flat composition syntax, provided all subsequent
+invocations of the partially applied Kleisli action are wrapped in a minimal
+functiorial context.
 
-export const chainn = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
-  return chain(mx) (x => ms.length === 0 ? fm(x) : go(fm(x), ms));
-} (fm, ms);
-
-
-/* Chaining combinator that composes the monadic continuations of two monads of
-the same type, i.e. two partially applied `chain` functions. The composition
-preserves the potential dependency between the result of the first computation
-and the subsequent one. Here is an example:
+This means the technique leaks into the call side and adds some syntactical
+noise but it is the best we can hope for. Please note that the following isn't
+possible with the classic `liftM2` combinator, which is merely applicative
+effect combination in disguise.
 
   const chain2_ = chain2({chain: A.chain, of: A.of});
                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
                                  type class
 
-  chain2_(A.chain([1,2])) (A.chain([3,4])) (x => x & 1 ? y => [x + y] : []);
-          ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^                ^^^^^^^^^^^^
-          kleisli action   kleisli action        next computation depends on x */
+  chain2_([1,2,3]) ([4,5,6]) (x => x & 1 ? of(y => [x + y]) : []);
+          ^^^^^^^   ^^^^^^^                ^^^^^^^^^^^^^^^^
+           monad     monad         next computation depends on x */
 
-export const chain2 = ({chain, of}) => f => g => hm =>
-  chain(f(x => of(hm(x)))) (h => g(y => h(y)));
+
+export const chain2 = ({chain}) => mx => my => fm =>
+  chain(mx) (x => chain(fm(x)) (gm => chain(my) (gm)));
+
+
+export const chain3 = ({chain}) => mx => my => mz => fm =>
+  chain(mx) (x =>
+    chain(fm(x)) (gm =>
+      chain(my) (y =>
+        chain(gm(y)) (hm =>
+          chain(mz) (hm)))));
+
+
+// TODO
 
 
 /*
