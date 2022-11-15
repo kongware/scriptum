@@ -813,11 +813,11 @@ export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Variadic chaining combinator for flat monadic chaining syntax but without
-the typical monadic dependency between the previous computation and the next
-value. Use `chain2` for dependent chaining. */
+/* Variadic chaining combinator for flat chaining syntax but without preserving
+the potential monad dependency between the previous computation and the next
+value. Use `chain2` for proper value dependent monadic chaining. */
 
-export const chain = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
+export const chainn = ({chain}) => (...ms) => fm => function go(fm, mx, ...ms) {
   return chain(mx) (x => ms.length === 0 ? fm(x) : go(fm(x), ms));
 } (fm, ms);
 
@@ -828,12 +828,12 @@ preserves the potential dependency between the result of the first computation
 and the subsequent one. Here is an example:
 
   const chain2_ = chain2({chain: A.chain, of: A.of});
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                  type class
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 type class
 
-  chain2_(A.chain([1,2])) (A.chain([3,4])) (x => y => [x + y]);
-           ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^        ^^^^^^^^^^^^
-              1. monad         2. monad     next call may depend on x */
+  chain2_(A.chain([1,2])) (A.chain([3,4])) (x => x & 1 ? y => [x + y] : []);
+          ^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^                ^^^^^^^^^^^^
+          kleisli action   kleisli action        next computation depends on x */
 
 export const chain2 = ({chain, of}) => f => g => hm =>
   chain(f(x => of(hm(x)))) (h => g(y => h(y)));
