@@ -844,7 +844,10 @@ export const chain3 = ({chain}) => mx => my => mz => fm =>
           chain(mz) (hm)))));
 
 
-// TODO
+export const chainn = ({chain}) => (...ms) => fm => function go(gm, i) {
+  if (i === ms.length) return gm;
+  else return chain(ms[i]) (x => chain(gm(x)) (hm => go(hm, i + 1)));
+} (fm, 0);
 
 
 /*
@@ -1026,6 +1029,14 @@ F.Contra = () => {contramap: F.contramap};
 █████ Debugging ███████████████████████████████████████████████████████████████*/
 
 
+export const asyncPar = f => msecs => x => Parallel(k =>
+  setTimeout(comp(k) (f), msecs, x));
+
+
+export const asyncSer = f => msecs => x => Serial(k =>
+  setTimeout(comp(k) (f), msecs, x));
+
+
 export const debug = f => (...args) => {
   debugger;
   return f(...args);
@@ -1039,38 +1050,26 @@ export const debugIf = p => f => (...args) => {
 
 
 export const log = (x, tag = "") => {
-  const s = JSON.stringify(x);
+  if (tag) console.log(
+    "███ LOG ███████████████████████████████████████████████████████████████████████",
+    "\r\n", `${tag}:`, x, "\r\n");
 
-  if (tag) {
-    if (s) {
-      console.log(tag + ":", x);
-      console.log("");
-      console.log("=JSON=>")
-      console.log("");
-      console.log(tag + ":", s);
-    }
-    
-    else console.log(tag + ":", x);
-  }
+  else console.log(
+    "███ LOG ███████████████████████████████████████████████████████████████████████",
+    "\r\n", x, "\r\n");
 
-  else {
-    if (s) {
-      console.log(x);
-      console.log("");
-      console.log("=JSON=>");
-      console.log("");
-      console.log(s);
-    }
-    
-    else console.log(x);
-  }
-  
   return x;
 };
 
 
-export const trace = x =>
-  (x => console.log(JSON.stringify(x) || x.toString()), x);
+export const trace = x => {
+  const s = x !== null && x !== undefined && x.toString ? x.toString() : x,
+    s2 = JSON.stringify(x);
+
+  console.log("███ TRACE STRING ██████████████████████████████████████████████████████████████", "\r\n", s, "\r\n");
+  console.log("███ TRACE JSON ████████████████████████████████████████████████████████████████", "\r\n", s2," \r\n");
+  return x;
+};
 
 
 /*
@@ -1686,6 +1685,27 @@ A.scanl = f => init => A.foldl(acc => x =>
 
 A.scanr = f => init => A.foldr(x => acc =>
   (acc.unshift(f(x) (acc[0])), acc)) ([init]);
+
+
+/*
+█████ Eq ██████████████████████████████████████████████████████████████████████*/
+
+
+A.eq = ({eq}) => xs => ys => {
+  if (xs.length !== ys.length) return false;
+
+  else return Loop(i => {
+    if (i === xs.length) return Loop.base(true);
+
+    else {
+      const b = eq(xs[i]) (ys[i]);
+      return b === true ? Loop.rec(i + 1) : Loop.base(false);
+    }
+  }) (0);
+};
+
+
+A.Eq = {eq: A.eq};
 
 
 /*
@@ -5705,7 +5725,7 @@ Ob.subscribe = observer => observable => observable.run(observer);
 
 /* Encodes composable getters/setters where the latter keep the root reference.
 The type itself is immutable but the overall property depends on the purity or
-impurity of involved getters/setters. */
+impurity of involved setters. */
 
 
 export const Optic = (ref, path) => ({
@@ -6040,6 +6060,22 @@ export const P = Parallel; // shortcut
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+/* Values of type Parallel/Serial are structurally equal but differ in their
+logical conjunctions/disjunctions. Hence, natural transformations are merely
+documenting for improved comprehensibility. */
+
+
+P.fromSerial = tx => ({
+  [TAG]: "Parallel",
+  run: tx.run,
+  runAsync: tx.runAsync
+});
+
+
+/*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -6134,22 +6170,6 @@ P.Applicative = {
   ...P.Apply,
   of: P.of
 };
-
-
-/*
-█████ Natural Transformations █████████████████████████████████████████████████*/
-
-
-/* Values of type Parallel/Serial are structurally equal but differ in their
-logical conjunctions/disjunctions. Hence, natural transformations are merely
-documenting for improved comprehensibility. */
-
-
-P.fromSerial = tx => ({
-  [TAG]: "Parallel",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
 
 
 /*
@@ -7099,6 +7119,22 @@ export const S = Serial; // shortcut
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+/* Values of type Parallel/Serial are structurally equal but differ in their
+logical conjunctions/disjunctions. Hence, natural transformations are merely
+documenting for improved comprehensibility. */
+
+
+S.fromParallel = tx => ({
+  [TAG]: "Serial",
+  run: tx.run,
+  runAsync: tx.runAsync
+});
+
+
+/*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -7182,22 +7218,6 @@ S.Monad = {
   ...S.Applicative,
   chain: S.chain
 };
-
-
-/*
-█████ Natural Transformations █████████████████████████████████████████████████*/
-
-
-/* Values of type Parallel/Serial are structurally equal but differ in their
-logical conjunctions/disjunctions. Hence, natural transformations are merely
-documenting for improved comprehensibility. */
-
-
-S.fromParallel = tx => ({
-  [TAG]: "Serial",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
 
 
 /*
