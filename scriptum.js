@@ -1063,11 +1063,10 @@ export const log = (x, tag = "") => {
 
 
 export const trace = x => {
-  const s = x !== null && x !== undefined && x.toString ? x.toString() : x,
-    s2 = JSON.stringify(x);
+  const s = JSON.stringify(x);
 
-  console.log("███ TRACE STRING ██████████████████████████████████████████████████████████████", "\r\n", s, "\r\n");
-  console.log("███ TRACE JSON ████████████████████████████████████████████████████████████████", "\r\n", s2," \r\n");
+  console.log("███ TRACE LOG █████████████████████████████████████████████████████████████████", "\r\n", x, "\r\n");
+  console.log("███ TRACE JSON ████████████████████████████████████████████████████████████████", "\r\n", s," \r\n");
   return x;
 };
 
@@ -2373,7 +2372,7 @@ A.transpose = xss =>
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
-A.unfold = f => init => { // strict
+A.unfold = f => init => {
   let acc = [], x = init, next;
 
   do {
@@ -2394,7 +2393,13 @@ A.unfold = f => init => { // strict
 };
 
 
-A.Unfoldable = {unfold: A.unfold};
+/* Since imperative arrays are inherently strict there is no meaningful non-
+strict right-associative unfold. Unfolding an array must therefore be finite. */
+
+A.unfoldr = A.unfold;
+
+
+A.Unfoldable = {unfold: A.unfold, unfoldr: A.unfoldr};
 
 
 /*
@@ -2469,7 +2474,7 @@ export const NEArray = head => tail => ({
 });
 
 
-// allows tail property to be a lazy getter
+// allows tail property to be defined as a lazy getter
 
 export const NEArray_ = o => {
   o[TAG] = "NEArray";
@@ -4536,26 +4541,26 @@ L.Functor = {map: L.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-// TODO
+L.alt = () => L.append;
 
 
-/*L.Alt = {
+L.Alt = {
   ...L.Functor,
   alt: L.alt
-};*/
+};
 
 
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-// TODO
+L.zero = () => L.empty;
 
 
-/*L.Plus = {
+L.Plus = {
   ...L.Alt,
   zero: L.zero
-};*/
+};
 
 
 /*
@@ -4638,25 +4643,14 @@ L.Monad = {
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
-// TODO: tails
-
-/*L.Extend = {
-  ...L.Functor,
-  extend: L.extend
-};*/
+// there is no valid instance because of the empty list
 
 
 /*
 █████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
-// TODO
-
-
-/*L.Comonad = {
-  ...L.Extend,
-  extract: L.extract
-};*/
+// there is no valid instance because if the empty list
 
 
 /*
@@ -4748,6 +4742,12 @@ L.reverse = L.foldl(L.Cons_) (L.Nil);
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.alt = L.alt();
+
+
+L.zero = L.zero();
 
 
 L.ZipList.ap = L.ZipList.ap();
@@ -5069,6 +5069,21 @@ DList.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ LIST :: NELIST ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+  // TODO
+
+
+  /*extend f w@(~(_ :| aas)) =
+    f w :| case aas of
+      []     -> []
+      (a:as) -> toList (extend f (a :| as))
+  extract ~(a :| _) = a*/
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ MAP █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -5339,7 +5354,7 @@ O.set = k => v => o => (o[k] = v, o);
 
 
 O.upd = k => f => o => {
-  if (k in o) (o[k] = f(o[k]), o);
+  if (k in o) return (o[k] = f(o[k]), o);
   else return new Exception("missing property to be updated");
 };
 
@@ -5719,49 +5734,70 @@ Ob.subscribe = observer => observable => observable.run(observer);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ OPTICS ████████████████████████████████████
+████████████████████████████████████ OPTIC ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes composable getters/setters where the latter keep the root reference.
-The type itself is immutable but the overall property depends on the purity or
-impurity of involved setters. */
+/* Defines a focus inside a composite data structure using composable pairs of
+getters/setters. Normal function composition is used to define foci several
+layers deep inside the structure. The type implicitly holds a description how
+to reconstruct the data structure up to its root layer. The description is
+only evaluated when needed, i.e. when a focused subelement of the structure
+is actually modified or deleted. The type itself it immutable but it depends
+on the used setters, whether the whole operation is. */
 
 
-export const Optic = (ref, path) => ({
+export const Optic = (ref, parent) => ({
   [TAG]: "Optic",
   ref,
-  path
+  parent
 });
 
 
+// allows parent property to be defined as a lazy getter
+
+export const Optic_ = o => {
+  o[TAG] = "Optic";
+  return o;
+};
+
+
 /*
-█████ Composition █████████████████████████████████████████████████████████████*/
+█████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
-Optic.compGet = comp;
+// sets a composable focus on a subelement of a composite data structure
+
+Optic.focus = ({getter, setter}) => tx => Optic(
+  getter(tx.ref),
+  x => Optic(setter(x) (tx.ref), tx.parent));
 
 
-Optic.compSet = setter => setter2 => x => optic => {
-  const optic2 = setter2(x) (optic);
-  return setter(optic2.ref) (optic2.path);
-};
+// reconstructs the composite data structure and takes any changes into account
+
+Optic.unfocus = tx =>
+  tx.parent === null ? tx : Optic.unfocus(tx.parent(tx.ref));
 
 
-Optic.pipeGet = pipe;
+// like `Optic.unfocus` but only reconstructs a single layer
 
-
-Optic.pipeSet = setter2 => setter => x => optic => {
-  const optic2 = setter2(x) (optic);
-  return setter(optic2.ref) (optic2.path);
-};
+Optic.unfocus1 = tx =>
+  tx.parent === null ? tx : tx.parent(tx.ref);
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Optic.map = () => Optic.upd(id);
+Optic.map = f => tx => Optic_({
+  get ref() {
+    delete this.ref;
+    this.ref = f(tx.ref);
+    return this.ref;
+  },
+
+  parent: tx.parent
+});
 
 
 Optic.Functor = {map: Optic.map};
@@ -5771,20 +5807,25 @@ Optic.Functor = {map: Optic.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-/* If the innermost values of two `Optic`s are combined, there is no meaningful
-rule to decide which path to keep. For the functor instance keeping the first
-is assumed as a convention. */
+/* The combination of two optics require a choice which parent property to pick
+for the resulting optic, since two optics cannot be appended in a meaningful in
+general. The current implementation is left biased. */
 
 
-Optic.apFst = ft => tx => Optic(ft.ref(tx.ref), ft.path);
+Optic.ap = tf => tx => Optic({
+  get ref() {
+    delete this.ref;
+    this.ref = tf.ref(tx.ref);
+    return this.ref;
+  },
 
-
-Optic.apSnd = ft => tx => Optic(ft.ref(tx.ref), tx.path);
+  parent: tf.parent
+});
 
 
 Optic.Apply = {
   ...Optic.Functor,
-  ap: Optic.apFst
+  ap: Optic.ap
 };
 
 
@@ -5799,44 +5840,6 @@ Optic.Applicative = {
   ...Optic.Apply,
   of: Optic.of
 };
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-/* Use to delete the innermost reference value from inside a nested structure.
-If the innermost value is a scalar, use the parent reference value. */
-
-Optic.del = optic => optic.path === null ? optic : optic.path;
-
-
-Optic.get = getter => optic => Optic(getter(optic.ref), optic);
-
-
-Optic.set = setter => x => optic =>
-  optic.path === null
-    ? Optic(setter(x) (optic.ref), null)
-    : Optic(setter(x) (optic.path.ref), optic.path.path);
-
-
-Optic.upd = setter => f => optic =>
-  optic.path === null
-    ? Optic(setter(f(optic.ref)) (optic.ref), null)
-    : Optic(setter(f(optic.ref)) (optic.path.ref), optic.path.path);
-
-
-Optic.unnest = optic => optic.path
-
-
-Optic.unpath = optic => optic.ref
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Optic.map = Optic.map();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7942,6 +7945,23 @@ Stream.Monoid = {
   ...Stream.Semigroup,
   empty: Stream.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ STRING ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Str = {}; // namespace
+
+
+Str.catWith = s => (...xs) => xs.join(s);
+
+
+Str.cat = Str.catWith("");
+
+
+Str.cat_ = Str.catWith(" ");
 
 
 /*█████████████████████████████████████████████████████████████████████████████
