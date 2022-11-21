@@ -5744,7 +5744,36 @@ layers deep inside the structure. The type implicitly holds a description how
 to reconstruct the data structure up to its root layer. The description is
 only evaluated when needed, i.e. when a focused subelement of the structure
 is actually modified or deleted. The type itself it immutable but it depends
-on the used setters, whether the whole operation is. */
+on the used setters, whether the whole operation is.
+
+const o = {foo: {bar: 5}};
+
+// set operation
+
+const tx = comp(
+  Optic.focus({getter: O.get("bar"), setter: O.set("bar")}))
+    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+      (Optic.of(o));
+
+Optic.unfocus(Optic.set(55) (tx)); // {foo: {bar: 55}}
+
+// update operation
+
+const ty = comp(
+  Optic.focus({getter: O.get("bar"), setter: O.upd("bar")}))
+    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+      (Optic.of(o));
+
+Optic.unfocus(Optic.set(x => x * x) (ty)); // {foo: {bar: 25}}
+
+// delete operation
+
+const tz = comp(
+  Optic.focus({getter: O.get("bar"), setter: _const(O.del("bar"))}))
+    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+      (Optic.of(o));
+
+Optic.unfocus(tz); // {foo: {}} */
 
 
 export const Optic = (ref, parent) => ({
@@ -5840,6 +5869,35 @@ Optic.Applicative = {
   ...Optic.Apply,
   of: Optic.of
 };
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+Optic.add = ({append}) => x => tx => Optic_({
+  get ref() {
+    delete this.ref;
+    this.ref = append(tx.ref) (x);
+    return this.ref;
+  },
+
+  parent: tx.parent
+});
+
+
+Optic.set = x => tx => Optic(x, tx.parent);
+
+
+Optic.upd = f => tx => Optic_({
+  get ref() {
+    delete this.ref;
+    this.ref = f(tx.ref);
+    return this.ref;
+  },
+
+  parent: tx.parent
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
