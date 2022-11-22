@@ -5751,8 +5751,8 @@ const o = {foo: {bar: 5}};
 // set operation
 
 const tx = comp(
-  Optic.focus({getter: O.get("bar"), setter: O.set("bar")}))
-    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+  Optic.focus(O.get("bar"), O.set("bar")))
+    (Optic.focus(O.get("foo"), O.set("foo")))
       (Optic.of(o));
 
 Optic.unfocus(Optic.set(55) (tx)); // {foo: {bar: 55}}
@@ -5760,8 +5760,8 @@ Optic.unfocus(Optic.set(55) (tx)); // {foo: {bar: 55}}
 // update operation
 
 const ty = comp(
-  Optic.focus({getter: O.get("bar"), setter: O.upd("bar")}))
-    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+  Optic.focus(O.get("bar"), O.upd("bar")))
+    (Optic.focus(O.get("foo"), O.set("foo")))
       (Optic.of(o));
 
 Optic.unfocus(Optic.set(x => x * x) (ty)); // {foo: {bar: 25}}
@@ -5769,8 +5769,8 @@ Optic.unfocus(Optic.set(x => x * x) (ty)); // {foo: {bar: 25}}
 // delete operation
 
 const tz = comp(
-  Optic.focus({getter: O.get("bar"), setter: _const(O.del("bar"))}))
-    (Optic.focus({getter: O.get("foo"), setter: O.set("foo")}))
+  Optic.focus(O.get("bar"), _const(O.del("bar"))))
+    (Optic.focus(O.get("foo"), O.set("foo")))
       (Optic.of(o));
 
 Optic.unfocus(tz); // {foo: {}} */
@@ -5783,21 +5783,13 @@ export const Optic = (ref, parent) => ({
 });
 
 
-// allows parent property to be defined as a lazy getter
-
-export const Optic_ = o => {
-  o[TAG] = "Optic";
-  return o;
-};
-
-
 /*
 █████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
 // sets a composable focus on a subelement of a composite data structure
 
-Optic.focus = ({getter, setter}) => tx => Optic(
+Optic.focus = (getter, setter) => tx => Optic(
   getter(tx.ref),
   x => Optic(setter(x) (tx.ref), tx.parent));
 
@@ -5818,15 +5810,7 @@ Optic.unfocus1 = tx =>
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Optic.map = f => tx => Optic_({
-  get ref() {
-    delete this.ref;
-    this.ref = f(tx.ref);
-    return this.ref;
-  },
-
-  parent: tx.parent
-});
+Optic.map = f => tx => Optic(f(tx.ref), tx.parent);
 
 
 Optic.Functor = {map: Optic.map};
@@ -5841,15 +5825,7 @@ for the resulting optic, since two optics cannot be appended in a meaningful in
 general. The current implementation is left biased. */
 
 
-Optic.ap = tf => tx => Optic({
-  get ref() {
-    delete this.ref;
-    this.ref = tf.ref(tx.ref);
-    return this.ref;
-  },
-
-  parent: tf.parent
-});
+Optic.ap = tf => tx => Optic(tf.ref(tx.ref), tf.parent);
 
 
 Optic.Apply = {
@@ -5873,6 +5849,10 @@ Optic.Applicative = {
 
 /*
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+/* Immutable setters as an alternative to destructively update the `ref`
+property directly. */
 
 
 Optic.add = ({append}) => x => tx => Optic_({
