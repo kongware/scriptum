@@ -2294,25 +2294,21 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 █████ Transformation ██████████████████████████████████████████████████████████*/
 
 
-/* Groups all consecutive elements where each previous and next element must
-satisfy a binary predicate. If such a pair fail the test a new group is
-appended. */
+/* Groups all consecutive elements by applying a binary predicate to the
+pervious/next element. If the predicate fails, a new subgroup is created
+otherwise the element is pushed on the current subgroup. */
 
 A.groupBy = p => xs => Loop2((acc, i) => {
-  if (i === xs.length) {
-    acc[acc.length - 1].push(xs[i - 1]);
-    return Loop2.base(acc);
-  }
+  if (i >= xs.length) return Loop2.base(acc);
+  if (acc.length === 0) acc.push([xs[0]]);
 
-  else if (p(xs[i - 1]) (xs[i])) {
-    if (acc.length === 0) acc.push([]);
-    acc[acc.length - 1].push(xs[i - 1]);
+  if (p(xs[i - 1]) (xs[i])) {
+    acc[acc.length - 1].push(xs[i]);
     return Loop2.rec(acc, i + 1);
   }
   
   else {
-    acc[acc.length - 1].push(xs[i - 1]);
-    acc.push([]);
+    acc.push([xs[i]]);
     return Loop2.rec(acc, i + 1);
   }
 }) ([], 1);
@@ -2340,9 +2336,9 @@ A.perms = xs => {
 };
 
 
-/* Collects all subsequences of an array. If an array includes duplicates,
-so will the list of array subsequences. Stack-safety isn't required because
-a large array would exhaust the heap before the call stack. */
+/* Collects all possible subsequences of an array. If it includes duplicates,
+so will the list of array subsequences. Stack-safety isn't required because a
+large array would exhaust the heap before the call stack. */
 
 A.subseqs = xs => function go(i) {
   if (i === xs.length) return [[]];
