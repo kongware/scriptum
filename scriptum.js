@@ -2298,22 +2298,22 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 satisfy a binary predicate. If such a pair fail the test a new group is
 appended. */
 
-A.groupBy = p => xs => Loop3((acc, i) => {
+A.groupBy = p => xs => Loop2((acc, i) => {
   if (i === xs.length) {
     acc[acc.length - 1].push(xs[i - 1]);
-    return Loop3.base(acc);
+    return Loop2.base(acc);
   }
 
   else if (p(xs[i - 1]) (xs[i])) {
     if (acc.length === 0) acc.push([]);
     acc[acc.length - 1].push(xs[i - 1]);
-    return Loop3.rec(acc, i + 1);
+    return Loop2.rec(acc, i + 1);
   }
   
   else {
     acc[acc.length - 1].push(xs[i - 1]);
     acc.push([]);
-    return Loop3.rec(acc, i + 1);
+    return Loop2.rec(acc, i + 1);
   }
 }) ([], 1);
 
