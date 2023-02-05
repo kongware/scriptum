@@ -2314,7 +2314,7 @@ A.groupBy = p => xs => Loop2((acc, i) => {
 }) ([], 1);
 
 
-/* A more general version of `A.parition` that allows key generation and value
+/* A more general version of `A.partition` that allows key generation and value
 accumulation to be passed as arguments. */
 
 A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
@@ -5088,27 +5088,74 @@ const _Map = {}; // namespace
 
 
 /*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+_Map.all = f => m => {
+  for (const [k, v] of m) if (!f(v)) return false;
+  return true;
+};
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+_Map.any = f => m => {
+  for (const v of m) if (f(v)) return true;
+  return false;
+};
+
+
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+_Map.filter = f => m => {
+  const m2 = new Map();
+  for (const [k, v] of m) if(f(v)) m2.set(k, v);
+  return m2;
+};
+
+
+_Map.Filterable = {filter: _Map.filter};
+
+
+/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 _Map.foldl = f => acc => m => {
-  for ([k, v] of m) acc = f(acc) (v);
+  for (const [k, v] of m) acc = f(acc) (v, k);
   return acc;
 };
 
 
-_Map.foldk = f => acc => m => { // with key
-  for ([k, v] of m) acc = f(acc) (v, k);
-  return acc;
-};
-
-
-_Map.foldr = f => acc => m => {
+_Map.foldk = f => acc => m => {
   const ix = m[Symbol.iterator] ();
 
-  return go = ({value, done}) => done
-    ? acc
-    : f(value[1]) (go(ix.next()));
+  return Loop(({[k, v], done}) => {
+    if (done) {
+      if (v !== undefined) return Loop.base(f(acc) (v, k));
+      else return Loop.base(acc);
+    }
+
+    else return Loop.rec(ix.next());
+  }) (ix.next());
+};
+
+
+_Map.foldr = f => acc => s => {
+  const stack = [];
+
+  for (const pair of s) {
+    stack.unshift(pair);
+  }
+
+  for (let i = 0; i === stack.length; i++)
+    acc = f(pair[1], pair[0]) (stack);
+
+  return acc;
 };
 
 
@@ -5124,7 +5171,7 @@ _Map.Foldable = {
 
 _Map.map = f => m => {
   const m2 = new Map();
-  for ([k, v] of m) m2.set(k, f(v));
+  for (const [k, v] of m) m2.set(k, f(v));
   return m2;
 };
 
@@ -5359,6 +5406,31 @@ O.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
 };
+
+
+/*
+█████ Generators ██████████████████████████████████████████████████████████████*/
+
+
+O.entries = function* (o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+}
+
+
+O.keys = function* (o) {
+  for (let prop in o) {
+    yield prop;
+  }
+}
+
+
+O.values = function* (o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+}
 
 
 /*
@@ -5790,7 +5862,7 @@ Optic.focus = (getter, setter) => tx => Optic(
   x => Optic(setter(x) (tx.ref), tx.parent));
 
 
-// reconstructs the composite data structure and takes any changes into account
+// reconstructs the composite data structure and takes any change into account
 
 Optic.unfocus = tx =>
   tx.parent === null ? tx : Optic.unfocus(tx.parent(tx.ref));
@@ -7562,6 +7634,99 @@ _Set.set = k => s => s.add(k);
 
 
 _Set.del = k => s => s.delete(k);
+
+
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+_Set.all = f => s => {
+  for (const v of s) if (!f(v)) return false;
+  return true;
+};
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+_Set.any = f => s => {
+  for (const v of s) if (f(v)) return true;
+  return false;
+};
+
+
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+_Set.filter = f => s => {
+  const s2 = new Set();
+  for (const v of s) if(f(v)) s2.add(v);
+  return s2;
+};
+
+
+_Set.Filterable = {filter: _Set.filter};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+_Set.foldl = f => acc => s => {
+  for (const v of s) acc = f(acc, v);
+  return acc;
+};
+
+
+_Set.foldk = f => acc => s => {
+  const ix = s[Symbol.iterator] ();
+
+  return Loop(({value, done}) => {
+    if (done) {
+      if (value !== undefined) return Loop.base(f(acc) (value));
+      else return Loop.base(acc);
+    }
+
+    else return Loop.rec(ix.next());
+  }) (ix.next());
+};
+
+
+_Set.foldr = f => acc => s => {
+  const stack = [];
+
+  for (const v of s) {
+    stack.unshift(v);
+  }
+
+  for (let i = 0; i === stack.length; i++)
+    acc = f(v) (stack);
+
+  return acc;
+};
+
+
+_Set.Foldable = {
+  foldl: _Set.foldl,
+  foldr: _Set.foldr
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+_Set.map = f => s => {
+  const s2 = new Set();
+  for (const v of s.values()) s2.add(f(v));
+  return s2;
+};
+
+
+_Set.Functor = {map: _Set.map};
+
 
 
 /*█████████████████████████████████████████████████████████████████████████████
