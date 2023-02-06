@@ -5145,16 +5145,9 @@ _Map.foldk = f => acc => m => {
 };
 
 
-_Map.foldr = f => acc => s => {
-  const stack = [];
-
-  for (const pair of s) {
-    stack.unshift(pair);
-  }
-
-  for (let i = 0; i === stack.length; i++)
-    acc = f(pair[1], pair[0]) (stack);
-
+_Map.foldr = f => acc => m => {
+  const stack = Array.from(m);
+  for (let i = stack.length - 1; i >= 0; i--) acc = f(...stack[i]) (acc);
   return acc;
 };
 
@@ -5213,6 +5206,30 @@ _Map.upd = k => f => m => {
 _Map.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
+};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+_Map.reduce = f => acc => m => {
+  for (const [k, v] of m) acc = f(acc, v, k);
+  return acc;
+};
+
+
+_Map.reducek = f => acc => m => {
+  const ix = m[Symbol.iterator] ();
+
+  return Loop(({[k, v], done}) => {
+    if (done) {
+      if (v !== undefined) return Loop.base(f(acc, v, k));
+      else return Loop.base(acc);
+    }
+
+    else return Loop.rec(ix.next());
+  }) (ix.next());
 };
 
 
@@ -7675,7 +7692,7 @@ _Set.Filterable = {filter: _Set.filter};
 
 
 _Set.foldl = f => acc => s => {
-  for (const v of s) acc = f(acc, v);
+  for (const v of s) acc = f(acc) (v);
   return acc;
 };
 
@@ -7695,15 +7712,8 @@ _Set.foldk = f => acc => s => {
 
 
 _Set.foldr = f => acc => s => {
-  const stack = [];
-
-  for (const v of s) {
-    stack.unshift(v);
-  }
-
-  for (let i = 0; i === stack.length; i++)
-    acc = f(v) (stack);
-
+  const stack = Array.from(s);
+  for (let i = stack.length - 1; i >= 0; i--) acc = f(stack[i]) (acc);
   return acc;
 };
 
@@ -7727,6 +7737,29 @@ _Set.map = f => s => {
 
 _Set.Functor = {map: _Set.map};
 
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+_Set.reduce = f => acc => s => {
+  for (const v of s) acc = f(acc, v);
+  return acc;
+};
+
+
+_Set.foldk = f => acc => s => {
+  const ix = s[Symbol.iterator] ();
+
+  return Loop(({value, done}) => {
+    if (done) {
+      if (value !== undefined) return Loop.base(f(acc, value));
+      else return Loop.base(acc);
+    }
+
+    else return Loop.rec(ix.next());
+  }) (ix.next());
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
