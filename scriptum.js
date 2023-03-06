@@ -5134,7 +5134,7 @@ _Map.foldl = f => acc => m => {
 _Map.foldk = f => acc => m => {
   const ix = m[Symbol.iterator] ();
 
-  return Loop(({[k, v], done}) => {
+  return Loop(({value: [k, v], done}) => {
     if (done) {
       if (v !== undefined) return Loop.base(f(acc) (v, k));
       else return Loop.base(acc);
@@ -5222,7 +5222,7 @@ _Map.reduce = f => acc => m => {
 _Map.reducek = f => acc => m => {
   const ix = m[Symbol.iterator] ();
 
-  return Loop(({[k, v], done}) => {
+  return Loop(({value: [k, v], done}) => {
     if (done) {
       if (v !== undefined) return Loop.base(f(acc, v, k));
       else return Loop.base(acc);
@@ -8894,7 +8894,7 @@ FileSys.error = fs => cons => thisify(o => {
 });
 
 
-FileSys.except = fs => cons => thisify(o => {
+FileSys.exception = fs => cons => thisify(o => {
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
