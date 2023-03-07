@@ -6189,10 +6189,10 @@ export const P = Parallel; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-P.fromPex = tx => ({
+P.fromPex = k => tx => ({
   [TAG]: "Parallel",
-  run: k => tx.run({raise: id, proceed: k}),
-  runAsync: f => tx.runAsync({raise: id, proceed: f})
+  run: k2 => tx.run({raise: id, proceed: k2}),
+  runAsync: f => tx.runAsync({raise: k, proceed: f})
 });
 
 
@@ -6203,10 +6203,10 @@ P.fromSerial = tx => ({
 });
 
 
-P.fromSex = tx => ({
+P.fromSex = k => tx => ({
   [TAG]: "Parallel",
-  run: k => tx.run({raise: id, proceed: k}),
-  runAsync: f => tx.runAsync({raise: id, proceed: f})
+  run: k2 => tx.run({raise: k, proceed: k2}),
+  runAsync: f => tx.runAsync({raise: k, proceed: f})
 });
 
 
@@ -6448,14 +6448,14 @@ export const Pex = ParallelExcept; // shortcut
 
 Pex.fromParallel = tx => ({
   [TAG]: "Parallel.Except",
-  run: ({proceed: k}) => tx.run(k),
+  run: ({raise: k, proceed: k2}) => tx.run(k2),
   runAsync: ({proceed: f}) => tx.runAsync(f)
 });
 
 
 Pex.fromSerial = tx => ({
   [TAG]: "Parallel.Except",
-  run: ({proceed: k}) => tx.run(k),
+  run: ({raise: k, proceed: k2}) => tx.run(k2),
   runAsync: ({proceed: f}) => tx.runAsync(f)
 });
 
@@ -7282,10 +7282,10 @@ export const S = Serial; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-S.fromPex = tx => ({
+S.fromPex = k => tx => ({
   [TAG]: "Serial",
-  run: k => tx.run({raise: id, proceed: k}),
-  runAsync: f => tx.runAsync({raise: id, proceed: f})
+  run: k2 => tx.run({raise: k, proceed: k2}),
+  runAsync: f => tx.runAsync({raise: k, proceed: f})
 });
 
 
@@ -7296,10 +7296,10 @@ S.fromParallel = tx => ({
 });
 
 
-S.fromSex = tx => ({
+S.fromSex = k => tx => ({
   [TAG]: "Serial",
-  run: k => tx.run({raise: id, proceed: k}),
-  runAsync: f => tx.runAsync({raise: id, proceed: f})
+  run: k2 => tx.run({raise: k, proceed: k2}),
+  runAsync: f => tx.runAsync({raise: k, proceed: f})
 });
 
 
@@ -7492,8 +7492,8 @@ export const Sex = SerialExcept; // shortcut
 
 Sex.fromParallel = tx => ({
   [TAG]: "Serial.Except",
-  run: ({proceed: k}) => tx.run(k),
-  runAsync: ({proceed: f}) => tx.runAsync(f)
+  run: ({raise: k, proceed: k2}) => tx.run(k2),
+  runAsync: ({raise: k, proceed: f}) => tx.runAsync(f)
 });
 
 
@@ -7506,8 +7506,8 @@ Sex.fromPex = tx => ({
 
 Sex.fromSerial = tx => ({
   [TAG]: "Serial.Except",
-  run: ({proceed: k}) => tx.run(k),
-  runAsync: ({proceed: f}) => tx.runAsync(f)
+  run: ({raise: k, proceed: k2}) => tx.run(k2),
+  runAsync: ({raise: k, proceed: f}) => tx.runAsync(f)
 });
 
 
@@ -7558,7 +7558,7 @@ Sex.ap = tf => tx =>
     Sex.and(tf) (tx)
       .run({
         raise: k,
-        proceed: ([f, x]) => k(f(x))
+        proceed: ([f, x]) => k2(f(x))
       }));
 
 
@@ -7589,7 +7589,7 @@ Sex.chain = mx => fm =>
   Sex(({raise: k, proceed: k2}) =>
     mx.run({
       raise: k,
-      proceed: x => fm(x).run(k2)
+      proceed: x => fm(x).run({raise: k, proceed: k2})
     }));
 
 
@@ -7624,7 +7624,7 @@ Sex.append = ({append}) => tx => ty =>
   Sex(({raise: k, proceed: k2}) =>
     Sex.and(tx) (ty).run({
       raise: k,
-      proceed: ([x, y]) => k(append(x) (y))
+      proceed: ([x, y]) => k2(append(x) (y))
     }));
 
 
