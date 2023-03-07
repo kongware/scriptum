@@ -8921,8 +8921,9 @@ FileSys.error = fs => cons => thisify(o => { // cons = S | P
 
   o.copy = src => dest =>
     cons(k =>
-      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
-        e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
+      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
+        ? _throw(new TypeError(e))
+        : k(Pair(src, dest))));
 
   o.move = src => dest =>
     cons.and(
@@ -8964,8 +8965,9 @@ FileSys.exception = fs => cons => thisify(o => {
 
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
-      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
-        e ? k(new TypeError(e)) : k2(Pair(src, dest))));
+      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
+        ? k(Pair(new TypeError(e), Pair(src, dest)))
+        : k2(Pair(src, dest))));
 
   o.move = src => dest =>
     cons.and(
@@ -8975,27 +8977,27 @@ FileSys.exception = fs => cons => thisify(o => {
   o.read = opt => path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readFile(path, opt, (e, x) =>
-        e ? k(new TypeError(e)) : k2(x)));
+        e ? k(Pair(new TypeError(e), x)) : k2(x)));
 
   o.scanDir = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readdir(path, (e, xs) =>
-        e ? k(new TypeError(e)) : k2(xs)));
+        e ? k(Pair(new TypeError(e), xs)) : k2(xs)));
 
   o.stat = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.stat(path, (e, o) =>
-        e ? k(new TypeError(e)) : k2(o)));
+        e ? k(Pair(new TypeError(e), o)) : k2(o)));
 
   o.unlink = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.unlink(path, e =>
-        e ? k(new TypeError(e)) : k2(path)));
+        e ? k(Pair(new TypeError(e), path)) : k2(path)));
 
   o.write = opt => path => s =>
     cons(({raise: k, proceed: k2}) =>
       fs.writeFile(path, s, opt, e =>
-        e ? k(new TypeError(e)) : k2(s)));
+        e ? k(Pair(new TypeError(e), s)) : k2(s)));
 
   return o;
 });
