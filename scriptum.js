@@ -6189,15 +6189,24 @@ export const P = Parallel; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-/* Values of type Parallel/Serial are structurally equal but differ in their
-logical conjunctions/disjunctions. Hence, natural transformations are merely
-documenting for improved comprehensibility. */
+P.fromPex = tx => ({
+  [TAG]: "Parallel",
+  run: k => tx.run({raise: id, proceed: k}),
+  runAsync: f => tx.runAsync({raise: id, proceed: f})
+});
 
 
 P.fromSerial = tx => ({
   [TAG]: "Parallel",
   run: tx.run,
   runAsync: tx.runAsync
+});
+
+
+P.fromSex = tx => ({
+  [TAG]: "Parallel",
+  run: k => tx.run({raise: id, proceed: k}),
+  runAsync: f => tx.runAsync({raise: id, proceed: f})
 });
 
 
@@ -6431,6 +6440,31 @@ export const ParallelExcept = ks => ({
 
 
 export const Pex = ParallelExcept; // shortcut
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Pex.fromParallel = tx => ({
+  [TAG]: "Parallel.Except",
+  run: ({proceed: k}) => tx.run(k),
+  runAsync: ({proceed: f}) => tx.runAsync(f)
+});
+
+
+Pex.fromSerial = tx => ({
+  [TAG]: "Parallel.Except",
+  run: ({proceed: k}) => tx.run(k),
+  runAsync: ({proceed: f}) => tx.runAsync(f)
+});
+
+
+Pex.fromSex = tx => ({
+  [TAG]: "Parallel.Except",
+  run: tx.run,
+  runAsync: tx.runAsync
+});
 
 
 // TODO
@@ -7248,15 +7282,24 @@ export const S = Serial; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-/* Values of type Parallel/Serial are structurally equal but differ in their
-logical conjunctions/disjunctions. Hence, natural transformations are merely
-documenting for improved comprehensibility. */
+S.fromPex = tx => ({
+  [TAG]: "Serial",
+  run: k => tx.run({raise: id, proceed: k}),
+  runAsync: f => tx.runAsync({raise: id, proceed: f})
+});
 
 
 S.fromParallel = tx => ({
   [TAG]: "Serial",
   run: tx.run,
   runAsync: tx.runAsync
+});
+
+
+S.fromSex = tx => ({
+  [TAG]: "Serial",
+  run: k => tx.run({raise: id, proceed: k}),
+  runAsync: f => tx.runAsync({raise: id, proceed: f})
 });
 
 
@@ -7441,6 +7484,31 @@ export const SerialExcept = ks => ({
 
 
 export const Sex = SerialExcept; // shortcut
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Sex.fromParallel = tx => ({
+  [TAG]: "Serial.Except",
+  run: ({proceed: k}) => tx.run(k),
+  runAsync: ({proceed: f}) => tx.runAsync(f)
+});
+
+
+Sex.fromPex = tx => ({
+  [TAG]: "Serial.Except",
+  run: tx.run,
+  runAsync: tx.runAsync
+});
+
+
+Sex.fromSerial = tx => ({
+  [TAG]: "Serial.Except",
+  run: ({proceed: k}) => tx.run(k),
+  runAsync: ({proceed: f}) => tx.runAsync(f)
+});
 
 
 /*
@@ -8847,95 +8915,87 @@ The first choice has to be made by picking the respective object in the
 export const FileSys = {}; // namespace
 
 
-FileSys.error = fs => cons => thisify(o => {
+FileSys.error = fs => cons => thisify(o => { // cons = S | P
+  if (cons.name !== "Serial" && cons.name !== "Parallel")
+    throw new TypeError("invalid asynchronous constructor");
+
   o.copy = src => dest =>
     cons(k =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
         e ? _throw(new TypeError(e)) : k(Pair(src, dest))));
 
-
   o.move = src => dest =>
     cons.and(
       o.copy(src) (dest))
         (o.unlink(src));
-
 
   o.read = opt => path =>
     cons(k =>
       fs.readFile(path, opt, (e, x) =>
         e ? _throw(new TypeError(e)) : k(x)));
 
-
   o.scanDir = path =>
     cons(k =>
       fs.readdir(path, (e, xs) =>
         e ? _throw(new TypeError(e)) : k(xs)));
-
 
   o.stat = path =>
     cons(k =>
       fs.stat(path, (e, o) =>
         e ? _throw(new TypeError(e)) : k(o)));
 
-
   o.unlink = path =>
     cons(k =>
       fs.unlink(path, e =>
         e ? _throw(new TypeError(e)) : k(path)));
-
 
   o.write = opt => path => s =>
     cons(k =>
       fs.writeFile(path, s, opt, e =>
         e ? _throw(new TypeError(e)) : k(s)));
 
-
   return o;
 });
 
 
 FileSys.exception = fs => cons => thisify(o => {
+  if (cons.name !== "SerialExcept" && cons.name !== "ParallelExcept")
+    throw new TypeError("invalid asynchronous constructor");
+
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e =>
         e ? k(new TypeError(e)) : k2(Pair(src, dest))));
-
 
   o.move = src => dest =>
     cons.and(
       o.copy(src) (dest))
         (o.unlink(src));
 
-
   o.read = opt => path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readFile(path, opt, (e, x) =>
         e ? k(new TypeError(e)) : k2(x)));
-
 
   o.scanDir = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readdir(path, (e, xs) =>
         e ? k(new TypeError(e)) : k2(xs)));
 
-
   o.stat = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.stat(path, (e, o) =>
         e ? k(new TypeError(e)) : k2(o)));
-
 
   o.unlink = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.unlink(path, e =>
         e ? k(new TypeError(e)) : k2(path)));
 
-
   o.write = opt => path => s =>
     cons(({raise: k, proceed: k2}) =>
       fs.writeFile(path, s, opt, e =>
         e ? k(new TypeError(e)) : k2(s)));
-
 
   return o;
 });
