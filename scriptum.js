@@ -98,6 +98,87 @@ export const GT = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ ALGEBRAIC DATA TYPES █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Variant(/sum) and product types to create flexible and safe variants(/sums)
+of products.
+
+  const Either = variant(
+    "Either", "Left", "Right") ({run:
+      ({Left: x, Right: f}) => x},
+      v => ({run: ({Left: x, Right: f}) => f(v)
+     }));
+
+  Either.pattern = product("Either", "Left", "Right");
+
+  const tx = Either.Right(5),
+    ty = Either.Left;
+
+  tx.run(Either.pattern(0, x => x * x)); // yields 25
+  ty.run(Either.pattern(0, x => x * x)); // yields 0
+
+`Either` is the type constructor and `Either.Left`/`Either.Right` are value constructors.
+`Either.pattern` is a helper to create typed objects that are case exhaustive, i.e.
+supply all necessary cases of the given type. */
+
+
+// product types
+
+export const product = (tag, ...ks) => (...vs) => {
+  if (ks.length !== vs.length)
+    throw new TypeError(`${tag} expects ${ks.length} arguments`);
+
+  return ks.reduce((acc, k, i) => {
+    acc[k] = vs[i];
+    return acc;
+  }, {[Symbol.toStringTag]: tag});
+};
+
+
+// variant types (sum)
+
+export const variant = (ttag, ...vtag) => (...lambdas) => {
+  if (vtag.length !== lambdas.length) throw new TypeError("invalid type");
+
+  return vtag.reduce((acc, vtag_, i) => {
+    acc[vtag_] = {};
+
+    acc[vtag_] = function go(f, args) {
+      if (typeof f !== "function")
+        return f;
+
+      else {    
+        return (...args2) => {
+          const tx = f(...args2);
+          args.push(args2);
+
+          if (typeof tx === "function")
+            return go(tx, args);
+
+          else {
+            return {
+              run: o => {
+                if (o[Symbol.toStringTag] === ttag)
+                  return tx.run(o);
+
+                else throw new TypeError(`${ttag} pattern expected`);
+              },
+
+              args: args
+            };
+          }
+        }
+      }
+    } (lambdas[i], []);
+
+    return acc;
+  }, {});
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████ APPLICATOR ██████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -614,7 +695,7 @@ is transformed into a trampolining version:
           Loops.rec(n - 2))); */
 
 
-const Loops = f => x => {
+export const Loops = f => x => {
   const stack = [f(x)];
 
   while (stack.length > 1 || stack[0] [TAG] !== "Base") {
@@ -666,7 +747,7 @@ const Loops = f => x => {
 };
 
 
-const Loops2 = f => (x, y) => {
+export const Loops2 = f => (x, y) => {
   const stack = [f(x, y)];
 
   while (stack.length > 1 || stack[0] [TAG] !== "Base") {
@@ -743,7 +824,6 @@ Loops2.rec = x => y => ({[TAG]: "Rec", x, y});
 
 
 Loops2.base = x => ({[TAG]: "Base", x});
-
 
 
 /*█████████████████████████████████████████████████████████████████████████████
