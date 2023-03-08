@@ -146,16 +146,14 @@ export const variant = (ttag, ...vtag) => (...lambdas) => {
     acc[vtag_] = {};
 
     acc[vtag_] = function go(f, args) {
-      if (typeof f !== "function")
-        return f;
+      if (typeof f !== "function") return f;
 
       else {    
         return (...args2) => {
           const tx = f(...args2);
           args.push(args2);
 
-          if (typeof tx === "function")
-            return go(tx, args);
+          if (typeof tx === "function") return go(tx, args);
 
           else {
             return {
