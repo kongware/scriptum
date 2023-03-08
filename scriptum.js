@@ -140,7 +140,7 @@ export const product = (tag, ...ks) => (...vs) => {
 // variant types (sum)
 
 export const variant = (ttag, ...vtag) => (...lambdas) => {
-  if (vtag.length !== lambdas.length) throw new TypeError("invalid type");
+  if (vtag.length !== lambdas.length) throw new TypeError("malformed type");
 
   return vtag.reduce((acc, vtag_, i) => {
     acc[vtag_] = {};
@@ -160,13 +160,11 @@ export const variant = (ttag, ...vtag) => (...lambdas) => {
           else {
             return {
               run: o => {
-                if (o[Symbol.toStringTag] === ttag)
-                  return tx.run(o);
-
+                if (o[TAG] === ttag) return tx.run(o);
                 else throw new TypeError(`${ttag} pattern expected`);
               },
 
-              args: args
+              args
             };
           }
         }
