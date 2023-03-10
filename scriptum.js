@@ -133,7 +133,7 @@ export const product = (tag, ...ks) => (...vs) => {
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
     return acc;
-  }, {[Symbol.toStringTag]: tag});
+  }, {[TAG]: tag});
 };
 
 
@@ -1744,6 +1744,50 @@ A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 A.unsnoc = xs => Pair(
   xs.length === 0 ? null : xs[xs.length - 1],
   xs.slice(-1));
+
+
+/*
+█████ Contextualizing █████████████████████████████████████████████████████████*/
+
+
+A.mapSucc = f => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc.push(f(Pair(xs[i], xs[j])));
+
+  return acc;
+};
+
+
+A.mapPair = f => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i+=2, j+=2)
+    acc.push(f(Pair(xs[i], xs[j])));
+
+  return acc;
+};
+
+
+A.reduceSucc = f => acc => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc = f(acc) (Pair(xs[i], xs[j]));
+
+  return acc;
+};
+
+
+A.reducePair = f => acc => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i+=2, j+=2)
+    acc = f(acc) (Pair(xs[i], xs[j]));
+
+  return acc;
+};
 
 
 /*
@@ -6481,6 +6525,9 @@ P.once = tx => {
 };
 
 
+P.reify = tx => P(k => tx.run(x => k2(Pair(x, k))));
+
+
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
@@ -7528,6 +7575,9 @@ S.once = tx => {
 };
 
 
+S.reify = tx => S(k => tx.run(x => k2(Pair(x, k))));
+
+
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
@@ -7767,6 +7817,11 @@ Sex.once = tx => {
 
   return Sex(ks);
 };
+
+
+Sex.reify = tx =>
+  Sex(({raise: k, proceed: k2}) =>
+    tx.run({raise: k, proceed: x => k2(Triple(x, k, k2))}));
 
 
 /*
