@@ -2109,13 +2109,25 @@ A.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-A.zero = () => A.empty;
+Object.defineProperty(A, "zero", { // due to mutable arrays
+  get() {return []},
+  enumerable: true,
+  configurable: true,
+  writable: true
+});
 
 
 A.Plus = {
   ...A.Alt,
-  zero: A.zero
 };
+
+
+Object.defineProperty(A.Plus, "zero", { // due to mutable arrays
+  get() {return []},
+  enumerable: true,
+  configurable: true,
+  writable: true
+});
 
 
 /*
@@ -2280,16 +2292,10 @@ A.para = f => init => xs => {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-A.append = xs => ys => xs.push.apply(xs, ys);
+A.append = xs => ys => (xs.push.apply(xs, ys), xs);
 
 
-A.append_ = xs => ys => xs.concat(ys);
-
-
-A.prepend = ys => xs => xs.push.apply(xs, ys);
-
-
-A.prepend_ = ys => xs => xs.concat(ys);
+A.prepend = ys => xs => (xs.push.apply(xs, ys), xs);
 
 
 A.Semigroup = {
@@ -2302,13 +2308,25 @@ A.Semigroup = {
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-A.empty = [];
+Object.defineProperty(A, "empty", { // due to mutable arrays
+  get() {return []},
+  enumerable: true,
+  configurable: true,
+  writable: true
+});
 
 
 A.Monoid = {
-  ...A.Semigroup,
-  empty: A.empty
+  ...A.Semigroup
 };
+
+
+Object.defineProperty(A.Monoid, "empty", { // due to mutable arrays
+  get() {return []},
+  enumerable: true,
+  configurable: true,
+  writable: true
+});
 
 
 /*
@@ -2552,9 +2570,6 @@ A.alt = A.alt();
 
 
 A.Traversable = A.Traversable();
-
-
-A.zero = A.zero();
 
 
 A.ZipArr.ap = A.ZipArr.ap();
@@ -4305,6 +4320,172 @@ export const IOSet_ = cmp => {
 
 
   return IOSet;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ ITERATOR ███████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const It = {};
+
+
+/*
+█████ Consumption █████████████████████████████████████████████████████████████*/
+
+
+It.exhaust = ix => {
+  let x;
+  for (x of ix) continue;
+  return x;
+};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+It.drop = ({empty, append}, {of}) => n => function* (ix) {
+  const tx = empty;
+
+  while (n-- > 0) {
+    const {done} = ix.next();
+    if (done) return tx;
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return append(tx) (of(x));
+      else return tx;
+    }
+
+    yield append(tx) (of(x));
+  } while (true);
+};
+
+
+It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
+  const tx = empty;
+
+  while (true) {
+    const {value: x, done} = ix.next();
+    if (done) {
+      if (x !== undefined && !p(x)) {
+        append(tx) (of(x));
+        break;
+      }
+      
+      else return tx;
+    }
+
+    else if (!p(x)) {
+      append(tx) (of(x));
+      break;
+    }
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return append(tx) (of(x));
+      else return tx;
+    }
+
+    yield append(tx) (of(x));
+  } while (true);
+};
+
+
+It.filter = p => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return p(x) ? x : undefined;
+      else return x;
+    }
+
+    else if (p(x)) yield x;
+  } while (true);
+};
+
+
+It.fold = f => acc => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(acc) (x);
+      else return acc;
+    }
+
+    yield f(acc) (x);
+  } while (true);
+};
+
+
+It.map = f => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(x);
+      else return x;
+    }
+
+    yield f(x);
+  } while (true);
+};
+
+
+It.reduce = f => acc => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(acc, x);
+      else return acc;
+    }
+
+    yield f(acc, x);
+  } while (true);
+};
+
+
+It.take = ({empty, append}, {of}) => n => function* (ix) {
+  const tx = empty;
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return append(tx) (of(x));
+      else return tx;
+    }
+
+    yield append(tx) (of(x));
+  } while (--n > 0);
+};
+
+
+It.takeWhile = ({empty, append}, {of}) => p => function* (ix) {
+  const tx = empty;
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined && p(x)) return append(tx) (of(x));
+      else return tx;
+    }
+
+    else if (p(x)) yield append(tx) (of(x));
+    else return tx;
+  } while (true);
 };
 
 
@@ -6307,7 +6488,13 @@ Opt.Monoid = {
   * lazy by deferred nested function call stack
   * non-reliable return values
   * stack-safe due to asynchronous calls
-  * no transformer available (only as base monad) */
+  * no transformer available (only as base monad)
+
+`runAsync` wraps the value of type `Parallel` in a `Promise` for every xth
+invocation. Promise handlers are executed within the next microtask queue and
+thus stack safe by design. Since `Parallel` doesn't rely on return values but
+only on continuations, wrapping them into another data type is a transparent
+operation. */
 
 
 export const Parallel = k => ({
@@ -7403,7 +7590,13 @@ Bases on the r/b tree persistant data structure. */
   * lazy by deferred nested function call stacks
   * non-reliable return values
   * stack-safe due to asynchronous calls
-  * no transformer available (only as base monad) */
+  * no transformer available (only as base monad)
+
+`runAsync` wraps the value of type `Serial` in a `Promise` for every xth
+invocation. Promise handlers are executed within the next microtask queue and
+thus stack safe by design. Since `Serial` doesn't rely on return values but
+only on continuations, wrapping them into another data type is a transparent
+operation. */
 
 
 export const Serial = k => ({
