@@ -5293,6 +5293,27 @@ _Map.Functor = {map: _Map.map};
 
 
 /*
+█████ Generators ██████████████████████████████████████████████████████████████*/
+
+
+_Map.entries = m => m[Symbol.iterator] ();
+
+
+_Map.keys = function* (m) {
+  for (let [k] of m) {
+    yield k;
+  }
+}
+
+
+_Map.values = function* (m) {
+  for (let [, v] in m) {
+    yield v;
+  }
+}
+
+
+/*
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
@@ -7935,6 +7956,13 @@ _Set.map = f => s => {
 
 
 _Set.Functor = {map: _Set.map};
+
+
+/*
+█████ Generators ██████████████████████████████████████████████████████████████*/
+
+
+_Set.entries = s => s[Symbol.iterator] ();
 
 
 /*
