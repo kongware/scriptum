@@ -56,7 +56,7 @@ const PREFIX = "$_"; // avoid property name collisions
 export const TAG = Symbol.toStringTag;
 
 
-const TICK_TRESHOLD = 0.01; // treshold for next microtask
+const MICROTASK_CONTINGENCY = 0.01; // probaility for next microtask
 
 
 /*
@@ -6502,7 +6502,7 @@ export const Parallel = k => ({
   run: k,
 
   runAsync: f => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_TRESHOLD)
+    if (Math.random() < MICROTASK_CONTINGENCY)
       Promise.resolve(null).then(_ => k(f));
 
     else k(f);
@@ -6762,7 +6762,7 @@ export const ParallelExcept = ks => ({
   run: ks,
 
   runAsync: o => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_TRESHOLD)
+    if (Math.random() < MICROTASK_CONTINGENCY)
       Promise.resolve(null).then(_ => ks(o));
 
     else ks(o);
@@ -7604,7 +7604,7 @@ export const Serial = k => ({
   run: k,
 
   runAsync: f => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_TRESHOLD)
+    if (Math.random() < MICROTASK_CONTINGENCY)
       Promise.resolve(null).then(_ => k(f));
 
     else k(f);
@@ -7815,7 +7815,7 @@ export const SerialExcept = ks => ({
   run: ks,
 
   runAsync: o => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_TRESHOLD)
+    if (Math.random() < MICROTASK_CONTINGENCY)
       Promise.resolve(null).then(_ => ks(o));
 
     else ks(o);
