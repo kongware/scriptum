@@ -56,7 +56,7 @@ const PREFIX = "$_"; // avoid property name collisions
 export const TAG = Symbol.toStringTag;
 
 
-const MICROTASK_CONTINGENCY = 0.01; // probaility for next microtask
+const MICROTASK_CONTINGENCY = 0.01; // probability for next microtask
 
 
 /*
@@ -669,8 +669,8 @@ Loop3.base = x => ({[TAG]: "Base", x});
 
 
 /* Stack-based trampoline to enable recursive cases not in tail call position.
-This way we can mimick Haskell's guarded recursion using tail recursion modulo
-cons and beyond.
+It can emulate tail recursion modulo cons and even modulo more complex
+operations.
 
 The original Fibbonacci algorithm
 
@@ -3854,6 +3854,202 @@ E.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ IARRAY ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Immutable arrays based on a persistent data structure. They type offers the
+following operations:
+
+  * push
+  * pop
+  * concat
+
+It doesn't support in-place settings of elements (`xs[3] = ...`) or deletions
+(`delete xs[3]`) bc these operations are rather uncommon for array in the
+context of functional programming.
+
+You can create a new `Iarray` instance as soon as you need to push, pop or
+concat an existing mutable array but without altering or copying it. Given the
+new `Iarray` value you can either apply a single or a batch of mutations to it.
+The `Iarray` value is rendered immutable again when you invoke its `own` method.
+`own` freezes the existing elements but allows new mutations without altering
+the existing value. It is up to you and your algorithm at what points you invoke
+`own`. Under the hood each `own` invocation creates a new layer of a nested
+`Iarray` chain.
+
+There are two ways to further process an `Iarray` value after all mutations are
+completed:
+
+  * invoke `unown` to creat a normal array
+  * invoke the iterable protocol
+
+`unown` simply creates a normal array that features all accumulated mutations
+of the original array. Alternatively, you can call the `Symbol.iterator`
+function and use one of the combinators of the `Iterator` type. */
+
+
+const Iarray = xs => {
+  const go = (prev, curr, offset) => {
+    const o = {};
+    let locked = false;
+
+    o[TAG] = "Iarray";
+    o[Symbol.isConcatSpreadable] = true;
+    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
+
+    o.at = i => {
+      const i2 = o.length - i;
+
+      if (i2 <= curr.length) return curr[curr.length - i2];
+
+      else {
+        const i3 = i2 - curr.length - offset;
+
+        if (prev === xs) {
+          if (prev.length === 0) return undefined;
+          else if (prev.length < i3) return undefined;
+          else return prev[prev.length - i3];
+        }
+
+        else prev.at(i3);
+      }
+    };
+
+    o.concat = ys => {
+      if (locked) throw new TypeError("delete op on locked array");
+
+      else {
+        curr.push.apply(curr, ys);
+        o.length += ys.length;
+        offset = offset + ys.length > 0 ? 0 : offset + ys.length;
+        return o;
+      }
+    };
+
+    o.own = () => {
+      locked = true;
+      return go(o, [], 0);
+    }
+
+    o.length = prev.length;
+
+    o.pop = () => {
+      if (locked) throw new TypeError("delete op on locked array");
+      else if (o.length === 0) return [undefined, o];
+
+      else if (curr.length === 0) {
+        const pair = [prev.at(o.length - 1 + offset), o]
+        o.length--;
+        offset--;
+        return pair;
+      }
+
+      else {
+        o.length--;
+        return [curr.pop(), o];
+      }
+    };
+
+    o.push = x => {
+      if (locked) throw new TypeError("delete op on locked array");
+
+      else {
+        curr.push(x);
+        o.length++;
+        return o;
+      }
+    };
+
+    o.unown = (ys = [], prevOffset = 0) => {
+      if (prevOffset < 0 && prevOffset + curr.length < 0) {
+        prevOffset += curr.length;
+
+        if (prev === xs) {
+          if (offset + prevOffset + prev.length < 0)
+            throw TypeError("invalid persistent array offset");
+          
+          else if (offset + prevOffset + prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
+            return ys;
+          }
+
+          else return ys;
+        }
+
+        else return prev.unown(ys, offset + prevOffset);
+      }
+
+      else if (prevOffset < 0 && prevOffset + curr.length > 0) {
+        if (prev === xs) {
+          if (offset + prev.length < 0)
+            throw TypeError("invalid persistent array offset");
+          
+          else if (offset + prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
+            return ys;
+          }
+
+          else return ys;
+        }
+
+        else {
+          ys.unshift.apply(ys, curr.slice(0, prevOffset));
+          return prev.unown(ys, offset);
+        }
+      }
+
+      else {
+        if (prevOffset === 0) ys.unshift.apply(ys, curr);
+
+        if (prev === xs) {
+          if (offset < 0 && offset + prev.length < 0)
+            throw TypeError("invalid persistent array offset");
+          
+          else if (offset < 0 && offset + prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
+            return ys;
+          }
+
+          else {
+            if (offset === 0) ys.unshift.apply(ys, xs);
+            return ys;
+          }
+        }
+
+        else return prev.unown(ys, offset);
+      }
+    };
+
+    return new Proxy(o, {
+      deleteProperty(_, k) {
+        throw new TypeError(`invalid delete op on persistent array`);
+      },
+
+      get(_, k, proxy) {
+        if (typeof k === "symbol") return o[k];
+        else if (String(Number(k)) === k) return o.at(Number(k));
+        else return o[k];
+      },
+
+      has(_, k, proxy) {
+        if (typeof k === "symbol") return k in o;
+        else if (String(Number(k)) === k) return Number(k) < o.length;
+        else return k in o;
+      },
+
+      set(_, k, v, proxy) {
+        throw new TypeError(`invalid set op on persistent array`);
+      }
+    });
+
+  };
+
+  return go(xs, [], 0);
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ ID ██████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -3930,205 +4126,84 @@ Id.Monad = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const IMap_ = cmp => {
-  const IMap = (tree, size) => ({
-    [TAG]: "IMap",
-    tree,
-    size
-  });
+/* Immutable `Imap` type based on a persistent data structure. See `Iarray` for
+detailed information on its usage. */
 
+const Imap = m => {
+  const go = (prev, curr, del) => {
+    const o = {};
+    let locked = false;
 
-  IMap.empty = IMap(RBT.Leaf, 0);
+    o[TAG] = "Imap";
+    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
 
+    o.delete = k => {
+      if (locked) throw new TypeError("delete op on locked map");
 
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
+      else if (curr.has(k)) {
+        curr.delete(k);
+        o.size--;
+        return o;
+      }
 
+      else if (prev.has(k)) {
+        del.add(k);
+        o.size--;
+        return o;
+      }
 
-  IMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    return r === undefined ? null : r;
-  };
+      else return o;
+    };
 
+    o.get = k => {
+      if (curr.has(k)) return curr.get(k);
+      else if (del.has(k)) return undefined;
+      else return prev.get(k);
+    };
 
-  IMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
+    o.has = k => {
+      if (curr.has(k)) return true;
+      else if (del.has(k)) return false;
+      else return prev.has(k);
+    };
 
-
-  IMap.upd = k => f => m => {
-    if (IMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.size);
+    o.own = () => {
+      locked = true;
+      return go(o, new Map(), new Set());
     }
 
-    else return m;
+    o.set = (k, v) => {
+      if (locked) throw new TypeError("delete op on locked map");
+      else if (del.has(k)) del.delete(k);
+      else if (!o.has(k)) o.size++;
+      curr.set(k, v);
+      return o;
+    };
+
+    o.size = prev.size;
+
+    o.unown = (ms = [], ss = []) => {
+      ms.unshift(curr);
+      ss.unshift(del);
+      
+      if (prev === m) {
+        const r = new Map(prev);
+
+        ms.forEach((m2, i) => {
+          m2.forEach((v, k) => r.set(k, v));
+          ss[i].forEach(k => r.delete(k));
+        });
+
+        return r;
+      }
+
+      else return prev.unown(ms, ss);
+    };
+
+    return o;
   };
 
-
-  IMap.del = k => m => {
-    let size = m.size;
-
-    if (IMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IMap(
-      RBT.del(m.tree, k, cmp),
-      size);
-  };
-
-
-  IMap.set = k => v => m => {
-    let size = m.size;
-
-    if (!IMap.has(k) (m))
-      size = m.size + 1;
-
-    return IMap(
-      RBT.set(m.tree, k, v, cmp),
-      size);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  return IMap;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IOMAP ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const IOMap_ = cmp => {
-  const IOMap = (tree, keys, size, counter) => ({
-    [TAG]: "IOMap",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOMap.empty = IOMap(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  IOMap.get = k => m => {
-    const r = RBT.get(m.tree, k, cmp);
-    return r === undefined ? null : r;
-  };
-
-
-  IOMap.has = k => m =>
-    RBT.has(m.tree, k, cmp);
-
-
-  IOMap.upd = k => f => m => {
-    if (IOMap.has(k) (m)) {
-      const v = RBT.get(m.tree, k, cmp);
-
-      return IOMap(
-        RBT.set(m.tree, k, f(v), cmp),
-        m.keys,
-        m.size,
-        m.counter);
-    }
-
-    else return m;
-  };
-
-
-  IOMap.del = k => m => {
-    let size = m.size;
-
-    if (IOMap.has(k) (m))
-      size = m.size - 1;
-    
-    else return m;
-
-    return IOMap(
-      RBT.del(m.tree, k, cmp),
-      m.keys, // no key removal
-      size,
-      m.counter);
-  };
-
-
-  IOMap.set = k => v => m => {
-    let size = m.size,
-      counter = m.counter;
-
-    if (!IOMap.has(k) (m)) {
-      size = m.size + 1;
-      counter = m.counter + 1;
-    }
-
-    return IOMap(
-      RBT.set(m.tree, k, v, cmp),
-      RBT.set(m.keys, m.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IOMap.inOrder = ({append, empty}) => f => m =>
-    RBT.inOrder({append, empty}) (f) (m.tree);
-
-
-  IOMap.inOrder_ = ({append, empty}) => f => m =>
-    RBT.inOrder_({append, empty}) (f) (m.tree);
-
-
-  IOMap.insertOrder = f => init => m => function go(acc, i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        v = IOMap.get(k) (m);
-
-      if (v === null) return go(acc, i + 1);
-      else return go(f(acc) (Pair(k, v)), i + 1)
-    }
-  } (init, 0);
-
-
-  IOMap.insertOrder_ = f => acc => m => function go(i) {
-    if (i >= m.counter) return acc;
-
-    else {
-      const k = RBT.get(m.keys, i, RBT.cmp),
-        v = IOMap.get(k) (m);
-
-      if (v === null) return go(i + 1);
-      else return f(Pair(k, v)) (lazy(() => go(i + 1)));
-    }
-  } (0);
-
-
-  return IOMap;
+  return go(m, new Map(), new Set());
 };
 
 
@@ -4137,189 +4212,78 @@ export const IOMap_ = cmp => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const ISet_ = cmp => {
-  const ISet = (tree, size) => ({
-    [TAG]: "ISet",
-    tree,
-    size
-  });
+/* Immutable `Iset` type based on a persistent data structure. See `Iarray` for
+detailed information on its usage. */
 
+const Iset = s => {
+  const go = (prev, curr, del) => {
+    const o = {};
+    let locked = false;
 
-  ISet.empty = ISet(RBT.Leaf, 0);
+    o[TAG] = "Iset";
+    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
 
+    o.add = k => {
+      if (locked) throw new TypeError("delete op on locked set");
+      else if (del.has(k)) del.delete(k);
+      else if (!o.has(k)) o.size++;
+      curr.add(k);
+      return o;
+    };
 
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
+    o.delete = k => {
+      if (locked) throw new TypeError("delete op on locked set");
 
+      else if (curr.has(k)) {
+        curr.delete(k);
+        o.size--;
+        return o;
+      }
 
-  ISet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
+      else if (prev.has(k)) {
+        del.add(k);
+        o.size--;
+        return o;
+      }
 
+      else return o;
+    };
 
-  ISet.upd = k => f => s => {
-    if (ISet.has(k) (s)) {
-      return ISet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.size);
+    o.has = k => {
+      if (curr.has(k)) return true;
+      else if (del.has(k)) return false;
+      else return prev.has(k);
+    };
+
+    o.own = () => {
+      locked = true;
+      return go(o, new Set(), new Set());
     }
 
-    else return s;
+    o.size = prev.size;
+
+    o.unown = (ss = [], ss2 = []) => {
+      ss.unshift(curr);
+      ss2.unshift(del);
+      
+      if (prev === m) {
+        const r = new Set(prev);
+
+        ss.forEach((s, i) => {
+          s.forEach(k => r.add(k));
+          ss2[i].forEach(k => r.delete(k));
+        });
+
+        return r;
+      }
+
+      else return prev.unown(ss, ss2);
+    };
+
+    return o;
   };
 
-
-  ISet.del = k => s => {
-    let size = s.size;
-
-    if (ISet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return ISet(
-      RBT.del(s.tree, k, cmp),
-      size);
-  };
-
-
-  ISet.set = k => s => {
-    let size = s.size;
-
-    if (!ISet.has(k) (s))
-      size = s.size + 1;
-
-    return ISet(
-      RBT.set(s.tree, k, null, cmp),
-      size);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  ISet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  ISet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  return ISet;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IOSET ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const IOSet_ = cmp => {
-  const IOSet = (tree, keys, size, counter) => ({
-    [TAG]: "IOSet",
-    tree,
-    keys,
-    size,
-    counter
-  });
-
-
-  IOSet.empty = IOSet(RBT.Leaf, RBT.Leaf, 0, 0);
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-  IOSet.has = k => s =>
-    RBT.has(s.tree, k, cmp);
-
-
-  IOSet.upd = k => f => s => {
-    if (IOSet.has(k) (s)) {
-      return IOSet(
-        RBT.set(s.tree, f(k), null, cmp),
-        s.keys,
-        s.size,
-        s.counter);
-    }
-
-    else return s;
-  };
-
-
-  IOSet.del = k => s => {
-    let size = s.size;
-
-    if (IOSet.has(k) (s))
-      size = s.size - 1;
-    
-    else return s;
-
-    return IOSet(
-      RBT.del(s.tree, k, cmp),
-      s.keys, // no key removal
-      size,
-      s.counter);
-  };
-
-
-  IOSet.set = k => s => {
-    let size = s.size,
-      counter = s.counter;
-
-    if (!IOSet.has(k) (s)) {
-      size = s.size + 1;
-      counter = s.counter + 1;
-    }
-
-    return IOSet(
-      RBT.set(s.tree, k, null, cmp),
-      RBT.set(s.keys, s.counter, k, RBT.cmp),
-      size,
-      counter);
-  };
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-  IOSet.inOrder = ({append, empty}) => f => s =>
-    RBT.inOrder({append, empty}) (f) (s.tree);
-
-
-  IOSet.inOrder_ = ({append, empty}) => f => s =>
-    RBT.inOrder_({append, empty}) (f) (s.tree);
-
-
-  IOSet.insertOrder = f => init => s => function go(acc, i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        v = IOSet.get(k) (s);
-
-      if (v === null) return go(acc, i + 1);
-      else return go(f(acc) (v), i + 1);
-    }
-  } (init, 0);
-
-
-  IOSet.insertOrder_ = f => acc => s => function go(i) {
-    if (i >= s.counter) return acc;
-
-    else {
-      const k = RBT.get(s.keys, i, RBT.cmp),
-        v = IOSet.get(k) (s);
-
-      if (v === null) return go(i + 1);
-      else return f(v) (lazy(() => go(i + 1)));
-    }
-  } (0);
-
-
-  return IOSet;
+  return go(s, new Set(), new Set());
 };
 
 
@@ -4329,6 +4293,24 @@ export const IOSet_ = cmp => {
 
 
 export const It = {};
+
+
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+It.all = f => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(x);
+      else return true;
+    }
+  } while (f(x));
+
+  return false;
+};
 
 
 /*
@@ -4343,7 +4325,7 @@ It.exhaust = ix => {
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 It.drop = ({empty, append}, {of}) => n => function* (ix) {
@@ -4400,62 +4382,6 @@ It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
 };
 
 
-It.filter = p => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) {
-      if (x !== undefined) return p(x) ? x : undefined;
-      else return x;
-    }
-
-    else if (p(x)) yield x;
-  } while (true);
-};
-
-
-It.fold = f => acc => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) {
-      if (x !== undefined) return f(acc) (x);
-      else return acc;
-    }
-
-    yield f(acc) (x);
-  } while (true);
-};
-
-
-It.map = f => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) {
-      if (x !== undefined) return f(x);
-      else return x;
-    }
-
-    yield f(x);
-  } while (true);
-};
-
-
-It.reduce = f => acc => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) {
-      if (x !== undefined) return f(acc, x);
-      else return acc;
-    }
-
-    yield f(acc, x);
-  } while (true);
-};
-
-
 It.take = ({empty, append}, {of}) => n => function* (ix) {
   const tx = empty;
 
@@ -4485,6 +4411,105 @@ It.takeWhile = ({empty, append}, {of}) => p => function* (ix) {
 
     else if (p(x)) yield append(tx) (of(x));
     else return tx;
+  } while (true);
+};
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+It.any = f => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(x);
+      else return false;
+    }
+  } while (!f(x));
+
+  return true;
+};
+
+
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+It.filter = p => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return p(x) ? x : undefined;
+      else return x;
+    }
+
+    else if (p(x)) yield x;
+  } while (true);
+};
+
+
+It.Filterable = {filter: It.filter};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+It.foldl = f => acc => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(acc) (x);
+      else return acc;
+    }
+
+    yield f(acc) (x);
+  } while (true);
+};
+
+
+// TODO: It.foldr
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+It.map = f => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(x);
+      else return x;
+    }
+
+    yield f(x);
+  } while (true);
+};
+
+
+It.Functor = {map: It.map};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+It.reduce = f => acc => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) {
+      if (x !== undefined) return f(acc, x);
+      else return acc;
+    }
+
+    yield f(acc, x);
   } while (true);
 };
 
@@ -5389,91 +5414,6 @@ const _Map = {}; // namespace
 
 
 /*
-█████ Conjunction █████████████████████████████████████████████████████████████*/
-
-
-_Map.all = f => m => {
-  for (const [k, v] of m) if (!f(v)) return false;
-  return true;
-};
-
-
-/*
-█████ Disjunction █████████████████████████████████████████████████████████████*/
-
-
-_Map.any = f => m => {
-  for (const v of m) if (f(v)) return true;
-  return false;
-};
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-_Map.filter = f => m => {
-  const m2 = new Map();
-  for (const [k, v] of m) if(f(v)) m2.set(k, v);
-  return m2;
-};
-
-
-_Map.Filterable = {filter: _Map.filter};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-_Map.foldl = f => acc => m => {
-  for (const [k, v] of m) acc = f(acc) (v, k);
-  return acc;
-};
-
-
-_Map.foldk = f => acc => m => {
-  const ix = m[Symbol.iterator] ();
-
-  return Loop(({value: [k, v], done}) => {
-    if (done) {
-      if (v !== undefined) return Loop.base(f(acc) (v, k));
-      else return Loop.base(acc);
-    }
-
-    else return Loop.rec(ix.next());
-  }) (ix.next());
-};
-
-
-_Map.foldr = f => acc => m => {
-  const stack = Array.from(m);
-  for (let i = stack.length - 1; i >= 0; i--) acc = f(...stack[i]) (acc);
-  return acc;
-};
-
-
-_Map.Foldable = {
-  foldl: _Map.foldl,
-  foldr: _Map.foldr
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-_Map.map = f => m => {
-  const m2 = new Map();
-  for (const [k, v] of m) m2.set(k, f(v));
-  return m2;
-};
-
-
-_Map.Functor = {map: _Map.map};
-
-
-/*
 █████ Generators ██████████████████████████████████████████████████████████████*/
 
 
@@ -5528,30 +5468,6 @@ _Map.upd = k => f => m => {
 _Map.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
-};
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-_Map.reduce = f => acc => m => {
-  for (const [k, v] of m) acc = f(acc, v, k);
-  return acc;
-};
-
-
-_Map.reducek = f => acc => m => {
-  const ix = m[Symbol.iterator] ();
-
-  return Loop(({value: [k, v], done}) => {
-    if (done) {
-      if (v !== undefined) return Loop.base(f(acc, v, k));
-      else return Loop.base(acc);
-    }
-
-    else return Loop.rec(ix.next());
-  }) (ix.next());
 };
 
 
@@ -6150,8 +6066,9 @@ getters/setters. Normal function composition is used to define foci several
 layers deep inside the structure. The type implicitly holds a description how
 to reconstruct the data structure up to its root layer. The description is
 only evaluated when needed, i.e. when a focused subelement of the structure
-is actually modified or deleted. The type itself it immutable but it depends
-on the used setters, whether the whole operation is.
+is actually modified or deleted. The type itself is designed to be immutable
+but it depends on the provided setters whether this property holds for the 
+entire operation.
 
 const o = {foo: {bar: 5}};
 
@@ -8054,6 +7971,13 @@ const _Set = {}; // namespace
 
 
 /*
+█████ Generators ██████████████████████████████████████████████████████████████*/
+
+
+_Set.entries = s => s[Symbol.iterator] ();
+
+
+/*
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
@@ -8064,122 +7988,6 @@ _Set.set = k => s => s.add(k);
 
 
 _Set.del = k => s => s.delete(k);
-
-
-/*
-█████ Conjunction █████████████████████████████████████████████████████████████*/
-
-
-_Set.all = f => s => {
-  for (const v of s) if (!f(v)) return false;
-  return true;
-};
-
-
-/*
-█████ Disjunction █████████████████████████████████████████████████████████████*/
-
-
-_Set.any = f => s => {
-  for (const v of s) if (f(v)) return true;
-  return false;
-};
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-_Set.filter = f => s => {
-  const s2 = new Set();
-  for (const v of s) if(f(v)) s2.add(v);
-  return s2;
-};
-
-
-_Set.Filterable = {filter: _Set.filter};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-_Set.foldl = f => acc => s => {
-  for (const v of s) acc = f(acc) (v);
-  return acc;
-};
-
-
-_Set.foldk = f => acc => s => {
-  const ix = s[Symbol.iterator] ();
-
-  return Loop(({value, done}) => {
-    if (done) {
-      if (value !== undefined) return Loop.base(f(acc) (value));
-      else return Loop.base(acc);
-    }
-
-    else return Loop.rec(ix.next());
-  }) (ix.next());
-};
-
-
-_Set.foldr = f => acc => s => {
-  const stack = Array.from(s);
-  for (let i = stack.length - 1; i >= 0; i--) acc = f(stack[i]) (acc);
-  return acc;
-};
-
-
-_Set.Foldable = {
-  foldl: _Set.foldl,
-  foldr: _Set.foldr
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-_Set.map = f => s => {
-  const s2 = new Set();
-  for (const v of s.values()) s2.add(f(v));
-  return s2;
-};
-
-
-_Set.Functor = {map: _Set.map};
-
-
-/*
-█████ Generators ██████████████████████████████████████████████████████████████*/
-
-
-_Set.entries = s => s[Symbol.iterator] ();
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-_Set.reduce = f => acc => s => {
-  for (const v of s) acc = f(acc, v);
-  return acc;
-};
-
-
-_Set.foldk = f => acc => s => {
-  const ix = s[Symbol.iterator] ();
-
-  return Loop(({value, done}) => {
-    if (done) {
-      if (value !== undefined) return Loop.base(f(acc, value));
-      else return Loop.base(acc);
-    }
-
-    else return Loop.rec(ix.next());
-  }) (ix.next());
-};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
