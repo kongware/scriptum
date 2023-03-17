@@ -3889,156 +3889,178 @@ of the original array. Alternatively, you can call the `Symbol.iterator`
 function and use one of the combinators of the `Iterator` type. */
 
 
-const Iarray = xs => {
+export const Iarray = xs => {
   const go = (prev, curr, offset) => {
     const o = {};
-    let locked = false;
+    let immutable = false;
 
     o[TAG] = "Iarray";
     o[Symbol.isConcatSpreadable] = true;
     o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
 
-    o.at = i => {
+    o.at = i => Loop(i2 => o.at_(i2)) (i);
+
+    o.at_ = i => {
       const i2 = o.length - i;
 
-      if (i2 <= curr.length) return curr[curr.length - i2];
+      if (i2 <= o.curr.length) return Loop.base(o.curr[o.curr.length - i2]);
 
       else {
-        const i3 = i2 - curr.length - offset;
+        const i3 = i2 - o.curr.length - o.offset;
 
-        if (prev === xs) {
-          if (prev.length === 0) return undefined;
-          else if (prev.length < i3) return undefined;
-          else return prev[prev.length - i3];
+        if (o.prev === xs) {
+          if (o.prev.length === 0) return Loop.base(undefined);
+          else if (o.prev.length < i3) return Loop.base(undefined);
+          else return Loop.base(o.prev[o.prev.length - i3]);
         }
 
-        else prev.at(i3);
+        else return Loop.call(o.prev.at_, i3);
       }
     };
 
     o.concat = ys => {
-      if (locked) throw new TypeError("delete op on locked array");
+      if (immutable) {
+        const zs = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
+        zs.push.apply(zs, ys);
+        return Iarray(zs);
+      }
 
       else {
-        curr.push.apply(curr, ys);
+        o.curr.push.apply(o.curr, ys);
         o.length += ys.length;
-        offset = offset + ys.length > 0 ? 0 : offset + ys.length;
+        o.offset = o.offset + ys.length > 0 ? 0 : o.offset + ys.length;
         return o;
       }
     };
 
+    o.curr = curr;
+    o.offset = offset;
+
     o.own = () => {
-      locked = true;
+      immutable = true;
       return go(o, [], 0);
     }
 
     o.length = prev.length;
 
     o.pop = () => {
-      if (locked) throw new TypeError("delete op on locked array");
-      else if (o.length === 0) return [undefined, o];
+      if (immutable) {
+        const ys = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
+        return Pair(ys.pop(), Iarray(ys));
+      }
 
-      else if (curr.length === 0) {
-        const pair = [prev.at(o.length - 1 + offset), o]
+      else if (o.length === 0) return Pair(undefined, o);
+
+      else if (o.curr.length === 0) {
+        const pair = Pair(Loop(() => o.prev.at_(o.length - 1 + o.offset)) (), o)
         o.length--;
-        offset--;
+        o.offset--;
         return pair;
       }
 
       else {
         o.length--;
-        return [curr.pop(), o];
+        return Pair(o.curr.pop(), o);
       }
     };
 
+    o.prev = prev;
+
     o.push = x => {
-      if (locked) throw new TypeError("delete op on locked array");
+      if (immutable) {
+        const ys = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
+        ys.push(x);
+        return Iarray(ys);
+      }
 
       else {
-        curr.push(x);
+        o.curr.push(x);
         o.length++;
         return o;
       }
     };
 
-    o.unown = (ys = [], prevOffset = 0) => {
-      if (prevOffset < 0 && prevOffset + curr.length < 0) {
-        prevOffset += curr.length;
+    o.unown = (ys = [], offset = 0) =>
+      Loop2((ys2, offset2) => o.unown_(ys2, offset2)) (ys, offset);
 
-        if (prev === xs) {
-          if (offset + prevOffset + prev.length < 0)
+    o.unown_ = (ys, offset) => {
+      if (offset < 0 && offset + o.curr.length < 0) {
+        offset += o.curr.length;
+
+        if (o.prev === xs) {
+          if (o.offset + offset + o.prev.length < 0)
             throw TypeError("invalid persistent array offset");
           
-          else if (offset + prevOffset + prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return ys;
+          else if (o.offset + offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, o.offset));
+            return Loop2.base(ys);
           }
 
-          else return ys;
+          else return Loop2.base(ys);
         }
 
-        else return prev.unown(ys, offset + prevOffset);
+        else return Loop2.call(o.prev.unown_, ys, o.offset + offset);
       }
 
-      else if (prevOffset < 0 && prevOffset + curr.length > 0) {
-        if (prev === xs) {
-          if (offset + prev.length < 0)
+      else if (offset < 0 && offset + o.curr.length > 0) {
+        if (o.prev === xs) {
+          if (o.offset + o.prev.length < 0)
             throw TypeError("invalid persistent array offset");
           
-          else if (offset + prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return ys;
+          else if (o.offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, o.offset));
+            return Loop2.base(ys);
           }
 
-          else return ys;
+          else return Loop2.base(ys);
         }
 
         else {
-          ys.unshift.apply(ys, curr.slice(0, prevOffset));
-          return prev.unown(ys, offset);
+          ys.unshift.apply(ys, o.curr.slice(0, offset));
+          return Loop2.call(o.prev.unown_, ys, o.offset);
         }
       }
 
       else {
-        if (prevOffset === 0) ys.unshift.apply(ys, curr);
+        if (offset === 0) ys.unshift.apply(ys, o.curr);
 
-        if (prev === xs) {
-          if (offset < 0 && offset + prev.length < 0)
+        if (o.prev === xs) {
+          if (o.offset < 0 && o.offset + o.prev.length < 0)
             throw TypeError("invalid persistent array offset");
           
-          else if (offset < 0 && offset + prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return ys;
+          else if (o.offset < 0 && o.offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, o.offset));
+            return Loop2.base(ys);
           }
 
           else {
-            if (offset === 0) ys.unshift.apply(ys, xs);
-            return ys;
+            if (o.offset === 0) ys.unshift.apply(ys, xs);
+            return Loop2.base(ys);
           }
         }
 
-        else return prev.unown(ys, offset);
+        else return Loop2.call(o.prev.unown_,ys, o.offset);
       }
     };
 
     return new Proxy(o, {
-      deleteProperty(_, k) {
+      deleteProperty(_, i) {
         throw new TypeError(`invalid delete op on persistent array`);
       },
 
-      get(_, k, proxy) {
-        if (typeof k === "symbol") return o[k];
-        else if (String(Number(k)) === k) return o.at(Number(k));
-        else return o[k];
+      get(_, i, proxy) {
+        if (typeof i === "symbol") return o[i];
+        else if (String(Number(i)) === i) return Loop(i2 => o.at_(Number(i2))) (i);
+        else return o[i];
       },
 
-      has(_, k, proxy) {
-        if (typeof k === "symbol") return k in o;
-        else if (String(Number(k)) === k) return Number(k) < o.length;
-        else return k in o;
+      has(_, i, proxy) {
+        if (typeof i === "symbol") return i in o;
+        else if (String(Number(i)) === i) return Number(i) < o.length;
+        else return i in o;
       },
 
-      set(_, k, v, proxy) {
+      set(_, i, v, proxy) {
         throw new TypeError(`invalid set op on persistent array`);
       }
     });
@@ -4129,25 +4151,32 @@ Id.Monad = {
 /* Immutable `Imap` type based on a persistent data structure. See `Iarray` for
 detailed information on its usage. */
 
-const Imap = m => {
+export const Imap = m => {
   const go = (prev, curr, del) => {
     const o = {};
-    let locked = false;
+    let immutable = false;
 
     o[TAG] = "Imap";
     o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
 
-    o.delete = k => {
-      if (locked) throw new TypeError("delete op on locked map");
+    o.curr = curr;
+    o.del = del;
 
-      else if (curr.has(k)) {
-        curr.delete(k);
+    o.delete = k => {
+      if (immutable) {
+        const m2 = Loop2((ms, ss) => o.unown_(ms, ss)) ([], []);
+        m2.delete(k);
+        return Imap(m2);
+      }
+
+      else if (o.curr.has(k)) {
+        o.curr.delete(k);
         o.size--;
         return o;
       }
 
-      else if (prev.has(k)) {
-        del.add(k);
+      else if (Loop(k2 => o.prev.has_(k2)) (k)) {
+        o.del.add(k);
         o.size--;
         return o;
       }
@@ -4155,49 +4184,71 @@ const Imap = m => {
       else return o;
     };
 
-    o.get = k => {
-      if (curr.has(k)) return curr.get(k);
-      else if (del.has(k)) return undefined;
-      else return prev.get(k);
+    o.get = k => Loop(k2 => o.get_(k2)) (k);
+
+    o.get_ = k => {
+      if (o.curr.has(k)) return Loop.base(o.curr.get(k));
+      else if (o.del.has(k)) return Loop.base(undefined);
+
+      else {
+        if (o.prev === m) return Loop.base(o.prev.get(k));
+        else return Loop.call(o.prev.get_, k);
+      }
     };
 
-    o.has = k => {
-      if (curr.has(k)) return true;
-      else if (del.has(k)) return false;
-      else return prev.has(k);
+    o.has = k => Loop(k2 => o.has_(k2)) (k);
+
+    o.has_ = k => {
+      if (o.curr.has(k)) return Loop.base(true);
+      else if (o.del.has(k)) return Loop.base(false);
+      
+      else {
+        if (o.prev === m) return Loop.base(o.prev.has(k));
+        else return Loop.call(o.prev.has_, k);
+      }
     };
 
     o.own = () => {
-      locked = true;
+      immutable = true;
       return go(o, new Map(), new Set());
     }
 
+    o.prev = prev;
+
     o.set = (k, v) => {
-      if (locked) throw new TypeError("delete op on locked map");
-      else if (del.has(k)) del.delete(k);
-      else if (!o.has(k)) o.size++;
-      curr.set(k, v);
+      if (immutable) {
+        const m2 = Loop2((ms, ss) => o.unown_(ms, ss)) ([], []);
+        m2.set(k, v);
+        return Imap(m2);
+      }
+
+      else if (o.del.has(k)) o.del.delete(k);
+      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
+      o.curr.set(k, v);
       return o;
     };
 
-    o.size = prev.size;
+    o.size = o.prev.size;
 
-    o.unown = (ms = [], ss = []) => {
-      ms.unshift(curr);
-      ss.unshift(del);
+    o.unown = (ms = [], ss = []) =>
+      Loop2((ms2, ss2) => o.unown_(ms2, ss2)) (ms, ss);
+
+    o.unown_ = (ms, ss) => {
+      ms.unshift(o.curr);
+      ss.unshift(o.del);
       
-      if (prev === m) {
-        const r = new Map(prev);
+      if (o.prev === m) {
+        const r = new Map(o.prev);
 
         ms.forEach((m2, i) => {
           m2.forEach((v, k) => r.set(k, v));
           ss[i].forEach(k => r.delete(k));
         });
 
-        return r;
+        return Loop2.base(r);
       }
 
-      else return prev.unown(ms, ss);
+      else return Loop2.call(o.prev.unown_, ms, ss);
     };
 
     return o;
@@ -4215,33 +4266,45 @@ const Imap = m => {
 /* Immutable `Iset` type based on a persistent data structure. See `Iarray` for
 detailed information on its usage. */
 
-const Iset = s => {
+export const Iset = s => {
   const go = (prev, curr, del) => {
     const o = {};
-    let locked = false;
+    let immutable = false;
 
     o[TAG] = "Iset";
     o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
 
     o.add = k => {
-      if (locked) throw new TypeError("delete op on locked set");
-      else if (del.has(k)) del.delete(k);
-      else if (!o.has(k)) o.size++;
-      curr.add(k);
+      if (immutable) {
+        const s2 = Loop2((ss, ss2) => o.unown_(ss, ss2)) ([], []);
+        s2.add(k);
+        return Iset(s2);
+      }
+
+      else if (o.del.has(k)) o.del.delete(k);
+      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
+      o.curr.add(k);
       return o;
     };
 
+    o.curr = curr;
+    o.del = del;
+
     o.delete = k => {
-      if (locked) throw new TypeError("delete op on locked set");
+      if (immutable) {
+        const s2 = Loop2((ss, ss2) => o.unown_(ss, ss2)) ([], []);
+        s2.delete(k);
+        return Iset(s2);
+      }
 
       else if (curr.has(k)) {
-        curr.delete(k);
+        o.curr.delete(k);
         o.size--;
         return o;
       }
 
       else if (prev.has(k)) {
-        del.add(k);
+        o.del.add(k);
         o.size--;
         return o;
       }
@@ -4249,35 +4312,45 @@ const Iset = s => {
       else return o;
     };
 
-    o.has = k => {
-      if (curr.has(k)) return true;
-      else if (del.has(k)) return false;
-      else return prev.has(k);
+    o.has = k => Loop(k2 => o.has_(k2)) (k);
+
+    o.has_ = k => {
+      if (o.curr.has(k)) return Loop.base(true);
+      else if (o.del.has(k)) return Loop.base(false);
+      
+      else {
+        if (o.prev === s) return Loop.base(o.prev.has(k));
+        else return Loop.call(o.prev.has_, k);
+      }
     };
 
     o.own = () => {
-      locked = true;
+      immutable = true;
       return go(o, new Set(), new Set());
     }
 
-    o.size = prev.size;
+    o.prev = prev;
+    o.size = o.prev.size;
 
-    o.unown = (ss = [], ss2 = []) => {
-      ss.unshift(curr);
-      ss2.unshift(del);
+    o.unown = (ss = [], ss2 = []) =>
+      Loop2((ss3, ss4) => o.unown_(ss3, ss4)) (ss, ss2);
+
+    o.unown_ = (ss, ss2) => {
+      ss.unshift(o.curr);
+      ss2.unshift(o.del);
       
-      if (prev === m) {
-        const r = new Set(prev);
+      if (o.prev === s) {
+        const r = new Set(o.prev);
 
-        ss.forEach((s, i) => {
-          s.forEach(k => r.add(k));
+        ss.forEach((s2, i) => {
+          s2.forEach(k => r.add(k));
           ss2[i].forEach(k => r.delete(k));
         });
 
-        return r;
+        return Loop2.base(r);
       }
 
-      else return prev.unown(ss, ss2);
+      else return Loop2.call(o.prev.unown_, ss, ss2);
     };
 
     return o;
@@ -8680,8 +8753,8 @@ export const Tuple = {}; // namespace
 
 export const Pair = (x, y) => ({
   [TAG]: "Pair",
-  1: x,
-  2: y,
+  0: x,
+  1: y,
   length: 2,
 
  [Symbol.iterator]: function*() {
@@ -8698,8 +8771,8 @@ export const Pair_ = o => {
   o.length = 2;
 
   o[Symbol.iterator] = function*() {
+    yield o[0];
     yield o[1];
-    yield o[2];
   };
 
   return o;
@@ -8791,7 +8864,7 @@ Pair.Monad = {
             ^^^^^^                                                  */
 
 
-Pair.bimap = f => g => tx => Pair(f(tx[1]), g(tx[2]));
+Pair.bimap = f => g => tx => Pair(f(tx[0]), g(tx[1]));
 
 
 Pair.Bifunctor = ({
@@ -8804,7 +8877,7 @@ Pair.Bifunctor = ({
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
-Pair.extend = fw => wx => Pair(wx[1], fw(wx));
+Pair.extend = fw => wx => Pair(wx[0], fw(wx));
 
 
 Pair.Extend = {
@@ -8830,10 +8903,10 @@ Pair.Comonad = {
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
-Pair.setFst = x => tx => Pair(x, tx[2]);
+Pair.setFst = x => tx => Pair(x, tx[1]);
 
 
-Pair.setSnd = x => tx => Pair(tx[1], x);
+Pair.setSnd = x => tx => Pair(tx[0], x);
 
 
 /*
@@ -8897,9 +8970,9 @@ W.T = outer => thisify(o => { // outer monad's type classes
 
 export const Triple = (x, y, z) => ({
   [TAG]: "Triple",
-  1: x,
-  2: y,
-  3: z,
+  0: x,
+  1: y,
+  2: z,
   length: 3,
 
   [Symbol.iterator]: function*() {
@@ -8917,9 +8990,9 @@ export const Triple_ = o => {
   o.length = 3;
 
   o[Symbol.iterator] = function*() {
+    yield o[0];
     yield o[1];
     yield o[2];
-    yield o[3];
   };
 
   return o;
