@@ -3928,7 +3928,6 @@ export const Iarray = xs => {
       else {
         o.curr.push.apply(o.curr, ys);
         o.length += ys.length;
-        o.offset = o.offset + ys.length > 0 ? 0 : o.offset + ys.length;
         return o;
       }
     };
@@ -3980,66 +3979,78 @@ export const Iarray = xs => {
       }
     };
 
-    o.unown = (ys = [], offset = 0) =>
-      Loop2((ys2, offset2) => o.unown_(ys2, offset2)) (ys, offset);
+    o.unown = (ys = [], remainder = 0) =>
+      Loop2((ys2, remainder2) => o.unown_(ys2, remainder2)) (ys, remainder);
 
-    o.unown_ = (ys, offset) => {
-      if (offset < 0 && offset + o.curr.length < 0) {
-        offset += o.curr.length;
-
-        if (o.prev === xs) {
-          if (o.offset + offset + o.prev.length < 0)
-            throw TypeError("invalid persistent array offset");
-          
-          else if (o.offset + offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, o.offset));
-            return Loop2.base(ys);
-          }
-
-          else return Loop2.base(ys);
-        }
-
-        else return Loop2.call(o.prev.unown_, ys, o.offset + offset);
-      }
-
-      else if (offset < 0 && offset + o.curr.length > 0) {
-        if (o.prev === xs) {
-          if (o.offset + o.prev.length < 0)
-            throw TypeError("invalid persistent array offset");
-          
-          else if (o.offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, o.offset));
-            return Loop2.base(ys);
-          }
-
-          else return Loop2.base(ys);
-        }
-
-        else {
-          ys.unshift.apply(ys, o.curr.slice(0, offset));
-          return Loop2.call(o.prev.unown_, ys, o.offset);
-        }
-      }
-
-      else {
-        if (offset === 0) ys.unshift.apply(ys, o.curr);
+    o.unown_ = (ys, remainder) => {
+      if (remainder < 0 && remainder + o.curr.length < 0) {
+        remainder += o.curr.length;
 
         if (o.prev === xs) {
-          if (o.offset < 0 && o.offset + o.prev.length < 0)
+          const offset = o.offset + remainder;
+
+          if (offset < 0 && offset + o.prev.length < 0)
             throw TypeError("invalid persistent array offset");
           
-          else if (o.offset < 0 && o.offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, o.offset));
+          else if (offset < 0 && offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
             return Loop2.base(ys);
           }
 
           else {
-            if (o.offset === 0) ys.unshift.apply(ys, xs);
+            if (offset === 0) ys.unshift.apply(ys, xs);
             return Loop2.base(ys);
           }
         }
 
-        else return Loop2.call(o.prev.unown_,ys, o.offset);
+        else return Loop2.call(o.prev.unown_, ys, o.offset + remainder);
+      }
+
+      else if (remainder < 0 && remainder + o.curr.length > 0) {
+        ys.unshift.apply(ys, o.curr.slice(0, remainder));
+        remainder = 0;
+
+        if (o.prev === xs) {
+          const offset = o.offset + remainder;
+
+          if (offset < 0 && offset + o.prev.length < 0)
+            throw TypeError("invalid persistent array offset");
+          
+          else if (offset < 0 && offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
+            return Loop2.base(ys);
+          }
+
+          else {
+            if (offset === 0) ys.unshift.apply(ys, xs);
+            return Loop2.base(ys);
+          }
+        }
+
+        else return Loop2.call(o.prev.unown_, ys, o.offset + remainder);
+      }
+
+      else {
+        ys.unshift.apply(ys, o.curr);
+
+        if (o.prev === xs) {
+          const offset = o.offset + remainder;
+
+          if (offset < 0 && offset + o.prev.length < 0)
+            throw TypeError("invalid persistent array offset");
+          
+          else if (offset < 0 && offset + o.prev.length > 0) {
+            ys.unshift.apply(ys, xs.slice(0, offset));
+            return Loop2.base(ys);
+          }
+
+          else {
+            if (offset === 0) ys.unshift.apply(ys, xs);
+            return Loop2.base(ys);
+          }
+        }
+
+        else return Loop2.call(o.prev.unown_,ys, o.offset + remainder);
       }
     };
 
