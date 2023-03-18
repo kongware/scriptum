@@ -3896,7 +3896,7 @@ export const Iarray = xs => {
 
     o[TAG] = "Iarray";
     o[Symbol.isConcatSpreadable] = true;
-    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
+    o[Symbol.iterator] = () => o.unown();
 
     o.at = i => Loop(i2 => o.at_(i2)) (i);
 
@@ -3919,11 +3919,7 @@ export const Iarray = xs => {
     };
 
     o.concat = ys => {
-      if (immutable) {
-        const zs = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
-        zs.push.apply(zs, ys);
-        return Iarray(zs);
-      }
+      if (immutable) throw new TypeError("concat op on immutable array");
 
       else {
         o.curr.push.apply(o.curr, ys);
@@ -3943,18 +3939,18 @@ export const Iarray = xs => {
     o.length = prev.length;
 
     o.pop = () => {
-      if (immutable) {
-        const ys = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
-        return Pair(ys.pop(), Iarray(ys));
-      }
-
+      if (immutable) throw new TypeError("pop op on immutable array");
       else if (o.length === 0) return Pair(undefined, o);
 
       else if (o.curr.length === 0) {
-        const pair = Pair(Loop(() => o.prev.at_(o.length - 1 + o.offset)) (), o)
         o.length--;
         o.offset--;
-        return pair;
+
+        const x = o.prev === xs
+          ? xs[xs.length - 1 + o.offset]
+          : Loop(() => o.prev.at_(o.length - 1 + o.offset)) ();
+
+        return Pair(x, o);
       }
 
       else {
@@ -3966,11 +3962,7 @@ export const Iarray = xs => {
     o.prev = prev;
 
     o.push = x => {
-      if (immutable) {
-        const ys = Loop2((ys, offset) => o.unown_(ys, offset)) ([], 0);
-        ys.push(x);
-        return Iarray(ys);
-      }
+      if (immutable) throw new TypeError("push op on immutable array");
 
       else {
         o.curr.push(x);
@@ -3979,84 +3971,55 @@ export const Iarray = xs => {
       }
     };
 
-    o.unown = (ys = [], remainder = 0) =>
-      Loop2((ys2, remainder2) => o.unown_(ys2, remainder2)) (ys, remainder);
+    o.unown = (xss = [], offset = 0) =>
+      Loop2((xss2, offset2) => o.unown_(xss2, offset2)) (xss, offset);
 
-    o.unown_ = (ys, remainder) => {
-      if (remainder < 0 && remainder + o.curr.length < 0) {
-        remainder += o.curr.length;
+    o.unown_ = (xss, offset) => {
+      if (o.curr.length === 0) {}
 
-        if (o.prev === xs) {
-          const offset = o.offset + remainder;
-
-          if (offset < 0 && offset + o.prev.length < 0)
-            throw TypeError("invalid persistent array offset");
-          
-          else if (offset < 0 && offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return Loop2.base(ys);
-          }
-
-          else {
-            if (offset === 0) ys.unshift.apply(ys, xs);
-            return Loop2.base(ys);
-          }
+      else if (offset < 0) {
+        if (o.curr.length + offset < 0) offset += o.curr.length;
+        
+        else if (o.curr.length + offset > 0) {
+          xss.push(o.curr.slice(0, offset));
+          offset = 0;
         }
 
-        else return Loop2.call(o.prev.unown_, ys, o.offset + remainder);
+        else offset = 0;
       }
 
-      else if (remainder < 0 && remainder + o.curr.length > 0) {
-        ys.unshift.apply(ys, o.curr.slice(0, remainder));
-        remainder = 0;
+      else xss.push(o.curr);
 
-        if (o.prev === xs) {
-          const offset = o.offset + remainder;
+      if (o.prev === xs) {
+        const offset2 = offset + o.offset
 
-          if (offset < 0 && offset + o.prev.length < 0)
+        if (xs.length === 0) {}
+
+        else if (offset2 < 0) {
+          if (xs.length + offset2 < 0)
             throw TypeError("invalid persistent array offset");
           
-          else if (offset < 0 && offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return Loop2.base(ys);
-          }
+          else if (xs.length + offset2 > 0)
+            xss.push(xs.slice(0, offset2));
 
-          else {
-            if (offset === 0) ys.unshift.apply(ys, xs);
-            return Loop2.base(ys);
-          }
+          else {}
         }
 
-        else return Loop2.call(o.prev.unown_, ys, o.offset + remainder);
+        else xss.push(xs);
+
+        return Loop2.base(function* () {
+          for (let i = xss.length - 1; i >= 0; i--) {
+            for (let x of xss[i]) yield x;
+          }
+        } ());
       }
 
-      else {
-        ys.unshift.apply(ys, o.curr);
-
-        if (o.prev === xs) {
-          const offset = o.offset + remainder;
-
-          if (offset < 0 && offset + o.prev.length < 0)
-            throw TypeError("invalid persistent array offset");
-          
-          else if (offset < 0 && offset + o.prev.length > 0) {
-            ys.unshift.apply(ys, xs.slice(0, offset));
-            return Loop2.base(ys);
-          }
-
-          else {
-            if (offset === 0) ys.unshift.apply(ys, xs);
-            return Loop2.base(ys);
-          }
-        }
-
-        else return Loop2.call(o.prev.unown_,ys, o.offset + remainder);
-      }
+      else return Loop2.call(o.prev.unown_, xss, offset + o.offset);
     };
 
     return new Proxy(o, {
       deleteProperty(_, i) {
-        throw new TypeError(`invalid delete op on persistent array`);
+        throw new TypeError(`delete op on persistent array`);
       },
 
       get(_, i, proxy) {
@@ -4072,10 +4035,9 @@ export const Iarray = xs => {
       },
 
       set(_, i, v, proxy) {
-        throw new TypeError(`invalid set op on persistent array`);
+        throw new TypeError(`set op on persistent array`);
       }
     });
-
   };
 
   return go(xs, [], 0);
@@ -4168,17 +4130,12 @@ export const Imap = m => {
     let immutable = false;
 
     o[TAG] = "Imap";
-    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
-
+    o[Symbol.iterator] = () => o.unown();
     o.curr = curr;
     o.del = del;
 
     o.delete = k => {
-      if (immutable) {
-        const m2 = Loop2((ms, ss) => o.unown_(ms, ss)) ([], []);
-        m2.delete(k);
-        return Imap(m2);
-      }
+      if (immutable) throw new TypeError("delete op on immutable map");
 
       else if (o.curr.has(k)) {
         o.curr.delete(k);
@@ -4227,12 +4184,7 @@ export const Imap = m => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (immutable) {
-        const m2 = Loop2((ms, ss) => o.unown_(ms, ss)) ([], []);
-        m2.set(k, v);
-        return Imap(m2);
-      }
-
+      if (immutable) throw new TypeError("set op on immutable map");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -4248,15 +4200,18 @@ export const Imap = m => {
       ms.unshift(o.curr);
       ss.unshift(o.del);
       
-      if (o.prev === m) {
-        const r = new Map(o.prev);
+      if (o.prev === p) {
+        ms.push(o.prev);
+        ss.push(new Set());
 
-        ms.forEach((m2, i) => {
-          m2.forEach((v, k) => r.set(k, v));
-          ss[i].forEach(k => r.delete(k));
-        });
-
-        return Loop2.base(r);
+        return Loop2.base(function* () {
+          for (let i = ms.length - 1; i >= 0; i--) {
+            for (let [k, v] of ms[i]) {
+              if (ss[i].has(k)) continue;
+              else yield [k, v];
+            }
+          }
+        } ());
       }
 
       else return Loop2.call(o.prev.unown_, ms, ss);
@@ -4266,6 +4221,170 @@ export const Imap = m => {
   };
 
   return go(m, new Map(), new Set());
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ IOBJECT ███████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Immutable `Iobject` type based on a persistent data structure. See `Iarray`
+for detailed information on its usage. */
+
+
+export const Iobject = p => {
+  const go = (prev, curr, del) => {
+    const o = {};
+    let immutable = false;
+
+    o[Symbol.iterator] = () => o.unown();
+    o[TAG] = "Iobject";
+    o.curr = curr;
+    o.del = del;
+
+    o.delete = k => {
+      if (immutable) throw new TypeError("delete op on immutable object");
+
+      else if (o.curr.has(k)) {
+        o.curr.delete(k);
+        o.size--;
+        return o;
+      }
+
+      else if (o.prev === p) {
+        if (k in o.prev) {
+          o.del.add(k);
+          o.size--;
+          return o;
+        }
+
+        else return o;
+      }
+
+      else if (Loop(k2 => o.prev.has_(k2)) (k)) {
+        o.del.add(k);
+        o.size--;
+        return o;
+      }
+
+      else return o;
+    };
+
+    o.get = k => Loop(k2 => o.get_(k2)) (k);
+
+    o.get_ = k => {
+      if (o.curr.has(k)) return Loop.base(o.curr.get(k));
+      else if (o.del.has(k)) return Loop.base(undefined);
+
+      else {
+        if (o.prev === p) return Loop.base(o.prev[k]);
+        else return Loop.call(o.prev.get_, k);
+      }
+    };
+
+    o.has = k => Loop(k2 => o.has_(k2)) (k);
+
+    o.has_ = k => {
+      if (o.curr.has(k)) return Loop.base(true);
+      else if (o.del.has(k)) return Loop.base(false);
+      
+      else {
+        if (o.prev === p) return Loop.base(k in o.prev);
+        else return Loop.call(o.prev.has_, k);
+      }
+    };
+
+    o.own = () => {
+      immutable = true;
+      return go(o, new Map(), new Set());
+    }
+
+    o.prev = prev;
+
+    o.set = (k, v) => {
+      if (immutable) throw new TypeError("set op on immutable object");
+      else if (o.del.has(k)) o.del.delete(k);
+      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
+      o.curr.set(k, v);
+      return o;
+    };
+
+    o.size = o.prev === p ? Object.keys(p).length : o.prev.size;
+
+    o.unown = (ms = [], ss = []) =>
+      Loop2((ms2, ss2) => o.unown_(ms2, ss2)) (ms, ss);
+
+    o.unown_ = (ms = [], ss = []) => {
+      ms.push(o.curr);
+      ss.push(o.del);
+      
+      if (o.prev === p) {
+        ms.push(o.prev);
+        ss.push(new Set());
+
+        return Loop2.base(function* () {
+          for (let i = ms.length - 1; i >= 0; i--) {
+            if (i === ms.length - 1) {
+              for (let k in ms[i]) {
+                if (ss[i].has(k)) continue;
+                else yield [k, ms[i] [k]];
+              }
+            }
+
+            else {
+              for (let [k, v] of ms[i]) {
+                if (ss[i].has(k)) continue;
+                else yield [k, v];
+              }
+            }
+          }
+        } ());
+      }
+
+      else return Loop2.call(o.prev.unown_, ms, ss);
+    };
+
+    return new Proxy(o, {
+      deleteProperty(_, k) {
+        if (k[0] === "_") return o[k.slice(1)];
+         
+         else if (k === Symbol.iterator
+          || k === TAG) return o[k];
+
+        else return o.delete(k)
+      },
+      
+      get(_, k, proxy) {
+        if (k[0] === "_") return o[k.slice(1)];
+        
+        else if (k === Symbol.iterator
+          || k === TAG) return o[k];
+
+        else return o.get(k)
+      },
+      
+      has(_, k, proxy) {
+        if (k[0] === "_") return o[k.slice(1)];
+        
+        else if (k === Symbol.iterator
+          || k === TAG) return o[k];
+        
+        else return o.has(k)
+      },
+      
+      set(_, k, v, proxy) {
+        if (k[0] === "_") return o[k.slice(1)];
+
+        else if (k === Symbol.iterator
+          || k === TAG) return o[k];
+        
+        else return o.set(k, v)
+      }
+    });
+  };
+
+  return go(p, new Map(), new Set());
 };
 
 
@@ -4283,15 +4402,10 @@ export const Iset = s => {
     let immutable = false;
 
     o[TAG] = "Iset";
-    o[Symbol.iterator] = () => o.unown() [Symbol.iterator] ();
+    o[Symbol.iterator] = () => o.unown();
 
     o.add = k => {
-      if (immutable) {
-        const s2 = Loop2((ss, ss2) => o.unown_(ss, ss2)) ([], []);
-        s2.add(k);
-        return Iset(s2);
-      }
-
+      if (immutable) throw new TypeError("add op on immutable set");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.add(k);
@@ -4302,11 +4416,7 @@ export const Iset = s => {
     o.del = del;
 
     o.delete = k => {
-      if (immutable) {
-        const s2 = Loop2((ss, ss2) => o.unown_(ss, ss2)) ([], []);
-        s2.delete(k);
-        return Iset(s2);
-      }
+      if (immutable) throw new TypeError("delete op on immutable set");
 
       else if (curr.has(k)) {
         o.curr.delete(k);
@@ -4347,18 +4457,21 @@ export const Iset = s => {
       Loop2((ss3, ss4) => o.unown_(ss3, ss4)) (ss, ss2);
 
     o.unown_ = (ss, ss2) => {
-      ss.unshift(o.curr);
-      ss2.unshift(o.del);
+      ss.push(o.curr);
+      ss2.push(o.del);
       
       if (o.prev === s) {
-        const r = new Set(o.prev);
+        ss.push(o.prev);
+        ss2.push(new Set());
 
-        ss.forEach((s2, i) => {
-          s2.forEach(k => r.add(k));
-          ss2[i].forEach(k => r.delete(k));
-        });
-
-        return Loop2.base(r);
+        return Loop2.base(function* () {
+          for (let i = ss.length - 1; i >= 0; i--) {
+            for (let k of ss[i]) {
+              if (ss2[i].has(k)) continue;
+              else yield k;
+            }
+          }
+        } ());
       }
 
       else return Loop2.call(o.prev.unown_, ss, ss2);
