@@ -1342,13 +1342,7 @@ export const xor = x => y => !!(!!x ^ !!y);
 F.append = ({append}) => f => g => x => append(f(x)) (g(x));
 
 
-F.prepend = ({prepend}) => g => f => x => prepend(f(x)) (g(x));
-
-
-F.Semigroup = {
-  append: F.append,
-  prepend: F.prepend
-};
+F.Semigroup = {append: F.append};
 
 
 /*
@@ -1617,7 +1611,7 @@ Efficient operation guide:
 
   * Array: random element access, mutations
   * List: cons/uncons
-  * DList: append/prepend, cons/snoc
+  * DList: append, cons/snoc
   * Vector: element update, snoc/unsnoc, init/last
   * Sequence: element insert/delete */
 
@@ -1727,7 +1721,7 @@ A.unsnoc = xs => Pair(
 
 
 /*
-█████ Contextualizing █████████████████████████████████████████████████████████*/
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 A.mapSucc = f => xs => {
@@ -1740,30 +1734,10 @@ A.mapSucc = f => xs => {
 };
 
 
-A.mapPair = f => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i+=2, j+=2)
-    acc.push(f(Pair(xs[i], xs[j])));
-
-  return acc;
-};
-
-
 A.reduceSucc = f => acc => xs => {
   const acc = [];
 
   for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc = f(acc) (Pair(xs[i], xs[j]));
-
-  return acc;
-};
-
-
-A.reducePair = f => acc => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i+=2, j+=2)
     acc = f(acc) (Pair(xs[i], xs[j]));
 
   return acc;
@@ -2098,7 +2072,7 @@ Object.defineProperty(A, "zero", { // due to mutable arrays
 
 
 A.Plus = {
-  ...A.Alt,
+  ...A.Alt
 };
 
 
@@ -2275,13 +2249,7 @@ A.para = f => init => xs => {
 A.append = xs => ys => (xs.push.apply(xs, ys), xs);
 
 
-A.prepend = ys => xs => (xs.push.apply(xs, ys), xs);
-
-
-A.Semigroup = {
-  append: A.append,
-  prepend: A.prepend
-};
+A.Semigroup = {append: A.append};
 
 
 /*
@@ -2543,6 +2511,30 @@ A.unzip = () => A.foldl(([x, y]) => ([xs, ys]) =>
 
 
 /*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+A.mapSucc = f => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc.push(f(Pair(xs[i], xs[j])));
+
+  return acc;
+};
+
+
+A.reduceSucc = f => acc => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc = f(acc) (Pair(xs[i], xs[j]));
+
+  return acc;
+};
+
+
+/*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
@@ -2621,12 +2613,6 @@ Nea.init = ({head, tail}) => _let(tail.slice(-1))
 
 
 Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
-
-
-Nea.prependArr = xs => ({head, tail}) => {
-  tail.push.apply(tail, xs);
-  return Nea(head) (tail);
-};
 
 
 Nea.singleton = x => Nea(x) ([]);
@@ -2777,17 +2763,7 @@ Nea.append = ({head, tail}) => ({head: head2, tail: tail2}) => {
 };
 
 
-Nea.prepend = ({head: head2, tail: tail2}) => ({head, tail}) => {
-  tail.push(head);
-  tail.push.apply(tail, tail2);
-  return Nea(head) (tail);
-};
-
-
-Nea.Semigroup = {
-  append: Nea.append,
-  prepend: Nea.prepend
-};
+Nea.Semigroup = {append: Nea.append};
 
 
 /*
@@ -3082,17 +3058,7 @@ Cont.append = ({append}) => tx => ty =>
         k(append(x) (y)))));
 
 
-Cont.prepend = ({append}) => ty => tx =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(append(x) (y)))));
-
-
-Cont.Semigroup = {
-  append: Cont.append,
-  prepend: Cont.prepend
-};
+Cont.Semigroup = {append: Cont.append};
 
 
 /*
@@ -3552,20 +3518,7 @@ Either.append = ({append}) => tx => ty => tx.run({
 });
 
 
-Either.prepend = ({append}) => ty => tx => tx.run({
-  left: _ => ty,
-
-  right: x => ty.run({
-    left: _ => tx,
-    right: y => Either.Right(append(x) (y))
-  })
-});
-
-
-Either.Semigroup = {
-  append: Either.append,
-  prepend: Either.prepend
-};
+Either.Semigroup = {append: Either.append};
 
 
 /*
@@ -3808,16 +3761,7 @@ E.append = ({append}) => tx => ty =>
     : append(tx) (ty);
 
 
-E.prepend = ({append}) => ty => tx =>
-  introspect(tx) === "Error" ? tx
-    : introspect(ty) === "Error" ? ty
-    : append(tx) (ty);
-
-
-E.Semigroup = {
-  append: E.append,
-  prepend: E.prepend
-};
+E.Semigroup = {append: E.append};
 
 
 /*
@@ -4485,11 +4429,7 @@ export const It = {};
 It.all = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
-
-    if (done) {
-      if (x !== undefined) return f(x);
-      else return true;
-    }
+    if (done) return;
   } while (f(x));
 
   return false;
@@ -4522,12 +4462,8 @@ It.drop = ({empty, append}, {of}) => n => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return append(tx) (of(x));
-      else return tx;
-    }
-
-    yield append(tx) (of(x));
+    if (done) return;
+    else yield append(tx) (of(x));
   } while (true);
 };
 
@@ -4537,14 +4473,7 @@ It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
 
   while (true) {
     const {value: x, done} = ix.next();
-    if (done) {
-      if (x !== undefined && !p(x)) {
-        append(tx) (of(x));
-        break;
-      }
-      
-      else return tx;
-    }
+    if (done) return;
 
     else if (!p(x)) {
       append(tx) (of(x));
@@ -4555,12 +4484,8 @@ It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return append(tx) (of(x));
-      else return tx;
-    }
-
-    yield append(tx) (of(x));
+    if (done) return;
+    else yield append(tx) (of(x));
   } while (true);
 };
 
@@ -4571,12 +4496,8 @@ It.take = ({empty, append}, {of}) => n => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return append(tx) (of(x));
-      else return tx;
-    }
-
-    yield append(tx) (of(x));
+    if (done) return;
+    else yield append(tx) (of(x));
   } while (--n > 0);
 };
 
@@ -4587,13 +4508,9 @@ It.takeWhile = ({empty, append}, {of}) => p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined && p(x)) return append(tx) (of(x));
-      else return tx;
-    }
-
+    if (done) return;
     else if (p(x)) yield append(tx) (of(x));
-    else return tx;
+    else return;
   } while (true);
 };
 
@@ -4606,10 +4523,7 @@ It.any = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return f(x);
-      else return false;
-    }
+    if (done) return;
   } while (!f(x));
 
   return true;
@@ -4624,11 +4538,7 @@ It.filter = p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return p(x) ? x : undefined;
-      else return x;
-    }
-
+    if (done) return;
     else if (p(x)) yield x;
   } while (true);
 };
@@ -4645,17 +4555,54 @@ It.foldl = f => acc => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return f(acc) (x);
-      else return acc;
-    }
-
-    yield f(acc) (x);
+    if (done) return;
+    else yield f(acc) (x);
   } while (true);
 };
 
 
-// TODO: It.foldr
+It.foldr = f => acc => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield f(acc) (x);
+  } while (true);
+};
+
+
+It.Foldable = {
+  foldl: It.foldl,
+  foldr: It.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+It.mapA = ({map, ap, of}) => ft => function* (ix) {
+  const {value: x, done} = ix.next();
+
+  if (done) return;
+  else return map(y => function* () {yield y} ()) (ft(x));
+};
+
+
+It.seqA = ({map, ap, of}) => function* (ix) {
+  const {value: tx, done} = ix.next();
+
+  if (done) return;
+  else return map(x => function* () {yield x} ()) (tx);
+};
+
+
+It.Traversable = () => ({
+  ...It.Foldable,
+  ...It.Functor,
+  mapA: It.mapA,
+  seqA: It.seqA
+});
 
 
 /*
@@ -4666,12 +4613,8 @@ It.map = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return f(x);
-      else return x;
-    }
-
-    yield f(x);
+    if (done) return;
+    else yield f(x);
   } while (true);
 };
 
@@ -4680,21 +4623,211 @@ It.Functor = {map: It.map};
 
 
 /*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+It.alt = ix => iy => {
+  const {value: x, done} = ix.next(),
+    {value: y, done: done2} = iy.next();
+
+  if (!done) yield x;
+  else if (!done2) yield y;
+  else return;
+}
+
+
+It.Alt = {
+  ...It.Functor,
+  alt: It.alt
+};
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+It.zero = () => It.empty;
+
+
+It.Plus = {
+  ...It.Alt,
+  zero: It.zero
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+It.ap = tf => function* (ix) {
+  do {
+    const {value: f, done} = tf.next(),
+      {value: x, done: done2} = ix.next();
+
+    if (done || done2) return;
+    else yield function* () {yield f(x)} ();
+  } while (true);
+};
+
+
+It.Apply = {
+  ...It.Functor,
+  ap: It.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+It.chain = mx => function* (fm) {
+  do {
+    const {value: x, done} = mx.next();
+
+    if (done) return;
+    else yield* fm(x);
+  } while (true);
+};
+
+
+It.Chain = {
+  ...It.Apply,
+  chain: It.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+It.of = x => function* () {yield x} ();
+
+
+It.Applicative = {
+  ...It.Apply,
+  of: It.of
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+It.Alternative = {
+  ...It.Plus,
+  ...It.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+It.Monad = {
+  ...It.Applicative,
+  chain: It.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+It.append = ({append}) => ix => iy => {
+  const {value: x, done} = ix.next(),
+    {value: y, done: done2} = iy.next();
+
+  if (done || done2) return;
+  else yield append(x) (y);
+}
+
+
+It.Semigroup = {append: It.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+It.empty = function* () {} ();
+
+
+It.Monoid = {
+  ...It.Semigroup,
+  empty: It.empty
+};
+
+
+/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+It.foldSucc = f => acc => ix => {
+  let {value: x} = ix.next();
+
+  do {
+    const {value: y, done} = ix.next();
+
+    if (done) return;
+    
+    else {
+      yield f(acc) (Pair(x, y));
+      x = y;
+    }
+  } while (true);
+};
+
+
+It.mapSucc = f => function* (ix) {
+  let {value: x} = ix.next();
+
+  do {
+    const {value: y, done} = ix.next();
+
+    if (done) return;
+    
+    else {
+      yield f(Pair(x, y));
+      x = y;
+    }
+  } while (true);
+};
 
 
 It.reduce = f => acc => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) {
-      if (x !== undefined) return f(acc, x);
-      else return acc;
-    }
-
-    yield f(acc, x);
+    if (done) return;
+    else yield f(acc, x);
   } while (true);
 };
+
+
+It.reduceSucc = f => acc => ix => {
+  let {value: x} = ix.next();
+
+  do {
+    const {value: y, done} = ix.next();
+
+    if (done) return;
+
+    else {
+      yield f(acc, Pair(x, y));
+      x = y;
+    }
+  } while (true);
+};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+It.zero = It.zero();
+
+
+It.Traversable = It.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4859,7 +4992,7 @@ Efficient operation guide:
 
   * Array: random element access, mutations
   * List: cons/uncons
-  * DList: append/prepend, cons/snoc
+  * DList: append, cons/snoc
   * Vector: element update, snoc/unsnoc, init/last
   * Sequence: element insert/delete */
 
@@ -5135,6 +5268,16 @@ L.Chain = {
 
 
 /*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+L.Alternative = {
+  ...L.Plus,
+  ...L.Applicative
+};
+
+
+/*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
@@ -5168,16 +5311,7 @@ L.append = flip(L.foldr(L.Cons));
 L.append_ = flip(L.foldr_(L.Cons));
 
 
-L.prepend = L.foldr(L.Cons);
-
-
-L.prepend_ = L.foldr_(L.Cons);
-
-
-L.Semigroup = {
-  append: L.append,
-  prepend: L.prepend
-};
+L.Semigroup = {append: L.append};
 
 
 /*
@@ -5302,6 +5436,12 @@ L.T = outer => thisify(o => { // outer monad's type classes
   };
 
 
+  o.Foldable = {
+    foldl: o.foldl,
+    foldr: o.foldr
+  };
+
+
 /*
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
@@ -5413,7 +5553,8 @@ L.T = outer => thisify(o => { // outer monad's type classes
   };
 
 
-/***[ Functor :: Apply :: Applicative :: Alternative ]************************/
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
 
 
   o.Alternative = {
@@ -5440,14 +5581,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
     o.foldr(x => mx => outer.of(L.Cons(x) (mx))) (mmx) (mmy);
 
 
-  o.prepend = mmy => mmx =>
-    o.foldr(x => mx => outer.of(L.Cons(x) (mx))) (mmx) (mmy);
-
-
-  o.Semigroup = {
-    append: o.append,
-    prepend: o.prepend
-  };
+  o.Semigroup = {append: o.append};
 
 
 /*
@@ -5492,7 +5626,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// efficient append/prepend and cons/snoc operations
+// efficient append and cons/snoc operations
 
 
 export const DList = f => ({
@@ -5531,13 +5665,7 @@ DList.fromArr = xs => comp(DList) (A.append);
 DList.append = tx => ty => DList(comp(tx.run) (ty.run));
 
 
-DList.prepend = ty => tx => DList(comp(tx.run) (ty.run));
-
-
-DList.Semigroup = {
-  append: DList.append,
-  prepend: DList.prepend
-};
+DList.Semigroup = {append: DList.append};
 
 
 /*
@@ -6131,23 +6259,7 @@ Ob.append = ({append}) => tx => ty => Ob(observer =>
   }));
 
 
-Ob.prepend = ({append}) => ty => tx => Ob(observer =>
-  tx.run({
-    next: x => ty.run({
-      next: x2 => observer.next(append(x) (x2)),
-      error: e2 => observer.error(e2),
-      done: y2 => observer.done(y2)
-    }),
-
-    error: e => observer.error(e),
-    done: y => observer.done(y)
-  }));
-
-
-Ob.Semigroup = {
-  append: Ob.append,
-  prepend: Ob.prepend
-};
+Ob.Semigroup = {append: Ob.append};
 
 
 /*
@@ -6187,9 +6299,6 @@ Ob.Race.append = tx => ty => Ob(observer => {
     }
   };
 });
-
-
-Ob.Race.prepend = Ob.Race.append; // there is no order
 
 
 /*
@@ -6528,16 +6637,7 @@ Opt.append = ({append}) => tx => ty =>
     : append(tx) (ty);
 
 
-Opt.prepend = ({prepend}) => ty => tx =>
-  strict(tx) === null ? ty
-    : strict(ty) === null ? tx
-    : prepend(ty) (tx);
-
-
-Opt.Semigroup = {
-  append: Opt.append,
-  prepend: Opt.prepend
-};
+Opt.Semigroup = {append: Opt.append};
 
 
 /*
@@ -6726,13 +6826,7 @@ P.append = ({append}) => tx => ty =>
         k(append(x) (y))));
 
 
-P.prepend = P.append;
-
-
-P.Semigroup = {
-  append: P.append,
-  prepend: P.prepend
-};
+P.Semigroup = {append: P.append};
 
   
 /*
@@ -6743,9 +6837,6 @@ P.Race = {};
 
 
 P.Race.append = P.or;
-
-
-P.Race.prepend = P.or; // there is no order
 
 
 /*
@@ -7814,13 +7905,7 @@ S.append = ({append}) => tx => ty =>
     .run(([x, y]) => k(append(x) (y))));
 
 
-S.prepend = S.append;
-
-
-S.Semigroup = {
-  append: S.append,
-  prepend: S.prepend
-};
+S.Semigroup = {append: S.append};
 
 
 /*
@@ -8050,13 +8135,7 @@ Sex.append = ({append}) => tx => ty =>
     }));
 
 
-Sex.prepend = Sex.append;
-
-
-Sex.Semigroup = {
-  append: Sex.append,
-  prepend: Sex.prepend
-};
+Sex.Semigroup = {append: Sex.append};
 
 
 /*
@@ -8395,9 +8474,9 @@ Stream.alt = tx => ty => function go(tz, done_) {
 } (tx, false);
 
 
-A.Alt = {
-  ...A.Functor,
-  alt: A.alt
+Stream.Alt = {
+  ...Stream.Functor,
+  alt: Stream.alt
 };
 
 
@@ -8496,6 +8575,16 @@ Stream.Chain = {
 
 
 /*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+Stream.Alternative = {
+  ...Stream.Plus,
+  ...Stream.Applicative
+};
+
+
+/*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
@@ -8553,10 +8642,7 @@ Stream.append = ({append}) => tx => ty => function go(tx2, ty2) {
 } (tx, ty);
 
 
-Stream.Semigroup = {
-  append: Stream.append,
-  prepend: Stream.prepend
-};
+Stream.Semigroup = {append: Stream.append};
 
 
 /*
