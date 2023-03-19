@@ -25,19 +25,18 @@ Current Project:
 
 [scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js) is a functional programming lib featuring
 
-* ad-hoc lazy evaluation with implicit thunks
-* principled deferred/lazy evaluation
-* stack-safe tail recursion, tail recursion modulo cons, monad recursion
-* persistent data structures based on R/B tree implementation
-* immutable un-/ordered map + un-/ordered set + vector
-* flat, comrpehensible composition syntax through infix operators
-* simple function-encoded sum types
+* ad-hoc lazy evaluation with implicit thunks (based on `Proxy` type)
+* principled deferred/lazy evaluation (`Defer`/`Lazy`)
+* stack-safe tail recursion, tail recursion modulo cons, monad recursion, mutual recursion
+* persistent data structures `Iarray`/`Iobject`/`Imap`/`Iset` based on nested object types
+* flat composition syntax through infix operators
+* simple, function-encoded sum/product types
 * principled, pure asynchronous computations in serial/parallel
 * functional I/O handling (pure core/impure shell)
-* lots of type class definitions
-* lots of pre-implemented monad transformers
+* lots of predefined type class definitions
 * lots of predefined polymorphic functions
 * lots of monad machinery
+* lots of lazys iterator combinators
 * static loop fusion with transducers
 * dynamic functorial fusion using yoneda
 * let expressions
@@ -48,7 +47,6 @@ Current Project:
 * parser combinators
 * functor composition
 * delimited continuations
-* functional exception handling
 * n-ary tree handling
 
 ## Status
