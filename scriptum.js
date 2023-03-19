@@ -13,28 +13,8 @@
 */
 
 
-/* Scriptum doesn't have type classes, hence type dictionaries have to be
-passed to polymorphic functions explicitly. Type classes of the same type
-are passed as a single type dictionary. If type classes of more than one
-type are needed, several dictionaries are supplied:
 
-Comp.map = ({map}, {map: map2}) => f => ttx => Comp(map(map2(f)) (ttx));
-            ^^^^^  ^^^^^^^^^^^
-             td1       td2
 
-The lib encodes effects as values of monadic types. Monad composition is
-alliviated by monad transformers, which are functions that take a type 
-dictionary of type classes of the outer monad and then return the transformer
-operations of the combined outer and inner monad:
-
-({...type classes}) => ({map: ..., ap: ..., of: ..., chain: ...})
-
-The schematic type of the most simplext monad transformer is `m (n a)` but
-more complex types like `m (Option (n m a)`
-
-where m is the outer monad and n the inner base monad that mainly determines
-the transformer's behavior. For instance the Array monad transformer has the
-type: m [a] */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3962,7 +3942,8 @@ export const Iarray = xs => {
     o.prev = prev;
 
     o.push = x => {
-      if (immutable) throw new TypeError("push op on immutable array");
+      if (x === undefined) return new TypeError("undefined value");
+      else if (immutable) throw new TypeError("push op on immutable array");
 
       else {
         o.curr.push(x);
@@ -4184,7 +4165,9 @@ export const Imap = m => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (immutable) throw new TypeError("set op on immutable map");
+      if (k === undefined) return new TypeError("undefined key");
+      else if (v === undefined) return new TypeError("undefined value");
+      else if (immutable) throw new TypeError("set op on immutable map");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -4303,7 +4286,9 @@ export const Iobject = p => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (immutable) throw new TypeError("set op on immutable object");
+      if (k === undefined) return new TypeError("undefined key");
+      else if (v === undefined) return new TypeError("undefined value");
+      else if (immutable) throw new TypeError("set op on immutable object");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -4405,7 +4390,8 @@ export const Iset = s => {
     o[Symbol.iterator] = () => o.unown();
 
     o.add = k => {
-      if (immutable) throw new TypeError("add op on immutable set");
+      if (k === undefined) return new TypeError("undefined key");
+      else if (immutable) throw new TypeError("add op on immutable set");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.add(k);
@@ -5475,26 +5461,6 @@ L.T = outer => thisify(o => { // outer monad's type classes
     ...o.Semigroup,
     empty: o.empty
   };
-
-
-/*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-  // List a -> m (List m a)
-  o.liftList = tx => L.foldr(x => mx => outer.of(L.Cons(x) (mx))) (o.empty) (tx);
-
-
-  // m a -> m (List m a)
-  o.lift = mx => outer.chain(mx) (o.of);
-
-
-  // (m a -> n a) -> m (List m a) -> n (List n a)
-  // o.mapBase = fm => mmx => TODO
-
-
-  // (m a -> n (List n a)) -> m (List m a) => n (List n a)
-  //o.chainBase = fmm => TODO
 
 
 /*
