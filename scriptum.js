@@ -6773,15 +6773,14 @@ P.Race.empty = P(k => null);
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-/* The type doesn't implement monad, hence some combinators for monad-like
-behavior. */
+P.capture = k => tx => P(k2 => tx.run(x => k(Pair(x, k2))));
 
 
-P.flatmap = mx => fm =>
+P.flatmap = mx => fm => // monad-like
   P(k => mx.run(x => fm(x).run(k)));
 
 
-P.flatten = mmx =>
+P.flatten = mmx => // monad like
   P(k => mmx.run(mx => mx.run(k)));
 
 
@@ -6813,7 +6812,7 @@ P.once = tx => {
 };
 
 
-P.reify = tx => P(k => tx.run(x => k2(Pair(x, k))));
+P.reify = k => x => P(k2 => k(x));
 
 
 /*
@@ -7841,6 +7840,9 @@ S.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
+S.reify = k => x => S(k2 => k(x));
+
+
 S.once = tx => {
   let x = lazy(() => {
     throw new TypeError("race condition detected");
@@ -7869,7 +7871,7 @@ S.once = tx => {
 };
 
 
-S.reify = tx => S(k => tx.run(x => k2(Pair(x, k))));
+S.capture = k => tx => S(k2 => tx.run(x => k(Pair(x, k2))));
 
 
 /*
