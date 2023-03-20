@@ -3340,20 +3340,25 @@ exceptions in being able to return any value in case of short circuit,
 whereas `Except` is fixed with `Error` object as its return type. */
 
 
-export const Either = variant("Either", "Left", "Right") (
-  x => ({run: ({left: f, right: g}) => f(x)}),
-  y => ({run: ({left: f, right: g}) => g(y)})
-);
+export const Either = {}; // namespace
+
+
+Either.Left = x => ({
+  [TAG]: "Either",
+  run: ({left}) => left(x)
+});
+
+
+Either.Right = x => ({
+  [TAG]: "Either",
+  run: ({right}) => right(x)
+});
 
 
 Either.pattern = product("Either", "left", "right");
 
 
-Either.cata = left => right => tx => tx.run({
-  [TAG]: "Either",
-  left,
-  right
-});
+Either.cata = left => right => tx => tx.run({left, right});
 
 
 /*
@@ -3361,14 +3366,12 @@ Either.cata = left => right => tx => tx.run({
 
 
 Either.foldr = f => acc => tx => tx.run({
-  [TAG]: "Either",
   left: _ => acc,
   right: y => f(y) (acc)
 });
 
 
 Either.foldl = f => acc => tx => tx.run({
-  [TAG]: "Either",
   left: _ => acc,
   right: y => f(acc) (y)
 });
@@ -3385,14 +3388,12 @@ Either.Foldable = {
 
 
 Either.mapA = ({map, of}) => ft => tx => tx.run({
-  [TAG]: "Either",
   left: x => of(Either.Left(x)),
   right: y => map(Either.Right) (ft(y))
 });
 
 
 Either.seqA = ({map, of}) => ttx => tx.run({
-  [TAG]: "Either",
   left: tx => map(Either.Left) (tx),
   right: ty => map(Either.Right) (ty)
 });
@@ -3411,7 +3412,6 @@ Either.Traversable = () => ({
 
 
 Either.map = f => tx => tx.run({
-  [TAG]: "Either",
   left: _ => tx,
   right: y => Either.Right(f(y))
 });
@@ -3427,7 +3427,6 @@ Either.Functor = {map: Either.map};
 // encodes the semantics of right biased picking to avoid short circution
 
 Either.alt = tx => ty => tx.run({
-  [TAG]: "Either",
   left: _ => ty,
   right: _ => tx
 })
@@ -3451,7 +3450,6 @@ Either.Alt = {
 
 
 Either.ap = tf => tx => tf.run({
-  [TAG]: "Either",
   left: _ => tx,
 
   right: g => tx.run({
@@ -3485,7 +3483,6 @@ Either.Applicative = {
 
 
 Either.chain = tx => fm => tx.run({
-  [TAG]: "Either",
   left: _ => tx,
   right: y => fm(y)
 });
@@ -3512,7 +3509,6 @@ Either.Monad = {
 
 
 Either.append = ({append}) => tx => ty => tx.run({
-  [TAG]: "Either",
   left: _ => tx,
 
   right: y => ty.run({
@@ -3543,14 +3539,12 @@ Either.Monoid = {
 
 
 Either.isLeft = tx => tx.run({
-  [TAG]: "Either",
   left: _ => true,
   right: _ => false
 });
 
 
 Either.isRight = tx => tx.run({
-  [TAG]: "Either",
   left: _ => false,
   right: _ => true
 });
@@ -6715,7 +6709,7 @@ export const Parallel = k => ({
       get() {throw new TypeError("race condition")},
       configurable: true,
       enumerable: true
-    })
+    });
     
     return f => k(x => {
       const r = f(x);
@@ -6784,7 +6778,7 @@ P.and = tx => ty => {
 };
 
 
-P.allArr = () =>
+P.all = () =>
   A.seqA({
     map: P.map,
     ap: P.ap,
@@ -6812,7 +6806,7 @@ P.or = tx => ty => {
 };
 
 
-P.anyArr = () =>
+P.any = () =>
   A.foldl(acc => tx =>
     P.Race.append(acc) (tx))
       (P.Race.empty);
@@ -6954,10 +6948,10 @@ P.reify = k => x => P(k2 => k(x));
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-P.allArr = P.allArr();
+P.all = P.all();
 
 
-P.anyArr = P.anyArr();
+P.any = P.any();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6982,7 +6976,7 @@ export const ParallelExcept = ks => ({
       get() {throw new TypeError("race condition")},
       configurable: true,
       enumerable: true
-    })
+    });
     
     return o => ks({
       raise: o.raise,
@@ -7845,7 +7839,7 @@ export const Serial = k => ({
       get() {throw new TypeError("race condition")},
       configurable: true,
       enumerable: true
-    })
+    });
     
     return f => k(x => {
       const r = f(x);
@@ -7903,7 +7897,7 @@ S.and = tx => ty =>
         k(Pair(x, y)))));
 
 
-S.allArr = () =>
+S.all = () =>
   A.seqA({
     map: S.map,
     ap: S.ap,
@@ -7911,6 +7905,16 @@ S.allArr = () =>
 
 
 // TODO: S.allList
+
+
+S.allObj = o => {
+  return Object.keys(o).reduce((acc, key) => {
+    return S(k =>
+      acc.run(p =>
+        o[key].run(x =>
+          k((p[key] = x, p)))));
+  }, S.of({}));
+};
 
 
 /*
@@ -8045,7 +8049,7 @@ S.reify = k => x => S(k2 => k(x));
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-S.allArr = S.allArr();
+S.all = S.all();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8070,7 +8074,7 @@ export const SerialExcept = ks => ({
       get() {throw new TypeError("race condition")},
       configurable: true,
       enumerable: true
-    })
+    });
     
     return o => ks({
       raise: o.raise,
@@ -8137,7 +8141,7 @@ Sex.and = tx => ty =>
     }));
 
 
-Sex.allArr = () =>
+Sex.all = () =>
   A.seqA({
     map: Sex.map,
     ap: Sex.ap,
@@ -8306,7 +8310,7 @@ Sex.reify = tx =>
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-Sex.allArr = Sex.allArr();
+Sex.all = Sex.all();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
