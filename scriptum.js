@@ -3391,10 +3391,10 @@ Either.mapA = ({map, of}) => ft => tx => tx.run({
 });
 
 
-Either.seqA = ({of}) => tx => tx.run({
+Either.seqA = ({map, of}) => ttx => tx.run({
   [TAG]: "Either",
-  left: x => of(Either.Left(x)),
-  right: y => of(Either.Right(y))
+  left: tx => map(Either.Left) (tx),
+  right: ty => map(Either.Right) (ty)
 });
 
 
@@ -3412,7 +3412,7 @@ Either.Traversable = () => ({
 
 Either.map = f => tx => tx.run({
   [TAG]: "Either",
-  left: x => Either.Left(x),
+  left: _ => tx,
   right: y => Either.Right(f(y))
 });
 
@@ -3452,11 +3452,11 @@ Either.Alt = {
 
 Either.ap = tf => tx => tf.run({
   [TAG]: "Either",
-  left: x => Either.Left(x),
+  left: _ => tx,
 
-  right: f => tx.run({
-    left: y => Either.Left(y),
-    right: z => Either.Right(f(z))
+  right: g => tx.run({
+    left: _ => tx,
+    right: y => Either.Right(g(y))
   })
 });
 
@@ -3486,7 +3486,7 @@ Either.Applicative = {
 
 Either.chain = tx => fm => tx.run({
   [TAG]: "Either",
-  left: x => Either.Left(x),
+  left: _ => tx,
   right: y => fm(y)
 });
 
@@ -3513,11 +3513,11 @@ Either.Monad = {
 
 Either.append = ({append}) => tx => ty => tx.run({
   [TAG]: "Either",
-  left: _ => ty,
+  left: _ => tx,
 
-  right: x => ty.run({
+  right: y => ty.run({
     left: _ => tx,
-    right: y => Either.Right(append(x) (y))
+    right: z => Either.Right(append(y) (z))
   })
 });
 
@@ -4593,16 +4593,16 @@ It.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-It.mapA = ({map, ap, of}) => ft => function* (ix) {
-  const {value: x, done} = ix.next();
+It.mapA = ({map, of}) => ft => function* (tx) {
+  const {value: x, done} = tx.next();
 
   if (done) return;
   else return map(y => function* () {yield y} ()) (ft(x));
 };
 
 
-It.seqA = ({map, ap, of}) => function* (ix) {
-  const {value: tx, done} = ix.next();
+It.seqA = ({map, of}) => function* (ttx) {
+  const {value: tx, done} = ttx.next();
 
   if (done) return;
   else return map(x => function* () {yield x} ()) (tx);
