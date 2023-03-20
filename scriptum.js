@@ -85,13 +85,12 @@ export const GT = {
 /* Variant(/sum) and product types to create flexible and safe variants(/sums)
 of products.
 
-  const Either = variant(
-    "Either", "Left", "Right") ({run:
-      ({Left: x, Right: f}) => x},
-      v => ({run: ({Left: x, Right: f}) => f(v)
-     }));
+  const Either = variant("Either", "Left", "Right") (
+    {run: ({left: x, right: f}) => x},
+    v => ({run: ({left: x, right: f}) => f(v)})
+  );
 
-  Either.pattern = product("Either", "Left", "Right");
+  Either.pattern = product("Either", "left", "right");
 
   const tx = Either.Right(5),
     ty = Either.Left;
@@ -108,7 +107,7 @@ supply all necessary cases of the given type. */
 
 export const product = (tag, ...ks) => (...vs) => {
   if (ks.length !== vs.length)
-    throw new TypeError(`${tag} expects ${ks.length} arguments`);
+    throw new TypeError("malformed product type");
 
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
@@ -119,35 +118,33 @@ export const product = (tag, ...ks) => (...vs) => {
 
 // variant types (sum)
 
-export const variant = (ttag, ...vtag) => (...lambdas) => {
-  if (vtag.length !== lambdas.length) throw new TypeError("malformed type");
+export const variant = (ttag, ...vtags) => (...lambdas) => {
+  if (vtags.length !== lambdas.length)
+    throw new TypeError("malformed variant type");
 
-  return vtag.reduce((acc, vtag_, i) => {
-    acc[vtag_] = {};
-
-    acc[vtag_] = function go(f, args) {
+  return vtags.reduce((acc, vtag, i) => {
+    acc[vtag] = function go(f) {
       if (typeof f !== "function") return f;
 
       else {    
-        return (...args2) => {
-          const tx = f(...args2);
-          args.push(args2);
+        return (...args) => {
+          const tx = f(...args);
 
-          if (typeof tx === "function") return go(tx, args);
+          if (typeof tx === "function") return go(tx);
 
           else {
             return {
+              [TAG]: ttag,
+
               run: o => {
                 if (o[TAG] === ttag) return tx.run(o);
                 else throw new TypeError(`${ttag} pattern expected`);
-              },
-
-              args
+              }
             };
           }
         }
       }
-    } (lambdas[i], []);
+    } (lambdas[i]);
 
     return acc;
   }, {});
@@ -2053,7 +2050,7 @@ A.Functor = {map: A.map};
 A.alt = () => A.append;
 
 
-A.Alt = {
+A.Alt = () => {
   ...A.Functor,
   alt: A.alt
 };
@@ -2539,6 +2536,9 @@ A.reduceSucc = f => acc => xs => {
 
 
 A.alt = A.alt();
+
+
+A.Alt = A.Alt();
 
 
 A.Traversable = A.Traversable();
@@ -3340,7 +3340,13 @@ exceptions in being able to return any value in case of short circuit,
 whereas `Except` is fixed with `Error` object as its return type. */
 
 
-export const Either = {}; // namespace
+export const Either = variant("Either", "Left", "Right") (
+  {run: ({Left: x, Right: f}) => x},
+  v => ({run: ({Left: x, Right: f}) => f(v)})
+);
+
+
+Either.pattern = product("Either", "Left", "Right");
 
 
 Either.Left = x => ({
@@ -4649,7 +4655,7 @@ It.Alt = {
 It.zero = () => It.empty;
 
 
-It.Plus = {
+It.Plus = () => {
   ...It.Alt,
   zero: It.zero
 };
@@ -4824,10 +4830,13 @@ It.reduceSucc = f => acc => ix => {
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
+It.Traversable = It.Traversable();
+
+
 It.zero = It.zero();
 
 
-It.Traversable = It.Traversable();
+It.Plus = It.Plus();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5182,7 +5191,7 @@ L.Functor = {map: L.map};
 L.alt = () => L.append;
 
 
-L.Alt = {
+L.Alt = () => {
   ...L.Functor,
   alt: L.alt
 };
@@ -5195,7 +5204,7 @@ L.Alt = {
 L.zero = () => L.empty;
 
 
-L.Plus = {
+L.Plus = () => {
   ...L.Alt,
   zero: L.zero
 };
@@ -5386,7 +5395,13 @@ L.reverse = L.foldl(L.Cons_) (L.Nil);
 L.alt = L.alt();
 
 
+L.Alt = L.Alt();
+
+
 L.zero = L.zero();
+
+
+L.Plus = L.Plus();
 
 
 L.ZipList.ap = L.ZipList.ap();
@@ -5489,7 +5504,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
   o.alt = () => o.append;
 
 
-  o.Alt = {
+  o.Alt = () => {
     ...o.Functor,
     alt: o.alt
   };
@@ -5502,7 +5517,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
   o.zero = () => o.empty;
 
 
-  o.Plus = {
+  o.Plus = () => {
     ...o.Alt,
     zero: o.zero
   };
@@ -5611,10 +5626,16 @@ L.T = outer => thisify(o => { // outer monad's type classes
   o.alt = o.alt();
 
 
+  o.Alt = o.Alt();
+
+
   o.Traversable = o.Traversable();
 
 
   o.zero = o.zero();
+
+  
+  o.Plus = o.Plus();
 
 
   return o;
@@ -7925,7 +7946,7 @@ S.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-S.reify = k => x => S(k2 => k(x));
+S.capture = k => tx => S(k2 => tx.run(x => k(Pair(x, k2))));
 
 
 S.once = tx => {
@@ -7956,7 +7977,7 @@ S.once = tx => {
 };
 
 
-S.capture = k => tx => S(k2 => tx.run(x => k(Pair(x, k2))));
+S.reify = k => x => S(k2 => k(x));
 
 
 /*
@@ -8241,7 +8262,7 @@ _Set.del = k => s => s.delete(k);
 
 /* Encodes the concept of supplying a meaningful chunk of data synchronously
 one at a time from a potentially infinite source along with a function to
-request the next chunk. The type uses a lazy object getter to  suspend the
+request the next chunk. The type uses a lazy object getter to suspend the
 process. It has the following properties:
 
   * unicast
@@ -10262,12 +10283,12 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
+  * add unlawful array transformer?
   * add monad combinators
   * add Represantable type class
   * add Distributive type class
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
-  * study Haskell's STM
 
 */
