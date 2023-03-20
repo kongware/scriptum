@@ -3341,27 +3341,19 @@ whereas `Except` is fixed with `Error` object as its return type. */
 
 
 export const Either = variant("Either", "Left", "Right") (
-  {run: ({Left: x, Right: f}) => x},
-  v => ({run: ({Left: x, Right: f}) => f(v)})
+  x => ({run: ({left: f, right: g}) => f(x)}),
+  y => ({run: ({left: f, right: g}) => g(y)})
 );
 
 
-Either.pattern = product("Either", "Left", "Right");
+Either.pattern = product("Either", "left", "right");
 
 
-Either.Left = x => ({
+Either.cata = left => right => tx => tx.run({
   [TAG]: "Either",
-  run: ({left}) => left(x)
+  left,
+  right
 });
-
-
-Either.Right = x => ({
-  [TAG]: "Either",
-  run: ({right}) => right(x)
-});
-
-
-Either.cata = left => right => tx => tx.run({left, right});
 
 
 /*
@@ -3369,12 +3361,14 @@ Either.cata = left => right => tx => tx.run({left, right});
 
 
 Either.foldr = f => acc => tx => tx.run({
+  [TAG]: "Either",
   left: _ => acc,
   right: y => f(y) (acc)
 });
 
 
 Either.foldl = f => acc => tx => tx.run({
+  [TAG]: "Either",
   left: _ => acc,
   right: y => f(acc) (y)
 });
@@ -3391,12 +3385,14 @@ Either.Foldable = {
 
 
 Either.mapA = ({map, of}) => ft => tx => tx.run({
+  [TAG]: "Either",
   left: x => of(Either.Left(x)),
   right: y => map(Either.Right) (ft(y))
 });
 
 
 Either.seqA = ({of}) => tx => tx.run({
+  [TAG]: "Either",
   left: x => of(Either.Left(x)),
   right: y => of(Either.Right(y))
 });
@@ -3414,11 +3410,11 @@ Either.Traversable = () => ({
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Either.map = f => tx =>
-  tx.run({
-    left: x => Either.Left(x),
-    right: y => Either.Right(f(y))
-  });
+Either.map = f => tx => tx.run({
+  [TAG]: "Either",
+  left: x => Either.Left(x),
+  right: y => Either.Right(f(y))
+});
 
 
 Either.Functor = {map: Either.map};
@@ -3431,6 +3427,7 @@ Either.Functor = {map: Either.map};
 // encodes the semantics of right biased picking to avoid short circution
 
 Either.alt = tx => ty => tx.run({
+  [TAG]: "Either",
   left: _ => ty,
   right: _ => tx
 })
@@ -3453,15 +3450,15 @@ Either.Alt = {
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Either.ap = tf => tx =>
-  tf.run({
-    left: x => Either.Left(x),
+Either.ap = tf => tx => tf.run({
+  [TAG]: "Either",
+  left: x => Either.Left(x),
 
-    right: f => tx.run({
-      left: y => Either.Left(y),
-      right: z => Either.Right(f(z))
-    })
-  });
+  right: f => tx.run({
+    left: y => Either.Left(y),
+    right: z => Either.Right(f(z))
+  })
+});
 
 
 Either.Apply = {
@@ -3487,11 +3484,11 @@ Either.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Either.chain = tx => fm =>
-  tx.run({
-    left: x => Either.Left(x),
-    right: y => fm(y)
-  });
+Either.chain = tx => fm => tx.run({
+  [TAG]: "Either",
+  left: x => Either.Left(x),
+  right: y => fm(y)
+});
 
 
 Either.Chain = {
@@ -3515,6 +3512,7 @@ Either.Monad = {
 
 
 Either.append = ({append}) => tx => ty => tx.run({
+  [TAG]: "Either",
   left: _ => ty,
 
   right: x => ty.run({
@@ -3544,10 +3542,18 @@ Either.Monoid = {
 █████ Mesc. ███████████████████████████████████████████████████████████████████*/
 
 
-Either.isLeft = tx => tx.run({left: _ => true, right: _ => false});
+Either.isLeft = tx => tx.run({
+  [TAG]: "Either",
+  left: _ => true,
+  right: _ => false
+});
 
 
-Either.isRight = tx => tx.run({left: _ => false, right: _ => true});
+Either.isRight = tx => tx.run({
+  [TAG]: "Either",
+  left: _ => false,
+  right: _ => true
+});
 
 
 /*
@@ -6702,11 +6708,28 @@ export const Parallel = k => ({
   [TAG]: "Parallel",
   run: k,
 
+  get runOnce() {
+    delete this.runOnce;
+
+    Object.defineProperty(this, "runOnce", {
+      get() {throw new TypeError("race condition")},
+      configurable: true,
+      enumerable: true
+    })
+    
+    return f => k(x => {
+      const r = f(x);
+      delete this.runOnce;
+      this.runOnce = _ => f(x);
+      return r;
+    });
+  },
+
   runAsync: f => { // extra stack-safety for edge cases
     if (Math.random() < MICROTASK_CONTINGENCY)
-      Promise.resolve(null).then(_ => k(f));
+      return Promise.resolve(null).then(_ => k(f));
 
-    else k(f);
+    else return k(f);
   }
 });
 
@@ -6885,7 +6908,7 @@ P.Race.empty = P(k => null);
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-P.capture = k => tx => P(k2 => tx.run(x => k(Pair(x, k2))));
+P.capture = tx => P(k => tx.run(x => k(Pair(k, x))));
 
 
 P.flatmap = mx => fm => // monad-like
@@ -6952,11 +6975,32 @@ export const ParallelExcept = ks => ({
   [TAG]: "Parallel.Except",
   run: ks,
 
+  get runOnce() {
+    delete this.runOnce;
+
+    Object.defineProperty(this, "runOnce", {
+      get() {throw new TypeError("race condition")},
+      configurable: true,
+      enumerable: true
+    })
+    
+    return o => ks({
+      raise: o.raise,
+
+      proceed: x => {
+        const r = o.proceed(x);
+        delete this.runOnce;
+        this.runOnce = _ => o.proceed(x);
+        return r;
+      }
+    });
+  },
+
   runAsync: o => { // extra stack-safety for edge cases
     if (Math.random() < MICROTASK_CONTINGENCY)
-      Promise.resolve(null).then(_ => ks(o));
+      return Promise.resolve(null).then(_ => ks(o));
 
-    else ks(o);
+    else return ks(o);
   }
 });
 
@@ -7794,11 +7838,28 @@ export const Serial = k => ({
   [TAG]: "Serial",
   run: k,
 
+  get runOnce() {
+    delete this.runOnce;
+
+    Object.defineProperty(this, "runOnce", {
+      get() {throw new TypeError("race condition")},
+      configurable: true,
+      enumerable: true
+    })
+    
+    return f => k(x => {
+      const r = f(x);
+      delete this.runOnce;
+      this.runOnce = _ => f(x);
+      return r;
+    });
+  },
+
   runAsync: f => { // extra stack-safety for edge cases
     if (Math.random() < MICROTASK_CONTINGENCY)
-      Promise.resolve(null).then(_ => k(f));
+      return Promise.resolve(null).then(_ => k(f));
 
-    else k(f);
+    else return k(f);
   }
 });
 
@@ -7946,7 +8007,7 @@ S.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-S.capture = k => tx => S(k2 => tx.run(x => k(Pair(x, k2))));
+S.capture = tx => S(k => tx.run(x => k(Pair(k, x))));
 
 
 S.once = tx => {
@@ -8002,11 +8063,32 @@ export const SerialExcept = ks => ({
   [TAG]: "Serial.Except",
   run: ks,
 
+  get runOnce() {
+    delete this.runOnce;
+
+    Object.defineProperty(this, "runOnce", {
+      get() {throw new TypeError("race condition")},
+      configurable: true,
+      enumerable: true
+    })
+    
+    return o => ks({
+      raise: o.raise,
+
+      proceed: x => {
+        const r = o.proceed(x);
+        delete this.runOnce;
+        this.runOnce = _ => o.proceed(x);
+        return r;
+      }
+    });
+  },
+
   runAsync: o => { // extra stack-safety for edge cases
     if (Math.random() < MICROTASK_CONTINGENCY)
-      Promise.resolve(null).then(_ => ks(o));
+      return Promise.resolve(null).then(_ => ks(o));
 
-    else ks(o);
+    else return ks(o);
   }
 });
 
@@ -10290,5 +10372,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add foldl1/foldr1 to all container types
   * rename fold into cata for all non-container types
   * add cata for each sum type
+  * delete S.once/P.once etc.
 
 */
