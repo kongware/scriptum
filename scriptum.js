@@ -85,8 +85,7 @@ export const GT = {
 /* Variant(/sum) and product types to create flexible and safe variants(/sums)
 of products.
 
-  const Either = variant("Either", "Left", "Right")
-    (cons, cons));
+  const Either = variant("Either", "Left", "Right") (cons, cons));
 
   Either.pattern = O.init("left", "right");
 
@@ -3380,22 +3379,10 @@ exceptions in being able to return any value in case of short circuit,
 whereas `Except` is fixed with `Error` object as its return type. */
 
 
-export const Either = {}; // namespace
+export const Either = variant("Either", "Left", "Right") (cons0, cons1);
 
 
-Either.Left = x => ({
-  [TAG]: "Either",
-  run: ({left}) => left(x)
-});
-
-
-Either.Right = x => ({
-  [TAG]: "Either",
-  run: ({right}) => right(x)
-});
-
-
-Either.pattern = product("Either", "left", "right");
+Either.pattern = O.init("left", "right");
 
 
 Either.cata = left => right => tx => tx.run({left, right});
@@ -3406,14 +3393,14 @@ Either.cata = left => right => tx => tx.run({left, right});
 
 
 Either.foldr = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(y) (acc)
+  left: acc,
+  right: x => f(x) (acc)
 });
 
 
 Either.foldl = f => acc => tx => tx.run({
-  left: _ => acc,
-  right: y => f(acc) (y)
+  left: acc,
+  right: x => f(acc) (x)
 });
 
 
@@ -3428,14 +3415,14 @@ Either.Foldable = {
 
 
 Either.mapA = ({map, of}) => ft => tx => tx.run({
-  left: x => of(Either.Left(x)),
-  right: y => map(Either.Right) (ft(y))
+  get left() {return of(Either.Left)},
+  right: x => map(Either.Right) (ft(x))
 });
 
 
-Either.seqA = ({map, of}) => ttx => tx.run({
-  left: tx => map(Either.Left) (tx),
-  right: ty => map(Either.Right) (ty)
+Either.seqA = ({map, of}) => ttx => ttx.run({
+  get left() {return of(Either.Left)},
+  right: tx => map(Either.Right) (tx)
 });
 
 
@@ -3452,8 +3439,8 @@ Either.Traversable = () => ({
 
 
 Either.map = f => tx => tx.run({
-  left: _ => tx,
-  right: y => Either.Right(f(y))
+  left: tx,
+  right: x => Either.Right(f(x))
 });
 
 
@@ -3467,7 +3454,7 @@ Either.Functor = {map: Either.map};
 // encodes the semantics of right biased picking to avoid short circution
 
 Either.alt = tx => ty => tx.run({
-  left: _ => ty,
+  left: ty,
   right: _ => tx
 })
 
@@ -3482,7 +3469,13 @@ Either.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-// there seems to be no meaningful instance for short circuiting
+Either.zero = Either.Left;
+
+
+Either.Plus = {
+  ...Either.Alt,
+  zero: Either.zero
+};
 
 
 /*
@@ -3490,11 +3483,11 @@ Either.Alt = {
 
 
 Either.ap = tf => tx => tf.run({
-  left: _ => tx,
+  left: tx,
 
-  right: g => tx.run({
-    left: _ => tx,
-    right: y => Either.Right(g(y))
+  right: f => tx.run({
+    left: tx,
+    right: x => Either.Right(f(x))
   })
 });
 
@@ -3523,8 +3516,8 @@ Either.Applicative = {
 
 
 Either.chain = tx => fm => tx.run({
-  left: _ => tx,
-  right: y => fm(y)
+  left: tx,
+  right: fm
 });
 
 
@@ -3549,11 +3542,11 @@ Either.Monad = {
 
 
 Either.append = ({append}) => tx => ty => tx.run({
-  left: _ => tx,
+  left: ty,
 
-  right: y => ty.run({
-    left: _ => tx,
-    right: z => Either.Right(append(y) (z))
+  right: x => ty.run({
+    left: tx,
+    right: y => Either.Right(append(x) (y))
   })
 });
 
@@ -3565,7 +3558,7 @@ Either.Semigroup = {append: Either.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Either.empty = ({empty}) => Either.Left(empty);
+Either.empty = ({empty}) => Either.Right(empty);
 
 
 Either.Monoid = {
@@ -3579,13 +3572,13 @@ Either.Monoid = {
 
 
 Either.isLeft = tx => tx.run({
-  left: _ => true,
+  left: true,
   right: _ => false
 });
 
 
 Either.isRight = tx => tx.run({
-  left: _ => false,
+  left: false,
   right: _ => true
 });
 
