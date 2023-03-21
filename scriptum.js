@@ -86,8 +86,8 @@ export const GT = {
 of products.
 
   const Either = variant("Either", "Left", "Right") (
-    {run: ({left: x, right: f}) => x},
-    v => ({run: ({left: x, right: f}) => f(v)})
+    cons0("left"),
+    cons("right"))
   );
 
   Either.pattern = product("Either", "left", "right");
@@ -105,49 +105,74 @@ supply all necessary cases of the given type. */
 
 // product types
 
-export const product = (tag, ...ks) => (...vs) => {
-  if (ks.length !== vs.length)
-    throw new TypeError("malformed product type");
+export const product = type => p => lambda => {
+  const o = {
+    [TAG]: type,
+    run: lambda
+  };
 
-  return ks.reduce((acc, k, i) => {
-    acc[k] = vs[i];
-    return acc;
-  }, {[TAG]: tag});
+  for (const k of Object.keys(p))
+    Object.defineProperty( // getter/setter safe
+      o, k, Object.getOwnPropertyDescriptor(p, k));
+
+  return o;
 };
 
 
 // variant types (sum)
 
-export const variant = (ttag, ...vtags) => (...lambdas) => {
-  if (vtags.length !== lambdas.length)
+export const variant = (type, ...tags) => (...cons) => {
+  if (tags.length !== cons.length)
     throw new TypeError("malformed variant type");
 
-  return vtags.reduce((acc, vtag, i) => {
-    acc[vtag] = function go(f) {
-      if (typeof f !== "function") return f;
-
-      else {    
-        return (...args) => {
-          const tx = f(...args);
-
-          if (typeof tx === "function") return go(tx);
-
-          else {
-            return {
-              [TAG]: ttag,
-
-              run: o => {
-                if (o[TAG] === ttag) return tx.run(o);
-                else throw new TypeError(`${ttag} pattern expected`);
-              }
-            };
-          }
-        }
-      }
-    } (lambdas[i]);
-
+  return tags.reduce((acc, tag, i) => {
+    acc[tag] = cons[i] (type, tag.toLowerCase());
     return acc;
   }, {});
+};
+
+
+export const cons0 = p => (type, tag) => {
+  const o = {[TAG]: type, run: ({[tag]: x}) => x};
+
+  for (const k of Object.keys(p))
+    Object.defineProperty( // getter/setter safe
+      o, k, Object.getOwnPropertyDescriptor(p, k));
+
+  return o;
+};
+
+
+export const cons = p => (type, tag) => x => {
+  const o = {[TAG]: type, run: ({[tag]: f}) => f(x)};
+
+  for (const k of Object.keys(p))
+    Object.defineProperty( // getter/setter safe
+      o, k, Object.getOwnPropertyDescriptor(p, k));
+
+  return o;
+};
+
+
+export const cons2 = p => (type, tag) => x => y => {
+  const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y)};
+
+  for (const k of Object.keys(p))
+    Object.defineProperty( // getter/setter safe
+      o, k, Object.getOwnPropertyDescriptor(p, k));
+
+  return o;
+};
+
+
+export const cons3 = p => (type, tag) => x => y => z => {
+  const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)};
+
+  for (const k of Object.keys(p))
+    Object.defineProperty( // getter/setter safe
+      o, k, Object.getOwnPropertyDescriptor(p, k));
+
+  return o;
 };
 
 
@@ -2965,7 +2990,7 @@ the available trampoline interpeters, `Loop` for instance. */
 export const Cont = k => ({
   [TAG]: "Cont",
   run: k,
-  unwind: x => Loop.call(k, x) // the stack from exhausting
+  unwind: x => Loop.call(k, x) // stack safety
 });
 
 
@@ -5939,6 +5964,24 @@ O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
 
 
 O.toPairs = Object.entries;
+
+
+/*
+█████ Instantiation ███████████████████████████████████████████████████████████*/
+
+
+O.new = (tag = null) => (...ks) => (...vs) => {
+  if (ks.length !== vs.length)
+    throw new TypeError("malformed object literal");
+
+  return ks.reduce((acc, k, i) => {
+    acc[k] = vs[i];
+    return acc;
+  }, tag === null ? {} : {[TAG]: tag});
+};
+
+
+O.init = O.new();
 
 
 /*
