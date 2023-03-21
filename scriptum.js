@@ -85,18 +85,16 @@ export const GT = {
 /* Variant(/sum) and product types to create flexible and safe variants(/sums)
 of products.
 
-  const Either = variant("Either", "Left", "Right") (
-    cons0("left"),
-    cons("right"))
-  );
+  const Either = variant("Either", "Left", "Right")
+    (cons, cons));
 
-  Either.pattern = product("Either", "left", "right");
+  Either.pattern = O.init("left", "right");
 
   const tx = Either.Right(5),
     ty = Either.Left;
 
-  tx.run(Either.pattern(0, x => x * x)); // yields 25
-  ty.run(Either.pattern(0, x => x * x)); // yields 0
+  tx.run(Either.pattern(_ => 0, x => x * x)); // yields 25
+  ty.run(Either.pattern(_ => 0, x => x * x)); // yields 0
 
 `Either` is the type constructor and `Either.Left`/`Either.Right` are value constructors.
 `Either.pattern` is a helper to create typed objects that are case exhaustive, i.e.
@@ -132,7 +130,12 @@ export const variant = (type, ...tags) => (...cons) => {
 };
 
 
-export const cons0 = p => (type, tag) => {
+export const cons0 = (type, tag) =>
+  ({[TAG]: type, run: ({[tag]: x}) => x});
+
+
+
+export const xcons0 = p => (type, tag) => {
   const o = {[TAG]: type, run: ({[tag]: x}) => x};
 
   for (const k of Object.keys(p))
@@ -143,7 +146,11 @@ export const cons0 = p => (type, tag) => {
 };
 
 
-export const cons = p => (type, tag) => x => {
+export const cons = (type, tag) => x =>
+  ({[TAG]: type, run: ({[tag]: f}) => f(x)});
+
+
+export const xcons = p => (type, tag) => x => {
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x)};
 
   for (const k of Object.keys(p))
@@ -154,7 +161,11 @@ export const cons = p => (type, tag) => x => {
 };
 
 
-export const cons2 = p => (type, tag) => x => y => {
+export const cons2 = (type, tag) => x => y => {
+  ({[TAG]: type, run: ({[tag]: f}) => f(x) (y)});
+
+
+export const xcons2 = p => (type, tag) => x => y => {
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y)};
 
   for (const k of Object.keys(p))
@@ -165,7 +176,11 @@ export const cons2 = p => (type, tag) => x => y => {
 };
 
 
-export const cons3 = p => (type, tag) => x => y => z => {
+export const cons3 = (type, tag) => x => y => z =>
+  ({[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)});
+
+
+export const xcons3 = p => (type, tag) => x => y => z => {
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)};
 
   for (const k of Object.keys(p))
