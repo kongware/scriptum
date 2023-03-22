@@ -27,9 +27,6 @@
 const PREFIX = "$_"; // avoid property name collisions
 
 
-const NON_EMPTY = PREFIX + "non-empty";
-
-
 export const NOOP = null; // no operation
 
 
@@ -2218,58 +2215,43 @@ A.Monad = {
 █████ Non-Empty ███████████████████████████████████████████████████████████████*/
 
 
-/* Non-empty arrays are just native Javascript arrays with the first element at
-index `0` set to non-configurable, i.e. the first element cannot be deleted.
-The corresponding constructor can create a non-empty array from a regular array
-but needs a default value in case the given array is empty. Non-empty arrays
-have an extra property `"$_non-empty"` to distinguish them from regular ones.
-They can be applied to the normal array combinators. */
+/* Non-empty arrays are just regular arrays wrapped in a proxy that cannot be
+empty. Usually, each method that creates a new array returns a non-empty one
+exept for `filter`, which may return an empty array and thus must not rely on
+non-emptyness. */
 
 
-A.nonEmpty = x => xs => {
-  if (xs.length === 0) xs = [x];
-  else xs = xs.concat();
+A.nonEmpty = xs => {
+  if (xs.length === 0)
+    throw new TypeError("non-empty must not be empty");
 
-  Object.defineProperties(xs, {
-    "0": {
-      value: xs[0],
-      configurable: false,
-      enumerable: true,
-      writable: true
+  return new Proxy(xs, {
+    deleteProperty(_, i) {
+      if (xs.length === 1)
+        throw new TypeError("non-empty must not be empty");
+
+      else return delete xs[i];
     },
 
-    NON_EMPTY: {
-      value: true,
-      configurable: false,
-      enumerable: false,
-      writable: false
-    }
-  });
-
-  return xs;
-};
-
-
-A.nonEmpty = x => xs => { // doesn't copy
-  if (xs.length === 0) xs = [x];
-
-  Object.defineProperties(xs, {
-    "0": {
-      value: xs[0],
-      configurable: false,
-      enumerable: true,
-      writable: true
+    get(_, k, proxy) {
+      switch (k) {
+        case "concat": return ys => A.nonEmpty(xs.concat(ys));
+        case "map": return (f, i, ys) => A.nonEmpty(xs.map(f, i, ys));
+        case "slice": return (i, j) => A.nonEmpty(xs.slice(i, j));
+        default: return xs[k];
+      }
     },
 
-    NON_EMPTY: {
-      value: true,
-      configurable: false,
-      enumerable: false,
-      writable: false
+    set(_, k, v, proxy) {
+      if (k === "length" && v === 0)
+        throw new TypeError("non-empty must not be empty");
+
+      else {
+        xs[k] = v;
+        return proxy;
+      }
     }
   });
-
-  return xs;
 };
 
 
