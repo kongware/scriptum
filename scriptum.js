@@ -6801,7 +6801,31 @@ P.fromSex = k => tx => ({
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-P.and = tx => ty => { // TODO: revise
+P.and = tx => ty => {
+  return P(k => {
+    const pair = Array(2);
+    let i = 0;
+
+    return [tx, ty].map((tz, j) => {
+      return tz.run(z => {
+        if (i < 2) {
+          if (pair[j] === undefined) {
+            pair[j] = z;
+            i++;
+          }
+
+          if (i === 2) return k(Pair(pair[0], pair[1]));
+          else return null;
+        }
+
+        else return null;
+      });
+    });
+  });
+};
+
+
+/*P.and = tx => ty => { // TODO: revise
   const guard = (k, i) => x => {
     pair[i] = x;
 
@@ -6816,7 +6840,7 @@ P.and = tx => ty => { // TODO: revise
   return P(k => (
     tx.run(guard(k, 0)),
     ty.run(guard(k, 1))));
-};
+};*/
 
 
 P.all = () =>
@@ -6848,12 +6872,12 @@ P.allObj = o => {
           }
 
           if (i === keys.length) return k(p);
-          else return p;
+          else return null;
         }
 
-        else return p;
-      })
-    })
+        else return null;
+      });
+    });
   });
 };
 
@@ -6863,6 +6887,24 @@ P.allObj = o => {
 
 
 P.or = tx => ty => {
+  return P(k => {
+    let i = 0;
+
+    return [tx, ty].map(tz => {
+      return tz.run(z => {
+        if (i === 0) {
+          i++;
+          return k(z);
+        }
+
+        else return null;
+      });
+    });
+  });
+};
+
+
+/*P.or = tx => ty => { // TODO: revise
   const guard = k => x =>
     settled
       ? false
@@ -6873,7 +6915,7 @@ P.or = tx => ty => {
   return P(k => (
     tx.run(guard(k)),
     ty.run(guard(k))));
-};
+};*/
 
 
 P.any = () =>
