@@ -1121,11 +1121,11 @@ F.Contra = () => {contramap: F.contramap};
 █████ Debugging ███████████████████████████████████████████████████████████████*/
 
 
-export const asyncPar = f => msecs => x => Parallel(k =>
+export const asyncPar = f => msecs => x => P(k =>
   setTimeout(comp(k) (f), msecs, x));
 
 
-export const asyncSer = f => msecs => x => Serial(k =>
+export const asyncSer = f => msecs => x => S(k =>
   setTimeout(comp(k) (f), msecs, x));
 
 
@@ -5039,20 +5039,13 @@ Efficient operation guide:
   * Sequence: element insert/delete */
 
 
-export const List = {}; // namespace
+export const List = variant("List", "Cons", "Nil") (cons2, cons0);
 
 
 export const L = List; // shortcut
 
 
-// value constructors
-
-
-L.Cons = x => xs => ({
-  [TAG]: "List",
-  run: ({cons}) => cons(x) (xs)
-});
-
+// extra value constructor with flipped arguments
 
 L.Cons_ = xs => x => ({
   [TAG]: "List",
@@ -5060,10 +5053,7 @@ L.Cons_ = xs => x => ({
 });
 
 
-L.Nil = ({
-  [TAG]: "List",
-  run: ({nil}) => nil
-});
+L.pattern = O.init("cons", "nil");
 
 
 /*
@@ -6811,7 +6801,7 @@ P.fromSex = k => tx => ({
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-P.and = tx => ty => {
+P.and = tx => ty => { // TODO: revise
   const guard = (k, i) => x => {
     pair[i] = x;
 
@@ -6837,6 +6827,35 @@ P.all = () =>
 
 
 // TODO: P.allList
+
+
+P.allObj = o => {
+  const keys = Object.keys(o);
+
+  return P(k => {
+    const xs = Array(keys.length),
+      p = Object.assign({}, o); // preserve prop order
+
+    let i = 0;
+
+    return keys.map((key, j) => {
+      return o[key].run(x => {
+        if (i < keys.length) {
+          if (xs[j] === undefined) {
+            p[key] = x;
+            xs[j] = null;
+            i++;
+          }
+
+          if (i === keys.length) return k(p);
+          else return p;
+        }
+
+        else return p;
+      })
+    })
+  });
+};
 
 
 /*
