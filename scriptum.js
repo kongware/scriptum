@@ -24,13 +24,16 @@
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+const PREFIX = "$_"; // avoid property name collisions
+
+
+const NON_EMPTY = PREFIX + "non-empty";
+
+
 export const NOOP = null; // no operation
 
 
 export const NOT_FOUND = -1; // native search protocol
-
-
-const PREFIX = "$_"; // avoid property name collisions
 
 
 export const TAG = Symbol.toStringTag;
@@ -2212,6 +2215,65 @@ A.Monad = {
 
 
 /*
+█████ Non-Empty ███████████████████████████████████████████████████████████████*/
+
+
+/* Non-empty arrays are just native Javascript arrays with the first element at
+index `0` set to non-configurable, i.e. the first element cannot be deleted.
+The corresponding constructor can create a non-empty array from a regular array
+but needs a default value in case the given array is empty. Non-empty arrays
+have an extra property `"$_non-empty"` to distinguish them from regular ones.
+They can be applied to the normal array combinators. */
+
+
+A.nonEmpty = x => xs => {
+  if (xs.length === 0) xs = [x];
+  else xs = xs.concat();
+
+  Object.defineProperties(xs, {
+    "0": {
+      value: xs[0],
+      configurable: false,
+      enumerable: true,
+      writable: true
+    },
+
+    NON_EMPTY: {
+      value: true,
+      configurable: false,
+      enumerable: false,
+      writable: false
+    }
+  });
+
+  return xs;
+};
+
+
+A.nonEmpty = x => xs => { // doesn't copy
+  if (xs.length === 0) xs = [x];
+
+  Object.defineProperties(xs, {
+    "0": {
+      value: xs[0],
+      configurable: false,
+      enumerable: true,
+      writable: true
+    },
+
+    NON_EMPTY: {
+      value: true,
+      configurable: false,
+      enumerable: false,
+      writable: false
+    }
+  });
+
+  return xs;
+};
+
+
+/*
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
@@ -2595,221 +2657,6 @@ A.ZipArr.ap = A.ZipArr.ap();
 implementation for the latter but arrays can be easily processed:
 
 L.fromFoldable({foldr: A.foldr}) ([1,2,3]) */
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████ ARRAY :: NEARRAY ███████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* The non-empty array type. Due to the presence of mutations using the array
-constructor to enforce at least a single element doesn't suffice. Therefore an
-extra head property is used to guarantee the non-empty invariance. This renders
-working with indices more elaborate, though. */
-
-
-export const NEArray = head => tail => ({
-  [TAG]: "NEArray",
-  head,
-  tail,
-  length: tail.length + 1
-});
-
-
-// allows tail property to be defined as a lazy getter
-
-export const NEArray_ = o => {
-  o[TAG] = "NEArray";
-  o.length = o.length + 1;
-  return o;
-};
-
-
-export const Nea = NEArray; // shortcut
-
-
-export const Nea_ = NEArray_; // shortcut
-
-
-/*
-█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
-
-
-Nea.appendArr = ({head, tail}) => xs => {
-  tail.push.apply(tail, xs);
-  return Nea(head) (tail);
-};
-
-
-Nea.cons = x => ({head, tail}) => Nea(x) ((tail.unshift(head), tail));
-
-
-Nea.head = ({head}) => head;
-
-
-Nea.init = ({head, tail}) => _let(tail.slice(-1))
-  .in(xs => (xs.unshift(head), xs));
-
-
-Nea.last = ({head, tail}) => tail.length === 0 ? head : tail[tail.length - 1];
-
-
-Nea.singleton = x => Nea(x) ([]);
-
-
-Nea.tail = ({head, tail}) => tail;
-
-
-Nea.uncons = ({head, tail}) => Pair(
-  head,
-  tail.length === 0 ? null : Nea(tail[0]) (tail.slice(1)));
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Nea.fromArr = xs => Nea_({
-  head: xs[0],
-
-  get tail() {
-    delete this.tail;
-    this.tail = xs.slice(1);
-    return this.tail;
-  }
-});
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-// there is no delete op because NEArray must not be empty
-
-
-Nea.get = i => ({head, tail}) => i === 0 ? head : tail[i - 1];
-
-
-Nea.has = i => ({head, tail}) => i === 0 ? true : i - 1 in tail;
-
-
-Nea.len = tx => tx.tail.length + 1;
-
-
-Nea.set = i => x => ({head, tail}) => {
-  if (i === 0) return Nea(x) (tail);
-  else if (i - 1 < tail.length) return Nea(head) ((tail[i - 1] = x, tail));
-  else if (i - 1 === tail.length) return Nea(head) ((tail.push(x), tail));
-  else throw new TypeError("illegal index");
-};
-
-
-Nea.upd = i => f => ({head, tail}) => {
-  if (i === 0) return Nea(f(head)) (tail);
-  
-  else if (i - 1 < tail.length)
-    return Nea(head) ((tail[i - 1] = f(tail[i - 1]), tail));
-  
-  else throw new TypeError("illegal index");
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Nea.map = f => ({head, tail}) => Nea(f(head)) (tail.map(f));
-
-
-Nea.Functor = {map: Nea.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Nea.ap = ({head: headf, tail: tailf}) => ({head: headx, tail: tailx}) =>
-  Nea(headf(headx))
-    (tailf.reduce((acc, f) =>
-      (acc.push.apply(acc, tailx.map(x => f(x))), acc), []));
-
-
-Nea.Apply = {
-  ...Nea.Functor,
-  ap: Nea.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Nea.of = Nea.singleton;
-
-
-Nea.Applicative = {
-  ...Nea.Apply,
-  of: Nea.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-/* Since the NEArray constructor always expects at least a head element `fm`
-cannot produce an empty array and chaining is thus a safe operation. */
-
-Nea.chain = ({head, tail}) => fm => {
-  const {head: head2, tail: tail2} = fm(head);
-
-  const tail3 = tail.reduce((acc, x) => {
-    const o = fm(x);
-    acc.push(o.head);
-    acc.push.apply(acc, o.tail);
-    return acc;
-  }, []);
-
-  tail2.push.apply(tail2, tail3);
-  return Nea(head2) (tail2);
-};
-
-
-Nea.Chain = {
-  ...Nea.Apply,
-  chain: Nea.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Nea.Monad = {
-  ...Nea.Applicative,
-  chain: Nea.chain
-};
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Nea.append = ({head, tail}) => ({head: head2, tail: tail2}) => {
-  tail.push(head);
-  tail.push.apply(tail, tail2);
-  return Nea(head) (tail);
-};
-
-
-Nea.Semigroup = {append: Nea.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-// the non-empty array doesn't form a monoid
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5021,7 +4868,7 @@ Lazy.T = outer => thisify(o => { // outer monad's type classes
 
 
 /* Encodes non-determinism just like arrays but is recursively defined and
-forms a completely unbalanced tree structure. There are two trchniques to make
+forms a completely unbalanced tree structure. There are two techniques to make
 operations on the type stack-safe:
 
   * guarded recursion through lazy evaluation
@@ -5030,13 +4877,12 @@ operations on the type stack-safe:
 For most type class member functions both variants are implemented with a bias
 on modulo cons.
 
-Efficient operation guide:
+Which list like structure for what task:
 
-  * Array: random element access, mutations
-  * List: cons/uncons
-  * DList: append, cons/snoc
-  * Vector: element update, snoc/unsnoc, init/last
-  * Sequence: element insert/delete */
+  * Array: random element access, length, mutations (push/pop, shift/unshift)
+  * Iarray: random element access, length, push/pop, concat
+  * List: cons/uncons, init/tail
+  * DList: append, cons/snoc */
 
 
 export const List = variant("List", "Cons", "Nil") (cons2, cons0);
@@ -5670,7 +5516,14 @@ L.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// efficient append and cons/snoc operations
+/* Function based difference list for efficient append operations.
+
+Which list like structure for what task:
+
+  * Array: random element access, length, mutations (push/pop, shift/unshift)
+  * Iarray: random element access, length, push/pop, concat
+  * List: cons/uncons, init/tail
+  * DList: append, cons/snoc */
 
 
 export const DList = f => ({
@@ -5731,13 +5584,6 @@ DList.Monoid = {
 
 
   // TODO
-
-
-  /*extend f w@(~(_ :| aas)) =
-    f w :| case aas of
-      []     -> []
-      (a:as) -> toList (extend f (a :| as))
-  extract ~(a :| _) = a*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6825,24 +6671,6 @@ P.and = tx => ty => {
 };
 
 
-/*P.and = tx => ty => { // TODO: revise
-  const guard = (k, i) => x => {
-    pair[i] = x;
-
-    return settled || !("0" in pair) || !("1" in pair)
-      ? false
-      : (settled = true, k(Pair(pair[0], pair[1])));
-  };
-
-  const pair = [];
-  let settled = false;
-
-  return P(k => (
-    tx.run(guard(k, 0)),
-    ty.run(guard(k, 1))));
-};*/
-
-
 P.all = () =>
   A.seqA({
     map: P.map,
@@ -6902,20 +6730,6 @@ P.or = tx => ty => {
     });
   });
 };
-
-
-/*P.or = tx => ty => { // TODO: revise
-  const guard = k => x =>
-    settled
-      ? false
-      : (settled = true, k(x));
-
-  let settled = false;
-
-  return P(k => (
-    tx.run(guard(k)),
-    ty.run(guard(k))));
-};*/
 
 
 P.any = () =>
