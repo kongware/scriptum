@@ -2967,52 +2967,6 @@ Cont.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ COROUTINE ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* This is basically just a type study. Implementing and applying coroutines is
-quite hard but with some luck I may reach a point where it actually becomes
-usefull. Here is the type structure:
-
-Co     s m r = m (Either (s (Co s m r)) r)
-Result s m r =    Either (s (Co s m r)) r
-Step s m r =              s (Co s m r)
-
-s = step functor
-m = outer monad
-r = result value
-
-resume  :: (Monad m, Functor s) => m (Either (s (Co s m r)) r)
-suspend :: (Monad m, Functor s) =>            s (Co s m r)     */
-
-
-export const Co = mmx => ({
-  [TAG]: "Coroutine",
-  run: mmx
-});
-
-
-/***[ Functor ]***************************************************************/
-
-
-/* `map` lifts the `f` into the outer monad `m`. `map2` unwraps the next
-coroutine that is inside the step functor `s`. */
-
-Co.map = ({map}, {map: map2}) => f => function go(mmx) {
-  return Co(map(mx => mx.run({
-    left: tx => Either.Left(lazy(() => map2(go) (tx))),
-    right: x => Either.Right(f(x))
-  })) (mmx.run));
-};
-
-
-// instance (Functor s, Functor m) => Functor (Coroutine s m)
-
-Co.Functor = {map: Co.map};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ DATE █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4916,23 +4870,6 @@ L.pattern = O.init("cons", "nil");
 L.head = tx => tx.run({cons: x => _ => x, nil: null});
 
 
-// avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
-
-L.init = Loops(tx => tx.run({
-  cons: y => ty => ty.run({
-    cons: _ => _ => Loops.call(L.Cons(y), Loops.rec(ty)),
-    nil: Loops.base(L.Nil)
-  }),
-
-  nil: Loops.base(null)
-}));
-
-
-// avoid due to inefficiency, use mutable `Array` or immutable `Vector` instead
-
-L.last = tx => L.foldl(const_) (null) (tx)
-
-
 L.singleton = x => L.Cons(x) (L.Nil);
 
 
@@ -5590,7 +5527,7 @@ DList.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-  // TODO
+// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7721,23 +7658,6 @@ Parser.dropUntil = parser => Parser(rest => state => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ SEQUENCE ███████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* List-like immutable structure but with references instead of nesting. Allows
-the following operations to be efficient:
-
-  * insert
-  * delete
-
-Bases on the r/b tree persistant data structure. */
-
-
-// TODO
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ SERIAL ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -8723,28 +8643,10 @@ Str.cat_ = Str.catWith(" ");
 // encodes a fundamental sum type - logical and/or - (A & B) || A || B
 
 
-export const These = {}; // namespace
+export const These = variant("These", "This", "That", "Both") (cons1, cons1, con2);
 
 
-// value constructors
-
-
-These.This = x => ({
-  [TAG]: "These",
-  run: ({this: _this}) => _this(x)
-});
-
-
-These.That = y => ({
-  [TAG]: "These",
-  run: ({that}) => that(y)
-});
-
-
-These.Both = x => y => ({
-  [TAG]: "These",
-  run: ({both}) => both(x) (y)
-});
+These.pattern = O.init("this", "that", "both");
 
 
 These.cata = _this => that => both => tx => tx.run({ // elimination rule
@@ -9215,24 +9117,6 @@ export const Triple_ = o => {
 
   return o;
 };
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ VECTOR ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Efficient for operations that either doesn't change the key mapping at all
-or only at the end of the vector, like
-
-  * update of existing elements
-  * snoc/uncons
-  * init/last
-
-Bases on the r/b tree persistant data structure. */
-
-
-// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
