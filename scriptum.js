@@ -207,7 +207,29 @@ export const App = t => ({
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ EXCEPTION ██████████████████████████████████
+███████████████████████████████████ ERRORS ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// accumulated errors
+
+class Errors extends Error {
+  constructor(...es) {
+    const ess = [];
+    super("accumulated errors");
+
+    es.forEach(e => {
+      if (e.constructor.name === "Errors") ess.push(e.errors);
+      else ess.push(e);
+    });
+
+    this.errors = ess.flat();
+  }
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ EXCEPTIONS ██████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -3445,10 +3467,10 @@ export const E = Except; // shortcut
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-E.foldl = f => acc => tx => introspect(tx) === "Error" ? acc : f(acc) (tx);
+E.foldl = f => acc => tx => introspect(tx) === "Error" ? tx : f(acc) (tx);
 
 
-E.foldr = f => acc => tx => introspect(tx) === "Error" ? acc : f(tx) (acc);
+E.foldr = f => acc => tx => introspect(tx) === "Error" ? tx : f(tx) (acc);
 
 
 E.Foldable = {
@@ -3547,8 +3569,9 @@ E.Apply = {
 █████ Functor :: Apply (Validation) ███████████████████████████████████████████*/
 
 
-/* Instead of short circuiting at the first exception the validation
-applicative instance collects both exceptions if both values raise one. */
+/* Instead of short circuiting at the first exception the validation applicative
+instance collects all contingent exceptions. The `Errors` error subclass checks
+for `Errors` instances among its arguments and flattens them conditionally. */
 
 
 E.Validation = {}; // namespace
@@ -3557,13 +3580,13 @@ E.Validation = {}; // namespace
 E.Valid = E.Validation; // shortcut
 
 
-E.Valid.ap = ({append}) => tf => tx => {
+E.Valid.ap = tf => tx => {
   if (introspect(tf) === "Error") {
-    if (introspect(tx) === "Error") return new Err(append(tf) (tx));
-    else return tf;
+    if (introspect(tx) === "Error") return new Errors(tf, tx);
+    else return new Errors(tf);
   }
 
-  else if (introspect(tx) === "Error") return tx;
+  else if (introspect(tx) === "Error") return new Errors(tx);
   else return tf(tx);
 };
 
