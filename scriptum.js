@@ -1057,6 +1057,9 @@ export const scope = f => f();
 export const uncurry = f => (x, y) => f(x) (y);
 
 
+export const uncurryArr = f => xs => xs.reduce((acc, x) => acc(x), f);
+
+
 /*
 █████ Category ████████████████████████████████████████████████████████████████*/
 
@@ -1269,8 +1272,7 @@ F.Comonad = {
 
   bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
             ^^^^^^
-  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
-            ^^^^^^                                                  */
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d */
 
 
 F.dimap = h => g => f => x => g(f(h(x)));
@@ -2223,12 +2225,12 @@ non-emptyness. */
 
 A.nonEmpty = xs => {
   if (xs.length === 0)
-    throw new TypeError("non-empty must not be empty");
+    throw new TypeError("non-empty array must not be empty");
 
   return new Proxy(xs, {
     deleteProperty(_, i) {
       if (xs.length === 1)
-        throw new TypeError("non-empty must not be empty");
+        throw new TypeError("non-empty array must not be empty");
 
       else return delete xs[i];
     },
@@ -2244,7 +2246,7 @@ A.nonEmpty = xs => {
 
     set(_, k, v, proxy) {
       if (k === "length" && v === 0)
-        throw new TypeError("non-empty must not be empty");
+        throw new TypeError("non-empty array must not be empty");
 
       else {
         xs[k] = v;
@@ -9385,14 +9387,14 @@ FileSys.error = fs => cons => thisify(o => { // cons = S | P
 });
 
 
-FileSys.exception = fs => cons => thisify(o => {
+FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
   if (cons.name !== "SerialExcept" && cons.name !== "ParallelExcept")
     throw new TypeError("invalid asynchronous constructor");
 
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? k(Pair(new TypeError(e), k2))
+        ? k({e: new TypeError(e), k: k2, args: [src, dest]})
         : k2(Pair(src, dest))));
 
   o.move = src => dest =>
@@ -9402,28 +9404,33 @@ FileSys.exception = fs => cons => thisify(o => {
 
   o.read = opt => path =>
     cons(({raise: k, proceed: k2}) =>
-      fs.readFile(path, opt, (e, x) =>
-        e ? k(Pair(new TypeError(e), k2)) : k2(x)));
+      fs.readFile(path, opt, (e, x) => e
+        ? k({e: new TypeError(e), k: k2, args: [opt, path]})
+        : k2(x)));
 
   o.scanDir = path =>
     cons(({raise: k, proceed: k2}) =>
-      fs.readdir(path, (e, xs) =>
-        e ? k(Pair(new TypeError(e), k2)) : k2(xs)));
+      fs.readdir(path, (e, xs) => e
+        ? k({e: new TypeError(e), k:k2, args: [path]})
+        : k2(xs)));
 
   o.stat = path =>
     cons(({raise: k, proceed: k2}) =>
-      fs.stat(path, (e, o) =>
-        e ? k(Pair(new TypeError(e), k2)) : k2(o)));
+      fs.stat(path, (e, o) => e
+        ? k({e: new TypeError(e), k: k2, args: [path]})
+        : k2(o)));
 
   o.unlink = path =>
     cons(({raise: k, proceed: k2}) =>
-      fs.unlink(path, e =>
-        e ? k(Pair(new TypeError(e), k2)) : k2(path)));
+      fs.unlink(path, e => e
+        ? k({e: new TypeError(e), k: k2, args: [path]})
+        : k2(path)));
 
   o.write = opt => path => s =>
     cons(({raise: k, proceed: k2}) =>
-      fs.writeFile(path, s, opt, e =>
-        e ? k(Pair(new TypeError(e), k2)) : k2(s)));
+      fs.writeFile(path, s, opt, e => e
+        ? k({e: new TypeError(e), k: k2, args: [opt, path, s]})
+        : k2(s)));
 
   return o;
 });
