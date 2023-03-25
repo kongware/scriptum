@@ -213,7 +213,7 @@ export const App = t => ({
 
 // accumulated errors
 
-class Errors extends Error {
+export class Errors extends Error {
   constructor(...es) {
     const ess = [];
     super("accumulated errors");
@@ -507,9 +507,10 @@ export const min = x => y => x <= y ? x : y;
 █████ Monad Recursion █████████████████████████████████████████████████████████*/
 
 
-/* Allow stack-safe recursion within a monad through a trampoline. It is based
-on a continuation monad and as such doesn't have a monad transformer, i.e. it
-can only be used as the outermost base monad of a transformer stack. */
+/* The `Loopm` monad allows stack-safe monad recursion through a trampoline
+mechanism. It is the little brother of the continuation monad and thus doesn't
+have a valid monad transformer, i.e. it can only be used as the outermost base
+monad of a transformer stack. */
 
 
 export const Loopm = o => {
@@ -1582,10 +1583,11 @@ F.Contra = F.Contra();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// structure: a -> m b
-
-/* Unlike other monad transformers Reader gets its own type wrapper to
-distinguish normal function calls from monadic ones. */
+/* With the reader transformer `a -> m b` the base monad `m` isn't on the
+outside but in the codomain of the function. This way the inner monad (`a ->`)
+is applied before the base monad. Applying the inner monad means to implicitly
+pass an argument, which from the perspetive of the base monad acts like a
+read-only environment. */
 
 
 export const Reader = fmm => ({ // constructor
@@ -1597,37 +1599,127 @@ export const Reader = fmm => ({ // constructor
 export const R = Reader; // shortcut
 
 
+// transformer type: a -> m b
+
+
 R.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromFun = f => Reader(r => outer.of(f(r)));
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
   o.map = f => mmx => Reader(r => outer.map(f) (mmx.run(r)));
 
 
-  o.ap = mmf => mmx => Reader(r => outer.ap(mmf.run(r)) (mmx.run(r)))
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => Reader(r => outer.ap(mmf.run(r)) (mmx.run(r)));
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
   o.of = x => Reader(_ => outer.of(x));
 
 
-  o.chain = mmx => fmm =>
-    Reader(r => outer.chain(mmx.run(r)) (x => fmm(x).run(r)));
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => Reader(r =>
+    outer.chain(mmx.run(r)) (x => fmm(x).run(r)));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = ({append}) => mmx => mmy => Reader(r =>
+    outer.chain(append(mmx.run(r))) (mx =>
+      outer.map(my => append(mx) (my)) (mmy.run(r))));
+  
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = ({empty}) => Reader(_ => outer.of(empty));
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
 
 
   o.lift = mx => Reader(_ => mx);
 
 
+  // TODO
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
   o.ask = Reader(outer.of);
 
 
-  o.reader = f => Reader(r => outer.of(f(r)));
+  o.runReader = f => mmx => Reader(r => f(mmx.run(r)));
 
 
   o.withReader = f => mmx => Reader(r => mmx.run(f(r)));
 
   
-  o.mapBase = f => mmx => Reader(r => f(mmx.run(r)));
-  
-
   return o;
 });
 
@@ -1635,9 +1727,6 @@ R.T = outer => thisify(o => { // outer monad's type classes
 /*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████ FUNCTION :: STATE :: TRANSFORMER ███████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: b -> m (a, b)
 
 
 export const State = fmm => ({ // constructor
@@ -1649,9 +1738,96 @@ export const State = fmm => ({ // constructor
 export const St = State; // shortcut
 
 
+// transformer type: b -> m (a, b)
+
+
 St.T = outer => thisify(o => { // outer monad's type classes
 
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  //o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  /*o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };*/
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  /*o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };*/
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  /*o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };*/
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  /*o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };*/
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  //o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  /*o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };*/
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
   // TODO
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+  //o.Unfoldable = {unfold: o.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
 
   return o;
 });
@@ -1696,7 +1872,7 @@ A.Clonable = {clone: A.clone};
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-A.fromList = () => L.foldl(A.snoc_) ([]);
+A.fromList = xss => xss.flat(Number.POSITIVE_INFINITY);
 
 
 /*
@@ -1781,30 +1957,6 @@ A.unsnoc = xs => Pair(
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-A.mapSucc = f => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc.push(f(Pair(xs[i], xs[j])));
-
-  return acc;
-};
-
-
-A.reduceSucc = f => acc => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc = f(acc) (Pair(xs[i], xs[j]));
-
-  return acc;
-};
-
-
-/*
 █████ Creation ████████████████████████████████████████████████████████████████*/
 
 
@@ -1847,7 +1999,7 @@ A.Eq = {eq: A.eq};
 
 /* Sets a focus on the first element that satisfies the given predicate and
 holds references to the left/right remainders. The reminders are lazy, i.e.
-only evaluated once and when actually needed. */
+only evaluated when actually needed and only once. */
 
 A.focusAt = p => xs => Loop(i => {
   if (i === xs.length || p(xs[i])) {
@@ -1874,7 +2026,7 @@ A.focusAt = p => xs => Loop(i => {
 
 /* Sets a focus on the first consecutive elements satisfying the given predicate
 and holds references to the left/right remainders. All fields of the resulting
-triple are lazy, i.e. only evaluated once and when actually needed. */
+triple are lazy, i.e. only evaluated when actually needed and only once. */
 
 A.focusOn = p => xs => Loop2((i, j) => {
   if (i === xs.length) return Loop2.base(Triple(xs, [], []));
@@ -2464,14 +2616,16 @@ A.stream = xs => {
 █████ Subarrays ███████████████████████████████████████████████████████████████*/
 
 
-/* `take`/`drop` combinators are not provided because arrays aren't lazy and 
-can be sliced trivially. */
+// `slice` method is used instead of `A.drop`
 
 
 A.dropWhile = p => xs => Loop2((acc, i) => {
   if (i === xs.length) return Loop2.base(acc);
   else return p(xs[i]) ? Loop2.rec(acc, i + 1) : Loop2.base(xs.slice(i));
 }) ([], 0);
+
+
+// `slice` method is used instead of `A.take`
 
 
 A.takeWhile = p => xs => Loop2((acc, i) => {
@@ -2558,6 +2712,8 @@ A.transpose = xss =>
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
+// left associative, eager unfold due to non-recursive array data type
+
 A.unfold = f => init => {
   let acc = [], x = init, next;
 
@@ -2579,13 +2735,7 @@ A.unfold = f => init => {
 };
 
 
-/* Since imperative arrays are inherently strict there is no meaningful non-
-strict right-associative unfold. Unfolding an array must therefore be finite. */
-
-A.unfoldr = A.unfold;
-
-
-A.Unfoldable = {unfold: A.unfold, unfoldr: A.unfoldr};
+A.Unfoldable = {unfold: A.unfold};
 
 
 /*
@@ -2628,6 +2778,18 @@ A.mapSucc = f => xs => {
 };
 
 
+// like `A.foldl` but with multi-argument reducer
+
+A.reduce = f => init => xs => {
+  let acc = init;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc, xs[i]);
+
+  return acc;
+};
+
+
 A.reduceSucc = f => acc => xs => {
   const acc = [];
 
@@ -2655,14 +2817,790 @@ A.ZipArr.ap = A.ZipArr.ap();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████ ARRAY :: TRANSFORMER █████████████████████████████
+████████████████████████████████ ARRAY :: LIST ████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* `Array` and `List` transformer are equivalent hence there is only an
-implementation for the latter but arrays can be easily processed:
+/* List-like array in the form of nested `[head, [head, [...[]]]]` structures.
+Please note that you cannot use its array methods but the combinators provided
+with the type.
 
-L.fromFoldable({foldr: A.foldr}) ([1,2,3]) */
+Encodes non-determinism just like arrays but is recursively defined and
+forms a completely unbalanced tree structure. There are two techniques to make
+operations on the type stack-safe:
+
+  * guarded recursion through lazy evaluation
+  * tail recursion modulo cons using a stack based trampoline
+
+For most type class member functions both variants are implemented with a bias
+on modulo cons.
+
+Which list like structure for what task:
+
+  * Array: random element access, length, mutations (push/pop, shift/unshift)
+  * Iarray: random element access, length, push/pop, concat
+  * List: cons/uncons, init/tail
+  * DList: append, cons/snoc */
+
+
+export const List = {};
+
+
+export const L = List;
+
+
+scope(() => {
+  class Cons extends Array {
+    constructor(x, xs) {
+      super(x, xs);
+      Object.defineProperty(this, TAG, {value: "Cons"});
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+
+      return function* () {
+        let xss = _this;
+
+        do {
+          switch (xss[TAG]) {
+            case "Nil": return;
+
+            case "Cons": {
+              yield xss[0];
+              xss = xss[1];
+              break;
+            }
+
+            default: throw new TypeError("malformed list-like array");
+          }
+        } while (true);
+      } ();
+    }
+
+    map() {throw new TypeError("invalid method invocation")}
+  };
+  
+  class Nil extends Array {
+    constructor() {
+      super();
+      Object.defineProperty(this, TAG, {value: "Nil"});
+      Object.freeze(this);
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      return function* () {return} ();
+    }
+
+    map() {throw new TypeError("invalid method invocation")}
+  };
+  
+  L.Cons = Cons;
+  
+  L.Nil = new Nil();
+});
+
+
+L.Cons_ = x => xs => new L.Cons(x, xs); // curried version
+
+
+L._Cons = xs => x => new L.Cons(x, xs);
+
+
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+L.head = xss => {
+  switch (xss[TAG]) {
+    case "Nil": return null;
+    case "Cons": return xss[0];
+    default: throw new TypeError("malformed list-like array");
+  }
+}
+
+
+L.singleton = x => [x, L.Nil];
+
+
+L.tail = xss => {
+  switch (xss[TAG]) {
+    case "Nil": return null;
+    case "Cons": return xss[1];
+    default: throw new TypeError("malformed list-like array");
+  }
+};
+
+
+// uncons is redundant
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+L.fromArr = xs => {
+  let xss = L.Nil;
+
+  for (let i = xs.length - 1; i >= 0; i--) {
+    xss = new L.Cons(xs[i], xss);
+  }
+
+  return xss;
+};
+
+
+/*
+█████ Infinity ████████████████████████████████████████████████████████████████*/
+
+
+L.iterate = f => function go(x)
+  new L.Cons(x, lazy(() => go(f(x))));
+
+
+L.repeat = x => new L.Cons(x, lazy(() => repeat(x)));
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+L.foldl = f => init => xss => {
+  let acc = init, done = false;
+
+  do {
+    switch (xss[TAG]) {
+      case "Nil": {
+        done = true;
+        break;
+      }
+
+      case "Cons": {
+        const [x, yss] = xss;
+        acc = f(acc) (x);
+        xss = yss;
+        break;
+      }
+
+      default: throw new TypeError("malformed list-like array");
+    }
+  } while (!done);
+
+  return acc;
+};
+
+
+// stack-safe even if `f` is strict in its second argument
+
+L.foldr = f => acc => Loops(xss => {
+  switch (xss[TAG]) {
+    case "Nil": return Loops.base(acc);
+
+    case "Cons": {
+      const [x, yss] = xss;
+      return Loops.call(f(x), Loops.rec(yss));
+    }
+
+    default: throw new TypeError("malformed list-like array");
+  }
+});
+
+
+// stack-safe only if `f` is non-strict in its second argument
+
+L.foldr_ = f => acc => function go(xss) {
+  switch (xss[TAG]) {
+    case "Nil": return acc;
+
+    case "Cons": {
+      const [x, yss] = xss;
+      return f(x) (lazy(() => go(yss)));
+    }
+
+    default: throw new TypeError("malformed list-like array");
+  }
+};
+
+
+L.Foldable = {
+  foldl: L.foldl,
+  foldr: L.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+L.mapA = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons_);
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
+};
+
+
+L.mapA_ = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons_);
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
+};
+
+
+L.seqA = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons_);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+};
+
+
+L.seqA_ = ({map, ap, of}) => {
+  const liftA2_ = liftA2({map, ap}) (L.Cons_);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+};
+
+
+L.Traversable = () => ({
+  ...L.Foldable,
+  ...L.Functor,
+  mapA: L.mapA,
+  seqA: L.seqA
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+L.map = f => L.foldr(x => acc => new L.Cons(f(x), acc)) (L.Nil);
+
+
+L.map_ = f => L.foldr_(x => acc => new L.Cons(f(x), acc)) (L.Nil);
+
+
+L.Functor = {map: L.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+L.alt = () => L.append;
+
+
+L.Alt = () => {
+  ...L.Functor,
+  alt: L.alt
+};
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+L.zero = L.Nil;
+
+
+L.Plus = {
+  ...L.Alt,
+  zero: L.zero
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+L.ap = tf => tx =>
+  L.foldr(f => acc =>
+    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
+
+
+L.ap_ = tf => tx =>
+  L.foldr_(f => acc =>
+    L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
+
+
+L.Apply = {
+  ...L.Functor,
+  ap: L.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+L.of = L.singleton;
+
+
+L.Applicative = {
+  ...L.Apply,
+  of: L.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+L.chain = mx => fm => L.foldr(x => acc =>
+  L.append(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.chain_ = mx => fm => L.foldr_(x => acc =>
+  L.append_(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.Chain = {
+  ...L.Apply,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+L.Alternative = {
+  ...L.Plus,
+  ...L.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+L.Monad = {
+  ...L.Applicative,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+// there is no valid instance because of the empty list
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+// there is no valid instance because if the empty list
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+L.append = flip(L.foldr(L.Cons_));
+
+
+L.append_ = flip(L.foldr_(L.Cons_));
+
+
+L.Semigroup = {append: L.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+L.empty = L.Nil;
+
+
+L.Monoid = {
+  ...L.Semigroup,
+  empty: L.empty
+};
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+L.unfold = f => function go(y) {
+  const r = f(y);
+
+  if (r === null) return L.Nil;
+
+  else {
+    const [x, y2] = r;
+    return new L.Cons(x, lazy(() => go(y2)));
+  }
+};
+
+
+L.Unfoldable = {unfold: L.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.alt = L.alt();
+
+
+L.Alt = L.Alt();
+
+
+L.Traversable = L.Traversable();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████ ARRAY :: LIST :: NON-EMPTY ██████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const NonEmptyList = {};
+
+
+export const Nea = NonEmptyList;
+
+
+scope(() => {
+  class Cons extends Array {
+    constructor(x, xs) {
+      super(x, xs);
+      Object.defineProperty(this, TAG, {value: "Cons"});
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+
+      return function* () {
+        let xss = _this;
+
+        do {
+          switch (xss[TAG]) {
+            case "Eol": {
+              yield xss[0];
+              return;
+            }
+
+            case "Cons": {
+              yield xss[0];
+              xss = xss[1];
+              break;
+            }
+
+            default: throw new TypeError("malformed list-like array");
+          }
+        } while (true);
+      } ();
+    }
+
+    map() {throw new TypeError("invalid method invocation")}
+  };
+  
+  class Eol extends Array {
+    constructor(x) {
+      if (x === undefined) throw new TypeError("value expected");
+      
+      else {
+        super(x, []);
+        Object.defineProperty(this, TAG, {value: "Eol"});
+        Object.freeze(this[1]);
+      }
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+      return function* () {yield _this[0]; return} ();
+    }
+
+    map() {throw new TypeError("invalid method invocation")}
+  };
+  
+  Nea.Cons = Cons;
+  
+  Nea.Eol = Eol;
+});
+
+
+Nea.Cons_ = x => xs => new Nea.Cons(x, xs); // curried version
+
+
+Nea._Cons = xs => x => new Nea.Cons(x, xs);
+
+
+/* TODO:
+
+  * head/tail
+  * Comonad (several instances)
+  * Foldable/Unfoldable
+  * Functor/Applicative/Monad
+  * Traversable
+  * Semigroup/Monoid */
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████ ARRAY :: LIST :: TRANSFORMER █████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// transformer type: m (List m a)
+
+
+L.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromFoldable = ({foldr}) => foldr(L.Cons_) (outer.of(L.Nil));
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+  // (m a -> b -> m a) -> m a -> m (List m b) -> m a
+  o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
+    return outer.chain(mmx) (mx => {
+        switch (mx[TAG]) {
+          case "Nil": return Loop2.base(acc)
+
+          case "Cons": {
+            const [x, mmy] = mx;
+            return Loop2.rec(mmy, f(acc) (x))
+          }
+
+          default: throw new TypeError("malformed list-like array");
+        }
+    }
+  }) (mmx, acc);
+
+
+  // (a -> m b -> m b) -> m b -> m (List m a) -> m b
+  o.foldr = f => acc => Loops(mmx => {
+    return outer.chain(mmx) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return Loops.base(acc);
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loops.call(f(x), Loops.rec(mmy));
+        }
+
+        default: throw new TypeError("malformed list-like array");
+      }
+    });
+  });
+
+
+  o.Foldable = {
+    foldl: o.foldl,
+    foldr: o.foldr
+  };
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+  // (a -> t b) -> m (List m a) -> t (m (List m b))
+  o.mapA = ({map, ap, of}) => ft => {
+    const liftA2_ = liftA2({map, ap});
+    
+    return o.foldr(x =>
+      liftA2_(y => mmx =>
+        outer.of(L.Cons(y, mmx))) (ft(x))) (of(o.empty));
+  };
+
+
+  // m (List m (t a)) -> t (m (List m a))
+  o.seqA = ({map, ap, of}) => {
+    const liftA2_ = liftA2({map, ap});
+
+    return o.foldr(liftA2_(x => mmx =>
+      outer.of(L.Cons(x, mmx)))) (of(o.empty));
+  };
+
+
+  o.Traversable = () => ({
+    ...o.Foldable,
+    ...o.Functor,
+    mapA: o.mapA,
+    seqA: o.seqA
+  });
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  // (a -> b) -> m (List m a) -> m (List m b)
+  o.map = f => mmx => o.foldr(x => mx =>
+    outer.of(L.Cons(f(x), mx))) (o.empty) (mmx);
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  // m (List m (a -> b)) -> m (List m a) -> m (List m b)
+  o.ap = mmf => mmx =>
+    o.foldr(f => my =>
+      o.foldr(x => mx =>
+        outer.of(L.Cons(f(x), mx)))
+          (my) (mmx)) (o.empty) (mmf);
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  // a -> m (List m a)
+  o.of = x => outer.of(L.Cons(x, outer.of(L.Nil)));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  // m (List m a) -> (a -> m (List m b)) -> m (List m b)
+  o.chain = mmx => fmm => o.foldr(x =>
+    o.append(fmm(x))) (o.empty) (mmx);
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  // m (List m a) -> m (List m a) -> m (List m a)
+  o.append = mmx => mmy =>
+    o.foldr(x => mx => outer.of(L.Cons(x, mx))) (mmy) (mmx);
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  // m (List m a)
+  o.empty = outer.of(L.Nil);
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // m a -> m (List m a)
+  o.lift = mx => outer.chain(mx) (o.of);
+
+
+  // (m a -> n a) -> m (List m a) => n (List n a)
+  o.hoist = f => Loops(mmx => {
+    return f(outer.map(mmx) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return Loops.base(L.Nil);
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loops.call(L.Cons_(x), Loops.rec(mmy));
+        }
+
+        default: throw new TypeError("malformed list-like array");
+      }
+    }));
+  });
+
+
+  // (m a -> n  (List n a)) -> m (List m a) -> n (List n a)
+  o.embed = fm => function go(mmx) { // TODO: switch to trampoline (maybe with lazy)
+    return outer.chain(fm(mmx)) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return o.empty;
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return outer.of(L.Cons(x, go(mmy)));
+          //     ^^^^^^^^ Cons isn't the tail call
+        }
+
+        default: throw new TypeError("malformed list-like array");
+      }
+    });
+  };
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+  // (b -> (a, b)) -> b -> ListT m a
+  o.unfold = f => function go(y) {
+    const r = f(y);
+
+    if (r === null) return o.empty;
+
+    else {
+      const [x, y2] = r;
+      return new outer.of(L.Cons(x, lazy(() => go(y2))));
+    }
+  };
+
+
+  o.Unfoldable = {unfold: o.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+  o.Traversable = o.Traversable();
+
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2682,13 +3620,10 @@ event. The type has the following properties:
   * lazy
   * cancelable
 
-A behavior takes an initial value and a function that in turn takes this
-initial value and returns an intermediate object:
-
-initialValue => {state: {run: actualState}, cancel: () => {...}}
-
-The intermediate object (A) must have two properties holding the state object (A) and a nullary
-cancellation function (B). Here is a simple example:
+A `Behavior` takes an initial value and a function that in turn takes this
+initial value and returns an intermediate object. The intermediate object (A)
+must have two properties holding the state (A) and a nullary cancellation
+function (B). Here is a simple example:
 
   const secCounter = Behavior(0) (init => {
     const state = {run: init}, // (B)
@@ -2697,8 +3632,8 @@ cancellation function (B). Here is a simple example:
     return {state, cancel: () => clearInterval(id)}; // (A)
   });
 
-Since behaviors are multicast cancelation is an issue since other parts of the
-code base may rely on them. Usually, cancelation just means the behavior keeps
+As behaviors are multicast, cancelation is an issue because other parts of the
+code might rely on them. Usually, cancelation just means the behavior keeps
 holding the value of the last processed event. It is more safe to throw an
 exception in case of post cancellation access, though. This can be easily
 defined inside the nullary `cancel` function.
@@ -2707,7 +3642,7 @@ Use `Stream` for synchronous data streams and `Observable` for asynchronous
 event streams. */
 
 
-const Behavior = init => behave => ({ // constructor
+export const Behavior = init => behave => ({ // constructor
   [Symbol.toStringTag]: "Behavior",
   
   get run() {
@@ -2722,7 +3657,7 @@ const Behavior = init => behave => ({ // constructor
 });
 
 
-const Be = Behavior; // shortcut
+export const Be = Behavior; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2737,10 +3672,6 @@ export const Comp = ttx => ({
   [TAG]: "Comp",
   run: ttx
 });
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
 /*
@@ -3039,362 +3970,70 @@ D.formatYear = mode => d => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ DEFER ████████████████████████████████████
+████████████████████████████████████ DLIST ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes deferred evaluated thunks in a more principled manner than the 
-proxy-based `defer` and `lazy` combinators. Since the type on its own is not
-particularly useful, it is mainly supplied as a monad transformer. Use the
-`Lazy` type if you need sharing.
+/* Function based difference list for efficient append operations.
 
-  * deferred thunks are only evaluated if and when needed
-  * lazy thunks are only evaluated when needed and only once (sharing) */
+Which list like structure for what task:
 
+  * Array: random element access, length, mutations (push/pop, shift/unshift)
+  * Iarray: random element access, length, push/pop, concat
+  * List: cons/uncons, init/tail
+  * DList: append, cons/snoc */
 
-export const Defer = thunk => ({ // constructor
-  [TAG]: "Defer",
-  get run() {return thunk()}
-});
 
-
-Defer.of = x => Defer(x); // minimal context
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████ DEFER :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (Defer a)
-
-
-Defer.T = outer => thisify(o => { // outer monad's type classes
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-  o.foldl = f => acc => outer.map(mx => f(acc) (mx.run));
-
-
-  o.foldr = f => acc => outer.map(mx => f(mx.run) (acc));
-
-
-  o.Foldable = {
-    foldl: o.foldl,
-    foldr: o.foldr
-  };
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-  // schematic process: [Defer a] -> a -> f b -> f [Defer b]
-
-  o.mapA = ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Defer(() => x))) (ft(mx.run)));
-
-
-  // schematic process: [Defer (f a)] -> f [Defer a]
-
-  o.seqA = ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Defer(() => x))) (mx.run));
-
-
-  o.Traversable = () => ({
-    ...o.Foldable,
-    ...o.Functor,
-    mapA: o.mapA,
-    seqA: o.seqA
-  });
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  o.map = f => mmx => outer.map(mx => Defer(() => f(mx.run))) (mmx);
-
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
-    outer.chain(mmx) (mx =>
-      outer.of(Defer(() => mf.run(mx.run)))));
-
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  of: x => outer.of(Defer.of(x)),
-
-
-  Applicative = {
-    ...o.Apply,
-    of: o.of
-  },
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  o.chain = mmx => fmm => outer.chain(mmx) (mx => Defer(() => fmm(mx.run).run));
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ EITHER ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Encodes the effect of short circuiting a computation. This differs from
-exceptions in being able to return any value in case of short circuit,
-whereas `Except` is fixed with `Error` object as its return type. */
-
-
-export const Either = variant("Either", "Left", "Right") (cons0, cons1);
-
-
-Either.pattern = O.init("left", "right");
-
-
-Either.cata = left => right => tx => tx.run({left, right});
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-Either.foldr = f => acc => tx => tx.run({
-  left: acc,
-  right: x => f(x) (acc)
-});
-
-
-Either.foldl = f => acc => tx => tx.run({
-  left: acc,
-  right: x => f(acc) (x)
-});
-
-
-Either.Foldable = {
-  left: Either.foldl,
-  right: Either.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-Either.mapA = ({map, of}) => ft => tx => tx.run({
-  get left() {return of(Either.Left)},
-  right: x => map(Either.Right) (ft(x))
-});
-
-
-Either.seqA = ({map, of}) => ttx => ttx.run({
-  get left() {return of(Either.Left)},
-  right: tx => map(Either.Right) (tx)
-});
-
-
-Either.Traversable = () => ({
-  ...Either.Foldable,
-  ...Either.Functor,
-  mapA: Either.mapA,
-  seqA: Either.seqA
+export const DList = f => ({
+  [TAG]: "DList",
+  run: f
 });
 
 
 /*
-█████ Functor █████████████████████████████████████████████████████████████████*/
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
-Either.map = f => tx => tx.run({
-  left: tx,
-  right: x => Either.Right(f(x))
-});
+DList.cons = x => xss => DList(comp(L.Cons(x)) (xss));
 
 
-Either.Functor = {map: Either.map};
+DList.singleton = comp(DList) (L.Cons_);
 
 
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-// encodes the semantics of right biased picking to avoid short circution
-
-Either.alt = tx => ty => tx.run({
-  left: ty,
-  right: _ => tx
-})
-
-
-Either.Alt = {
-  ...Either.Functor,
-  alt: Either.alt
-};
+DList.snoc = x => xss => DList(comp(xss) (L.Cons_(x)));
 
 
 /*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Either.zero = Either.Left;
+DList.fromList = xss => comp(DList) (L.append);
 
 
-Either.Plus = {
-  ...Either.Alt,
-  zero: Either.zero
-};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Either.ap = tf => tx => tf.run({
-  left: tx,
-
-  right: f => tx.run({
-    left: tx,
-    right: x => Either.Right(f(x))
-  })
-});
-
-
-Either.Apply = {
-  ...Either.Functor,
-  ap: Either.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Either.of = x => Either.Right(x);
-
-
-Either.Applicative = {
-  ...Either.Apply,
-  of: Either.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Either.chain = tx => fm => tx.run({
-  left: tx,
-  right: fm
-});
-
-
-Either.Chain = {
-  ...Either.Apply,
-  chain: Either.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Either.Monad = {
-  ...Either.Applicative,
-  chain: Either.chain
-};
+DList.fromArr = xs => comp(DList) (A.append);
 
 
 /*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Either.append = ({append}) => tx => ty => tx.run({
-  left: ty,
-
-  right: x => ty.run({
-    left: tx,
-    right: y => Either.Right(append(x) (y))
-  })
-});
+DList.append = xss => yss => DList(comp(xss) (yss));
 
 
-Either.Semigroup = {append: Either.append};
+DList.Semigroup = {append: DList.append};
 
 
 /*
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Either.empty = ({empty}) => Either.Right(empty);
+DList.empty = DList(id);
 
 
-Either.Monoid = {
-  ...Either.Semigroup,
-  empty: Either.empty
+DList.Monoid = {
+  ...DList.Semigroup,
+  empty: DList.empty
 };
-
-
-/*
-█████ Mesc. ███████████████████████████████████████████████████████████████████*/
-
-
-Either.isLeft = tx => tx.run({
-  left: true,
-  right: _ => false
-});
-
-
-Either.isRight = tx => tx.run({
-  left: false,
-  right: _ => true
-});
-
-
-/*
-█████ Resolve Dependencies ████████████████████████████████████████████████████*/
-
-
-Either.Traversable = Either.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3418,37 +4057,10 @@ export const E = Except; // shortcut
 
 
 /*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
-E.foldl = f => acc => tx => introspect(tx) === "Error" ? tx : f(acc) (tx);
-
-
-E.foldr = f => acc => tx => introspect(tx) === "Error" ? tx : f(tx) (acc);
-
-
-E.Foldable = {
-  foldl: E.foldl,
-  foldr: E.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-E.mapA = ({of}) => ft => tx => introspect(tx) === "Error" ? of(tx) : ft(tx);
-
-
-E.seqA = ({of}) => tx => introspect(tx) === "Error" ? of(tx) : tx;
-
-
-E.Traversable = () => ({
-  ...E.Foldable,
-  ...E.Functor,
-  mapA: E.mapA,
-  seqA: E.seqA
-});
+E.cata = x => f => tx => introspect(tx) === "Error" ? x : f(tx);
 
 
 /*
@@ -3473,10 +4085,7 @@ arguments, the non-empty error is picked with a left bias again. */
 
 E.alt = tx => ty => {
   if (introspect(tx) === "Error") {
-    if (introspect(ty) === "Error") {
-      return tx.message === "" ? ty : tx;
-    }
-
+    if (introspect(ty) === "Error") return new Errors(tx, ty);
     else return ty;
   }
 
@@ -3494,7 +4103,7 @@ E.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-E.zero = Err("");
+E.zero = new Errors();
 
 
 E.Plus = {
@@ -3504,13 +4113,18 @@ E.Plus = {
 
 
 /*
-█████ Functor :: Apply (Exception) ████████████████████████████████████████████*/
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-E.ap = tf => tx =>
-  introspect(tf) === "Error" ? tf
-    : introspect(tx) === "Error" ? tx
-    : tf(tx);
+E.ap = tf => tx => {
+  if (introspect(tf) === "Error") {
+    if (introspect(tx) === "Error") return new Errors(tf, tx);
+    else return tf;
+  }
+
+  else (introspect(tx) === "Error") return tx;
+  else return tf(tx);
+};
 
 
 E.Apply = {
@@ -3520,49 +4134,19 @@ E.Apply = {
 
 
 /*
-█████ Functor :: Apply (Validation) ███████████████████████████████████████████*/
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-/* Instead of short circuiting at the first exception the validation applicative
-instance collects all contingent exceptions. The `Errors` error subclass checks
-for `Errors` instances among its arguments and flattens them conditionally. */
-
-
-E.Validation = {}; // namespace
-
-
-E.Valid = E.Validation; // shortcut
-
-
-E.Valid.ap = tf => tx => {
-  if (introspect(tf) === "Error") {
-    if (introspect(tx) === "Error") return new Errors(tf, tx);
-    else return new Errors(tf);
-  }
-
-  else if (introspect(tx) === "Error") return new Errors(tx);
-  else return tf(tx);
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative (Exception) █████████████████████████████*/
-
-
-E.of = id; // just id since no sum type encoding is used
+E.of = x => {
+  if (introspect(x) === "Error") throw new TypeError("invalid value");
+  else return x;
+}
 
 
 E.Applicative = {
   ...E.Apply,
   of: E.of
 };
-
-
-/*
-█████ Functor :: Apply :: Applicative (Validation) ████████████████████████████*/
-
-
-E.Valid.of = id; // same as exception instance
 
 
 /*
@@ -3602,10 +4186,15 @@ E.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-E.append = ({append}) => tx => ty =>
-  introspect(tx) === "Error" ? tx
-    : introspect(ty) === "Error" ? ty
-    : append(tx) (ty);
+E.append = ({append}) => tx => ty => {
+  if (introspect(tx) === "Error") {
+    if (introspect(ty) === "Error") return new Errors(tx, ty);
+    else return tx;
+  }
+
+  else (introspect(ty) === "Error") return ty;
+  else return append(tx) (ty);
+};
 
 
 E.Semigroup = {append: E.append};
@@ -3622,6 +4211,192 @@ E.Monoid = {
   ...E.Semigroup,
   empty: E.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ EXCEPT :: TRANSFORMER ████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// transformer type: m (Except Error | a)
+
+
+E.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromEither = mx => outer.of(mx);
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => outer.map(mx => introspect(mx) === "Error" ? mx : f(mx));
+
+
+  o.Functor = {map: o.map};
+  
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+  o.alt = mmx => mmy => outer.chain(mmx) (mx => {
+    if (introspect(mx) === "Error") {
+      return outer.map(my => {
+        if (introspect(my) === "Error") return new Errors(mx, my);
+        else return my;
+      }) (mmy)
+    }
+      
+    else return mmx;
+  });
+
+
+  o.Alt = {
+    ...o.Functor,
+    alt: o.alt
+  };
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+  o.zero = outer.of(new Errors());
+
+
+  o.Plus = {
+    ...o.Alt,
+    zero: o.zero
+  };
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => {
+    return outer.chain(mmf) (mf => {
+      return outer.map(mx => {
+        if (introspect(mf) === "Error") {
+          if (introspect(mx) === "Error") return new Errors(mf, mx);
+          else return mf;
+        }
+
+        else (introspect(mx) === "Error") return mx;
+        else return mf(mx);
+      }) (mmx);
+    });
+  };
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = mmx => outer.map(mx => {
+    if (introspect(mx) === "Error") throw new TypeError("invalid value");
+    else return mx;
+  }) (mmx);
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => outer.chain(mmx) (mx => {
+    if (introspect(mx) === "Error") return mmx;
+    else return fmm(mx);
+  });
+  
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+  o.Alternative = {
+    ...o.Plus,
+    ...o.Applicative
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = ({append}) => mmx => mmy => {
+    return outer.chain(mmx) (mx => {
+      return outer.map(my => {
+        if (introspect(mx) === "Error") {
+          if (introspect(my) === "Error") return new Errors(mx, my);
+          else return mx;
+        }
+
+        else if (introspect(my) === "Error") return my;
+        else return append(mx) (my);
+      }) (mmy);
+    });
+  };
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = ({empty}) => outer.of(empty);
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // TODO
+
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4493,10 +5268,10 @@ It.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-It.zero = () => It.empty;
+It.zero = function* () {} ();
 
 
-It.Plus = () => {
+It.Plus = {
   ...It.Alt,
   zero: It.zero
 };
@@ -4672,862 +5447,6 @@ It.reduceSucc = f => acc => ix => {
 
 
 It.Traversable = It.Traversable();
-
-
-It.zero = It.zero();
-
-
-It.Plus = It.Plus();
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ LAZY █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Encodes lazy evaluated thunks in a more principled manner than the 
-proxy-based `defer` and `lazy` combinators. Since the type on its own is not
-particularly useful, it is mainly supplied as a monad transformer. Use the
-`Defer` type if you don't need sharing.
-
-  * deferred thunks are only evaluated when needed
-  * lazy thunks are only evaluated when needed and only once (sharing) */
-
-
-export const Lazy = thunk => ({
-  [TAG]: "Lazy",
-
-  get run() {
-    const r = thunk(); // sharing
-    delete this.run;
-    return this.run = r;
-  }
-});
-
-
-Lazy.of = x => Lazy(x); // minimal context
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████ LAZY :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (Lazy a)
-
-
-Lazy.T = outer => thisify(o => { // outer monad's type classes
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-  o.foldl = f => acc => outer.map(mx => f(acc) (mx.run));
-
-
-  o.foldr = f => acc => outer.map(mx => f(mx.run) (acc));
-
-
-  o.Foldable = {
-    foldl: o.foldl,
-    foldr: o.foldr
-  };
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-  // schematic process: [Lazy a ] -> a -> f b -> f [Lazy b]
-
-  o.mapA = ({map}) => ft => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Lazy(() => x)))) (ft(mx.run));
-
-
-  // schematic process: [Lazy (f a)] -> f [Lazy a]
-
-  o.seqA = ({map}) => mmx => outer.chain(mmx) (mx =>
-    map(comp(outer.of) (x => Lazy(() => x)))) (mx.run);
-
-
-  o.Traversable = () => ({
-    ...o.Foldable,
-    ...o.Functor,
-    mapA: o.mapA,
-    seqA: o.seqA
-  });
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  o.map = f => mmx => outer.map(mx => Lazy(() => f(mx.run))) (mmx);
-  
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
-    outer.chain(mmx) (mx =>
-      outer.of(Lazy(() => mf.run(mx.run)))));
-  
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  o.of = x => outer.of(Lazy.of(x));
-
-
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  o.chain = mmx => fmm => outer.chain(mmx) (mx => Lazy(() => fmm(mx.run).run));
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ LIST █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Encodes non-determinism just like arrays but is recursively defined and
-forms a completely unbalanced tree structure. There are two techniques to make
-operations on the type stack-safe:
-
-  * guarded recursion through lazy evaluation
-  * tail recursion modulo cons using a stack based trampoline
-
-For most type class member functions both variants are implemented with a bias
-on modulo cons.
-
-Which list like structure for what task:
-
-  * Array: random element access, length, mutations (push/pop, shift/unshift)
-  * Iarray: random element access, length, push/pop, concat
-  * List: cons/uncons, init/tail
-  * DList: append, cons/snoc */
-
-
-export const List = variant("List", "Cons", "Nil") (cons2, cons0);
-
-
-export const L = List; // shortcut
-
-
-// extra value constructor with flipped arguments
-
-L.Cons_ = xs => x => ({
-  [TAG]: "List",
-  run: ({cons}) => cons(x) (xs)
-});
-
-
-L.pattern = O.init("cons", "nil");
-
-
-/*
-█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
-
-
-L.head = tx => tx.run({cons: x => _ => x, nil: null});
-
-
-L.singleton = x => L.Cons(x) (L.Nil);
-
-
-L.tail = tx => tx.run({cons: _ => ty => ty, nil: L.Nil});
-
-
-L.uncons = tx => tx.run({cons: y => ty => Pair(y, ty), nil: null});
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-L.fromArr = A.foldr(L.Cons) (L.Nil);
-
-
-L.fromDList = tx => comp(app_(L.Nil)) (tx.run);
-
-
-/*
-█████ Infinity ████████████████████████████████████████████████████████████████*/
-
-
-L.iterate = f => function go(x) {
-  return L.Cons(x) (lazy(() => go(f(x))));
-};
-
-
-L.repeat = x =>
-  L.Cons(x) (lazy(() => repeat(x)));
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-L.foldl = f => init => tx => {
-  let acc = init, done = false;
-
-  do {
-    tx = tx.run({
-      cons: x => ty => (acc = f(acc) (x), ty),
-      get nil() {done = true; return acc}
-    });
-  } while (!done);
-
-  return acc;
-};
-
-
-// stack-safe even if `f` is strict in its second argument
-
-L.foldr = f => acc => Loops(tx => {
-  return tx.run({
-    nil: Loops.base(acc),
-    cons: y => ty => Loops.call(
-      f(y),
-      Loops.rec(ty))
-  });
-});
-
-
-// stack-safe only if `f` is non-strict in its second argument
-
-L.foldr_ = f => acc => function go(tx) {
-  return tx.run({
-    nil: acc,
-    cons: y => ty => f(y) (lazy(() => go(ty)))
-  });
-};
-
-
-L.Foldable = {
-  foldl: L.foldl,
-  foldr: L.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-L.mapA = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
-};
-
-
-L.mapA_ = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
-};
-
-
-L.seqA = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return L.foldr(x => acc => liftA2_(x) (acc)) (of(L.Nil));
-};
-
-
-L.seqA_ = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons);
-  return L.foldr_(x => acc => liftA2_(x) (acc)) (of(L.Nil));
-};
-
-
-L.Traversable = () => ({
-  ...L.Foldable,
-  ...L.Functor,
-  mapA: L.mapA,
-  seqA: L.seqA
-});
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-L.map = f => L.foldr(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
-
-
-L.map_ = f => L.foldr_(x => acc => L.Cons(f(x)) (acc)) (L.Nil);
-
-
-L.Functor = {map: L.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-L.alt = () => L.append;
-
-
-L.Alt = () => {
-  ...L.Functor,
-  alt: L.alt
-};
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-L.zero = () => L.empty;
-
-
-L.Plus = () => {
-  ...L.Alt,
-  zero: L.zero
-};
-
-
-/*
-█████ Functor :: Apply (Non-Determinism) ██████████████████████████████████████*/
-
-
-L.ap = tf => tx =>
-  L.foldr(f => acc =>
-    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
-
-
-L.ap_ = tf => tx =>
-  L.foldr_(f => acc =>
-    L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
-
-
-L.Apply = {
-  ...L.Functor,
-  ap: L.ap
-};
-
-
-/*
-█████ Functor :: Apply (Zip List) █████████████████████████████████████████████*/
-
-
-L.ZipList = {};
-
-
-L.ZipList.ap = () => L.zipWith(app);
-
-
-/*
-█████ Functor :: Apply :: Applicative (Non-Determinism) ███████████████████████*/
-
-
-L.of = L.singleton;
-
-
-L.Applicative = {
-  ...L.Apply,
-  of: L.of
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative (ZipList) ███████████████████████████████*/
-
-
-L.ZipList.of = L.repeat;
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-L.chain = mx => fm => L.foldr(x => acc => L.append(fm(x)) (acc)) (L.Nil) (mx);
-
-
-L.chain_ = mx => fm => L.foldr_(x => acc => L.append_(fm(x)) (acc)) (L.Nil) (mx);
-
-
-L.Chain = {
-  ...L.Apply,
-  chain: L.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
-
-
-L.Alternative = {
-  ...L.Plus,
-  ...L.Applicative
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-L.Monad = {
-  ...L.Applicative,
-  chain: L.chain
-};
-
-
-/*
-█████ Functor :: Extend ███████████████████████████████████████████████████████*/
-
-
-// there is no valid instance because of the empty list
-
-
-/*
-█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
-
-
-// there is no valid instance because if the empty list
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-L.append = flip(L.foldr(L.Cons));
-
-
-L.append_ = flip(L.foldr_(L.Cons));
-
-
-L.Semigroup = {append: L.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-L.empty = L.Nil;
-
-
-L.Monoid = {
-  ...L.Semigroup,
-  empty: L.empty
-};
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-L.unfold = f => function go(y) {
-  const tx = f(y);
-
-  if (r === null) return L.Nil;
-
-  else {
-    const [x, y2] = tx;
-    return L.Cons(x) (lazy(() => go(y2)))
-  }
-};
-
-
-L.Unfoldable = {unfold: L.unfold};
-
-
-/*
-█████ Zipping █████████████████████████████████████████████████████████████████*/
-
-
-L.zipWith = f => tx => ty => function go(tx2, tz2) {
-  return tx.run({
-    cons: x3 => tx3 => ty.run({
-      cons: y3 => ty3 => L.Cons(f(x3) (y3)) (lazy(() => go(tx3, ty3))),
-      nil: L.Nil
-    }),
-
-    nil: L.Nil
-  });
-};
-
-
-L.unzip = () => L.foldr(([x, y]) => ([tx, ty]) =>
-  Pair(L.Cons(x) (tx), L.Cons(y) (ty))) (Pair(L.Nil, L.Nil));
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-L.isCons = tx => tx.run({cons: x => tx => true, nil: false});
-
-
-L.isNil = tx => tx.run({cons: x => tx => false, nil: true});
-
-
-L.reverse = L.foldl(L.Cons_) (L.Nil);
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-L.alt = L.alt();
-
-
-L.Alt = L.Alt();
-
-
-L.zero = L.zero();
-
-
-L.Plus = L.Plus();
-
-
-L.ZipList.ap = L.ZipList.ap();
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████ LIST :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (List m a)
-
-
-L.T = outer => thisify(o => { // outer monad's type classes
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-  o.fromFoldable = ({foldr}) => foldr(L.Cons) (o.empty);
-
-
-  o.toList = mmx =>
-    outer.of(o.foldr(x => mx => L.Cons(x) (mx)) (L.Nil) (mmx));
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-  o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
-    return outer.chain(mmx) (mx =>
-      mx.run({
-        cons: y => mmy => Loop2.next(mmy, f(acc) (y)),
-        nil: Loop2.done(acc)
-      }));
-  }) (mmx, []);
-
-
-  o.foldr = f => acc => function go(mmx) {
-    return outer.chain(mmx) (mx =>
-      mx.run({
-        cons: y => mmy => f(y) (lazy(() => go(mmy))),
-        nil: acc
-      }));
-  };
-
-
-  o.Foldable = {
-    foldl: o.foldl,
-    foldr: o.foldr
-  };
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-  o.mapA = ({map, ap, of}) => ft => {
-    const liftA2_ = liftA2({map, ap});
-    
-    return o.foldr(x =>
-      liftA2_(x => mmx =>
-        outer.of(L.Cons(x) (mmx))) (ft(x))) (of(o.empty));
-  };
-
-
-  o.seqA = ({map, ap, of}) => {
-    const liftA2_ = liftA2({map, ap});
-
-    return o.foldr(liftA2_(x => mmx =>
-      outer.of(L.Cons(x) (mmx)))) (of(o.empty));
-  };
-
-
-  o.Traversable = () => ({
-    ...o.Foldable,
-    ...o.Functor,
-    mapA: o.mapA,
-    seqA: o.seqA
-  });
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  o.map = f => mmx =>
-    o.foldr(x => mx => outer.of(L.Cons(f(x)) (mx))) (outer.of(L.Nil)) (mmx);
-
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-  o.alt = () => o.append;
-
-
-  o.Alt = () => {
-    ...o.Functor,
-    alt: o.alt
-  };
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-  o.zero = () => o.empty;
-
-
-  o.Plus = () => {
-    ...o.Alt,
-    zero: o.zero
-  };
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  o.ap = mmf => mmx =>
-    o.foldr(f => my =>
-      o.foldr(x => mx =>
-        outer.of(L.Cons(f(x)) (mx))) (my) (mmx))
-          (outer.of(L.Nil))
-            (mmf);
-
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  o.of = x => outer.of(L.Cons(x) (outer.of(L.Nil)));
-
-
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  o.chain = mmx => fmm =>
-    o.foldr(x => o.append(fmm(x))) (outer.of(L.Nil)) (mmx);
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
-
-
-  o.Alternative = {
-    ...o.Plus,
-    ...o.Applicative
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-  o.append = mmx => mmy =>
-    o.foldr(x => mx => outer.of(L.Cons(x) (mx))) (mmx) (mmy);
-
-
-  o.Semigroup = {append: o.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-  o.empty = outer.of(L.Nil);
-
-
-  o.Monoid = {
-    ...o.Semigroup,
-    empty: o.empty
-  };
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-  // TODO
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-  o.alt = o.alt();
-
-
-  o.Alt = o.Alt();
-
-
-  o.Traversable = o.Traversable();
-
-
-  o.zero = o.zero();
-
-  
-  o.Plus = o.Plus();
-
-
-  return o;
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ LIST :: DLIST ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Function based difference list for efficient append operations.
-
-Which list like structure for what task:
-
-  * Array: random element access, length, mutations (push/pop, shift/unshift)
-  * Iarray: random element access, length, push/pop, concat
-  * List: cons/uncons, init/tail
-  * DList: append, cons/snoc */
-
-
-export const DList = f => ({
-  [TAG]: "DList",
-  run: f
-});
-
-
-/*
-█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
-
-
-DList.cons = x => tx => DList(comp(L.Cons(x)) (tx.run));
-
-
-DList.singleton = comp(DList) (L.Cons);
-
-
-DList.snoc = x => tx => DList(comp(tx.run) (L.Cons(x)));
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-DList.fromList = tx => comp(DList) (L.append);
-
-
-DList.fromArr = xs => comp(DList) (A.append);
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-DList.append = tx => ty => DList(comp(tx.run) (ty.run));
-
-
-DList.Semigroup = {append: DList.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-DList.empty = DList(id);
-
-
-DList.Monoid = {
-  ...DList.Semigroup,
-  empty: DList.empty
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ LIST :: NELIST ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5967,12 +5886,7 @@ Ob.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-/*Ob.Traversable = () => ({
-  ...Ob.Foldable,
-  ...Ob.Functor,
-  mapA: Ob.mapA,
-  seqA: Ob.seqA
-});*/
+// TODO
 
 
 /*
@@ -6346,37 +6260,10 @@ export const Opt = Option; // shortcut
 
 
 /*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
-Opt.foldl = f => acc => tx => strict(tx) === null ? acc : f(acc) (tx);
-
-
-Opt.foldr = f => acc => tx => strict(tx) === null ? acc : f(tx) (acc);
-
-
-Opt.Foldable = {
-  foldl: Opt.foldl,
-  foldr: Opt.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-Opt.mapA = ({of}) => ft => tx => strict(tx) === null ? of(tx) : ft(tx);
-
-
-Opt.seqA = ({of}) => tx => tx === strict(null) ? of(tx) : tx;
-
-
-Opt.Traversable = () => ({
-  ...Opt.Foldable,
-  ...Opt.Functor,
-  mapA: Opt.mapA,
-  seqA: Opt.seqA
-});
+Opt.cata = x => f => tx => tx === null ? x : f(tx);
 
 
 /*
@@ -6437,7 +6324,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => strict(x) === null ? _throw("unexpected null") : x;
+Opt.of = x => x === null ? _throw("invalid value") : x;
 
 
 Opt.Applicative = {
@@ -6503,6 +6390,167 @@ Opt.Monoid = {
   ...Opt.Semigroup,
   empty: Opt.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ OPTION :: TRANSFORMER ████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// transformer type: m (Option null | a)
+
+
+Opt.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromOption = mx => outer.of(mx);
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => outer.map(mx => mx === null ? mx : f(mx));
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+  o.alt = mmx => mmy => outer.chain(mmx) (mx => {
+    if (mx === null) return mmy;
+    else return mmx;
+  });
+
+
+  o.Alt = {
+    ...o.Functor,
+    alt: o.alt
+  };
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+  o.zero = outer.of(null);
+
+
+  o.Plus = {
+    ...o.Alt,
+    zero: o.zero
+  };
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => outer.chain(mf => {
+    if (mf === null) return mf;
+
+    else return outer.map(mx =>
+      mx === null ? mx : mf(mx)) (mmx);
+  });
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = x => x === null ? _throw("invalid value") : outer.of(x);
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => outer.chain(mmx) (mx =>
+    mx === null ? mx : fmm(mx));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+  o.Alternative = {
+    ...o.Plus,
+    ...o.Applicative
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = ({append}) => mmx => mmy => outer.chain(mmx) (mx => {
+    if (mx === null) return mmy;
+
+    else return outer.map(my =>
+      my === null ? mx : append(mx) (my)) (mmy);
+  });
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = outer.of(null);
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // TODO
+
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8618,6 +8666,13 @@ Stream.Monoid = {
 };
 
 
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+Stream.Traversable = Stream.Traversable();
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ STRING ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -8763,6 +8818,10 @@ Tree.Node = x => branch => ({
 });
 
 
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
+
+
 /* The elimination rule of the type. Catamorphisms are more general and thus
 more expressive than folds, because they factor all value constructors in.
 `Either` has two constructors and the catamorphism receives two functions
@@ -8775,6 +8834,7 @@ for `List` and `Option`, because both types comprise one type constructor
 Catamorphisms are usually defined as a loop to avoid stack overflows. However,
 the depth of a more or less balanced tree should regularly not exhaust the call
 stack, hence it is recursively defined. */
+
 
 Tree.cata = node => function go({x, branch}) {
   return node(x) (branch.map(go));
@@ -8804,11 +8864,20 @@ Tree.foldLevel = tx => Tree.levels(tx) // level-order
 Tree.foldr = compThd(A.foldr) (Tree.linearize); // post-order
 
 
+Tree.Foldable = {
+  foldl: Tree.foldl,
+  foldr: Tree.foldr,
+};
+
+
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Tree.map = f => Tree.cata(x => xs => Tree.Node(f(x)) (xs));
+
+
+Tree.Functor = {map: Tree.map};
 
 
 /*
@@ -9030,25 +9099,6 @@ Pair.setSnd = x => tx => Pair(tx[0], x);
 
 
 /*
-█████ Writer ██████████████████████████████████████████████████████████████████*/
-
-
-Pair.censor = f => tx => Pair(tx[0], f(tx[1]));
-
-
-Pair.listen = tx => Pair(Pair(tx[0], tx[1]), tx[1]);
-
-
-Pair.listens = f => tx => Pair(Pair(tx[0], f(tx[1])), tx[1]);
-
-
-Pair.pass = f => tx => Pair(tx[0] [0], tx[0] [1] (tx[1]));
-
-
-Pair.tell = x => Pair(null, x);
-
-
-/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
@@ -9063,13 +9113,13 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// structure: m (a, b)
-
-
 export const Writer = mmx => ({ // constructor
   [TAG]: "Writer",
   run: mmx
 });
+
+
+// transformer type: m (a, b)
 
 
 export const W = Writer; // shortcut
@@ -9077,7 +9127,145 @@ export const W = Writer; // shortcut
 
 W.T = outer => thisify(o => { // outer monad's type classes
 
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromPair = pair => Writer(outer.of(pair));
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => mmx => Writer(outer.map(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = ({append}) => mmf => mmx =>
+    Writer(outer.ap(outer.map(mx => my =>
+      Pair(mx[0] (my[0]), append(mx[1]) (my[1])))
+        (mmf.run)) (mmx.run));
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = ({empty}) => x => Writer(outer.of(Pair(x, empty)));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = ({append}) => mmx => fmm =>
+    Writer(outer.chain(mmx.run) (mx =>
+      outer.map(my =>
+        Pair(my[0], append(mx[1]) (my[1])))
+          (fmm(mx[0]).run)));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = ({append}, {append: append2}) => mmx => mmy =>
+    Writer(outer.chain(mmx.run) (mx =>
+      outer.map(my => Pair(
+        append(mx[0]) (my[0]),
+        append2(mx[1]) (my[1])))
+          (mmy.run)));
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = ({empty}, {empty: empty2}) => Writer(outer.of(Pair(empty, empty2)));
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  o.lift = ({empty}) => mx => Writer(chain(mx) (x => of(Pair(x, empty))));
+
+
   // TODO
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+  o.censor = f => mmx => Writer(outer.map(mx =>
+    Pair(mx[0], f(mx[1]))) (mmx.run));
+
+  o.censor = f => tx => Writer(of(Pair(tx[0], f(tx[1]))));
+
+
+  o.exec = mmx => outer.map(mx => mx[1]) (mmx.run);
+
+
+  o.listen = mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0], mx[1]), mx[1])) (mmx.run));
+
+
+  o.listens = f => mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0], f(mx[1])), mx[1])) (mmx.run));
+
+
+  o.pass = mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0] [0], mx[0] [1] (mx[1])))) (mmx.run));
+
+
+  o.tell = x => Writer(of(Pair(null, x)));
+
   
   return o;
 });
@@ -9210,9 +9398,6 @@ Yo.lower = tx => tx.run(id);
 /*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████ RESOLVE DEP █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
-
-
-A.fromList = A.fromList();
 
 
 A.unzip = A.unzip();
@@ -10191,13 +10376,11 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
-  * add unlawful array transformer?
   * add monad combinators
   * add Represantable type class
   * add Distributive type class
   * add foldl1/foldr1 to all container types
-  * rename fold into cata for all non-container types
-  * add cata for each sum type
-  * delete S.once/P.once etc.
+  * conversion: fromFoldable instead of fromList/fromArray
+  * delete S.once/P.once etc. provided it is redundant
 
 */
