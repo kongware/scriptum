@@ -211,21 +211,7 @@ export const App = t => ({
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// accumulated errors
-
-export class Errors extends Error {
-  constructor(...es) {
-    const ess = [];
-    super("accumulated errors");
-
-    es.forEach(e => {
-      if (e.constructor.name === "Errors") ess.push(e.errors);
-      else ess.push(e);
-    });
-
-    this.errors = ess.flat();
-  }
-};
+export const Err = TypeError; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -233,24 +219,21 @@ export class Errors extends Error {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export class ExtendableError extends Error {
-  constructor(s) {
-    super(s);
-    this.name = this.constructor.name;
+// accumulated exceptions
 
-    if (typeof Error.captureStackTrace === "function")
-      Error.captureStackTrace(this, this.constructor);
-    
-    else
-      this.stack = (new Error(s)).stack;
+export class Exceptions extends Error {
+  constructor(...es) {
+    const ess = [];
+    super("exceptions");
+
+    es.forEach(e => {
+      if (e.constructor.name === "Exceptions") ess.push(e.es);
+      else ess.push(e);
+    });
+
+    this.es = ess.flat();
   }
 };
-
-
-export class Exception extends ExtendableError {};
-
-
-export const Err = TypeError; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1748,85 +1731,134 @@ St.T = outer => thisify(o => { // outer monad's type classes
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+  o.fromFun = f => State(x => outer.of(f(x)));
+
+
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  //o.Functor = {map: o.map};
+  o.map = f => mmx => State(s =>
+    outer.map(mx => Pair(f(mx[0]), mx[1])) (mmx.run(s)));
+
+
+  o.Functor = {map: o.map};
 
 
 /*
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-  /*o.Apply = {
+  o.ap = mmf => mmx => State(s =>
+    outer.chain(mmf.run(s)) (mf =>
+      outer.map(mx => Pair(mf[0] (mx[0]), mx[1])) (mmx.run(mf[1]))));
+
+
+  o.Apply = {
     ...o.Functor,
     ap: o.ap
-  };*/
+  };
 
 
 /*
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  /*o.Applicative = {
+  o.of = x => State(s => outer.of(Pair(x, s)));
+
+
+  o.Applicative = {
     ...o.Apply,
     of: o.of
-  };*/
+  };
 
 
 /*
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  /*o.Chain = {
+  o.chain = mmx => fmm => State(s =>
+    outer.chain(mmx.run(s)) (mx =>
+      fmm(mx[0]).run(mx[1])));
+
+
+  o.Chain = {
     ...o.Apply,
     chain: o.chain
-  };*/
+  };
 
 
 /*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
-  /*o.Monad = {
+  o.Monad = {
     ...o.Applicative,
     chain: o.chain
-  };*/
+  };
 
 
 /*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  //o.Semigroup = {append: o.append};
+  o.append = ({append}) => mmx => mmy => State(s =>
+    outer.chain(append(mmx.run(s))) (mx =>
+      outer.map(my => Pair(append(mx[0]) (my[0]), my[1])) (mmy.run(mx[1]))));
+  
+
+  o.Semigroup = {append: o.append};
 
 
 /*
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  /*o.Monoid = {
+  o.empty = ({empty}) => State(s => outer.of(Pair(empty, s)));
+
+
+  o.Monoid = {
     ...o.Semigroup,
     empty: o.empty
-  };*/
+  };
 
 
 /*
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
+  o.lift = mx => State(s => outer.map(x => Pair(x, s)) (mx));
+
+
   // TODO
 
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-  //o.Unfoldable = {unfold: o.unfold};
-
 
 /*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+█████ Misc. ████████████████████████████████████████████████████████████*/
+
+
+  o.exec = mmx => s => outer.map(mx => mx[1]) (mmx.run(s));
+
+
+  o.eval = mmx => s => outer.map(mx => mx[0]) (mmx.run(s));
+
+
+  o.get = State(s => outer.of(Pair(s, s)));
+
+
+  o.gets = f => State(s => outer.of(Pair(f(s), s)));
+
+
+  o.mod = f => State(s => outer.of(Pair(null, f(s))))
+
+
+  o.modM = fm => State(s => outer.map(s2 => Pair(null, s2)) (fm(s)));
+
+
+  o.put = s => State(_ => outer.of(Pair(null, s)))
+
+
+  o.with = f => mmx => State(s => mmx.run(f(s)));
 
 
   return o;
@@ -4042,12 +4074,11 @@ DList.Monoid = {
 
 
 /* Encodes the effect of computations that might raise an exception. Since
-Javascript comprises an error class, it isn't defined as a sum type but relies
-on error class objects. This approach makes it both less cumbersome to use but
-also less explicit. Use `Either` if you need short circuit semantics
-
-Throughout this lib a new error subclass `Exception` is used to indicate an
-exception. */
+Javascript includes an error class, it isn't defined as an algebraic  sum type
+but specializes on the error type. This approach makes it both less cumbersome
+to use but also less explicit. There is a special `Excdeptions` error subclass
+that allows colleting one or several exceptions, thus additionally providing
+the behavior of `Either`'s validation applicative instance. */
 
 
 export const Except = {}; // namespace
@@ -4085,7 +4116,7 @@ arguments, the non-empty error is picked with a left bias again. */
 
 E.alt = tx => ty => {
   if (introspect(tx) === "Error") {
-    if (introspect(ty) === "Error") return new Errors(tx, ty);
+    if (introspect(ty) === "Error") return new Exceptions(tx, ty);
     else return ty;
   }
 
@@ -4103,7 +4134,7 @@ E.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-E.zero = new Errors();
+E.zero = new Exceptions();
 
 
 E.Plus = {
@@ -4118,7 +4149,7 @@ E.Plus = {
 
 E.ap = tf => tx => {
   if (introspect(tf) === "Error") {
-    if (introspect(tx) === "Error") return new Errors(tf, tx);
+    if (introspect(tx) === "Error") return new Exceptions(tf, tx);
     else return tf;
   }
 
@@ -4188,7 +4219,7 @@ E.Monad = {
 
 E.append = ({append}) => tx => ty => {
   if (introspect(tx) === "Error") {
-    if (introspect(ty) === "Error") return new Errors(tx, ty);
+    if (introspect(ty) === "Error") return new Exceptions(tx, ty);
     else return tx;
   }
 
@@ -4248,7 +4279,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
   o.alt = mmx => mmy => outer.chain(mmx) (mx => {
     if (introspect(mx) === "Error") {
       return outer.map(my => {
-        if (introspect(my) === "Error") return new Errors(mx, my);
+        if (introspect(my) === "Error") return new Exceptions(mx, my);
         else return my;
       }) (mmy)
     }
@@ -4267,7 +4298,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-  o.zero = outer.of(new Errors());
+  o.zero = outer.of(new Exceptions());
 
 
   o.Plus = {
@@ -4284,7 +4315,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
     return outer.chain(mmf) (mf => {
       return outer.map(mx => {
         if (introspect(mf) === "Error") {
-          if (introspect(mx) === "Error") return new Errors(mf, mx);
+          if (introspect(mx) === "Error") return new Exceptions(mf, mx);
           else return mf;
         }
 
@@ -4361,7 +4392,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
     return outer.chain(mmx) (mx => {
       return outer.map(my => {
         if (introspect(mx) === "Error") {
-          if (introspect(my) === "Error") return new Errors(mx, my);
+          if (introspect(my) === "Error") return new Exceptions(mx, my);
           else return mx;
         }
 
@@ -10382,5 +10413,7 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
+
+  * revise These
 
 */
