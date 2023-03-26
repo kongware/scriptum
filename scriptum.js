@@ -160,7 +160,7 @@ export const xcons = p => (type, tag) => x => {
 };
 
 
-export const cons2 = (type, tag) => x => y => {
+export const cons2 = (type, tag) => x => y =>
   ({[TAG]: type, run: ({[tag]: f}) => f(x) (y)});
 
 
@@ -2297,10 +2297,10 @@ A.Functor = {map: A.map};
 A.alt = () => A.append;
 
 
-A.Alt = () => {
+A.Alt = () => ({
   ...A.Functor,
   alt: A.alt
-};
+});
 
 
 /*
@@ -2310,8 +2310,7 @@ A.Alt = () => {
 Object.defineProperty(A, "zero", { // due to mutable arrays
   get() {return []},
   enumerable: true,
-  configurable: true,
-  writable: true
+  configurable: true
 });
 
 
@@ -2323,8 +2322,7 @@ A.Plus = {
 Object.defineProperty(A.Plus, "zero", { // due to mutable arrays
   get() {return []},
   enumerable: true,
-  configurable: true,
-  writable: true
+  configurable: true
 });
 
 
@@ -2547,8 +2545,7 @@ A.Semigroup = {append: A.append};
 Object.defineProperty(A, "empty", { // due to mutable arrays
   get() {return []},
   enumerable: true,
-  configurable: true,
-  writable: true
+  configurable: true
 });
 
 
@@ -2560,8 +2557,7 @@ A.Monoid = {
 Object.defineProperty(A.Monoid, "empty", { // due to mutable arrays
   get() {return []},
   enumerable: true,
-  configurable: true,
-  writable: true
+  configurable: true
 });
 
 
@@ -2990,8 +2986,9 @@ L.fromArr = xs => {
 █████ Infinity ████████████████████████████████████████████████████████████████*/
 
 
-L.iterate = f => function go(x)
-  new L.Cons(x, lazy(() => go(f(x))));
+L.iterate = f => function go(x) {
+  return new L.Cons(x, lazy(() => go(f(x))));
+}
 
 
 L.repeat = x => new L.Cons(x, lazy(() => repeat(x)));
@@ -3120,10 +3117,10 @@ L.Functor = {map: L.map};
 L.alt = () => L.append;
 
 
-L.Alt = () => {
+L.Alt = () => ({
   ...L.Functor,
   alt: L.alt
-};
+});
 
 
 /*
@@ -3398,17 +3395,17 @@ L.T = outer => thisify(o => { // outer monad's type classes
   // (m a -> b -> m a) -> m a -> m (List m b) -> m a
   o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
     return outer.chain(mmx) (mx => {
-        switch (mx[TAG]) {
-          case "Nil": return Loop2.base(acc)
+      switch (mx[TAG]) {
+        case "Nil": return Loop2.base(acc)
 
-          case "Cons": {
-            const [x, mmy] = mx;
-            return Loop2.rec(mmy, f(acc) (x))
-          }
-
-          default: throw new TypeError("malformed list-like array");
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loop2.rec(mmy, f(acc) (x))
         }
-    }
+
+        default: throw new TypeError("malformed list-like array");
+      }
+    });
   }) (mmx, acc);
 
 
@@ -4153,7 +4150,7 @@ E.ap = tf => tx => {
     else return tf;
   }
 
-  else (introspect(tx) === "Error") return tx;
+  else if (introspect(tx) === "Error") return tx;
   else return tf(tx);
 };
 
@@ -4223,7 +4220,7 @@ E.append = ({append}) => tx => ty => {
     else return tx;
   }
 
-  else (introspect(ty) === "Error") return ty;
+  else if (introspect(ty) === "Error") return ty;
   else return append(tx) (ty);
 };
 
@@ -4319,7 +4316,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
           else return mf;
         }
 
-        else (introspect(mx) === "Error") return mx;
+        else if (introspect(mx) === "Error") return mx;
         else return mf(mx);
       }) (mmx);
     });
@@ -5279,14 +5276,14 @@ It.Functor = {map: It.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-It.alt = ix => iy => {
+It.alt = ix => function* (iy) {
   const {value: x, done} = ix.next(),
     {value: y, done: done2} = iy.next();
 
   if (!done) yield x;
   else if (!done2) yield y;
   else return;
-}
+};
 
 
 It.Alt = {
@@ -5386,13 +5383,13 @@ It.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-It.append = ({append}) => ix => iy => {
+It.append = ({append}) => ix => function* (iy) {
   const {value: x, done} = ix.next(),
     {value: y, done: done2} = iy.next();
 
   if (done || done2) return;
   else yield append(x) (y);
-}
+};
 
 
 It.Semigroup = {append: It.append};
@@ -5415,7 +5412,7 @@ It.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-It.foldSucc = f => acc => ix => {
+It.foldSucc = f => acc => function* (ix) {
   let {value: x} = ix.next();
 
   do {
@@ -5457,7 +5454,7 @@ It.reduce = f => acc => function* (ix) {
 };
 
 
-It.reduceSucc = f => acc => ix => {
+It.reduceSucc = f => acc => function* (ix) {
   let {value: x} = ix.next();
 
   do {
@@ -6312,6 +6309,7 @@ Opt.Functor = {map: Opt.map};
 
 
 Opt.alt = tx => ty => strict(tx) === null ? ty : tx;
+
 
 Opt.Alt = {
   ...Opt.Functor,
@@ -8729,10 +8727,14 @@ Str.cat_ = Str.catWith(" ");
 // encodes a fundamental sum type - logical and/or - (A & B) || A || B
 
 
-export const These = variant("These", "This", "That", "Both") (cons1, cons1, con2);
+export const These = variant("These", "This", "That", "Both") (cons, cons, cons2);
 
 
 These.pattern = O.init("this", "that", "both");
+
+
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
 These.cata = _this => that => both => tx => tx.run({ // elimination rule
@@ -8747,9 +8749,9 @@ These.cata = _this => that => both => tx => tx.run({ // elimination rule
 
 
 These.map = f => tx => tx.run({
-  this: These.This,
-  that: y => These.That(f(y)),
-  both: x => y => These.Both(x) (f(y))
+  this: x => These.This(f(x)),
+  that: _ => tx,
+  both: x => y => These.Both(f(x)) (y)
 });
 
 
@@ -8757,22 +8759,56 @@ These.Functor = {map: These.map};
 
 
 /*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+These.alt = tx => ty => tx.run({
+  this: _ => tx,
+  that: _ => ty,
+  both: x => _ => These.This(x)
+});
+
+
+These.Alt = {
+  ...These.Functor,
+  alt: These.alt
+};
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+These.zero = ({empty}) => These.That(empty);
+
+
+These.Plus = {
+  ...These.Alt,
+  zero: These.zero
+};
+
+
+/*
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
 These.ap = ({append}) => tf => tx => tf.run({
-  this: These.This,
-
-  that: f => tx.run({
-    this: These.This,
-    that: y => These.That(f(y)),
-    both: x => y => These.Both(x) (f(y))
+  this: f => tx.run({
+    this: x => These.This(f(x)),
+    that: y => These.Both(f) (y),
+    both: x => y => These.Both(f(x)) (y)
   }),
 
-  both: x => f => tx.run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y => These.Both(x) (f(y)),
-    both: x2 => y => These.Both(append(x) (x2)) (f(y))
+  that: y => tx.run({
+    this: x => These.Both(x) (y),
+    that: y2 => These.That(append(y) (y2)),
+    both: x => y => These.Both(x) (append(y) (y2))
+  }),
+
+  both: f => y => tx.run({
+    this: x => These.Both(f(x)) (y),
+    that: y => These.Both(f) (y),
+    both: x => y2 => These.Both(f(x)) (append(y) (y2))
   })
 });
 
@@ -8801,13 +8837,13 @@ These.Applicative = {
 
 
 These.chain = ({append}) => mx => fm => mx.run({
-  this: These.This,
-  that: y => fm(y),
+  this: x => fm(x),
+  that: _ => mx,
 
-  both: x => y => fm(y).run({
-    this: x2 => These.This(append(x) (x2)),
-    that: y2 => These.Both(x) (y2),
-    both: x2 => y2 => These.Both(append(x) (x2)) (y2)
+  both: x => y => fm(x).run({
+    this: x2 => These.Both(x2) (y),
+    that: y2 => These.Both(x) (append(y) (y2)),
+    both: x2 => y2 => These.Both(x2) (append(y) (y2))
   })
 });
 
@@ -8825,6 +8861,47 @@ These.Chain = {
 These.Monad = {
   ...These.Applicative,
   chain: These.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+These.append = ({append}, {append: append2}) => tx => ty => tx.run({
+  this: x => ty.run({
+    this: x2 => These.This(append(x) (x2)),
+    that: y => These.Both(x) (y),
+    both: x2 => y => These.Both(append(x) (x2)) (y),
+  }),
+
+  that: y => ty.run({
+    this: x => These.Both(x) (y),
+    that: y2 => These.That(append2(y) (y2)),
+    both: x => y2 => These.Both(x) (append2(y) (y2)),
+  }),
+
+  both: x => y => ty.run({
+    this: x2 => These.Both(append(x) (x2)) (y),
+    that: y2 => These.Both(x) (append2(y) (y2)),
+    both: x2 => y2 => These.Both(append(x) (x2)) (append2(y) (y2)),
+  })
+});
+
+
+These.Semigroup = {append: These.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+These.empty = ({empty}) => These.That(empty);
+
+
+These.Monoid = {
+  ...These.Semigroup,
+  empty: These.empty
 };
 
 
@@ -9437,9 +9514,6 @@ A.unzip = A.unzip();
 export const compareOn = compareOn_();
 
   
-L.unzip = L.unzip();
-
-
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ IO ██████████████████████████████████████
@@ -10413,7 +10487,5 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
-
-  * revise These
 
 */
