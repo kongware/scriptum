@@ -39,8 +39,8 @@ Current Project:
 * static loop fusion with transducers
 * dynamic functorial fusion using yoneda
 * linked lists, non-empty list, difference list, list zipper
-* catamorpisms and other recursion schemes for many data types
 * data streams, event streams, behaviors
+* simple pattern matching
 * functional optics
 * parser combinators
 * functor composition
