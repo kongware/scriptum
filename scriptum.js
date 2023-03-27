@@ -492,9 +492,12 @@ matching. Destructuring assignments are malformed for the job:
   * either they return `Undefined` if the outer layer of a shape doesn't exist
   * or they throw an error if a nested layer of a shape doesn't exist
 
-The `match` combinator attains the desired behavior. Since destructuring
-assignment is limited, `match` relies on normal functions to check for
-miscellaneous characteristics like types:
+The `match` combinator adjusts native destructuring assignment so that thrown
+errors are catched and undefined as an assignment is rejected. Each case passed
+to `match` is a function that destructures its arguments and offers the full
+flexibility of functons to further inspect the assigned values. Each argument
+are passed redundantly in an array at the end of the parameter list for the
+case function to have access to the original not destructed values:
 
   match({baz: [5]}) (
     _if(({bar: s}) => s)
@@ -517,12 +520,12 @@ miscellaneous characteristics like types:
 The above pattern matching comes without pre-runtime exhaustiveness check. */
 
 
-export const match = x => (...cases) => {
+export const match = (...args) => (...cases) => {
   let r;
 
   for (_case of cases) {
     try {
-      r = _case(x);
+      r = _case(...args, args);
       if (r === undefined) continue;
       else break;
     } catch(e) {continue}
@@ -535,12 +538,12 @@ export const match = x => (...cases) => {
 };
 
 
-export const match_ = (...cases) => x => {
+export const match_ = (...cases) => (...args) => {
   let r;
 
   for (_case of cases) {
     try {
-      r = _case(x);
+      r = _case(...args, args);
       if (r === undefined) continue;
       else break;
     } catch(e) {continue}
@@ -554,8 +557,8 @@ export const match_ = (...cases) => x => {
 
 
 export const _if = _case => ({
-  then: f => x => {
-    const r = _case(x);
+  then: f => (...args) => {
+    const r = _case(...args);
 
     switch (introspect(r)) {
       case "Array": {
