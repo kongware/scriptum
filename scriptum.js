@@ -120,7 +120,7 @@ export const product = type => p => lambda => {
 
 export const variant = (type, ...tags) => (...cons) => {
   if (tags.length !== cons.length)
-    throw new TypeError("malformed variant type");
+    throw new Err("malformed variant type");
 
   return tags.reduce((acc, tag, i) => {
     acc[tag] = cons[i] (type, tag.toLowerCase());
@@ -319,7 +319,7 @@ class ThunkProxy {
       if (this.share) this.memo = g;
 
       if (typeof g !== "function")
-        throw new TypeError("invocation of non-functional thunk");
+        throw new Err("invocation of non-functional thunk");
 
       return g(...args);
     }
@@ -456,7 +456,7 @@ class ThunkProxy {
   }
 
   set(o) {
-    throw new TypeError("Thunk values must not be mutated");
+    throw new Err("Thunk values must not be mutated");
   }
 }
 
@@ -514,7 +514,7 @@ miscellaneous characteristics like types:
 
   // matches the 4th case and yields "*****"
 
- */
+The above pattern matching comes without pre-runtime exhaustiveness check. */
 
 
 export const match = x => (...cases) => {
@@ -528,7 +528,28 @@ export const match = x => (...cases) => {
     } catch(e) {continue}
   }
 
-  return r ? r() : undefined;
+  if (r) return r()
+
+  else throw new Err(
+    "pattern match expression must yield a value");
+};
+
+
+export const match_ = (...cases) => x => {
+  let r;
+
+  for (_case of cases) {
+    try {
+      r = _case(x);
+      if (r === undefined) continue;
+      else break;
+    } catch(e) {continue}
+  }
+
+  if (r) return r()
+
+  else throw new Err(
+    "pattern match expression must yield a value");
 };
 
 
@@ -581,7 +602,7 @@ export const Loopm = o => {
 
   return o.tag === "Base"
     ? o.x
-    : _throw(new TypeError("invalid trampoline tag"));
+    : _throw(new Err("invalid trampoline tag"));
 };
 
 
@@ -627,7 +648,7 @@ Loopm.Applicative = {
 Loopm.chain = mx => fm =>
   mx.tag === "Rec" ? Loopm.next(mx.x) (y => Loopm.chain(mx.f(y)) (fm))
     : mx.tag === "Base" ? fm(mx.x)
-    : _throw(new TypeError("invalid trampoline tag"));
+    : _throw(new Err("invalid trampoline tag"));
 
 
 Loopm.Chain = {
@@ -681,7 +702,7 @@ export const Loop = f => x => {
         break;
       }
 
-      default: throw new TypeError("invalid constructor");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -704,7 +725,7 @@ export const Loop2 = f => (x, y) => {
         break;
       }
 
-      default: throw new TypeError("invalid constructor");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -727,7 +748,7 @@ export const Loop3 = f => (x, y, z) => {
         break;
       }
 
-      default: throw new TypeError("invalid constructor");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -829,14 +850,14 @@ export const Loops = f => x => {
               break;
             }
 
-            default: throw new TypeError("unexpected tag");
+            default: throw new Err("unexpected tag");
           }
         }
 
         break;
       }
 
-      default: throw new TypeError("unexpected tag");
+      default: throw new Err("unexpected tag");
     }
   }
 
@@ -881,14 +902,14 @@ export const Loops2 = f => (x, y) => {
               break;
             }
 
-            default: throw new TypeError("unexpected tag");
+            default: throw new Err("unexpected tag");
           }
         }
 
         break;
       }
 
-      default: throw new TypeError("unexpected tag");
+      default: throw new Err("unexpected tag");
     }
   }
 
@@ -1114,7 +1135,7 @@ is nested in. The applicative `ap`, for instance, defines its nested call
 within the first argument, whereas the functorial `map` nests in the second one. */
 
 const makeInfix = nestFirst => (...args) => {
-  if (args.length === 0) throw new TypeError("no argument found");
+  if (args.length === 0) throw new Err("no argument found");
 
   let i = 1, x = args[0];
 
@@ -1450,6 +1471,20 @@ export const try_ = thunk => ({
 
 /*
 █████ Logic ███████████████████████████████████████████████████████████████████*/
+
+
+/* Converging all sorts of values into boolean ones allows logic operators to
+accept values of all types. */
+
+
+// if and only if
+
+export const iff = x => y => !!x && !!y || !x && !y;
+
+
+// either x is false or y must be true
+
+export const implies = x => y => !x || !!y === true;
 
 
 export const not = x => !x;
@@ -2263,7 +2298,7 @@ A.foldl = f => init => xs => { // left-associative
 
 A.foldl1 = f => xs => { // left-associative
   let acc = xs.length === 0
-    ? _throw(new TypeError("empty array")) : xs[0];
+    ? _throw(new Err("empty array")) : xs[0];
 
   for (let i = 1; i < xs.length; i++)
     acc = f(acc) (xs[i]);
@@ -2321,7 +2356,7 @@ A.foldr1 = f => xs => {
   };
 
   return xs.length === 0
-    ? _throw(new TypeError("empty array"))
+    ? _throw(new Err("empty array"))
     : go(0);
 };
 
@@ -2508,12 +2543,12 @@ non-emptyness. */
 
 A.nonEmpty = xs => {
   if (xs.length === 0)
-    throw new TypeError("non-empty array must not be empty");
+    throw new Err("non-empty array must not be empty");
 
   return new Proxy(xs, {
     deleteProperty(_, i) {
       if (xs.length === 1)
-        throw new TypeError("non-empty array must not be empty");
+        throw new Err("non-empty array must not be empty");
 
       else return delete xs[i];
     },
@@ -2529,7 +2564,7 @@ A.nonEmpty = xs => {
 
     set(_, k, v, proxy) {
       if (k === "length" && v === 0)
-        throw new TypeError("non-empty array must not be empty");
+        throw new Err("non-empty array must not be empty");
 
       else {
         xs[k] = v;
@@ -2981,13 +3016,13 @@ scope(() => {
               break;
             }
 
-            default: throw new TypeError("malformed list-like array");
+            default: throw new Err("malformed list-like array");
           }
         } while (true);
       } ();
     }
 
-    map() {throw new TypeError("invalid method invocation")}
+    map() {throw new Err("invalid method invocation")}
   };
   
   class Nil extends Array {
@@ -3003,7 +3038,7 @@ scope(() => {
       return function* () {return} ();
     }
 
-    map() {throw new TypeError("invalid method invocation")}
+    map() {throw new Err("invalid method invocation")}
   };
   
   L.Cons = Cons;
@@ -3026,7 +3061,7 @@ L.head = xss => {
   switch (xss[TAG]) {
     case "Nil": return null;
     case "Cons": return xss[0];
-    default: throw new TypeError("malformed list-like array");
+    default: throw new Err("malformed list-like array");
   }
 }
 
@@ -3038,7 +3073,7 @@ L.tail = xss => {
   switch (xss[TAG]) {
     case "Nil": return null;
     case "Cons": return xss[1];
-    default: throw new TypeError("malformed list-like array");
+    default: throw new Err("malformed list-like array");
   }
 };
 
@@ -3094,7 +3129,7 @@ L.foldl = f => init => xss => {
         break;
       }
 
-      default: throw new TypeError("malformed list-like array");
+      default: throw new Err("malformed list-like array");
     }
   } while (!done);
 
@@ -3113,7 +3148,7 @@ L.foldr = f => acc => Loops(xss => {
       return Loops.call(f(x), Loops.rec(yss));
     }
 
-    default: throw new TypeError("malformed list-like array");
+    default: throw new Err("malformed list-like array");
   }
 });
 
@@ -3129,7 +3164,7 @@ L.foldr_ = f => acc => function go(xss) {
       return f(x) (lazy(() => go(yss)));
     }
 
-    default: throw new TypeError("malformed list-like array");
+    default: throw new Err("malformed list-like array");
   }
 };
 
@@ -3397,18 +3432,18 @@ scope(() => {
               break;
             }
 
-            default: throw new TypeError("malformed list-like array");
+            default: throw new Err("malformed list-like array");
           }
         } while (true);
       } ();
     }
 
-    map() {throw new TypeError("invalid method invocation")}
+    map() {throw new Err("invalid method invocation")}
   };
   
   class Eol extends Array {
     constructor(x) {
-      if (x === undefined) throw new TypeError("value expected");
+      if (x === undefined) throw new Err("value expected");
       
       else {
         super(x, []);
@@ -3424,7 +3459,7 @@ scope(() => {
       return function* () {yield _this[0]; return} ();
     }
 
-    map() {throw new TypeError("invalid method invocation")}
+    map() {throw new Err("invalid method invocation")}
   };
   
   Nea.Cons = Cons;
@@ -3482,7 +3517,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
           return Loop2.rec(mmy, f(acc) (x))
         }
 
-        default: throw new TypeError("malformed list-like array");
+        default: throw new Err("malformed list-like array");
       }
     });
   }) (mmx, acc);
@@ -3499,7 +3534,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
           return Loops.call(f(x), Loops.rec(mmy));
         }
 
-        default: throw new TypeError("malformed list-like array");
+        default: throw new Err("malformed list-like array");
       }
     });
   });
@@ -3656,7 +3691,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
           return Loops.call(L.Cons_(x), Loops.rec(mmy));
         }
 
-        default: throw new TypeError("malformed list-like array");
+        default: throw new Err("malformed list-like array");
       }
     }));
   });
@@ -3674,7 +3709,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
           //     ^^^^^^^^ Cons isn't the tail call
         }
 
-        default: throw new TypeError("malformed list-like array");
+        default: throw new Err("malformed list-like array");
       }
     });
   };
@@ -4024,7 +4059,7 @@ D.fromString = s => {
   const d = new Date(s);
 
   if (Number.isNaN(d.valueOf()))
-    throw new TypeError("invalid date string");
+    throw new Err("invalid date string");
 
   else return d;
 };
@@ -4245,7 +4280,7 @@ E.Apply = {
 
 
 E.of = x => {
-  if (introspect(x) === "Error") throw new TypeError("invalid value");
+  if (introspect(x) === "Error") throw new Err("invalid value");
   else return x;
 }
 
@@ -4413,7 +4448,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
 
 
   o.of = mmx => outer.map(mx => {
-    if (introspect(mx) === "Error") throw new TypeError("invalid value");
+    if (introspect(mx) === "Error") throw new Err("invalid value");
     else return mx;
   }) (mmx);
 
@@ -4572,7 +4607,7 @@ export const Iarray = xs => {
     };
 
     o.concat = ys => {
-      if (immutable) throw new TypeError("concat op on immutable array");
+      if (immutable) throw new Err("concat op on immutable array");
 
       else {
         o.curr.push.apply(o.curr, ys);
@@ -4592,7 +4627,7 @@ export const Iarray = xs => {
     o.length = prev.length;
 
     o.pop = () => {
-      if (immutable) throw new TypeError("pop op on immutable array");
+      if (immutable) throw new Err("pop op on immutable array");
       else if (o.length === 0) return Pair(undefined, o);
 
       else if (o.curr.length === 0) {
@@ -4615,8 +4650,8 @@ export const Iarray = xs => {
     o.prev = prev;
 
     o.push = x => {
-      if (x === undefined) return new TypeError("undefined value");
-      else if (immutable) throw new TypeError("push op on immutable array");
+      if (x === undefined) return new Err("undefined value");
+      else if (immutable) throw new Err("push op on immutable array");
 
       else {
         o.curr.push(x);
@@ -4651,7 +4686,7 @@ export const Iarray = xs => {
 
         else if (offset2 < 0) {
           if (xs.length + offset2 < 0)
-            throw TypeError("invalid persistent array offset");
+            throw Err("invalid persistent array offset");
           
           else if (xs.length + offset2 > 0)
             xss.push(xs.slice(0, offset2));
@@ -4673,7 +4708,7 @@ export const Iarray = xs => {
 
     return new Proxy(o, {
       deleteProperty(_, i) {
-        throw new TypeError(`delete op on persistent array`);
+        throw new Err(`delete op on persistent array`);
       },
 
       get(_, i, proxy) {
@@ -4689,7 +4724,7 @@ export const Iarray = xs => {
       },
 
       set(_, i, v, proxy) {
-        throw new TypeError(`set op on persistent array`);
+        throw new Err(`set op on persistent array`);
       }
     });
   };
@@ -4789,7 +4824,7 @@ export const Imap = m => {
     o.del = del;
 
     o.delete = k => {
-      if (immutable) throw new TypeError("delete op on immutable map");
+      if (immutable) throw new Err("delete op on immutable map");
 
       else if (o.curr.has(k)) {
         o.curr.delete(k);
@@ -4838,9 +4873,9 @@ export const Imap = m => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new TypeError("undefined key");
-      else if (v === undefined) return new TypeError("undefined value");
-      else if (immutable) throw new TypeError("set op on immutable map");
+      if (k === undefined) return new Err("undefined key");
+      else if (v === undefined) return new Err("undefined value");
+      else if (immutable) throw new Err("set op on immutable map");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -4900,7 +4935,7 @@ export const Iobject = p => {
     o.del = del;
 
     o.delete = k => {
-      if (immutable) throw new TypeError("delete op on immutable object");
+      if (immutable) throw new Err("delete op on immutable object");
 
       else if (o.curr.has(k)) {
         o.curr.delete(k);
@@ -4959,9 +4994,9 @@ export const Iobject = p => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new TypeError("undefined key");
-      else if (v === undefined) return new TypeError("undefined value");
-      else if (immutable) throw new TypeError("set op on immutable object");
+      if (k === undefined) return new Err("undefined key");
+      else if (v === undefined) return new Err("undefined value");
+      else if (immutable) throw new Err("set op on immutable object");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -5063,8 +5098,8 @@ export const Iset = s => {
     o[Symbol.iterator] = () => o.unown();
 
     o.add = k => {
-      if (k === undefined) return new TypeError("undefined key");
-      else if (immutable) throw new TypeError("add op on immutable set");
+      if (k === undefined) return new Err("undefined key");
+      else if (immutable) throw new Err("add op on immutable set");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.add(k);
@@ -5075,7 +5110,7 @@ export const Iset = s => {
     o.del = del;
 
     o.delete = k => {
-      if (immutable) throw new TypeError("delete op on immutable set");
+      if (immutable) throw new Err("delete op on immutable set");
 
       else if (curr.has(k)) {
         o.curr.delete(k);
@@ -5612,7 +5647,7 @@ _Map.del = k => m => m.delete(k);
 
 _Map.upd = k => f => m => {
   if (m.has(k)) (o[k] = f(o[k]), o);
-  else return new Exception("missing property to be updated");
+  else return new Err("missing property to be updated");
 };
 
 
@@ -5635,8 +5670,8 @@ export const Num = {}; // namespace
 
 
 Num.fromString = s => {
-  if (s.search(/^(?:\+|\-)?\d+(?:\.\d+)?$/) === 0) return Number(s);
-  else throw new TypeError(`invalid number string: ${s}`);
+  if (/^(?:\+|\-)?\d+(?:\.\d+)?$/.test(s)) return Number(s);
+  else throw new Err(`invalid number string: "${s}"`);
 };
 
 
@@ -5786,7 +5821,7 @@ O.toPairs = Object.entries;
 
 O.new = (tag = null) => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
-    throw new TypeError("malformed object literal");
+    throw new Err("malformed object literal");
 
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
@@ -5822,7 +5857,7 @@ O.set = k => v => o => (o[k] = v, o);
 
 O.upd = k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
-  else return new Exception("missing property to be updated");
+  else return new Err("missing property to be updated");
 };
 
 
@@ -6265,13 +6300,13 @@ Optic.focus = (getter, setter) => tx => Optic(
 
 // reconstructs the composite data structure and takes any change into account
 
-Optic.unfocus = tx =>
+Optic.defocus = tx =>
   tx.parent === null ? tx : Optic.unfocus(tx.parent(tx.ref));
 
 
 // like `Optic.unfocus` but only reconstructs a single layer
 
-Optic.unfocus1 = tx =>
+Optic.defocus1 = tx =>
   tx.parent === null ? tx : tx.parent(tx.ref);
 
 
@@ -6693,7 +6728,7 @@ export const Parallel = k => ({
     delete this.runOnce;
 
     Object.defineProperty(this, "runOnce", {
-      get() {throw new TypeError("race condition")},
+      get() {throw new Err("race condition")},
       configurable: true,
       enumerable: true
     });
@@ -6941,7 +6976,7 @@ P.flatten = mmx => // monad like
 
 P.once = tx => {
   let x = lazy(() => {
-    throw new TypeError("race condition detected");
+    throw new Err("race condition detected");
   });
 
   let done = false;
@@ -6999,7 +7034,7 @@ export const ParallelExcept = ks => ({
     delete this.runOnce;
 
     Object.defineProperty(this, "runOnce", {
-      get() {throw new TypeError("race condition")},
+      get() {throw new Err("race condition")},
       configurable: true,
       enumerable: true
     });
@@ -7845,7 +7880,7 @@ export const Serial = k => ({
     delete this.runOnce;
 
     Object.defineProperty(this, "runOnce", {
-      get() {throw new TypeError("race condition")},
+      get() {throw new Err("race condition")},
       configurable: true,
       enumerable: true
     });
@@ -8025,7 +8060,7 @@ S.capture = tx => S(k => tx.run(x => k(Pair(k, x))));
 
 S.once = tx => {
   let x = lazy(() => {
-    throw new TypeError("race condition detected");
+    throw new Err("race condition detected");
   });
 
   let done = false;
@@ -8080,7 +8115,7 @@ export const SerialExcept = ks => ({
     delete this.runOnce;
 
     Object.defineProperty(this, "runOnce", {
-      get() {throw new TypeError("race condition")},
+      get() {throw new Err("race condition")},
       configurable: true,
       enumerable: true
     });
@@ -8273,7 +8308,7 @@ Sex.Monoid = {
 
 Sex.once = tx => {
   let x = lazy(() => {
-    throw new TypeError("race condition detected");
+    throw new Err("race condition detected");
   });
 
   let done = false;
@@ -9621,12 +9656,12 @@ export const FileSys = {}; // namespace
 
 FileSys.error = fs => cons => thisify(o => { // cons = S | P
   if (cons.name !== "Serial" && cons.name !== "Parallel")
-    throw new TypeError("invalid asynchronous constructor");
+    throw new Err("invalid asynchronous constructor");
 
   o.copy = src => dest =>
     cons(k =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? _throw(new TypeError(e))
+        ? _throw(new Err(e))
         : k(Pair(src, dest))));
 
   o.move = src => dest =>
@@ -9637,27 +9672,27 @@ FileSys.error = fs => cons => thisify(o => { // cons = S | P
   o.read = opt => path =>
     cons(k =>
       fs.readFile(path, opt, (e, x) =>
-        e ? _throw(new TypeError(e)) : k(x)));
+        e ? _throw(new Err(e)) : k(x)));
 
   o.scanDir = path =>
     cons(k =>
       fs.readdir(path, (e, xs) =>
-        e ? _throw(new TypeError(e)) : k(xs)));
+        e ? _throw(new Err(e)) : k(xs)));
 
   o.stat = path =>
     cons(k =>
       fs.stat(path, (e, o) =>
-        e ? _throw(new TypeError(e)) : k(o)));
+        e ? _throw(new Err(e)) : k(o)));
 
   o.unlink = path =>
     cons(k =>
       fs.unlink(path, e =>
-        e ? _throw(new TypeError(e)) : k(path)));
+        e ? _throw(new Err(e)) : k(path)));
 
   o.write = opt => path => s =>
     cons(k =>
       fs.writeFile(path, s, opt, e =>
-        e ? _throw(new TypeError(e)) : k(s)));
+        e ? _throw(new Err(e)) : k(s)));
 
   return o;
 });
@@ -9665,12 +9700,12 @@ FileSys.error = fs => cons => thisify(o => { // cons = S | P
 
 FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
   if (cons.name !== "SerialExcept" && cons.name !== "ParallelExcept")
-    throw new TypeError("invalid asynchronous constructor");
+    throw new Err("invalid asynchronous constructor");
 
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? k({e: new TypeError(e), k: k2, args: [src, dest]})
+        ? k({e: new Err(e), k: k2, args: [src, dest]})
         : k2(Pair(src, dest))));
 
   o.move = src => dest =>
@@ -9681,31 +9716,31 @@ FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
   o.read = opt => path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readFile(path, opt, (e, x) => e
-        ? k({e: new TypeError(e), k: k2, args: [opt, path]})
+        ? k({e: new Err(e), k: k2, args: [opt, path]})
         : k2(x)));
 
   o.scanDir = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readdir(path, (e, xs) => e
-        ? k({e: new TypeError(e), k:k2, args: [path]})
+        ? k({e: new Err(e), k:k2, args: [path]})
         : k2(xs)));
 
   o.stat = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.stat(path, (e, o) => e
-        ? k({e: new TypeError(e), k: k2, args: [path]})
+        ? k({e: new Err(e), k: k2, args: [path]})
         : k2(o)));
 
   o.unlink = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.unlink(path, e => e
-        ? k({e: new TypeError(e), k: k2, args: [path]})
+        ? k({e: new Err(e), k: k2, args: [path]})
         : k2(path)));
 
   o.write = opt => path => s =>
     cons(({raise: k, proceed: k2}) =>
       fs.writeFile(path, s, opt, e => e
-        ? k({e: new TypeError(e), k: k2, args: [opt, path, s]})
+        ? k({e: new Err(e), k: k2, args: [opt, path, s]})
         : k2(s)));
 
   return o;
@@ -9808,13 +9843,13 @@ RB.rotateR = t => {
       return RB.balanceR(
         t.c, t.h, t.l.l, t.l.k, t.l.v, RB.delMax_(RB.Node(RB.RED, t.h, t.l.r, t.k, t.v, t.r)));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
 RB.turnR = ({[TAG]: type, h, l, k, v, r}) => {
   if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
+    throw new Err("leaves cannot turn color");
 
   else return RB.Node(
     RB.RED, h, l, k, v, r);
@@ -9823,7 +9858,7 @@ RB.turnR = ({[TAG]: type, h, l, k, v, r}) => {
 
 RB.turnB = ({[TAG]: type, h, l, k, v, r}) => {
   if (type === "Leaf")
-    throw new TypeError("leaves cannot turn color");
+    throw new Err("leaves cannot turn color");
 
   else return RB.Node(
     RB.BLACK, h, l, k, v, r);
@@ -9834,7 +9869,7 @@ RB.turnB_ = t => {
   switch (t[TAG]) {
     case "Leaf": return RB.Leaf;
     case "Node": return RB.Node(RB.BLACK, t.h, t.l, t.k, t.v, t.r);
-    default: throw new TypeError("invalid value constructor");
+    default: throw new Err("invalid value constructor");
   }
 }
 
@@ -9857,7 +9892,7 @@ RB.cata = node => leaf => function go(t) {
         go(t.r) (t3 =>
           k(node([t.k, t.v]) (t2) (t3))));
 
-      default: throw new TypeError("invalid constructor");
+      default: throw new Err("invalid constructor");
     }
   }
 };
@@ -9871,7 +9906,7 @@ RB.cata_ = node => leaf => function go(t) { // lazy version
       (lazy(() => go(t.l)))
         (lazy(() => go(t.r)));
 
-    default: throw new TypeError("invalid constructor");
+    default: throw new Err("invalid constructor");
   }
 };
 
@@ -9890,11 +9925,11 @@ RB.del = (t, k, cmp) => {
       switch (t2[TAG]) {
         case "Leaf": return RB.Leaf;
         case "Node": return RB.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
+        default: throw new Err("invalid value constructor");
       }
     }
 
-    default: throw new TypeError("invalid value constructor");
+    default: throw new Err("invalid value constructor");
   }
 };
 
@@ -9952,7 +9987,7 @@ RB.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
       return RB.Node(
         RB.RED, h, l, ...RB.min(r), RB.Node(RB.BLACK, r.h, RB.delMin_(r.l), r.k, r.v, r.r));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -9981,7 +10016,7 @@ RB.delGT = (k, c, h, l, k2, v2, r, cmp) => {
   else if (c === RB.RED)
     return RB.Node(RB.RED, h, l, k2, v2, RB.del_(r, k, cmp));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -9995,11 +10030,11 @@ RB.delMin = t =>{
       switch (t2[TAG]) {
         case "Leaf": return RB.Leaf;
         case "Node": return RB.turnB(t2);
-        default: throw new TypeError("invalid value constructor");
+        default: throw new Err("invalid value constructor");
       }
     }
 
-    default: throw new TypeError("invalid value constructor");
+    default: throw new Err("invalid value constructor");
   }
 };
 
@@ -10014,11 +10049,11 @@ RB.delMax = t => {
       switch (t2[TAG]) {
         case "Leaf": return RB.Leaf;
         case "Node": return RB.turnB(t2);
-        default: TypeError("invalid value constructor");
+        default: Err("invalid value constructor");
       }
     }
 
-    default: TypeError("invalid value constructor");
+    default: Err("invalid value constructor");
   }
 };
 
@@ -10035,11 +10070,11 @@ RB.del_ = (t, k, cmp) => {
         case LT: return RB.delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
         case EQ: return RB.delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
         case GT: return RB.delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        default: throw new TypeError("invalid comparator");
+        default: throw new Err("invalid comparator");
       }
     }
 
-    default: throw new TypeError("invalid value constructor");
+    default: throw new Err("invalid value constructor");
   }
 };
 
@@ -10071,7 +10106,7 @@ RB.delMin_ = t => {
       return RB.Node(
         RB.RED, t.h, RB.Node(RB.BLACK, t.l.h, RB.delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -10090,7 +10125,7 @@ RB.delMin__ = t => {
         t.r.l.v,
         RB.Node( RB.BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -10123,7 +10158,7 @@ RB.delMax_ = t => {
     && t.c === RB.RED)
       return RB.Node(RB.RED, t.h, t.l, t.k, t.v, RB.rotateR(t.r));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -10137,7 +10172,7 @@ RB.delMax__ = t => {
       return RB.Node(
         RB.RED, t.h, RB.turnB(t.l.l), t.l.k, t.l.v, RB.balanceR(RB.BLACK, t.l.h, t.l.r, t.k, t.v, RB.delMax_(RB.turnR(t.r))));
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -10155,7 +10190,7 @@ RB.foldl = f => init => t => function go(acc, u) {
       return go(acc3, u.r);
     }
 
-    default: throw new TypeError("invalid constructor");
+    default: throw new Err("invalid constructor");
   }
 } (init, t);
 
@@ -10170,7 +10205,7 @@ RB.foldr = f => init => t => function go(acc, u) {
       return lazy(() => go(acc3, u.l));
     }
 
-    default: throw new TypeError("invalid constructor");
+    default: throw new Err("invalid constructor");
   }
 } (init, t);
 
@@ -10193,7 +10228,7 @@ RB.map = f => function go(t) {
       return RB.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
     }
 
-    default: throw new TypeError("invalid constructor");
+    default: throw new Err("invalid constructor");
   }
 };
 
@@ -10214,11 +10249,11 @@ RB.get = (t, k, cmp) => {
         case LT: return RB.get(t.l, k, cmp);
         case EQ: return t.v;
         case GT: return RB.get(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
+        default: throw new Err("invalid comparator");
       }
     }
 
-    default: TypeError("invalid value constructor");
+    default: Err("invalid value constructor");
   }
 };
 
@@ -10236,11 +10271,11 @@ RB.has = (t, k, cmp) => {
         case LT: return RB.has(t.l, k, cmp);
         case EQ: return true;
         case GT: return RB.has(t.r, k, cmp);
-        default: throw new TypeError("invalid comparator");
+        default: throw new Err("invalid comparator");
       }
     }
 
-    default: TypeError("invalid value constructor");
+    default: Err("invalid value constructor");
   }
 };
 
@@ -10257,7 +10292,7 @@ RB.min = t => {
   else if (t[TAG] === "Node")
     return RB.min(t.l);
 
-  else throw new TypeError("unexpected Leaf");
+  else throw new Err("unexpected Leaf");
 };
 
 
@@ -10269,7 +10304,7 @@ RB.max = t => {
   else if (t[TAG] === "Node")
     return RB.max(t.r);
 
-  else throw new TypeError("unexpected Leaf");
+  else throw new Err("unexpected Leaf");
 };
 
 
@@ -10299,11 +10334,11 @@ RB.set_ = (t, k, v, cmp) => {
         case GT: return RB.balanceR(
           t.c, t.h, t.l, t.k, t.v, RB.set_(t.r, k, v, cmp));
 
-        default: throw new TypeError("invalid comparator");
+        default: throw new Err("invalid comparator");
       }
     }
 
-    default: TypeError("invalid value constructor");
+    default: Err("invalid value constructor");
   }
 };
 
@@ -10375,7 +10410,7 @@ RB.join = (t1, t2, k, v, cmp) => {
       case LT: return RB.turnB(RB.joinLT(t1, t2, k, v, t1.h, cmp));
       case EQ: return RB.Node(RB.BLACK, t1.h + 1, t1, k, v, t2);
       case GT: return RB.turnB(RB.joinGT(t1, t2, k, v, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
+      default: throw new Err("invalid comparator");
     }
   }
 };
@@ -10389,7 +10424,7 @@ RB.joinLT = (t1, t2, k, v, h1, cmp) => {
   else if (t2[TAG] === "Node")
     return RB.balanceL(t2.c, t2.h, RB.joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
 
-  else throw new TypeError("unexpected leaf");
+  else throw new Err("unexpected leaf");
 };
 
 
@@ -10401,7 +10436,7 @@ RB.joinGT = (t1, t2, k, v, h2, cmp) => {
   else if (t1[TAG] === "Node")
     return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.joinGT(t1.r, t2, k, v, h2, cmp));
 
-  else throw new TypeError("unexpected leaf");
+  else throw new Err("unexpected leaf");
 };
 
 
@@ -10417,7 +10452,7 @@ RB.merge = (t1, t2, cmp) => {
       case LT: return RB.turnB(RB.mergeLT(t1, t2, t1.h, cmp));
       case EQ: return RB.turnB(RB.mergeEQ(t1, t2, cmp));
       case GT: return RB.turnB(RB.mergeGT(t1, t2, t2.h, cmp));
-      default: throw new TypeError("invalid comparator");
+      default: throw new Err("invalid comparator");
     }
   }
 };
@@ -10431,7 +10466,7 @@ RB.mergeLT = (t1, t2, h1, cmp) => {
   else if (t2[TAG] === "Node")
     return RB.balanceL(t2.c, t2.h, RB.mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
 
-  else throw new TypeError("unexpected leaf");
+  else throw new Err("unexpected leaf");
 };
 
 
@@ -10456,7 +10491,7 @@ RB.mergeEQ = (t1, t2, cmp) => {
       RB.BLACK, t1.h, RB.turnR(t1), k, v, t2_);
   }
 
-  else throw new TypeError("unexpected branch");
+  else throw new Err("unexpected branch");
 };
 
 
@@ -10468,7 +10503,7 @@ RB.mergeGT = (t1, t2, h2, cmp) => {
   else if (t1[TAG] === "Node")
     return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.mergeGT(t1.r, t2, h2, cmp));
 
-  else throw new TypeError("unexpected leaf");
+  else throw new Err("unexpected leaf");
 };
 
 
@@ -10490,7 +10525,7 @@ RB.split = (t, k, cmp) => {
         return [RB.join(t.l, lt, t.k, t.v, cmp), gt];
       }
 
-      default: throw new TypeError("invalid comparator");
+      default: throw new Err("invalid comparator");
     }
   }
 };
