@@ -482,6 +482,85 @@ export const min = x => y => x <= y ? x : y;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████ PATTERN MATCHING ███████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Utilizes destructuring assignments to realize a limited form of pattern
+matching. Destructuring assignments are malformed for the job:
+
+  * either they return `Undefined` if the outer layer of a shape doesn't exist
+  * or they throw an error if a nested layer of a shape doesn't exist
+
+The `match` combinator attains the desired behavior. Since destructuring
+assignment is limited, `match` relies on normal functions to check for
+miscellaneous characteristics like types:
+
+  match({baz: [5]}) (
+    _if(({bar: s}) => s)
+      .then(s => s.toUpperCase()),
+
+    _if(([x, y, z]) => [x, y, z])
+      .then(xs => xs.reverse()),
+
+    _if(({foo: s}) => s)
+      .then(s => s + "!"),
+
+    _if(({baz: [n]}) => Number(n) === n ? n : undefined)
+      .then(n => "*".repeat(n)),
+
+    _if(id) // default case
+      .then(_ => "otherwise"));
+
+  // matches the 4th case and yields "*****"
+
+ */
+
+
+export const match = x => (...cases) => {
+  let r;
+
+  for (_case of cases) {
+    try {
+      r = _case(x);
+      if (r === undefined) continue;
+      else break;
+    } catch(e) {continue}
+  }
+
+  return r ? r() : undefined;
+};
+
+
+export const _if = _case => ({
+  then: f => x => {
+    const r = _case(x);
+
+    switch (introspect(r)) {
+      case "Array": {
+        for (let y of r) {
+          if (y === undefined) return y;
+        }
+
+        return () => f(r);
+      }
+
+      case "Object": {
+        for (let y of O.values(r)) {
+          if (y === undefined) return y;
+        }
+
+        return () => f(r);
+      }
+
+      case "Undefined": return r;
+      default: return () => f(r);
+    }
+  }
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████ STACK SAFETY █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -3809,15 +3888,15 @@ asynchronous evaluation either in serial or in parallel.
   * delimited scopes
   * no transformer available (only as base monad)
 
-Calling `unwind` is possible due to reliable return values. It returns the
-`call` trampoline tag, hence the involved computation must be wrapped in one of
-the available trampoline interpeters, `Loop` for instance. */
+Calling `defer` is possible due to reliable return values. It returns the
+`call` trampoline tag, hence the involved computation must be wrapped in one
+of the available trampoline interpeters like `Loop`, for instance. */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
   run: k,
-  unwind: x => Loop.call(k, x) // stack safety
+  defer: x => Loop.call(k, x) // stack safety
 });
 
 
@@ -10481,7 +10560,7 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
-  * add monad combinators
+  * add monad combinators: filterM
   * add Represantable type class
   * add Distributive type class
   * add foldl1/foldr1 to all container types
