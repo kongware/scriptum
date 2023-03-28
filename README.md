@@ -13,13 +13,7 @@
 ```                                   
 
 
-# Haskell-style Functional Programming Adapted to Client-/Server-side Javascript
-
-Previous projects:
-
-* [in-depth functional programming course](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/course/ch-001.md)
-* [higher-rank/kinded runtime type validator source code](https://github.com/kongware/scriptum/blob/master/src/validator.js)
-* [higher-rank/kinded runtime type validator manpage](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/validator.md)
+# Functional Programming Unorthodoxly Adjusted to Client-/Server-side Javascript
 
 Current Project:
 
@@ -54,9 +48,15 @@ _unstable_
 
 While concepts and functional idioms are mature most function implementations are not tested yet and implementation details might be affected by future code revisions.
 
+Previous projects:
+
+* [in-depth functional programming course](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/course/ch-001.md)
+* [higher-rank/kinded runtime type validator source code](https://github.com/kongware/scriptum/blob/master/src/validator.js)
+* [higher-rank/kinded runtime type validator manpage](https://github.com/kongware/scriptum/blob/7172eb77cbd494938eb3ded6ab402ee81bd23555/validator.md)
+
 ## Future Studies
 
 - [ ] probabilistic data structures
-- [ ] software transaction memory (STM) and distributed applications
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
+- [ ] software transaction memory (STM) and distributed applications
 - [ ] strong eventual consistency (CRDTs)
