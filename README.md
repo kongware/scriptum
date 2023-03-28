@@ -15,7 +15,7 @@
 
 # Functional Programming Unorthodoxly Adjusted to Client-/Server-side Javascript
 
-[scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js), a functional programming standard library featuring
+[scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js), a functional standard library featuring
 
 * stack-safe tail recursion, tail recursion modulo cons, monad recursion, mutual recursion
 * persistent data structures `Iarray`/`Iobject`/`Imap`/`Iset` based on nested object types
