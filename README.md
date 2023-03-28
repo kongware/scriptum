@@ -19,25 +19,26 @@
 
 * stack-safe tail recursion, tail recursion modulo cons, monad recursion, mutual recursion
 * persistent data structures `Iarray`/`Iobject`/`Imap`/`Iset` based on nested object types
-* ad-hoc lazy evaluation with implicit thunks (based on `Proxy` type)
-* flat composition syntax through infix operators
-* simple, function-encoded variant (aka sum) and product types
-* principled, pure asynchronous computations in serial/parallel
-* functional I/O handling (pure core/impure shell)
-* extensive monad + transformer machinery
-* lots of native iterator combinators
+* ad-hoc lazy evaluation with implicit thunks (`() => expr` that behave like `expr`)
+* purely functional asynchronous computations in serial/parallel
+* extensive monad and monad transformer machinery
+* native `Iterator` as Functor/Applicative/Monad
+* purely functional data streams as iterator alternative
+* reactive programming with event streams and behaviors
+* linked lists, non-empty list, difference list
+* function-encoded sum and product types
 * lots of predefined type class definitions
 * lots of predefined polymorphic functions
-* static loop fusion with transducers
 * dynamic functorial fusion using yoneda
-* linked lists, non-empty list, difference list, list zipper
-* data streams, event streams, behaviors
+* static loop fusion using transducers
+* flat composition syntax using `infix`
 * simple pattern matching
 * functional optics
 * parser combinators
 * functor composition
 * let expressions
 * delimited continuations
+* r/b-tree implementation
 * n-ary tree handling
 
 ## Status
