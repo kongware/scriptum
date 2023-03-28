@@ -219,6 +219,13 @@ export const Err = TypeError; // shortcut
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// indicates errors that are not thrown, at least not immediately
+
+export class Exception extends Error {
+  constructor(s) {super(s)}
+}
+
+
 // accumulated exceptions
 
 export class Exceptions extends Error {
@@ -2579,6 +2586,13 @@ A.nonEmpty = xs => {
 
 
 /*
+█████ Getter ██████████████████████████████████████████████████████████████████*/
+
+
+A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
+
+
+/*
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
@@ -4653,7 +4667,7 @@ export const Iarray = xs => {
     o.prev = prev;
 
     o.push = x => {
-      if (x === undefined) return new Err("undefined value");
+      if (x === undefined) return new Exception("undefined value");
       else if (immutable) throw new Err("push op on immutable array");
 
       else {
@@ -4689,7 +4703,7 @@ export const Iarray = xs => {
 
         else if (offset2 < 0) {
           if (xs.length + offset2 < 0)
-            throw Err("invalid persistent array offset");
+            throw new Err("invalid persistent array offset");
           
           else if (xs.length + offset2 > 0)
             xss.push(xs.slice(0, offset2));
@@ -4711,7 +4725,7 @@ export const Iarray = xs => {
 
     return new Proxy(o, {
       deleteProperty(_, i) {
-        throw new Err(`delete op on persistent array`);
+        throw new Err("delete op on persistent array");
       },
 
       get(_, i, proxy) {
@@ -4727,7 +4741,7 @@ export const Iarray = xs => {
       },
 
       set(_, i, v, proxy) {
-        throw new Err(`set op on persistent array`);
+        throw new Err("set op on persistent array");
       }
     });
   };
@@ -4876,8 +4890,8 @@ export const Imap = m => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new Err("undefined key");
-      else if (v === undefined) return new Err("undefined value");
+      if (k === undefined) return new Exception("undefined key");
+      else if (v === undefined) return new Exception("undefined value");
       else if (immutable) throw new Err("set op on immutable map");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
@@ -4997,8 +5011,8 @@ export const Iobject = p => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new Err("undefined key");
-      else if (v === undefined) return new Err("undefined value");
+      if (k === undefined) return new Exception("undefined key");
+      else if (v === undefined) return new Exception("undefined value");
       else if (immutable) throw new Err("set op on immutable object");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
@@ -5101,7 +5115,7 @@ export const Iset = s => {
     o[Symbol.iterator] = () => o.unown();
 
     o.add = k => {
-      if (k === undefined) return new Err("undefined key");
+      if (k === undefined) return new Exception("undefined key");
       else if (immutable) throw new Err("add op on immutable set");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
@@ -5627,12 +5641,6 @@ _Map.values = function* (m) {
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
-_Map.add = ({append}) => k => v => m => {
-  if (m.has(k)) return m.set(k, append(m.get(k)) (v));
-  else return m.set(k, v);
-};
-
-
 _Map.get = k => m => m.has(k) ? m.get(k) : null;
 
 
@@ -5649,14 +5657,14 @@ _Map.del = k => m => m.delete(k);
 
 
 _Map.upd = k => f => m => {
-  if (m.has(k)) (o[k] = f(o[k]), o);
-  else return new Err("missing property to be updated");
+  if (m.has(k)) return m.set(k, f(m.get(k)));
+  else return new Exception("missing property to be updated");
 };
 
 
-_Map.updOr = x => k => f => o => {
-  if (k in o) return (o[k] = f(o[k]), o);
-  else return (o[k] = x, o);
+_Map.updOr = x => k => f => m => {
+  if (m.has(k)) return m.set(k, f(m.get(k)));
+  else return m.set(k, x);
 };
 
 
@@ -5840,12 +5848,6 @@ O.init = O.new();
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
-O.add = ({append}) => k => v => o => {
-  if (k in o) return (o[k] = append(o[k]) (v), o);
-  else return (o[k] = v, o);
-};
-
-
 O.del = k => o => (delete o[k], o);
 
 
@@ -5860,7 +5862,7 @@ O.set = k => v => o => (o[k] = v, o);
 
 O.upd = k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
-  else return new Err("missing property to be updated");
+  else return new Exception("missing property to be updated");
 };
 
 
@@ -6299,6 +6301,15 @@ export const Optic = (x, parent) => ({
 Optic.focus = (getter, setter) => tx => Optic(
   getter(tx.run),
   x => Optic(setter(x) (tx.run), tx.parent));
+
+
+Optic.tryFocus = (getter, setter) => tx => {
+  if (tx.run === null) return tx;
+  
+  else return Optic(
+    getter(tx.run),
+    x => Optic(setter(x) (tx.run), tx.parent));
+};
 
 
 // reconstructs the composite data structure and takes any change into account
@@ -9692,7 +9703,7 @@ FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
   o.copy = src => dest =>
     cons(({raise: k, proceed: k2}) =>
       fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? k({e: new Err(e), k: k2, args: [src, dest]})
+        ? k({e: new Exception(e), k: k2, args: [src, dest]})
         : k2(Pair(src, dest))));
 
   o.move = src => dest =>
@@ -9703,31 +9714,31 @@ FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
   o.read = opt => path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readFile(path, opt, (e, x) => e
-        ? k({e: new Err(e), k: k2, args: [opt, path]})
+        ? k({e: new Exception(e), k: k2, args: [opt, path]})
         : k2(x)));
 
   o.scanDir = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.readdir(path, (e, xs) => e
-        ? k({e: new Err(e), k:k2, args: [path]})
+        ? k({e: new Exception(e), k:k2, args: [path]})
         : k2(xs)));
 
   o.stat = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.stat(path, (e, o) => e
-        ? k({e: new Err(e), k: k2, args: [path]})
+        ? k({e: new Exception(e), k: k2, args: [path]})
         : k2(o)));
 
   o.unlink = path =>
     cons(({raise: k, proceed: k2}) =>
       fs.unlink(path, e => e
-        ? k({e: new Err(e), k: k2, args: [path]})
+        ? k({e: new Exception(e), k: k2, args: [path]})
         : k2(path)));
 
   o.write = opt => path => s =>
     cons(({raise: k, proceed: k2}) =>
       fs.writeFile(path, s, opt, e => e
-        ? k({e: new Err(e), k: k2, args: [opt, path, s]})
+        ? k({e: new Exception(e), k: k2, args: [opt, path, s]})
         : k2(s)));
 
   return o;
