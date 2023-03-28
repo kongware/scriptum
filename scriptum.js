@@ -612,7 +612,7 @@ export const Loopm = o => {
 
   return o.tag === "Base"
     ? o.x
-    : _throw(new Err("invalid trampoline tag"));
+    : _throw(new Err("invalid tag"));
 };
 
 
@@ -658,7 +658,7 @@ Loopm.Applicative = {
 Loopm.chain = mx => fm =>
   mx.tag === "Rec" ? Loopm.next(mx.x) (y => Loopm.chain(mx.f(y)) (fm))
     : mx.tag === "Base" ? fm(mx.x)
-    : _throw(new Err("invalid trampoline tag"));
+    : _throw(new Err("invalid tag"));
 
 
 Loopm.Chain = {
@@ -712,7 +712,7 @@ export const Loop = f => x => {
         break;
       }
 
-      default: throw new Err("invalid constructor");
+      default: throw new Err("invalid tag");
     }
   }
 
@@ -735,7 +735,7 @@ export const Loop2 = f => (x, y) => {
         break;
       }
 
-      default: throw new Err("invalid constructor");
+      default: throw new Err("invalid tag");
     }
   }
 
@@ -758,7 +758,7 @@ export const Loop3 = f => (x, y, z) => {
         break;
       }
 
-      default: throw new Err("invalid constructor");
+      default: throw new Err("invalid tag");
     }
   }
 
@@ -860,14 +860,14 @@ export const Loops = f => x => {
               break;
             }
 
-            default: throw new Err("unexpected tag");
+            default: throw new Err("invalid tag");
           }
         }
 
         break;
       }
 
-      default: throw new Err("unexpected tag");
+      default: throw new Err("invalid tag");
     }
   }
 
@@ -912,14 +912,14 @@ export const Loops2 = f => (x, y) => {
               break;
             }
 
-            default: throw new Err("unexpected tag");
+            default: throw new Err("invalid tag");
           }
         }
 
         break;
       }
 
-      default: throw new Err("unexpected tag");
+      default: throw new Err("invalid tag");
     }
   }
 
@@ -2553,12 +2553,12 @@ non-emptyness. */
 
 A.nonEmpty = xs => {
   if (xs.length === 0)
-    throw new Err("non-empty array must not be empty");
+    throw new Err("empty non-empty array");
 
   return new Proxy(xs, {
     deleteProperty(_, i) {
       if (xs.length === 1)
-        throw new Err("non-empty array must not be empty");
+        throw new Err("empty non-empty array");
 
       else return delete xs[i];
     },
@@ -2574,7 +2574,7 @@ A.nonEmpty = xs => {
 
     set(_, k, v, proxy) {
       if (k === "length" && v === 0)
-        throw new Err("non-empty array must not be empty");
+        throw new Err("empty non-empty");
 
       else {
         xs[k] = v;
@@ -4072,11 +4072,11 @@ export const D = DateTime; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-D.fromString = s => {
+D.fromStr = s => {
   const d = new Date(s);
 
   if (Number.isNaN(d.valueOf()))
-    throw new Err("invalid date string");
+    return new Exception("invalid date string");
 
   else return d;
 };
@@ -4667,8 +4667,7 @@ export const Iarray = xs => {
     o.prev = prev;
 
     o.push = x => {
-      if (x === undefined) return new Exception("undefined value");
-      else if (immutable) throw new Err("push op on immutable array");
+      if (immutable) throw new Err("push op on immutable array");
 
       else {
         o.curr.push(x);
@@ -4725,7 +4724,7 @@ export const Iarray = xs => {
 
     return new Proxy(o, {
       deleteProperty(_, i) {
-        throw new Err("delete op on persistent array");
+        throw new Err("delete op on immutable array");
       },
 
       get(_, i, proxy) {
@@ -4741,7 +4740,7 @@ export const Iarray = xs => {
       },
 
       set(_, i, v, proxy) {
-        throw new Err("set op on persistent array");
+        throw new Err("set op on immutable array");
       }
     });
   };
@@ -4890,9 +4889,7 @@ export const Imap = m => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new Exception("undefined key");
-      else if (v === undefined) return new Exception("undefined value");
-      else if (immutable) throw new Err("set op on immutable map");
+      if (immutable) throw new Err("set op on immutable map");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -5011,9 +5008,7 @@ export const Iobject = p => {
     o.prev = prev;
 
     o.set = (k, v) => {
-      if (k === undefined) return new Exception("undefined key");
-      else if (v === undefined) return new Exception("undefined value");
-      else if (immutable) throw new Err("set op on immutable object");
+      if (immutable) throw new Err("set op on immutable object");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.set(k, v);
@@ -5115,8 +5110,7 @@ export const Iset = s => {
     o[Symbol.iterator] = () => o.unown();
 
     o.add = k => {
-      if (k === undefined) return new Exception("undefined key");
-      else if (immutable) throw new Err("add op on immutable set");
+      if (immutable) throw new Err("add op on immutable set");
       else if (o.del.has(k)) o.del.delete(k);
       else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
       o.curr.add(k);
@@ -5682,7 +5676,7 @@ export const Num = {}; // namespace
 
 Num.fromString = s => {
   if (/^(?:\+|\-)?\d+(?:\.\d+)?$/.test(s)) return Number(s);
-  else throw new Err(`invalid number string: "${s}"`);
+  else return new Exception(`invalid number string: "${s}"`);
 };
 
 
@@ -6293,26 +6287,10 @@ export const Optic = (x, parent) => ({
 
 
 /*
-█████ Focus ███████████████████████████████████████████████████████████████████*/
+█████ Defocus █████████████████████████████████████████████████████████████████*/
 
 
-// sets a composable focus on a subelement of a composite data structure
-
-Optic.focus = (getter, setter) => tx => Optic(
-  getter(tx.run),
-  x => Optic(setter(x) (tx.run), tx.parent));
-
-
-Optic.tryFocus = (getter, setter) => tx => {
-  if (tx.run === null) return tx;
-  
-  else return Optic(
-    getter(tx.run),
-    x => Optic(setter(x) (tx.run), tx.parent));
-};
-
-
-// reconstructs the composite data structure and takes any change into account
+// reconstruct the composite data structure and takes any change into account
 
 Optic.defocus = tx =>
   tx.parent === null ? tx : Optic.defocus(tx.parent(tx.run));
@@ -6322,6 +6300,24 @@ Optic.defocus = tx =>
 
 Optic.defocus1 = tx =>
   tx.parent === null ? tx : tx.parent(tx.run);
+
+
+/*
+█████ Focus ███████████████████████████████████████████████████████████████████*/
+
+
+// set a composable focus on a subelement of a composite data structure
+
+Optic.focus = (getter, setter) => tx => Optic(
+  getter(tx.run),
+  x => Optic(setter(x) (tx.run), tx.parent));
+
+
+// try to focus or use a composite default value
+
+Optic.tryFocus = ty => (getter, setter) => tx => Optic(
+  getter(tx === null ? ty : tx.run),
+  x => Optic(setter(x) (tx === null ? ty : tx.run), tx.parent));
 
 
 /*
@@ -6340,10 +6336,13 @@ Optic.Functor = {map: Optic.map};
 
 /* The combination of two optics require a choice which parent property to pick
 for the resulting optic, since two optics cannot be appended in a meaningful in
-general. The current implementation is left biased. */
+general. The current implementation is left-biased. */
 
 
 Optic.ap = tf => tx => Optic(tf.run(tx.run), tf.parent);
+
+
+Optic.ap_ = tf => tx => Optic(tf.run(tx.run), tx.parent); // right-biased
 
 
 Optic.Apply = {
@@ -6362,6 +6361,32 @@ Optic.of = x => Optic(x, null);
 Optic.Applicative = {
   ...Optic.Apply,
   of: Optic.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+/* Discards the parent of the next monadic computation but takes the current
+one. */
+
+Optic.chain = mx => fm =>  Optic(fm(mx.run).run, mx);
+
+
+Optic.Chain = {
+  ...Optic.Apply,
+  chain: Optic.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Optic.Monad = {
+  ...Optic.Applicative,
+  chain: Optic.chain
 };
 
 
@@ -6974,7 +6999,7 @@ P.flatten = mmx => // monad like
 
 P.once = tx => {
   let x = lazy(() => {
-    throw new Err("race condition detected");
+    throw new Err("race condition");
   });
 
   let done = false;
@@ -8058,7 +8083,7 @@ S.capture = tx => S(k => tx.run(x => k(Pair(k, x))));
 
 S.once = tx => {
   let x = lazy(() => {
-    throw new Err("race condition detected");
+    throw new Err("race condition");
   });
 
   let done = false;
@@ -8306,7 +8331,7 @@ Sex.Monoid = {
 
 Sex.once = tx => {
   let x = lazy(() => {
-    throw new Err("race condition detected");
+    throw new Err("race condition");
   });
 
   let done = false;
