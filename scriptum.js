@@ -36,9 +36,6 @@ export const NOT_FOUND = -1; // native search protocol
 export const TAG = Symbol.toStringTag;
 
 
-const MICROTASK_CONTINGENCY = 0.01; // probability for next microtask
-
-
 /*
 █████ Order Protocol ██████████████████████████████████████████████████████████*/
 
@@ -68,6 +65,25 @@ export const GT = {
   valueOf: () => 1,
   toString: () => "1"
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ STATE ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Shared state between asynchronous computations. It forces `Serial` and other
+async types to wrap the next continuation into a stack-safe `Promise`, that way
+rendering them stack-save as well. Every instantiation of an async value
+increases the counter by one. It is reset to zero as soon as it gets greater
+that 100. There might be edge cases where the picked upper bound doesn't stop
+a single or several parallel async computations from exhausting the stack. In
+this case, the upper bound will be reduced, which would result in an increased
+promise creation along the way. */
+
+let asyncCounter = 0; // upper bound: 100
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5815,9 +5831,6 @@ O.clone = o => {
 };
 
 
-O.clone_ = Object.assign.bind({}); // faster
-
-
 O.Clonable = {clone: O.clone};
 
 
@@ -6776,10 +6789,15 @@ export const Parallel = k => ({
   },
 
   runAsync: f => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_CONTINGENCY)
+    if (asyncCounter > 100) {
+      asyncCounter = 0;
       return Promise.resolve(null).then(_ => k(f));
+    }
 
-    else return k(f);
+    else {
+      asyncCounter++;
+      return k(f);
+    }
   }
 });
 
@@ -7086,10 +7104,15 @@ export const ParallelExcept = ks => ({
   },
 
   runAsync: o => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_CONTINGENCY)
+    if (asyncCounter > 100) {
+      asyncCounter = 0;
       return Promise.resolve(null).then(_ => ks(o));
+    }
 
-    else return ks(o);
+    else {
+      asyncCounter++;
+      return ks(o);
+    }
   }
 });
 
@@ -7928,10 +7951,15 @@ export const Serial = k => ({
   },
 
   runAsync: f => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_CONTINGENCY)
+    if (asyncCounter > 100) {
+      asyncCounter = 0;
       return Promise.resolve(null).then(_ => k(f));
+    }
 
-    else return k(f);
+    else {
+      asyncCounter++;
+      return k(f);
+    }
   }
 });
 
@@ -8167,10 +8195,15 @@ export const SerialExcept = ks => ({
   },
 
   runAsync: o => { // extra stack-safety for edge cases
-    if (Math.random() < MICROTASK_CONTINGENCY)
+    if (asyncCounter > 100) {
+      asyncCounter = 0;
       return Promise.resolve(null).then(_ => ks(o));
+    }
 
-    else return ks(o);
+    else {
+      asyncCounter++;
+      return ks(o);
+    }
   }
 });
 
