@@ -1,14 +1,14 @@
 /*
-      ___           ___           ___                        ___          ___           ___           ___     
-     /\  \         /\  \         /\  \          ___         /\  \        /\  \         /\__\         /\__\    
-    /::\  \       /::\  \       /::\  \        /\  \       /::\  \       \:\  \       /:/  /        /::|  |   
-   /:/\ \  \     /:/\:\  \     /:/\:\  \       \:\  \     /:/\:\  \       \:\  \     /:/  /        /:|:|  |   
-  _\:\~\ \  \   /:/  \:\  \   /::\~\:\  \      /::\__\   /::\~\:\  \      /::\  \   /:/  /  ___   /:/|:|__|__ 
- /\ \:\ \ \__\ /:/__/ \:\__\ /:/\:\ \:\__\  __/:/\/__/  /:/\:\ \:\__\    /:/\:\__\ /:/__/  /\__\ /:/ |::::\__\
- \:\ \:\ \/__/ \:\  \  \/__/ \/_|::\/:/  / /\/:/  /    /:/  \:\/:/  /   /:/  \/__/ \:\  \ /:/  / \/__/~~/:/  /
-  \:\ \:\__\    \:\  \          |:|::/  /  \::/__/    /:/  / \::/  /   /:/  /       \:\  /:/  /        /:/  / 
-   \:\/:/  /     \:\  \         |:|\/__/    \:\__\   /:/  /   \/__/   /:/  /         \:\/:/  /        /:/  /  
-    \::/  /       \:\__\        |:|  |       \/__/   \/__/            \/__/           \::/  /        /:/  /   
+      ___           ___           ___                       ___           ___           ___           ___     
+     /\  \         /\  \         /\  \          ___        /\  \         /\  \         /\__\         /\__\    
+    /::\  \       /::\  \       /::\  \        /\  \      /::\  \        \:\  \       /:/  /        /::|  |   
+   /:/\ \  \     /:/\:\  \     /:/\:\  \       \:\  \    /:/\:\  \        \:\  \     /:/  /        /:|:|  |   
+  _\:\~\ \  \   /:/  \:\  \   /::\~\:\  \      /::\__\  /::\~\:\  \       /::\  \   /:/  /  ___   /:/|:|__|__ 
+ /\ \:\ \ \__\ /:/__/ \:\__\ /:/\:\ \:\__\  __/:/\/__/ /:/\:\ \:\__\     /:/\:\__\ /:/__/  /\__\ /:/ |::::\__\
+ \:\ \:\ \/__/ \:\  \  \/__/ \/_|::\/:/  / /\/:/  /    \/__\:\/:/  /    /:/  \/__/ \:\  \ /:/  / \/__/~~/:/  /
+  \:\ \:\__\    \:\  \          |:|::/  /  \::/__/          \::/  /    /:/  /       \:\  /:/  /        /:/  / 
+   \:\/:/  /     \:\  \         |:|\/__/    \:\__\           \/__/     \/__/         \:\/:/  /        /:/  /  
+    \::/  /       \:\__\        |:|  |       \/__/                                    \::/  /        /:/  /   
      \/__/         \/__/         \|__|                                                 \/__/         \/__/    
 */
 
@@ -601,9 +601,9 @@ export const _if = _case => ({
 
 
 /* The `Loopm` monad allows stack-safe monad recursion through a trampoline
-mechanism. It is the little brother of the continuation monad and thus doesn't
-have a valid monad transformer, i.e. it can only be used as the outermost base
-monad of a transformer stack. */
+mechanism. It is the little brother of the continuation monad. Just like the
+latter it there doesn't exist a valid monad transformer, i.e. `Loopm` can only
+be used as the outermost base monad of a transformer stack. */
 
 
 export const Loopm = o => {
@@ -3927,28 +3927,36 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes synchronous I/O computations. Use `Serial`/`Parallel` for
-asynchronous evaluation either in serial or in parallel.
+/* Encode synchronous I/O computations. Every `run` invocation must be wrapped
+in a tail recuricve `Loop` trampoline. Use `Serial`/`Parallel` for asynchronous
+evaluation either in serial or in parallel.
 
-  The type has the following properties:
+The type has the following properties:
 
   * synchronous, serial evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested function call stack
+  * lazy by deferred nested function calls
+  * stack-safe through trampoline
   * reliable return values
-  * not stack-safe but can be unwinded
   * delimited scopes
-  * no transformer available (only as base monad)
+  * no transformer, only base monad
 
-Calling `defer` is possible due to reliable return values. It returns the
-`call` trampoline tag, hence the involved computation must be wrapped in one
-of the available trampoline interpeters like `Loop`, for instance. */
+
+The trampoline is necessary to attain stack safety. It is used as follows:
+
+  const tx = Cont.ap(
+    Cont.map(x => y => x * y)
+      (Cont.of(5)))
+        (Cont.of(6));
+
+  const ty = Cont.map(x => x + "!") (tx);
+
+  Loop(ty.run) (Loop.base); // "30!" */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
-  run: k,
-  defer: x => Loop.call(k, x) // stack safety
+  run: x => Loop.call(k, x)
 });
 
 
@@ -5807,6 +5815,9 @@ O.clone = o => {
 };
 
 
+O.clone_ = Object.assign.bind({}); // faster
+
+
 O.Clonable = {clone: O.clone};
 
 
@@ -6724,17 +6735,17 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes asynchronous I/O computations evaluated in parallel. Use `Serial` for
+/* Encode asynchronous I/O computations evaluated in parallel. Use `Serial` for
   serial evaluation. Use `Cont` to encode synchronous I/O effects.
 
-  It has the following properties:
+It has the following properties:
 
   * asynchronous, parallel evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested function call stack
-  * non-reliable return values
+  * lazy by deferred nested function calls
   * stack-safe due to asynchronous calls
-  * no transformer available (only as base monad)
+  * non-reliable return values
+  * no transformer, only as base monad
 
 `runAsync` wraps the value of type `Parallel` in a `Promise` for every xth
 invocation. Promise handlers are executed within the next microtask queue and
@@ -7876,17 +7887,17 @@ Parser.dropUntil = parser => Parser(rest => state => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes asynchronous I/O computations evaluated in serial. Use `Serial` for
+/* Encode asynchronous I/O computations evaluated in serial. Use `Serial` for
   parallel evaluation. Use `Cont` to encode synchronous I/O effects.
 
-  It has the following properties:
+It has the following properties:
 
   * asynchronous, serial evaluation
   * pure core/impure shell concept
-  * lazy by deferred nested function call stacks
-  * non-reliable return values
+  * lazy by deferred nested function calls
   * stack-safe due to asynchronous calls
-  * no transformer available (only as base monad)
+  * non-reliable return values
+  * no transformer, only as base monad
 
 `runAsync` wraps the value of type `Serial` in a `Promise` for every xth
 invocation. Promise handlers are executed within the next microtask queue and
