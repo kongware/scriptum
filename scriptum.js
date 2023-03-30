@@ -15,8 +15,6 @@
 
 
 
-
-
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████████ CONSTANTS ██████████████████████████████████
@@ -5698,10 +5696,47 @@ export const Num = {}; // namespace
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Num.fromString = s => {
+Num.fromStr = s => {
   if (/^(?:\+|\-)?\d+(?:\.\d+)?$/.test(s)) return Number(s);
   else return new Exception(`invalid number string: "${s}"`);
 };
+
+
+/*
+█████ Decimal Places ██████████████████████████████████████████████████████████*/
+
+
+/* Just patches patches the floating point issue most adequately without
+solving the underlying problem. */
+
+Num.decimalPatch = (k, n, digits) => {
+  const p = Math.pow(10, digits);
+
+  if (Math.round(n * p) / p === n)
+    return n;
+
+  const m = (n * p) * (1 + Number.EPSILON);
+  return Math[k] (m) / p;
+};
+
+
+Num.ceil = digits => n =>
+  Num.decimalPatch("ceil", n, digits);
+
+
+Num.floor = digits => n =>
+  Num.decimalPatch("floor", n, digits);
+
+
+Num.round = digits => n =>
+  Num.decimalPatch("round", n, digits);
+
+
+Num.round2 = Num.round(2);
+
+
+Num.trunc = digits => n =>
+  Num.decimalPatch("trunc", n, digits);
 
 
 /*
@@ -5764,45 +5799,183 @@ Nat.cata = zero => succ => n => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████ NUMBER :: DECIMAL ██████████████████████████████
+██████████████████████████████ NUMBER :: SAFENUM ██████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Decimal = {}; // namespace
+// safe numbers that avoid floating point issues with arithmetics
 
 
-export const Dec = Decimal; // shortcut
+export const SafeNum = (int, dec) => {
+  dec = dec.padEnd(Snum.precision_, "0");
 
+  if (Snum.precision_ < dec.length)
+    throw new TypeError("unsufficient precision");
 
-/*
-█████ Precision ███████████████████████████████████████████████████████████████*/
-
-
-Dec.decimalAdjust = (k, n, digits) => {
-  const p = Math.pow(10, digits);
-
-  if (Math.round(n * p) / p === n)
-    return n;
-
-  const m = (n * p) * (1 + Number.EPSILON);
-  return Math[k] (m) / p;
+  else return Object.freeze({
+    [TAG]: "SafeNum",
+    dec: dec.padEnd(Snum.precision_, "0"),
+    int,
+    run: BigInt(int + dec)
+  });
 };
 
 
-Dec.ceil = digits => n =>
-  Dec.decimalAdjust("ceil", n, digits);
+export const Snum = SafeNum;
 
 
-Dec.floor = digits => n =>
-  Dec.decimalAdjust("floor", n, digits);
+/*
+█████ Constants ███████████████████████████████████████████████████████████████*/
 
 
-Dec.round = digits => n =>
-  Dec.decimalAdjust("round", n, digits);
+Snum.precision = 10000; // four decimal points
 
 
-Dec.trunc = digits => n =>
-  Dec.decimalAdjust("trunc", n, digits);
+Snum.precision_ = String(Snum.precision).length - 1;
+
+
+/*
+█████ Arithmetics █████████████████████████████████████████████████████████████*/
+
+
+Snum.add = tx => ty => {
+  const s = String(tx.run + ty.run),
+    int = s.slice(0, -Snum.precision_),
+    dec = s.slice(-Snum.precision_);
+
+  return Snum(int, dec);
+};
+
+
+Snum.div = tx => ty => {
+  const [int, dec = ""] = String(Number(tx.run) / Number(ty.run)).split("."),
+    tz = Snum.round(Snum.precision_) ({int, dec});
+
+  return Snum(int, tz.dec);
+};
+
+
+Snum.mul = tx => ty => {
+  const s = String(tx.run * ty.run),
+    precision = tx.dec.length + ty.dec.length,
+    int = s.slice(0, -precision),
+    dec = s.slice(-precision);
+
+  return Snum.round(Snum.precision_) ({int, dec});
+};
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Snum.fromFloat = n => {
+  const [int, dec = ""] = String(n).split(".");
+  return Snum(int, dec);
+};
+
+
+Snum.toFloat = tx => {
+  const s = String(tx.run),
+    int = s.slice(0, -Snum.precision_),
+    dec = s.slice(-Snum.precision_);
+
+  return Number(`${int}.${dec}`);
+};
+
+
+Snum.fromBigInt = n => {
+  const int = String(n);
+    dec = "0".repeat(Snum.precision_);
+
+  return Snum(int, dec);
+};
+
+
+Snum.fromSafeBigInt = n => {
+  const s = String(n),
+    int = s.slice(0, Snum.precision_),
+    dec = s.slice(Snum.precision_);
+
+  return Snum(int, dec);
+};
+
+
+/*
+█████ Decimal Places ██████████████████████████████████████████████████████████*/
+
+
+Snum.ceil = places => tx => {
+  let int = tx.int,
+    dec = tx.dec;
+
+  while (dec.length > places) {
+    dec = dec.slice(0, -1);
+
+    for (let i = dec.length - 1; i >= 0; i--) {
+      const n = Number(dec[i]);
+
+      if (n === 9) {
+        if (i === 0) {
+          dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
+          int = String(Number(int) + 1);
+        }
+        
+        else dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
+      }
+
+      else {
+        dec = dec.slice(0, i) + (n + 1) + dec.slice(i + 1);
+        break;
+      }
+    }
+  }
+
+  return Snum(int, dec);
+};
+
+
+Snum.floor = places => tx => {
+  let int = tx.int,
+    dec = tx.dec;
+    
+  dec = dec.slice(0, places);
+  return Snum(int, dec);
+};
+
+
+Snum.round = places => tx => {
+  let int = tx.int,
+    dec = tx.dec;
+
+  while (dec.length > places) {
+    if (dec[dec.length - 1] >= 5) {
+      dec = dec.slice(0, -1);
+
+      for (let i = dec.length - 1; i >= 0; i--) {
+        const n = Number(dec[i]);
+
+        if (n === 9) {
+          if (i === 0) {
+            dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
+            int = String(Number(int) + 1);
+          }
+          
+          else dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
+        }
+
+        else {
+          dec = dec.slice(0, i) + (n + 1) + dec.slice(i + 1);
+          break;
+        }
+      }
+    }
+
+    else dec = dec.slice(0, -1);
+  }
+
+  return Snum(int, dec);
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8915,7 +9088,7 @@ Str.normalizeAmount = (_1k, dec) => s =>
 
 Str.normalizeDate = scheme => s => {
   const sep = scheme[1],
-    order = scheme.split(sep);
+    order = scheme.split(sep),
     compos = s.split(sep);
 
   return order.reduce((acc, x, i) => {
