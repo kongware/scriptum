@@ -2045,6 +2045,13 @@ A.Clonable = {clone: A.clone};
 A.fromList = xss => xss.flat(Number.POSITIVE_INFINITY);
 
 
+A.fromIt = ix => {
+  const xs = [];
+  for (const x of ix) xs.push(x);
+  return xs;
+};
+
+
 /*
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
@@ -5234,17 +5241,6 @@ It.all = f => function* (ix) {
 
 
 /*
-█████ Consumption █████████████████████████████████████████████████████████████*/
-
-
-It.exhaust = ix => {
-  let x;
-  for (x of ix) continue;
-  return x;
-};
-
-
-/*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
@@ -5559,6 +5555,14 @@ It.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
+// discard the values but take the effect
+
+It.exhaust = ix => {
+  for (const x of ix) continue;
+  return null;
+};
+
+
 It.foldSucc = f => acc => function* (ix) {
   let {value: x} = ix.next();
 
@@ -5630,6 +5634,17 @@ It.Traversable = It.Traversable();
 
 
 export const _Map = {}; // namespace
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+_Map.fromIt = ix => {
+  const m = new Map();
+  for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
 
 
 /*
@@ -8640,6 +8655,17 @@ Sex.all = Sex.all();
 
 
 export const _Set = {}; // namespace
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+_Set.fromIt = ix => {
+  const s = new Set();
+  for (const k of ix) s.add(k);
+  return s;
+};
 
 
 /*
