@@ -5629,7 +5629,7 @@ It.Traversable = It.Traversable();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-const _Map = {}; // namespace
+export const _Map = {}; // namespace
 
 
 /*
@@ -5643,14 +5643,14 @@ _Map.keys = function* (m) {
   for (let [k] of m) {
     yield k;
   }
-}
+};
 
 
 _Map.values = function* (m) {
   for (let [, v] in m) {
     yield v;
   }
-}
+};
 
 
 /*
@@ -5694,6 +5694,15 @@ export const Num = {}; // namespace
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Num.fromSnum = tx => {
+  const s = String(tx.run),
+    int = s.slice(0, -Snum.precision_),
+    dec = s.slice(-Snum.precision_);
+
+  return Number(`${int}.${dec}`);
+};
 
 
 Num.fromStr = s => {
@@ -5869,18 +5878,9 @@ Snum.mul = tx => ty => {
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Snum.fromFloat = n => {
+Snum.fromNum = n => {
   const [int, dec = ""] = String(n).split(".");
   return Snum(int, dec);
-};
-
-
-Snum.toFloat = tx => {
-  const s = String(tx.run),
-    int = s.slice(0, -Snum.precision_),
-    dec = s.slice(-Snum.precision_);
-
-  return Number(`${int}.${dec}`);
 };
 
 
@@ -8639,7 +8639,7 @@ Sex.all = Sex.all();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-const _Set = {}; // namespace
+export const _Set = {}; // namespace
 
 
 /*
@@ -9108,6 +9108,13 @@ Str.cat = Str.catWith("");
 
 
 Str.cat_ = Str.catWith(" ");
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 
 
 /*
