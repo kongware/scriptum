@@ -5978,6 +5978,43 @@ Snum.round = places => tx => {
 };
 
 
+/*
+█████ Semigroup (Addition) ████████████████████████████████████████████████████*/
+
+
+Snum.appendAdd = Snum.add;
+
+
+Snum.Semigroup = {append: Snum.appendAdd};
+
+
+/*
+█████ Semigroup (Multiplication) ██████████████████████████████████████████████*/
+
+
+Snum.appendMul = Snum.mul;
+
+
+/*
+█████ Semigroup :: Monoid (Addition) ██████████████████████████████████████████*/
+
+
+Snum.emptyAdd = Snum("0", "");
+
+
+Snum.Monoid = {
+  ...Snum.Semigroup,
+  empty: Snum.empty
+};
+
+
+/*
+█████ Semigroup :: Monoid (Multiplication) ████████████████████████████████████*/
+
+
+Snum.emptyMul = Snum("1", "");
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ OBJECT ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
