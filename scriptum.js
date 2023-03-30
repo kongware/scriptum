@@ -4228,7 +4228,12 @@ Javascript includes an error class, it isn't defined as an algebraic  sum type
 but specializes on the error type. This approach makes it both less cumbersome
 to use but also less explicit. There is a special `Excdeptions` error subclass
 that allows colleting one or several exceptions, thus additionally providing
-the behavior of `Either`'s validation applicative instance. */
+the behavior of `Either`'s validation applicative instance.
+
+As opposed to the prevalent `Either` type `Except` is fixed in its left field,
+a limitation that renders the type more suitbale for the desired task. `These`
+offers an alternative that resembles `Either` but comes with additional
+flexibility. */
 
 
 export const Except = {}; // namespace
@@ -4486,10 +4491,8 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = mmx => outer.map(mx => {
-    if (introspect(mx) === "Error") throw new Err("invalid value");
-    else return mx;
-  }) (mmx);
+  o.of = x => outer.of(
+    introspect(x) === "Error" ? _throw(new Err("invalid value")) : x);
 
 
   o.Applicative = {
@@ -4571,6 +4574,9 @@ E.T = outer => thisify(o => { // outer monad's type classes
 
 /*
 █████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  o.lift = mx => o.chain(x => x) (mx);
 
 
   // TODO
