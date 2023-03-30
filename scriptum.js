@@ -6550,8 +6550,8 @@ Optic.focus = (getter, setter) => tx => Optic(
 // try to focus or use a composite default value
 
 Optic.tryFocus = ty => (getter, setter) => tx => Optic(
-  getter(tx === null ? ty : tx.run),
-  x => Optic(setter(x) (tx === null ? ty : tx.run), tx.parent));
+  tx.run === null ? getter(ty) : getter(tx.run),
+  x => Optic(setter(x) (tx.run === null ? ty : tx.run), tx.parent));
 
 
 /*
