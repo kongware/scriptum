@@ -312,11 +312,7 @@ export const strict = x => {
 
 
 export const lazy = thunk =>
-  new Proxy(thunk, new ThunkProxy(true));
-
-
-export const defer = thunk =>
-  new Proxy(thunk, new ThunkProxy(false));
+  new Proxy(thunk, new ThunkProxy());
 
 
 /*
@@ -324,9 +320,8 @@ export const defer = thunk =>
 
 
 class ThunkProxy {
-  constructor(share) {
+  constructor() {
     this.memo = NULL;
-    this.share = share;
   }
 
   apply(f, that, args) {
@@ -337,10 +332,10 @@ class ThunkProxy {
       let g = f();
 
       while (g && g[THUNK] === true) g = g[EVAL];
-      if (this.share) this.memo = g;
+      this.memo = g;
 
       if (typeof g !== "function")
-        throw new Err("invocation of non-functional thunk");
+        throw new Err("value isn't invokable");
 
       return g(...args);
     }
@@ -360,7 +355,7 @@ class ThunkProxy {
     else if (k === EVAL) {
       if (this.memo === NULL) {
         let o = f();
-        if (this.share) this.memo = o;
+        this.memo = o;
         return o;
       }
 
@@ -377,7 +372,7 @@ class ThunkProxy {
         let o = f();
         
         while (o && o[THUNK] === true) o = o[EVAL];
-        if (this.share) this.memo = o;
+        this.memo = o;
         if (Object(o) === o) return o[k];
         else if (k === "valueOf") return () => o;
         else return () => String(o);
@@ -395,7 +390,7 @@ class ThunkProxy {
         let o = f();
 
         while (o && o[THUNK] === true) o = o[EVAL];
-        if (this.share) this.memo = o;
+        this.memo = o;
         if (Array.isArray(o) || o[Symbol.isConcatSpreadable]) return true;
         else return false;
       }
@@ -415,12 +410,12 @@ class ThunkProxy {
         let o = f();
 
         while (o && o[THUNK] === true) o = o[EVAL];
+        this.memo = o;
 
         // take method binding into account
 
-        if (Object(o) === o && o[k] && o[k].bind) o[k] = o[k].bind(o);
-        if (this.share) this.memo = o;
-        return o[k];
+        if (Object(o) === o && o[k] && o[k].bind) return o[k].bind(o);
+        else return o[k];
       }
 
       else return this.memo[k];
@@ -435,7 +430,7 @@ class ThunkProxy {
       let o = f();
 
       while (o && o[THUNK] === true) o = o[EVAL];
-      if (this.share) this.memo = o;
+      this.memo = o;
       return Reflect.getOwnPropertyDescriptor(o, k);
     }
 
@@ -454,7 +449,7 @@ class ThunkProxy {
       let o = f();
 
       while (o && o[THUNK] === true) o = o[EVAL];
-      if (this.share) this.memo = o;
+      this.memo = o;
       return k in o;
     }
 
@@ -469,7 +464,7 @@ class ThunkProxy {
       let o = f();
 
       while (o && o[THUNK] === true) o = o[EVAL];
-      if (this.share) this.memo = o;
+      this.memo = o;
       return Reflect.ownKeys(o);
     }
 
@@ -477,7 +472,7 @@ class ThunkProxy {
   }
 
   set(o) {
-    throw new Err("Thunk values must not be mutated");
+    throw new Err("set op on immutable value");
   }
 }
 
@@ -5639,6 +5634,156 @@ It.reduceSucc = f => acc => function* (ix) {
 
 
 It.Traversable = It.Traversable();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ LAZY █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* `Lazy` encodes implicit thunks of the form `() => expr` that act like `expr`
+in a principled fashion. Lazyness means normal order evaluation, i.e. arguments
+passed to functions are only evaluated when needed and only once. Please note
+that `$ => expr` is used instead of `() => expr` for improved readability. */
+
+
+export const Lazy = {};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Lazy.map = f => tx => lazy($ => f(tx));
+
+
+Lazy.Functor = {map: Lazy.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Lazy.ap = tf => tx => lazy($ => tf(tx));
+
+
+Lazy.Apply = {
+  ...Lazy.Functor,
+  ap: Lazy.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Lazy.of = id;
+
+
+Lazy.Applicative = {
+  ...Lazy.Apply,
+  of: Lazy.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Lazy.chain = mx => fm => lazy($ => fm(mx));
+
+
+Lazy.Chain = {
+  ...Lazy.Apply,
+  chain: Lazy.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Lazy.Monad = {
+  ...Lazy.Applicative,
+  chain: Lazy.chain
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ LAZY :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: m (() -> a)
+
+
+Lazy.T = outer => thisify(o => { // outer monad's type classes
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => outer.map(mx => lazy($ => f(mx)));
+  
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
+    outer.map(mx => lazy($ => mf(mx))) (mmx));
+  
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = x => outer.of(x);
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = mmx => fmm => outer.chain(mmx) (mx => lazy($ => fmm(mx)));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+  return o;
+
+
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
