@@ -57,5 +57,6 @@ Previous projects:
 
 - [ ] probabilistic data structures
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
-- [ ] software transaction memory (STM) and distributed applications
+- [ ] software transaction memory (STM) 
 - [ ] strong eventual consistency (CRDTs)
+- [ ] distributed applications
