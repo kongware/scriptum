@@ -330,13 +330,8 @@ class ThunkProxy {
 
     if (this.memo === NULL) {
       let g = f();
-
       while (g && g[THUNK] === true) g = g[EVAL];
       this.memo = g;
-
-      if (typeof g !== "function")
-        throw new Err("value isn't invokable");
-
       return g(...args);
     }
 
@@ -5238,7 +5233,7 @@ It.all = f => function* (ix) {
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
-// exhaust a lazy non-accumulative computation
+// exhaust a lazy non-accumulative computation (e.g. `It.map`)
 
 It.exhaust = ix => {
   const xs = [];
@@ -5247,7 +5242,7 @@ It.exhaust = ix => {
 };
 
 
-// exhaust a lazy accumulative computation
+// exhaust a lazy accumulative computation (e.g. `It.foldl`)
 
 It.exhaustAcc = ix => {
   let acc;
@@ -5257,35 +5252,31 @@ It.exhaustAcc = ix => {
 
 
 /*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
+█████ Partial Init/Tail ███████████████████████████████████████████████████████*/
 
 
-It.drop = ({empty, append}, {of}) => n => function* (ix) {
-  const tx = empty;
-
+It.drop = n => function* (ix) {
   while (n-- > 0) {
     const {done} = ix.next();
-    if (done) return tx;
+    if (done) return;
   };
 
   do {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else yield append(tx) (of(x));
+    else yield x;
   } while (true);
 };
 
 
-It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
-  const tx = empty;
-
+It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
     if (done) return;
 
     else if (!p(x)) {
-      append(tx) (of(x));
+      yield x;
       break;
     }
   };
@@ -5294,31 +5285,27 @@ It.dropWhile = ({empty, append}, {of}) => p => function* (ix) {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else yield append(tx) (of(x));
+    else yield x;
   } while (true);
 };
 
 
-It.take = ({empty, append}, {of}) => n => function* (ix) {
-  const tx = empty;
-
+It.take = n => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else yield append(tx) (of(x));
+    else yield x;
   } while (--n > 0);
 };
 
 
-It.takeWhile = ({empty, append}, {of}) => p => function* (ix) {
-  const tx = empty;
-
+It.takeWhile = p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else if (p(x)) yield append(tx) (of(x));
+    else if (p(x)) yield x;
     else return;
   } while (true);
 };
@@ -5417,6 +5404,12 @@ It.Traversable = () => ({
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
+
+/* The map operation doesn't work in a principled way bc the iterator protocol
+abstracts from the original data structure but yields values, which in turn
+depend on the original structure (`Map` yields `[k, v]` but `Set` only `k`).
+With the following implementation it is the responsibility of `f` to return
+values of the same structure as they were passed. */
 
 It.map = f => function* (ix) {
   do {
@@ -5792,6 +5785,15 @@ Lazy.T = outer => thisify(o => { // outer monad's type classes
 
 
 export const _Map = {}; // namespace
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// use iterator if each key/value pair is needed separately
+
+_Map.interconvert = f => m => new Map(f(Array.from(m)));
 
 
 /*
@@ -8802,6 +8804,15 @@ Sex.all = Sex.all();
 
 
 export const _Set = {}; // namespace
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// use iterator if each key is needed separately
+
+_Set.interconvert = f => s => new Set(f(Array.from(s)));
 
 
 /*
