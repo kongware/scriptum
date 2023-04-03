@@ -262,30 +262,25 @@ export class Exceptions extends Error {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes either deferred or lazy evaluated thunks in an ad-hoc fashion. Both
-tpyes have the following properties:
+/* Lazy evaluation has the following properties:
 
   * evaluate only when needed
   * evaluate only as far as necessary (to WHNF)
+  * evaluate at most once (sharing)
 
-  Lazy thunks come with result sharing as an extra:
+In this library lazy evaluation is realized with implicit thunks, i.e. thunks
+like `() => expr` that behave like `expr` on the consuming side. The technique
+is based on the `Proxy` type, whose instances are used as thunk placeholders.
+There are some known limitations to this technique:
 
-  * evaluate at most once
+  * `==`/`===` doesn't force evaluation of Proxy-based thunks
+  * `throw` doesn't force evaluation of Proxy-based thunks
 
-The technique is based on `Proxy` based thunks that behave like placeholders
-for any expression in most cases. There are some known limitations, though:
+Both limitations have to be taken into account when using Proxy-based thunks.
 
-  * `==`/`===` doesn't force evaluation of thunks
-  * `throw` doesn't force evaluatio of thunks
-
-The equality issue in particular is a serious issue. YOU NEED TO TAKE THIS
-ISSUE INTO ACCOUNT IF YOU RELY ON PROXY-BASED THUNKS.
-
-There will probably a thunk aware `Eq` type classe as a more robusr alternative
-to the overloaded `==`/`===` operators.
-
-If you need a more principled approach use `Defer`/`Lazy` types as monad
-transformers. */
+The `Eq` type classe in this library is meant to be Proxy-based thunk aware.
+This also applies to the `_throw` function, which wraps the `throw` statement
+into a function and thus can be used as an deferred expression. */
 
 
 /*
@@ -970,32 +965,32 @@ Loops2.base = x => ({[TAG]: "Base", x});
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const foldAll = ({foldr}) => p => foldr(x => acc =>
+export const foldAll = Foldable => p => Foldable.foldr(x => acc =>
   p(x) ? acc : false) (true);
 
 
-export const foldAnd = ({foldr}) => foldr(b => acc => b && acc) (true);
+export const foldAnd = Foldable => Foldable.foldr(b => acc => b && acc) (true);
 
 
-export const foldAny = ({foldr}) => p => foldr(x => acc =>
+export const foldAny = Foldable => p => Foldable.foldr(x => acc =>
   p(x) ? true : acc) (false);
 
 
-export const foldMapl = ({foldl}, {append, empty}) => f =>
-  A.foldl(compSnd(append) (f)) (empty);
+export const foldMapl = (Foldable, Monoid) => f =>
+  Foldable.foldl(compSnd(Monoid.append) (f)) (Monoid.empty);
 
 
-export const foldMapr = ({foldr}, {append, empty}) => f =>
-  A.foldr(comp(append) (f)) (empty);
+export const foldMapr = (Foldable, Monoid) => f =>
+  Foldable.foldr(comp(Monoid.append) (f)) (Monoid.empty);
 
 
-export const foldMax = ({foldl1}, {max}) => tx => foldl1(max) (tx);
+export const foldMax = (Foldable, Order) => tx => Foldable.foldl1(Order.max) (tx);
 
 
-export const foldMin = ({foldl1}, {min}) => tx => foldl1(min) (tx);
+export const foldMin = (Foldable, Order) => tx => Foldable.foldl1(Order.min) (tx);
 
 
-export const foldOr = ({foldr}) => foldr(b => acc => b || acc) (false);
+export const foldOr = Foldable => Foldable.foldr(b => acc => b || acc) (false);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1003,7 +998,7 @@ export const foldOr = ({foldr}) => foldr(b => acc => b || acc) (false);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const mapEff = ({map}) => x => map(_ => x);
+export const mapEff = Functor => x => Functor.map(_ => x);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1011,13 +1006,13 @@ export const mapEff = ({map}) => x => map(_ => x);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const apEff1 = ({map, ap}) => tx => ty => ap(map(_const) (tx)) (ty);
+export const apEff1 = Apply => tx => ty => Apply.ap(Apply.map(_const) (tx)) (ty);
 
 
-export const apEff2 = ({map, ap}) => tx => ty => ap(mapEff({map}) (id) (tx)) (ty);
+export const apEff2 = Apply => tx => ty => Apply.ap(mapEff(Apply) (id) (tx)) (ty);
 
 
-export const liftA2 = ({map, ap}) => f => tx => ty => ap(map(f) (tx)) (ty);
+export const liftA2 = Apply => f => tx => ty => Apply.ap(Apply.map(f) (tx)) (ty);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1044,21 +1039,21 @@ effect combination in disguise.
            monad     monad         next computation depends on x */
 
 
-export const chain2 = ({chain}) => mx => my => fm =>
-  chain(mx) (x => chain(fm(x)) (gm => chain(my) (gm)));
+export const chain2 = Chain => mx => my => fm =>
+  Chain.chain(mx) (x => Chain.chain(fm(x)) (gm => Chain.chain(my) (gm)));
 
 
-export const chain3 = ({chain}) => mx => my => mz => fm =>
-  chain(mx) (x =>
-    chain(fm(x)) (gm =>
-      chain(my) (y =>
-        chain(gm(y)) (hm =>
-          chain(mz) (hm)))));
+export const chain3 = Chain => mx => my => mz => fm =>
+  Chain.chain(mx) (x =>
+    Chain.chain(fm(x)) (gm =>
+      Chain.chain(my) (y =>
+        Chain.chain(gm(y)) (hm =>
+          Chain.chain(mz) (hm)))));
 
 
-export const chainn = ({chain}) => (...ms) => fm => function go(gm, i) {
+export const chainn = Chain => (...ms) => fm => function go(gm, i) {
   if (i === ms.length) return gm;
-  else return chain(ms[i]) (x => chain(gm(x)) (hm => go(hm, i + 1)));
+  else return Chain.chain(ms[i]) (x => Chain.chain(gm(x)) (hm => go(hm, i + 1)));
 } (fm, 0);
 
 
@@ -1068,7 +1063,7 @@ export const chainn = ({chain}) => (...ms) => fm => function go(gm, i) {
 
 // collapsing two monadic contexts (of the same type) is the essence of a monad
 
-export const join = ({chain}) => ttx => chain(ttx) (id);
+export const join = Chain => mmx => Chain.chain(mmx) (id);
 
 
 /*
@@ -1078,10 +1073,10 @@ export const join = ({chain}) => ttx => chain(ttx) (id);
 // composing of monadic actions: `a -> m a`
 
 
-export const komp = ({chain}) => fm => gm => x => chain(fm(x)) (gm);
+export const komp = Chain => fm => gm => x => Chain.chain(fm(x)) (gm);
 
 
-export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
+export const kipe = Chain => gm => fm => x => Chain.chain(fm(x)) (gm);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1089,8 +1084,20 @@ export const kipe = ({chain}) => gm => fm => x => chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const foldM = ({foldl}, {chain, of}) => fm => init => mx =>
-  foldl(gm => x => acc => chain(fm(acc) (x)) (gm)) (of) (mx) (init);
+export const filterM = Applicative => p => mx =>
+  A.foldr(x => 
+    liftA2(Applicative) (b =>
+      b ? A.cons(x) : id) (p(x))) (Applicative.of([]));
+
+
+export const foldlM = (Foldable, Monad) => fm => init => mx =>
+  Foldable.foldr(x => gm => acc =>
+    Monad.chain(fm(acc) (x)) (gm)) (Monad.of) (mx) (init);
+
+
+export const foldrM = (Foldable, Monad) => fm => init => mx =>
+  Foldable.foldl(gm => x => acc =>
+    Monad.chain(fm(x) (acc)) (gm)) (Monad.of) (mx) (init);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1362,7 +1369,7 @@ F.Monad = {
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
-F.extend = ({append}) => f => g => x => f(y => g(append(x) (y)));
+F.extend = Semigroup => f => g => x => f(y => g(Semigroup.append(x) (y)));
 
 
 F.Extend = {
@@ -1375,7 +1382,7 @@ F.Extend = {
 █████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
-F.extract = ({empty}) => f => f(empty);
+F.extract = Monoid => f => f(Monoid.empty);
 
 
 F.Comonad = {
@@ -1452,13 +1459,13 @@ export const _throw = e => { // throw as a first class expression
 };
 
 
-export const throwAt = p => e => x => {
+export const throwOn = p => e => x => {
   if (p(x)) throw strict(e);
   else return x;
 };
 
 
-export const throwAtBottom = throwAt(
+export const throwOnBottom = throwOn(
   isBottom) (new Err("unexpected bottom type"));
 
 
@@ -1511,7 +1518,7 @@ export const xor = x => y => !!(!!x ^ !!y);
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-F.append = ({append}) => f => g => x => append(f(x)) (g(x));
+F.append = Semigroup => f => g => x => Semigroup.append(f(x)) (g(x));
 
 
 F.Semigroup = {append: F.append};
@@ -1521,7 +1528,7 @@ F.Semigroup = {append: F.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-F.empty = ({empty}) => _ => empty;
+F.empty = Monoid => _ => Monoid.empty;
 
 
 F.Monoid = {
@@ -1672,8 +1679,12 @@ export const takeWhiler = p => append => x => acc =>
     : acc;
 
 
-export const transduce = ({append}, {fold}) => f =>
-  fold(f(append));
+export const transducel = (Semigroup, Foldable) => f =>
+  Foldable.foldl(f(Semigroup.append));
+
+
+export const transducer = (Semigroup, Foldable) => f =>
+  Foldable.foldr(f(Semigroup.append));
 
 
 /*
@@ -1787,9 +1798,9 @@ R.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = ({append}) => mmx => mmy => Reader(r =>
-    outer.chain(append(mmx.run(r))) (mx =>
-      outer.map(my => append(mx) (my)) (mmy.run(r))));
+  o.append = Semigroup => mmx => mmy => Reader(r =>
+    outer.chain(Semigroup.append(mmx.run(r))) (mx =>
+      outer.map(my => Semigroup.append(mx) (my)) (mmy.run(r))));
   
 
   o.Semigroup = {append: o.append};
@@ -1799,7 +1810,7 @@ R.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = ({empty}) => Reader(_ => outer.of(empty));
+  o.empty = Monoid => Reader(_ => outer.of(Monoid.empty));
 
 
   o.Monoid = {
@@ -1930,9 +1941,9 @@ St.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = ({append}) => mmx => mmy => State(s =>
-    outer.chain(append(mmx.run(s))) (mx =>
-      outer.map(my => Pair(append(mx[0]) (my[0]), my[1])) (mmy.run(mx[1]))));
+  o.append = Semigroup => mmx => mmy => State(s =>
+    outer.chain(Semigroup.append(mmx.run(s))) (mx =>
+      outer.map(my => Pair(Semigroup.append(mx[0]) (my[0]), my[1])) (mmy.run(mx[1]))));
   
 
   o.Semigroup = {append: o.append};
@@ -1942,7 +1953,7 @@ St.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = ({empty}) => State(s => outer.of(Pair(empty, s)));
+  o.empty = Monoid => State(s => outer.of(Pair(Monoid.empty, s)));
 
 
   o.Monoid = {
@@ -2136,14 +2147,14 @@ A.scanr = f => init => A.foldr(x => acc =>
 █████ Eq ██████████████████████████████████████████████████████████████████████*/
 
 
-A.eq = ({eq}) => xs => ys => {
+A.eq = Eq => xs => ys => {
   if (xs.length !== ys.length) return false;
 
   else return Loop(i => {
     if (i === xs.length) return Loop.base(true);
 
     else {
-      const b = eq(xs[i]) (ys[i]);
+      const b = Eq.eq(xs[i]) (ys[i]);
       return b === true ? Loop.rec(i + 1) : Loop.base(false);
     }
   }) (0);
@@ -2387,17 +2398,17 @@ A.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-A.mapA = ({map, ap, of}) => ft => xs => {
-  const liftA2_ = liftA2({map, ap});
+A.mapA = Applicative => ft => xs => {
+  const liftA2_ = liftA2(Applicative);
 
   return A.foldl(ys => y =>
     liftA2_(A.push) (ft(y)) (ys))
-      (of([])) (xs);
+      (Applicative.of([])) (xs);
 };
 
 
-A.seqA = ({map, ap, of}) => xs =>
-  A.foldl(liftA2({map, ap}) (A.push_)) (of([])) (xs);
+A.seqA = Applicative => xs =>
+  A.foldl(liftA2(Applicative) (A.push_)) (Applicative.of([])) (xs);
 
 
 A.Traversable = () => ({
@@ -2600,13 +2611,13 @@ A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
-A.sort = ({compare}) => xs => xs.sort(uncurry(compare));
+A.sort = Order => xs => xs.sort(uncurry(Order.compare));
 
 
 A.sortBy = f => xs => xs.sort(uncurry(f));
 
 
-A.sortOn = ({compare}) => f => xs => xs.sort(uncurry(compBoth(compare) (f)));
+A.sortOn = Order => f => xs => xs.sort(uncurry(compBoth(Order.compare) (f)));
 
 
 /*
@@ -3200,27 +3211,27 @@ L.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-L.mapA = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons_);
-  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
+L.mapA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
 };
 
 
-L.mapA_ = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons_);
-  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (of(L.Nil));
+L.mapA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
 };
 
 
-L.seqA = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons_);
-  return L.foldr(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+L.seqA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
 };
 
 
-L.seqA_ = ({map, ap, of}) => {
-  const liftA2_ = liftA2({map, ap}) (L.Cons_);
-  return L.foldr_(x => acc => liftA2_(x) (acc)) (of(L.Nil));
+L.seqA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
 };
 
 
@@ -3520,7 +3531,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-  o.fromFoldable = ({foldr}) => foldr(L.Cons_) (outer.of(L.Nil));
+  o.fromFoldable = Foldable => Foldable.foldr(L.Cons_) (outer.of(L.Nil));
 
 
 /*
@@ -3572,21 +3583,21 @@ L.T = outer => thisify(o => { // outer monad's type classes
 
 
   // (a -> t b) -> m (List m a) -> t (m (List m b))
-  o.mapA = ({map, ap, of}) => ft => {
-    const liftA2_ = liftA2({map, ap});
+  o.mapA = Applicative => ft => {
+    const liftA2_ = liftA2(Applicative);
     
     return o.foldr(x =>
       liftA2_(y => mmx =>
-        outer.of(L.Cons(y, mmx))) (ft(x))) (of(o.empty));
+        outer.of(L.Cons(y, mmx))) (ft(x))) (Applicative.of(o.empty));
   };
 
 
   // m (List m (t a)) -> t (m (List m a))
-  o.seqA = ({map, ap, of}) => {
-    const liftA2_ = liftA2({map, ap});
+  o.seqA = Applicative => {
+    const liftA2_ = liftA2(Applicative);
 
     return o.foldr(liftA2_(x => mmx =>
-      outer.of(L.Cons(x, mmx)))) (of(o.empty));
+      outer.of(L.Cons(x, mmx)))) (Applicative.of(o.empty));
   };
 
 
@@ -3842,8 +3853,8 @@ export const Comp = ttx => ({
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Comp.map = ({map}, {map: map2}) => f => ttx =>
-  Comp(map(map2(f)) (ttx));
+Comp.map = (Functor, Functor2) => f => ttx =>
+  Comp(Functor.map(Functor2.map(f)) (ttx));
 
 
 Comp.Functor = {map: Comp.map};
@@ -3853,8 +3864,8 @@ Comp.Functor = {map: Comp.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Comp.ap = ({map, ap}, {ap: ap2}) => ttf => ttx =>
-  Comp(ap(map(ap2) (ttf)) (ttx));
+Comp.ap = (Apply, Apply2) => ttf => ttx =>
+  Comp(Apply.ap(Apply.map(Apply2.ap) (ttf)) (ttx));
 
 
 Comp.Apply = {
@@ -3867,7 +3878,8 @@ Comp.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Comp.of = ({of}, {of: of2}) => x => Comp(of(of2(x)));
+Comp.of = (Applicative, Applicative2) => x =>
+  Comp(Applicative.of(Applicative2.of(x)));
 
 
 Comp.Applicative = {
@@ -3904,7 +3916,7 @@ Const.Functor = {map: Const.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Const.ap = ({append}) => tf => tx => Const(append(tf.run) (tx.run));
+Const.ap = Semigroup => tf => tx => Const(Semigroup.append(tf.run) (tx.run));
 
 
 Const.Apply = {
@@ -3917,7 +3929,7 @@ Const.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Const.of = ({empty}) => _ => Const(empty);
+Const.of = Monoid => _ => Const(Monoid.empty);
 
 
 Const.Applicative = {
@@ -4046,11 +4058,11 @@ Cont.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Cont.append = ({append}) => tx => ty =>
+Cont.append = Semigroup => tx => ty =>
   Cont(k =>
     tx.run(x =>
       ty.run(y =>
-        k(append(x) (y)))));
+        k(Semigroup.append(x) (y)))));
 
 
 Cont.Semigroup = {append: Cont.append};
@@ -4362,14 +4374,14 @@ E.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-E.append = ({append}) => tx => ty => {
+E.append = Semigroup => tx => ty => {
   if (introspect(tx) === "Error") {
     if (introspect(ty) === "Error") return new Exceptions(tx, ty);
     else return tx;
   }
 
   else if (introspect(ty) === "Error") return ty;
-  else return append(tx) (ty);
+  else return Semigroup.append(tx) (ty);
 };
 
 
@@ -4380,7 +4392,7 @@ E.Semigroup = {append: E.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-E.empty = ({empty}) => empty;
+E.empty = Monoid => Monoid.empty;
 
 
 E.Monoid = {
@@ -4531,7 +4543,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = ({append}) => mmx => mmy => {
+  o.append = Semigroup => mmx => mmy => {
     return outer.chain(mmx) (mx => {
       return outer.map(my => {
         if (introspect(mx) === "Error") {
@@ -4540,7 +4552,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
         }
 
         else if (introspect(my) === "Error") return my;
-        else return append(mx) (my);
+        else return Semigroup.append(mx) (my);
       }) (mmy);
     });
   };
@@ -4553,7 +4565,7 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = ({empty}) => outer.of(empty);
+  o.empty = Monoid => outer.of(Monoid.empty);
 
 
   o.Monoid = {
@@ -5252,66 +5264,6 @@ It.exhaustAcc = ix => {
 
 
 /*
-█████ Partial Init/Tail ███████████████████████████████████████████████████████*/
-
-
-It.drop = n => function* (ix) {
-  while (n-- > 0) {
-    const {done} = ix.next();
-    if (done) return;
-  };
-
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (true);
-};
-
-
-It.dropWhile = p => function* (ix) {
-  while (true) {
-    const {value: x, done} = ix.next();
-    if (done) return;
-
-    else if (!p(x)) {
-      yield x;
-      break;
-    }
-  };
-
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (true);
-};
-
-
-It.take = n => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (--n > 0);
-};
-
-
-It.takeWhile = p => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else if (p(x)) yield x;
-    else return;
-  } while (true);
-};
-
-
-/*
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -5377,19 +5329,19 @@ It.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-It.mapA = ({map, of}) => ft => function* (tx) {
+It.mapA = Functor => ft => function* (tx) {
   const {value: x, done} = tx.next();
 
   if (done) return;
-  else return map(y => function* () {yield y} ()) (ft(x));
+  else return Functor.map(y => function* () {yield y} ()) (ft(x));
 };
 
 
-It.seqA = ({map, of}) => function* (ttx) {
+It.seqA = Functor => function* (ttx) {
   const {value: tx, done} = ttx.next();
 
   if (done) return;
-  else return map(x => function* () {yield x} ()) (tx);
+  else return Functor.map(x => function* () {yield x} ()) (tx);
 };
 
 
@@ -5532,15 +5484,75 @@ It.Monad = {
 
 
 /*
+█████ Partial Init/Tail ███████████████████████████████████████████████████████*/
+
+
+It.drop = n => function* (ix) {
+  while (n-- > 0) {
+    const {done} = ix.next();
+    if (done) return;
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (true);
+};
+
+
+It.dropWhile = p => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+    if (done) return;
+
+    else if (!p(x)) {
+      yield x;
+      break;
+    }
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (true);
+};
+
+
+It.take = n => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (--n > 0);
+};
+
+
+It.takeWhile = p => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else if (p(x)) yield x;
+    else return;
+  } while (true);
+};
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-It.append = ({append}) => ix => function* (iy) {
+It.append = Semigroup => ix => function* (iy) {
   const {value: x, done} = ix.next(),
     {value: y, done: done2} = iy.next();
 
   if (done || done2) return;
-  else yield append(x) (y);
+  else yield Semigroup.append(x) (y);
 };
 
 
@@ -6551,10 +6563,10 @@ Ob.Monad = {
 █████ Semigroup (Argument) ████████████████████████████████████████████████████*/
 
 
-Ob.append = ({append}) => tx => ty => Ob(observer =>
+Ob.append = Semigroup => tx => ty => Ob(observer =>
   tx.run({
     next: x => ty.run({
-      next: x2 => observer.next(append(x) (x2)),
+      next: x2 => observer.next(Semigroup.append(x) (x2)),
       error: e2 => observer.error(e2),
       done: y2 => observer.done(y2)
     }),
@@ -6610,7 +6622,7 @@ Ob.Race.append = tx => ty => Ob(observer => {
 █████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
 
 
-Ob.empty = ({empty}) => Ob(observer => observer.next(empty));
+Ob.empty = Monoid => Ob(observer => observer.next(Monoid.empty));
 
 
 Ob.Monoid = {
@@ -6796,7 +6808,8 @@ Optic.Monad = {
 Deletion operation is skipped because it doesn't modify the focused element. */
 
 
-Optic.add = ({append}) => x => tx => Optic(append(tx.run) (x), tx.parent);
+Optic.add = Semigroup => x => tx =>
+  Optic(Semigroup.append(tx.run) (x), tx.parent);
 
 
 Optic.set = x => tx => Optic(x, tx.parent);
@@ -6934,10 +6947,10 @@ Opt.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Opt.append = ({append}) => tx => ty =>
-  strict(tx) === null ? ty
-    : strict(ty) === null ? tx
-    : append(tx) (ty);
+Opt.append = Semigroup => tx => ty =>
+  tx === null ? tx
+    : ty === null ? tx
+    : Semigroup.append(tx) (ty);
 
 
 Opt.Semigroup = {append: Opt.append};
@@ -7082,11 +7095,11 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = ({append}) => mmx => mmy => outer.chain(mmx) (mx => {
+  o.append = Semigroup => mmx => mmy => outer.chain(mmx) (mx => {
     if (mx === null) return mmy;
 
     else return outer.map(my =>
-      my === null ? mx : append(mx) (my)) (mmy);
+      my === null ? mx : Semigroup.append(mx) (my)) (mmy);
   });
 
 
@@ -7344,11 +7357,11 @@ P.Applicative = {
 █████ Semigroup (Argument) ████████████████████████████████████████████████████*/
 
 
-P.append = ({append}) => tx => ty =>
+P.append = Semigroup => tx => ty =>
   P(k =>
     P.and(tx) (ty)
       .run(([x, y]) =>
-        k(append(x) (y))));
+        k(Semigroup.append(x) (y))));
 
 
 P.Semigroup = {append: P.append};
@@ -8102,7 +8115,7 @@ Parser.notSeqMid = parser => parser2 => parser3 => Parser(rest => state => {
 });
 
 
-Parser.append = ({append}) => parser => parser2 => Parser(rest => state => {
+Parser.append = Semigroup => parser => parser2 => Parser(rest => state => {
   return parser(rest) (state).flatMap(tx => tx.run({
     error: o => [Parser.Result.Error(o)],
 
@@ -8110,7 +8123,7 @@ Parser.append = ({append}) => parser => parser2 => Parser(rest => state => {
       return parser2(p.rest) (p.state).map(ty =>
         ty.run({
           error: o2 => Parser.Result.Error(o2),
-          some: p2 => Parser.Result.Some({res: append(p.res) (p2.res), rest: p2.rest, state: p2.state}),
+          some: p2 => Parser.Result.Some({res: Semigroup.append(p.res) (p2.res), rest: p2.rest, state: p2.state}),
           none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
         })
       );
@@ -8129,8 +8142,8 @@ Parser.append = ({append}) => parser => parser2 => Parser(rest => state => {
 });
 
 
-Parser.empty = Parser.of = ({empty}) => Parser(rest => state =>
-  [Parser.Result.Some({res: empty, rest, state})]);
+Parser.empty = Monoid => Parser(rest => state =>
+  [Parser.Result.Some({res: Monoid.empty, rest, state})]);
 
 
 Parser.map = f => parser => Parser(rest => state => {
@@ -8142,14 +8155,14 @@ Parser.map = f => parser => Parser(rest => state => {
 });
 
 
-Parser.ap = ({empty}) => parser => parser2 => Parser(rest => state => {
+Parser.ap = Monoid => parser => parser2 => Parser(rest => state => {
   return parser(rest) (state).flatMap(tx => tx.run({
     error: o => [Parser.Result.Error(o)],
 
     some: p => parser2(p.rest) (p.state).map(ty => ty.run({
       error: o2 => Parser.Result.Error(o2),
       some: p2 => Parser.Result.Some({res: p.res(p2.res), rest: p2.rest, state: p2.state}),
-      none: q2 => Parser.Result.Some({res: p.res(empty), rest: q2.rest, state: q2.state})
+      none: q2 => Parser.Result.Some({res: p.res(Monoid.empty), rest: q2.rest, state: q2.state})
     }))
   }));
 });
@@ -8159,11 +8172,11 @@ Parser.of = x => Parser(rest => state =>
   [Parser.Result.Some({res: x, rest, state})]);
 
 
-Parser.chain = ({empty}) => fm => parser => Parser(rest => state => {
+Parser.chain = Monoid => fm => parser => Parser(rest => state => {
   return parser(rest) (state).flatMap(tx => tx.run({
     error: o => [Parser.Result.Error(o)],
     some: p => fm(p.res) (p.rest) (p.state),
-    none: q => fm(empty) (q.rest) (q.state)
+    none: q => fm(Monoid.empty) (q.rest) (q.state)
   }));
 });
 
@@ -8466,9 +8479,9 @@ S.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-S.append = ({append}) => tx => ty =>
+S.append = Semigroup => tx => ty =>
   S(k => S.and(tx) (ty)
-    .run(([x, y]) => k(append(x) (y))));
+    .run(([x, y]) => k(Semigroup.append(x) (y))));
 
 
 S.Semigroup = {append: S.append};
@@ -8719,11 +8732,11 @@ Sex.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Sex.append = ({append}) => tx => ty =>
+Sex.append = Semigroup => tx => ty =>
   Sex(({raise: k, proceed: k2}) =>
     Sex.and(tx) (ty).run({
       raise: k,
-      proceed: ([x, y]) => k2(append(x) (y))
+      proceed: ([x, y]) => k2(Semigroup.append(x) (y))
     }));
 
 
@@ -8970,26 +8983,26 @@ Stream.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-Stream.mapA = ({map, of}) => ft => function go(tx) {
+Stream.mapA = Applicative => ft => function go(tx) {
   return tx.run({
-    step: o => map(x => Stream.Step.lazy({
+    step: o => Applicative.map(x => Stream.Step.lazy({
       yield: x,
       get next() {return go(o.next)}
     }) (ft(o.yield))),
 
-    done: of(Stream.Done)
+    done: Applicative.of(Stream.Done)
   });
 };
 
 
-Stream.seqA = ({map, of}) => function go(ttx) {
+Stream.seqA = Applicative => function go(ttx) {
   return ttx.run({
-    step: tx => map(o => Stream.Step.lazy({
+    step: tx => Applicative.map(o => Stream.Step.lazy({
       yield: o.yield,
       get next() {return go(o.next)}
     })) (tx),
 
-    done: of(Stream.Done)
+    done: Applicative.of(Stream.Done)
   });
 };
 
@@ -9213,11 +9226,11 @@ Stream.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Stream.append = ({append}) => tx => ty => function go(tx2, ty2) {
+Stream.append = Semigroup => tx => ty => function go(tx2, ty2) {
   return tx2.run({
     step: o => ty2.run({
       step: o2 => Stream.Step.lazy({
-        yield: append(o.yield) (o2.yield),
+        yield: Semigroup.append(o.yield) (o2.yield),
         get next() {return go(o.next, o2.next)}
       }),
       
@@ -9391,7 +9404,7 @@ These.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-These.zero = ({empty}) => These.That(empty);
+These.zero = Monoid => These.That(Monoid.empty);
 
 
 These.Plus = {
@@ -9404,7 +9417,7 @@ These.Plus = {
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-These.ap = ({append}) => tf => tx => tf.run({
+These.ap = Semigroup => tf => tx => tf.run({
   this: f => tx.run({
     this: x => These.This(f(x)),
     that: y => These.Both(f) (y),
@@ -9413,14 +9426,14 @@ These.ap = ({append}) => tf => tx => tf.run({
 
   that: y => tx.run({
     this: x => These.Both(x) (y),
-    that: y2 => These.That(append(y) (y2)),
-    both: x => y => These.Both(x) (append(y) (y2))
+    that: y2 => These.That(Semigroup.append(y) (y2)),
+    both: x => y => These.Both(x) (Semigroup.append(y) (y2))
   }),
 
   both: f => y => tx.run({
     this: x => These.Both(f(x)) (y),
     that: y => These.Both(f) (y),
-    both: x => y2 => These.Both(f(x)) (append(y) (y2))
+    both: x => y2 => These.Both(f(x)) (Semigroup.append(y) (y2))
   })
 });
 
@@ -9448,14 +9461,14 @@ These.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-These.chain = ({append}) => mx => fm => mx.run({
+These.chain = Semigroup => mx => fm => mx.run({
   this: x => fm(x),
   that: _ => mx,
 
   both: x => y => fm(x).run({
     this: x2 => These.Both(x2) (y),
-    that: y2 => These.Both(x) (append(y) (y2)),
-    both: x2 => y2 => These.Both(x2) (append(y) (y2))
+    that: y2 => These.Both(x) (Semigroup.append(y) (y2)),
+    both: x2 => y2 => These.Both(x2) (Semigroup.append(y) (y2))
   })
 });
 
@@ -9480,23 +9493,23 @@ These.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-These.append = ({append}, {append: append2}) => tx => ty => tx.run({
+These.append = (Semigroup, Semigroup2) => tx => ty => tx.run({
   this: x => ty.run({
-    this: x2 => These.This(append(x) (x2)),
+    this: x2 => These.This(Semigroup.append(x) (x2)),
     that: y => These.Both(x) (y),
-    both: x2 => y => These.Both(append(x) (x2)) (y),
+    both: x2 => y => These.Both(Semigroup.append(x) (x2)) (y),
   }),
 
   that: y => ty.run({
     this: x => These.Both(x) (y),
-    that: y2 => These.That(append2(y) (y2)),
-    both: x => y2 => These.Both(x) (append2(y) (y2)),
+    that: y2 => These.That(Semigroup2.append(y) (y2)),
+    both: x => y2 => These.Both(x) (Semigroup2.append(y) (y2)),
   }),
 
   both: x => y => ty.run({
-    this: x2 => These.Both(append(x) (x2)) (y),
-    that: y2 => These.Both(x) (append2(y) (y2)),
-    both: x2 => y2 => These.Both(append(x) (x2)) (append2(y) (y2)),
+    this: x2 => These.Both(Semigroup.append(x) (x2)) (y),
+    that: y2 => These.Both(x) (Semigroup2.append(y) (y2)),
+    both: x2 => y2 => These.Both(Semigroup.append(x) (x2)) (Semigroup2.append(y) (y2)),
   })
 });
 
@@ -9508,7 +9521,7 @@ These.Semigroup = {append: These.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-These.empty = ({empty}) => These.That(empty);
+These.empty = Monoid => These.That(Monoid.empty);
 
 
 These.Monoid = {
@@ -9712,8 +9725,8 @@ Pair.Functor = {map: Pair.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Pair.ap = ({append}) => ({1: x, 2: f}) => ({1: y, 2: z}) =>
-  Pair(append(x) (y), f(z));
+Pair.ap = Semigroup => ({1: x, 2: f}) => ({1: y, 2: z}) =>
+  Pair(Semigroup.append(x) (y), f(z));
 
 
 Pair.Apply = {
@@ -9726,7 +9739,7 @@ Pair.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Pair.of = ({empty}) => x => Pair(empty, x);
+Pair.of = Monoid => x => Pair(Monoid.empty, x);
 
 
 Pair.Applicative = {
@@ -9739,9 +9752,9 @@ Pair.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Pair.chain = ({append}) => fm => ({1: x, 2: y}) => {
+Pair.chain = Semigroup => fm => ({1: x, 2: y}) => {
   const {1: x2, 2: y2} = fm(y);
-  return Pair(append(x) (x2), y2);
+  return Pair(Semigroup.append(x) (x2), y2);
 };
 
 
@@ -9869,9 +9882,9 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-  o.ap = ({append}) => mmf => mmx =>
+  o.ap = Semigroup => mmf => mmx =>
     Writer(outer.ap(outer.map(mx => my =>
-      Pair(mx[0] (my[0]), append(mx[1]) (my[1])))
+      Pair(mx[0] (my[0]), Semigroup.append(mx[1]) (my[1])))
         (mmf.run)) (mmx.run));
 
 
@@ -9885,7 +9898,7 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = ({empty}) => x => Writer(outer.of(Pair(x, empty)));
+  o.of = Monoid => x => Writer(outer.of(Pair(x, Monoid.empty)));
 
 
   o.Applicative = {
@@ -9898,10 +9911,10 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  o.chain = ({append}) => mmx => fmm =>
+  o.chain = Semigroup => mmx => fmm =>
     Writer(outer.chain(mmx.run) (mx =>
       outer.map(my =>
-        Pair(my[0], append(mx[1]) (my[1])))
+        Pair(my[0], Semigroup.append(mx[1]) (my[1])))
           (fmm(mx[0]).run)));
 
 
@@ -9925,11 +9938,11 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = ({append}, {append: append2}) => mmx => mmy =>
+  o.append = (Semigroup, Semigroup2) => mmx => mmy =>
     Writer(outer.chain(mmx.run) (mx =>
       outer.map(my => Pair(
-        append(mx[0]) (my[0]),
-        append2(mx[1]) (my[1])))
+        Semigroup.append(mx[0]) (my[0]),
+        Semigroup2.append(mx[1]) (my[1])))
           (mmy.run)));
 
 
@@ -9940,7 +9953,7 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = ({empty}, {empty: empty2}) => Writer(outer.of(Pair(empty, empty2)));
+  o.empty = (Monoid, Monoid2) => Writer(outer.of(Pair(Monoid.empty, Monoid2.empty)));
 
 
   o.Monoid = {
@@ -9953,7 +9966,7 @@ W.T = outer => thisify(o => { // outer monad's type classes
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-  o.lift = ({empty}) => mx => Writer(chain(mx) (x => of(Pair(x, empty))));
+  o.lift = Monoid => mx => Writer(chain(mx) (x => of(Pair(x, Monoid.empty))));
 
 
   // TODO
@@ -10059,7 +10072,7 @@ Yo.Functor = {map: Yo.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Yo.ap = ({ap}) => tf => tx => Yo(f => ap(tf.run(comp(f))) (tx.run(id)));
+Yo.ap = Apply => tf => tx => Yo(f => Apply.ap(tf.run(comp(f))) (tx.run(id)));
 
 
 Yo.Apply = {
@@ -10072,7 +10085,7 @@ Yo.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Yo.of = ({of}) => x => Yo(f => of(f(x)));
+Yo.of = Applicative => x => Yo(f => Applicative.of(f(x)));
 
 
 Yo.Applicative = {
@@ -10085,8 +10098,8 @@ Yo.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Yo.chain = ({chain}) => mx => fm =>
-  Yo(f => chain(mx.run(id)) (x => fm(x).run(f)));
+Yo.chain = Chain => mx => fm =>
+  Yo(f => Chain.chain(mx.run(id)) (x => fm(x).run(f)));
     
 
 Yo.Chain = {
@@ -10109,7 +10122,7 @@ Yo.Monad = {
 █████ Lift/Unlift █████████████████████████████████████████████████████████████*/
 
 
-Yo.lift = ({map}) => tx => Yo(f => map(f) (tx));
+Yo.lift = Functor => tx => Yo(f => Functor.map(f) (tx));
 
 
 Yo.lower = tx => tx.run(id);
@@ -11033,34 +11046,34 @@ RB.split = (t, k, cmp) => {
 █████ Traversal ███████████████████████████████████████████████████████████████*/
 
 
-RB.preOrder = ({append, empty}) => f => t =>
+RB.preOrder = Monoid => f => t =>
   RB.cata(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t) (id);
+    Monoid.append(Monoid.append(f(pair)) (l)) (r)) (Monoid.empty) (t) (id);
 
 
-RB.preOrder_ = ({append, empty}) => f => t => // lazy version
+RB.preOrder_ = Monoid => f => t => // lazy version
   RB.cata_(pair => l => r =>
-    append(append(f(pair)) (l)) (r)) (empty) (t);
+    Monoid.append(Monoid.append(f(pair)) (l)) (r)) (Monoid.empty) (t);
 
 
-RB.inOrder = ({append, empty}) => f => t =>
+RB.inOrder = Monoid => f => t =>
   RB.cata(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t) (id);
+    Monoid.append(Monoid.append(l) (f(pair))) (r)) (Monoid.empty) (t) (id);
 
 
-RB.inOrder_ = ({append, empty}) => f => t => // lazy version
+RB.inOrder_ = Monoid => f => t => // lazy version
   RB.cata_(pair => l => r =>
-    append(append(l) (f(pair))) (r)) (empty) (t);
+    Monoid.append(Monoid.append(l) (f(pair))) (r)) (Monoid.empty) (t);
 
 
-RB.postOrder = ({append, empty}) => f => t =>
+RB.postOrder = Monoid => f => t =>
   RB.cata(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t) (id);
+    Monoid.append(Monoid.append(l) (r)) (f(pair))) (Monoid.empty) (t) (id);
 
 
-RB.postOrder_ = ({append, empty}) => f => t => // lazy version
+RB.postOrder_ = Monoid => f => t => // lazy version
   RB.cata_(pair => l => r =>
-    append(append(l) (r)) (f(pair))) (empty) (t);
+    Monoid.append(Monoid.append(l) (r)) (f(pair))) (Monoid.empty) (t);
 
 
 RB.levelOrder = f => init => t => function go(acc, i, ts) {
@@ -11093,11 +11106,11 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
-  * add monad combinators: filterM
-  * add Represantable type class
-  * add Distributive type class
+  * add Proxy-based thunk aware Eq type class
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
+  * add Represantable type class
+  * add Distributive type class
 
 */
