@@ -287,6 +287,9 @@ into a function and thus can be used as an deferred expression. */
 █████ Constants ███████████████████████████████████████████████████████████████*/
 
 
+const DETHUNK = PREFIX + "dethunk";
+
+
 const EVAL = PREFIX + "eval";
 
 
@@ -301,8 +304,8 @@ const THUNK = PREFIX + "thunk";
 
 
 export const strict = x => {
-  while (x && x[THUNK]) x = x[EVAL];
-  return x;
+  if (x && x[THUNK]) return x[DETHUNK];
+  else return x;
 };
 
 
@@ -324,13 +327,13 @@ class ThunkProxy {
     // enforce evalutation to WHNF
 
     if (this.memo === NULL) {
-      let g = f();
-      while (g && g[THUNK] === true) g = g[EVAL];
-      this.memo = g;
-      return g(...args);
+      this.memo = f();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
     }
 
-    else return this.memo(...args);
+    return this.memo(...args);
   }
 
   get(f, k, p) {
@@ -338,19 +341,20 @@ class ThunkProxy {
     // prevent evaluation in case of introspection
     
     if (k === THUNK) return true;
-    else if (k === Symbol.toStringTag) return "Thunk";
+    //else if (k === TAG) return "Thunk";
 
     // enforce evaluation of a single layer
 
     else if (k === EVAL) {
       if (this.memo === NULL) {
-        let o = f();
-        this.memo = o;
-        return o;
+        this.memo = f();
+        return this.memo;
       }
 
-      else if (this.memo && this.memo[THUNK] === true)
+      else if (this.memo && this.memo[THUNK] === true) {
         this.memo = this.memo[EVAL];
+        return this.memo;
+      }
 
       else return this.memo;
     }
@@ -359,54 +363,60 @@ class ThunkProxy {
 
     else if (k === "valueOf" || k === "toString") {
       if (this.memo === NULL) {
-        let o = f();
+        this.memo = f();
         
-        while (o && o[THUNK] === true) o = o[EVAL];
-        this.memo = o;
-        if (Object(o) === o) return o[k];
-        else if (k === "valueOf") return () => o;
-        else return () => String(o);
+        while (this.memo && this.memo[THUNK] === true)
+          this.memo = this.memo[EVAL];
       }
 
-      else if (Object(this.memo) === this.memo) return this.memo[k];
+      if (Object(this.memo) === this.memo) return this.memo[k];
       else if (k === "valueOf") return () => this.memo;
       else return () => String(this.memo);
+    }
+
+    // enforce evaluation to WHNF due to unproxy
+
+    else if (k === DETHUNK) {
+      if (this.memo === NULL) {
+        this.memo = f();
+        
+        while (this.memo && this.memo[THUNK] === true)
+          this.memo = this.memo[EVAL];
+      }
+
+      return this.memo;
     }
 
     // enforce evaluation to WHNF due to array context
 
     else if (k === Symbol.isConcatSpreadable) {
       if (this.memo === NULL) {
-        let o = f();
-
-        while (o && o[THUNK] === true) o = o[EVAL];
-        this.memo = o;
-        if (Array.isArray(o) || o[Symbol.isConcatSpreadable]) return true;
-        else return false;
+        this.memo = f();
+        
+        while (this.memo && this.memo[THUNK] === true)
+          this.memo = this.memo[EVAL];
       }
 
-      else {
-        if (Array.isArray(this.memo) || this.memo[Symbol.isConcatSpreadable])
-          return true;
-
-        else return false;
-      }
+      if (this.memo[Symbol.isConcatSpreadable]) return true;
+      else return false;
     }
 
     // enforce evaluation to WHNF due to property access
 
     else {
       if (this.memo === NULL) {
-        let o = f();
-
-        while (o && o[THUNK] === true) o = o[EVAL];
-        this.memo = o;
-
-        // take method binding into account
-
-        if (Object(o) === o && o[k] && o[k].bind) return o[k].bind(o);
-        else return o[k];
+        this.memo = f();
+        
+        while (this.memo && this.memo[THUNK] === true)
+          this.memo = this.memo[EVAL];
       }
+
+      // take method binding into account
+
+      else if (Object(this.memo) === this.memo 
+        && this.memo[k]
+        && this.memo[k].bind)
+          return this.memo[k].bind(this.memo);
 
       else return this.memo[k];
     }
@@ -417,14 +427,13 @@ class ThunkProxy {
     // force evaluation to WHNF
 
     if (this.memo === NULL) {
-      let o = f();
-
-      while (o && o[THUNK] === true) o = o[EVAL];
-      this.memo = o;
-      return Reflect.getOwnPropertyDescriptor(o, k);
+      this.memo = f();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
     }
 
-    else return Reflect.getOwnPropertyDescriptor(this.memo, k);
+    return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
   has(f, k) {
@@ -433,32 +442,30 @@ class ThunkProxy {
 
     if (k === THUNK) return true;
 
-    // force evaluation to WHNF
+    // enforce evaluation to WHNF
 
     if (this.memo === NULL) {
-      let o = f();
-
-      while (o && o[THUNK] === true) o = o[EVAL];
-      this.memo = o;
-      return k in o;
+      this.memo = f();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
     }
 
-    else return k in this.memo;
+    return k in this.memo;
   }
 
   ownKeys(o) {
 
-    // force evaluation to WHNF
+    // enforce evaluation to WHNF
 
     if (this.memo === NULL) {
-      let o = f();
-
-      while (o && o[THUNK] === true) o = o[EVAL];
-      this.memo = o;
-      return Reflect.ownKeys(o);
+      this.memo = f();
+      
+      while (this.memo && this.memo[THUNK] === true)
+        this.memo = this.memo[EVAL];
     }
 
-    else return Reflect.ownKeys(this.memo);
+    return Reflect.ownKeys(this.memo);
   }
 
   set(o) {
@@ -1030,9 +1037,9 @@ noise but it is the best we can hope for. Please note that the following isn't
 possible with the classic `liftM2` combinator, which is merely applicative
 effect combination in disguise.
 
-  const chain2_ = chain2({chain: A.chain, of: A.of});
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                 type class
+  const chain2_ = chain2(Monad);
+                         ^^^^^
+                       type class
 
   chain2_([1,2,3]) ([4,5,6]) (x => x & 1 ? of(y => [x + y]) : []);
           ^^^^^^^   ^^^^^^^                ^^^^^^^^^^^^^^^^
@@ -1440,7 +1447,7 @@ export const isBottom = x => {
     && x !== null
     && "getTime" in x
     && Number.isNaN(x.getTime()))
-      return true;  
+      return true;
 };
 
 
@@ -2311,7 +2318,7 @@ A.partition = p => xs => xs.reduce((pair, x)=> {
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-A.foldl = f => init => xs => { // left-associative
+A.foldl = f => init => xs => {
   let acc = init;
 
   for (let i = 0; i < xs.length; i++)
@@ -2321,7 +2328,7 @@ A.foldl = f => init => xs => { // left-associative
 };
 
 
-A.foldl1 = f => xs => { // left-associative
+A.foldl1 = f => xs => {
   let acc = xs.length === 0
     ? _throw(new Err("empty array")) : xs[0];
 
@@ -2332,7 +2339,7 @@ A.foldl1 = f => xs => { // left-associative
 };
 
 
-A.foldi = f => init => xs => { // left-associative with index
+A.foldi = f => init => xs => { // including index
   let acc = init;
 
   for (let i = 0; i < xs.length; i++)
@@ -2364,26 +2371,16 @@ A.foldr = f => acc => xs => Loops(i => {
 }) (0);
 
 
-/* Lazy, right-associative fold. Stack-safe, if `f` is non-strict in its second
-argument. This only works for folds that result type isn't an imperative array
-because array construction is always strict in both its arguments. */
+A.foldr1 = f => xs => Loops(i => {
+  let acc = xs.length === 0
+    ? _throw(new Err("empty array")) : xs[0];
 
-A.foldr_ = f => acc => xs => function go(i) { // lazy, right-associative
-  if (i === xs.length) return acc;
-  else return f(xs[i]) (lazy(() => go(i + 1)));
-} (0);
+  if (i === xs.length) return Loops.base(acc);
 
-
-A.foldr1 = f => xs => {
-  const go = i => {
-    if (i === xs.length - 1) return xs[i];
-    else return f(xs[i]) (lazy(() => go(i + 1)));
-  };
-
-  return xs.length === 0
-    ? _throw(new Err("empty array"))
-    : go(0);
-};
+  else return Loops.call(
+    f(xs[i]),
+    Loops.rec(i + 1));
+}) (0);
 
 
 A.Foldable = {
@@ -2563,18 +2560,15 @@ A.Monad = {
 /* Non-empty arrays are just regular arrays wrapped in a proxy that cannot be
 empty. Usually, each method that creates a new array returns a non-empty one
 exept for `filter`, which may return an empty array and thus must not rely on
-non-emptyness. */
+non-emptiness. */
 
 
 A.nonEmpty = xs => {
-  if (xs.length === 0)
-    throw new Err("empty non-empty array");
+  if (xs.length === 0) throw new Err("empty non-empty array");
 
   return new Proxy(xs, {
     deleteProperty(_, i) {
-      if (xs.length === 1)
-        throw new Err("empty non-empty array");
-
+      if (xs.length === 1) throw new Err("empty non-empty array");
       else return delete xs[i];
     },
 
@@ -2588,8 +2582,7 @@ A.nonEmpty = xs => {
     },
 
     set(_, k, v, proxy) {
-      if (k === "length" && v === 0)
-        throw new Err("empty non-empty");
+      if (k === "length" && v === 0) throw new Err("empty non-empty");
 
       else {
         xs[k] = v;
@@ -2637,7 +2630,7 @@ A.apo = f => init => {
     const r = f(x);
     next = false;
 
-    if (r === null) continue;
+    if (strict(r) === null) continue;
 
     else {
       const [y, tz] = r;
@@ -2895,7 +2888,7 @@ A.unfold = f => init => {
     const r = f(x);
     next = false;
 
-    if (r === null) continue;
+    if (strict(r) === null) continue;
 
     else {
       const [y, z] = r;
@@ -3400,7 +3393,7 @@ L.Monoid = {
 L.unfold = f => function go(y) {
   const r = f(y);
 
-  if (r === null) return L.Nil;
+  if (strict(r) === null) return L.Nil;
 
   else {
     const [x, y2] = r;
@@ -3755,7 +3748,7 @@ L.T = outer => thisify(o => { // outer monad's type classes
   o.unfold = f => function go(y) {
     const r = f(y);
 
-    if (r === null) return o.empty;
+    if (strict(r) === null) return o.empty;
 
     else {
       const [x, y2] = r;
@@ -5083,37 +5076,25 @@ export const Iobject = p => {
     return new Proxy(o, {
       deleteProperty(_, k) {
         if (k[0] === "_") return o[k.slice(1)];
-         
-         else if (k === Symbol.iterator
-          || k === TAG) return o[k];
-
+        else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.delete(k)
       },
       
       get(_, k, proxy) {
         if (k[0] === "_") return o[k.slice(1)];
-        
-        else if (k === Symbol.iterator
-          || k === TAG) return o[k];
-
+        else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.get(k)
       },
       
       has(_, k, proxy) {
         if (k[0] === "_") return o[k.slice(1)];
-        
-        else if (k === Symbol.iterator
-          || k === TAG) return o[k];
-        
+        else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.has(k)
       },
       
       set(_, k, v, proxy) {
         if (k[0] === "_") return o[k.slice(1)];
-
-        else if (k === Symbol.iterator
-          || k === TAG) return o[k];
-        
+        else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.set(k, v)
       }
     });
@@ -5786,8 +5767,6 @@ Lazy.T = outer => thisify(o => { // outer monad's type classes
 
 
   return o;
-
-
 });
 
 
@@ -6839,7 +6818,7 @@ export const Opt = Option; // shortcut
 █████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
-Opt.cata = x => f => tx => tx === null ? x : f(tx);
+Opt.cata = x => f => tx => strict(tx) === null ? x : f(tx);
 
 
 /*
@@ -6901,7 +6880,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => x === null ? _throw("invalid value") : x;
+Opt.of = x => strict(x) === null ? _throw("invalid value") : x;
 
 
 Opt.Applicative = {
@@ -6948,8 +6927,8 @@ Opt.Monad = {
 
 
 Opt.append = Semigroup => tx => ty =>
-  tx === null ? tx
-    : ty === null ? tx
+  strict(tx) === null ? tx
+    : strict(ty) === null ? tx
     : Semigroup.append(tx) (ty);
 
 
@@ -6991,7 +6970,7 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  o.map = f => outer.map(mx => mx === null ? mx : f(mx));
+  o.map = f => outer.map(mx => strict(mx) === null ? mx : f(mx));
 
 
   o.Functor = {map: o.map};
@@ -7002,7 +6981,7 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 
 
   o.alt = mmx => mmy => outer.chain(mmx) (mx => {
-    if (mx === null) return mmy;
+    if (strict(mx) === null) return mmy;
     else return mmx;
   });
 
@@ -7031,10 +7010,10 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 
 
   o.ap = mmf => mmx => outer.chain(mf => {
-    if (mf === null) return mf;
+    if (strict(mf) === null) return mf;
 
     else return outer.map(mx =>
-      mx === null ? mx : mf(mx)) (mmx);
+      strict(mx) === null ? mx : mf(mx)) (mmx);
   });
 
 
@@ -7048,7 +7027,7 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = x => x === null ? _throw("invalid value") : outer.of(x);
+  o.of = x => strict(x) === null ? _throw("invalid value") : outer.of(x);
 
 
   o.Applicative = {
@@ -7062,7 +7041,7 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 
 
   o.chain = mmx => fmm => outer.chain(mmx) (mx =>
-    mx === null ? mx : fmm(mx));
+    strict(mx) === null ? mx : fmm(mx));
 
 
   o.Chain = {
@@ -7096,10 +7075,10 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 
 
   o.append = Semigroup => mmx => mmy => outer.chain(mmx) (mx => {
-    if (mx === null) return mmy;
+    if (strict(mx) === null) return mmy;
 
     else return outer.map(my =>
-      my === null ? mx : Semigroup.append(mx) (my)) (mmy);
+      strict(my) === null ? mx : Semigroup.append(mx) (my)) (mmy);
   });
 
 
@@ -11107,6 +11086,7 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 /*
 
   * add Proxy-based thunk aware Eq type class
+  * revise non-empty methods
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
