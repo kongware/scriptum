@@ -233,7 +233,11 @@ export const Err = TypeError; // shortcut
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// indicates errors that are not thrown, at least not immediately
+/* Indicates errors that are not immediately thrown, i.e. you can recover from
+them without using `catch`. `Exception` is a subtype of `Error` and accepts an
+optional second parameter that holds a continuation, which is useful in the
+context of asynchronous computations. The continuation can be used to resume
+the original computation chain. */
 
 export class Exception extends Error {
   constructor(s) {super(s)}
@@ -270,17 +274,16 @@ export class Exceptions extends Error {
 
 In this library lazy evaluation is realized with implicit thunks, i.e. thunks
 like `() => expr` that behave like `expr` on the consuming side. The technique
-is based on the `Proxy` type, whose instances are used as thunk placeholders.
-There are some known limitations to this technique:
+is based on `Proxy`s with thunks as their targets. There are some limitations
+to this Proxy-based thunk technique:
 
-  * `==`/`===` doesn't force evaluation of Proxy-based thunks
-  * `throw` doesn't force evaluation of Proxy-based thunks
+  * `typeof` isn't intercepted by the proxy (always yields `object`)
+  * `===` doesn't trigger evaluation of proxy-based thunks
+  * `throw` doesn't trigger evaluation of proxy-based thunks
 
-Both limitations have to be taken into account when using Proxy-based thunks.
-
-The `Eq` type classe in this library is meant to be Proxy-based thunk aware.
-This also applies to the `_throw` function, which wraps the `throw` statement
-into a function and thus can be used as an deferred expression. */
+Especially the last case must be taken into account and is the reason why
+combinator of certain types like `Option` enforce strict evaluation in the
+context of equality checking. */
 
 
 /*
@@ -1731,7 +1734,7 @@ export const R = Reader; // shortcut
 // transformer type: a -> m b
 
 
-R.T = outer => thisify(o => { // outer monad's type classes
+R.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
@@ -1870,7 +1873,7 @@ export const St = State; // shortcut
 // transformer type: b -> m (a, b)
 
 
-St.T = outer => thisify(o => { // outer monad's type classes
+St.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
@@ -2564,25 +2567,67 @@ non-emptiness. */
 
 
 A.nonEmpty = xs => {
-  if (xs.length === 0) throw new Err("empty non-empty array");
+  if (xs.length === 0) throw new Err("must not be empty");
 
   return new Proxy(xs, {
     deleteProperty(_, i) {
-      if (xs.length === 1) throw new Err("empty non-empty array");
-      else return delete xs[i];
+      throw new Err("invalid operation");
     },
 
-    get(_, k, proxy) {
-      switch (k) {
-        case "concat": return ys => A.nonEmpty(xs.concat(ys));
-        case "map": return (f, i, ys) => A.nonEmpty(xs.map(f, i, ys));
-        case "slice": return (i, j) => A.nonEmpty(xs.slice(i, j));
-        default: return xs[k];
+    get(_, i, proxy) {
+      if (xs[i] && xs[i].bind) {
+        // * distinguish between impure/pure methods
+        // * functions that reduce the array in some way always return a normal array
+
+        //return (...args) => A.nonEmpty(xs[i] (...args));
+
+        return (...args) => {
+          switch(i) {
+
+            // keep type constructor
+
+            case "concat":
+            case "fill":
+            case "flat":
+            case "flatMap":
+            case "map":
+            case "reverse":
+            case "sort": return A.nonEmpty(xs[i] (...args));
+
+            // conversion to regular array
+
+            case "filter":
+            case "slice": return xs[i] (...args);
+            
+            // added method
+
+            case "of": return x => A.nonEmpty([x]);
+
+            // deviate from default array behavior
+
+            case "push":
+            case "shift": {
+              xs[i] (...args);
+              return proxy;
+            }
+
+            case "pop":
+            case "splice":
+            case "unshift": throw new Err("invalid operation");
+
+            // change type constructor
+
+            default: return xs[i] (...args);
+          }
+        };
       }
+
+      else return xs[i];
     },
 
     set(_, k, v, proxy) {
-      if (k === "length" && v === 0) throw new Err("empty non-empty");
+      if (k === "length" && v === 0)
+        throw new Err("must not be empty");
 
       else {
         xs[k] = v;
@@ -3517,14 +3562,16 @@ Nea._Cons = xs => x => new Nea.Cons(x, xs);
 // transformer type: m (List m a)
 
 
-L.T = outer => thisify(o => { // outer monad's type classes
+L.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-  o.fromFoldable = Foldable => Foldable.foldr(L.Cons_) (outer.of(L.Nil));
+  // List a -> m (List m a)
+  o.fromList = L.foldr(x => acc =>
+    outer.of(L.Cons_(x) (acc))) (outer.of(L.Nil));
 
 
 /*
@@ -3950,6 +3997,7 @@ The type has the following properties:
   * delimited scopes
   * no transformer, only base monad
 
+The idea is to use the type along with web workers, if this makes sense.
 
 The trampoline is necessary to attain stack safety. It is used as follows:
 
@@ -4065,7 +4113,7 @@ Cont.Semigroup = {append: Cont.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Cont.empty = empty => Cont(k => k(empty));
+Cont.empty = Monoid => Cont(k => k(Monoid.empty));
 
 
 Cont.Monoid = {
@@ -4399,48 +4447,53 @@ E.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// transformer type: m (Except Error | a)
+/* Except monad transformer excepts the outer monad's type dict and the value
+constructor of the newly composed monad. The transformer has the following
+structure:
+
+  m (a | Exception) */
 
 
-E.T = outer => thisify(o => { // outer monad's type classes
+Except.T = outer => Trans => {
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-  o.fromEither = mx => outer.of(mx);
+  Trans.fromExcept = mx => Trans(outer.of(mx));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  o.map = f => outer.map(mx => introspect(mx) === "Error" ? mx : f(mx));
+  Trans.map = f => mmx => Trans(outer.map(mx =>
+    introspect(mx) === "Error" ? mx : f(mx)) (mmx));
 
 
-  o.Functor = {map: o.map};
+  Trans.Functor = {map: Trans.map};
   
 
 /*
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-  o.alt = mmx => mmy => outer.chain(mmx) (mx => {
+  Trans.alt = mmx => mmy => outer.chain(mmx) (mx => {
     if (introspect(mx) === "Error") {
-      return outer.map(my => {
+      return Trans(outer.map(my => {
         if (introspect(my) === "Error") return new Exceptions(mx, my);
         else return my;
-      }) (mmy)
+      }) (mmy))
     }
       
-    else return mmx;
+    else return outer.of(mx);
   });
 
 
-  o.Alt = {
-    ...o.Functor,
-    alt: o.alt
+  Trans.Alt = {
+    ...Trans.Functor,
+    alt: Trans.alt
   };
 
 
@@ -4448,12 +4501,12 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-  o.zero = outer.of(new Exceptions());
+  Trans.zero = Trans(outer.of(new Exceptions()));
 
 
-  o.Plus = {
-    ...o.Alt,
-    zero: o.zero
+  Trans.Plus = {
+    ...Trans.Alt,
+    zero: Trans.zero
   };
 
 
@@ -4461,8 +4514,8 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-  o.ap = mmf => mmx => {
-    return outer.chain(mmf) (mf => {
+  Trans.ap = mmf => mmx => {
+    return Trans(outer.chain(mmf) (mf => {
       return outer.map(mx => {
         if (introspect(mf) === "Error") {
           if (introspect(mx) === "Error") return new Exceptions(mf, mx);
@@ -4472,13 +4525,13 @@ E.T = outer => thisify(o => { // outer monad's type classes
         else if (introspect(mx) === "Error") return mx;
         else return mf(mx);
       }) (mmx);
-    });
+    }));
   };
 
 
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
+  Trans.Apply = {
+    ...Trans.Functor,
+    ap: Trans.ap
   };
 
 
@@ -4486,13 +4539,12 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = x => outer.of(
-    introspect(x) === "Error" ? _throw(new Err("invalid value")) : x);
+  Trans.of = x => Trans(outer.of(x));
 
 
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
+  Trans.Applicative = {
+    ...Trans.Apply,
+    of: Trans.of
   };
 
 
@@ -4500,15 +4552,15 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  o.chain = mmx => fmm => outer.chain(mmx) (mx => {
-    if (introspect(mx) === "Error") return mmx;
+  Trans.chain = mmx => fmm => Trans(outer.chain(mmx) (mx => {
+    if (introspect(mx) === "Error") return outer.of(mx);
     else return fmm(mx);
-  });
+  }));
   
 
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
+  Trans.Chain = {
+    ...Trans.Apply,
+    chain: Trans.chain
   };
 
 
@@ -4516,9 +4568,9 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
 
 
-  o.Alternative = {
-    ...o.Plus,
-    ...o.Applicative
+  Trans.Alternative = {
+    ...Trans.Plus,
+    ...Trans.Applicative
   };
 
 
@@ -4526,18 +4578,37 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
+  Trans.Monad = {
+    ...Trans.Applicative,
+    chain: Trans.chain
   };
+
+
+/*
+█████ Handling ████████████████████████████████████████████████████████████████*/
+
+
+  Trans.catch = f => mmx => Trans(outer.chain(mmx) (mx => {
+    if (introspect(mx) === "Error") return outer.of(f(mx));
+    else return outer.of(mx);
+  }));
+
+
+  Trans.throw = mmx => Trans(outer.map(x => {
+    if (introspect(x) === "Error") throw x;
+    else return x;
+  }) (mmx));
+
+
+  // TODO: `Trans.finally`
 
 
 /*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-  o.append = Semigroup => mmx => mmy => {
-    return outer.chain(mmx) (mx => {
+  Trans.append = Semigroup => mmx => mmy => {
+    return Trans(outer.chain(mmx) (mx => {
       return outer.map(my => {
         if (introspect(mx) === "Error") {
           if (introspect(my) === "Error") return new Exceptions(mx, my);
@@ -4547,23 +4618,23 @@ E.T = outer => thisify(o => { // outer monad's type classes
         else if (introspect(my) === "Error") return my;
         else return Semigroup.append(mx) (my);
       }) (mmy);
-    });
+    }));
   };
 
 
-  o.Semigroup = {append: o.append};
+  Trans.Semigroup = {append: Trans.append};
 
 
 /*
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = Monoid => outer.of(Monoid.empty);
+  Trans.empty = Monoid => Trans(outer.of(Monoid.empty));
 
 
-  o.Monoid = {
-    ...o.Semigroup,
-    empty: o.empty
+  Trans.Monoid = {
+    ...Trans.Semigroup,
+    empty: Trans.empty
   };
 
 
@@ -4571,14 +4642,19 @@ E.T = outer => thisify(o => { // outer monad's type classes
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-  o.lift = mx => o.chain(x => x) (mx);
+  /* Since `Except` doesn't have its own type wrapper but is based on native
+  `Error` values (or the `Exception` subclass respectively), the lift operation
+  can simply put the monadic value into the transformer type wrapper without
+  further expecting it. */
+
+  Trans.lift = mx => Trans(mx);
 
 
   // TODO
 
 
-  return o;
-});
+  return Trans;
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5703,7 +5779,7 @@ Lazy.Monad = {
 // structure: m (() -> a)
 
 
-Lazy.T = outer => thisify(o => { // outer monad's type classes
+Lazy.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
@@ -5829,7 +5905,7 @@ _Map.del = k => m => m.delete(k);
 
 _Map.upd = k => f => m => {
   if (m.has(k)) return m.set(k, f(m.get(k)));
-  else return new Exception("missing property to be updated");
+  else return new Exception("no property to update");
 };
 
 
@@ -6245,7 +6321,7 @@ O.set = k => v => o => (o[k] = v, o);
 
 O.upd = k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
-  else return new Exception("missing property to be updated");
+  else return new Exception("no property to update");
 };
 
 
@@ -6956,7 +7032,7 @@ Opt.Monoid = {
 // transformer type: m (Option null | a)
 
 
-Opt.T = outer => thisify(o => { // outer monad's type classes
+Opt.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
@@ -7027,7 +7103,7 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = x => strict(x) === null ? _throw("invalid value") : outer.of(x);
+  o.of = x => outer.of(x);
 
 
   o.Applicative = {
@@ -7114,23 +7190,8 @@ Opt.T = outer => thisify(o => { // outer monad's type classes
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode asynchronous I/O computations evaluated in parallel. Use `Serial` for
-  serial evaluation. Use `Cont` to encode synchronous I/O effects.
-
-It has the following properties:
-
-  * asynchronous, parallel evaluation
-  * pure core/impure shell concept
-  * lazy by deferred nested function calls
-  * stack-safe due to asynchronous calls
-  * non-reliable return values
-  * no transformer, only as base monad
-
-`runAsync` wraps the value of type `Parallel` in a `Promise` for every xth
-invocation. Promise handlers are executed within the next microtask queue and
-thus stack safe by design. Since `Parallel` doesn't rely on return values but
-only on continuations, wrapping them into another data type is a transparent
-operation. */
+/* Encode asynchronous I/O computations evaluated in parallel. See `Serial` for
+more comprehensive information. */
 
 
 export const Parallel = k => ({
@@ -7154,7 +7215,7 @@ export const Parallel = k => ({
     });
   },
 
-  runAsync: f => { // extra stack-safety for edge cases
+  runSafe: f => {
     if (asyncCounter > 100) {
       asyncCounter = 0;
       return Promise.resolve(null).then(_ => k(f));
@@ -7175,25 +7236,13 @@ export const P = Parallel; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-P.fromPex = k => tx => ({
-  [TAG]: "Parallel",
-  run: k2 => tx.run({raise: id, proceed: k2}),
-  runAsync: f => tx.runAsync({raise: k, proceed: f})
-});
+P.fromPex = mmx => P(mmx.run);
 
 
-P.fromSerial = tx => ({
-  [TAG]: "Parallel",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
+P.fromSerial = tx => P(tx.run);
 
 
-P.fromSex = k => tx => ({
-  [TAG]: "Parallel",
-  run: k2 => tx.run({raise: k, proceed: k2}),
-  runAsync: f => tx.runAsync({raise: k, proceed: f})
-});
+P.fromSex = mmx => P(mmx.run);
 
 
 /*
@@ -7217,21 +7266,25 @@ P.and = tx => ty => {
           else return null;
         }
 
-        else return null;
+        else return k(Pair(pair[0], pair[1]));
       });
     });
   });
 };
 
 
-P.all = () =>
+P.allArr = () =>
   A.seqA({
     map: P.map,
     ap: P.ap,
     of: P.of});
 
 
-// TODO: P.allList
+P.allList = () =>
+  L.seqA({
+    map: P.map,
+    ap: P.ap,
+    of: P.of});
 
 
 P.allObj = o => {
@@ -7269,12 +7322,12 @@ P.allObj = o => {
 
 P.or = tx => ty => {
   return P(k => {
-    let i = 0;
+    let done = false;
 
     return [tx, ty].map(tz => {
       return tz.run(z => {
-        if (i === 0) {
-          i++;
+        if (!done) {
+          done = true;
           return k(z);
         }
 
@@ -7285,10 +7338,23 @@ P.or = tx => ty => {
 };
 
 
-P.any = () =>
+P.anyArr = () =>
   A.foldl(acc => tx =>
     P.Race.append(acc) (tx))
       (P.Race.empty);
+
+
+P.anyList = () =>
+  L.foldl(acc => tx =>
+    P.Race.append(acc) (tx))
+      (P.Race.empty);
+
+
+P.anyObj = o =>
+  A.foldl(acc => tx =>
+    P.Race.append(acc) (tx))
+      (P.Race.empty)
+        (Object.values(o));
 
 
 /*
@@ -7306,11 +7372,9 @@ P.Functor = {map: P.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-P.ap = tf => tx =>
-  P(k =>
-    P.and(tf) (tx)
-      .run(([f, x]) =>
-         k(f(x))));
+P.ap = tf => tx => P(k =>
+  P.and(tf) (tx).run(([f, x]) =>
+    k(f(x))));
 
 
 P.Apply = {
@@ -7333,14 +7397,42 @@ P.Applicative = {
 
 
 /*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+// please note that Chain diverges from Apply in terms of evaluation order
+
+
+P.chain = mx => fm =>
+  P(k => mx.run(x => fm(x).run(k)));
+
+
+P.Chain = {
+  ...P.Apply,
+  chain: P.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+// please note that Monad diverges from Applicative in terms of evaluation order
+
+
+P.Monad = {
+  ...P.Applicative,
+  chain: P.chain
+};
+
+
+/*
 █████ Semigroup (Argument) ████████████████████████████████████████████████████*/
 
 
-P.append = Semigroup => tx => ty =>
-  P(k =>
-    P.and(tx) (ty)
-      .run(([x, y]) =>
-        k(Semigroup.append(x) (y))));
+P.append = Semigroup => tx => ty => P(k =>
+  P.and(tx) (ty).run(([x, y]) =>
+    k(Semigroup.append(x) (y))));
 
 
 P.Semigroup = {append: P.append};
@@ -7360,8 +7452,7 @@ P.Race.append = P.or;
 █████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
 
 
-P.empty = empty =>
-  P(k => k(empty));
+P.empty = Monoid => P(k => k(Monoid.empty));
 
 
 P.Monoid = {
@@ -7384,15 +7475,7 @@ P.Race.empty = P(k => null);
 P.capture = tx => P(k => tx.run(x => k(Pair(k, x))));
 
 
-P.flatmap = mx => fm => // monad-like
-  P(k => mx.run(x => fm(x).run(k)));
-
-
-P.flatten = mmx => // monad like
-  P(k => mmx.run(mx => mx.run(k)));
-
-
-P.once = tx => {
+P.once = tx => { // TODO: delete
   let x = lazy(() => {
     throw new Err("race condition");
   });
@@ -7420,17 +7503,23 @@ P.once = tx => {
 };
 
 
-P.reify = k => x => P(k2 => k(x));
+P.reify = k => x => P(_ => k(x));
 
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-P.all = P.all();
+P.allArr = P.allArr();
 
 
-P.any = P.any();
+P.allList = P.allList();
+
+
+P.anyArr = P.anyArr();
+
+
+P.anyList = P.anyList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7438,49 +7527,15 @@ P.any = P.any();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* `Parallel` extended to asynchronous exceptions. A similar behavior can be
-achieved by using `Parallel` as a monad transformer and handling exceptions
-inside the `run` method (the impure shell) using the `Except` type. As with
-all continuation based monads there is no transformer available. */
+// like `Parallel` but augmented with an `Except` transformer
 
 
-export const ParallelExcept = ks => ({
+export const ParallelExcept = Except.T(Parallel) (tx => ({
   [TAG]: "Parallel.Except",
-  run: ks,
-
-  get runOnce() {
-    delete this.runOnce;
-
-    Object.defineProperty(this, "runOnce", {
-      get() {throw new Err("race condition")},
-      configurable: true,
-      enumerable: true
-    });
-    
-    return o => ks({
-      raise: o.raise,
-
-      proceed: x => {
-        const r = o.proceed(x);
-        delete this.runOnce;
-        this.runOnce = _ => o.proceed(x);
-        return r;
-      }
-    });
-  },
-
-  runAsync: o => { // extra stack-safety for edge cases
-    if (asyncCounter > 100) {
-      asyncCounter = 0;
-      return Promise.resolve(null).then(_ => ks(o));
-    }
-
-    else {
-      asyncCounter++;
-      return ks(o);
-    }
-  }
-});
+  get run() {return tx.run},
+  get runOnce() {return tx.runOnce},
+  get runSafe() {return tx.runSafe}
+}));
 
 
 export const Pex = ParallelExcept; // shortcut
@@ -7490,28 +7545,196 @@ export const Pex = ParallelExcept; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Pex.fromParallel = tx => ({
-  [TAG]: "Parallel.Except",
-  run: ({raise: k, proceed: k2}) => tx.run(k2),
-  runAsync: ({proceed: f}) => tx.runAsync(f)
-});
+Pex.fromParallel = mx => Pex(mx.run);
 
 
-Pex.fromSerial = tx => ({
-  [TAG]: "Parallel.Except",
-  run: ({raise: k, proceed: k2}) => tx.run(k2),
-  runAsync: ({proceed: f}) => tx.runAsync(f)
-});
+Pex.fromSex = mmx => Pex(mmx.run);
 
 
-Pex.fromSex = tx => ({
-  [TAG]: "Parallel.Except",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
+Pex.fromSerial = mx => Pex(mx.run);
 
 
-// TODO
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+// stops on first exception
+
+Pex.and = mmx => mmy => Pex.chain(mmx) (x =>
+  Pex.map(y => Pair(x, y)) (mmy));
+
+
+// continues on exceptions
+
+Pex.and_ = mmx => mmy => Pex(P(k => {
+  const pair = Array(2);
+  let i = 0;
+
+  return [mmx, mmy].map((mmz, j) => {
+    return mmz.run(mz => {
+      if (i < 2) {
+        if (pair[j] === undefined) {
+          pair[j] = mz;
+          i++;
+        }
+
+        if (i === 2) return k(Pair(pair[0], pair[1]));
+        else return null;
+      }
+
+      else return k(Pair(pair[0], pair[1]));
+    });
+  });
+}));
+
+
+Pex.allArr = () =>
+  A.seqA({
+    map: Pex.map,
+    ap: Pex.ap,
+    of: Pex.of});
+
+
+Pex.allList = () =>
+  L.seqA({
+    map: Pex.map,
+    ap: Pex.ap,
+    of: Pex.of});
+
+
+P.allObj = o => {
+  const keys = Object.keys(o);
+
+  return P(k => {
+    const xs = Array(keys.length),
+      p = Object.assign({}, o); // preserve prop order
+
+    let i = 0;
+
+    return keys.map((key, j) => {
+      return o[key].run(x => {
+        if (i < keys.length) {
+          if (xs[j] === undefined) {
+            p[key] = x;
+            xs[j] = null;
+            i++;
+          }
+
+          if (i === keys.length) return k(p);
+          else return null;
+        }
+
+        else return null;
+      });
+    });
+  });
+};
+
+
+Pex.allObj = o => {
+  return Object.keys(o).reduce((acc, key) => {
+    return Pex.chain(acc) (p =>
+      Pex.map(x => (p[key] = x, p)) (o[key]));
+  }, Pex.of({}));
+};
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+Pex.or = mmx => mmy => {
+  return Pex(P(k => {
+    let done = false;
+
+    return [mmx, mmy].map(mmz => {
+      return mmz.run(mz => {
+        if (!done) {
+          done = true;
+          return k(mz);
+        }
+
+        else return null;
+      });
+    });
+  }));
+};
+
+
+Pex.or_ = mmx => mmy => {
+  return Pex(P(k => {
+    let i = 0;
+
+    return [mmx, mmy].map(mmz => {
+      return mmz.run(mz => {
+        if (i < 1) {
+          if (introspect(mz) === "Error") {
+            i++;
+            return null;
+          }
+
+          else {
+            i++;
+            return k(mz);
+          }
+        }
+
+        else if (i === 1) {
+          i++;
+          return k(mz);
+        }
+
+        else return null;
+      });
+    });
+  }));
+};
+
+
+Pex.anyArr = () =>
+  A.foldl(acc => tx =>
+    Pex.Race.append(acc) (tx))
+      (Pex.Race.empty);
+
+
+Pex.anyList = () =>
+  L.foldl(acc => tx =>
+    Pex.Race.append(acc) (tx))
+      (Pex.Race.empty);
+
+
+Pex.anyObj = o =>
+  L.foldl(acc => tx =>
+    Pex.Race.append(acc) (tx))
+      (Pex.Race.empty)
+        (Object.values(o));
+
+
+/*
+█████ Semigroup (Race) ████████████████████████████████████████████████████████*/
+
+
+Pex.Race = {};
+
+
+Pex.Race.append = Pex.or;
+
+
+/*
+█████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
+
+
+Pex.Race.empty = Pex(P(k => null));
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+Pex.allArr = Pex.allArr();
+
+
+Pex.allList = Pex.allList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8276,23 +8499,30 @@ Parser.dropUntil = parser => Parser(rest => state => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode asynchronous I/O computations evaluated in serial. Use `Serial` for
-  parallel evaluation. Use `Cont` to encode synchronous I/O effects.
+/* Encode asynchronous I/O computations evaluated in serial. Use..
 
-It has the following properties:
+  * `Parallel` for asynchronous computations in parallel
+  * `Cont` for synchronous computations in CPS
 
-  * asynchronous, serial evaluation
+The type has the following properties:
+
   * pure core/impure shell concept
+  * asynchronous, serial evaluation
   * lazy by deferred nested function calls
   * stack-safe due to asynchronous calls
   * non-reliable return values
-  * no transformer, only as base monad
+  * base monad (no transformer)
 
-`runAsync` wraps the value of type `Serial` in a `Promise` for every xth
-invocation. Promise handlers are executed within the next microtask queue and
-thus stack safe by design. Since `Serial` doesn't rely on return values but
-only on continuations, wrapping them into another data type is a transparent
-operation. */
+`Serial` isn't asynchronous by default, i.e. the next continuation (invocation
+of the next `then` handler in `Promise` lingo) may be in the same microtask of
+Javascript's event loop. Hence an alternative mechanism is needed to provide
+stack-safety in the context of long synchronous chains. `runSafe` intersperses
+`Promise` into the chain. This process is completely transparent to the caller
+because `Serial` doesn't rely on return values.
+
+`Serial` is based on multi-shot continuations, i.e. its continuation can be
+invoked several times and thus the corresponding async computation is evaluated
+several times. `runOnce` enforces zero or at most one evaluation. */
 
 
 export const Serial = k => ({
@@ -8316,7 +8546,7 @@ export const Serial = k => ({
     });
   },
 
-  runAsync: f => { // extra stack-safety for edge cases
+  runSafe: f => {
     if (asyncCounter > 100) {
       asyncCounter = 0;
       return Promise.resolve(null).then(_ => k(f));
@@ -8337,25 +8567,13 @@ export const S = Serial; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-S.fromPex = k => tx => ({
-  [TAG]: "Serial",
-  run: k2 => tx.run({raise: k, proceed: k2}),
-  runAsync: f => tx.runAsync({raise: k, proceed: f})
-});
+S.fromParallel = tx => S(tx.run);
 
 
-S.fromParallel = tx => ({
-  [TAG]: "Serial",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
+S.fromPex = mmx => S(mmx.run);
 
 
-S.fromSex = k => tx => ({
-  [TAG]: "Serial",
-  run: k2 => tx.run({raise: k, proceed: k2}),
-  runAsync: f => tx.runAsync({raise: k, proceed: f})
-});
+S.fromSex = mmx => S(mmx.run);
 
 
 /*
@@ -8369,14 +8587,18 @@ S.and = tx => ty =>
         k(Pair(x, y)))));
 
 
-S.all = () =>
+S.allArr = () =>
   A.seqA({
     map: S.map,
     ap: S.ap,
     of: S.of});
 
 
-// TODO: S.allList
+S.allList = () =>
+  L.seqA({
+    map: S.map,
+    ap: S.ap,
+    of: S.of});
 
 
 S.allObj = o => {
@@ -8404,11 +8626,9 @@ S.Functor = {map: S.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-S.ap = tf => tx =>
-  S(k =>
-    S.and(tf) (tx)
-      .run(([f, x]) =>
-         k(f(x))));
+S.ap = tf => tx => S(k =>
+  S.and(tf) (tx).run(([f, x]) =>
+    k(f(x))));
 
 
 S.Apply = {
@@ -8458,9 +8678,9 @@ S.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-S.append = Semigroup => tx => ty =>
-  S(k => S.and(tx) (ty)
-    .run(([x, y]) => k(Semigroup.append(x) (y))));
+S.append = Semigroup => tx => ty => S(k =>
+  S.and(tx) (ty).run(([x, y]) =>
+    k(Semigroup.append(x) (y))));
 
 
 S.Semigroup = {append: S.append};
@@ -8470,7 +8690,7 @@ S.Semigroup = {append: S.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-S.empty = empty => S(k => k(empty));
+S.empty = Monoid => S(k => k(Monoid.empty));
 
 
 S.Monoid = {
@@ -8486,7 +8706,7 @@ S.Monoid = {
 S.capture = tx => S(k => tx.run(x => k(Pair(k, x))));
 
 
-S.once = tx => {
+S.once = tx => { // TODO: delete
   let x = lazy(() => {
     throw new Err("race condition");
   });
@@ -8514,14 +8734,17 @@ S.once = tx => {
 };
 
 
-S.reify = k => x => S(k2 => k(x));
+S.reify = k => x => S(_ => k(x));
 
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-S.all = S.all();
+S.allArr = S.allArr();
+
+
+S.allList = S.allList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8529,49 +8752,15 @@ S.all = S.all();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* `Serail` extended to asynchronous exceptions. A similar behavior can be
-achieved by using `Serial` as a monad transformer and handling exceptions
-inside the `run` method (the impure shell) using the `Except` type. As with
-all continuation based monads there is no transformer available. */
+// like `Serial` but augmented with an `Except` transformer
 
 
-export const SerialExcept = ks => ({
+export const SerialExcept = Except.T(Serial) (tx => ({
   [TAG]: "Serial.Except",
-  run: ks,
-
-  get runOnce() {
-    delete this.runOnce;
-
-    Object.defineProperty(this, "runOnce", {
-      get() {throw new Err("race condition")},
-      configurable: true,
-      enumerable: true
-    });
-    
-    return o => ks({
-      raise: o.raise,
-
-      proceed: x => {
-        const r = o.proceed(x);
-        delete this.runOnce;
-        this.runOnce = _ => o.proceed(x);
-        return r;
-      }
-    });
-  },
-
-  runAsync: o => { // extra stack-safety for edge cases
-    if (asyncCounter > 100) {
-      asyncCounter = 0;
-      return Promise.resolve(null).then(_ => ks(o));
-    }
-
-    else {
-      asyncCounter++;
-      return ks(o);
-    }
-  }
-});
+  get run() {return tx.run},
+  get runOnce() {return tx.runOnce},
+  get runSafe() {return tx.runSafe}
+}));
 
 
 export const Sex = SerialExcept; // shortcut
@@ -8581,213 +8770,65 @@ export const Sex = SerialExcept; // shortcut
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Sex.fromParallel = tx => ({
-  [TAG]: "Serial.Except",
-  run: ({raise: k, proceed: k2}) => tx.run(k2),
-  runAsync: ({raise: k, proceed: f}) => tx.runAsync(f)
-});
+Sex.fromParallel = mx => Sex(mx.run);
 
 
-Sex.fromPex = tx => ({
-  [TAG]: "Serial.Except",
-  run: tx.run,
-  runAsync: tx.runAsync
-});
+Sex.fromPex = mmx => Sex(mmx.run);
 
 
-Sex.fromSerial = tx => ({
-  [TAG]: "Serial.Except",
-  run: ({raise: k, proceed: k2}) => tx.run(k2),
-  runAsync: ({raise: k, proceed: f}) => tx.runAsync(f)
-});
+Sex.fromSerial = mx => Sex(mx.run);
 
 
 /*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-Sex.and = tx => ty =>
-  Sex(({raise: k, proceed: k2}) =>
-    tx.run({
-      raise: k,
-      proceed: x =>
-        ty.run({
-          raise: k,
-          proceed: y => k2(Pair(x, y))
-        })
-    }));
+// stops on first exception
+
+Sex.and = mmx => mmy =>
+  Sex.chain(mmx) (x =>
+    Sex.map(y => Pair(x, y)) (mmy));
 
 
-Sex.all = () =>
+// continues on exceptions
+
+Sex.and_ = mmx => mmy =>
+  Sex(S(k =>
+    mmx.run(x =>
+      mmy.run(y =>
+        k(Pair(x, y))))));
+
+
+Sex.allArr = () =>
   A.seqA({
     map: Sex.map,
     ap: Sex.ap,
     of: Sex.of});
 
 
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
+Sex.allList = () =>
+  L.seqA({
+    map: Sex.map,
+    ap: Sex.ap,
+    of: Sex.of});
 
 
-Sex.map = f => tx =>
-  Sex(({raise: k, proceed: k2}) =>
-    tx.run({
-      raise: k,
-      proceed: x => k2(f(x))
-    }));
-
-
-Sex.Functor = {map: Sex.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Sex.ap = tf => tx =>
-  Sex(({raise: k, proceed: k2}) =>
-    Sex.and(tf) (tx)
-      .run({
-        raise: k,
-        proceed: ([f, x]) => k2(f(x))
-      }));
-
-
-Sex.Apply = {
-  ...Sex.Functor,
-  ap: Sex.ap
+Sex.allObj = o => {
+  return Object.keys(o).reduce((acc, key) => {
+    return Sex.chain(acc) (p =>
+      Sex.map(x => (p[key] = x, p)) (o[key]));
+  }, Sex.of({}));
 };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Sex.of = x => Sex(({raise: k, proceed: k2}) => k2(x));
-
-
-Sex.Applicative = {
-  ...Sex.Apply,
-  of: Sex.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Sex.chain = mx => fm =>
-  Sex(({raise: k, proceed: k2}) =>
-    mx.run({
-      raise: k,
-      proceed: x => fm(x).run({raise: k, proceed: k2})
-    }));
-
-
-Sex.Chain = {
-  ...Sex.Apply,
-  chain: Sex.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Sex.Monad = {
-  ...Sex.Applicative,
-  chain: Sex.chain
-};
-
-
-/*
-█████ Natural Transformations █████████████████████████████████████████████████*/
-
-
-// TODO: fromParallel/toParallel
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Sex.append = Semigroup => tx => ty =>
-  Sex(({raise: k, proceed: k2}) =>
-    Sex.and(tx) (ty).run({
-      raise: k,
-      proceed: ([x, y]) => k2(Semigroup.append(x) (y))
-    }));
-
-
-Sex.Semigroup = {append: Sex.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-Sex.empty = empty => Sex(({raise: k, proceed: k2}) => k2(empty));
-
-
-Sex.Monoid = {
-  ...Sex.Semigroup,
-  empty: Sex.empty
-};
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-Sex.once = tx => {
-  let x = lazy(() => {
-    throw new Err("race condition");
-  });
-
-  let done = false;
-
-  const ks = {
-    raise: id, // don't memoize exception case
-
-    proceed: f => {
-      if (done) {
-        f(x);
-        return ks;
-      }
-
-      else {
-        tx.run({
-          raise: y => {
-            x = y; f(y);
-            return ks;
-          },
-
-          proceed: z => {
-            x = z; f(z);
-            return ks;
-          }
-        });
-
-        done = true; // sync
-        return ks;
-      }
-    }
-  };
-
-  return Sex(ks);
-};
-
-
-Sex.reify = tx =>
-  Sex(({raise: k, proceed: k2}) =>
-    tx.run({raise: k, proceed: x => k2(Triple(x, k, k2))}));
 
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-Sex.all = Sex.all();
+Sex.allArr = Sex.allArr();
+
+
+Sex.allList = Sex.allList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9837,7 +9878,7 @@ export const Writer = mmx => ({ // constructor
 export const W = Writer; // shortcut
 
 
-W.T = outer => thisify(o => { // outer monad's type classes
+W.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
@@ -10141,97 +10182,34 @@ The first choice has to be made by picking the respective object in the
 `FileSys` namespace. The second one depends on the passed `cons` constructor. */
 
 
-export const FileSys = {}; // namespace
+export const FileSys = fs => Cons => thisify(o => {
+  o.copy = src => dest => Cons(k =>
+    fs.copyFile(src, dest, e =>
+      e ? k(new Exception(e)) : k(null)));
 
+  o.move = src => dest => // guaranteed order
+    Cons.chain(o.copy(src) (dest)) (_ =>
+      o.unlink(src));
 
-FileSys.error = fs => cons => thisify(o => { // cons = S | P
-  if (cons.name !== "Serial" && cons.name !== "Parallel")
-    throw new Err("invalid asynchronous constructor");
+  o.read = opt => path => Cons(k =>
+    fs.readFile(path, opt, (e, x) =>
+      e ? k(new Exception(e)) : k(x)));
 
-  o.copy = src => dest =>
-    cons(k =>
-      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? _throw(new Err(e))
-        : k(Pair(src, dest))));
+  o.scanDir = path => Cons(k =>
+    fs.readdir(path, (e, xs) =>
+      e ? k(new Exception(e)) : k(xs)));
 
-  o.move = src => dest =>
-    cons.and(
-      o.copy(src) (dest))
-        (o.unlink(src));
+  o.stat = path => Cons(k =>
+    fs.stat(path, (e, o) =>
+      e ? k(new Exception(e)) : k(o)));
 
-  o.read = opt => path =>
-    cons(k =>
-      fs.readFile(path, opt, (e, x) =>
-        e ? _throw(new Err(e)) : k(x)));
+  o.unlink = path => Cons(k =>
+    fs.unlink(path, e =>
+      e ? k(new Exception(e)) : k(null)));
 
-  o.scanDir = path =>
-    cons(k =>
-      fs.readdir(path, (e, xs) =>
-        e ? _throw(new Err(e)) : k(xs)));
-
-  o.stat = path =>
-    cons(k =>
-      fs.stat(path, (e, o) =>
-        e ? _throw(new Err(e)) : k(o)));
-
-  o.unlink = path =>
-    cons(k =>
-      fs.unlink(path, e =>
-        e ? _throw(new Err(e)) : k(path)));
-
-  o.write = opt => path => s =>
-    cons(k =>
-      fs.writeFile(path, s, opt, e =>
-        e ? _throw(new Err(e)) : k(s)));
-
-  return o;
-});
-
-
-FileSys.except = fs => cons => thisify(o => { // cons = Sex / Pex
-  if (cons.name !== "SerialExcept" && cons.name !== "ParallelExcept")
-    throw new Err("invalid asynchronous constructor");
-
-  o.copy = src => dest =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.copyFile(src, dest, fs.constants.COPYFILE_EXCL, e => e
-        ? k({e: new Exception(e), k: k2, args: [src, dest]})
-        : k2(Pair(src, dest))));
-
-  o.move = src => dest =>
-    cons.and(
-      o.copy(src) (dest))
-        (o.unlink(src));
-
-  o.read = opt => path =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.readFile(path, opt, (e, x) => e
-        ? k({e: new Exception(e), k: k2, args: [opt, path]})
-        : k2(x)));
-
-  o.scanDir = path =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.readdir(path, (e, xs) => e
-        ? k({e: new Exception(e), k:k2, args: [path]})
-        : k2(xs)));
-
-  o.stat = path =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.stat(path, (e, o) => e
-        ? k({e: new Exception(e), k: k2, args: [path]})
-        : k2(o)));
-
-  o.unlink = path =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.unlink(path, e => e
-        ? k({e: new Exception(e), k: k2, args: [path]})
-        : k2(path)));
-
-  o.write = opt => path => s =>
-    cons(({raise: k, proceed: k2}) =>
-      fs.writeFile(path, s, opt, e => e
-        ? k({e: new Exception(e), k: k2, args: [opt, path, s]})
-        : k2(s)));
+  o.write = opt => path => s => Cons(k =>
+    fs.writeFile(path, s, opt, e =>
+      e ? k(new Exception(e)) : k(s)));
 
   return o;
 });
@@ -11085,8 +11063,8 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
+  * unfoldM
   * add Proxy-based thunk aware Eq type class
-  * revise non-empty methods
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
