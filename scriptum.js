@@ -3908,18 +3908,24 @@ properties:
 
   * pure core/impure shell concept
   * synchronous evaluation
-  * lazy by deferred nested function calls
-  * not stack-safe
+  * deferred nested function calls
+  * stack-safe through trampoline
   * reliable return values
-  * monad transformer available
+  * base monad (no transformer)
 
-In order to preserve stack-safety the `Cont` transformer must be used with
-the `Trampoline` monad as its base monad.
+In order to preserve stack-safety `Cont` uses a trampoline in its combinators:
 
-`Cont` or its more useful monad transformer respectivle has two main use cases:
+  const mx = Cont.of(5);
+  const my = Cont.of(7);
 
-  * defer synchronous but impure operations like date/time
-  * allow more sophisticated control flows like folds with short circuition */
+  const mz = Cont.ap(Cont.map(x => y => x * y) (mx)) (my);
+
+  Loop(ma.run) (Loop.base); // 35
+
+The type has two major use cases:
+
+  * defer synchronous but impure operations (e.g. get the current datetime)
+  * allow more sophisticated control flows (e.g. fold with short circuiting) */
 
 
 export const Cont = k => ({
@@ -3936,7 +3942,7 @@ Cont.and = tx => ty =>
   Cont(k =>
     tx.run(x =>
       ty.run(y =>
-        k(Pair(x, y)))));
+        Loop.call(k, Pair(x, y)))));
 
 
 Cont.allArr = () =>
@@ -3958,7 +3964,7 @@ Cont.allObj = o => {
     return Cont(k =>
       acc.run(p =>
         o[key].run(x =>
-          k((p[key] = x, p)))));
+          Loop.call(k, (p[key] = x, p)))));
   }, Cont.of({}));
 };
 
@@ -3967,26 +3973,26 @@ Cont.allObj = o => {
 █████ Delimited ███████████████████████████████████████████████████████████████*/
 
 
-Cont.abrupt = x => Cont(k => x);
+Cont.abrupt = x => Cont(k => Loop.base(x));
 
 
 Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
 
 
-Cont.reify = k => x => Cont(_ => k(x));
+Cont.reify = k => x => Cont(_ => Loop.call(k, x));
 
 
-Cont.reset = mx => Cont(k => k(mx.run(id)));
+Cont.reset = mx => Cont(k => Loop.call(k, mx.run(id)));
 
 
-Cont.shift = fm => Cont(k => fm(k).run(id));
+Cont.shift = fm => Cont(k => Loop.call(fm(k).run, id));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
+Cont.map = f => tx => Cont(k => tx.run(x => Loop.call(k, f(x))));
 
 
 Cont.Functor = {map: Cont.map};
@@ -3996,7 +4002,7 @@ Cont.Functor = {map: Cont.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
+Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => Loop.call(k, f(x)))));
 
 
 Cont.Apply = {
@@ -4022,7 +4028,7 @@ Cont.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+Cont.chain = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k)));
 
 
 Cont.Chain = {
@@ -4046,10 +4052,7 @@ Cont.Monad = {
 
 
 Cont.append = Semigroup => tx => ty =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        k(Semigroup.append(x) (y)))));
+  Cont(k => tx.run(x => ty.run(y => Loop.call(k, Semigroup.append(x) (y)))));
 
 
 Cont.Semigroup = {append: Cont.append};
@@ -4059,97 +4062,12 @@ Cont.Semigroup = {append: Cont.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Cont.empty = Monoid => Cont(k => k(Monoid.empty));
+Cont.empty = Monoid => Cont(k => Loop.call(k, Monoid.empty));
 
 
 Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████ CONT :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (k => k a)
-
-
-Cont.T = outer => Trans => { // outer monad's type dict + value constructor
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  Trans.map = f => mmx => Trans(outer.map(mx =>
-    Cont(k => mx.run(x => k(f(x))))) (mmx.run));
-
-
-  Trans.Functor = {map: Trans.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  Trans.ap = mmf => mmx => Trans(outer.chain(mmf.run) (mf =>
-    outer.map(mx => Cont(k => mf.run(f => mx.run(x => k(f(x)))))) (mmx.run)));
-
-
-  Trans.Apply = {
-    ...Trans.Functor,
-    ap: Trans.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  Trans.of = x => Trans(outer.of(Cont(k => k(x))));
-
-
-  Trans.Applicative = {
-    ...Trans.Apply,
-    of: Trans.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  Trans.chain = mmx => fmm => Trans(outer.chain(mmx.run) (mx =>
-    Cont(k => mx.run(x => fmm(x).run(mmy => outer.chain(mmy.run) (my =>
-      my.run(k)))))));
-
-
-  Trans.Chain = {
-    ...Trans.Apply,
-    chain: Trans.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  Trans.Monad = {
-    ...Trans.Applicative,
-    chain: Trans.chain
-  };
-
-
-/*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-  // TODO
-
-
-  return Trans;
 };
 
 
@@ -4496,7 +4414,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.map = f => mmx => Trans(outer.map(mx =>
-    introspect(mx) === "Error" ? mx : f(mx)) (mmx));
+    introspect(mx) === "Error" ? mx : f(mx)) (mmx.run));
 
 
   Trans.Functor = {map: Trans.map};
@@ -4506,15 +4424,15 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-  Trans.alt = mmx => mmy => outer.chain(mmx) (mx => {
+  Trans.alt = mmx => mmy => outer.chain(mmx.run) (mx => {
     if (introspect(mx) === "Error") {
       return Trans(outer.map(my => {
         if (introspect(my) === "Error") return new Exceptions(mx, my);
         else return my;
-      }) (mmy))
+      }) (mmy.run))
     }
       
-    else return outer.of(mx);
+    else return Trans(outer.of(mx));
   });
 
 
@@ -4542,7 +4460,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.ap = mmf => mmx => {
-    return Trans(outer.chain(mmf) (mf => {
+    return Trans(outer.chain(mmf.run) (mf => {
       return outer.map(mx => {
         if (introspect(mf) === "Error") {
           if (introspect(mx) === "Error") return new Exceptions(mf, mx);
@@ -4551,7 +4469,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
         else if (introspect(mx) === "Error") return mx;
         else return mf(mx);
-      }) (mmx);
+      }) (mmx.run);
     }));
   };
 
@@ -4579,10 +4497,10 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  Trans.chain = mmx => fmm => Trans(outer.chain(mmx) (mx => {
+  Trans.chain = mmx => fmm => outer.chain(mmx.run) (mx => {
     if (introspect(mx) === "Error") return outer.of(mx);
     else return fmm(mx);
-  }));
+  });
   
 
   Trans.Chain = {
@@ -4615,7 +4533,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 █████ Handling ████████████████████████████████████████████████████████████████*/
 
 
-  Trans.catch = f => mmx => Trans(outer.chain(mmx) (mx => {
+  Trans.catch = f => mmx => Trans(outer.chain(mmx.run) (mx => {
     if (introspect(mx) === "Error") return outer.of(f(mx));
     else return outer.of(mx);
   }));
@@ -4624,7 +4542,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.throw = mmx => Trans(outer.map(x => {
     if (introspect(x) === "Error") throw x;
     else return x;
-  }) (mmx));
+  }) (mmx.run));
 
 
   // TODO: `Trans.finally`
@@ -4635,7 +4553,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.append = Semigroup => mmx => mmy => {
-    return Trans(outer.chain(mmx) (mx => {
+    return Trans(outer.chain(mmx.run) (mx => {
       return outer.map(my => {
         if (introspect(mx) === "Error") {
           if (introspect(my) === "Error") return new Exceptions(mx, my);
@@ -4644,7 +4562,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
         else if (introspect(my) === "Error") return my;
         else return Semigroup.append(mx) (my);
-      }) (mmy);
+      }) (mmy.run);
     }));
   };
 
@@ -7617,11 +7535,9 @@ P.anyList = P.anyList();
 // like `Parallel` but augmented with an `Except` transformer
 
 
-export const ParallelExcept = Except.T(Parallel) (tx => ({
+export const ParallelExcept = Except.T(Parallel) (mmx => ({
   [TAG]: "Parallel.Except",
-  get run() {return tx.run},
-  get runOnce() {return tx.runOnce},
-  get runSafe() {return tx.runSafe}
+  run: mmx
 }));
 
 
@@ -8595,7 +8511,7 @@ The type has the following properties:
 
   * pure core/impure shell concept
   * asynchronous, serial evaluation
-  * lazy by deferred nested function calls
+  * deferred nested function calls
   * stack-safe due to asynchronous calls
   * non-reliable return values
   * base monad (no transformer)
@@ -8844,9 +8760,7 @@ S.allList = S.allList();
 
 export const SerialExcept = Except.T(Serial) (mmx => ({
   [TAG]: "Serial.Except",
-  get run() {return mmx.run}, // used to avoid mmx.run.run
-  get runOnce() {return mmx.runOnce},
-  get runSafe() {return mmx.runSafe}
+  run: mmx
 }));
 
 
@@ -9650,8 +9564,7 @@ of a transformer stack. */
 
 
 export const Trampoline = o => {
-  while (o.tag === "Rec")
-    o = o.f(o.x);
+  while (o.tag === "Rec") o = o.f(o.x);
 
   return o.tag === "Base"
     ? o.x
