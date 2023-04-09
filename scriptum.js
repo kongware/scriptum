@@ -234,10 +234,7 @@ export const Err = TypeError; // shortcut
 
 
 /* Indicates errors that are not immediately thrown, i.e. you can recover from
-them without using `catch`. `Exception` is a subtype of `Error` and accepts an
-optional second parameter that holds a continuation, which is useful in the
-context of asynchronous computations. The continuation can be used to resume
-the original computation chain. */
+them without using `catch`. `Exception` is a subtype of `Error`. */
 
 export class Exception extends Error {
   constructor(s) {super(s)}
@@ -603,97 +600,6 @@ export const _if = _case => ({
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████ STACK SAFETY █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
-
-
-/*
-█████ Monad Recursion █████████████████████████████████████████████████████████*/
-
-
-/* The `Loopm` monad allows stack-safe monad recursion through a trampoline
-mechanism. It is the little brother of the continuation monad. Just like the
-latter it there doesn't exist a valid monad transformer, i.e. `Loopm` can only
-be used as the outermost base monad of a transformer stack. */
-
-
-export const Loopm = o => {
-  while (o.tag === "Rec")
-    o = o.f(o.x);
-
-  return o.tag === "Base"
-    ? o.x
-    : _throw(new Err("invalid tag"));
-};
-
-
-// Functor
-
-
-Loopm.map = f => tx =>
-  Loopm.chain(tx) (x => Loopm.of(f(x)));
-
-
-Loopm.Functor = {map: Loopm.map};
-
-
-// Functor :: Apply
-
-Loopm.ap = tf => tx =>
-  Loopm.chain(tf) (f =>
-    Loopm.chain(tx) (x =>
-      Loopm.of(f(x))));
-
-
-Loopm.Apply = {
-  ...Loopm.Functor,
-  ap: Loopm.ap
-};
-
-
-// Functor :: Apply :: Applicative
-
-
-Loopm.of = () => Loopm.done;
-
-
-Loopm.Applicative = {
-  ...Loopm.Apply,
-  of: Loopm.of
-};
-
-
-// Functor :: Apply :: Chain
-
-
-Loopm.chain = mx => fm =>
-  mx.tag === "Rec" ? Loopm.next(mx.x) (y => Loopm.chain(mx.f(y)) (fm))
-    : mx.tag === "Base" ? fm(mx.x)
-    : _throw(new Err("invalid tag"));
-
-
-Loopm.Chain = {
-  ...Loopm.Apply,
-  chain: Loopm.chain
-};
-
-
-// Functor :: Apply :: Applicative :: Monad
-
-
-Loopm.Monad = {
-  ...Loopm.Applicative,
-  chain: Loopm.chain
-};
-
-
-// Tags
-
-
-Loopm.next = x => f =>
-  ({tag: "Rec", f, x});
-
-
-Loopm.done = x =>
-  ({tag: "Base", x});
 
 
 /*
@@ -1094,20 +1000,34 @@ export const kipe = Chain => gm => fm => x => Chain.chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// (a -> m Boolean) -> [a] -> m [a]
 export const filterM = Applicative => p => mx =>
   A.foldr(x => 
     liftA2(Applicative) (b =>
       b ? A.cons(x) : id) (p(x))) (Applicative.of([]));
 
 
+// (b -> a -> m b) -> b -> t a -> m b
 export const foldlM = (Foldable, Monad) => fm => init => mx =>
   Foldable.foldr(x => gm => acc =>
     Monad.chain(fm(acc) (x)) (gm)) (Monad.of) (mx) (init);
 
 
+// (a -> b -> m b) -> b -> t a -> m b
 export const foldrM = (Foldable, Monad) => fm => init => mx =>
   Foldable.foldl(gm => x => acc =>
     Monad.chain(fm(x) (acc)) (gm)) (Monad.of) (mx) (init);
+
+
+/* unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
+unfoldM f s = do
+    mres <- f s
+    case mres of
+        Nothing      -> return []
+        Just (a, s') -> liftM2 (:) (return a) (unfoldM f s')*/
+
+
+// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3983,38 +3903,64 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode synchronous I/O computations. Every `run` invocation must be wrapped
-in a tail recuricve `Loop` trampoline. Use `Serial`/`Parallel` for asynchronous
-evaluation either in serial or in parallel.
+/* Encode synchronous computations in CPS. The type has the following
+properties:
 
-The type has the following properties:
-
-  * synchronous, serial evaluation
   * pure core/impure shell concept
+  * synchronous evaluation
   * lazy by deferred nested function calls
-  * stack-safe through trampoline
+  * not stack-safe
   * reliable return values
-  * delimited scopes
-  * no transformer, only base monad
+  * monad transformer available
 
-The idea is to use the type along with web workers, if this makes sense.
+In order to preserve stack-safety the `Cont` transformer must be used with
+the `Trampoline` monad as its base monad.
 
-The trampoline is necessary to attain stack safety. It is used as follows:
+`Cont` or its more useful monad transformer respectivle has two main use cases:
 
-  const tx = Cont.ap(
-    Cont.map(x => y => x * y)
-      (Cont.of(5)))
-        (Cont.of(6));
-
-  const ty = Cont.map(x => x + "!") (tx);
-
-  Loop(ty.run) (Loop.base); // "30!" */
+  * defer synchronous but impure operations like date/time
+  * allow more sophisticated control flows like folds with short circuition */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
-  run: x => Loop.call(k, x)
+  run: k
 });
+
+
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+Cont.and = tx => ty =>
+  Cont(k =>
+    tx.run(x =>
+      ty.run(y =>
+        k(Pair(x, y)))));
+
+
+Cont.allArr = () =>
+  A.seqA({
+    map: Cont.map,
+    ap: Cont.ap,
+    of: Cont.of});
+
+
+Cont.allList = () =>
+  L.seqA({
+    map: Cont.map,
+    ap: Cont.ap,
+    of: Cont.of});
+
+
+Cont.allObj = o => {
+  return Object.keys(o).reduce((acc, key) => {
+    return Cont(k =>
+      acc.run(p =>
+        o[key].run(x =>
+          k((p[key] = x, p)))));
+  }, Cont.of({}));
+};
 
 
 /*
@@ -4027,7 +3973,7 @@ Cont.abrupt = x => Cont(k => x);
 Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
 
 
-Cont.reify = k => x => Cont(k2 => k(x));
+Cont.reify = k => x => Cont(_ => k(x));
 
 
 Cont.reset = mx => Cont(k => k(mx.run(id)));
@@ -4119,6 +4065,91 @@ Cont.empty = Monoid => Cont(k => k(Monoid.empty));
 Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ CONT :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: m (k => k a)
+
+
+Cont.T = outer => Trans => { // outer monad's type dict + value constructor
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  Trans.map = f => mmx => Trans(outer.map(mx =>
+    Cont(k => mx.run(x => k(f(x))))) (mmx.run));
+
+
+  Trans.Functor = {map: Trans.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  Trans.ap = mmf => mmx => Trans(outer.chain(mmf.run) (mf =>
+    outer.map(mx => Cont(k => mf.run(f => mx.run(x => k(f(x)))))) (mmx.run)));
+
+
+  Trans.Apply = {
+    ...Trans.Functor,
+    ap: Trans.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  Trans.of = x => Trans(outer.of(Cont(k => k(x))));
+
+
+  Trans.Applicative = {
+    ...Trans.Apply,
+    of: Trans.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  Trans.chain = mmx => fmm => Trans(outer.chain(mmx.run) (mx =>
+    Cont(k => mx.run(x => fmm(x).run(mmy => outer.chain(mmy.run) (my =>
+      my.run(k)))))));
+
+
+  Trans.Chain = {
+    ...Trans.Apply,
+    chain: Trans.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  Trans.Monad = {
+    ...Trans.Applicative,
+    chain: Trans.chain
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // TODO
+
+
+  return Trans;
 };
 
 
@@ -4447,14 +4478,10 @@ E.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Except monad transformer excepts the outer monad's type dict and the value
-constructor of the newly composed monad. The transformer has the following
-structure:
-
-  m (a | Exception) */
+// structure: m (a | Exception)
 
 
-Except.T = outer => Trans => {
+Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
 /*
@@ -5980,6 +6007,66 @@ Num.trunc = digits => n =>
 
 
 /*
+█████ Deterministic PRNG ██████████████████████████████████████████████████████*/
+
+
+/* Deterministic pseudo random number generator with an initial seed. Use with
+`Num.hash` to create four 32bit seeds. The PRNG yields a random number and the
+next seed. The same initial seed always yields the same sequence of random
+numbers. */
+
+Num.prng = (a, b, c, d) => {
+  a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
+
+  let t = (a + b) | 0;
+
+  a = b ^ b >>> 9;
+  b = c + (c << 3) | 0;
+  c = (c << 21 | c >>> 11);
+  d = d + 1 | 0;
+  t = t + d | 0;
+  c = c + t | 0;
+
+  return Pair(
+    (t >>> 0) / 4294967296,
+    [a, b, c, d]
+  );
+};
+
+
+/*
+█████ Hash ████████████████████████████████████████████████████████████████████*/
+
+
+// sufficient collision-free hash function
+
+Num.hash = s => {
+  let h1 = 1779033703, h2 = 3144134277,
+    h3 = 1013904242, h4 = 2773480762;
+
+  for (let i = 0, k; i < s.length; i++) {
+    k = s.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+
+  return [
+    (h1 ^ h2 ^ h3 ^ h4) >>> 0,
+    (h2 ^ h1) >>> 0,
+    (h3 ^ h1) >>> 0,
+    (h4 ^ h1) >>> 0
+  ];
+};
+
+
+/*
 █████ Serialization ███████████████████████████████████████████████████████████*/
 
 
@@ -7190,8 +7277,8 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode asynchronous I/O computations evaluated in parallel. See `Serial` for
-more comprehensive information. */
+/* Just like `Serial` but evaluated in parallel. See `Serial` for more
+comprehensive information. */
 
 
 export const Parallel = k => ({
@@ -8755,11 +8842,11 @@ S.allList = S.allList();
 // like `Serial` but augmented with an `Except` transformer
 
 
-export const SerialExcept = Except.T(Serial) (tx => ({
+export const SerialExcept = Except.T(Serial) (mmx => ({
   [TAG]: "Serial.Except",
-  get run() {return tx.run},
-  get runOnce() {return tx.runOnce},
-  get runSafe() {return tx.runSafe}
+  get run() {return mmx.run}, // used to avoid mmx.run.run
+  get runOnce() {return mmx.runOnce},
+  get runSafe() {return mmx.runSafe}
 }));
 
 
@@ -9330,7 +9417,7 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
-Str.normalizeAmount = (_1k, dec) => s =>
+Str.normalizeAmount = (dec, _1k) => s =>
   s.replace(new RegExp(Str.escapeRegExp(dec), ""), "___")
     .replace(new RegExp(Str.escapeRegExp(_1k), "g"), ",")
     .replace(/___/, ".");
@@ -9548,6 +9635,113 @@ These.Monoid = {
   ...These.Semigroup,
   empty: These.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ TRAMPOLINE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Allow stack-safe monad recursion through the trampoline mechanism. The type
+is the less powerful version of the continuation monad. Due to its structure
+consisting of an imperative loop and tagged objects the `Trampoline` type
+doesn't have a monad transformer but must be used as the outermost base monad
+of a transformer stack. */
+
+
+export const Trampoline = o => {
+  while (o.tag === "Rec")
+    o = o.f(o.x);
+
+  return o.tag === "Base"
+    ? o.x
+    : _throw(new Err("invalid tag"));
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Trampoline.map = f => tx =>
+  Trampoline.chain(tx) (x => Trampoline.of(f(x)));
+
+
+Trampoline.Functor = {map: Trampoline.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Trampoline.ap = tf => tx =>
+  Trampoline.chain(tf) (f =>
+    Trampoline.chain(tx) (x =>
+      Trampoline.of(f(x))));
+
+
+Trampoline.Apply = {
+  ...Trampoline.Functor,
+  ap: Trampoline.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Trampoline.of = () => Trampoline.base;
+
+
+Trampoline.Applicative = {
+  ...Trampoline.Apply,
+  of: Trampoline.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Trampoline.chain = mx => fm =>
+  mx.tag === "Rec" ? Trampoline.rec(mx.x) (y => Trampoline.chain(mx.f(y)) (fm))
+    : mx.tag === "Base" ? fm(mx.x)
+    : _throw(new Err("invalid tag"));
+
+
+Trampoline.Chain = {
+  ...Trampoline.Apply,
+  chain: Trampoline.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Trampoline.Monad = {
+  ...Trampoline.Applicative,
+  chain: Trampoline.chain
+};
+
+
+/*
+█████ Tags ████████████████████████████████████████████████████████████████████*/
+
+
+Trampoline.rec = x => f =>
+  ({tag: "Rec", f, x});
+
+
+Trampoline.base = x =>
+  ({tag: "Base", x});
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+Trampoline.of = Trampoline.of();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -11070,5 +11264,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * delete S.once/P.once etc. provided it is redundant
   * add Represantable type class
   * add Distributive type class
+  * Free monad implementation from SO answer
 
 */
