@@ -4087,45 +4087,103 @@ Cont.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Free = x => ({
-  [TAG]: "Free",
-  run: x
-});
+export const Free = {}; // namespace
 
 
-// pure : a -> Free a
-// const pure = value => ({ constructor: pure, value });
+/*
+█████ Interpreter █████████████████████████████████████████████████████████████*/
 
-// bind : Free a -> (a -> Free b) -> Free b
-// const bind = monad => arrow => ({ constructor: bind, monad, arrow });
 
-// thunk : (() -> Free a) -> Free a
-// const thunk = eval => ({ constructor: thunk, eval });
+// Free a -> a
+Free.evaluate = e => {
+  let expr = e, stack = null;
 
-// MonadFree : Monad Free
-// const MonadFree = { pure, bind };
-
-// evaluate : Free a -> a
-/* const evaluate = expression => {
-    let expr = expression;
-    let stack = null;
-
-    while (true) {
-        switch (expr.constructor) {
-            case pure:
-                if (stack === null) return expr.value;
-                expr = stack.arrow(expr.value);
-                stack = stack.stack;
-                break;
-            case bind:
-                stack = { arrow: expr.arrow, stack };
-                expr = expr.monad;
-                break;
-            case thunk:
-                expr = expr.eval();
+  while (true) {
+    switch (expr.constructor) {
+      case Free.of: {
+        if (stack === null) return expr.x;
+        
+        else {
+          expr = stack.fm(expr.x);
+          stack = stack.stack;
+          break;
         }
+      }
+
+      case Free.chain: {
+        stack = {fm: expr.fm, stack};
+        expr = expr.mx;
+        break;
+      }
+
+      case Thunk: expr = strict(expr);
     }
-}; */
+  }
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+// (a -> b) -> Free a -> Free b
+Free.map = f => mx => Free.chain(mx) (x => Free.of(f(x)));
+
+
+Free.Functor = {map: Free.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+// Free (a -> b) -> Free a -> Free b
+Free.ap = mf => mx => Free.chain(mf) (f =>
+  Free.chain(mx) (x => Free.of(f(x))));
+
+
+Free.Apply = {
+  ...Free.Functor,
+  ap: Free.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+// a -> Free a
+Free.of = x => ({constructor: Free.of, x});
+
+
+Free.Applicative = {
+  ...Free.Apply,
+  of: Free.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+// Free a -> (a -> Free b) -> Free b
+Free.chain = mx => fm => ({constructor: Free.chain, mx, fm});
+
+
+Free.Chain = {
+  ...Free.Apply,
+  chain: Free.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Free.Monad = {
+  ...Free.Applicative,
+  chain: Free.chain
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -11245,7 +11303,5 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * delete S.once/P.once etc. provided it is redundant
   * add Represantable type class
   * add Distributive type class
-  * Free monad implementation from SO answer
-  * add constructor property to `variant`/`product`
 
 */
