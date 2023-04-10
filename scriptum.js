@@ -310,14 +310,14 @@ export const strict = x => {
 
 
 export const lazy = thunk =>
-  new Proxy(thunk, new ThunkProxy());
+  new Proxy(thunk, new Thunk());
 
 
 /*
 █████ Implementation ██████████████████████████████████████████████████████████*/
 
 
-class ThunkProxy {
+class Thunk {
   constructor() {
     this.memo = NULL;
   }
@@ -341,7 +341,8 @@ class ThunkProxy {
     // prevent evaluation in case of introspection
     
     if (k === THUNK) return true;
-    //else if (k === TAG) return "Thunk";
+    else if (k === "constructor") return Thunk;
+    // else if (k === TAG) return "Thunk";
 
     // enforce evaluation of a single layer
 
@@ -607,27 +608,27 @@ export const _if = _case => ({
 
 
 /* Stack-safe tail-recursion and mutual tail-recursion using a trampoline. The
-`next` and `done` tags are used to encode recursive and the base cases
-respectively. In addition, the `call` tag can be used to defer function
-invocations. */
+`next` and `done` constructors are used to encode recursive and the base cases
+respectively. In addition, the `call` constructor can be used to defer function
+calls. */
 
 
 export const Loop = f => x => {
   let o = f(x);
 
-  while (o[TAG] !== "Base") {
-    switch (o[TAG]) {
-      case "Call": {
+  while (o.constructor !== Loop.base) {
+    switch (o.constructor) {
+      case Loop.call: {
         o = o.f(o.x);
         break;
       }
 
-      case "Rec": {
+      case Loop.rec: {
         o = f(o.x);
         break;
       }
 
-      default: throw new Err("invalid tag");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -638,14 +639,14 @@ export const Loop = f => x => {
 export const Loop2 = f => (x, y) => {
   let o = f(x, y);
 
-  while (o[TAG] !== "Base") {
-    switch (o[TAG]) {
-      case "Call": {
+  while (o.constructor !== Loop2.base) {
+    switch (o.constructor) {
+      case Loop2.call: {
         o = o.f(o.x, o.y);
         break;
       }
 
-      case "Rec": {
+      case Loop2.rec: {
         o = f(o.x, o.y);
         break;
       }
@@ -661,14 +662,14 @@ export const Loop2 = f => (x, y) => {
 export const Loop3 = f => (x, y, z) => {
   let o = f(x, y, z);
 
-  while (o[TAG] !== "Base") {
-    switch (o[TAG]) {
-      case "Call": {
+  while (o.constructor !== Loop3.base) {
+    switch (o.constructor) {
+      case Loop3.call: {
         o = o.f(o.x, o.y, o.z);
         break;
       }
 
-      case "Rec": {
+      case Loop3.rec: {
         o = f(o.x, o.y, o.z);
         break;
       }
@@ -681,43 +682,43 @@ export const Loop3 = f => (x, y, z) => {
 };
 
 
-// Tags
+// constructors
 
 
-Loop.call = (f, x) => ({[TAG]: "Call", f, x});
+Loop.call = (f, x) => ({constructor: Loop.call, f, x});
 
 
-Loop.rec = x => ({[TAG]: "Rec", x});
+Loop.rec = x => ({constructor: Loop.rec, x});
 
 
-Loop.base = x => ({[TAG]: "Base", x});
+Loop.base = x => ({constructor: Loop.base, x});
 
 
-Loop2.call = (f, x, y) => ({[TAG]: "Call", f, x, y});
+Loop2.call = (f, x, y) => ({constructor: Loop2.call, f, x, y});
 
 
-Loop2.rec = (x, y) => ({[TAG]: "Rec", x, y});
+Loop2.rec = (x, y) => ({constructor: Loop2.rec, x, y});
 
 
-Loop2.base = x => ({[TAG]: "Base", x});
+Loop2.base = x => ({constructor: Loop2.base, x});
 
 
-Loop3.call = (f, x, y, z) => ({[TAG]: "Call", f, x, y, z});
+Loop3.call = (f, x, y, z) => ({constructor: Loop3.call, f, x, y, z});
 
 
-Loop3.rec = (x, y, z) => ({[TAG]: "Rec", x, y, z});
+Loop3.rec = (x, y, z) => ({constructor: Loop3.rec, x, y, z});
 
 
-Loop3.base = x => ({[TAG]: "Base", x});
+Loop3.base = x => ({constructor: Loop3.base, x});
 
 
 /*
 █████ Tail Recurson Modulo Cons & Beyond ██████████████████████████████████████*/
 
 
-/* Stack-based trampoline to enable recursive cases not in tail call position.
-It can emulate tail recursion modulo cons and even modulo more complex
-operations.
+/* Stack-based trampoline to encode recursive cases not in tail call position.
+It can mimick tail recursion modulo cons and more complex operations not in
+tail position.
 
 The original Fibbonacci algorithm
 
@@ -741,48 +742,48 @@ is transformed into a trampolining version:
 export const Loops = f => x => {
   const stack = [f(x)];
 
-  while (stack.length > 1 || stack[0] [TAG] !== "Base") {
+  while (stack.length > 1 || stack[0].constructor !== Loops.base) {
     let o = stack[stack.length - 1];
 
-    switch (o[TAG]) {
-      case "Call":      
-      case "Call2": {
+    switch (o.constructor) {
+      case Loops.call:
+      case Loops.call2: {
         o = f(o.x.x); // 1st x of call and 2nd x of next tag
         stack.push(o);
         break;
       }
 
-      case "Rec": {
+      case Loops.rec: {
         o = f(o.x);
         break;
       }
 
-      case "Base": {
-        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Base") {
+      case Loops.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Loops.base) {
           const p = (stack.pop(), stack.pop());
 
-          switch (p[TAG]) {
-            case "Call": {
+          switch (p.constructor) {
+            case Loops.call: {
               o = Loops.base(p.f(o.x));
               stack.push(o);
 
               break;
             }
 
-            case "Call2": {
+            case Loops.call2: {
               o = Loops.call(p.f(o.x), p.y);
               stack.push(o);
               break;
             }
 
-            default: throw new Err("invalid tag");
+            default: throw new Err("invalid constructor");
           }
         }
 
         break;
       }
 
-      default: throw new Err("invalid tag");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -793,48 +794,48 @@ export const Loops = f => x => {
 export const Loops2 = f => (x, y) => {
   const stack = [f(x, y)];
 
-  while (stack.length > 1 || stack[0] [TAG] !== "Base") {
+  while (stack.length > 1 || stack[0].constructor !== Loops2.base) {
     let o = stack[stack.length - 1];
 
-    switch (o[TAG]) {
-      case "Call":      
-      case "Call2": {
+    switch (o.constructor) {
+      case Loops2.call:      
+      case Loops2.call2: {
         o = f(o.x.x, o.x.y);
         stack.push(o);
         break;
       }
 
-      case "Rec": {
+      case Loops2.rec: {
         o = f(o.x, o.y);
         break;
       }
 
-      case "Base": {
-        while (stack.length > 1 && stack[stack.length - 1] [TAG] === "Base") {
+      case Loops2.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Loops2.base) {
           const p = (stack.pop(), stack.pop());
 
-          switch (p[TAG]) {
-            case "Call": {
-              o = Loops.base(p.f(o.x, o.y));
+          switch (p.constructor) {
+            case Loops2.call: {
+              o = Loops2.base(p.f(o.x, o.y));
               stack.push(o);
 
               break;
             }
 
-            case "Call2": {
-              o = Loops.call(p.f(o.x, o.y), p.y);
+            case Loops2.call2: {
+              o = Loops2.call(p.f(o.x, o.y), p.y);
               stack.push(o);
               break;
             }
 
-            default: throw new Err("invalid tag");
+            default: throw new Err("invalid constructor");
           }
         }
 
         break;
       }
 
-      default: throw new Err("invalid tag");
+      default: throw new Err("invalid constructor");
     }
   }
 
@@ -842,31 +843,31 @@ export const Loops2 = f => (x, y) => {
 };
 
 
-// Tags
+// constructors
 
 
-Loops.call = (f, x) => ({[TAG]: "Call", f, x});
+Loops.call = (f, x) => ({constructor: Loops.call, f, x});
 
 
-Loops.call2 = (f, x, y) => ({[TAG]: "Call2", f, x, y});
+Loops.call2 = (f, x, y) => ({constructor: Loops.call2, f, x, y});
 
 
-Loops.rec = x => ({[TAG]: "Rec", x});
+Loops.rec = x => ({constructor: Loops.rec, x});
 
 
-Loops.base = x => ({[TAG]: "Base", x});
+Loops.base = x => ({constructor: Loops.base, x});
 
 
-Loops2.call = (f, x) => ({[TAG]: "Call", f, x});
+Loops2.call = (f, x) => ({constructor: Loops2.call, f, x});
 
 
-Loops2.call2 = (f, x, y) => ({[TAG]: "Call2", f, x, y});
+Loops2.call2 = (f, x, y) => ({constructor: Loops2.call2, f, x, y});
 
 
-Loops2.rec = x => y => ({[TAG]: "Rec", x, y});
+Loops2.rec = x => y => ({constructor: Loops2.rec, x, y});
 
 
-Loops2.base = x => ({[TAG]: "Base", x});
+Loops2.base = x => ({constructor: Loops2.base, x});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -973,6 +974,9 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 } (fm, 0);
 
 
+export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ -> mmy);
+
+
 /*
 █████ Interpretation ██████████████████████████████████████████████████████████*/
 
@@ -998,6 +1002,7 @@ export const kipe = Chain => gm => fm => x => Chain.chain(fm(x)) (gm);
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ MONAD ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
+
 
 
 // (a -> m Boolean) -> [a] -> m [a]
@@ -3098,6 +3103,12 @@ L.iterate = f => function go(x) {
 L.repeat = x => new L.Cons(x, lazy(() => repeat(x)));
 
 
+L.replicate = n => x => function go(m) {
+  if (m === 0) return new L.Cons(x, L.Nil);
+  else return new L.Cons(x, lazy(() => go(m - 1)));
+} (n);
+
+
 /*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
@@ -4069,6 +4080,52 @@ Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ FREE █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Free = x => ({
+  [TAG]: "Free",
+  run: x
+});
+
+
+// pure : a -> Free a
+// const pure = value => ({ constructor: pure, value });
+
+// bind : Free a -> (a -> Free b) -> Free b
+// const bind = monad => arrow => ({ constructor: bind, monad, arrow });
+
+// thunk : (() -> Free a) -> Free a
+// const thunk = eval => ({ constructor: thunk, eval });
+
+// MonadFree : Monad Free
+// const MonadFree = { pure, bind };
+
+// evaluate : Free a -> a
+/* const evaluate = expression => {
+    let expr = expression;
+    let stack = null;
+
+    while (true) {
+        switch (expr.constructor) {
+            case pure:
+                if (stack === null) return expr.value;
+                expr = stack.arrow(expr.value);
+                stack = stack.stack;
+                break;
+            case bind:
+                stack = { arrow: expr.arrow, stack };
+                expr = expr.monad;
+                break;
+            case thunk:
+                expr = expr.eval();
+        }
+    }
+}; */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5714,6 +5771,16 @@ Lazy.Monad = {
   ...Lazy.Applicative,
   chain: Lazy.chain
 };
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+Lazy.app = f => tx => f(strict(tx));
+
+
+Lazy.seq = tx => ty => (strict(tx), strict(ty));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9564,11 +9631,11 @@ of a transformer stack. */
 
 
 export const Trampoline = o => {
-  while (o.tag === "Rec") o = o.f(o.x);
+  while (o.constructor === Trampoline.rec) o = o.f(o.x);
 
-  return o.tag === "Base"
+  return o.constructor === Trampoline.base
     ? o.x
-    : _throw(new Err("invalid tag"));
+    : _throw(new Err("invalid constructor"));
 };
 
 
@@ -9617,9 +9684,10 @@ Trampoline.Applicative = {
 
 
 Trampoline.chain = mx => fm =>
-  mx.tag === "Rec" ? Trampoline.rec(mx.x) (y => Trampoline.chain(mx.f(y)) (fm))
-    : mx.tag === "Base" ? fm(mx.x)
-    : _throw(new Err("invalid tag"));
+  mx.constructor === Trampoline.rec
+    ? Trampoline.rec(mx.x) (y => Trampoline.chain(mx.f(y)) (fm))
+      : mx.constructor === Trampoline.base ? fm(mx.x)
+      : _throw(new Err("invalid constructor"));
 
 
 Trampoline.Chain = {
@@ -9643,11 +9711,11 @@ Trampoline.Monad = {
 
 
 Trampoline.rec = x => f =>
-  ({tag: "Rec", f, x});
+  ({constructor: Trampoline.rec, f, x});
 
 
 Trampoline.base = x =>
-  ({tag: "Base", x});
+  ({constructor: Trampoline.base, x});
 
 
 /*
@@ -11178,5 +11246,6 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
   * add Represantable type class
   * add Distributive type class
   * Free monad implementation from SO answer
+  * add constructor property to `variant`/`product`
 
 */
