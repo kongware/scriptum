@@ -143,12 +143,12 @@ export const variant = (type, ...tags) => (...cons) => {
 };
 
 
-export const cons0 = (type, tag) =>
+export const cons0 = (type, tag) => // constant
   ({[TAG]: type, run: ({[tag]: x}) => x});
 
 
 
-export const xcons0 = p => (type, tag) => {
+export const cons0_ = p => (type, tag) => { // allow extra props
   const o = {[TAG]: type, run: ({[tag]: x}) => x};
 
   for (const k of Object.keys(p))
@@ -163,7 +163,7 @@ export const cons = (type, tag) => x =>
   ({[TAG]: type, run: ({[tag]: f}) => f(x)});
 
 
-export const xcons = p => (type, tag) => x => {
+export const cons_ = p => (type, tag) => x => { // allow extra props
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x)};
 
   for (const k of Object.keys(p))
@@ -178,7 +178,7 @@ export const cons2 = (type, tag) => x => y =>
   ({[TAG]: type, run: ({[tag]: f}) => f(x) (y)});
 
 
-export const xcons2 = p => (type, tag) => x => y => {
+export const cons2_ = p => (type, tag) => x => y => { // allow extra props
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y)};
 
   for (const k of Object.keys(p))
@@ -193,7 +193,7 @@ export const cons3 = (type, tag) => x => y => z =>
   ({[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)});
 
 
-export const xcons3 = p => (type, tag) => x => y => z => {
+export const cons3_ = p => (type, tag) => x => y => z => { // allow extra props
   const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)};
 
   for (const k of Object.keys(p))
@@ -342,7 +342,6 @@ class Thunk {
     
     if (k === THUNK) return true;
     else if (k === "constructor") return Thunk;
-    // else if (k === TAG) return "Thunk";
 
     // enforce evaluation of a single layer
 
@@ -360,22 +359,7 @@ class Thunk {
       else return this.memo;
     }
 
-    // intercept implicit type casts
-
-    else if (k === "valueOf" || k === "toString") {
-      if (this.memo === NULL) {
-        this.memo = f();
-        
-        while (this.memo && this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
-      }
-
-      if (Object(this.memo) === this.memo) return this.memo[k];
-      else if (k === "valueOf") return () => this.memo;
-      else return () => String(this.memo);
-    }
-
-    // enforce evaluation to WHNF due to unproxy
+    // enforce evaluation to WHNF
 
     else if (k === DETHUNK) {
       if (this.memo === NULL) {
@@ -386,6 +370,27 @@ class Thunk {
       }
 
       return this.memo;
+    }
+
+    // intercept implicit type casts
+
+    else if (k === Symbol.toPrimitive
+      || k === "valueOf"
+      || k === "toString") {
+        if (this.memo === NULL) {
+          this.memo = f();
+          
+          while (this.memo && this.memo[THUNK] === true)
+            this.memo = this.memo[EVAL];
+        }
+
+        if (Object(this.memo) === this.memo) return this.memo[k];
+        
+        else if (k === Symbol.toPrimitive) return hint =>
+          hint === "string" ? String(this.memo) : this.memo;
+
+        else if (k === "valueOf") return () => this.memo;
+        else return () => String(this.memo);
     }
 
     // enforce evaluation to WHNF due to array context
@@ -414,7 +419,7 @@ class Thunk {
 
       // take method binding into account
 
-      else if (Object(this.memo) === this.memo 
+      if (Object(this.memo) === this.memo 
         && this.memo[k]
         && this.memo[k].bind)
           return this.memo[k].bind(this.memo);
@@ -628,6 +633,11 @@ export const Loop = f => x => {
         break;
       }
 
+      case Thunk: {
+        o = strict(o);
+        break;
+      }
+
       default: throw new Err("invalid constructor");
     }
   }
@@ -651,6 +661,11 @@ export const Loop2 = f => (x, y) => {
         break;
       }
 
+      case Thunk: {
+        o = strict(o);
+        break;
+      }
+
       default: throw new Err("invalid tag");
     }
   }
@@ -671,6 +686,11 @@ export const Loop3 = f => (x, y, z) => {
 
       case Loop3.rec: {
         o = f(o.x, o.y, o.z);
+        break;
+      }
+
+      case Thunk: {
+        o = strict(o);
         break;
       }
 
@@ -783,6 +803,11 @@ export const Loops = f => x => {
         break;
       }
 
+      case Thunk: {
+        o = strict(o);
+        break;
+      }
+
       default: throw new Err("invalid constructor");
     }
   }
@@ -832,6 +857,11 @@ export const Loops2 = f => (x, y) => {
           }
         }
 
+        break;
+      }
+
+      case Thunk: {
+        o = strict(o);
         break;
       }
 
@@ -974,7 +1004,7 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 } (fm, 0);
 
 
-export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ -> mmy);
+export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
 
 
 /*
@@ -4083,110 +4113,6 @@ Cont.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ FREE █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Free = {}; // namespace
-
-
-/*
-█████ Interpreter █████████████████████████████████████████████████████████████*/
-
-
-// Free a -> a
-Free.evaluate = e => {
-  let expr = e, stack = null;
-
-  while (true) {
-    switch (expr.constructor) {
-      case Free.of: {
-        if (stack === null) return expr.x;
-        
-        else {
-          expr = stack.fm(expr.x);
-          stack = stack.stack;
-          break;
-        }
-      }
-
-      case Free.chain: {
-        stack = {fm: expr.fm, stack};
-        expr = expr.mx;
-        break;
-      }
-
-      case Thunk: expr = strict(expr);
-    }
-  }
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-// (a -> b) -> Free a -> Free b
-Free.map = f => mx => Free.chain(mx) (x => Free.of(f(x)));
-
-
-Free.Functor = {map: Free.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-// Free (a -> b) -> Free a -> Free b
-Free.ap = mf => mx => Free.chain(mf) (f =>
-  Free.chain(mx) (x => Free.of(f(x))));
-
-
-Free.Apply = {
-  ...Free.Functor,
-  ap: Free.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-// a -> Free a
-Free.of = x => ({constructor: Free.of, x});
-
-
-Free.Applicative = {
-  ...Free.Apply,
-  of: Free.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-// Free a -> (a -> Free b) -> Free b
-Free.chain = mx => fm => ({constructor: Free.chain, mx, fm});
-
-
-Free.Chain = {
-  ...Free.Apply,
-  chain: Free.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Free.Monad = {
-  ...Free.Applicative,
-  chain: Free.chain
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ DATE █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -5776,7 +5702,7 @@ export const Lazy = {};
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Lazy.map = f => tx => lazy($ => f(tx));
+Lazy.map = f => tx => lazy($ => f(strict(tx)));
 
 
 Lazy.Functor = {map: Lazy.map};
@@ -5786,7 +5712,7 @@ Lazy.Functor = {map: Lazy.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Lazy.ap = tf => tx => lazy($ => tf(tx));
+Lazy.ap = tf => tx => lazy($ => (tf = strict(tf), tf(strict(tx))));
 
 
 Lazy.Apply = {
@@ -5798,6 +5724,9 @@ Lazy.Apply = {
 /*
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
+
+/* The pure value `x` isn't wrapped in an implicit thunk because `x` is already
+fully evaluated and thus `x` and `Thunk($ => x)` are equivalent. */
 
 Lazy.of = id;
 
@@ -5812,7 +5741,7 @@ Lazy.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Lazy.chain = mx => fm => lazy($ => fm(mx));
+Lazy.chain = mx => fm => lazy($ => strict(fm(strict(mx))));
 
 
 Lazy.Chain = {
@@ -5856,7 +5785,7 @@ Lazy.T = outer => thisify(o => { // outer monad's type dictionary
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  o.map = f => outer.map(mx => lazy($ => f(mx)));
+  o.map = f => outer.map(mx => lazy($ => f(strict(mx))));
   
 
   o.Functor = {map: o.map};
@@ -5867,7 +5796,7 @@ Lazy.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   o.ap = mmf => mmx => outer.chain(mmf) (mf =>
-    outer.map(mx => lazy($ => mf(mx))) (mmx));
+    outer.map(mx => lazy($ => (mf = strict(mf), mf(strict(mx))))) (mmx));
   
 
   o.Apply = {
@@ -5893,7 +5822,8 @@ Lazy.T = outer => thisify(o => { // outer monad's type dictionary
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  o.chain = mmx => fmm => outer.chain(mmx) (mx => lazy($ => fmm(mx)));
+  o.chain = mmx => fmm => outer.chain(mmx) (mx =>
+    lazy($ => outer.map(strict) (fmm(strict(mx)))));
 
 
   o.Chain = {
