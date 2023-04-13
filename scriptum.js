@@ -1106,6 +1106,13 @@ export const flip = f => y => x => f(x) (y);
 export const _let = (...args) => ({in: f => f(...args)});
 
 
+/* Deconstructs a composite value of type object and applies a curried function
+with the initial, whole value and the deconstructed sub values. */
+
+export const matchAs = f => deconstruct => o =>
+  deconstruct(o).reduce((acc, arg) => acc(arg), f(o));
+
+
 /* Allows the application of several binary combinators in sequence while
 maintaining a flat syntax. Creates the following function call structures:
 
@@ -1116,7 +1123,7 @@ There are two alternatives because binary functions can be composed in their
 first or second argument. `ap` of applicative, for instance, composes in the
 first argument, whereas functorial's `map` composes in the second one. */
 
-const infix_ = compFst => (...args) => {
+const _infix = compFst => (...args) => {
   if (args.length === 0) throw new Err("no argument found");
 
   let i = 1, x = args[0];
@@ -1131,10 +1138,10 @@ const infix_ = compFst => (...args) => {
 };
 
 
-export const infix = infix_(true);
+export const infix = _infix(true);
 
 
-export const infix2 = infix_(false);
+export const infix_ = _infix(false);
 
 
 // more readable immediately invoked functon expression
@@ -1419,24 +1426,23 @@ export const effLast = (...exps) => exps[exps.length - 1];
 
 
 export const _throw = e => { // throw as a first class expression
-  throw strict(e);
+  throw e;
 };
 
 
-export const throwOn = p => e => x => {
-  if (p(x)) throw e;
-  else return x;
+export const throw_ = e => {
+  return {
+    on: p => x => {
+      if (p(x)) throw e;
+      else return x;
+    }
+  };
 };
 
 
-export const throwNotOn = p => e => x => {
-  if (!p(x)) throw e;
-  else return x;
-};
-
-
-export const throwOnBottom = throwOn(
-  isBottom) (new Err("unexpected bottom type"));
+export const throwOnBottom = throw_(
+  new Err("unexpected bottom type"))
+    .on(isBottom);
 
 
 // try/catch block as an expression
