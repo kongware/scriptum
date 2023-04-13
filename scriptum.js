@@ -1004,16 +1004,12 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 } (fm, 0);
 
 
-export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
-
-
-/*
-█████ Interpretation ██████████████████████████████████████████████████████████*/
-
-
 // collapsing two monadic contexts (of the same type) is the essence of a monad
 
 export const join = Chain => mmx => Chain.chain(mmx) (id);
+
+
+export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
 
 
 /*
@@ -1111,23 +1107,23 @@ export const _let = (...args) => ({in: f => f(...args)});
 
 
 /* Allows the application of several binary combinators in sequence while
-maintaining a flat syntax. Describes the following function call stacks:
+maintaining a flat syntax. Creates the following function call structures:
 
   (x, f, y, g, z) => g(f(x) (y)) (z)
   (x, f, y, g, z) => g(z) (f(x) (y))
 
-Which stack emerges from a combinator depends on the argument the computation
-is nested in. The applicative `ap`, for instance, defines its nested call
-within the first argument, whereas the functorial `map` nests in the second one. */
+There are two alternatives because binary functions can be composed in their
+first or second argument. `ap` of applicative, for instance, composes in the
+first argument, whereas functorial's `map` composes in the second one. */
 
-const makeInfix = nestFirst => (...args) => {
+const infix_ = compFst => (...args) => {
   if (args.length === 0) throw new Err("no argument found");
 
   let i = 1, x = args[0];
 
   while (i < args.length) {
     if (i === 1) x = args[i++] (x) (args[i++]);
-    else if (nestFirst) x = args[i++] (x) (args[i++]);
+    else if (compFst) x = args[i++] (x) (args[i++]);
     else x = args[i++] (args[i++]) (x);
   }
 
@@ -1135,10 +1131,10 @@ const makeInfix = nestFirst => (...args) => {
 };
 
 
-export const infix = makeInfix(true);
+export const infix = infix_(true);
 
 
-export const infix_ = makeInfix(false);
+export const infix2 = infix_(false);
 
 
 // more readable immediately invoked functon expression
@@ -1409,14 +1405,17 @@ export const isBottom = x => {
 };
 
 
+export const eff = f => x => (f(x), x);
+
+
 /* takes an arbitrary number of expressions and returns the evaluated value
-of the last one. The omitted expressions are merely evaluated for their
+of the first one. The omitted expressions are merely evaluated for their
 effects. */
 
-export const eff = (...exps) => exps[exps.length - 1];
+export const effFirst = (...exps) => exps[0];
 
 
-export const eff0 = (...exps) => exps[0];
+export const effLast = (...exps) => exps[exps.length - 1];
 
 
 export const _throw = e => { // throw as a first class expression
@@ -1425,7 +1424,13 @@ export const _throw = e => { // throw as a first class expression
 
 
 export const throwOn = p => e => x => {
-  if (p(x)) throw strict(e);
+  if (p(x)) throw e;
+  else return x;
+};
+
+
+export const throwNotOn = p => e => x => {
+  if (!p(x)) throw e;
   else return x;
 };
 
@@ -5775,7 +5780,7 @@ Lazy.seq = tx => ty => (strict(tx), strict(ty));
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// structure: m (() -> a)
+// structure: m (Thunk($ -> a))
 
 
 Lazy.T = outer => thisify(o => { // outer monad's type dictionary
