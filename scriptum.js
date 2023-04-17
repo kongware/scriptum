@@ -1415,12 +1415,20 @@ export const isBottom = x => {
 export const eff = f => x => (f(x), x);
 
 
-/* takes an arbitrary number of expressions and returns the evaluated value
-of the first one. The omitted expressions are merely evaluated for their
-effects. */
+/* Takes an arbitrary number of expressions or statements and returns an array
+of evaluated values of each one. Useful if statements are mixed with expressions
+or destructive operations return a value but also modify the initial reference
+value (e.g. `effAll(xs.pop(), xs)`). */
+
+export const effs = (...exps) => exps;
+
+
+// like `effAll` but only returns the first evaluated value
 
 export const effFirst = (...exps) => exps[0];
 
+
+// like `effAll` but only returns the last evaluated value
 
 export const effLast = (...exps) => exps[exps.length - 1];
 
@@ -1434,6 +1442,11 @@ export const throw_ = e => {
   return {
     on: p => x => {
       if (p(x)) throw e;
+      else return x;
+    },
+
+    notOn: p => x => {
+      if (!p(x)) throw e;
       else return x;
     }
   };
