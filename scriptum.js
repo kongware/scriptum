@@ -5319,16 +5319,24 @@ export const It = {};
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-It.comp = f => g => function*(ix) {
-  for (let x of ix) {
-    for (let y of g(x)) {
-      yield* f(y);
-    }
-  }
+// (b -> c) -> (a -> b) -> Iterator a -> Iterator c
+It.comp = f => g => function* (ix) {
+  for (let args of ix) yield f(g(args));
 };
 
 
-It.id = function* (ix) {yield* ix};
+// (Iterator b -> Iterator c) -> (Iterator a -> Iterator b) -> Iterator a -> Iterator c
+It.comp_ = f => g => function* (ix) {
+  const r = g(ix);
+  const r2 = f(r);
+  yield* r2;
+};
+
+
+It.id = function* (x) {yield x};
+
+
+It.id_ = function* (ix) {yield* ix};
 
 
 It.Category = ({
@@ -5585,6 +5593,27 @@ It.Alternative = {
 
 /*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+// kleisli composition
+
+
+// (b -> Iterator c) -> (a -> Iterator b) -> a -> Iterator c
+It.komp = f => g => function* (x) {
+  for (let y of g(x)) {
+    yield* f(y);
+  }
+};
+
+
+// (b -> Iterator c) -> (a -> Iterator b) -> Iterator a -> Iterator c
+It.komp_ = f => g => function* (ix) {
+  for (let x of ix) {
+    for (let y of g(x)) {
+      yield* f(y);
+    }
+  }
+};
 
 
 It.Monad = {
