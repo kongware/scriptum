@@ -5329,7 +5329,14 @@ export const It = {};
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-// just function composition/identity
+/* The category of iterators is just function composition/identity. There are
+two different variants, either normal or iterator composition:
+
+  * ([k2, v2] -> [k3, v3]) -> ([k, v] -> [k2, v2]) -> [k, v] -> [k3, v3]
+  * (Iterator b -> Iterator c) -> (Iterator a -> Iterator b) -> Iterator a -> Iterator c
+
+The normal composition example illustrates a `MapIterator`. */
+
 
 It.Category = ({
   comp,
