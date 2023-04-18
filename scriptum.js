@@ -5295,6 +5295,28 @@ export const It = {};
 
 
 /*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+It.comp = f => g => function*(ix) {
+  for (let x of ix) {
+    for (let y of g(x)) {
+      yield* f(y);
+    }
+  }
+};
+
+
+It.id = function* (ix) {yield* ix};
+
+
+It.Category = ({
+  comp: It.comp,
+  id: It.id
+});
+
+
+/*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -5396,16 +5418,16 @@ It.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-It.mapA = Functor => ft => function* (tx) {
-  const {value: x, done} = tx.next();
+It.mapA = Functor => ft => function* (ix) {
+  const {value: x, done} = ix.next();
 
   if (done) return;
   else return Functor.map(y => function* () {yield y} ()) (ft(x));
 };
 
 
-It.seqA = Functor => function* (ttx) {
-  const {value: tx, done} = ttx.next();
+It.seqA = Functor => function* (itx) {
+  const {value: tx, done} = itx.next();
 
   if (done) return;
   else return Functor.map(x => function* () {yield x} ()) (tx);
