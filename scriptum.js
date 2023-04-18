@@ -1438,15 +1438,15 @@ export const _throw = e => { // throw as a first class expression
 };
 
 
-export const throw_ = e => {
+export const throw_ = f => {
   return {
     on: p => x => {
-      if (p(x)) throw e;
+      if (p(x)) throw f(x);
       else return x;
     },
 
     notOn: p => x => {
-      if (!p(x)) throw e;
+      if (!p(x)) throw f(x);
       else return x;
     }
   };
@@ -1454,7 +1454,7 @@ export const throw_ = e => {
 
 
 export const throwOnBottom = throw_(
-  new Err("unexpected bottom type"))
+  x => new Err(`unexpected bottom type "${x}"`))
     .on(isBottom);
 
 
@@ -4477,6 +4477,16 @@ E.Monoid = {
 };
 
 
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+E.throw = tx => {
+  if (introspect(tx) === "Error") throw tx;
+  else return tx;
+};
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████ EXCEPT :: TRANSFORMER ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -5319,24 +5329,16 @@ export const It = {};
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-// (b -> c) -> (a -> b) -> Iterator a -> Iterator c
-It.comp = f => g => function* (ix) {
-  for (let args of ix) yield f(g(args));
-};
-
-
 // (Iterator b -> Iterator c) -> (Iterator a -> Iterator b) -> Iterator a -> Iterator c
-It.comp_ = f => g => function* (ix) {
+It.comp = f => g => function* (ix) {
   const r = g(ix);
   const r2 = f(r);
   yield* r2;
 };
 
 
-It.id = function* (x) {yield x};
-
-
-It.id_ = function* (ix) {yield* ix};
+// Iterator a -> Iterator a
+It.id = function* (ix) {yield* ix};
 
 
 It.Category = ({
@@ -5363,21 +5365,38 @@ It.all = f => function* (ix) {
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
-// exhaust a lazy non-accumulative computation (e.g. `It.map`)
-
 It.exhaust = ix => {
+  let acc;
+  for (acc of ix) continue;
+  return acc;
+};
+
+
+It.toArr = ix => {
   const xs = [];
   for (const x of ix) xs.push(x);
   return xs;
 };
 
 
-// exhaust a lazy accumulative computation (e.g. `It.foldl`)
+It.toMap = ix => {
+  const m = new Map();
+  for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
 
-It.exhaustAcc = ix => {
-  let acc;
-  for (acc of ix) continue;
-  return acc;
+
+It.toObj = ix => {
+  const o = {};
+  for (const [k, v] of ix) o[k] = v;
+  return o;
+};
+
+
+It.toSet = ix => {
+  const s = new Set();
+  for (const k of ix) s.add(k);
+  return s;
 };
 
 
