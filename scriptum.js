@@ -5329,21 +5329,11 @@ export const It = {};
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-// (Iterator b -> Iterator c) -> (Iterator a -> Iterator b) -> Iterator a -> Iterator c
-It.comp = f => g => function* (ix) {
-  const r = g(ix);
-  const r2 = f(r);
-  yield* r2;
-};
-
-
-// Iterator a -> Iterator a
-It.id = function* (ix) {yield* ix};
-
+// just function composition/identity
 
 It.Category = ({
-  comp: It.comp,
-  id: It.id
+  comp,
+  id
 });
 
 
