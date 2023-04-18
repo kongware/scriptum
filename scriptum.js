@@ -2536,6 +2536,34 @@ A.Monad = {
 
 
 /*
+█████ Generators ██████████████████████████████████████████████████████████████*/
+
+
+A.entries = m => m[Symbol.iterator] ();
+
+
+A.keys = function* (m) {
+  for (let [k] of m) {
+    yield k;
+  }
+};
+
+
+A.values = function* (m) {
+  for (let [, v] in m) {
+    yield v;
+  }
+};
+
+
+/*
+█████ Getter ██████████████████████████████████████████████████████████████████*/
+
+
+A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
+
+
+/*
 █████ Non-Empty ███████████████████████████████████████████████████████████████*/
 
 
@@ -2615,13 +2643,6 @@ A.nonEmpty = xs => {
     }
   });
 };
-
-
-/*
-█████ Getter ██████████████████████████████████████████████████████████████████*/
-
-
-A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
 
 
 /*
