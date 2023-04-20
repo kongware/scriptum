@@ -6096,7 +6096,7 @@ Num.trunc = digits => n =>
 
 
 /* Deterministic pseudo random number generator with an initial seed. Use with
-`Num.hash` to create four 32bit seeds. The PRNG yields a random number and the
+`Str.hash` to create four 32bit seeds. The PRNG yields a random number and the
 next seed. The same initial seed always yields the same sequence of random
 numbers. */
 
@@ -9498,10 +9498,13 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
-Str.normalizeAmount = (dec, _1k) => s =>
-  s.replace(new RegExp(Str.escapeRegExp(dec), ""), "___")
+Str.normalizeAmount = (dec, _1k) => s => {
+  if (_1k === "") return s.replace(new RegExp(Str.escapeRegExp(dec), ""), ".");
+
+  else return s.replace(new RegExp(Str.escapeRegExp(dec), ""), "___")
     .replace(new RegExp(Str.escapeRegExp(_1k), "g"), ",")
     .replace(/___/, ".");
+};
 
 
 Str.normalizeDate = scheme => s => {
