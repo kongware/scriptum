@@ -2916,14 +2916,14 @@ A.unzip = () => A.foldl(([x, y]) => ([xs, ys]) =>
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Special Folds ███████████████████████████████████████████████████████████*/
 
 
-A.mapSucc = f => xs => {
+A.foldSucc = f => acc => xs => {
   const acc = [];
 
   for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc.push(f(Pair(xs[i], xs[j])));
+    acc = f(acc) (Pair(xs[i], xs[j]));
 
   return acc;
 };
@@ -2945,7 +2945,21 @@ A.reduceSucc = f => acc => xs => {
   const acc = [];
 
   for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc = f(acc) (Pair(xs[i], xs[j]));
+    acc = f(acc, xs[i], xs[j]);
+
+  return acc;
+};
+
+
+/*
+█████ Special Mappings ████████████████████████████████████████████████████████*/
+
+
+A.mapSucc = f => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc.push(f(Pair(xs[i], xs[j])));
 
   return acc;
 };
@@ -5667,7 +5681,7 @@ It.Monoid = {
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Special Fold ███████████████████████████████████████████████████████████████████*/
 
 
 It.foldSucc = f => acc => function* (ix) {
@@ -5680,22 +5694,6 @@ It.foldSucc = f => acc => function* (ix) {
     
     else {
       yield f(acc) (Pair(x, y));
-      x = y;
-    }
-  } while (true);
-};
-
-
-It.mapSucc = f => function* (ix) {
-  let {value: x} = ix.next();
-
-  do {
-    const {value: y, done} = ix.next();
-
-    if (done) return;
-    
-    else {
-      yield f(Pair(x, y));
       x = y;
     }
   } while (true);
@@ -5721,7 +5719,27 @@ It.reduceSucc = f => acc => function* (ix) {
     if (done) return;
 
     else {
-      yield f(acc, Pair(x, y));
+      yield f(acc, x, y);
+      x = y;
+    }
+  } while (true);
+};
+
+
+/*
+█████ Special Mappings ████████████████████████████████████████████████████████*/
+
+
+It.mapSucc = f => function* (ix) {
+  let {value: x} = ix.next();
+
+  do {
+    const {value: y, done} = ix.next();
+
+    if (done) return;
+    
+    else {
+      yield f(Pair(x, y));
       x = y;
     }
   } while (true);
