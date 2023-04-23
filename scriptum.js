@@ -544,16 +544,14 @@ export const match = (...args) => (...cases) => {
 
   for (_case of cases) {
     try {
-      r = _case(...args, args);
+      r = _case(...args, args); // also pass the whole args
       if (r === undefined) continue;
       else break;
     } catch(e) {continue}
   }
 
   if (r) return r()
-
-  else throw new Err(
-    "pattern match expression must yield a value");
+  else throw new Err("non-exhaustive pattern match");
 };
 
 
@@ -562,16 +560,14 @@ export const match_ = (...cases) => (...args) => {
 
   for (_case of cases) {
     try {
-      r = _case(...args, args);
+      r = _case(...args, args); // also pass the whole args
       if (r === undefined) continue;
       else break;
     } catch(e) {continue}
   }
 
   if (r) return r()
-
-  else throw new Err(
-    "pattern match expression must yield a value");
+  else throw new Err("non-exhaustive pattern match");
 };
 
 
@@ -581,17 +577,15 @@ export const _if = _case => ({
 
     switch (introspect(r)) {
       case "Array": {
-        for (let y of r) {
-          if (y === undefined) return y;
-        }
+        for (let x of r)
+          if (x === undefined) return x;
 
         return () => f(r);
       }
 
       case "Object": {
-        for (let y of O.values(r)) {
-          if (y === undefined) return y;
-        }
+        for (let x of O.values(r))
+          if (x === undefined) return x;
 
         return () => f(r);
       }
@@ -1172,6 +1166,9 @@ F.Category = () => {
 █████ Composition █████████████████████████████████████████████████████████████*/
 
 
+export const between = f => h => g => x => h(g(f(x)));
+
+
 export const comp = f => g => x => f(g(x));
 
 
@@ -1367,7 +1364,8 @@ F.Comonad = {
 
   bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
             ^^^^^^
-  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d */
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
+  (phrase -> [word]) -> ([word] -> phrase) -> ([word] -> [word]) -> (phrase -> phrase) */
 
 
 F.dimap = h => g => f => x => g(f(h(x)));
@@ -1694,8 +1692,8 @@ F.Contra = F.Contra();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* With the reader transformer `a -> m b` the base monad `m` isn't on the
-outside but in the codomain of the function. This way the inner monad (`a ->`)
+/* With the reader transformer `r -> m a` the base monad `m` isn't on the
+outside but in the codomain of the function. This way the inner monad (`r ->`)
 is applied before the base monad. Applying the inner monad means to implicitly
 pass an argument, which from the perspetive of the base monad acts like a
 read-only environment. */
@@ -1710,7 +1708,7 @@ export const Reader = fmm => ({ // constructor
 export const R = Reader; // shortcut
 
 
-// transformer type: a -> m b
+// structure: r -> m a
 
 
 R.T = outer => thisify(o => { // outer monad's type dictionary
@@ -1849,7 +1847,7 @@ export const State = fmm => ({ // constructor
 export const St = State; // shortcut
 
 
-// transformer type: b -> m (a, b)
+// structure: s -> m (a, s)
 
 
 St.T = outer => thisify(o => { // outer monad's type dictionary
@@ -2157,117 +2155,58 @@ A.Eq = {eq: A.eq};
 █████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
-/* Sets a focus on the first element that satisfies the given predicate and
-holds references to the left/right remainders. The reminders are lazy, i.e.
-only evaluated when actually needed and only once. */
+/* Defines a focus spanning one/several elements on an existing array without
+altering it. The focus creates an immutable but otherwise normal array. The
+iterable protocol can be used to reify the focused portion of the original
+array. */
 
-A.focusAt = p => xs => Loop(i => {
-  if (i === xs.length || p(xs[i])) {
-    return Loop.base(Triple_({
-      get "1"() {
-        delete this["1"];
-        this["1"] = xs.slice(0, i);
-        return this["1"];
-      },
+A.focus = (i, j = null) => xs => {
+  if (j === null) j = xs.length - 1;
 
-      2: i in xs ? xs[i] : null,
-      
-      get "3"() {
-        delete this["3"];
-        this["3"] = xs.slice(i + 1);
-        return this["3"];
-      }
-    }));
-  }
+  return new Proxy(xs, {
+    get(_, k, p) {
+      switch (typeof k) {
+        case "string": {
+          if (k === "length") return j - i + 1;
+          
+          else {
+            const i2 = Number(k);
 
-  else Loop.rec(i + 1);
-}) (0);
-  
+            if (String(i2) === k) {
+              if (i + i2 > j) return undefined;
+              else return xs[i + i2];
+            }
 
-/* Sets a focus on the first consecutive elements satisfying the given predicate
-and holds references to the left/right remainders. All fields of the resulting
-triple are lazy, i.e. only evaluated when actually needed and only once. */
-
-A.focusOn = p => xs => Loop2((i, j) => {
-  if (i === xs.length) return Loop2.base(Triple(xs, [], []));
-
-  else if (j === 0) {
-    if (p(xs[i])) return Loop2.rec(i, i + 1);
-    else return Loop2.rec(i + 1, j);
-  }
-
-  else {
-    if (j < xs.length && p(xs[j])) return Loop2.rec(i, j + 1);
-    
-    else {
-      return Loop2.base(Triple_({
-        get "1"() {
-          delete this["1"];
-          this["1"] = xs.slice(0, i);
-          return this["1"];
-        },
-
-        get "2"() {
-          delete this["2"];
-          this["2"] = xs.slice(i, j);
-          return this["2"];
-        },
-
-        get "3"() {
-          delete this["3"];
-          this["3"] = xs.slice(j);
-          return this["3"];
+            else return xs[k];
+          }
         }
-      }));
+
+        default: return xs[k];
+      }
+    },
+
+    has(_, k) {
+      switch (typeof k) {
+        case "string": {
+          const i2 = Number(k);
+
+          if (String(i2) === k) {
+            if (i + i2 > j) return false;
+            else return i + i2 in xs;
+          }
+
+          else k in xs;
+        }
+
+        default: k in xs;
+      }
+    },
+
+    set(_, k, v, p) {
+      throw new Err("immutable focus");
     }
-  }
-}) (0, 0);
-
-
-// like `takeWhile` but keeps the tail
-
-A.focusInit = p => xs => Loop(i => {
-  if (i < xs.length && p(xs[i])) return Loop.rec(i + 1);
-
-  else {
-    return Loop.base(Pair_({
-      get "1"() {
-        delete this["1"];
-        this["1"] = xs.slice(0, i);
-        return this["1"];
-      },
-
-      get "2"() {
-        delete this["2"];
-        this["2"] = xs.slice(i);
-        return this["2"];
-      }
-    }));
-  }
-}) (0);
-
-
-// like `dropWhile` but keeps the init
-
-A.focusTail = p => xs => Loop(i => {
-  if (i >= 0 && p(xs[i])) return Loop.rec(i - 1);
-
-  else {
-    return Loop.base(Pair_({
-      get "1"() {
-        delete this["1"];
-        this["1"] = xs.slice(0, i);
-        return this["1"];
-      },
-
-      get "2"() {
-        delete this["2"];
-        this["2"] = xs.slice(i);
-        return this["2"];
-      }
-    }));
-  }
-}) (xs.length - 1);
+  });
+};
 
 
 /*
@@ -2581,7 +2520,7 @@ A.nonEmpty = xs => {
       throw new Err("invalid operation");
     },
 
-    get(_, i, proxy) {
+    get(_, i, p) {
       if (xs[i] && xs[i].bind) {
         // * distinguish between impure/pure methods
         // * functions that reduce the array in some way always return a normal array
@@ -2615,7 +2554,7 @@ A.nonEmpty = xs => {
             case "push":
             case "shift": {
               xs[i] (...args);
-              return proxy;
+              return p;
             }
 
             case "pop":
@@ -2632,13 +2571,13 @@ A.nonEmpty = xs => {
       else return xs[i];
     },
 
-    set(_, k, v, proxy) {
+    set(_, k, v, p) {
       if (k === "length" && v === 0)
         throw new Err("must not be empty");
 
       else {
         xs[k] = v;
-        return proxy;
+        return p;
       }
     }
   });
@@ -3565,7 +3504,7 @@ Nea._Cons = xs => x => new Nea.Cons(x, xs);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// transformer type: m (List m a)
+// structure: m (List m a)
 
 
 L.T = outer => thisify(o => { // outer monad's type dictionary
@@ -4867,19 +4806,19 @@ export const Iarray = xs => {
         throw new Err("delete op on immutable array");
       },
 
-      get(_, i, proxy) {
+      get(_, i, p) {
         if (typeof i === "symbol") return o[i];
         else if (String(Number(i)) === i) return Loop(i2 => o.at_(Number(i2))) (i);
         else return o[i];
       },
 
-      has(_, i, proxy) {
+      has(_, i, p) {
         if (typeof i === "symbol") return i in o;
         else if (String(Number(i)) === i) return Number(i) < o.length;
         else return i in o;
       },
 
-      set(_, i, v, proxy) {
+      set(_, i, v, p) {
         throw new Err("set op on immutable array");
       }
     });
@@ -5197,19 +5136,19 @@ export const Iobject = p => {
         else return o.delete(k)
       },
       
-      get(_, k, proxy) {
+      get(_, k, p) {
         if (k[0] === "_") return o[k.slice(1)];
         else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.get(k)
       },
       
-      has(_, k, proxy) {
+      has(_, k, p) {
         if (k[0] === "_") return o[k.slice(1)];
         else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.has(k)
       },
       
-      set(_, k, v, proxy) {
+      set(_, k, v, p) {
         if (k[0] === "_") return o[k.slice(1)];
         else if (k === Symbol.iterator || k === TAG) return o[k];
         else return o.set(k, v)
@@ -7201,7 +7140,7 @@ Opt.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// transformer type: m (Option null | a)
+// structure: m (Option null | a)
 
 
 Opt.T = outer => thisify(o => { // outer monad's type dictionary
@@ -10150,10 +10089,10 @@ export const Writer = mmx => ({ // constructor
 });
 
 
-// transformer type: m (a, b)
-
-
 export const W = Writer; // shortcut
+
+
+// structure: m (a, w)
 
 
 W.T = outer => thisify(o => { // outer monad's type dictionary
@@ -11341,6 +11280,7 @@ RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
 
 /*
 
+  * incorporate type wrapper for each transformer
   * unfoldM
   * add Proxy-based thunk aware Eq type class
   * add foldl1/foldr1 to all container types
