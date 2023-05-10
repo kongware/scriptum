@@ -10406,15 +10406,15 @@ export const compareOn = compareOn_();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* The library avoids the node.js file system dependency by encoding it as a
-parameter. The file system can be accessed within a continuation monad using
-different encodings that yield oposing semantics:
+/* Scriptum defines the file system as a formal parameter to avoid a hard
+dependency. The file system can via a continuation monad supplied in different
+variations that span the following semantics:
 
   * error throwing vs. exeption handling
   * serial vs. parallel processing
 
-The first choice has to be made by picking the respective object in the
-`FileSys` namespace. The second one depends on the passed `cons` constructor. */
+What semantics is used depends on the constructor of the monadic continuation
+type, which is passed as another argument. */
 
 
 export const FileSys = fs => Cons => thisify(o => {
