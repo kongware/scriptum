@@ -96,111 +96,104 @@ let asyncCounter = 0; // upper bound: 100
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+/*
+█████ Product Type ████████████████████████████████████████████████████████████*/
+
+
+export const product = type => (...ks) => o => {
+  for (const k of ks)
+    if (!(k in o)) throw new Err(`missing key "${k}"`);
+
+  return {
+    [TAG]: type,
+    get: o,
+    run: f => f(o)
+  };
+};
+
+
+export const product_ = type => (...ks) => (...vs) => {
+  const acc = {};
+
+  if (ks.length !== vs.length) throw new Err("key/value mismatch");
+
+  for (let i = 0; i < ks.length; i++)
+    acc[ks[i]] = vs[i];
+
+  return {
+    [TAG]: type,
+    get: acc,
+    run: f => f(acc)
+  };
+};
+
+
+/*
+█████ Variant Types ███████████████████████████████████████████████████████████*/
+
+
 /* Variant(/sum) and product types to create flexible and safe variants(/sums)
 of products.
 
   const Either = variant("Either", "Left", "Right") (cons, cons));
 
-  Either.pattern = O.init("left", "right");
-
   const tx = Either.Right(5),
     ty = Either.Left;
 
-  tx.run(Either.pattern(_ => 0, x => x * x)); // yields 25
-  ty.run(Either.pattern(_ => 0, x => x * x)); // yields 0
+  tx.run(Either.match({left: _ => 0, right: x => x * x})); // yields 25
+  ty.run(Either.match({left: _ => 0, right: x => x * x})); // yields 0
 
 `Either` is the type constructor and `Either.Left`/`Either.Right` are value constructors.
-`Either.pattern` is a helper to create typed objects that are case exhaustive, i.e.
+`Either.match` is a helper to create typed objects that are case exhaustive, i.e.
 supply all necessary cases of the given type. */
 
-
-// product types
-
-export const product = type => p => lambda => {
-  const o = {
-    [TAG]: type,
-    run: lambda
-  };
-
-  for (const k of Object.keys(p))
-    Object.defineProperty( // getter/setter safe
-      o, k, Object.getOwnPropertyDescriptor(p, k));
-
-  return o;
-};
-
-
-// variant types (sum)
 
 export const variant = (type, ...tags) => (...cons) => {
   if (tags.length !== cons.length)
     throw new Err("malformed variant type");
 
-  return tags.reduce((acc, tag, i) => {
-    acc[tag] = cons[i] (type, tag.toLowerCase());
+  const o = tags.reduce((acc, tag, i) => {
+    acc[tag] = cons[i] (type, tag, tag[0].toLowerCase() + tag.slice(1));
     return acc;
   }, {});
-};
 
-
-export const cons0 = (type, tag) => // constant
-  ({[TAG]: type, run: ({[tag]: x}) => x});
-
-
-
-export const cons0_ = p => (type, tag) => { // allow extra props
-  const o = {[TAG]: type, run: ({[tag]: x}) => x};
-
-  for (const k of Object.keys(p))
-    Object.defineProperty( // getter/setter safe
-      o, k, Object.getOwnPropertyDescriptor(p, k));
+  o.match = O.matchPattern_(tags.map(tag =>
+    tag[0].toLowerCase() + tag.slice(1)));
 
   return o;
 };
 
 
-export const cons = (type, tag) => x =>
-  ({[TAG]: type, run: ({[tag]: f}) => f(x)});
+// constant instead of function
+
+export const cons0 = (type, tag, k) =>
+  ({[TAG]: type, get: null, run: ({[k]: x}) => x, tag});
 
 
-export const cons_ = p => (type, tag) => x => { // allow extra props
-  const o = {[TAG]: type, run: ({[tag]: f}) => f(x)};
-
-  for (const k of Object.keys(p))
-    Object.defineProperty( // getter/setter safe
-      o, k, Object.getOwnPropertyDescriptor(p, k));
-
-  return o;
-};
+export const cons = (type, tag, k) => x =>
+  ({[TAG]: type, get: x, run: ({[k]: f}) => f(x), tag});
 
 
-export const cons2 = (type, tag) => x => y =>
-  ({[TAG]: type, run: ({[tag]: f}) => f(x) (y)});
+export const cons2 = (type, tag, k) => x => y =>
+  ({[TAG]: type, get: Pair(x, y), run: ({[k]: f}) => f(x) (y), tag});
 
 
-export const cons2_ = p => (type, tag) => x => y => { // allow extra props
-  const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y)};
-
-  for (const k of Object.keys(p))
-    Object.defineProperty( // getter/setter safe
-      o, k, Object.getOwnPropertyDescriptor(p, k));
-
-  return o;
-};
+export const cons3 = (type, tag, k) => x => y => z =>
+  ({[TAG]: type, get: Triple(x, y, z), run: ({[k]: f}) => f(x) (y) (z), tag});
 
 
-export const cons3 = (type, tag) => x => y => z =>
-  ({[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)});
+// object as argument
 
+export const consObj = (...ks) => (type, tag, k) => o => {
+  for (const k2 of ks)
+    if (!(k2 in o)) throw new Err(`missing key "${k2}"`);
 
-export const cons3_ = p => (type, tag) => x => y => z => { // allow extra props
-  const o = {[TAG]: type, run: ({[tag]: f}) => f(x) (y) (z)};
-
-  for (const k of Object.keys(p))
-    Object.defineProperty( // getter/setter safe
-      o, k, Object.getOwnPropertyDescriptor(p, k));
-
-  return o;
+  return {
+    [TAG]: type,
+    get: o,
+    run: ({[k]: f}) => f(o),
+    tag
+  };
 };
 
 
@@ -237,8 +230,11 @@ export const Err = TypeError; // shortcut
 them without using `catch`. `Exception` is a subtype of `Error`. */
 
 export class Exception extends Error {
-  constructor(s) {super(s)}
-}
+  constructor(s) {
+    super(s);
+    this[TAG] = "Exception";
+  }
+};
 
 
 // accumulated exceptions
@@ -1477,6 +1473,11 @@ export const try_ = thunk => ({
 });
 
 
+// auxiliary function
+
+export const yieldNull = () => null;
+
+
 /*
 █████ Logic ███████████████████████████████████████████████████████████████████*/
 
@@ -2220,22 +2221,6 @@ A.Filterable = {filter: A.filter};
 
 
 /*
-█████ Filter-like █████████████████████████████████████████████████████████████*/
-
-
-A.find = p => xs => xs.find(x => p(x) ? x : null);
-
-
-A.findIndex = p => xs => xs.findIndex(i => p(i) ? i : null);
-
-
-A.partition = p => xs => xs.reduce((pair, x)=> {
-  if (p(x)) return (pair[1].push(x), pair);
-  else return (pair[2].push(x), pair);
-}, Pair([], []));
-
-
-/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
@@ -2809,12 +2794,18 @@ A.groupBy = p => xs => Loop2((acc, i) => {
 }) ([], 1);
 
 
-/* A more general version of `A.partition` that allows key generation and value
-accumulation to be passed as arguments. */
+A.partition = p => xs => xs.reduce((pair, x)=> {
+  if (p(x)) return (pair[1].push(x), pair);
+  else return (pair[2].push(x), pair);
+}, Pair([], []));
+
+
+/* A more general version of `A.partition` that allows dynamic key generation
+and value combination. */
 
 A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
   const k = f(x);
-  return acc.set(k, g(x) (acc.get(k)));
+  return acc.set(k, g(acc.has(k) ? acc.get(k) : null) (x));
 }, new Map());
 
 
@@ -4122,6 +4113,16 @@ export const D = DateTime; // shortcut
 
 
 /*
+█████ Calculation █████████████████████████████████████████████████████████████*/
+
+
+D.lastDayOfMonth = ({m, y}) => {
+  const d = new Date(y, m, 1);
+  return new Date(d - 1);
+};
+
+
+/*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
@@ -4144,40 +4145,40 @@ D.format = sep => (...fs) => d =>
     .join(sep);
 
 
-D.formatDay = mode => d => {
-  switch (mode) {
+D.formatDay = digits => d => {
+  switch (digits) {
     case 1: return String(d.getUTCDate());
     case 2: return String(d.getUTCDate()).padStart(2, "0");
-    default: throw new RangeError("invalid formatting mode");
+    default: throw new RangeError("invalid number of digits");
   }
 };
 
 
-D.formatMonth = ({names = [], mode}) => d => {
-  switch (mode) {
+D.formatMonth = ({names = [], digits}) => d => {
+  switch (digits) {
     case 1: return String(d.getUTCMonth() + 1);
     case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
     case 3: return names[String(d.getUTCMonth())];
-    default: throw new RangeError("invalid formatting mode");
+    default: throw new RangeError("invalid number of digits");
   }
 };
 
 
-D.formatWeekday = ({names = [], mode}) => d => {
-  switch (mode) {
+D.formatWeekday = ({names = [], digits}) => d => {
+  switch (digits) {
     case 1: return String(d.getUTCDay());
     case 2: return String(d.getUTCDay()).padStart(2, "0");
     case 3: return names[String(d.getUTCDay())];
-    default: throw new RangeError("invalid formatting mode");
+    default: throw new RangeError("invalid number of digits");
   }
 };
 
 
-D.formatYear = mode => d => {
-  switch (mode) {
+D.formatYear = digits => d => {
+  switch (digits) {
     case 2: return String(d.getUTCFullYear()).slice(2);
     case 4: return String(d.getUTCFullYear());
-    default: throw new RangeError("invalid formatting mode");
+    default: throw new RangeError("invalid number of digits");
   }
 };
 
@@ -5291,9 +5292,15 @@ two different variants, either normal or iterator composition:
 The normal composition example illustrates a `MapIterator`. */
 
 
+It.comp = comp;
+
+
+It.id = id;
+
+
 It.Category = ({
-  comp,
-  id
+  comp: It.comp,
+  id: It.id
 });
 
 
@@ -5304,7 +5311,7 @@ It.Category = ({
 It.all = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
-    if (done) return;
+    if (done) return true;
   } while (f(x));
 
   return false;
@@ -5358,7 +5365,7 @@ It.any = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return false;
   } while (!f(x));
 
   return true;
@@ -6053,11 +6060,11 @@ Num.trunc = digits => n =>
 
 
 /* Deterministic pseudo random number generator with an initial seed. Use with
-`Str.hash` to create four 32bit seeds. The PRNG yields a random number and the
+`Num.hash` to create four 32bit seeds. The PRNG yields a random number and the
 next seed. The same initial seed always yields the same sequence of random
 numbers. */
 
-Num.prng = (a, b, c, d) => {
+Num.prng = ([a, b, c, d]) => {
   a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
 
   let t = (a + b) | 0;
@@ -6129,7 +6136,7 @@ Num.formatInt = sep => n =>
     .replace(new RegExp("(\\d)(?=(?:\\d{3})+$)", "g"), `$1${sep}`);
 
 
-Num.formatSign = (pos, neg) => n =>
+Num.formatSign = ({pos, neg}) => n =>
   n > 0 ? pos : n < 0 ? neg : "";
 
 
@@ -6173,6 +6180,7 @@ Nat.cata = zero => succ => n => {
 
 
 // safe numbers that avoid floating point issues with arithmetics
+// TODO: add negative integers
 
 
 export const SafeNum = (int, dec) => {
@@ -6420,7 +6428,7 @@ O.toPairs = Object.entries;
 
 O.new = (tag = null) => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
-    throw new Err("malformed object literal");
+    throw new Err("keys don't match values");
 
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
@@ -6429,7 +6437,15 @@ O.new = (tag = null) => (...ks) => (...vs) => {
 };
 
 
-O.init = O.new();
+O.new_ = (tag = null) => (...ks) => vs => {
+  if (ks.length !== vs.length)
+    throw new Err("keys don't match values");
+
+  return ks.reduce((acc, k, i) => {
+    acc[k] = vs[i];
+    return acc;
+  }, tag === null ? {} : {[TAG]: tag});
+};
 
 
 /*
@@ -6443,6 +6459,24 @@ O.get = k => o => k in o ? o[k] : null;
 
 
 O.getOr = x => k => o => k in o ? o[k] : x;
+
+
+O.getPath = keys => o =>
+  keys.reduce((acc, key) => key in acc ? acc[key] : null, o);
+
+
+O.getPathOr = x => keys => o => {
+  for (const key of keys) {
+    if (key in o) o = o[key];
+    
+    else {
+      o = x;
+      break;
+    }
+  }
+
+  return o;
+};
 
 
 O.set = k => v => o => (o[k] = v, o);
@@ -6483,6 +6517,40 @@ O.values = function* (o) {
     yield o[prop];
   }
 }
+
+
+/*
+█████ Pattern Matching ████████████████████████████████████████████████████████*/
+
+
+O.matchPattern = (...ks) => o => {
+  const vs = Object.keys(o);
+
+  if (ks.length < vs.length) throw new Err("unnecessary cases");
+  else if (ks.length > vs.length) throw new Err("missing cases");
+
+  else return ks.reduce((acc, k) => {
+    if (k in o) acc[k] = o[k];
+    else throw new Err(`missing key "${k}"`)
+    
+    return acc;
+  }, {});
+};
+
+
+O.matchPattern_ = ks => o => {
+  const vs = Object.keys(o);
+
+  if (ks.length < vs.length) throw new Err("unnecessary cases");
+  else if (ks.length > vs.length) throw new Err("missing cases");
+
+  return ks.reduce((acc, k) => {
+    if (k in o) acc[k] = o[k];
+    else throw new Err(`missing key "${k}"`)
+    
+    return acc;
+  }, {});
+};
 
 
 /*
@@ -6909,9 +6977,9 @@ Optic.focus = (getter, setter) => tx => Optic(
 
 // try to focus or use a composite default value
 
-Optic.tryFocus = ty => (getter, setter) => tx => Optic(
-  tx.run === null ? getter(ty) : getter(tx.run),
-  x => Optic(setter(x) (tx.run === null ? ty : tx.run), tx.parent));
+Optic.tryFocus = x => (getter, setter) => tx => Optic(
+  tx.run === null ? getter(x) : getter(tx.run),
+  x => Optic(setter(x) (tx.run === null ? x : tx.run), tx.parent));
 
 
 /*
@@ -9455,34 +9523,60 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
-Str.normalizeAmount = (dec, _1k) => s => {
-  if (_1k === "") return s.replace(new RegExp(Str.escapeRegExp(dec), ""), ".");
+/* scheme varaints
 
-  else return s.replace(new RegExp(Str.escapeRegExp(dec), ""), "___")
-    .replace(new RegExp(Str.escapeRegExp(_1k), "g"), ",")
-    .replace(/___/, ".");
-};
-
+  * w/out separator: "ddmmyyyy"
+  * with separator: "d.m.y" */
 
 Str.normalizeDate = scheme => s => {
-  const sep = scheme[1],
-    order = scheme.split(sep),
-    compos = s.split(sep);
+  const punctuations = scheme.replace(/[a-z]/gi, "");
 
-  return order.reduce((acc, x, i) => {
-    switch (x) {
+  const [order, compos] = _let(Str.splitChunk({from: 1, to: 1}) (punctuations).length).in(len => {
+    const [ws, xs] = scope(() => {
+      switch (len) {
+        case 0: {
+          const ys = Array.from(scheme.matchAll(/(.)\1*/g)),
+            zs = ys.reduce((acc, rx) => {
+              acc.push(s.slice(rx.index, rx.index + rx[0].length));
+              return acc;
+            }, []);
+
+          return [ys.map(rx => rx[1]), zs];
+        }
+        
+        case 1: {
+          const ys = scheme.split(punctuations),
+            zs = s.split(punctuations);
+
+          return [ys, zs];
+        }
+        
+        // TODO: add case 2
+
+        default: throw new Err("invalid scheme");
+      }
+    });
+
+    return [ws, xs];
+  });
+
+  return order.reduce((acc, s3, i) => {
+    switch (s3) {
       case "d": {
-        acc[2] = compos[i].padStart(2, "0");
+        if (compos[i].length < 1 || compos[i].length > 2) acc[2] = "";
+        else acc[2] = compos[i].padStart(2, "0");
         return acc;
       }
       
       case "m": {
-        acc[1] = compos[i].padStart(2, "0");
+        if (compos[i].length < 1 || compos[i].length > 2) acc[1] = "";
+        else acc[1] = compos[i].padStart(2, "0");
         return acc;
       }
 
       case "y": {
-        acc[0] = compos[i].length === 2 ? 20 + compos[i] : compos[i];
+        if (compos[i].length !== 2 && compos[i].length !== 4) acc[0] = "";
+        else acc[0] = compos[i].length === 2 ? 20 + compos[i] : compos[i];
         return acc;
       }
 
@@ -9490,6 +9584,36 @@ Str.normalizeDate = scheme => s => {
     }
   }, new Array(3)).join("-");
 };
+
+
+Str.normalizeNumber = ({sep: {thd, dec}, places = 0}) => s => {
+  if (thd === "") {
+    if (dec === "") {
+      if (places === 0) throw new Err("invalid arguments");
+      else return `${s.slice(0, -places)}.${s.slice(-places)}`;
+    }
+
+    else return s.split(dec).join(".");
+  }
+
+  else if (dec === "") {
+    if (places === 0) throw new Err("invalid arguments");
+    
+    else {
+      const s2 = s.split(thd).join("");
+      return `${s2.slice(0, -places)}.${s2.slice(-places)}`;
+    }
+  }
+
+  else {
+    const s2 = s.split(thd).join("");
+    return s2.split(dec).join(".");
+  }
+};
+
+
+Str.splitChunk = ({from, to}) => s =>
+  s.match(new RegExp(`.{${from},${to}}`, "g")) || [];
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9501,9 +9625,6 @@ Str.normalizeDate = scheme => s => {
 
 
 export const These = variant("These", "This", "That", "Both") (cons, cons, cons2);
-
-
-These.pattern = O.init("this", "that", "both");
 
 
 /*
