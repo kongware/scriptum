@@ -135,18 +135,25 @@ export const product_ = type => (...ks) => (...vs) => {
 /* Variant(/sum) and product types to create flexible and safe variants(/sums)
 of products.
 
-  const Either = variant("Either", "Left", "Right") (cons, cons));
+  const Either = variant("Either", "Left", "Right") (cons0, cons);
 
   const tx = Either.Right(5),
     ty = Either.Left;
 
-  tx.run(Either.match({left: _ => 0, right: x => x * x})); // yields 25
-  ty.run(Either.match({left: _ => 0, right: x => x * x})); // yields 0
+  tx.run(Either.match({left: 0, right: x => x * x})); // yields 25
+  ty.run(Either.match({left: 0, right: x => x * x})); // yields 0
 
-`Either` is the type constructor and `Either.Left`/`Either.Right` are value constructors.
-`Either.match` is a helper to create typed objects that are case exhaustive, i.e.
-supply all necessary cases of the given type. */
+`Either` is the type constructor and `Either.Left`/`Either.Right` are value
+constructors. `Either.match` is a helper to create typed objects that are case
+exhaustive, i.e. supply all necessary cases of the given type.
 
+A variant type expects a function per case as arguments. It then calls the right
+function passing its internal value as an argument. This value (or values) are
+hidden as free variables of a closure. This renders debugging harder. For this
+reason each variant type includes a `get`-property you can access these internal
+value(s) with. Please note that the usage of these values for programming
+purposes may be unsafe depending on the specific variant type. Since a variant
+value may include no, one or many values, `get` always yields an array. */
 
 export const variant = (type, ...tags) => (...cons) => {
   if (tags.length !== cons.length)
@@ -167,19 +174,19 @@ export const variant = (type, ...tags) => (...cons) => {
 // constant instead of function
 
 export const cons0 = (type, tag, k) =>
-  ({[TAG]: type, get: null, run: ({[k]: x}) => x, tag});
+  ({[TAG]: type, get: [], run: ({[k]: x}) => x, tag});
 
 
 export const cons = (type, tag, k) => x =>
-  ({[TAG]: type, get: x, run: ({[k]: f}) => f(x), tag});
+  ({[TAG]: type, get: [x], run: ({[k]: f}) => f(x), tag});
 
 
 export const cons2 = (type, tag, k) => x => y =>
-  ({[TAG]: type, get: Pair(x, y), run: ({[k]: f}) => f(x) (y), tag});
+  ({[TAG]: type, get: [x, y], run: ({[k]: f}) => f(x) (y), tag});
 
 
 export const cons3 = (type, tag, k) => x => y => z =>
-  ({[TAG]: type, get: Triple(x, y, z), run: ({[k]: f}) => f(x) (y) (z), tag});
+  ({[TAG]: type, get: [x, y, z], run: ({[k]: f}) => f(x) (y) (z), tag});
 
 
 // object as argument
@@ -2596,13 +2603,13 @@ A.apo = f => init => {
   let acc = [], x = init, next;
 
   do {
-    const r = f(x);
+    const pair = f(x);
     next = false;
 
-    if (strict(r) === null) continue;
+    if (strict(pair) === null) continue;
 
     else {
-      const [y, tz] = r;
+      const [y, tz] = pair;
 
       tz.run({
         left: _ => (acc.push(y), acc),
