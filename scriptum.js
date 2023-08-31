@@ -234,29 +234,36 @@ export const Err = TypeError; // shortcut
 
 
 /* Indicates errors that are not immediately thrown, i.e. you can recover from
-them without using `catch`. `Exception` is a subtype of `Error`. */
+them without using `catch`. `Exception` is a subtype of `Error`. Accepts an
+error message or an error object as argument. In the latter case, the original
+stack trace is kept.. */
 
 export class Exception extends Error {
   constructor(s) {
-    super(s);
+    if (s.message) {
+      super(s.message);
+      this.stack = this.stack + "\n\n" + s.stack;
+    }
+
+    else super(s);
     this[TAG] = "Exception";
   }
 };
 
 
-// accumulated exceptions
+// accumulate exceptions
 
 export class Exceptions extends Error {
-  constructor(...es) {
-    const ess = [];
+  constructor(...stack) {
+    const xs = [];
     super("exceptions");
 
-    es.forEach(e => {
-      if (e.constructor.name === "Exceptions") ess.push(e.es);
-      else ess.push(e);
+    stack.forEach(e => {
+      if (e[TAG] === "Exceptions") xs.push.apply(xs, e.stack);
+      else xs.push(e);
     });
 
-    this.es = ess.flat();
+    this.stack = xs;
   }
 };
 
@@ -4124,7 +4131,7 @@ export const D = DateTime; // shortcut
 
 
 D.lastDayOfMonth = ({m, y}) => {
-  const d = new Date(y, m, 1);
+  const d = new Date(y, m + 1, 1);
   return new Date(d - 1);
 };
 
@@ -9539,36 +9546,32 @@ Str.normalizeDate = scheme => s => {
   const punctuations = scheme.replace(/[a-z]/gi, "");
 
   const [order, compos] = _let(Str.splitChunk({from: 1, to: 1}) (punctuations).length).in(len => {
-    const [ws, xs] = scope(() => {
-      switch (len) {
-        case 0: {
-          const ys = Array.from(scheme.matchAll(/(.)\1*/g)),
-            zs = ys.reduce((acc, rx) => {
-              acc.push(s.slice(rx.index, rx.index + rx[0].length));
-              return acc;
-            }, []);
+    const xs = [], ys = [];
 
-          return [ys.map(rx => rx[1]), zs];
-        }
-        
-        case 1: {
-          const ys = scheme.split(punctuations),
-            zs = s.split(punctuations);
+    switch (len) {
+      case 0: {
+        const xs = Array.from(scheme.matchAll(/(.)\1*/g)),
+          ys = xs.reduce((acc, rx) => {
+            acc.push(s.slice(rx.index, rx.index + rx[0].length));
+            return acc;
+          }, []);
 
-          return [ys, zs];
-        }
-        
-        // TODO: add case 2
-
-        default: throw new Err("invalid scheme");
+        return [xs.map(rx => rx[1]), ys];
       }
-    });
+      
+      case 2: {
+        const xs = scheme.split(new RegExp(`[${punctuations.replace(/\-/g, "\\-")}]`, "")),
+          ys = s.split(new RegExp(`[${punctuations.replace(/\-/g, "\\-")}]`, ""));
 
-    return [ws, xs];
+        return [xs, ys];
+      }
+      
+      default: throw new Err("invalid date scheme");
+    }
   });
 
-  return order.reduce((acc, s3, i) => {
-    switch (s3) {
+  return order.reduce((acc, s2, i) => {
+    switch (s2) {
       case "d": {
         if (compos[i].length < 1 || compos[i].length > 2) acc[2] = "";
         else acc[2] = compos[i].padStart(2, "0");
@@ -9587,7 +9590,7 @@ Str.normalizeDate = scheme => s => {
         return acc;
       }
 
-      default: throw new Err("invalid scheme");
+      default: throw new Err("invalid date scheme component");
     }
   }, new Array(3)).join("-");
 };
