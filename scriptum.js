@@ -162,13 +162,13 @@ export const cons = (type, tag, k) => x =>
   ({[TAG]: type, get: x, run: ({[k]: f}) => f(x), tag});
 
 
-// binary paremeter constructor
+// binary constructor
 
 export const cons2 = (type, tag, k) => x => y =>
   ({[TAG]: type, get: [x, y], run: ({[k]: f}) => f(x) (y), tag});
 
 
-// multi parameter constructor (product)
+// multi named parameter constructor (product)
 
 export const consn = (...ks) => (type, tag, k) => o => {
   for (const k2 of ks)
@@ -181,6 +181,11 @@ export const consn = (...ks) => (type, tag, k) => o => {
     tag
   };
 };
+
+
+// `consn` can also be used to create lazy properties using object getters
+
+export const consLazy = consn;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
