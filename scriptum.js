@@ -486,7 +486,21 @@ The listed implementation is just a prove of concept, hence not stable. */
 
 
 /*const TAG = Symbol.toStringTag;
-const Err = Error;*/
+const Err = Error;
+const A = {};
+A.foldl = f => init => xs => {
+  let acc = init;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc) (xs[i]);
+
+  return acc;
+};
+
+A.foldr = f => acc => function go([x, ...xs]) {
+  if (x === undefined) return acc;
+  else return f(x) (go(xs));
+};*/
 
 
 const Tree = {};
@@ -617,7 +631,19 @@ Tree.split = (tree, f) => {
 };
 
 
-Tree.prepend = (tree, xs = []) => {
+Tree.append = (tree, xs) => {
+  if (tree[TAG] === "Empty") return xs;
+  else if (tree[TAG] === "Leaf") return (xs.push(tree.x), xs);
+  
+  else if (tree[TAG] === "Node2")
+    return Tree.append(tree.left, Tree.append(tree.right, xs));
+
+  else if (tree[TAG] === "Node3")
+    return Tree.append(tree.left, Tree.append(tree.middle, Tree.append(tree.right, xs)));
+};
+
+
+Tree.prepend = (tree, xs) => {
   if (tree[TAG] === "Empty") return xs;
   else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
   
@@ -669,6 +695,48 @@ Tree.cata = ({empty, leaf, node2, node3}) => function go(tree) {
 
 
 /*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
+
+
+Tree.toArr = tree => Tree.prepend(tree, []);
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+// fold in ascending order
+
+Tree.foldl = f => acc => tree =>
+  A.foldl(f) (acc) (Tree.prepend(tree, []));
+
+
+// fold in descending order
+
+Tree.foldr = f => acc => tree =>
+  A.foldr(f) (acc) (Tree.append(tree, []));
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Tree.map = f => Tree.cata({
+  empty: () => Tree.Empty,
+  leaf: x => Tree.Leaf(f(x)),
+
+  node2: (height, min, left, right) =>
+    Tree.Node2(height, f(min), left, right),
+
+  node3: (height, min, left, middle, right) =>
+    Tree.Node3(height, f(min), left, middle, right)
+});
+
+
+/*
 █████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
@@ -694,21 +762,10 @@ Tree.del = (tree, x) => {
 };
 
 
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
-
-
-Tree.toArr = tree => Tree.prepend(tree);
-
-
 /*let t = Tree.fromArr([1,2,3,4,5]);
 t = Tree.ins(t, 6);
 t = Tree.del(t, 1);
-Tree.toArr(t);
-Tree.cata({empty: () => Tree.Empty, leaf: Tree.Leaf, node2: Tree.Node2, node3: Tree.Node3}) (t);*/
+Tree.toArr(t);*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10158,135 +10215,6 @@ Trampoline.base = x =>
 
 
 Trampoline.of = Trampoline.of();
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ TREE (N-ARY) █████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* TODO: incorporate into 2-3 Tree
-
-Represents a usual Javascript tree where nodes are encoded as objects with
-two fields, one for the value and another for the branch. The latter is encoded
-as an array. It is unbalanced and thus has no unambigious construction rule. It
-is merely meant as a proof of concept you can infer your own trees from. */
-
-
-const TreeN = {};
-
-
-TreeN.Node = x => branch => ({
-  [TAG]: "TreeN",
-  x,
-  branch
-});
-
-
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-/* The elimination rule of the type. Catamorphisms are more general and thus
-more expressive than folds, because they factor all value constructors in.
-`Either` has two constructors and the catamorphism receives two functions
-accordingly, one for each constructor. A fold on the other hand has only a
-single function `f` and a constant `acc`, i.e. it is one function short to
-fully cover `Either`'s cases. For this reason catamorphism and fold coincide
-for `List` and `Option`, because both types comprise one type constructor
-(`Cons`/`Some`) and one type constant (`Nil`/`None`).
-
-Catamorphisms are usually defined as a loop to avoid stack overflows. However,
-the depth of a more or less balanced tree should regularly not exhaust the call
-stack, hence it is recursively defined. */
-
-
-TreeN.cata = node => function go({x, branch}) {
-  return node(x) (branch.map(go));
-};
-
-
-/*
-█████ Foladable ███████████████████████████████████████████████████████████████*/
-
-
-// left-associative fold with depth, index and length of respective branch
-
-TreeN.foldi = f => init => tx => function go({x, branch}, acc, depth, i, length) {
-  return branch.reduce((acc2, ty, i, ys) => {
-    return go(ty, acc2, depth + 1, i, ys.length);
-  }, f(acc) (x, {depth, i, length}));
-} (tx, init, 0, 0, 1);
-
-
-TreeN.foldl = compThd(A.foldl) (TreeN.linearize); // pre-order
-
-
-TreeN.foldLevel = tx => TreeN.levels(tx) // level-order
-  .reduce((acc, xs) => (acc.push.apply(acc, xs), acc));
-
-
-TreeN.foldr = compThd(A.foldr) (TreeN.linearize); // post-order
-
-
-TreeN.Foldable = {
-  foldl: TreeN.foldl,
-  foldr: TreeN.foldr,
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-TreeN.map = f => TreeN.cata(x => xs => TreeN.Node(f(x)) (xs));
-
-
-TreeN.Functor = {map: TreeN.map};
-
-
-/*
-█████ Induction ███████████████████████████████████████████████████████████████*/
-
-
-TreeN.height = TreeN.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
-
-
-// alternative implementation using the tree catamorphism
-
-TreeN.height_ = function (foldMax_) {
-  return TreeN.cata(_ => branch => 1 + foldMax_(branch))
-} (foldMax({foldl1: A.foldl1}, {max}));
-
-
-TreeN.levels = TreeN.foldi(acc => (x, {depth}) => {
-  if (!(depth in acc)) acc[depth] = [];
-  return (acc[depth].push(x), acc);
-}) ([]);
-
-
-TreeN.paths = tx => {
-  const {x, branch: xs} = tx;
-
-  if (xs.length === 0) return [[x]];
-
-  else return A.map(A.unshift(x))
-    (foldMapl(
-      {fold: A.foldl},
-      {append: A.append, empty: []})
-        (treePaths) (xs));
-};
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-TreeN.linearize = TreeN.cata(x => xss => {
-  const xs = [x];
-  xs.push.apply(xs, xss);
-  return xs;
-});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
