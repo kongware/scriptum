@@ -4403,134 +4403,6 @@ D.formatYear = digits => d => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ DEQUE ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Double-ended queue is not a persistant data type by default but can be used
-as one with little effort. It is suitable for the following array-like ops:
-
-* add/delete head (shift/unshift)
-* add/delete last (pop/push)
-* concat at head/last
-* split at head/last
-
-It is equally fast like native arrays for popping/pushing elements to the end
-but faster for shifting/unshifting and concatenation, especially for large
-amounts of data. As opposed to native arrays, adding to/deleting from the head
-of the deque and concatenation aren't a destructive operations. */
-
-class Deque {
-  constructor() {
-    this.head = null;
-    this.tail = null;
-    this.length = 0;
-  }
-
-  addLast(x) {
-    const node = {
-      x,
-      next: null,
-      prev: null
-    }
-
-    if (!this.head) {
-      this.head = node;
-      this.tail = node;
-    }
-
-    else {
-      node.prev = this.tail;
-      this.tail.next = node;
-      this.tail = node;
-    }
-    this.length++;
-    return this;
-  }
-
-  addHead(x) {
-    if (!this.head) return this.addLast(x);
-
-    else {
-      const node = {x, next: null, prev: null};
-
-      node.next = this.head;
-      this.head.prev = node;
-      this.head = node;
-      this.length++;
-      return this;
-    }
-  }
-
-  getHead() {
-    return this.head.x;
-  }
-  
-  getLast() {
-    return this.tail.x;
-  }
-  
-  remHead() {
-    if (this.length === 0) return null;
-
-    else if (this.length === 1) {
-      const first = this.head.x;
-      this.head = null;
-      this.tail = null;
-      this.prev = null;
-      this.length--;
-      return first;
-    }
-
-    else {
-      const first = this.head.x,
-        head = this.head.next;
-
-      head.prev = null;
-      this.head = head;
-      this.length--;
-      return first;
-    }
-  }
-
-  remLast() {
-    if (this.length === 0) return null;
-
-    else if (this.length === 1) {
-      const last = this.tail.x;
-      this.head = null;
-      this.tail = null;
-      this.prev = null;
-      this.length--;
-      return last;
-    }
-
-    else {
-      const last = this.tail.value,
-        tail = this.tail.prev;
-
-      tail.next = null;
-      this.tail = tail;
-      this.length--;
-      return last;
-    }
-  }
-
-  toArray() {
-    const xs = [];
-    let currNode = this.head;
-
-    while (currNode !== null) {
-      xs.push(currNode.x);
-      currNode = currNode.next;
-    }
-
-    return xs;
-  }
-}
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ DLIST ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -5788,6 +5660,226 @@ _Map.upd = k => f => m => {
 _Map.updOr = x => k => f => m => {
   if (m.has(k)) return m.set(k, f(m.get(k)));
   else return m.set(k, x);
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ MAP :: DEQUEMAP ███████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// map that maintains element order from operations on a double-ended queue
+
+class DequeMap extends Map {
+  constructor(id) {
+    super();
+    this.id = id;
+    this.ks = [];
+  }
+
+  *[Symbol.iterator]() {
+    for (let k of this.ks) yield [k, m.get(k)];
+  }
+};
+
+
+DequeMap.cons = v => m => {
+  const k = m.id(v);
+  
+  if (m.has(k)) throw TypeError(`duplicate key "k"`);
+  
+  else {
+    m.set(k, v);
+    m.ks.unshift(k);
+    return m;
+  }
+};
+
+
+DequeMap.get = v => m => m.get(m.id(v));
+
+
+DequeMap.has = v => m => m.has(m.id(v));
+
+
+DequeMap.map = f => m => {
+  for (const [k, v] of m) m.set(k, f(v));
+};
+
+
+DequeMap.snoc = v => m => {
+  const k = m.id(v);
+  
+  if (m.has(k)) throw TypeError(`duplicate key "k"`);
+
+  else {
+    m.set(k, v);
+    m.ks.push(k);
+    return m;
+  }
+};
+
+
+DequeMap.uncons = m => {
+  const k = m.ks.shift(),
+    v = m.get(k);
+
+  m.delete(k);
+  return [[k, v], m];
+};
+
+
+DequeMap.unsnoc = m => {
+  const k = m.ks.pop(),
+    v = m.get(k);
+
+  m.delete(k);
+  return [[k, v], m];
+};
+
+
+DequeMap.upd = f => k => m => {
+  if (m.has(k)) m.set(k, f(m.get(k)));
+  return m;
+}
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ MAP :: MULTIMAP ███████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Map that has 1:n-relations between its key/value pairs. Such a map represents
+the idea of unique keys assigned to conditionally ambiguous values, i.e. it can
+encode fuzzy key/value relations. */
+
+class MultiMap extends Map {
+  *[Symbol.iterator]() {
+    for (const [k, s] of super[Symbol.iterator]()) {
+      for (const v of s) yield [k, v];
+    }
+  }
+};
+
+
+MultiMap.del = pred => k => m => {
+  const s = m.get(k);
+
+  for (const v of s) if (pred(v)) s.delete(v);
+
+  if (s.size === 0) m.delete(k);
+  return m;
+};
+
+
+MultiMap.map = f => m => {
+  for (const [k, v] of m) m.set(k, f(v));
+};
+
+
+MultiMap.set = k => v => m => {
+  if (m.has(k)) {
+    const s = m.get(k);
+    s.add(v);
+    return m;
+  }
+
+  else {
+    m.set(k, new Set([v]));
+    return m;
+  }
+};
+
+
+MultiMap.upd = f => pred => k => m => {
+  const s = m.get(k);
+
+  for (const v of s) {
+    if (pred(v)) {
+      s.delete(v);
+      s.add(f(v))
+    }
+  }
+
+  return this;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ MAP :: ORDMAP ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Map that maintains a total order of its elements. Requires element that have
+a total order property. Total ordering of elements is deferred until it is
+actually needed but is then persistant, i.e. the implementation is lazy. */
+
+class OrdMap extends Map {
+  constructor(id, ctor) {
+    super();
+    this.ks = [];
+    this.id = id;
+    this.ctor = ctor;
+    this.sorted = true;
+  }
+
+  *[Symbol.iterator]() {
+    if (!this.sorted) {
+      this.ks.sort(this.ctor);
+      this.sorted = true;
+    }
+
+    for (let k of this.ks) {
+      if (k === undefined) continue;
+
+      else {
+        const v = super.get(k);
+
+        if (v !== undefined || super.has(k)) yield [k, v];
+        else continue;
+      }
+    }
+  }
+};
+
+
+OrdMap.del = v => m => {
+  m.delete(m.id(v));
+  return m;
+};
+
+
+OrdMap.get = v => m => m.get(m.id(v));
+
+
+OrdMap.has = v => m => m.has(m.id(v));
+
+
+OrdMap.map = f => m => {
+  for (const [k, v] of m) m.set(k, f(v));
+};
+
+
+OrdMap.set = v => m => {
+  const k = m.id(v);
+
+  if (m.has(k)) {
+    m.set(k, v);
+    return m;
+  }
+
+  else {
+    m.set(k, v);
+    m.ks.push(k);
+    m.sorted = false;
+    return m;
+  }
+};
+
+
+OrdMap.upd = f => k => m => {
+  m.set(k, f(m.get(k)));
+  return m;
 };
 
 
