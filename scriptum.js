@@ -3019,8 +3019,8 @@ A.groupBy = p => xs => Loop2((acc, i) => {
 
 
 A.partition = p => xs => xs.reduce((pair, x)=> {
-  if (p(x)) return (pair[1].push(x), pair);
-  else return (pair[2].push(x), pair);
+  if (p(x)) return (pair[0].push(x), pair);
+  else return (pair[1].push(x), pair);
 }, Pair([], []));
 
 
