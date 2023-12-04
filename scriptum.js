@@ -14,6 +14,7 @@
 
 
 
+
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ████████████████████████████ CROSS-CUTTING ASPECTS ████████████████████████████
@@ -457,6 +458,206 @@ class Thunk {
     throw new Err("set op on immutable value");
   }
 }
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████ PERSISTANT DATA STRUCTURE ██████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* scriptum utilizes a 2-3 Tree as its basis for persistant data structures.
+This kind of tree offers the most straightforward implementation without any
+edge cases, which facilitates debugging of any code relying on persistance. The
+following data types will be supplied:
+
+* Iarray
+* Imap
+* Iset
+* Iobject
+
+The listed implementation is just a prove of concept, hence not stable. */
+
+
+export const Tree = {};
+
+
+Tree.Empty = {[TAG]: "Empty"};
+
+
+Tree.Node2 = (height, min, left, right) =>
+  ({[TAG]: "Node2", height, min, left, right});
+
+
+Tree.Node3 = (height, min, left, middle, right) =>
+  ({[TAG]: "Node3", height, min, left, middle, right});
+
+
+Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
+
+
+Tree.node2 = (left, right) =>
+  Tree.Node2(left.height + 1, left.min, left, right);
+
+
+Tree.node3 = (left, middle, right) =>
+  Tree.Node3(left.height + 1, left.min, left, middle, right);
+
+
+Tree.levelUp2 = (left, right) => [Tree.node2(left, right)];
+
+
+Tree.levelUp3 = (left, middle, right) =>
+  [Tree.node3(left, middle, right)];
+
+
+Tree.levelUp4 = (left, middle, middle2, right) =>
+  [Tree.node2(left, middle), Tree.node2(middle2, right)];
+
+
+Tree.levelHeight = (left, right) => {
+  if (left.height < right.height) {
+    if (right[TAG] === "Node2") {
+      const xs = Tree.levelHeight(left, right.left).concat(right.right);
+
+      switch (xs.length) {
+        case 2: return Tree.levelUp2(...xs);
+        case 3: return Tree.levelUp3(...xs);
+        case 4: return Tree.levelUp4(...xs);
+        default: throw Error("unexpected size");
+      }
+    }
+
+    else {
+      const xs = Tree.levelHeight(left, right.left).concat([right.middle, right.right]);
+
+      switch (xs.length) {
+        case 2: return Tree.levelUp2(...xs);
+        case 3: return Tree.levelUp3(...xs);
+        case 4: return Tree.levelUp4(...xs);
+        default: throw Error("unexpected size");
+      }
+    }
+  }
+
+  else if (left.height > right.height) {
+    if (left[TAG] === "Node2") {
+      const xs = [left.left].concat(Tree.levelHeight(left.right, right));
+
+      switch (xs.length) {
+        case 2: return Tree.levelUp2(...xs);
+        case 3: return Tree.levelUp3(...xs);
+        case 4: return Tree.levelUp4(...xs);
+        default: throw Error("unexpected size");
+      }
+    }
+
+    else {
+      const xs = [left.left, left.middle].concat(Tree.levelHeight(left.right, right));
+
+      switch (xs.length) {
+        case 2: return Tree.levelUp2(...xs);
+        case 3: return Tree.levelUp3(...xs);
+        case 4: return Tree.levelUp4(...xs);
+        default: throw Error("unexpected size");
+      }
+    }    
+  }
+
+  else return [left, right];
+};
+
+
+Tree.merge = (left, right) => {
+  if (left[TAG] === "Empty") return right;
+  else if (right[TAG] === "Empty") return left;
+
+  else {
+    const xs = Tree.levelHeight(left, right);
+
+    if (xs.length === 1) return xs[0];
+    else return Tree.node2(...xs);
+  }
+};
+
+
+Tree.split = (tree, f) => {
+  if (tree[TAG] === "Empty") return [Tree.Empty, Tree.Empty];
+
+  else if (tree[TAG] === "Leaf") {
+    if (f(tree.x)) return [Tree.Empty, Tree.Leaf(tree.x)];
+    else return [Tree.Leaf(tree.x), Tree.Empty];
+  }
+
+  else if (tree[TAG] === "Node2") {
+    if (f(tree.right.min)) {
+      const [left, right] = Tree.split(tree.left, f);
+      return [left, Tree.merge(right, tree.right)];
+    }
+
+    else {
+      const [left, right] = Tree.split(tree.right, f);
+      return [Tree.merge(tree.left, left), right];
+    }
+  }
+
+  else {
+    if (f(tree.middle.min)) {
+      const [left, right] = Tree.split(tree.left, f);
+      return [left, Tree.merge(right, Tree.node2(tree.middle, tree.right))];
+    }
+
+    if (f(tree.right.min)) {
+      const [left, right] = Tree.split(tree.middle, f);
+      return [Tree.merge(tree.left, left), Tree.merge(right, tree.right)];
+    }
+
+    else {
+      const [left, right] = Tree.split(tree.right, f);
+      return [Tree.merge(Tree.node2(tree.left, tree.middle), left), right];
+    }
+  }
+};
+
+
+Tree.has = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x);
+
+  if (right[TAG] === "Empty") return false;
+  else return right.min === x;
+};
+
+
+Tree.ins = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x);
+  return Tree.merge(Tree.merge(left, Tree.Leaf(x)), right);
+};
+
+
+Tree.del = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x),
+    [, right2] = Tree.split(right, y => y > x);
+
+  return Tree.merge(left, right2);
+};
+
+
+Tree.fromArr = xs => xs.reduce((acc, x) =>
+  Tree.ins(acc, x), Tree.Empty)
+
+
+Tree.prepend = (tree, xs = []) => {
+  if (tree[TAG] === "Empty") return xs;
+  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
+  
+  else if (tree[TAG] === "Node2")
+    return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
+
+  else if (tree[TAG] === "Node3")
+    return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
+};
+
+
+Tree.toList = tree => Tree.prepend(tree);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4199,6 +4400,134 @@ D.formatYear = digits => d => {
     default: throw new RangeError("invalid number of digits");
   }
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ DEQUE ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Double-ended queue is not a persistant data type by default but can be used
+as one with little effort. It is suitable for the following array-like ops:
+
+* add/delete head (shift/unshift)
+* add/delete last (pop/push)
+* concat at head/last
+* split at head/last
+
+It is equally fast like native arrays for popping/pushing elements to the end
+but faster for shifting/unshifting and concatenation, especially for large
+amounts of data. As opposed to native arrays, adding to/deleting from the head
+of the deque and concatenation aren't a destructive operations. */
+
+class Deque {
+  constructor() {
+    this.head = null;
+    this.tail = null;
+    this.length = 0;
+  }
+
+  addLast(x) {
+    const node = {
+      x,
+      next: null,
+      prev: null
+    }
+
+    if (!this.head) {
+      this.head = node;
+      this.tail = node;
+    }
+
+    else {
+      node.prev = this.tail;
+      this.tail.next = node;
+      this.tail = node;
+    }
+    this.length++;
+    return this;
+  }
+
+  addHead(x) {
+    if (!this.head) return this.addLast(x);
+
+    else {
+      const node = {x, next: null, prev: null};
+
+      node.next = this.head;
+      this.head.prev = node;
+      this.head = node;
+      this.length++;
+      return this;
+    }
+  }
+
+  getHead() {
+    return this.head.x;
+  }
+  
+  getLast() {
+    return this.tail.x;
+  }
+  
+  remHead() {
+    if (this.length === 0) return null;
+
+    else if (this.length === 1) {
+      const first = this.head.x;
+      this.head = null;
+      this.tail = null;
+      this.prev = null;
+      this.length--;
+      return first;
+    }
+
+    else {
+      const first = this.head.x,
+        head = this.head.next;
+
+      head.prev = null;
+      this.head = head;
+      this.length--;
+      return first;
+    }
+  }
+
+  remLast() {
+    if (this.length === 0) return null;
+
+    else if (this.length === 1) {
+      const last = this.tail.x;
+      this.head = null;
+      this.tail = null;
+      this.prev = null;
+      this.length--;
+      return last;
+    }
+
+    else {
+      const last = this.tail.value,
+        tail = this.tail.prev;
+
+      tail.next = null;
+      this.tail = tail;
+      this.length--;
+      return last;
+    }
+  }
+
+  toArray() {
+    const xs = [];
+    let currNode = this.head;
+
+    while (currNode !== null) {
+      xs.push(currNode.x);
+      currNode = currNode.next;
+    }
+
+    return xs;
+  }
+}
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10022,3 +10351,20 @@ export const FileSys = fs => Cons => thisify(o => {
 
   return o;
 });
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ TODO █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+/*
+
+  * add foldl1/foldr1 to all container types
+  * conversion: fromFoldable instead of fromList/fromArray
+  * delete S.once/P.once etc. provided it is redundant
+  * add Represantable type class
+  * add Distributive type class
+
+*/
