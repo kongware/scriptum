@@ -296,7 +296,7 @@ export const lazy = thunk =>
 
 
 /*
-█████ Implementation ██████████████████████████████████████████████████████████*/
+█████ Implementation Details ██████████████████████████████████████████████████*/
 
 
 class Thunk {
@@ -485,10 +485,17 @@ following data types will be supplied:
 The listed implementation is just a prove of concept, hence not stable. */
 
 
-export const Tree = {};
+/*const TAG = Symbol.toStringTag;
+const Err = Error;*/
+
+
+const Tree = {};
 
 
 Tree.Empty = {[TAG]: "Empty"};
+
+
+Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
 
 
 Tree.Node2 = (height, min, left, right) =>
@@ -499,9 +506,6 @@ Tree.Node3 = (height, min, left, middle, right) =>
   ({[TAG]: "Node3", height, min, left, middle, right});
 
 
-Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
-
-
 Tree.node2 = (left, right) =>
   Tree.Node2(left.height + 1, left.min, left, right);
 
@@ -510,63 +514,50 @@ Tree.node3 = (left, middle, right) =>
   Tree.Node3(left.height + 1, left.min, left, middle, right);
 
 
-Tree.levelUp2 = (left, right) => [Tree.node2(left, right)];
+/*
+█████ Implementation Details ██████████████████████████████████████████████████*/
 
 
-Tree.levelUp3 = (left, middle, right) =>
-  [Tree.node3(left, middle, right)];
-
-
-Tree.levelUp4 = (left, middle, middle2, right) =>
-  [Tree.node2(left, middle), Tree.node2(middle2, right)];
+Tree.levelUp = args => {
+  switch(args.length) {
+    case 2: return [Tree.node2(...args)];
+    case 3: return [Tree.node3(...args)];  
+    case 4: return [Tree.node2(args[0], args[1]), Tree.node2(args[2], args[3])];
+    default: throw new Err("unexpected number of arguments");
+  }
+}
 
 
 Tree.levelHeight = (left, right) => {
   if (left.height < right.height) {
     if (right[TAG] === "Node2") {
-      const xs = Tree.levelHeight(left, right.left).concat(right.right);
+      const xs = Tree.levelHeight(left, right.left)
+        .concat(right.right);
 
-      switch (xs.length) {
-        case 2: return Tree.levelUp2(...xs);
-        case 3: return Tree.levelUp3(...xs);
-        case 4: return Tree.levelUp4(...xs);
-        default: throw Err("unexpected size");
-      }
+      return Tree.levelUp(xs);
     }
 
     else {
-      const xs = Tree.levelHeight(left, right.left).concat([right.middle, right.right]);
+      const xs = Tree.levelHeight(left, right.left)
+        .concat([right.middle, right.right]);
 
-      switch (xs.length) {
-        case 2: return Tree.levelUp2(...xs);
-        case 3: return Tree.levelUp3(...xs);
-        case 4: return Tree.levelUp4(...xs);
-        default: throw Err("unexpected size");
-      }
+      return Tree.levelUp(xs);
     }
   }
 
   else if (left.height > right.height) {
     if (left[TAG] === "Node2") {
-      const xs = [left.left].concat(Tree.levelHeight(left.right, right));
+      const xs = [left.left]
+        .concat(Tree.levelHeight(left.right, right));
 
-      switch (xs.length) {
-        case 2: return Tree.levelUp2(...xs);
-        case 3: return Tree.levelUp3(...xs);
-        case 4: return Tree.levelUp4(...xs);
-        default: throw Err("unexpected size");
-      }
+      return Tree.levelUp(xs);
     }
 
     else {
-      const xs = [left.left, left.middle].concat(Tree.levelHeight(left.right, right));
+      const xs = [left.left, left.middle]
+        .concat(Tree.levelHeight(left.right, right));
 
-      switch (xs.length) {
-        case 2: return Tree.levelUp2(...xs);
-        case 3: return Tree.levelUp3(...xs);
-        case 4: return Tree.levelUp4(...xs);
-        default: throw Err("unexpected size");
-      }
+      return Tree.levelUp(xs);
     }    
   }
 
@@ -626,6 +617,61 @@ Tree.split = (tree, f) => {
 };
 
 
+Tree.prepend = (tree, xs = []) => {
+  if (tree[TAG] === "Empty") return xs;
+  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
+  
+  else if (tree[TAG] === "Node2")
+    return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
+
+  else if (tree[TAG] === "Node3")
+    return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
+};
+
+
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
+
+
+/* The elimination rule of the type. Catamorphisms are more general and thus
+more expressive than folds, because they factor all value constructors in.
+`Either`, for instance, has two constructors and the catamorphism receives two
+functions accordingly, one for each constructor. A fold on the other hand has
+only a single function `f` and a constant `acc`, i.e. it is one function short
+to fully cover `Either`'s cases. For this reason catamorphism and fold coincide
+for `List`, because both the type includes exactly a single type constructor
+`Cons` and a type constant `Nil`.
+
+Catamorphisms are usually defined as a loop to avoid stack overflows. However,
+the depth of a more or less balanced tree should regularly not exhaust the call
+stack, hence it is recursively defined. */
+
+
+Tree.cata = ({empty, leaf, node2, node3}) => function go(tree) {
+  switch (tree[TAG]) {
+    case "Empty": return empty();
+    case "Leaf": return leaf(tree.x);
+
+    case "Node2": return node2(
+      tree.height,
+      tree.min,
+      go(tree.left),
+      go(tree.right))
+
+    case "Node3": return node3(
+      tree.height,
+      tree.min,
+      go(tree.left),
+      go(tree.middle),
+      go(tree.right))
+  }
+};
+
+
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+
+
 Tree.has = (tree, x) => {
   const [left, right] = Tree.split(tree, y => y >= x);
 
@@ -648,23 +694,21 @@ Tree.del = (tree, x) => {
 };
 
 
-Tree.fromArr = xs => xs.reduce((acc, x) =>
-  Tree.ins(acc, x), Tree.Empty)
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Tree.prepend = (tree, xs = []) => {
-  if (tree[TAG] === "Empty") return xs;
-  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
-  
-  else if (tree[TAG] === "Node2")
-    return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
-
-  else if (tree[TAG] === "Node3")
-    return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
-};
+Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
 
 
-Tree.toList = tree => Tree.prepend(tree);
+Tree.toArr = tree => Tree.prepend(tree);
+
+
+/*let t = Tree.fromArr([1,2,3,4,5]);
+t = Tree.ins(t, 6);
+t = Tree.del(t, 1);
+Tree.toArr(t);
+Tree.cata({empty: () => Tree.Empty, leaf: Tree.Leaf, node2: Tree.Node2, node3: Tree.Node3}) (t);*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6297,11 +6341,13 @@ export const O = Obj; // shortcut;
 █████ Clonable ████████████████████████████████████████████████████████████████*/
 
 
+// getter/setter safe cloning
+
 O.clone = o => {
   const p = {};
 
   for (const k of objKeys(o))
-    Object.defineProperty( // getter/setter safe
+    Object.defineProperty(
       p, k, Object.getOwnPropertyDescriptor(o, k));
 
   return p;
@@ -6326,17 +6372,6 @@ O.toPairs = Object.entries;
 
 
 O.new = (tag = null) => (...ks) => (...vs) => {
-  if (ks.length !== vs.length)
-    throw new Err("keys don't match values");
-
-  return ks.reduce((acc, k, i) => {
-    acc[k] = vs[i];
-    return acc;
-  }, tag === null ? {} : {[TAG]: tag});
-};
-
-
-O.new_ = (tag = null) => (...ks) => vs => {
   if (ks.length !== vs.length)
     throw new Err("keys don't match values");
 
@@ -6475,14 +6510,16 @@ O.valueStream = o => {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-export const lazyProp = k => thunk => o => // create lazy property that shares its result
+// create lazy property that shares its result
+
+O.lazyProp = k => thunk => o =>
   Object.defineProperty(o, k, {
     get: function() {delete o[k]; return o[k] = thunk()},
     configurable: true,
     enumerable: true});
 
 
-O.lazyProp = lazyProp;
+O.lazyProps = dtors => o => Object.defineProperties(o, ...dtors);
 
 
 // self referencing during object creation
