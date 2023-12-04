@@ -315,10 +315,12 @@ class Thunk {
         this.memo = this.memo[EVAL];
     }
 
+    if (typeof this.memo === "function") this.memo = this.memo(...args);
+
     // allow implicit thunks to be called explicitly
 
-    if (typeof this.memo === "function") this.memo = this.memo(...args);
-    else return this.memo;
+    else if (args.length === 0) return this.memo;
+    else throw Err("call of a non-callable thunk");
   }
 
   get(f, k, p) {
@@ -528,7 +530,7 @@ Tree.levelHeight = (left, right) => {
         case 2: return Tree.levelUp2(...xs);
         case 3: return Tree.levelUp3(...xs);
         case 4: return Tree.levelUp4(...xs);
-        default: throw Error("unexpected size");
+        default: throw Err("unexpected size");
       }
     }
 
@@ -539,7 +541,7 @@ Tree.levelHeight = (left, right) => {
         case 2: return Tree.levelUp2(...xs);
         case 3: return Tree.levelUp3(...xs);
         case 4: return Tree.levelUp4(...xs);
-        default: throw Error("unexpected size");
+        default: throw Err("unexpected size");
       }
     }
   }
@@ -552,7 +554,7 @@ Tree.levelHeight = (left, right) => {
         case 2: return Tree.levelUp2(...xs);
         case 3: return Tree.levelUp3(...xs);
         case 4: return Tree.levelUp4(...xs);
-        default: throw Error("unexpected size");
+        default: throw Err("unexpected size");
       }
     }
 
@@ -563,7 +565,7 @@ Tree.levelHeight = (left, right) => {
         case 2: return Tree.levelUp2(...xs);
         case 3: return Tree.levelUp3(...xs);
         case 4: return Tree.levelUp4(...xs);
-        default: throw Error("unexpected size");
+        default: throw Err("unexpected size");
       }
     }    
   }
@@ -4373,7 +4375,7 @@ D.formatDay = digits => d => {
   switch (digits) {
     case 1: return String(d.getUTCDate());
     case 2: return String(d.getUTCDate()).padStart(2, "0");
-    default: throw new RangeError("invalid number of digits");
+    default: throw new Err("invalid number of digits");
   }
 };
 
@@ -4383,7 +4385,7 @@ D.formatMonth = ({names = [], digits}) => d => {
     case 1: return String(d.getUTCMonth() + 1);
     case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
     case 3: return names[String(d.getUTCMonth())];
-    default: throw new RangeError("invalid number of digits");
+    default: throw new Err("invalid number of digits");
   }
 };
 
@@ -4393,7 +4395,7 @@ D.formatWeekday = ({names = [], digits}) => d => {
     case 1: return String(d.getUTCDay());
     case 2: return String(d.getUTCDay()).padStart(2, "0");
     case 3: return names[String(d.getUTCDay())];
-    default: throw new RangeError("invalid number of digits");
+    default: throw new Err("invalid number of digits");
   }
 };
 
@@ -4402,7 +4404,7 @@ D.formatYear = digits => d => {
   switch (digits) {
     case 2: return String(d.getUTCFullYear()).slice(2);
     case 4: return String(d.getUTCFullYear());
-    default: throw new RangeError("invalid number of digits");
+    default: throw new Err("invalid number of digits");
   }
 };
 
@@ -5691,7 +5693,7 @@ class DequeMap extends Map {
 DequeMap.cons = v => m => {
   const k = m.id(v);
   
-  if (m.has(k)) throw TypeError(`duplicate key "k"`);
+  if (m.has(k)) throw Err(`duplicate key "${k}"`);
   
   else {
     m.set(k, v);
@@ -5715,7 +5717,7 @@ DequeMap.map = f => m => {
 DequeMap.snoc = v => m => {
   const k = m.id(v);
   
-  if (m.has(k)) throw TypeError(`duplicate key "k"`);
+  if (m.has(k)) throw Err(`duplicate key "${k}"`);
 
   else {
     m.set(k, v);
@@ -6084,7 +6086,7 @@ export const SafeNum = (int, dec) => {
   dec = dec.padEnd(Snum.precision_, "0");
 
   if (Snum.precision_ < dec.length)
-    throw new TypeError("unsufficient precision");
+    throw new Err("unsufficient precision");
 
   else return Object.freeze({
     [TAG]: "SafeNum",
