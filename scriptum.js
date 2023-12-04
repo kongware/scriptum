@@ -7810,6 +7810,342 @@ Pex.allList = Pex.allList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ PAIR █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Pair = (x, y) => ({
+  [TAG]: "Pair",
+  0: x,
+  1: y,
+  length: 2,
+
+ [Symbol.iterator]: function*() {
+    yield x;
+    yield y;
+  }  
+});
+
+
+// constructor to define lazy getters
+
+export const Pair_ = o => {
+  o[TAG] = "Pair";
+  o.length = 2;
+
+  o[Symbol.iterator] = function*() {
+    yield o[0];
+    yield o[1];
+  };
+
+  return o;
+};
+
+
+/*
+█████ Extracting ██████████████████████████████████████████████████████████████*/
+
+
+Pair.fst = tx => tx[1];
+
+
+Pair.snd = tx => tx[2];
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Pair.map = f => ({1: x, 2: y}) => Pair(x, f(y));
+
+
+Pair.Functor = {map: Pair.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Pair.ap = Semigroup => ({1: x, 2: f}) => ({1: y, 2: z}) =>
+  Pair(Semigroup.append(x) (y), f(z));
+
+
+Pair.Apply = {
+  ...Pair.Functor,
+  ap: Pair.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Pair.of = Monoid => x => Pair(Monoid.empty, x);
+
+
+Pair.Applicative = {
+  ...Pair.Apply,
+  of: Pair.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Pair.chain = Semigroup => fm => ({1: x, 2: y}) => {
+  const {1: x2, 2: y2} = fm(y);
+  return Pair(Semigroup.append(x) (x2), y2);
+};
+
+
+Pair.Chain = {
+  ...Pair.Apply,
+  chain: Pair.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Pair.Monad = {
+  ...Pair.Applicative,
+  chain: Pair.chain
+};
+
+
+/*
+█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
+
+
+/* bimap/dimap comparison:
+
+  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
+            ^^^^^^
+  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
+            ^^^^^^                                                  */
+
+
+Pair.bimap = f => g => tx => Pair(f(tx[0]), g(tx[1]));
+
+
+Pair.Bifunctor = ({
+  ...Pair.Functor,
+  bimap: Pair.bimap
+});
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+Pair.extend = fw => wx => Pair(wx[0], fw(wx));
+
+
+Pair.Extend = {
+  ...Pair.Functor,
+  extend: Pair.extend
+};
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+Pair.extract = Pair.snd;
+
+
+Pair.Comonad = {
+  ...Pair.Extend,
+  extract: Pair.extract
+};
+
+
+/*
+█████ Getters/Setters █████████████████████████████████████████████████████████*/
+
+
+Pair.setFst = x => tx => Pair(x, tx[1]);
+
+
+Pair.setSnd = x => tx => Pair(tx[0], x);
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+Pair.mapFst = f => tx => Pair(f(tx[0]), tx[1]);
+
+
+Pair.swap = tx => Pair(tx[1], tx[0]);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████ PAIR :: WRITER :: TRANSFORMER ████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Writer = mmx => ({ // constructor
+  [TAG]: "Writer",
+  run: mmx
+});
+
+
+export const W = Writer; // shortcut
+
+
+// structure: m (a, w)
+
+
+W.T = outer => thisify(o => { // outer monad's type dictionary
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  o.fromPair = pair => Writer(outer.of(pair));
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  o.map = f => mmx => Writer(outer.map(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  o.ap = Semigroup => mmf => mmx =>
+    Writer(outer.ap(outer.map(mx => my =>
+      Pair(mx[0] (my[0]), Semigroup.append(mx[1]) (my[1])))
+        (mmf.run)) (mmx.run));
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  o.of = Monoid => x => Writer(outer.of(Pair(x, Monoid.empty)));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  o.chain = Semigroup => mmx => fmm =>
+    Writer(outer.chain(mmx.run) (mx =>
+      outer.map(my =>
+        Pair(my[0], Semigroup.append(mx[1]) (my[1])))
+          (fmm(mx[0]).run)));
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  o.append = (Semigroup, Semigroup2) => mmx => mmy =>
+    Writer(outer.chain(mmx.run) (mx =>
+      outer.map(my => Pair(
+        Semigroup.append(mx[0]) (my[0]),
+        Semigroup2.append(mx[1]) (my[1])))
+          (mmy.run)));
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  o.empty = (Monoid, Monoid2) => Writer(outer.of(Pair(Monoid.empty, Monoid2.empty)));
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  o.lift = Monoid => mx => Writer(chain(mx) (x => of(Pair(x, Monoid.empty))));
+
+
+  // TODO
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+  o.censor = f => mmx => Writer(outer.map(mx =>
+    Pair(mx[0], f(mx[1]))) (mmx.run));
+
+  o.censor = f => tx => Writer(of(Pair(tx[0], f(tx[1]))));
+
+
+  o.exec = mmx => outer.map(mx => mx[1]) (mmx.run);
+
+
+  o.listen = mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0], mx[1]), mx[1])) (mmx.run));
+
+
+  o.listens = f => mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0], f(mx[1])), mx[1])) (mmx.run));
+
+
+  o.pass = mmx => Writer(outer.map(mx =>
+    Pair(Pair(mx[0] [0], mx[0] [1] (mx[1])))) (mmx.run));
+
+
+  o.tell = x => Writer(of(Pair(null, x)));
+
+  
+  return o;
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ PARSER ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -9785,17 +10121,19 @@ Trampoline.of = Trampoline.of();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Represents a usual Javascript tree where nodes are encoded as objects with
+/* TODO: incorporate into 2-3 Tree
+
+Represents a usual Javascript tree where nodes are encoded as objects with
 two fields, one for the value and another for the branch. The latter is encoded
 as an array. It is unbalanced and thus has no unambigious construction rule. It
 is merely meant as a proof of concept you can infer your own trees from. */
 
 
-const Tree = {};
+const TreeN = {};
 
 
-Tree.Node = x => branch => ({
-  [TAG]: "Tree",
+TreeN.Node = x => branch => ({
+  [TAG]: "TreeN",
   x,
   branch
 });
@@ -9819,7 +10157,7 @@ the depth of a more or less balanced tree should regularly not exhaust the call
 stack, hence it is recursively defined. */
 
 
-Tree.cata = node => function go({x, branch}) {
+TreeN.cata = node => function go({x, branch}) {
   return node(x) (branch.map(go));
 };
 
@@ -9830,26 +10168,26 @@ Tree.cata = node => function go({x, branch}) {
 
 // left-associative fold with depth, index and length of respective branch
 
-Tree.foldi = f => init => tx => function go({x, branch}, acc, depth, i, length) {
+TreeN.foldi = f => init => tx => function go({x, branch}, acc, depth, i, length) {
   return branch.reduce((acc2, ty, i, ys) => {
     return go(ty, acc2, depth + 1, i, ys.length);
   }, f(acc) (x, {depth, i, length}));
 } (tx, init, 0, 0, 1);
 
 
-Tree.foldl = compThd(A.foldl) (Tree.linearize); // pre-order
+TreeN.foldl = compThd(A.foldl) (TreeN.linearize); // pre-order
 
 
-Tree.foldLevel = tx => Tree.levels(tx) // level-order
+TreeN.foldLevel = tx => TreeN.levels(tx) // level-order
   .reduce((acc, xs) => (acc.push.apply(acc, xs), acc));
 
 
-Tree.foldr = compThd(A.foldr) (Tree.linearize); // post-order
+TreeN.foldr = compThd(A.foldr) (TreeN.linearize); // post-order
 
 
-Tree.Foldable = {
-  foldl: Tree.foldl,
-  foldr: Tree.foldr,
+TreeN.Foldable = {
+  foldl: TreeN.foldl,
+  foldr: TreeN.foldr,
 };
 
 
@@ -9857,33 +10195,33 @@ Tree.Foldable = {
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Tree.map = f => Tree.cata(x => xs => Tree.Node(f(x)) (xs));
+TreeN.map = f => TreeN.cata(x => xs => TreeN.Node(f(x)) (xs));
 
 
-Tree.Functor = {map: Tree.map};
+TreeN.Functor = {map: TreeN.map};
 
 
 /*
 █████ Induction ███████████████████████████████████████████████████████████████*/
 
 
-Tree.height = Tree.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
+TreeN.height = TreeN.foldi(acc => (x, {depth}) => acc < depth ? depth : acc) (0);
 
 
 // alternative implementation using the tree catamorphism
 
-Tree.height_ = function (foldMax_) {
-  return Tree.cata(_ => branch => 1 + foldMax_(branch))
+TreeN.height_ = function (foldMax_) {
+  return TreeN.cata(_ => branch => 1 + foldMax_(branch))
 } (foldMax({foldl1: A.foldl1}, {max}));
 
 
-Tree.levels = Tree.foldi(acc => (x, {depth}) => {
+TreeN.levels = TreeN.foldi(acc => (x, {depth}) => {
   if (!(depth in acc)) acc[depth] = [];
   return (acc[depth].push(x), acc);
 }) ([]);
 
 
-Tree.paths = tx => {
+TreeN.paths = tx => {
   const {x, branch: xs} = tx;
 
   if (xs.length === 0) return [[x]];
@@ -9900,394 +10238,11 @@ Tree.paths = tx => {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Tree.linearize = Tree.cata(x => xss => {
+TreeN.linearize = TreeN.cata(x => xss => {
   const xs = [x];
   xs.push.apply(xs, xss);
   return xs;
 });
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ TUPLE ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// encodes the most fundamental product type
-
-
-export const Tuple = {}; // namespace
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ TUPLE :: PAIR ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Pair = (x, y) => ({
-  [TAG]: "Pair",
-  0: x,
-  1: y,
-  length: 2,
-
- [Symbol.iterator]: function*() {
-    yield x;
-    yield y;
-  }  
-});
-
-
-// constructor to define lazy getters
-
-export const Pair_ = o => {
-  o[TAG] = "Pair";
-  o.length = 2;
-
-  o[Symbol.iterator] = function*() {
-    yield o[0];
-    yield o[1];
-  };
-
-  return o;
-};
-
-
-/*
-█████ Extracting ██████████████████████████████████████████████████████████████*/
-
-
-Pair.fst = tx => tx[1];
-
-
-Pair.snd = tx => tx[2];
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Pair.map = f => ({1: x, 2: y}) => Pair(x, f(y));
-
-
-Pair.Functor = {map: Pair.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Pair.ap = Semigroup => ({1: x, 2: f}) => ({1: y, 2: z}) =>
-  Pair(Semigroup.append(x) (y), f(z));
-
-
-Pair.Apply = {
-  ...Pair.Functor,
-  ap: Pair.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Pair.of = Monoid => x => Pair(Monoid.empty, x);
-
-
-Pair.Applicative = {
-  ...Pair.Apply,
-  of: Pair.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Pair.chain = Semigroup => fm => ({1: x, 2: y}) => {
-  const {1: x2, 2: y2} = fm(y);
-  return Pair(Semigroup.append(x) (x2), y2);
-};
-
-
-Pair.Chain = {
-  ...Pair.Apply,
-  chain: Pair.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Pair.Monad = {
-  ...Pair.Applicative,
-  chain: Pair.chain
-};
-
-
-/*
-█████ Functor :: Bifunctor ████████████████████████████████████████████████████*/
-
-
-/* bimap/dimap comparison:
-
-  bimap :: (a -> b) -> (c -> d) -> bifunctor  a c -> bifunctor  b d
-            ^^^^^^
-  dimap :: (b -> a) -> (c -> d) -> profunctor a c -> profunctor b d
-            ^^^^^^                                                  */
-
-
-Pair.bimap = f => g => tx => Pair(f(tx[0]), g(tx[1]));
-
-
-Pair.Bifunctor = ({
-  ...Pair.Functor,
-  bimap: Pair.bimap
-});
-
-
-/*
-█████ Functor :: Extend ███████████████████████████████████████████████████████*/
-
-
-Pair.extend = fw => wx => Pair(wx[0], fw(wx));
-
-
-Pair.Extend = {
-  ...Pair.Functor,
-  extend: Pair.extend
-};
-
-
-/*
-█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
-
-
-Pair.extract = Pair.snd;
-
-
-Pair.Comonad = {
-  ...Pair.Extend,
-  extract: Pair.extract
-};
-
-
-/*
-█████ Getters/Setters █████████████████████████████████████████████████████████*/
-
-
-Pair.setFst = x => tx => Pair(x, tx[1]);
-
-
-Pair.setSnd = x => tx => Pair(tx[0], x);
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-Pair.mapFst = f => tx => Tuple(k => tx.run((x, y) => Pair(f(x), y)));
-
-
-Pair.swap = tx => Pair(tx[1], tx[0]);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████ TUPLE :: PAIR :: WRITER :: TRANSFORMER ████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Writer = mmx => ({ // constructor
-  [TAG]: "Writer",
-  run: mmx
-});
-
-
-export const W = Writer; // shortcut
-
-
-// structure: m (a, w)
-
-
-W.T = outer => thisify(o => { // outer monad's type dictionary
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-  o.fromPair = pair => Writer(outer.of(pair));
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  o.map = f => mmx => Writer(outer.map(mx => Pair(f(mx[0]), mx[1])) (mmx.run));
-
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  o.ap = Semigroup => mmf => mmx =>
-    Writer(outer.ap(outer.map(mx => my =>
-      Pair(mx[0] (my[0]), Semigroup.append(mx[1]) (my[1])))
-        (mmf.run)) (mmx.run));
-
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  o.of = Monoid => x => Writer(outer.of(Pair(x, Monoid.empty)));
-
-
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  o.chain = Semigroup => mmx => fmm =>
-    Writer(outer.chain(mmx.run) (mx =>
-      outer.map(my =>
-        Pair(my[0], Semigroup.append(mx[1]) (my[1])))
-          (fmm(mx[0]).run)));
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-  o.append = (Semigroup, Semigroup2) => mmx => mmy =>
-    Writer(outer.chain(mmx.run) (mx =>
-      outer.map(my => Pair(
-        Semigroup.append(mx[0]) (my[0]),
-        Semigroup2.append(mx[1]) (my[1])))
-          (mmy.run)));
-
-
-  o.Semigroup = {append: o.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-  o.empty = (Monoid, Monoid2) => Writer(outer.of(Pair(Monoid.empty, Monoid2.empty)));
-
-
-  o.Monoid = {
-    ...o.Semigroup,
-    empty: o.empty
-  };
-
-
-/*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-  o.lift = Monoid => mx => Writer(chain(mx) (x => of(Pair(x, Monoid.empty))));
-
-
-  // TODO
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-  o.censor = f => mmx => Writer(outer.map(mx =>
-    Pair(mx[0], f(mx[1]))) (mmx.run));
-
-  o.censor = f => tx => Writer(of(Pair(tx[0], f(tx[1]))));
-
-
-  o.exec = mmx => outer.map(mx => mx[1]) (mmx.run);
-
-
-  o.listen = mmx => Writer(outer.map(mx =>
-    Pair(Pair(mx[0], mx[1]), mx[1])) (mmx.run));
-
-
-  o.listens = f => mmx => Writer(outer.map(mx =>
-    Pair(Pair(mx[0], f(mx[1])), mx[1])) (mmx.run));
-
-
-  o.pass = mmx => Writer(outer.map(mx =>
-    Pair(Pair(mx[0] [0], mx[0] [1] (mx[1])))) (mmx.run));
-
-
-  o.tell = x => Writer(of(Pair(null, x)));
-
-  
-  return o;
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ TUPLE :: TRIPLE ███████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const Triple = (x, y, z) => ({
-  [TAG]: "Triple",
-  0: x,
-  1: y,
-  2: z,
-  length: 3,
-
-  [Symbol.iterator]: function*() {
-    yield x;
-    yield y;
-    yield z;
-  }
-});
-
-
-// constructor to define lazy getters
-
-export const Triple_ = o => {
-  o[TAG] = "Triple";
-  o.length = 3;
-
-  o[Symbol.iterator] = function*() {
-    yield o[0];
-    yield o[1];
-    yield o[2];
-  };
-
-  return o;
-};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
