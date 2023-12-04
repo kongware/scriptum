@@ -14,15 +14,19 @@
 
 
 
-
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ CONSTANTS ██████████████████████████████████
+████████████████████████████ CROSS-CUTTING ASPECTS ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-const PREFIX = "$_"; // avoid property name collisions
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ CONSTANTS ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+const PREFIX = "$riptum_"; // avoid property name collisions
 
 
 export const NOOP = null; // no operation
@@ -35,60 +39,34 @@ export const TAG = Symbol.toStringTag;
 
 
 /*
-█████ Order Protocol ██████████████████████████████████████████████████████████*/
+█████ Native Order Protocol ███████████████████████████████████████████████████*/
 
 
-// Javascript's order protocol but reference identity with a tagged object
+export const LT = {[TAG]: "Ordering", tag: "LT", valueOf: () => -1};
 
 
-export const LT = {
-  [TAG]: "Ordering",
-  run: -1,
-  valueOf: () => -1,
-  toString: () => "-1"
-};
+export const EQ = {[TAG]: "Ordering", tag: "EQ", valueOf: () => 0};
 
 
-export const EQ = {
-  [TAG]: "Ordering",
-  run: 0,
-  valueOf: () => 0,
-  toString: () => "0"
-};
-
-
-export const GT = {
-  [TAG]: "Ordering",
-  run: 1,
-  valueOf: () => 1,
-  toString: () => "1"
-};
+export const GT = {[TAG]: "Ordering", tag: "GT", valueOf: () => 1};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ STATE ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Shared state between asynchronous computations. It forces `Serial` and other
-async types to wrap the next continuation into a stack-safe `Promise`, that way
-rendering them stack-save as well. Every instantiation of an async value
-increases the counter by one. It is reset to zero as soon as it gets greater
-that 100. There might be edge cases where the picked upper bound doesn't stop
-a single or several parallel async computations from exhausting the stack. In
-this case, the upper bound will be reduced, which would result in an increased
-promise creation along the way. */
+/* The monadic types for asynchronous computation used in this library are not
+stack safe by default. However, for large asynchronous computations you can run
+these types with a special method that utilizes stack safe promises. Every time
+the asynchronous counter is greater than a hundred, the monadic asynchronous
+type is wrapped in a native promise and the counter is reset to zero. The
+counter is shared between all running asynchronous operations.
+
+TODO: use counters as free variables of closures to separate them for each
+asynchrounous operation */
 
 let asyncCounter = 0; // upper bound: 100
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-████████████████████████████ CROSS-CUTTING ASPECTS ████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -100,9 +78,24 @@ let asyncCounter = 0; // upper bound: 100
 █████ Product Type ████████████████████████████████████████████████████████████*/
 
 
+/* Functions that mimic product types expect more than a single argument. The
+library utilizes a plain old Javascript object to feed them into the function.
+This approach has several advantages:
+
+* arguments are annotated
+* only one function call necessary
+* tests for exhaustiveness
+
+However, the partially applied function cannot be used in curried form anymore.
+
+You can still use curried and uncurried functions that mimic product types, ofc:
+
+* x => y => {...}
+* (x, y) => {...} */
+
 export const product = type => (...ks) => o => {
   for (const k of ks)
-    if (!(k in o)) throw new Err(`missing key "${k}"`);
+    if (!(k in o)) throw new Err(`missing parameter "${k}"`);
 
   return {
     [TAG]: type,
@@ -112,28 +105,13 @@ export const product = type => (...ks) => o => {
 };
 
 
-export const product_ = type => (...ks) => (...vs) => {
-  const acc = {};
-
-  if (ks.length !== vs.length) throw new Err("key/value mismatch");
-
-  for (let i = 0; i < ks.length; i++)
-    acc[ks[i]] = vs[i];
-
-  return {
-    [TAG]: type,
-    get: acc,
-    run: f => f(acc)
-  };
-};
-
-
 /*
 █████ Variant Types ███████████████████████████████████████████████████████████*/
 
 
-/* Variant(/sum) and product types to create flexible and safe variants(/sums)
-of products.
+/* Variant types encode the idea of logical exclusive or relation between cases
+(variants) of a type and constructors. As with product types, scriptum mimics
+variant types with functions. Here is an example:
 
   const Either = variant("Either", "Left", "Right") (cons0, cons);
 
@@ -144,16 +122,16 @@ of products.
   ty.run(Either.match({left: 0, right: x => x * x})); // yields 0
 
 `Either` is the type constructor and `Either.Left`/`Either.Right` are value
-constructors. `Either.match` is a helper to create typed objects that are case
-exhaustive, i.e. supply all necessary cases of the given type.
+constructors. `Either.match` is an auxiliary function to create typed objects
+that include an exhaustiveness check. Alternatively, the bare case object can
+be passed but it is the responsibility of the caller to supply all cases.
 
-A variant type expects a function per case as arguments. It then calls the right
-function passing its internal value as an argument. This value (or values) are
-hidden as free variables of a closure. This renders debugging harder. For this
-reason each variant type includes a `get`-property you can access these internal
-value(s) with. Please note that the usage of these values for programming
-purposes may be unsafe depending on the specific variant type. Since a variant
-value may include no, one or many values, `get` always yields an array. */
+Variant types encoded with functions hide the data as free variables of
+closures and thus make debugging more complicated. For this reason all data
+is revealed through an object property.
+
+The `consn` constructor encodes product within variant types, i.e. the idea
+of variants of products and vice versa. */
 
 export const variant = (type, ...tags) => (...cons) => {
   if (tags.length !== cons.length)
@@ -164,36 +142,36 @@ export const variant = (type, ...tags) => (...cons) => {
     return acc;
   }, {});
 
-  o.match = O.matchPattern_(tags.map(tag =>
+  o.match = O.matchPattern(...tags.map(tag =>
     tag[0].toLowerCase() + tag.slice(1)));
 
   return o;
 };
 
 
-// constant instead of function
+// constant
 
 export const cons0 = (type, tag, k) =>
-  ({[TAG]: type, get: [], run: ({[k]: x}) => x, tag});
+  ({[TAG]: type, get: null, run: ({[k]: x}) => x, tag});
 
+
+// single paremeter constructor
 
 export const cons = (type, tag, k) => x =>
-  ({[TAG]: type, get: [x], run: ({[k]: f}) => f(x), tag});
+  ({[TAG]: type, get: x, run: ({[k]: f}) => f(x), tag});
 
+
+// binary paremeter constructor
 
 export const cons2 = (type, tag, k) => x => y =>
   ({[TAG]: type, get: [x, y], run: ({[k]: f}) => f(x) (y), tag});
 
 
-export const cons3 = (type, tag, k) => x => y => z =>
-  ({[TAG]: type, get: [x, y, z], run: ({[k]: f}) => f(x) (y) (z), tag});
+// multi parameter constructor (product)
 
-
-// object as argument
-
-export const consObj = (...ks) => (type, tag, k) => o => {
+export const consn = (...ks) => (type, tag, k) => o => {
   for (const k2 of ks)
-    if (!(k2 in o)) throw new Err(`missing key "${k2}"`);
+    if (!(k2 in o)) throw new Err(`missing parameter "${k2}"`);
 
   return {
     [TAG]: type,
@@ -205,27 +183,11 @@ export const consObj = (...ks) => (type, tag, k) => o => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████ APPLICATOR ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// enables flat syntax by utilizing method chaining without relying on `this`
-
-export const App = t => ({
-  app: x => App(t(x)), // applies the boxed fun
-  app_: y => App(x => t(x) (y)), // applies the 2nd arg of the boxed fun
-  map: f => App(f(t)),  // applies the fun
-  map_: f => App(x => f(x) (t)), // applies the 2nd arg of the fun
-  get: t // gets the boxed value
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ ERRORS ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Err = TypeError; // shortcut
+export const Err = Error; // shortcut
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -233,8 +195,9 @@ export const Err = TypeError; // shortcut
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Indicates errors that are not immediately thrown, i.e. you can recover from
-them without using `catch`. `Exception` is a subtype of `Error`. */
+/* Exceptions denote errors that are not immediately thrown but dynamically
+handled by the operation they occur in. Usually used along with the monadic
+`Except` type. */
 
 export class Exception extends Error {
   constructor(s) {
@@ -244,19 +207,20 @@ export class Exception extends Error {
 };
 
 
-// accumulated exceptions
+/* Exception type that accumulates individual exceptions. Useful when you need
+to log errors/exceptions for later reporting. */
 
-export class Exceptions extends Error {
+export class Exceptions extends Exception {
   constructor(...es) {
-    const ess = [];
-    super("exceptions");
+    super();
+    this.errors = []; // excepts `Error` and subclasses
 
     es.forEach(e => {
-      if (e.constructor.name === "Exceptions") ess.push(e.es);
-      else ess.push(e);
-    });
+      if (e.constructor.name === "Exceptions")
+        this.errors.push.apply(this.errors, e.errors);
 
-    this.es = ess.flat();
+      else this.errors.push(e);
+    });
   }
 };
 
@@ -272,18 +236,27 @@ export class Exceptions extends Error {
   * evaluate only as far as necessary (to WHNF)
   * evaluate at most once (sharing)
 
-In this library lazy evaluation is realized with implicit thunks, i.e. thunks
-like `() => expr` that behave like `expr` on the consuming side. The technique
-is based on `Proxy`s with thunks as their targets. There are some limitations
-to this Proxy-based thunk technique:
+scriptum realizes lazy evaluation using implicit thunks, i.e. thunks like
+`() => expr` are hidden behind a proxy and thus are called implicitly:
 
-  * `typeof` isn't intercepted by the proxy (always yields `object`)
-  * `===` doesn't trigger evaluation of proxy-based thunks
-  * `throw` doesn't trigger evaluation of proxy-based thunks
+  * expr + x
+  * expr.foo
+  * expr < x
 
-Especially the last case must be taken into account and is the reason why
-combinator of certain types like `Option` enforce strict evaluation in the
-context of equality checking. */
+In all three operations `expr` as an implicit thunk is evaluated. You can also
+call implicit thunks as if it were explicit ones, i.e. `expr()` works even if
+the expression within the implicit thunk isn't a function.
+
+There are some limitations to this Proxy-based thunk approach:
+
+  * `typeof` isn't intercepted by the proxy (thus yields `object`)
+  * `===` doesn't trigger evaluation
+  * `&&`/`||` doesn't trigger evaluation
+  * `throw` doesn't trigger evaluation
+
+These limitations are considered throughout the library. Please note that
+besides implicit thunks scriptum also encodes a `Lazy` type that hides thunks
+behind a monadic interface. */
 
 
 /*
@@ -336,7 +309,10 @@ class Thunk {
         this.memo = this.memo[EVAL];
     }
 
-    return this.memo(...args);
+    // allow implicit thunks to be called explicitly
+
+    if (typeof this.memo === "function") this.memo = this.memo(...args);
+    else return this.memo;
   }
 
   get(f, k, p) {
@@ -484,17 +460,60 @@ class Thunk {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████ OVERLOADED ██████████████████████████████████
+████████████████████████████ OVERLOADED OPERATORS █████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// Javascript built-in overloaded operators as functions
+/* Javascript built-in overloaded operators as functions. Some of them only
+make sense with implicit/explicit thunks. For example, with `and` you would
+lose the lazy evaluation property of the `&&` operator, if you pass them as
+expressions not wrapped in a thunk/function. */
+
+
+export const and = f => g => f() && g();
 
 
 export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
 
 
-const compareOn_ = () => compBoth(compare);
+export const compareOn_ = () => compBoth(compare);
+
+
+export const eq = x => y => x === y;
+
+
+// works with implicit and explicit thunks
+
+export const eqLazy = f => g => f() === g();
+
+
+export const gt = x => y => x > y;
+
+
+export const gte = x => y => x >= y;
+
+
+export const iff = (t, f) => x => y => {
+  if (x && y) return t;
+  else if (!x && !y) return t;
+  else return f;
+}
+
+
+export const implies = (t, f) => x => y => {
+  if (x) {
+    if (y) return t;
+    else return f;
+  }
+
+  else return t;
+}
+
+
+export const lt = x => y => x < y;
+
+
+export const lte = x => y => x <= y;
 
 
 export const max = x => y => x >= y ? x : y;
@@ -503,100 +522,121 @@ export const max = x => y => x >= y ? x : y;
 export const min = x => y => x <= y ? x : y;
 
 
+export const notEq = x => y => x !== y;
+
+
+export const or = f => g => f() || g();
+
+
+export const xor = x => y => {
+  if (x && !y) return x;
+  else if (!x && y) return y;
+  else return null;
+};
+
+
 /*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████ PATTERN MATCHING ███████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Utilizes destructuring assignments to realize a limited form of pattern
-matching. Destructuring assignments are malformed for the job:
+/* scriptum's "pattern matching utilizes native destructuring assignment to
+come as close as possible to real pattern matching. Destructuring assignment
+is insufficient for the following reasons:
 
-  * either they return `Undefined` if the outer layer of a shape doesn't exist
-  * or they throw an error if a nested layer of a shape doesn't exist
+  * it returns `Undefined` if the assumed outer layer of a composite value doesn't exist
+  * it throws an error if an assumed nested layer of a composite value doesn't exist
 
-The `match` combinator adjusts native destructuring assignment so that thrown
-errors are catched and undefined as an assignment is rejected. Each case passed
-to `match` is a function that destructures its arguments and offers the full
-flexibility of functons to further inspect the assigned values. Each argument
-are passed redundantly in an array at the end of the parameter list for the
-case function to have access to the original not destructed values:
+`match` fixes these shortcomings by wrapping destructuring assignment in a
+try/catch block. If an assignment throws an error, it is catched
+and the current pattern match is discarded. If it returns `Undefined`, the
+current pattern match is discraded as well. Here is a simple example:
 
-  match({baz: [5]}) (
-    _if(({bar: s}) => s)
-      .then(s => s.toUpperCase()),
+  const patternMatch = match(
+    caseOf(([x, y, z]) => [x, y, z])
+      .feed(xs => "1st case"),
 
-    _if(([x, y, z]) => [x, y, z])
-      .then(xs => xs.reverse()),
+    caseOf(({foo: s}) => s)
+      .feed(s => "2nd case"),
 
-    _if(({foo: s}) => s)
-      .then(s => s + "!"),
+    caseOf(({bar: s}) => s)
+      .feed(s => "3rd case"),
 
-    _if(({baz: [n]}) => Number(n) === n ? n : undefined)
-      .then(n => "*".repeat(n)),
+    caseOf(({baz: [m, n]}) => typeof m === "number" && typeof n === "number" ? [m, n] : undefined)
+      .feed(n => "4th case"),
 
-    _if(id) // default case
-      .then(_ => "otherwise"));
+    caseOf(id) // default case
+      .feed(_ => "default case"))
+    
+    patternMatch({baz: [1, 2]});
 
-  // matches the 4th case and yields "*****"
+  // yields "4th case"
 
-The above pattern matching comes without pre-runtime exhaustiveness check. */
+The approach comes with the following limitations:
+
+  * there is no exhaustiveness check
+  * within the `caseOf` function argument, each value assigned by destructuring
+    must be manually checked for `undefined`
+  * exotic features like native `Map`/`Set` values cannot be assigned by
+    destructuring
+
+Regarding the second point, if we wouldn't check the type of `n`, for instance,
+the mismatch would remain undetected, because both variables are wrapped in an
+array `[1, undefined]`, that is `undefined` is hidden inside a composite value. */
 
 
-export const match = (...args) => (...cases) => {
+export const match = (...cases) => (...args) => {
   let r;
 
-  for (_case of cases) {
+  for (const _case of cases) {
     try {
-      r = _case(...args, args); // also pass the whole args
+      r = _case(...args);
       if (r === undefined) continue;
       else break;
     } catch(e) {continue}
   }
 
-  if (r) return r()
-  else throw new Err("non-exhaustive pattern match");
+  if (r && PATTERN_MATCH in r) return r[PATTERN_MATCH];
+  else throw new Err("non-exhaustive pattern matching");
 };
 
 
-export const match_ = (...cases) => (...args) => {
-  let r;
+export const caseOf = f => ({
+  feed: g => (...args) => {
+    const r = f(...args);
 
-  for (_case of cases) {
-    try {
-      r = _case(...args, args); // also pass the whole args
-      if (r === undefined) continue;
-      else break;
-    } catch(e) {continue}
+    if (r === undefined) return r;
+    else return {[PATTERN_MATCH]: g(r)};
   }
-
-  if (r) return r()
-  else throw new Err("non-exhaustive pattern match");
-};
+});
 
 
-export const _if = _case => ({
-  then: f => (...args) => {
-    const r = _case(...args);
+const PATTERN_MATCH = PREFIX + "pattern_match";
 
-    switch (introspect(r)) {
-      case "Array": {
-        for (let x of r)
-          if (x === undefined) return x;
 
-        return () => f(r);
-      }
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████ PERSISTANT DATA STRUCTURES ██████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
-      case "Object": {
-        for (let x of O.values(r))
-          if (x === undefined) return x;
 
-        return () => f(r);
-      }
+/* TODO: Persistat data structures based on a minimal deque that in turn is
+based on a double linked list. */
 
-      case "Undefined": return r;
-      default: return () => f(r);
-    }
-  }
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ REIFICATION █████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Reifies the object within a method chain thus enabling flat method chaining
+with access to the object itself by not relying on `this`. */
+
+export const Reify = t => ({
+  app: x => Reify(t(x)), // applies the boxed fun
+  app_: x => Reify(y => t(y) (x)), // applies the 2nd arg of the boxed fun
+  map: f => Reify(f(t)),  // applies the fun
+  map_: f => Reify(x => f(x) (t)), // applies the 2nd arg of the fun
+  get: t // gets the boxed value
 });
 
 
@@ -610,9 +650,9 @@ export const _if = _case => ({
 
 
 /* Stack-safe tail-recursion and mutual tail-recursion using a trampoline. The
-`next` and `done` constructors are used to encode recursive and the base cases
-respectively. In addition, the `call` constructor can be used to defer function
-calls. */
+`next` and `done` constructors are used to encode the recursive case and base
+cases, respectively. Additionally, the `call` constructor is used to defer
+function invocations. */
 
 
 export const Loop = f => x => {
@@ -733,62 +773,60 @@ Loop3.base = x => ({constructor: Loop3.base, x});
 █████ Tail Recurson Modulo Cons & Beyond ██████████████████████████████████████*/
 
 
-/* Stack-based trampoline to encode recursive cases not in tail call position.
-It can mimick tail recursion modulo cons and more complex operations not in
-tail position.
-
-The original Fibbonacci algorithm
+/* Stack-safe recursion not in tail position using a trampoline. It is capable
+of mimicking tail recursion modulo cons and more complex operations not in
+tail position like the original Fibbonacci algorithm:
 
   const fib_ = n =>
     n <= 1 ? n
       : fib_(n - 1) + fib_(n - 2);
 
-is transformed into a trampolining version:
+Transformed into the trampoline version it becomes:
 
   const add = x => y => x + y;
 
-  const fib = Loops(n =>
+  const fib = Loopx(n =>
     n <= 1
-      ? Loops.base(n)
-      : Loops.call2(
+      ? Loopx.base(n)
+      : Loopx.call2(
           add,
-          Loops.rec(n - 1),
-          Loops.rec(n - 2))); */
+          Loopx.rec(n - 1),
+          Loopx.rec(n - 2))); */
 
 
-export const Loops = f => x => {
+export const Loopx = f => x => {
   const stack = [f(x)];
 
-  while (stack.length > 1 || stack[0].constructor !== Loops.base) {
+  while (stack.length > 1 || stack[0].constructor !== Loopx.base) {
     let o = stack[stack.length - 1];
 
     switch (o.constructor) {
-      case Loops.call:
-      case Loops.call2: {
+      case Loopx.call:
+      case Loopx.call2: {
         o = f(o.x.x); // 1st x of call and 2nd x of next tag
         stack.push(o);
         break;
       }
 
-      case Loops.rec: {
+      case Loopx.rec: {
         o = f(o.x);
         break;
       }
 
-      case Loops.base: {
-        while (stack.length > 1 && stack[stack.length - 1].constructor === Loops.base) {
+      case Loopx.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Loopx.base) {
           const p = (stack.pop(), stack.pop());
 
           switch (p.constructor) {
-            case Loops.call: {
-              o = Loops.base(p.f(o.x));
+            case Loopx.call: {
+              o = Loopx.base(p.f(o.x));
               stack.push(o);
 
               break;
             }
 
-            case Loops.call2: {
-              o = Loops.call(p.f(o.x), p.y);
+            case Loopx.call2: {
+              o = Loopx.call(p.f(o.x), p.y);
               stack.push(o);
               break;
             }
@@ -813,39 +851,39 @@ export const Loops = f => x => {
 };
 
 
-export const Loops2 = f => (x, y) => {
+export const Loopx2 = f => (x, y) => {
   const stack = [f(x, y)];
 
-  while (stack.length > 1 || stack[0].constructor !== Loops2.base) {
+  while (stack.length > 1 || stack[0].constructor !== Loopx2.base) {
     let o = stack[stack.length - 1];
 
     switch (o.constructor) {
-      case Loops2.call:      
-      case Loops2.call2: {
+      case Loopx2.call:      
+      case Loopx2.call2: {
         o = f(o.x.x, o.x.y);
         stack.push(o);
         break;
       }
 
-      case Loops2.rec: {
+      case Loopx2.rec: {
         o = f(o.x, o.y);
         break;
       }
 
-      case Loops2.base: {
-        while (stack.length > 1 && stack[stack.length - 1].constructor === Loops2.base) {
+      case Loopx2.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Loopx2.base) {
           const p = (stack.pop(), stack.pop());
 
           switch (p.constructor) {
-            case Loops2.call: {
-              o = Loops2.base(p.f(o.x, o.y));
+            case Loopx2.call: {
+              o = Loopx2.base(p.f(o.x, o.y));
               stack.push(o);
 
               break;
             }
 
-            case Loops2.call2: {
-              o = Loops2.call(p.f(o.x, o.y), p.y);
+            case Loopx2.call2: {
+              o = Loopx2.call(p.f(o.x, o.y), p.y);
               stack.push(o);
               break;
             }
@@ -873,28 +911,28 @@ export const Loops2 = f => (x, y) => {
 // constructors
 
 
-Loops.call = (f, x) => ({constructor: Loops.call, f, x});
+Loopx.call = (f, x) => ({constructor: Loopx.call, f, x});
 
 
-Loops.call2 = (f, x, y) => ({constructor: Loops.call2, f, x, y});
+Loopx.call2 = (f, x, y) => ({constructor: Loopx.call2, f, x, y});
 
 
-Loops.rec = x => ({constructor: Loops.rec, x});
+Loopx.rec = x => ({constructor: Loopx.rec, x});
 
 
-Loops.base = x => ({constructor: Loops.base, x});
+Loopx.base = x => ({constructor: Loopx.base, x});
 
 
-Loops2.call = (f, x) => ({constructor: Loops2.call, f, x});
+Loopx2.call = (f, x) => ({constructor: Loopx2.call, f, x});
 
 
-Loops2.call2 = (f, x, y) => ({constructor: Loops2.call2, f, x, y});
+Loopx2.call2 = (f, x, y) => ({constructor: Loopx2.call2, f, x, y});
 
 
-Loops2.rec = x => y => ({constructor: Loops2.rec, x, y});
+Loopx2.rec = x => y => ({constructor: Loopx2.rec, x, y});
 
 
-Loops2.base = x => ({constructor: Loops2.base, x});
+Loopx2.base = x => ({constructor: Loopx2.base, x});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -969,10 +1007,8 @@ fashion while maintaining a flat composition syntax, provided all subsequent
 invocations of the partially applied Kleisli action are wrapped in a minimal
 functiorial context.
 
-This means the technique leaks into the call side and adds some syntactical
-noise but it is the best we can hope for. Please note that the following isn't
-possible with the classic `liftM2` combinator, which is merely applicative
-effect combination in disguise.
+The approach leaks into the call side and adds some syntactical noise but there
+is no better alternative:
 
   const chain2_ = chain2(Monad);
                          ^^^^^
@@ -1005,6 +1041,8 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 
 export const join = Chain => mmx => Chain.chain(mmx) (id);
 
+
+// ignore the result of the first monad
 
 export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
 
@@ -1047,15 +1085,12 @@ export const foldrM = (Foldable, Monad) => fm => init => mx =>
     Monad.chain(fm(x) (acc)) (gm)) (Monad.of) (mx) (init);
 
 
-/* unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
+/* TODO: unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
 unfoldM f s = do
     mres <- f s
     case mres of
         Nothing      -> return []
         Just (a, s') -> liftM2 (:) (return a) (unfoldM f s')*/
-
-
-// TODO
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1483,30 +1518,6 @@ export const try_ = thunk => ({
 // auxiliary function
 
 export const yieldNull = () => null;
-
-
-/*
-█████ Logic ███████████████████████████████████████████████████████████████████*/
-
-
-/* Converging all sorts of values into boolean ones allows logic operators to
-accept values of all types. */
-
-
-// if and only if
-
-export const iff = x => y => !!x && !!y || !x && !y;
-
-
-// either x is false or y must be true
-
-export const implies = x => y => !x || !!y === true;
-
-
-export const not = x => !x;
-
-
-export const xor = x => y => !!(!!x ^ !!y);
 
 
 /*
@@ -2275,24 +2286,24 @@ A.foldk = f => init => xs =>
 
 // eager, right-associative and yet stack-safe fold
 
-A.foldr = f => acc => xs => Loops(i => {
-  if (i === xs.length) return Loops.base(acc);
+A.foldr = f => acc => xs => Loopx(i => {
+  if (i === xs.length) return Loopx.base(acc);
 
-  else return Loops.call(
+  else return Loopx.call(
     f(xs[i]),
-    Loops.rec(i + 1));
+    Loopx.rec(i + 1));
 }) (0);
 
 
-A.foldr1 = f => xs => Loops(i => {
+A.foldr1 = f => xs => Loopx(i => {
   let acc = xs.length === 0
     ? _throw(new Err("empty array")) : xs[0];
 
-  if (i === xs.length) return Loops.base(acc);
+  if (i === xs.length) return Loopx.base(acc);
 
-  else return Loops.call(
+  else return Loopx.call(
     f(xs[i]),
-    Loops.rec(i + 1));
+    Loopx.rec(i + 1));
 }) (0);
 
 
@@ -3166,13 +3177,13 @@ L.foldl = f => init => xss => {
 
 // stack-safe even if `f` is strict in its second argument
 
-L.foldr = f => acc => Loops(xss => {
+L.foldr = f => acc => Loopx(xss => {
   switch (xss[TAG]) {
-    case "Nil": return Loops.base(acc);
+    case "Nil": return Loopx.base(acc);
 
     case "Cons": {
       const [x, yss] = xss;
-      return Loops.call(f(x), Loops.rec(yss));
+      return Loopx.call(f(x), Loopx.rec(yss));
     }
 
     default: throw new Err("malformed list-like array");
@@ -3553,14 +3564,14 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   // (a -> m b -> m b) -> m b -> m (List m a) -> m b
-  o.foldr = f => acc => Loops(mmx => {
+  o.foldr = f => acc => Loopx(mmx => {
     return outer.chain(mmx) (mx => {
       switch (mx[TAG]) {
-        case "Nil": return Loops.base(acc);
+        case "Nil": return Loopx.base(acc);
 
         case "Cons": {
           const [x, mmy] = mx;
-          return Loops.call(f(x), Loops.rec(mmy));
+          return Loopx.call(f(x), Loopx.rec(mmy));
         }
 
         default: throw new Err("malformed list-like array");
@@ -3710,14 +3721,14 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   // (m a -> n a) -> m (List m a) => n (List n a)
-  o.hoist = f => Loops(mmx => {
+  o.hoist = f => Loopx(mmx => {
     return f(outer.map(mmx) (mx => {
       switch (mx[TAG]) {
-        case "Nil": return Loops.base(L.Nil);
+        case "Nil": return Loopx.base(L.Nil);
 
         case "Cons": {
           const [x, mmy] = mx;
-          return Loops.call(L.Cons_(x), Loops.rec(mmy));
+          return Loopx.call(L.Cons_(x), Loopx.rec(mmy));
         }
 
         default: throw new Err("malformed list-like array");
@@ -4660,197 +4671,6 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ IARRAY ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Immutable arrays based on a persistent data structure. They type offers the
-following operations:
-
-  * push
-  * pop
-  * concat
-
-It doesn't support in-place settings of elements (`xs[3] = ...`) or deletions
-(`delete xs[3]`) bc these operations are rather uncommon for array in the
-context of functional programming.
-
-You can create a new `Iarray` instance as soon as you need to push, pop or
-concat an existing mutable array but without altering or copying it. Given the
-new `Iarray` value you can either apply a single or a batch of mutations to it.
-The `Iarray` value is rendered immutable again when you invoke its `own` method.
-`own` freezes the existing elements but allows new mutations without altering
-the existing value. It is up to you and your algorithm at what points you invoke
-`own`. Under the hood each `own` invocation creates a new layer of a nested
-`Iarray` chain.
-
-There are two ways to further process an `Iarray` value after all mutations are
-completed:
-
-  * invoke `unown` to creat a normal array
-  * invoke the iterable protocol
-
-`unown` simply creates a normal array that features all accumulated mutations
-of the original array. Alternatively, you can call the `Symbol.iterator`
-function and use one of the combinators of the `Iterator` type. */
-
-
-export const Iarray = xs => {
-  const go = (prev, curr, offset) => {
-    const o = {};
-    let immutable = false;
-
-    o[TAG] = "Iarray";
-    o[Symbol.isConcatSpreadable] = true;
-    o[Symbol.iterator] = () => o.unown();
-
-    o.at = i => Loop(i2 => o.at_(i2)) (i);
-
-    o.at_ = i => {
-      const i2 = o.length - i;
-
-      if (i2 <= o.curr.length) return Loop.base(o.curr[o.curr.length - i2]);
-
-      else {
-        const i3 = i2 - o.curr.length - o.offset;
-
-        if (o.prev === xs) {
-          if (o.prev.length === 0) return Loop.base(undefined);
-          else if (o.prev.length < i3) return Loop.base(undefined);
-          else return Loop.base(o.prev[o.prev.length - i3]);
-        }
-
-        else return Loop.call(o.prev.at_, i3);
-      }
-    };
-
-    o.concat = ys => {
-      if (immutable) throw new Err("concat op on immutable array");
-
-      else {
-        o.curr.push.apply(o.curr, ys);
-        o.length += ys.length;
-        return o;
-      }
-    };
-
-    o.curr = curr;
-    o.offset = offset;
-
-    o.own = () => {
-      immutable = true;
-      return go(o, [], 0);
-    }
-
-    o.length = prev.length;
-
-    o.pop = () => {
-      if (immutable) throw new Err("pop op on immutable array");
-      else if (o.length === 0) return Pair(undefined, o);
-
-      else if (o.curr.length === 0) {
-        o.length--;
-        o.offset--;
-
-        const x = o.prev === xs
-          ? xs[xs.length - 1 + o.offset]
-          : Loop(() => o.prev.at_(o.length - 1 + o.offset)) ();
-
-        return Pair(x, o);
-      }
-
-      else {
-        o.length--;
-        return Pair(o.curr.pop(), o);
-      }
-    };
-
-    o.prev = prev;
-
-    o.push = x => {
-      if (immutable) throw new Err("push op on immutable array");
-
-      else {
-        o.curr.push(x);
-        o.length++;
-        return o;
-      }
-    };
-
-    o.unown = (xss = [], offset = 0) =>
-      Loop2((xss2, offset2) => o.unown_(xss2, offset2)) (xss, offset);
-
-    o.unown_ = (xss, offset) => {
-      if (o.curr.length === 0) {}
-
-      else if (offset < 0) {
-        if (o.curr.length + offset < 0) offset += o.curr.length;
-        
-        else if (o.curr.length + offset > 0) {
-          xss.push(o.curr.slice(0, offset));
-          offset = 0;
-        }
-
-        else offset = 0;
-      }
-
-      else xss.push(o.curr);
-
-      if (o.prev === xs) {
-        const offset2 = offset + o.offset
-
-        if (xs.length === 0) {}
-
-        else if (offset2 < 0) {
-          if (xs.length + offset2 < 0)
-            throw new Err("invalid persistent array offset");
-          
-          else if (xs.length + offset2 > 0)
-            xss.push(xs.slice(0, offset2));
-
-          else {}
-        }
-
-        else xss.push(xs);
-
-        return Loop2.base(function* () {
-          for (let i = xss.length - 1; i >= 0; i--) {
-            for (let x of xss[i]) yield x;
-          }
-        } ());
-      }
-
-      else return Loop2.call(o.prev.unown_, xss, offset + o.offset);
-    };
-
-    return new Proxy(o, {
-      deleteProperty(_, i) {
-        throw new Err("delete op on immutable array");
-      },
-
-      get(_, i, p) {
-        if (typeof i === "symbol") return o[i];
-        else if (String(Number(i)) === i) return Loop(i2 => o.at_(Number(i2))) (i);
-        else return o[i];
-      },
-
-      has(_, i, p) {
-        if (typeof i === "symbol") return i in o;
-        else if (String(Number(i)) === i) return Number(i) < o.length;
-        else return i in o;
-      },
-
-      set(_, i, v, p) {
-        throw new Err("set op on immutable array");
-      }
-    });
-  };
-
-  return go(xs, [], 0);
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ ID ██████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4919,362 +4739,6 @@ Id.Chain = {
 Id.Monad = {
   ...Id.Applicative,
   chain: Id.chain
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ IMAP █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Immutable `Imap` type based on a persistent data structure. See `Iarray` for
-detailed information on its usage. */
-
-export const Imap = m => {
-  const go = (prev, curr, del) => {
-    const o = {};
-    let immutable = false;
-
-    o[TAG] = "Imap";
-    o[Symbol.iterator] = () => o.unown();
-    o.curr = curr;
-    o.del = del;
-
-    o.delete = k => {
-      if (immutable) throw new Err("delete op on immutable map");
-
-      else if (o.curr.has(k)) {
-        o.curr.delete(k);
-        o.size--;
-        return o;
-      }
-
-      else if (Loop(k2 => o.prev.has_(k2)) (k)) {
-        o.del.add(k);
-        o.size--;
-        return o;
-      }
-
-      else return o;
-    };
-
-    o.get = k => Loop(k2 => o.get_(k2)) (k);
-
-    o.get_ = k => {
-      if (o.curr.has(k)) return Loop.base(o.curr.get(k));
-      else if (o.del.has(k)) return Loop.base(undefined);
-
-      else {
-        if (o.prev === m) return Loop.base(o.prev.get(k));
-        else return Loop.call(o.prev.get_, k);
-      }
-    };
-
-    o.has = k => Loop(k2 => o.has_(k2)) (k);
-
-    o.has_ = k => {
-      if (o.curr.has(k)) return Loop.base(true);
-      else if (o.del.has(k)) return Loop.base(false);
-      
-      else {
-        if (o.prev === m) return Loop.base(o.prev.has(k));
-        else return Loop.call(o.prev.has_, k);
-      }
-    };
-
-    o.own = () => {
-      immutable = true;
-      return go(o, new Map(), new Set());
-    }
-
-    o.prev = prev;
-
-    o.set = (k, v) => {
-      if (immutable) throw new Err("set op on immutable map");
-      else if (o.del.has(k)) o.del.delete(k);
-      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
-      o.curr.set(k, v);
-      return o;
-    };
-
-    o.size = o.prev.size;
-
-    o.unown = (ms = [], ss = []) =>
-      Loop2((ms2, ss2) => o.unown_(ms2, ss2)) (ms, ss);
-
-    o.unown_ = (ms, ss) => {
-      ms.unshift(o.curr);
-      ss.unshift(o.del);
-      
-      if (o.prev === p) {
-        ms.push(o.prev);
-        ss.push(new Set());
-
-        return Loop2.base(function* () {
-          for (let i = ms.length - 1; i >= 0; i--) {
-            for (let [k, v] of ms[i]) {
-              if (ss[i].has(k)) continue;
-              else yield [k, v];
-            }
-          }
-        } ());
-      }
-
-      else return Loop2.call(o.prev.unown_, ms, ss);
-    };
-
-    return o;
-  };
-
-  return go(m, new Map(), new Set());
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ IOBJECT ███████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Immutable `Iobject` type based on a persistent data structure. See `Iarray`
-for detailed information on its usage. */
-
-
-export const Iobject = p => {
-  const go = (prev, curr, del) => {
-    const o = {};
-    let immutable = false;
-
-    o[Symbol.iterator] = () => o.unown();
-    o[TAG] = "Iobject";
-    o.curr = curr;
-    o.del = del;
-
-    o.delete = k => {
-      if (immutable) throw new Err("delete op on immutable object");
-
-      else if (o.curr.has(k)) {
-        o.curr.delete(k);
-        o.size--;
-        return o;
-      }
-
-      else if (o.prev === p) {
-        if (k in o.prev) {
-          o.del.add(k);
-          o.size--;
-          return o;
-        }
-
-        else return o;
-      }
-
-      else if (Loop(k2 => o.prev.has_(k2)) (k)) {
-        o.del.add(k);
-        o.size--;
-        return o;
-      }
-
-      else return o;
-    };
-
-    o.get = k => Loop(k2 => o.get_(k2)) (k);
-
-    o.get_ = k => {
-      if (o.curr.has(k)) return Loop.base(o.curr.get(k));
-      else if (o.del.has(k)) return Loop.base(undefined);
-
-      else {
-        if (o.prev === p) return Loop.base(o.prev[k]);
-        else return Loop.call(o.prev.get_, k);
-      }
-    };
-
-    o.has = k => Loop(k2 => o.has_(k2)) (k);
-
-    o.has_ = k => {
-      if (o.curr.has(k)) return Loop.base(true);
-      else if (o.del.has(k)) return Loop.base(false);
-      
-      else {
-        if (o.prev === p) return Loop.base(k in o.prev);
-        else return Loop.call(o.prev.has_, k);
-      }
-    };
-
-    o.own = () => {
-      immutable = true;
-      return go(o, new Map(), new Set());
-    }
-
-    o.prev = prev;
-
-    o.set = (k, v) => {
-      if (immutable) throw new Err("set op on immutable object");
-      else if (o.del.has(k)) o.del.delete(k);
-      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
-      o.curr.set(k, v);
-      return o;
-    };
-
-    o.size = o.prev === p ? Object.keys(p).length : o.prev.size;
-
-    o.unown = (ms = [], ss = []) =>
-      Loop2((ms2, ss2) => o.unown_(ms2, ss2)) (ms, ss);
-
-    o.unown_ = (ms = [], ss = []) => {
-      ms.push(o.curr);
-      ss.push(o.del);
-      
-      if (o.prev === p) {
-        ms.push(o.prev);
-        ss.push(new Set());
-
-        return Loop2.base(function* () {
-          for (let i = ms.length - 1; i >= 0; i--) {
-            if (i === ms.length - 1) {
-              for (let k in ms[i]) {
-                if (ss[i].has(k)) continue;
-                else yield [k, ms[i] [k]];
-              }
-            }
-
-            else {
-              for (let [k, v] of ms[i]) {
-                if (ss[i].has(k)) continue;
-                else yield [k, v];
-              }
-            }
-          }
-        } ());
-      }
-
-      else return Loop2.call(o.prev.unown_, ms, ss);
-    };
-
-    return new Proxy(o, {
-      deleteProperty(_, k) {
-        if (k[0] === "_") return o[k.slice(1)];
-        else if (k === Symbol.iterator || k === TAG) return o[k];
-        else return o.delete(k)
-      },
-      
-      get(_, k, p) {
-        if (k[0] === "_") return o[k.slice(1)];
-        else if (k === Symbol.iterator || k === TAG) return o[k];
-        else return o.get(k)
-      },
-      
-      has(_, k, p) {
-        if (k[0] === "_") return o[k.slice(1)];
-        else if (k === Symbol.iterator || k === TAG) return o[k];
-        else return o.has(k)
-      },
-      
-      set(_, k, v, p) {
-        if (k[0] === "_") return o[k.slice(1)];
-        else if (k === Symbol.iterator || k === TAG) return o[k];
-        else return o.set(k, v)
-      }
-    });
-  };
-
-  return go(p, new Map(), new Set());
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ ISET █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Immutable `Iset` type based on a persistent data structure. See `Iarray` for
-detailed information on its usage. */
-
-export const Iset = s => {
-  const go = (prev, curr, del) => {
-    const o = {};
-    let immutable = false;
-
-    o[TAG] = "Iset";
-    o[Symbol.iterator] = () => o.unown();
-
-    o.add = k => {
-      if (immutable) throw new Err("add op on immutable set");
-      else if (o.del.has(k)) o.del.delete(k);
-      else if (!Loop(k2 => o.has_(k2)) (k)) o.size++;
-      o.curr.add(k);
-      return o;
-    };
-
-    o.curr = curr;
-    o.del = del;
-
-    o.delete = k => {
-      if (immutable) throw new Err("delete op on immutable set");
-
-      else if (curr.has(k)) {
-        o.curr.delete(k);
-        o.size--;
-        return o;
-      }
-
-      else if (prev.has(k)) {
-        o.del.add(k);
-        o.size--;
-        return o;
-      }
-
-      else return o;
-    };
-
-    o.has = k => Loop(k2 => o.has_(k2)) (k);
-
-    o.has_ = k => {
-      if (o.curr.has(k)) return Loop.base(true);
-      else if (o.del.has(k)) return Loop.base(false);
-      
-      else {
-        if (o.prev === s) return Loop.base(o.prev.has(k));
-        else return Loop.call(o.prev.has_, k);
-      }
-    };
-
-    o.own = () => {
-      immutable = true;
-      return go(o, new Set(), new Set());
-    }
-
-    o.prev = prev;
-    o.size = o.prev.size;
-
-    o.unown = (ss = [], ss2 = []) =>
-      Loop2((ss3, ss4) => o.unown_(ss3, ss4)) (ss, ss2);
-
-    o.unown_ = (ss, ss2) => {
-      ss.push(o.curr);
-      ss2.push(o.del);
-      
-      if (o.prev === s) {
-        ss.push(o.prev);
-        ss2.push(new Set());
-
-        return Loop2.base(function* () {
-          for (let i = ss.length - 1; i >= 0; i--) {
-            for (let k of ss[i]) {
-              if (ss2[i].has(k)) continue;
-              else yield k;
-            }
-          }
-        } ());
-      }
-
-      else return Loop2.call(o.prev.unown_, ss, ss2);
-    };
-
-    return o;
-  };
-
-  return go(s, new Set(), new Set());
 };
 
 
@@ -6537,21 +6001,6 @@ O.matchPattern = (...ks) => o => {
   else if (ks.length > vs.length) throw new Err("missing cases");
 
   else return ks.reduce((acc, k) => {
-    if (k in o) acc[k] = o[k];
-    else throw new Err(`missing key "${k}"`)
-    
-    return acc;
-  }, {});
-};
-
-
-O.matchPattern_ = ks => o => {
-  const vs = Object.keys(o);
-
-  if (ks.length < vs.length) throw new Err("unnecessary cases");
-  else if (ks.length > vs.length) throw new Err("missing cases");
-
-  return ks.reduce((acc, k) => {
     if (k in o) acc[k] = o[k];
     else throw new Err(`missing key "${k}"`)
     
@@ -9530,10 +8979,7 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
-/* scheme varaints
-
-  * w/out separator: "ddmmyyyy"
-  * with separator: "d.m.y" */
+// scheme with separator (e.g. "d.m.y") or without (e.g. "ddmmyyyy")
 
 Str.normalizeDate = scheme => s => {
   const punctuations = scheme.replace(/[a-z]/gi, "");
@@ -10576,863 +10022,3 @@ export const FileSys = fs => Cons => thisify(o => {
 
   return o;
 });
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-█████████████████████████ PERSISTANT DATA STRUCTURES ██████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// self-balancing red/black tree to construct persistent data structures
-
-
-const RB = {}; // namespace
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ CONSTANTS ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.RED = true;
-RB.BLACK = false;
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ CONSTRUCTORS █████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.Leaf = {[Symbol.toStringTag]: "Leaf"};
-
-
-RB.Node = (c, h, l, k, v, r) =>
-  ({[Symbol.toStringTag]: "Node", c, h, l, k, v, r});
-
-
-RB.singleton = (k, v) =>
-  RB.Node(RB.BLACK, 1, RB.Leaf, k, v, RB.Leaf);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ BALANCING ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-RB.balanceL = (c, h, l, k, v, r) => {
-  if (c === RB.BLACK
-    && l[TAG] === "Node"
-    && l.c ===RB.RED
-    && l.l[TAG] === "Node"
-    && l.l.c === RB.RED)
-      return RB.Node(
-        RB.RED, h + 1, RB.turnB(l.l), l.k, l.v, RB.Node(RB.BLACK, h, l.r, k, v, r));
-
-  else return RB.Node(c, h, l, k, v, r);
-};
-
-
-RB.balanceR = (c, h, l, k, v, r) => {
-  if (c === RB.BLACK
-    && l[TAG] === "Node"
-    && r[TAG] === "Node"
-    && l.c === RB.RED
-    && r.c === RB.RED)
-      return RB.Node(
-        RB.RED, h + 1, RB.turnB(l), k, v, RB.turnB(r));
-
-  else if (r[TAG] === "Node"
-    && r.c === RB.RED)
-      return RB.Node(
-        c, h, RB.Node(RB.RED, r.h, l, k, v, r.l), r.k, r.v, r.r);
-
-  else return RB.Node(c, h, l, k, v, r);
-};
-
-
-RB.isBLB = t =>
-  t[TAG] === "Node"
-    && t.c === RB.BLACK
-    && (t.l[TAG] === "Leaf" || t.l.c === RB.BLACK)
-      ? true : false;
-
-
-RB.isBLR = t =>
-  t[TAG] === "Node"
-    && t.c === RB.BLACK
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED
-      ? true : false;
-
-
-RB.rotateR = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED)
-      return RB.balanceR(
-        t.c, t.h, t.l.l, t.l.k, t.l.v, RB.delMax_(RB.Node(RB.RED, t.h, t.l.r, t.k, t.v, t.r)));
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.turnR = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new Err("leaves cannot turn color");
-
-  else return RB.Node(
-    RB.RED, h, l, k, v, r);
-};
-
-
-RB.turnB = ({[TAG]: type, h, l, k, v, r}) => {
-  if (type === "Leaf")
-    throw new Err("leaves cannot turn color");
-
-  else return RB.Node(
-    RB.BLACK, h, l, k, v, r);
-};
-
-
-RB.turnB_ = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    case "Node": return RB.Node(RB.BLACK, t.h, t.l, t.k, t.v, t.r);
-    default: throw new Err("invalid value constructor");
-  }
-}
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████████ API █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-RB.cata = node => leaf => function go(t) {
-  return k => {
-    switch (t[TAG]) {
-      case "Leaf": return k(leaf);
-      
-      case "Node": return go(t.l) (t2 =>
-        go(t.r) (t3 =>
-          k(node([t.k, t.v]) (t2) (t3))));
-
-      default: throw new Err("invalid constructor");
-    }
-  }
-};
-
-
-RB.cata_ = node => leaf => function go(t) { // lazy version
-  switch (t[TAG]) {
-    case "Leaf": return leaf;
-    
-    case "Node": return node([t.k, t.v])
-      (lazy(() => go(t.l)))
-        (lazy(() => go(t.r)));
-
-    default: throw new Err("invalid constructor");
-  }
-};
-
-
-/*
-█████ Deletion ████████████████████████████████████████████████████████████████*/
-
-
-RB.del = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    
-    case "Node": {
-      const t2 = RB.del_(RB.turnR(t), k, cmp);
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: throw new Err("invalid value constructor");
-      }
-    }
-
-    default: throw new Err("invalid value constructor");
-  }
-};
-
-
-RB.delLT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RB.RED
-    && RB.isBLB(l)
-    && RB.isBLR(r))
-      return RB.Node(
-        RB.RED,
-        h,
-        RB.Node(RB.BLACK, r.h, RB.del_(RB.turnR(l), k, cmp), k2, v2, r.l.l),
-        r.l.k,
-        r.l.v,
-        RB.Node(RB.BLACK, r.h, r.l.r, r.k, r.v, r.r));
-
-  else if (c === RB.RED
-    && RB.isBLB(l))
-      return RB.balanceR(
-        RB.BLACK, h - 1, RB.del_(tunrR(l), k, cmp), k2, v2, RB.turnR(r));
-
-  else return RB.Node(c, h, RB.del_(l, k, cmp), k2, v2, r);
-};
-
-
-RB.delEQ = (k, c, h, l, k2, v2, r, cmp) => {
-  if (c === RB.RED
-    && l[TAG] === "Leaf"
-    && r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (l[TAG] === "Node"
-    && l.c === RB.RED)
-      return RB.balanceR(
-        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r), k, cmp));
-
-  else if (c === RB.RED
-    && RB.isBLB(r)
-    && RB.isBLR(l))
-      return RB.balanceR(
-        RB.RED,
-        h,
-        RB.turnB(l.l),
-        l.k,
-        l.v,
-        RB.balanceR(RB.BLACK, l.h, l.r, ...RB.min(r), RB.delMin_(RB.turnR(r))));
-
-  else if (c === RB.RED
-    && RB.isBLB(r))
-      return RB.balanceR(RB.BLACK, h - 1, RB.turnR(l), ...RB.min(r), RB.delMin_(RB.turnR(r)));
-
-  else if (c === RB.RED
-    && r[TAG] === "Node"
-    && r.c === RB.BLACK)
-      return RB.Node(
-        RB.RED, h, l, ...RB.min(r), RB.Node(RB.BLACK, r.h, RB.delMin_(r.l), r.k, r.v, r.r));
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.delGT = (k, c, h, l, k2, v2, r, cmp) => {
-  if (l[TAG] === "Node"
-    && l.c === RB.RED)
-      return RB.balanceR(
-        c, h, l.l, l.k, l.v, RB.del_(RB.Node(RB.RED, h, l.r, k2, v2, r)), k, cmp);
-
-  else if (c === RB.RED
-    && RB.isBLB(r)
-    && RB.isBLR(l))
-      return RB.Node(
-        RB.RED,
-        h,
-        RB.turnB(l.l),
-        l.k,
-        l.v,
-        RB.balanceR(RB.BLACK, l.h, l.r, k2, v2, RB.del_(RB.turnR(r), k, cmp)));
-
-  else if (c === RB.RED
-    && RB.isBLB(r))
-      return RB.balanceR(
-        RB.BLACK, h - 1, RB.turnR(l), k2, v2, RB.del_(RB.turnR(r), k, cmp));
-
-  else if (c === RB.RED)
-    return RB.Node(RB.RED, h, l, k2, v2, RB.del_(r, k, cmp));
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.delMin = t =>{
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      const t2 = RB.delMin_(RB.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: throw new Err("invalid value constructor");
-      }
-    }
-
-    default: throw new Err("invalid value constructor");
-  }
-};
-
-
-RB.delMax = t => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      const t2 = RB.delMax_(RB.turnR(t));
-
-      switch (t2[TAG]) {
-        case "Leaf": return RB.Leaf;
-        case "Node": return RB.turnB(t2);
-        default: Err("invalid value constructor");
-      }
-    }
-
-    default: Err("invalid value constructor");
-  }
-};
-
-
-// helper
-
-
-RB.del_ = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.delLT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case EQ: return RB.delEQ(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        case GT: return RB.delGT(k, t.c, t.h, t.l, t.k, t.v, t.r, cmp);
-        default: throw new Err("invalid comparator");
-      }
-    }
-
-    default: throw new Err("invalid value constructor");
-  }
-};
-
-
-RB.delMin_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED)
-      return RB.Node(RB.RED, t.h, RB.delMin_(t.l), t.k, t.v, t.r);
-
-  else if (t[TAG] === "Node"
-    && RB.isBLB(t.l)
-    && RB.isBLR(t.r))
-      return RB.delMin__(t);
-
-  else if (t[TAG] === "Node"
-    && RB.isBLB((t.l)))
-      return RB.balanceR(
-        RB.BLACK, t.h - 1, RB.delMin_(RB.turnR(t.l)), t.k, t.v, RB.turnR(t.r));
-
-  else if (t[TAG] === "Node"
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.BLACK)
-      return RB.Node(
-        RB.RED, t.h, RB.Node(RB.BLACK, t.l.h, RB.delMin_(t.l.l), t.l.k, t.l.v, t.l.r), t.k, t.v, t.r);
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.delMin__ = t => {
-  if(t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.r[TAG] === "Node"
-    && t.r.c === RB.BLACK
-    && t.r.l[TAG] === "Node"
-    && t.r.l.c === RB.RED)
-      return RB.Node(
-        RB.RED,
-        t.h,
-        RB.Node(RB.BLACK, t.r.h, RB.delMin_(RB.turnR(t.l)), t.k, t.v, t.r.l.l),
-        t.r.l.k,
-        t.r.l.v,
-        RB.Node( RB.BLACK, t.r.h, t.r.l.r, t.r.k, t.r.v, t.r.r));
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.delMax_ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Leaf"
-    && t.r[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.RED)
-      return RB.rotateR(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && RB.isBLB(t.r)
-    && RB.isBLR(t.l))
-      return RB.delMax__(t);
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && RB.isBLB(t.r))
-      return RB.balanceR(
-        RB.BLACK, t.h - 1, RB.turnR(t.l), t.k, t.v, RB.delMax_(RB.turnR(t.r)));
-
-  else if (t[TAG] === "Node"
-    && t.c === RB.RED)
-      return RB.Node(RB.RED, t.h, t.l, t.k, t.v, RB.rotateR(t.r));
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.delMax__ = t => {
-  if (t[TAG] === "Node"
-    && t.c === RB.RED
-    && t.l[TAG] === "Node"
-    && t.l.c === RB.BLACK
-    && t.l.l[TAG] === "Node"
-    && t.l.l.c === RB.RED)
-      return RB.Node(
-        RB.RED, t.h, RB.turnB(t.l.l), t.l.k, t.l.v, RB.balanceR(RB.BLACK, t.l.h, t.l.r, t.k, t.v, RB.delMax_(RB.turnR(t.r))));
-
-  else throw new Err("unexpected branch");
-};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-RB.foldl = f => init => t => function go(acc, u) {
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = go(acc, u.l);
-      const acc3 = f(acc2) (u.v);
-      return go(acc3, u.r);
-    }
-
-    default: throw new Err("invalid constructor");
-  }
-} (init, t);
-
-
-RB.foldr = f => init => t => function go(acc, u) {
-  switch (u[TAG]) {
-    case "Leaf": return acc;
-    
-    case "Node": {
-      const acc2 = lazy(() => go(acc, u.r));
-      const acc3 = f(u.v) (acc2);
-      return lazy(() => go(acc3, u.l));
-    }
-
-    default: throw new Err("invalid constructor");
-  }
-} (init, t);
-
-
-RB.Foldable = {
-  foldl: RB.foldl,
-  foldr: RB.foldr
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-RB.map = f => function go(t) {
-  switch (t[TAG]) {
-    case "Leaf": return RB.Leaf;
-    
-    case "Node": {
-      return RB.Node(t.c, t.h, go(t.l), t.k, f(t.v), go(t.r));
-    }
-
-    default: throw new Err("invalid constructor");
-  }
-};
-
-
-RB.Functor = {map: RB.map};
-
-
-/*
-█████ Getter ██████████████████████████████████████████████████████████████████*/
-
-
-RB.get = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return undefined;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.get(t.l, k, cmp);
-        case EQ: return t.v;
-        case GT: return RB.get(t.r, k, cmp);
-        default: throw new Err("invalid comparator");
-      }
-    }
-
-    default: Err("invalid value constructor");
-  }
-};
-
-
-/*
-█████ Member ██████████████████████████████████████████████████████████████████*/
-
-
-RB.has = (t, k, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf": return false;
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.has(t.l, k, cmp);
-        case EQ: return true;
-        case GT: return RB.has(t.r, k, cmp);
-        default: throw new Err("invalid comparator");
-      }
-    }
-
-    default: Err("invalid value constructor");
-  }
-};
-
-
-/*
-█████ Min/Max █████████████████████████████████████████████████████████████████*/
-
-
-RB.min = t => {
-  if (t[TAG] === "Node"
-    && t.l[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RB.min(t.l);
-
-  else throw new Err("unexpected Leaf");
-};
-
-
-RB.max = t => {
-  if (t[TAG] === "Node"
-    && t.r[TAG] === "Leaf")
-      return [t.k, t.v];
-
-  else if (t[TAG] === "Node")
-    return RB.max(t.r);
-
-  else throw new Err("unexpected Leaf");
-};
-
-
-/*
-█████ Setter ██████████████████████████████████████████████████████████████████*/
-
-
-RB.set = (t, k, v, cmp) =>
-  RB.turnB(RB.set_(t, k, v, cmp));
-
-
-// helper
-
-
-RB.set_ = (t, k, v, cmp) => {
-  switch (t[TAG]) {
-    case "Leaf":
-      return RB.Node(RB.RED, 1, RB.Leaf, k, v, RB.Leaf);
-
-    case "Node": {
-      switch (cmp(k, t.k)) {
-        case LT: return RB.balanceL(
-          t.c, t.h, RB.set_(t.l, k, v, cmp), t.k, t.v, t.r);
-
-        case EQ: return RB.Node(t.c, t.h, t.l, k, v, t.r);
-
-        case GT: return RB.balanceR(
-          t.c, t.h, t.l, t.k, t.v, RB.set_(t.r, k, v, cmp));
-
-        default: throw new Err("invalid comparator");
-      }
-    }
-
-    default: Err("invalid value constructor");
-  }
-};
-
-
-/*
-█████ SET OPERATIONS ██████████████████████████████████████████████████████████*/
-
-
-RB.union = (t1, t2, cmp) => {
-  if (t2[TAG] === "Leaf")
-    return t1;
-
-  else if (t1[TAG] === "Leaf")
-    return RB.turnB_(t2);
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-    return RB.join(RB.union(l, t2.l, cmp), RB.union(r, t2.r, cmp), t2.k, t2.v, cmp);
-  }
-};
-
-
-RB.intersect = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-
-    if (RB.has(t1, t2.k, cmp))
-      return RB.join(
-        RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), t2.k, t2.v, cmp);
-
-    else return RB.merge(
-      RB.intersect(l, t2.l, cmp), RB.intersect(r, t2.r, cmp), cmp);
-  }
-};
-
-
-RB.diff = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.Leaf;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    const [l, r] = RB.split(t1, t2.k, cmp);
-    return RB.merge(RB.diff(l, t2.l, cmp), RB.diff(r, t2.r, cmp));
-  }
-};
-
-
-// helper
-
-
-RB.join = (t1, t2, k, v, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return RB.set(t2, k, v, cmp);
-
-  else if (t2[TAG] === "Leaf")
-    return RB.set(t1, k, v, cmp);
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RB.turnB(RB.joinLT(t1, t2, k, v, t1.h, cmp));
-      case EQ: return RB.Node(RB.BLACK, t1.h + 1, t1, k, v, t2);
-      case GT: return RB.turnB(RB.joinGT(t1, t2, k, v, t2.h, cmp));
-      default: throw new Err("invalid comparator");
-    }
-  }
-};
-
-
-RB.joinLT = (t1, t2, k, v, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RB.Node(RB.RED, t2.h + 1, t1, k, v, t2);
-
-  else if (t2[TAG] === "Node")
-    return RB.balanceL(t2.c, t2.h, RB.joinLT(t1, t2.l, k, v, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new Err("unexpected leaf");
-};
-
-
-RB.joinGT = (t1, t2, k, v, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2);
-
-  else if (t1[TAG] === "Node")
-    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.joinGT(t1.r, t2, k, v, h2, cmp));
-
-  else throw new Err("unexpected leaf");
-};
-
-
-RB.merge = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf")
-    return t2;
-
-  else if (t2[TAG] === "Leaf")
-    return t1;
-
-  else {
-    switch (cmp(t1.h, t2.h)) {
-      case LT: return RB.turnB(RB.mergeLT(t1, t2, t1.h, cmp));
-      case EQ: return RB.turnB(RB.mergeEQ(t1, t2, cmp));
-      case GT: return RB.turnB(RB.mergeGT(t1, t2, t2.h, cmp));
-      default: throw new Err("invalid comparator");
-    }
-  }
-};
-
-
-RB.mergeLT = (t1, t2, h1, cmp) => {
-  if (t2[TAG] === "Node"
-    && t2.h === h1)
-      return RB.mergeEQ(t1, t2, cmp);
-
-  else if (t2[TAG] === "Node")
-    return RB.balanceL(t2.c, t2.h, RB.mergeLT(t1, t2.l, h1, cmp), t2.k, t2.v, t2.r);
-
-  else throw new Err("unexpected leaf");
-};
-
-
-RB.mergeEQ = (t1, t2, cmp) => {
-  if (t1[TAG] === "Leaf"
-    && t2[TAG] === "Leaf")
-      return RB.Leaf;
-
-  else if (t1[TAG] === "Node") {
-    const t2_ = RB.delMin(t2),
-      [k, v] = RB.min(t2);
-
-    if (t1.h === t2_.h)
-      return RB.Node(RB.RED, t1.h + 1, t1, k, v, t2_);
-
-    else if (t1.l[TAG] === "Node"
-      && t1.l.c === RB.RED)
-        return RB.Node(
-          RB.RED, t1.h + 1, RB.turnB(t1.l), t1.k, t1.v, RB.Node(RB.BLACK, t1.h, t1.r, k, v, t2_));
-
-    else return RB.Node(
-      RB.BLACK, t1.h, RB.turnR(t1), k, v, t2_);
-  }
-
-  else throw new Err("unexpected branch");
-};
-
-
-RB.mergeGT = (t1, t2, h2, cmp) => {
-  if (t1[TAG] === "Node"
-    && t1.h === h2)
-      return RB.mergeEQ(t1, t2, cmp);
-
-  else if (t1[TAG] === "Node")
-    return RB.balanceR(t1.c, t1.h, t1.l, t1.k, t1.v, RB.mergeGT(t1.r, t2, h2, cmp));
-
-  else throw new Err("unexpected leaf");
-};
-
-
-RB.split = (t, k, cmp) => {
-  if (t[TAG] === "Leaf")
-    return [RB.Leaf, RB.Leaf];
-
-  else {
-    switch (cmp(k, t.k)) {
-      case LT: {
-        const [lt, gt] = RB.split(t.l, k, cmp);
-        return [lt, RB.join(gt, t.r, t.k, t.v, cmp)];
-      }
-
-      case EQ: return [RB.turnB_(t.l), t.r];
-
-      case GT: {
-        const [lt, gt] = RB.split(t.r, k, cmp);
-        return [RB.join(t.l, lt, t.k, t.v, cmp), gt];
-      }
-
-      default: throw new Err("invalid comparator");
-    }
-  }
-};
-
-
-/*
-█████ Traversal ███████████████████████████████████████████████████████████████*/
-
-
-RB.preOrder = Monoid => f => t =>
-  RB.cata(pair => l => r =>
-    Monoid.append(Monoid.append(f(pair)) (l)) (r)) (Monoid.empty) (t) (id);
-
-
-RB.preOrder_ = Monoid => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    Monoid.append(Monoid.append(f(pair)) (l)) (r)) (Monoid.empty) (t);
-
-
-RB.inOrder = Monoid => f => t =>
-  RB.cata(pair => l => r =>
-    Monoid.append(Monoid.append(l) (f(pair))) (r)) (Monoid.empty) (t) (id);
-
-
-RB.inOrder_ = Monoid => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    Monoid.append(Monoid.append(l) (f(pair))) (r)) (Monoid.empty) (t);
-
-
-RB.postOrder = Monoid => f => t =>
-  RB.cata(pair => l => r =>
-    Monoid.append(Monoid.append(l) (r)) (f(pair))) (Monoid.empty) (t) (id);
-
-
-RB.postOrder_ = Monoid => f => t => // lazy version
-  RB.cata_(pair => l => r =>
-    Monoid.append(Monoid.append(l) (r)) (f(pair))) (Monoid.empty) (t);
-
-
-RB.levelOrder = f => init => t => function go(acc, i, ts) {
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(acc, i + 1, ts);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return go(f(acc) ([ts[i].k, ts[i].v]), i + 1, ts);
-  }
-} (init, 0, [t]);
-
-
-RB.levelOrder_ = f => acc => t => function go(ts, i) { // lazy version
-  if (i >= ts.length) return acc;
-  else if (ts[i] [TAG] === "Leaf") return go(ts, i + 1);
-  
-  else {
-    ts.push(ts[i].l, ts[i].r);
-    return f([ts[i].k, ts[i].v]) (lazy(() => go(ts, i + 1)));
-  }
-} ([t], 0);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ TODO █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-/*
-
-  * incorporate type wrapper for each transformer
-  * unfoldM
-  * add Proxy-based thunk aware Eq type class
-  * add foldl1/foldr1 to all container types
-  * conversion: fromFoldable instead of fromList/fromArray
-  * delete S.once/P.once etc. provided it is redundant
-  * add Represantable type class
-  * add Distributive type class
-
-*/
