@@ -717,7 +717,7 @@ Tree.foldl = f => acc => tree =>
 // fold in descending order
 
 Tree.foldr = f => acc => tree =>
-  A.foldr(f) (acc) (Tree.append(tree, []));
+  A.foldl(f) (acc) (Tree.append(tree, []));
 
 
 /*
@@ -752,6 +752,9 @@ Tree.ins = (tree, x) => {
   const [left, right] = Tree.split(tree, y => y >= x);
   return Tree.merge(Tree.merge(left, Tree.Leaf(x)), right);
 };
+
+
+//Tree.snoc = (tree, x) => Tree.merge(tree, Tree.Leaf(x));
 
 
 Tree.del = (tree, x) => {
@@ -9837,89 +9840,61 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
-// scheme with separator (e.g. "d.m.y") or without (e.g. "ddmmyyyy")
+Str.normalizeDate = locale => s => {
+  switch (locale) {
+    case "de": {
+      let rx;
 
-Str.normalizeDate = scheme => s => {
-  const punctuations = scheme.replace(/[a-z]/gi, "");
-
-  const [order, compos] = _let(Str.splitChunk({from: 1, to: 1}) (punctuations).length).in(len => {
-    const [ws, xs] = scope(() => {
-      switch (len) {
-        case 0: {
-          const ys = Array.from(scheme.matchAll(/(.)\1*/g)),
-            zs = ys.reduce((acc, rx) => {
-              acc.push(s.slice(rx.index, rx.index + rx[0].length));
-              return acc;
-            }, []);
-
-          return [ys.map(rx => rx[1]), zs];
-        }
-        
-        case 1: {
-          const ys = scheme.split(punctuations),
-            zs = s.split(punctuations);
-
-          return [ys, zs];
-        }
-        
-        // TODO: add case 2
-
-        default: throw new Err("invalid scheme");
-      }
-    });
-
-    return [ws, xs];
-  });
-
-  return order.reduce((acc, s3, i) => {
-    switch (s3) {
-      case "d": {
-        if (compos[i].length < 1 || compos[i].length > 2) acc[2] = "";
-        else acc[2] = compos[i].padStart(2, "0");
-        return acc;
-      }
+      rx = s.match(new RegExp("^(?<d>\\d{1,2})\\.(?<m>\\d{1,2})\\.(?:20)?(?<y>\\d{2})$", ""));
       
-      case "m": {
-        if (compos[i].length < 1 || compos[i].length > 2) acc[1] = "";
-        else acc[1] = compos[i].padStart(2, "0");
-        return acc;
+      if (rx === null) rx = s.match(new RegExp("^(?<d>\\d{2})(?<m>\\d{2})(?:20)?(?<y>\\d{2})$", ""));
+
+      if (rx === null) {
+        const replacer = (match, d, m, y, offset, string, groups) => {
+          const m2 = new Map([
+            ["jan", "01"], ["feb", "02"], ["mär", "03"], ["mar", "03"], ["apr", "04"], ["mai", "05"], ["jun", "06"],
+            ["jul", "07"], ["aug", "08"], ["sep", "09"], ["okt", "10"], ["nov", "11"], ["dez", "12"]
+          ]);
+
+          const k = m.slice(0, 3).toLowerCase();
+
+          if (m2.has(k)) m = m2.get(k);
+          return `${d}.${m}.${y}`;
+        }
+
+        rx = s.replace(new RegExp("^(\\d{1,2})\\.? +([a-z]+) +(?:20)?(\\d{2})$", "i"), replacer)
+          .match(new RegExp("^(?<d>\\d{1,2})\\.(?<m>\\d{2})\\.(?:20)?(?<y>\\d{2})$", ""));
       }
 
-      case "y": {
-        if (compos[i].length !== 2 && compos[i].length !== 4) acc[0] = "";
-        else acc[0] = compos[i].length === 2 ? 20 + compos[i] : compos[i];
-        return acc;
-      }
+      if (rx === null) return new Exception(`invalid DE date format "${s}"`);
 
-      default: throw new Err("invalid scheme");
+      else {
+        if (rx.groups.d.length === 1) rx.groups.d = "0" + rx.groups.d;
+        if (rx.groups.m.length === 1) rx.groups.m = "0" + rx.groups.m;
+        rx.groups.y = "20" + rx.groups.y;
+
+        return `${rx.groups.y}-${rx.groups.m}-${rx.groups.d}`;
+      }
     }
-  }, new Array(3)).join("-");
+
+    default: throw new Err(`unknown locale "${locale}"`);
+  }
 };
 
 
 Str.normalizeNumber = ({sep: {thd, dec}, places = 0}) => s => {
-  if (thd === "") {
-    if (dec === "") {
-      if (places === 0) throw new Err("invalid arguments");
-      else return `${s.slice(0, -places)}.${s.slice(-places)}`;
-    }
+  if (places === 0 && (thd !== "" || dec !== ""))
+    throw new Err("invalid arguments");
 
-    else return s.split(dec).join(".");
+  if (thd) s = s.split(thd).join("");
+  if (dec) s = s.split(dec).join(".");
+
+  if (places) {
+    if (/[^\d]/.test(s)) return s;
+    s = `${s.slice(0, -places)}.${s.slice(-places)}`;
   }
 
-  else if (dec === "") {
-    if (places === 0) throw new Err("invalid arguments");
-    
-    else {
-      const s2 = s.split(thd).join("");
-      return `${s2.slice(0, -places)}.${s2.slice(-places)}`;
-    }
-  }
-
-  else {
-    const s2 = s.split(thd).join("");
-    return s2.split(dec).join(".");
-  }
+  return s;
 };
 
 
