@@ -10155,7 +10155,7 @@ Tree.foldr = f => function go(acc) {
   return tree => {
     switch (tree[TAG]) {
       case "Empty": return acc;
-      case "Leaf": {console.log(tree.x); return f(tree.x) (acc);}
+      case "Leaf": {return f(tree.x) (acc);}
       case "Node2": return go(go(acc) (tree.right)) (tree.left);
       case "Node3": return go(go(go(acc) (tree.right)) (tree.middle)) (tree.left);
     }
@@ -10169,7 +10169,7 @@ Tree.foldr_ = f => function go(acc) {
   return tree => {
     switch (tree[TAG]) {
       case "Empty": return acc;
-      case "Leaf": {console.log(tree.x); return f(tree.x) (acc);}
+      case "Leaf": {return f(tree.x) (acc);}
       case "Node2": return go(go(acc) (tree.left)) (tree.right);
       case "Node3": return go(go(go(acc) (tree.left)) (tree.middle)) (tree.right);
     }
