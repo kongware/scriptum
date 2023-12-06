@@ -9948,25 +9948,6 @@ data structures. */
 // binary search tree
 
 
-/*const TAG = Symbol.toStringTag;
-const Err = Error;
-const id = x => x;
-const A = {};
-A.foldl = f => init => xs => {
-  let acc = init;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = f(acc) (xs[i]);
-
-  return acc;
-};
-
-A.foldr = f => acc => function go([x, ...xs]) {
-  if (x === undefined) return acc;
-  else return f(x) (go(xs));
-};*/
-
-
 const Tree = {};
 
 
@@ -10160,7 +10141,7 @@ Tree.foldl = f => acc => Tree.cata({
 
 // left fold in descending order
 
-Tree.foldlRev = f => acc => Tree.cata({
+Tree.foldl_ = f => acc => Tree.cata({
   empty: () => acc,
   leaf: id,
   node2: (height, min, right, left) => f(f(acc) (left)) (right),
@@ -10168,26 +10149,37 @@ Tree.foldlRev = f => acc => Tree.cata({
 });
 
 
-Tree.foldr = f => acc => function go(tree) {
-  switch (tree[TAG]) {
-    case "Empty": return acc;
-    case "Leaf": return tree.x;
+// right fold in ascending order
 
-    case "Node2": {
-      const x = go(tree.left),
-        y = go(tree.right);
-
-      return f(x) (f(y) (acc));
+Tree.foldr = f => function go(acc) {
+  return tree => {
+    switch (tree[TAG]) {
+      case "Empty": return acc;
+      case "Leaf": {console.log(tree.x); return f(tree.x) (acc);}
+      case "Node2": return go(go(acc) (tree.right)) (tree.left);
+      case "Node3": return go(go(go(acc) (tree.right)) (tree.middle)) (tree.left);
     }
+  };
+};
 
-    case "Node3": {
-      const x = go(tree.left),
-        y = go(tree.middle),
-        z = go(tree.right);
 
-      return f(x) (f(y) (f(z) (acc)));
+// right fold in descending order
+
+Tree.foldr_ = f => function go(acc) {
+  return tree => {
+    switch (tree[TAG]) {
+      case "Empty": return acc;
+      case "Leaf": {console.log(tree.x); return f(tree.x) (acc);}
+      case "Node2": return go(go(acc) (tree.left)) (tree.right);
+      case "Node3": return go(go(go(acc) (tree.left)) (tree.middle)) (tree.right);
     }
-  }
+  };
+};
+
+
+Tree.Foldable = {
+  foldl: A.foldl,
+  foldr: A.foldr
 };
 
 
@@ -10205,6 +10197,9 @@ Tree.map = f => Tree.cata({
   node3: (height, min, left, middle, right) =>
     Tree.Node3(height, f(min), left, middle, right)
 });
+
+
+Tree.Functor = {map: Tree.map};
 
 
 /*
@@ -10233,10 +10228,24 @@ Tree.del = (tree, x) => {
 };
 
 
-/*let t = Tree.fromArr([1,2,3,4,5]);
-t = Tree.ins(t, 6);
-t = Tree.del(t, 1);
-Tree.toArr(t);*/
+/*
+█████ Meta Information ████████████████████████████████████████████████████████*/
+
+
+Tree.nodes = Tree.cata({
+  empty: () => 0,
+  leaf: _ => 0,
+  node2: (height, min, left, right) => 1 + left + right,
+  node3: (height, min, left, middle, right) => 1 + left + middle + right,
+});
+
+
+Tree.leafs = Tree.cata({
+  empty: () => 0,
+  leaf: _ => 1,
+  node2: (height, min, left, right) => left + right,
+  node3: (height, min, left, middle, right) => left + middle + right
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
