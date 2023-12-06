@@ -469,310 +469,6 @@ class Thunk {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████ PERSISTANT DATA STRUCTURE ██████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* scriptum utilizes a 2-3 Tree as its basis for persistant data structures.
-This kind of tree offers the most straightforward implementation without any
-edge cases, which facilitates debugging of any code relying on persistance. The
-following data types will be supplied:
-
-* Iarray
-* Imap
-* Iset
-* Iobject
-
-The listed implementation is just a prove of concept, hence not stable. */
-
-
-/*const TAG = Symbol.toStringTag;
-const Err = Error;
-const A = {};
-A.foldl = f => init => xs => {
-  let acc = init;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = f(acc) (xs[i]);
-
-  return acc;
-};
-
-A.foldr = f => acc => function go([x, ...xs]) {
-  if (x === undefined) return acc;
-  else return f(x) (go(xs));
-};*/
-
-
-const Tree = {};
-
-
-Tree.Empty = {[TAG]: "Empty"};
-
-
-Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
-
-
-Tree.Node2 = (height, min, left, right) =>
-  ({[TAG]: "Node2", height, min, left, right});
-
-
-Tree.Node3 = (height, min, left, middle, right) =>
-  ({[TAG]: "Node3", height, min, left, middle, right});
-
-
-Tree.node2 = (left, right) =>
-  Tree.Node2(left.height + 1, left.min, left, right);
-
-
-Tree.node3 = (left, middle, right) =>
-  Tree.Node3(left.height + 1, left.min, left, middle, right);
-
-
-/*
-█████ Implementation Details ██████████████████████████████████████████████████*/
-
-
-Tree.levelUp = args => {
-  switch(args.length) {
-    case 2: return [Tree.node2(...args)];
-    case 3: return [Tree.node3(...args)];  
-    case 4: return [Tree.node2(args[0], args[1]), Tree.node2(args[2], args[3])];
-    default: throw new Err("unexpected number of arguments");
-  }
-}
-
-
-Tree.levelHeight = (left, right) => {
-  if (left.height < right.height) {
-    if (right[TAG] === "Node2") {
-      const xs = Tree.levelHeight(left, right.left)
-        .concat(right.right);
-
-      return Tree.levelUp(xs);
-    }
-
-    else {
-      const xs = Tree.levelHeight(left, right.left)
-        .concat([right.middle, right.right]);
-
-      return Tree.levelUp(xs);
-    }
-  }
-
-  else if (left.height > right.height) {
-    if (left[TAG] === "Node2") {
-      const xs = [left.left]
-        .concat(Tree.levelHeight(left.right, right));
-
-      return Tree.levelUp(xs);
-    }
-
-    else {
-      const xs = [left.left, left.middle]
-        .concat(Tree.levelHeight(left.right, right));
-
-      return Tree.levelUp(xs);
-    }    
-  }
-
-  else return [left, right];
-};
-
-
-Tree.merge = (left, right) => {
-  if (left[TAG] === "Empty") return right;
-  else if (right[TAG] === "Empty") return left;
-
-  else {
-    const xs = Tree.levelHeight(left, right);
-
-    if (xs.length === 1) return xs[0];
-    else return Tree.node2(...xs);
-  }
-};
-
-
-Tree.split = (tree, f) => {
-  if (tree[TAG] === "Empty") return [Tree.Empty, Tree.Empty];
-
-  else if (tree[TAG] === "Leaf") {
-    if (f(tree.x)) return [Tree.Empty, Tree.Leaf(tree.x)];
-    else return [Tree.Leaf(tree.x), Tree.Empty];
-  }
-
-  else if (tree[TAG] === "Node2") {
-    if (f(tree.right.min)) {
-      const [left, right] = Tree.split(tree.left, f);
-      return [left, Tree.merge(right, tree.right)];
-    }
-
-    else {
-      const [left, right] = Tree.split(tree.right, f);
-      return [Tree.merge(tree.left, left), right];
-    }
-  }
-
-  else {
-    if (f(tree.middle.min)) {
-      const [left, right] = Tree.split(tree.left, f);
-      return [left, Tree.merge(right, Tree.node2(tree.middle, tree.right))];
-    }
-
-    if (f(tree.right.min)) {
-      const [left, right] = Tree.split(tree.middle, f);
-      return [Tree.merge(tree.left, left), Tree.merge(right, tree.right)];
-    }
-
-    else {
-      const [left, right] = Tree.split(tree.right, f);
-      return [Tree.merge(Tree.node2(tree.left, tree.middle), left), right];
-    }
-  }
-};
-
-
-Tree.append = (tree, xs) => {
-  if (tree[TAG] === "Empty") return xs;
-  else if (tree[TAG] === "Leaf") return (xs.push(tree.x), xs);
-  
-  else if (tree[TAG] === "Node2")
-    return Tree.append(tree.left, Tree.append(tree.right, xs));
-
-  else if (tree[TAG] === "Node3")
-    return Tree.append(tree.left, Tree.append(tree.middle, Tree.append(tree.right, xs)));
-};
-
-
-Tree.prepend = (tree, xs) => {
-  if (tree[TAG] === "Empty") return xs;
-  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
-  
-  else if (tree[TAG] === "Node2")
-    return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
-
-  else if (tree[TAG] === "Node3")
-    return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
-};
-
-
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-/* The elimination rule of the type. Catamorphisms are more general and thus
-more expressive than folds, because they factor all value constructors in.
-`Either`, for instance, has two constructors and the catamorphism receives two
-functions accordingly, one for each constructor. A fold on the other hand has
-only a single function `f` and a constant `acc`, i.e. it is one function short
-to fully cover `Either`'s cases. For this reason catamorphism and fold coincide
-for `List`, because both the type includes exactly a single type constructor
-`Cons` and a type constant `Nil`.
-
-Catamorphisms are usually defined as a loop to avoid stack overflows. However,
-the depth of a more or less balanced tree should regularly not exhaust the call
-stack, hence it is recursively defined. */
-
-
-Tree.cata = ({empty, leaf, node2, node3}) => function go(tree) {
-  switch (tree[TAG]) {
-    case "Empty": return empty();
-    case "Leaf": return leaf(tree.x);
-
-    case "Node2": return node2(
-      tree.height,
-      tree.min,
-      go(tree.left),
-      go(tree.right))
-
-    case "Node3": return node3(
-      tree.height,
-      tree.min,
-      go(tree.left),
-      go(tree.middle),
-      go(tree.right))
-  }
-};
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
-
-
-Tree.toArr = tree => Tree.prepend(tree, []);
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-// fold in ascending order
-
-Tree.foldl = f => acc => tree =>
-  A.foldl(f) (acc) (Tree.prepend(tree, []));
-
-
-// fold in descending order
-
-Tree.foldr = f => acc => tree =>
-  A.foldl(f) (acc) (Tree.append(tree, []));
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Tree.map = f => Tree.cata({
-  empty: () => Tree.Empty,
-  leaf: x => Tree.Leaf(f(x)),
-
-  node2: (height, min, left, right) =>
-    Tree.Node2(height, f(min), left, right),
-
-  node3: (height, min, left, middle, right) =>
-    Tree.Node3(height, f(min), left, middle, right)
-});
-
-
-/*
-█████ Getter/Setter ███████████████████████████████████████████████████████████*/
-
-
-Tree.has = (tree, x) => {
-  const [left, right] = Tree.split(tree, y => y >= x);
-
-  if (right[TAG] === "Empty") return false;
-  else return right.min === x;
-};
-
-
-Tree.ins = (tree, x) => {
-  const [left, right] = Tree.split(tree, y => y >= x);
-  return Tree.merge(Tree.merge(left, Tree.Leaf(x)), right);
-};
-
-
-//Tree.snoc = (tree, x) => Tree.merge(tree, Tree.Leaf(x));
-
-
-Tree.del = (tree, x) => {
-  const [left, right] = Tree.split(tree, y => y >= x),
-    [, right2] = Tree.split(right, y => y > x);
-
-  return Tree.merge(left, right2);
-};
-
-
-/*let t = Tree.fromArr([1,2,3,4,5]);
-t = Tree.ins(t, 6);
-t = Tree.del(t, 1);
-Tree.toArr(t);*/
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████ OVERLOADED OPERATORS █████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4438,6 +4134,10 @@ D.fromStr = s => {
 };
 
 
+D.fromStrSafe = f => infix(
+  E.throw, comp, D.fromStr, comp, f);
+
+
 /*
 █████ Format ██████████████████████████████████████████████████████████████████*/
 
@@ -4483,6 +4183,18 @@ D.formatYear = digits => d => {
     default: throw new Err("invalid number of digits");
   }
 };
+
+
+D.formatDe = D.format(".") (
+  D.formatDay(2),
+  D.formatMonth({digits: 2}),
+  D.formatYear(4));
+
+
+D.formatIso = D.format("-") (
+  D.formatYear(4),
+  D.formatMonth({digits: 2}),
+  D.formatDay(2));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5751,7 +5463,13 @@ _Map.updOr = x => k => f => m => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// map that maintains element order from operations on a double-ended queue
+/* Map that combines characteristics of a doubly-ended queue and a hash table.
+It maintains the element order of deque operations. `id` is used to generate
+unique keys from the stored values and thus hide keys from the interface. If
+you want to use values as keys themselves, just pass the identity function.
+Please note that `push`/`pop` are way faster than `unshift`/`shift` due to the
+native array implementation in Javascript. */
+
 
 class DequeMap extends Map {
   constructor(id) {
@@ -5761,71 +5479,97 @@ class DequeMap extends Map {
     this.ks = [];
   }
 
+
+  /*
+  █████ Functor ███████████████████████████████████████████████████████████████*/
+
+
+  map(f) {
+    const d = new DequeMap();
+    
+    for (const [k, v] of this) {
+      const v2 = f(v);
+        k2 = id(v2);
+
+      d.set(k2, v2);
+      d.ks.push(k2);
+    }
+    
+    return d;
+  };
+
+
+  /*
+  █████ Getters/Setters ███████████████████████████████████████████████████████*/
+
+
+  clear(k) {throw new Err("illegal operation")}
+
+
+  delete(k) {throw new Err("illegal operation")}
+
+
+  get(v) {return this.get(this.id(v))}
+
+
+  has(v) {this.has(this.id(v))}
+
+
+  pop() {
+    const k = this.ks.pop(),
+      v = this.get(k);
+
+    this.delete(k);
+    return Pair(Pair(k, v), this);
+  };
+
+
+  push(v) {
+    const k = this.id(v);
+    
+    if (this.has(k)) throw Err(`duplicate key "${k}"`);
+
+    else {
+      this.set(k, v);
+      this.ks.push(k);
+      return this;
+    }
+  };
+
+
+  set(k) {throw new Err("illegal operation")}
+
+
+  shift() {
+    const k = this.ks.shift(),
+      v = this.get(k);
+
+    this.delete(k);
+    return Pair(Pair(k, v), this);
+  };
+
+
+  unshift(v) {
+    const k = this.id(v);
+    
+    if (this.has(k)) throw Err(`duplicate key "${k}"`);
+    
+    else {
+      this.set(k, v);
+      this.ks.unshift(k);
+      return this;
+    }
+  };
+
+
+  /*
+  █████ Iterator ██████████████████████████████████████████████████████████████*/
+
+
   *[Symbol.iterator]() {
     for (let k of this.ks) yield [k, m.get(k)];
   }
 };
-
-
-DequeMap.get = v => m => m.get(m.id(v));
-
-
-DequeMap.has = v => m => m.has(m.id(v));
-
-
-DequeMap.map = f => m => {
-  for (const [k, v] of m) m.set(k, f(v));
-};
-
-
-DequeMap.pop = m => {
-  const k = m.ks.pop(),
-    v = m.get(k);
-
-  m.delete(k);
-  return [[k, v], m];
-};
-
-
-DequeMap.push = v => m => {
-  const k = m.id(v);
-  
-  if (m.has(k)) throw Err(`duplicate key "${k}"`);
-
-  else {
-    m.set(k, v);
-    m.ks.push(k);
-    return m;
-  }
-};
-
-
-DequeMap.shift = m => {
-  const k = m.ks.shift(),
-    v = m.get(k);
-
-  m.delete(k);
-  return [[k, v], m];
-};
-
-
-DequeMap.unshift = v => m => {
-  const k = m.id(v);
-  
-  if (m.has(k)) throw Err(`duplicate key "${k}"`);
-  
-  else {
-    m.set(k, v);
-    m.ks.unshift(k);
-    return m;
-  }
-};
-
-
-DequeMap.upd = f => k => m => {
-  if (m.has(k)) m.set(k, f(m.get(k)));
-  return m;
-}
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5843,54 +5587,121 @@ class MultiMap extends Map {
     Object.defineProperty(this, TAG, {value: "MultiMap"});
   }
 
+
+  /*
+  █████ Conversion ████████████████████████████████████████████████████████████*/
+
+
+  fromTable(table, i) {
+    const m = new MultiMap();
+
+    for (const cols of table) m.setItem(cols[i], cols) (m);
+    return m;
+  }
+
+
+  /*
+  █████ Functor ███████████████████████████████████████████████████████████████*/
+
+
+  map(f) {
+    const m = new MultiMap();
+
+    for (const [k, v] of this) m.setItem(k, f(v));
+    return m;
+  }
+
+
+  /*
+  █████ Getters/Setters ███████████████████████████████████████████████████████*/
+
+
+  delItem(k, pred) {
+    const s = this.get(k);
+
+    for (const v of s) {
+      if (pred(v)) {
+        s.delete(v);
+        break;
+      }
+    }
+
+    if (s.size === 0) this.delete(k);
+    return this;
+  }
+
+
+  getItem(k, pred) {
+    const s = this.get(k);
+
+    if (s === undefined) return s;
+
+    else {
+      for (const v of s) {
+        if (pred(v)) return v;
+      }
+
+      return undefined;
+    }
+  }
+
+
+  setItem(k, v) {
+    if (this.has(k)) {
+      const s = this.get(k);
+      s.add(v);
+      return this;
+    }
+
+    else {
+      this.set(k, new Set([v]));
+      return this;
+    }
+  }
+
+
+  upd(k, f) {
+    const s = this.get(k),
+      s2 = new Set();
+
+    if (s === undefined) return s;
+
+    else {
+      for (const v of s) s2.add(f(v));
+      this.set(k, s2);
+      return this;
+    }
+  }
+
+
+  updItem(k, pred, f) {
+    const s = this.get(k);
+
+    if (s === undefined) return s;
+
+    else {
+      for (const v of s) {
+        if (pred(v)) {
+          s.delete(v);
+          s.add(f(v));
+          break;
+        }
+      }
+
+      return this;
+    }
+  }
+
+
+  /*
+  █████ Iterator ██████████████████████████████████████████████████████████████*/
+
+
   *[Symbol.iterator]() {
     for (const [k, s] of super[Symbol.iterator]()) {
       for (const v of s) yield [k, v];
     }
   }
-};
-
-
-MultiMap.del = pred => k => m => {
-  const s = m.get(k);
-
-  for (const v of s) if (pred(v)) s.delete(v);
-
-  if (s.size === 0) m.delete(k);
-  return m;
-};
-
-
-MultiMap.map = f => m => {
-  for (const [k, v] of m) m.set(k, f(v));
-};
-
-
-MultiMap.set = k => v => m => {
-  if (m.has(k)) {
-    const s = m.get(k);
-    s.add(v);
-    return m;
-  }
-
-  else {
-    m.set(k, new Set([v]));
-    return m;
-  }
-};
-
-
-MultiMap.upd = f => pred => k => m => {
-  const s = m.get(k);
-
-  for (const v of s) {
-    if (pred(v)) {
-      s.delete(v);
-      s.add(f(v))
-    }
-  }
-
-  return this;
 };
 
 
@@ -5919,6 +5730,10 @@ Num.fromStr = s => {
   if (/^(?:\+|\-)?\d+(?:\.\d+)?$/.test(s)) return Number(s);
   else return new Exception(`invalid number string: "${s}"`);
 };
+
+
+Num.fromStrSafe = f => infix(
+  E.throw, comp, Num.fromStr, comp, f);
 
 
 /*
@@ -6325,6 +6140,16 @@ O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
 
 
 O.toPairs = Object.entries;
+
+
+O.fromArr = header => xs => {
+  const o = {};
+
+  for (let i = 0; i < xs.length; i++)
+    o[header.get(i)] = xs[i];
+
+  return o;
+};
 
 
 /*
@@ -9734,6 +9559,20 @@ Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 
 
 /*
+█████ Parsing █████████████████████████████████████████████████████████████████*/
+
+
+Str.parseCsv = ({sep, skipFirst}) => csv => {
+  if (skipFirst) csv = csv.replace(new RegExp("^.*\\r?\\n", ""), "");
+
+  return csv.trim()
+    .replace(/"/g, "")
+    .split(/\r?\n/)
+    .map(row => row.split(sep))
+};
+
+
+/*
 █████ Regular Expressions █████████████████████████████████████████████████████*/
 
 
@@ -9783,7 +9622,7 @@ Str.normalizeDate = locale => s => {
 
 
 Str.normalizeNumber = ({sep: {thd, dec}, places = 0}) => s => {
-  if (places === 0 && (thd !== "" || dec !== ""))
+  if (places > 0 && (thd !== "" || dec !== ""))
     throw new Err("invalid arguments");
 
   if (thd) s = s.split(thd).join("");
@@ -10090,6 +9929,314 @@ Trampoline.base = x =>
 
 
 Trampoline.of = Trampoline.of();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ TREE █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* scriptum uses a 2-3 tree implementation as the foundation of its persistant
+data structures. */
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ TREE :: SEARCH TREE █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// binary search tree
+
+
+/*const TAG = Symbol.toStringTag;
+const Err = Error;
+const id = x => x;
+const A = {};
+A.foldl = f => init => xs => {
+  let acc = init;
+
+  for (let i = 0; i < xs.length; i++)
+    acc = f(acc) (xs[i]);
+
+  return acc;
+};
+
+A.foldr = f => acc => function go([x, ...xs]) {
+  if (x === undefined) return acc;
+  else return f(x) (go(xs));
+};*/
+
+
+const Tree = {};
+
+
+Tree.Empty = {[TAG]: "Empty"};
+
+
+Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
+
+
+Tree.Node2 = (height, min, left, right) =>
+  ({[TAG]: "Node2", height, min, left, right});
+
+
+Tree.Node3 = (height, min, left, middle, right) =>
+  ({[TAG]: "Node3", height, min, left, middle, right});
+
+
+Tree.node2 = (left, right) =>
+  Tree.Node2(left.height + 1, left.min, left, right);
+
+
+Tree.node3 = (left, middle, right) =>
+  Tree.Node3(left.height + 1, left.min, left, middle, right);
+
+
+/*
+█████ Implementation Details ██████████████████████████████████████████████████*/
+
+
+Tree.levelUp = args => {
+  switch(args.length) {
+    case 2: return [Tree.node2(...args)];
+    case 3: return [Tree.node3(...args)];  
+    case 4: return [Tree.node2(args[0], args[1]), Tree.node2(args[2], args[3])];
+    default: throw new Err("unexpected number of arguments");
+  }
+}
+
+
+Tree.levelHeight = (left, right) => {
+  if (left.height < right.height) {
+    if (right[TAG] === "Node2") {
+      const xs = Tree.levelHeight(left, right.left)
+        .concat(right.right);
+
+      return Tree.levelUp(xs);
+    }
+
+    else {
+      const xs = Tree.levelHeight(left, right.left)
+        .concat([right.middle, right.right]);
+
+      return Tree.levelUp(xs);
+    }
+  }
+
+  else if (left.height > right.height) {
+    if (left[TAG] === "Node2") {
+      const xs = [left.left]
+        .concat(Tree.levelHeight(left.right, right));
+
+      return Tree.levelUp(xs);
+    }
+
+    else {
+      const xs = [left.left, left.middle]
+        .concat(Tree.levelHeight(left.right, right));
+
+      return Tree.levelUp(xs);
+    }    
+  }
+
+  else return [left, right];
+};
+
+
+Tree.merge = (left, right) => {
+  if (left[TAG] === "Empty") return right;
+  else if (right[TAG] === "Empty") return left;
+
+  else {
+    const xs = Tree.levelHeight(left, right);
+
+    if (xs.length === 1) return xs[0];
+    else return Tree.node2(...xs);
+  }
+};
+
+
+Tree.split = (tree, f) => {
+  if (tree[TAG] === "Empty") return [Tree.Empty, Tree.Empty];
+
+  else if (tree[TAG] === "Leaf") {
+    if (f(tree.x)) return [Tree.Empty, Tree.Leaf(tree.x)];
+    else return [Tree.Leaf(tree.x), Tree.Empty];
+  }
+
+  else if (tree[TAG] === "Node2") {
+    if (f(tree.right.min)) {
+      const [left, right] = Tree.split(tree.left, f);
+      return [left, Tree.merge(right, tree.right)];
+    }
+
+    else {
+      const [left, right] = Tree.split(tree.right, f);
+      return [Tree.merge(tree.left, left), right];
+    }
+  }
+
+  else {
+    if (f(tree.middle.min)) {
+      const [left, right] = Tree.split(tree.left, f);
+      return [left, Tree.merge(right, Tree.node2(tree.middle, tree.right))];
+    }
+
+    if (f(tree.right.min)) {
+      const [left, right] = Tree.split(tree.middle, f);
+      return [Tree.merge(tree.left, left), Tree.merge(right, tree.right)];
+    }
+
+    else {
+      const [left, right] = Tree.split(tree.right, f);
+      return [Tree.merge(Tree.node2(tree.left, tree.middle), left), right];
+    }
+  }
+};
+
+
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
+
+
+// catamorphism (structural fold)
+
+Tree.cata = ({empty, leaf, node2, node3}) => function go(tree) {
+  switch (tree[TAG]) {
+    case "Empty": return empty();
+    case "Leaf": return leaf(tree.x);
+
+    case "Node2": return node2(
+      tree.height,
+      tree.min,
+      go(tree.left),
+      go(tree.right))
+
+    case "Node3": return node3(
+      tree.height,
+      tree.min,
+      go(tree.left),
+      go(tree.middle),
+      go(tree.right))
+  }
+};
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
+
+
+Tree.prepend = (tree, xs) => {
+  if (tree[TAG] === "Empty") return xs;
+  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
+  
+  else if (tree[TAG] === "Node2")
+    return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
+
+  else if (tree[TAG] === "Node3")
+    return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
+};
+
+
+Tree.toArr = tree => Tree.prepend(tree, []);
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+// left fold in ascending order
+
+Tree.foldl = f => acc => Tree.cata({
+  empty: () => acc,
+  leaf: id,
+  node2: (height, min, left, right) => f(f(acc) (left)) (right),
+  node3: (height, min, left, middle, right) => f(f(f(acc) (left)) (middle)) (right)
+});
+
+
+// left fold in descending order
+
+Tree.foldlRev = f => acc => Tree.cata({
+  empty: () => acc,
+  leaf: id,
+  node2: (height, min, right, left) => f(f(acc) (left)) (right),
+  node3: (height, min, right, middle, left) => f(f(f(acc) (left)) (middle)) (right)
+});
+
+
+Tree.foldr = f => acc => function go(tree) {
+  switch (tree[TAG]) {
+    case "Empty": return acc;
+    case "Leaf": return tree.x;
+
+    case "Node2": {
+      const x = go(tree.left),
+        y = go(tree.right);
+
+      return f(x) (f(y) (acc));
+    }
+
+    case "Node3": {
+      const x = go(tree.left),
+        y = go(tree.middle),
+        z = go(tree.right);
+
+      return f(x) (f(y) (f(z) (acc)));
+    }
+  }
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Tree.map = f => Tree.cata({
+  empty: () => Tree.Empty,
+  leaf: x => Tree.Leaf(f(x)),
+
+  node2: (height, min, left, right) =>
+    Tree.Node2(height, f(min), left, right),
+
+  node3: (height, min, left, middle, right) =>
+    Tree.Node3(height, f(min), left, middle, right)
+});
+
+
+/*
+█████ Getter/Setter ███████████████████████████████████████████████████████████*/
+
+
+Tree.has = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x);
+
+  if (right[TAG] === "Empty") return false;
+  else return right.min === x;
+};
+
+
+Tree.ins = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x);
+  return Tree.merge(Tree.merge(left, Tree.Leaf(x)), right);
+};
+
+
+Tree.del = (tree, x) => {
+  const [left, right] = Tree.split(tree, y => y >= x),
+    [, right2] = Tree.split(right, y => y > x);
+
+  return Tree.merge(left, right2);
+};
+
+
+/*let t = Tree.fromArr([1,2,3,4,5]);
+t = Tree.ins(t, 6);
+t = Tree.del(t, 1);
+Tree.toArr(t);*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
