@@ -208,7 +208,7 @@ handled by the operation they occur in. Usually used along with the monadic
 export class Exception extends Error {
   constructor(s) {
     super(s);
-    this[TAG] = "Exception";
+    Object.defineProperty(this, TAG, {value: "Exception"});
   }
 };
 
@@ -219,6 +219,7 @@ to log errors/exceptions for later reporting. */
 export class Exceptions extends Exception {
   constructor(...es) {
     super();
+    Object.defineProperty(this, TAG, {value: "Exceptions"});
     this.errors = []; // excepts `Error` and subclasses
 
     es.forEach(e => {
@@ -2330,15 +2331,7 @@ St.T = outer => thisify(o => { // outer monad's type dictionary
 /* Enocodes the effect of computations that may have no, one or several results.
 Array is not a functional data type, because it has a non recursive definition.
 While it has a valid monad instance, there is no valid transformer. Use list or
-streams instead.
-
-Efficient operation guide:
-
-  * Array: random element access, mutations
-  * List: cons/uncons
-  * DList: append, cons/snoc
-  * Vector: element update, snoc/unsnoc, init/last
-  * Sequence: element insert/delete */
+streams instead. */
 
 
 export const Arr = {}; // namespace
@@ -3319,14 +3312,7 @@ operations on the type stack-safe:
   * tail recursion modulo cons using a stack based trampoline
 
 For most type class member functions both variants are implemented with a bias
-on modulo cons.
-
-Which list like structure for what task:
-
-  * Array: random element access, length, mutations (push/pop, shift/unshift)
-  * Iarray: random element access, length, push/pop, concat
-  * List: cons/uncons, init/tail
-  * DList: append, cons/snoc */
+on modulo cons. */
 
 
 export const List = {};
@@ -3340,6 +3326,7 @@ scope(() => {
     constructor(x, xs) {
       super(x, xs);
       Object.defineProperty(this, TAG, {value: "Cons"});
+      Object.freeze(this);
     }
     
     static [Symbol.isConcatSpreadable] = true;
@@ -3360,13 +3347,11 @@ scope(() => {
               break;
             }
 
-            default: throw new Err("malformed list-like array");
+            default: throw new Err("invalid constructor");
           }
         } while (true);
       } ();
     }
-
-    map() {throw new Err("invalid method invocation")}
   };
   
   class Nil extends Array {
@@ -3381,8 +3366,6 @@ scope(() => {
     [Symbol.iterator] () {
       return function* () {return} ();
     }
-
-    map() {throw new Err("invalid method invocation")}
   };
   
   L.Cons = Cons;
@@ -3391,7 +3374,9 @@ scope(() => {
 });
 
 
-L.Cons_ = x => xs => new L.Cons(x, xs); // curried version
+// curried versions
+
+L.Cons_ = x => xs => new L.Cons(x, xs);
 
 
 L._Cons = xs => x => new L.Cons(x, xs);
@@ -3405,7 +3390,7 @@ L.head = xss => {
   switch (xss[TAG]) {
     case "Nil": return null;
     case "Cons": return xss[0];
-    default: throw new Err("malformed list-like array");
+    default: throw new Err("invalid constructor");
   }
 }
 
@@ -3417,7 +3402,7 @@ L.tail = xss => {
   switch (xss[TAG]) {
     case "Nil": return null;
     case "Cons": return xss[1];
-    default: throw new Err("malformed list-like array");
+    default: throw new Err("invalid constructor");
   }
 };
 
@@ -3479,7 +3464,7 @@ L.foldl = f => init => xss => {
         break;
       }
 
-      default: throw new Err("malformed list-like array");
+      default: throw new Err("invalid constructor");
     }
   } while (!done);
 
@@ -3498,7 +3483,7 @@ L.foldr = f => acc => Loopx(xss => {
       return Loopx.call(f(x), Loopx.rec(yss));
     }
 
-    default: throw new Err("malformed list-like array");
+    default: throw new Err("invalid constructor");
   }
 });
 
@@ -3514,7 +3499,7 @@ L.foldr_ = f => acc => function go(xss) {
       return f(x) (lazy(() => go(yss)));
     }
 
-    default: throw new Err("malformed list-like array");
+    default: throw new Err("invalid constructor");
   }
 };
 
@@ -3682,7 +3667,7 @@ L.Monad = {
 █████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
-// there is no valid instance because if the empty list
+// there is no valid instance because of the empty list
 
 
 /*
@@ -3759,6 +3744,7 @@ scope(() => {
     constructor(x, xs) {
       super(x, xs);
       Object.defineProperty(this, TAG, {value: "Cons"});
+      Object.freeze(this);
     }
     
     static [Symbol.isConcatSpreadable] = true;
@@ -3782,13 +3768,11 @@ scope(() => {
               break;
             }
 
-            default: throw new Err("malformed list-like array");
+            default: throw new Err("invalid constructor");
           }
         } while (true);
       } ();
     }
-
-    map() {throw new Err("invalid method invocation")}
   };
   
   class Eol extends Array {
@@ -3798,7 +3782,7 @@ scope(() => {
       else {
         super(x, []);
         Object.defineProperty(this, TAG, {value: "Eol"});
-        Object.freeze(this[1]);
+        Object.freeze(this);
       }
     }
     
@@ -3808,8 +3792,6 @@ scope(() => {
       const _this = this;
       return function* () {yield _this[0]; return} ();
     }
-
-    map() {throw new Err("invalid method invocation")}
   };
   
   Nea.Cons = Cons;
@@ -3822,16 +3804,6 @@ Nea.Cons_ = x => xs => new Nea.Cons(x, xs); // curried version
 
 
 Nea._Cons = xs => x => new Nea.Cons(x, xs);
-
-
-/* TODO:
-
-  * head/tail
-  * Comonad (several instances)
-  * Foldable/Unfoldable
-  * Functor/Applicative/Monad
-  * Traversable
-  * Semigroup/Monoid */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3869,7 +3841,7 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
           return Loop2.rec(mmy, f(acc) (x))
         }
 
-        default: throw new Err("malformed list-like array");
+        default: throw new Err("invalid constructor");
       }
     });
   }) (mmx, acc);
@@ -3886,7 +3858,7 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
           return Loopx.call(f(x), Loopx.rec(mmy));
         }
 
-        default: throw new Err("malformed list-like array");
+        default: throw new Err("invalid constructor");
       }
     });
   });
@@ -4043,7 +4015,7 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
           return Loopx.call(L.Cons_(x), Loopx.rec(mmy));
         }
 
-        default: throw new Err("malformed list-like array");
+        default: throw new Err("invalid constructor");
       }
     }));
   });
@@ -4061,7 +4033,7 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
           //     ^^^^^^^^ Cons isn't the tail call
         }
 
-        default: throw new Err("malformed list-like array");
+        default: throw new Err("invalid constructor");
       }
     });
   };
@@ -5784,25 +5756,13 @@ _Map.updOr = x => k => f => m => {
 class DequeMap extends Map {
   constructor(id) {
     super();
+    Object.defineProperty(this, TAG, {value: "DequeMap"});
     this.id = id;
     this.ks = [];
   }
 
   *[Symbol.iterator]() {
     for (let k of this.ks) yield [k, m.get(k)];
-  }
-};
-
-
-DequeMap.cons = v => m => {
-  const k = m.id(v);
-  
-  if (m.has(k)) throw Err(`duplicate key "${k}"`);
-  
-  else {
-    m.set(k, v);
-    m.ks.unshift(k);
-    return m;
   }
 };
 
@@ -5818,7 +5778,16 @@ DequeMap.map = f => m => {
 };
 
 
-DequeMap.snoc = v => m => {
+DequeMap.pop = m => {
+  const k = m.ks.pop(),
+    v = m.get(k);
+
+  m.delete(k);
+  return [[k, v], m];
+};
+
+
+DequeMap.push = v => m => {
   const k = m.id(v);
   
   if (m.has(k)) throw Err(`duplicate key "${k}"`);
@@ -5831,7 +5800,7 @@ DequeMap.snoc = v => m => {
 };
 
 
-DequeMap.uncons = m => {
+DequeMap.shift = m => {
   const k = m.ks.shift(),
     v = m.get(k);
 
@@ -5840,12 +5809,16 @@ DequeMap.uncons = m => {
 };
 
 
-DequeMap.unsnoc = m => {
-  const k = m.ks.pop(),
-    v = m.get(k);
-
-  m.delete(k);
-  return [[k, v], m];
+DequeMap.unshift = v => m => {
+  const k = m.id(v);
+  
+  if (m.has(k)) throw Err(`duplicate key "${k}"`);
+  
+  else {
+    m.set(k, v);
+    m.ks.unshift(k);
+    return m;
+  }
 };
 
 
@@ -5865,6 +5838,11 @@ the idea of unique keys assigned to conditionally ambiguous values, i.e. it can
 encode fuzzy key/value relations. */
 
 class MultiMap extends Map {
+  constructor() {
+    super();
+    Object.defineProperty(this, TAG, {value: "MultiMap"});
+  }
+
   *[Symbol.iterator]() {
     for (const [k, s] of super[Symbol.iterator]()) {
       for (const v of s) yield [k, v];
@@ -5913,84 +5891,6 @@ MultiMap.upd = f => pred => k => m => {
   }
 
   return this;
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ MAP :: ORDMAP ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Map that maintains a total order of its elements. Requires element that have
-a total order property. Total ordering of elements is deferred until it is
-actually needed but is then persistant, i.e. the implementation is lazy. */
-
-class OrdMap extends Map {
-  constructor(id, ctor) {
-    super();
-    this.ks = [];
-    this.id = id;
-    this.ctor = ctor;
-    this.sorted = true;
-  }
-
-  *[Symbol.iterator]() {
-    if (!this.sorted) {
-      this.ks.sort(this.ctor);
-      this.sorted = true;
-    }
-
-    for (let k of this.ks) {
-      if (k === undefined) continue;
-
-      else {
-        const v = super.get(k);
-
-        if (v !== undefined || super.has(k)) yield [k, v];
-        else continue;
-      }
-    }
-  }
-};
-
-
-OrdMap.del = v => m => {
-  m.delete(m.id(v));
-  return m;
-};
-
-
-OrdMap.get = v => m => m.get(m.id(v));
-
-
-OrdMap.has = v => m => m.has(m.id(v));
-
-
-OrdMap.map = f => m => {
-  for (const [k, v] of m) m.set(k, f(v));
-};
-
-
-OrdMap.set = v => m => {
-  const k = m.id(v);
-
-  if (m.has(k)) {
-    m.set(k, v);
-    return m;
-  }
-
-  else {
-    m.set(k, v);
-    m.ks.push(k);
-    m.sorted = false;
-    return m;
-  }
-};
-
-
-OrdMap.upd = f => k => m => {
-  m.set(k, f(m.get(k)));
-  return m;
 };
 
 
@@ -10355,9 +10255,11 @@ export const FileSys = fs => Cons => thisify(o => {
 
 /*
 
+  * implement non-empty list combinators
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
+  * add type wrapper for transformers?
   * add Represantable type class
   * add Distributive type class
 
