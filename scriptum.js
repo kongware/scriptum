@@ -2053,6 +2053,16 @@ A.Clonable = {clone: A.clone};
 A.fromList = xss => xss.flat(Number.POSITIVE_INFINITY);
 
 
+A.fromCsv = ({sep, skipFirst}) => csv => {
+  if (skipFirst) csv = csv.replace(new RegExp("^.*\\r?\\n", ""), "");
+
+  return csv.trim()
+    .replace(/"/g, "")
+    .split(/\r?\n/)
+    .map(row => row.split(sep))
+};
+
+
 /*
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
@@ -2794,7 +2804,7 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 
 
 /* Groups all consecutive elements by applying a binary predicate to the
-pervious/next element. If the predicate fails, a new subgroup is created
+pervious/current element. If the predicate fails, a new subgroup is created
 otherwise the element is pushed on the current subgroup. */
 
 A.groupBy = p => xs => Loop2((acc, i) => {
@@ -2959,6 +2969,9 @@ A.reduceSucc = f => acc => xs => {
 
   return acc;
 };
+
+
+A.sum = A.foldl(m => n => m + n) (0);
 
 
 /*
@@ -5592,12 +5605,20 @@ class MultiMap extends Map {
   █████ Conversion ████████████████████████████████████████████████████████████*/
 
 
-  fromTable(table, i) {
+  static fromTable(table, i) {
     const m = new MultiMap();
 
-    for (const cols of table) m.setItem(cols[i], cols) (m);
+    for (const cols of table) m.setItem(cols[i], cols);
     return m;
-  }
+  };
+
+
+  static fromTableBy(table, f, i) {
+    const m = new MultiMap();
+
+    for (const cols of table) m.setItem(f(cols), cols);
+    return m;
+  };
 
 
   /*
@@ -9556,20 +9577,6 @@ Str.cat_ = Str.catWith(" ");
 
 
 Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
-
-
-/*
-█████ Parsing █████████████████████████████████████████████████████████████████*/
-
-
-Str.parseCsv = ({sep, skipFirst}) => csv => {
-  if (skipFirst) csv = csv.replace(new RegExp("^.*\\r?\\n", ""), "");
-
-  return csv.trim()
-    .replace(/"/g, "")
-    .split(/\r?\n/)
-    .map(row => row.split(sep))
-};
 
 
 /*
