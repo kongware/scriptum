@@ -4756,20 +4756,24 @@ Id.Monad = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+/* The lazyness property of native iterators entail some pitfalls together with
+functional programming exercised in scriptum:
+
+* mapping over an iterator doesn't reconstruct the original data structure
+  because iterators abstract from any structure, e.g. `comp(It.force) (f)`
+  doesn't work as expected but `It.force(comp(f) (g))` does
+* it is the responsibiliy of the mapper that the outermost structure of the 
+  return value is the same as was previously fed into it, e.g. `[k, v]` can
+  change in `k`/`v` but not in `[]`
+* consumption functions must not be part of explicit composition using `comp`
+  or `pipe` but always the outermost function call */
+
+
 export const It = {};
 
 
 /*
 █████ Category ████████████████████████████████████████████████████████████████*/
-
-
-/* The category of iterators is just function composition/identity. There are
-two different variants, either normal or iterator composition:
-
-  * ([k2, v2] -> [k3, v3]) -> ([k, v] -> [k2, v2]) -> [k, v] -> [k3, v3]
-  * (Iterator b -> Iterator c) -> (Iterator a -> Iterator b) -> Iterator a -> Iterator c
-
-The normal composition example illustrates a `MapIterator`. */
 
 
 It.comp = comp;
@@ -4802,7 +4806,9 @@ It.all = f => function* (ix) {
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
-It.exhaust = ix => {
+// ignores values while performing side effects
+
+It.force = ix => {
   let acc;
   for (acc of ix) continue;
   return acc;
@@ -4819,6 +4825,13 @@ It.toArr = ix => {
 It.toMap = ix => {
   const m = new Map();
   for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
+
+
+It.toMultiMap = ix => {
+  const m = new MultiMap();
+  for (const [k, v] of ix) m.setItem(k, v);
   return m;
 };
 
@@ -4930,12 +4943,6 @@ It.Traversable = () => ({
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
-
-/* The map operation doesn't work in a principled way bc the iterator protocol
-abstracts from the original data structure but yields values, which in turn
-depend on the original structure (`Map` yields `[k, v]` but `Set` only `k`).
-With the following implementation it is the responsibility of `f` to return
-values of the same structure as they were passed. */
 
 It.map = f => function* (ix) {
   do {
@@ -5079,63 +5086,10 @@ It.Monad = {
 
 
 /*
-█████ Partial Init/Tail ███████████████████████████████████████████████████████*/
+█████ Iterable ████████████████████████████████████████████████████████████████*/
 
 
-It.drop = n => function* (ix) {
-  while (n-- > 0) {
-    const {done} = ix.next();
-    if (done) return;
-  };
-
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (true);
-};
-
-
-It.dropWhile = p => function* (ix) {
-  while (true) {
-    const {value: x, done} = ix.next();
-    if (done) return;
-
-    else if (!p(x)) {
-      yield x;
-      break;
-    }
-  };
-
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (true);
-};
-
-
-It.take = n => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield x;
-  } while (--n > 0);
-};
-
-
-It.takeWhile = p => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else if (p(x)) yield x;
-    else return;
-  } while (true);
-};
+It.make = it => it[Symbol.iterator] ();
 
 
 /*
@@ -5229,6 +5183,66 @@ It.mapSucc = f => function* (ix) {
       yield f(Pair(x, y));
       x = y;
     }
+  } while (true);
+};
+
+
+/*
+█████ Sublists ████████████████████████████████████████████████████████████████*/
+
+
+It.drop = n => function* (ix) {
+  while (n-- > 0) {
+    const {done} = ix.next();
+    if (done) return;
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (true);
+};
+
+
+It.dropWhile = p => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+    if (done) return;
+
+    else if (!p(x)) {
+      yield x;
+      break;
+    }
+  };
+
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (true);
+};
+
+
+It.take = n => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else yield x;
+  } while (--n > 0);
+};
+
+
+It.takeWhile = p => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    else if (p(x)) yield x;
+    else return;
   } while (true);
 };
 
@@ -6157,12 +6171,6 @@ O.Clonable = {clone: O.clone};
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
-
-
-O.toPairs = Object.entries;
-
-
 O.fromArr = header => xs => {
   const o = {};
 
@@ -6171,6 +6179,12 @@ O.fromArr = header => xs => {
 
   return o;
 };
+
+
+O.fromPairs = pairs => pairs.reduce((acc, [k, v]) => (acc[k] = v, acc), {});
+
+
+O.toPairs = Object.entries;
 
 
 /*
@@ -6222,9 +6236,22 @@ O.getPathOr = x => keys => o => {
 O.set = k => v => o => (o[k] = v, o);
 
 
+// immutable variant
+
+O.set_ = k => v => o => Object.assign({}, o, {[k]: v});
+
+
 O.upd = k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
-  else return new Exception("no property to update");
+  else return new Exception("unknown property");
+};
+
+
+// immutable variant
+
+O.upd_ = k => f => o => {
+  if (k in o) return Object.assign({}, o, {[k]: f(o[k])});
+  else return new Exception("unknown property");
 };
 
 
@@ -9943,7 +9970,7 @@ Trampoline.of = Trampoline.of();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* scriptum uses a 2-3 tree implementation as the foundation of its persistant
+/* scriptum uses a 2-3 tree implementation as the foundation of its persistent
 data structures. */
 
 
