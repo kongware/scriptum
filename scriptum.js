@@ -208,7 +208,7 @@ handled by the operation they occur in. Usually used along with the monadic
 export class Exception extends Error {
   constructor(s) {
     super(s);
-    Object.defineProperty(this, TAG, {value: "Exception"});
+    Object.defineProperty(this, TAG, {value: "Exception", writable: true});
   }
 };
 
