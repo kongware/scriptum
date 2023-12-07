@@ -27,6 +27,8 @@
 * purely functional data streams as iterator alternative
 * reactive programming with event streams and behaviors
 * linked lists, non-empty list, difference list
+* `DequeMap`, a doubly-ended queue based on a native map
+* `MultiMap` to encode 1:m key/value relations
 * lots of predefined type class definitions
 * lots of predefined polymorphic functions
 * extensive monad and monad transformer machinery
