@@ -17,7 +17,7 @@
 
 [scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js), a functional standard library featuring
 
-* persistent data structures based on 1-2 trees
+* persistent data structures based on 2-3 trees
 * lazy evaluation with implicit/explicit thunks
 * principled, purely functional async computation (serial/parallel)
 * stack safe recursion (tail recursion, modulo cons, monad recursion)
