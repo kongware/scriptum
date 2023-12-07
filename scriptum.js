@@ -9954,23 +9954,23 @@ const Tree = {};
 Tree.Empty = {[TAG]: "Empty"};
 
 
-Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, min: x, x});
+Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, size: 1, min: x, x});
 
 
-Tree.Node2 = (height, min, left, right) =>
-  ({[TAG]: "Node2", height, min, left, right});
+Tree.Node2 = (height, size, min, left, right) =>
+  ({[TAG]: "Node2", height, size, min, left, right});
 
 
-Tree.Node3 = (height, min, left, middle, right) =>
-  ({[TAG]: "Node3", height, min, left, middle, right});
+Tree.Node3 = (height, size, min, left, middle, right) =>
+  ({[TAG]: "Node3", height, size, min, left, middle, right});
 
 
 Tree.node2 = (left, right) =>
-  Tree.Node2(left.height + 1, left.min, left, right);
+  Tree.Node2(left.height + 1, left.size + right.size, left.min, left, right);
 
 
 Tree.node3 = (left, middle, right) =>
-  Tree.Node3(left.height + 1, left.min, left, middle, right);
+  Tree.Node3(left.height + 1, left.size + middle.size + right.size, left.min, left, middle, right);
 
 
 /*
@@ -10178,8 +10178,8 @@ Tree.foldr_ = f => function go(acc) {
 
 
 Tree.Foldable = {
-  foldl: A.foldl,
-  foldr: A.foldr
+  foldl: Tree.foldl,
+  foldr: Tree.foldr
 };
 
 
@@ -10192,10 +10192,10 @@ Tree.map = f => Tree.cata({
   leaf: x => Tree.Leaf(f(x)),
 
   node2: (height, min, left, right) =>
-    Tree.Node2(height, f(min), left, right),
+    Tree.Node2(height, left.size + right.size, f(min), left, right),
 
   node3: (height, min, left, middle, right) =>
-    Tree.Node3(height, f(min), left, middle, right)
+    Tree.Node3(height, left.size + middle.size + right.size, f(min), left, middle, right)
 });
 
 
@@ -10206,8 +10206,21 @@ Tree.Functor = {map: Tree.map};
 █████ Getter/Setter ███████████████████████████████████████████████████████████*/
 
 
+/* The underscore versions compose an additional function `f`. It must be passed
+as an argument and is called before the relational function, so that the actual
+data `y` can be transformed for the latter. */
+
+
 Tree.has = (tree, x) => {
   const [left, right] = Tree.split(tree, y => y >= x);
+
+  if (right[TAG] === "Empty") return false;
+  else return right.min === x;
+};
+
+
+Tree.has_ = (tree, f, x) => {
+  const [left, right] = Tree.split(tree, y => (z => z >= x) (f(y)));
 
   if (right[TAG] === "Empty") return false;
   else return right.min === x;
@@ -10220,9 +10233,23 @@ Tree.ins = (tree, x) => {
 };
 
 
+Tree.ins_ = (tree, f, x) => {
+  const [left, right] = Tree.split(tree, y => (z => z >= x) (f(y)));
+  return Tree.merge(Tree.merge(left, Tree.Leaf(x)), right);
+};
+
+
 Tree.del = (tree, x) => {
   const [left, right] = Tree.split(tree, y => y >= x),
     [, right2] = Tree.split(right, y => y > x);
+
+  return Tree.merge(left, right2);
+};
+
+
+Tree.del_ = (tree, f, x) => {
+  const [left, right] = Tree.split(tree, y => (z => z >= x) (f(y))),
+    [, right2] = Tree.split(right, y => (z => z > x) (f(y)));
 
   return Tree.merge(left, right2);
 };
@@ -10232,19 +10259,19 @@ Tree.del = (tree, x) => {
 █████ Meta Information ████████████████████████████████████████████████████████*/
 
 
-Tree.nodes = Tree.cata({
-  empty: () => 0,
-  leaf: _ => 0,
-  node2: (height, min, left, right) => 1 + left + right,
-  node3: (height, min, left, middle, right) => 1 + left + middle + right,
-});
-
-
 Tree.leafs = Tree.cata({
   empty: () => 0,
   leaf: _ => 1,
   node2: (height, min, left, right) => left + right,
   node3: (height, min, left, middle, right) => left + middle + right
+});
+
+
+Tree.nodes = Tree.cata({
+  empty: () => 0,
+  leaf: _ => 0,
+  node2: (height, min, left, right) => 1 + left + right,
+  node3: (height, min, left, middle, right) => 1 + left + middle + right,
 });
 
 
