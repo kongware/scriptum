@@ -9700,7 +9700,7 @@ Str.splitChunk = ({from, to}) => s =>
 // encodes a fundamental sum type - logical and/or - (A & B) || A || B
 
 
-export const These = variant("These", "This", "That", "Both") (cons, cons, cons2);
+export const These = variant("These", cons("This"), cons("That"), cons2("Both"));
 
 
 /*
