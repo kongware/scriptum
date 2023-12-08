@@ -79,24 +79,13 @@ let asyncCounter = 0; // upper bound: 100
 █████ Product Type ████████████████████████████████████████████████████████████*/
 
 
-/* Functions that mimic product types expect more than a single argument. The
-library utilizes a plain old Javascript object to feed them into the function.
-This approach has several advantages:
+/* Product types are composite types containing several values of various types.
+Most native Javascript types are products. */
 
-* arguments are annotated
-* only one function call necessary
-* tests for exhaustiveness
-
-However, the partially applied function cannot be used in curried form anymore.
-
-You can still use curried and uncurried functions that mimic product types, ofc:
-
-* x => y => {...}
-* (x, y) => {...} */
 
 export const product = type => (...ks) => o => {
   for (const k of ks)
-    if (!(k in o)) throw new Err(`missing property "${k}"`);
+    if (!(k in o)) throw new Err(`missing value "${k}"`);
 
   return {
     [TAG]: type,
@@ -110,75 +99,123 @@ export const product = type => (...ks) => o => {
 █████ Variant Types ███████████████████████████████████████████████████████████*/
 
 
-/* Variant types encode the idea of logical exclusive or relation between cases
-(variants) of a type and constructors. As with product types, scriptum mimics
-variant types with functions. Here is an example:
+/* Variant types allow different shapes of values in an exclusive or relation
+that still have the same type. scriptum only supports composite values as
+variants. You can use them as follows:
 
-  const Either = variant("Either", "Left", "Right") (cons0, cons);
+* direct access to values vie the `get` property
+* indirect access by providing a type dictionary to the `run` property
+* indirect access by using the `cata` property
 
-  const tx = Either.Right(5),
-    ty = Either.Left;
+  const Option = variant("Option", cons("Some"), value("None"));
 
-  tx.run(Either.match({left: 0, right: x => x * x})); // yields 25
-  ty.run(Either.match({left: 0, right: x => x * x})); // yields 0
+  const tx = Option.Some(5),
+    ty = Option.None;
 
-`Either` is the type constructor and `Either.Left`/`Either.Right` are value
-constructors. `Either.match` is an auxiliary function to create typed objects
-that include an exhaustiveness check. Alternatively, the bare case object can
-be passed but it is the responsibility of the caller to supply all cases.
+  tx.get; // yields 5
+  ty.get; // yields null
 
-Variant types encoded with functions hide the data as free variables of
-closures and thus make debugging more complicated. For this reason all data
-is revealed through an object property.
+  tx.run({some: x => x * x, none: 0}); // yields 25
+  ty.run({some: x => x * x, none: 0}); // yields 0
 
-The `consn` constructor encodes product within variant types, i.e. the idea
-of variants of products and vice versa. */
+  const option = Option.cata({some: x => x * x, none: 0}));
 
-export const variant = (type, ...tags) => (...cons) => {
-  if (tags.length !== cons.length) throw new Err("malformed variant type");
+  option(tx); // yields 25
+  option(ty); // yields 0
 
-  const o = tags.reduce((acc, tag, i) => {
-    acc[tag] = cons[i] (type, tag, tag[0].toLowerCase() + tag.slice(1));
+`cata` offers the safest usage because it includes an exhaustiveness check,
+i.e. it assures that the provided type dictionary provides all necessary
+variants. */
+
+
+export const variant = (tag, ...cases) => {
+  const ks = [];
+  
+  for (const _case of cases)
+    ks.push(_case.name[0].toLowerCase() + _case.name.slice(1));
+
+  const o = cases.reduce((acc, _case, i) => {
+    acc[_case.name] = _case(tag, ks[i]);
     return acc;
   }, {});
 
-  o.match = O.matchPattern(...tags.map(tag =>
-    tag[0].toLowerCase() + tag.slice(1)));
+  o.cata = p => {
+    for (const k of ks)
+      if (!(k in p)) throw new Err(`missing case "${k}"`);
 
+    return tx => tx.run(p);
+  };
+  
   return o;
 };
 
 
 // constant
 
-export const cons0 = (type, tag, k) =>
-  ({[TAG]: type, get: null, run: ({[k]: x}) => x, tag});
-
-
-// single paremeter constructor
-
-export const cons = (type, tag, k) => x =>
-  ({[TAG]: type, get: x, run: ({[k]: f}) => f(x), tag});
-
-
-// binary constructor
-
-export const cons2 = (type, tag, k) => x => y =>
-  ({[TAG]: type, get: [x, y], run: ({[k]: f}) => f(x) (y), tag});
-
-
-// multi named parameter constructor (product)
-
-export const consn = (...ks) => (type, tag, k) => o => {
-  for (const k2 of ks)
-    if (!(k2 in o)) throw new Err(`missing parameter "${k2}"`);
-
-  return {
-    [TAG]: type,
-    get: o,
-    run: ({[k]: f}) => f(o),
-    tag
+export const value = _case => {
+  const o = {
+    [_case]: (tag, k) => ({
+      [TAG]: tag,
+      get: null,
+      run: ({[k]: x}) => x,
+      tag: _case
+    })
   };
+
+  return o[_case];
+};
+
+
+// unary constructor
+
+export const cons = _case => {
+  const o = {
+    [_case]: (tag, k) => x => ({
+      [TAG]: tag,
+      get: x,
+      run: ({[k]: f}) => f(x),
+      tag: _case
+    })
+  };
+
+  return o[_case];
+};
+
+
+// binary constructor (product type)
+
+export const cons2 = _case => {
+  const o = {
+    [_case]: (tag, k) => x => y => ({
+      [TAG]: tag,
+      get: [x, y],
+      run: ({[k]: f}) => f(x) (y),
+      tag: _case
+    })
+  };
+
+  return o[_case];
+};
+
+
+// n-ary constructor (product type)
+
+export const consn = (_case, ...ks) => {
+  const o = {
+    [_case]: (tag, k) => o => {
+      for (const k2 of ks)
+        if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
+
+      return {
+        [TAG]: tag,
+        get: o,
+        run: ({[k]: f}) => f(o),
+        tag: _case
+      };
+    }
+  };
+
+  return o[_case];
 };
 
 
@@ -6286,20 +6323,6 @@ O.values = function* (o) {
 
 
 /*
-█████ Pattern Matching ████████████████████████████████████████████████████████*/
-
-
-O.matchPattern = (...ks) => o => {
-  return ks.reduce((acc, k) => {
-    if (k in o) acc[k] = o[k];
-    else throw new Err(`missing case for "${k}"`)
-    
-    return acc;
-  }, {});
-};
-
-
-/*
 █████ Streaming ███████████████████████████████████████████████████████████████*/
 
 
@@ -10523,3 +10546,94 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
 
 */
+
+
+
+
+const variant2 = ({tag, ...cases}) => {
+  const ctor = [];
+  for (const _case in cases) ctor.push(cases[_case]);
+
+  const typeCons = o => {
+    const {[ctor[0].name]: case1, [ctor[1].name]: case2} = o;
+
+    if (!(ctor[0].name in o)) throw new Error(`missing case "${ctor[0].name}"`);
+    else if (!(ctor[1].name in o)) throw new Error(`missing case "${ctor[1].name}"`);
+
+    const valueCons = f => f({[ctor[0].name]: case1, [ctor[1].name]: case2});
+    
+    Object.defineProperty(
+      valueCons,
+      Symbol.toStringTag,
+      {value: `${tag}<${case1.name || case1}, ${case2.name || case2}>`});
+    
+    return valueCons;
+  };
+
+  Object.defineProperties(typeCons, {
+    [Symbol.toStringTag]: {value: tag},
+    [ctor[0].name]: {value: ctor[0]},
+    [ctor[1].name]: {value: ctor[1]}
+  });
+
+  return typeCons;
+};
+
+const _const = (tag, k, ...ks) => {
+  const o = {[k]: ({[k]: x, ...ks}) => x};
+
+  Object.defineProperty(
+    o[k],
+    Symbol.toStringTag,
+    {value: `${tag}.${k}`});
+
+  return o[k];
+};
+
+const cons = (tag, k, ...ks) => {
+  const o = {
+    [k]: x => {
+      const match = ({[k]: f, ...ks}) => f(x);
+
+      Object.defineProperty(
+        match,
+        Symbol.toStringTag,
+        {value: `${tag}.${k}(${x})`});
+
+      return match;
+    }
+  };
+
+  return o[k];
+};
+
+const cons2 = (tag, k, ...ks) => {
+  const o = {
+    [k]: x => y => {
+      const match = ({[k]: f, ...ks}) => f(x) (y);
+
+      Object.defineProperty(
+        match,
+        Symbol.toStringTag,
+        {value: `${tag}.${k}(${x}, ${y})`});
+
+      return match;
+    }
+  };
+
+  return o[k];
+};
+
+const Option = variant2({
+  tag: "Option",
+  some: cons("Option", "some", "none"),
+  none: _const("Option", "none", "some")
+});
+
+const inc = x => x + 1;
+const sqr = x => x * x;
+const add = x => y => x + y;
+
+const option = Option({some: sqr, none: 0});
+
+option(Option.some(5));
