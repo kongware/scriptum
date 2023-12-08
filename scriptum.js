@@ -83,12 +83,12 @@ let asyncCounter = 0; // upper bound: 100
 Most native Javascript types are products. */
 
 
-export const product = type => (...ks) => o => {
+export const product = tag => (...ks) => o => {
   for (const k of ks)
     if (!(k in o)) throw new Err(`missing value "${k}"`);
 
   return {
-    [TAG]: type,
+    [TAG]: tag,
     get: o,
     run: f => f(o)
   };
@@ -125,7 +125,30 @@ variants. You can use them as follows:
 
 `cata` offers the safest usage because it includes an exhaustiveness check,
 i.e. it assures that the provided type dictionary provides all necessary
-variants. */
+variants.
+
+The next example is a recursive variant type where the second constructor is a
+forms a product type: The single linked list:
+
+  const List = variant("List", value("Nil"), consn("Cons", "head", "tail"));
+
+  const xs = List.Cons({
+    head: 1,
+    tail: List.Cons({
+      head: 2,
+      tail: List.Nil
+    });
+  });
+
+  const list = List.cata({
+    nil: 0,
+    cons: ({head, tail}) => head + list(tail)
+  });
+
+  list(xs); // yields 3
+
+Since `List` has a recursive type defintion, its catamorphism relies on
+recursion as well. For the sake of simplicity, `cata` isn't stack safe. */
 
 
 export const variant = (tag, ...cases) => {
