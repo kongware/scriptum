@@ -96,7 +96,7 @@ You can still use curried and uncurried functions that mimic product types, ofc:
 
 export const product = type => (...ks) => o => {
   for (const k of ks)
-    if (!(k in o)) throw new Err(`missing parameter "${k}"`);
+    if (!(k in o)) throw new Err(`missing property "${k}"`);
 
   return {
     [TAG]: type,
@@ -135,8 +135,7 @@ The `consn` constructor encodes product within variant types, i.e. the idea
 of variants of products and vice versa. */
 
 export const variant = (type, ...tags) => (...cons) => {
-  if (tags.length !== cons.length)
-    throw new Err("malformed variant type");
+  if (tags.length !== cons.length) throw new Err("malformed variant type");
 
   const o = tags.reduce((acc, tag, i) => {
     acc[tag] = cons[i] (type, tag, tag[0].toLowerCase() + tag.slice(1));
@@ -6291,14 +6290,9 @@ O.values = function* (o) {
 
 
 O.matchPattern = (...ks) => o => {
-  const vs = Object.keys(o);
-
-  if (ks.length < vs.length) throw new Err("unnecessary cases");
-  else if (ks.length > vs.length) throw new Err("missing cases");
-
-  else return ks.reduce((acc, k) => {
+  return ks.reduce((acc, k) => {
     if (k in o) acc[k] = o[k];
-    else throw new Err(`missing key "${k}"`)
+    else throw new Err(`missing case for "${k}"`)
     
     return acc;
   }, {});
