@@ -371,8 +371,16 @@ not force evaluation. For this reason, the tag must be provided upfront and you
 should know the type upfront. It is the user's responsibility that the passed
 tag and the actual value correspond to each other. */
 
-export const lazy = tag => thunk =>
+export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
+
+
+export const lazy = lazy(null);
+
+
+// safer null value that throws at implicit type casts
+
+export const Null = lazy_("Null") (() => null);
 
 
 /*
@@ -511,11 +519,15 @@ const evaluate = (_this, f) => {
   while (this.memo && this.memo[THUNK] === true)
     this.memo = this.memo[EVAL];
 
+  if (this.memo === undefined)
+    throw new Err("thunk evaluated to undefined");
+  
   // enforce tag consistency
 
-  if (this.memo
+  else if (this.memo
     && this.memo[TAG]
-    && this.memo[TAG] !== this.tag)
+    && this.memo[TAG] !== this.tag
+    && this.tag !== null)
       throw new Err("tag argument deviates from actual value");
 };
 
