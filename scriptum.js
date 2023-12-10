@@ -221,7 +221,9 @@ export const cons2 = _case => {
 };
 
 
-// n-ary constructor (product type)
+/* n-ary constructor (product type) with more than two arguments are defined
+as an object with named properties to avoid strict argument order. It can also
+be used to define lazy getters. */
 
 export const consn = (_case, ...ks) => {
   const o = {
@@ -242,9 +244,20 @@ export const consn = (_case, ...ks) => {
 };
 
 
-// `consn` can also be used to create lazy properties using object getters
+// dynamic catamorphism for all kinds of variant types
 
-export const consLazy = consn;
+export const cata = (...ks) => (...fs) => {
+  if (tags.length !== fs.length) throw new Err("malformed catamorphism");
+
+  const dict = tags.reduce((acc, tag, i) => {
+    acc[tag] = fs[i]; return acc
+  }, {});
+  
+  const tag = Object.prototype.toString.call(x).slice(8, -1),
+    k = tag[0].toLowerCase() + tag.slice(1);
+
+  return x => dict[k] (x);
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -345,14 +358,21 @@ const THUNK = PREFIX + "thunk";
 █████ API █████████████████████████████████████████████████████████████████████*/
 
 
+// striclty evaluate an expression that might be an implicit thunk
+
 export const strict = x => {
   if (x && x[THUNK]) return x[DETHUNK];
   else return x;
 };
 
 
-export const lazy = thunk =>
-  new Proxy(thunk, new Thunk());
+/* Create an implicit thunk. Just like with `typeof`, tag introspection should
+not force evaluation. For this reason, the tag must be provided upfront and you
+should know the type upfront. It is the user's responsibility that the passed
+tag and the actual value correspond to each other. */
+
+export const lazy = tag => thunk =>
+  new Proxy(thunk, new Thunk(tag));
 
 
 /*
@@ -360,7 +380,8 @@ export const lazy = thunk =>
 
 
 class Thunk {
-  constructor() {
+  constructor(tag) {
+    this.tag = tag;
     this.memo = NULL;
   }
 
@@ -368,13 +389,7 @@ class Thunk {
 
     // enforce evalutation to WHNF
 
-    if (this.memo === NULL) {
-      this.memo = f();
-      
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
+    if (this.memo === NULL) evaluate(this, f);
     if (typeof this.memo === "function") this.memo = this.memo(...args);
 
     // allow implicit thunks to be called explicitly
@@ -409,28 +424,20 @@ class Thunk {
     // enforce evaluation to WHNF
 
     else if (k === DETHUNK) {
-      if (this.memo === NULL) {
-        this.memo = f();
-        
-        while (this.memo && this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
-      }
-
+      if (this.memo === NULL) evaluate(this, f);
       return this.memo;
     }
+
+    // avoid evaluation due to tag introspection
+
+    else if (k === Symbol.toStringTag) return this.tag;
 
     // intercept implicit type casts
 
     else if (k === Symbol.toPrimitive
       || k === "valueOf"
       || k === "toString") {
-        if (this.memo === NULL) {
-          this.memo = f();
-          
-          while (this.memo && this.memo[THUNK] === true)
-            this.memo = this.memo[EVAL];
-        }
-
+        if (this.memo === NULL) evaluate(this, f);
         if (Object(this.memo) === this.memo) return this.memo[k];
         
         else if (k === Symbol.toPrimitive) return hint =>
@@ -443,13 +450,7 @@ class Thunk {
     // enforce evaluation to WHNF due to array context
 
     else if (k === Symbol.isConcatSpreadable) {
-      if (this.memo === NULL) {
-        this.memo = f();
-        
-        while (this.memo && this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
-      }
-
+      if (this.memo === NULL) evaluate(this, f);
       if (this.memo[Symbol.isConcatSpreadable]) return true;
       else return false;
     }
@@ -457,12 +458,7 @@ class Thunk {
     // enforce evaluation to WHNF due to property access
 
     else {
-      if (this.memo === NULL) {
-        this.memo = f();
-        
-        while (this.memo && this.memo[THUNK] === true)
-          this.memo = this.memo[EVAL];
-      }
+      if (this.memo === NULL) evaluate(this, f);
 
       // take method binding into account
 
@@ -479,13 +475,7 @@ class Thunk {
 
     // force evaluation to WHNF
 
-    if (this.memo === NULL) {
-      this.memo = f();
-      
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
+    if (this.memo === NULL) evaluate(this, f);
     return Reflect.getOwnPropertyDescriptor(this.memo, k);
   }
 
@@ -497,13 +487,7 @@ class Thunk {
 
     // enforce evaluation to WHNF
 
-    if (this.memo === NULL) {
-      this.memo = f();
-      
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
+    if (this.memo === NULL) evaluate(this, f);
     return k in this.memo;
   }
 
@@ -511,13 +495,7 @@ class Thunk {
 
     // enforce evaluation to WHNF
 
-    if (this.memo === NULL) {
-      this.memo = f();
-      
-      while (this.memo && this.memo[THUNK] === true)
-        this.memo = this.memo[EVAL];
-    }
-
+    if (this.memo === NULL) evaluate(this, f);
     return Reflect.ownKeys(this.memo);
   }
 
@@ -525,6 +503,21 @@ class Thunk {
     throw new Err("set op on immutable value");
   }
 }
+
+
+const evaluate = (_this, f) => {
+  this.memo = f();
+  
+  while (this.memo && this.memo[THUNK] === true)
+    this.memo = this.memo[EVAL];
+
+  // enforce tag consistency
+
+  if (this.memo
+    && this.memo[TAG]
+    && this.memo[TAG] !== this.tag)
+      throw new Err("tag argument deviates from actual value");
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -547,12 +540,15 @@ export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
 export const compareOn_ = () => compBoth(compare);
 
 
+/* Since `===` cannot be intercepted by proxies, implicit thunks are not forced
+to WHNF. Hence the strict evaluation of operands. */
+
 export const eq = x => y => x === y;
 
 
-// works with implicit and explicit thunks
+// lazy variant that works with implicit and explicit thunks
 
-export const eqLazy = f => g => f() === g();
+export const eq_ = f => g => f() === g();
 
 
 export const gt = x => y => x > y;
@@ -590,7 +586,10 @@ export const max = x => y => x >= y ? x : y;
 export const min = x => y => x <= y ? x : y;
 
 
-export const notEq = x => y => x !== y;
+/* Since `!==` cannot be intercepted by proxies, implicit thunks are not forced
+to WHNF. Hence the strict evaluation of operands. */
+
+export const notEq = x => y => strict(x) !== strict(y);
 
 
 export const or = f => g => f() || g();
@@ -5311,168 +5310,6 @@ It.takeWhile = p => function* (ix) {
 
 
 It.Traversable = It.Traversable();
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ LAZY █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* `Lazy` encodes implicit thunks of the form `() => expr` that act like `expr`
-in a principled fashion. Lazyness means normal order evaluation, i.e. arguments
-passed to functions are only evaluated when needed and only once. Please note
-that `$ => expr` is used instead of `() => expr` for improved readability. */
-
-
-export const Lazy = {};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Lazy.map = f => tx => lazy($ => f(strict(tx)));
-
-
-Lazy.Functor = {map: Lazy.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Lazy.ap = tf => tx => lazy($ => (tf = strict(tf), tf(strict(tx))));
-
-
-Lazy.Apply = {
-  ...Lazy.Functor,
-  ap: Lazy.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-/* The pure value `x` isn't wrapped in an implicit thunk because `x` is already
-fully evaluated and thus `x` and `Thunk($ => x)` are equivalent. */
-
-Lazy.of = id;
-
-
-Lazy.Applicative = {
-  ...Lazy.Apply,
-  of: Lazy.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Lazy.chain = mx => fm => lazy($ => strict(fm(strict(mx))));
-
-
-Lazy.Chain = {
-  ...Lazy.Apply,
-  chain: Lazy.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Lazy.Monad = {
-  ...Lazy.Applicative,
-  chain: Lazy.chain
-};
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-Lazy.app = f => tx => f(strict(tx));
-
-
-Lazy.seq = tx => ty => (strict(tx), strict(ty));
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████ LAZY :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (Thunk($ -> a))
-
-
-Lazy.T = outer => thisify(o => { // outer monad's type dictionary
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  o.map = f => outer.map(mx => lazy($ => f(strict(mx))));
-  
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  o.ap = mmf => mmx => outer.chain(mmf) (mf =>
-    outer.map(mx => lazy($ => (mf = strict(mf), mf(strict(mx))))) (mmx));
-  
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  o.of = x => outer.of(x);
-
-
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  o.chain = mmx => fmm => outer.chain(mmx) (mx =>
-    lazy($ => outer.map(strict) (fmm(strict(mx)))));
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-  return o;
-});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
