@@ -30,6 +30,9 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
+const debug = true;
+
+
 export const NOOP = null; // no operation
 
 
@@ -62,10 +65,7 @@ stack safe by default. However, for large asynchronous computations you can run
 these types with a special method that utilizes stack safe promises. Every time
 the asynchronous counter is greater than a hundred, the monadic asynchronous
 type is wrapped in a native promise and the counter is reset to zero. The
-counter is shared between all running asynchronous operations.
-
-TODO: use counters as free variables of closures to separate them for each
-asynchrounous operation */
+counter is shared between all running asynchronous operations. */
 
 let asyncCounter = 0; // upper bound: 100
 
@@ -322,9 +322,9 @@ scriptum realizes lazy evaluation using implicit thunks, i.e. thunks like
   * expr.foo
   * expr < x
 
-In all three operations `expr` as an implicit thunk is evaluated. You can also
-call implicit thunks as if it were explicit ones, i.e. `expr()` works even if
-the expression within the implicit thunk isn't a function.
+All three operations force `expr` as an implicit thunk to be evaluated. You can
+also call implicit thunks as if it were explicit ones, i.e. `expr()` works even
+if if the evaluation doesn't yield an unary function.
 
 There are some limitations to this Proxy-based thunk approach:
 
@@ -333,9 +333,7 @@ There are some limitations to this Proxy-based thunk approach:
   * `&&`/`||` doesn't trigger evaluation
   * `throw` doesn't trigger evaluation
 
-These limitations are considered throughout the library. Please note that
-besides implicit thunks scriptum also encodes a `Lazy` type that hides thunks
-behind a monadic interface. */
+These limitations are considered throughout the library. */
 
 
 /*
@@ -367,20 +365,18 @@ export const strict = x => {
 
 
 /* Create an implicit thunk. Just like with `typeof`, tag introspection should
-not force evaluation. For this reason, the tag must be provided upfront and you
-should know the type upfront. It is the user's responsibility that the passed
-tag and the actual value correspond to each other. */
+not force evaluation. This isn't always possible in an untyped setting, though.
+If wihtin an operation the tag for a lazy expression is known upfront, it can
+be passed to the thunk through the `tag` argument. Otherwise, `null` is provided
+via the `lazy` partially applied auxliliary function. In case of `null`, tag
+introspection forces evaluation. When a specific tag is provided, it is up to
+the user that it corresponds to the type of the eventually evaluated thunk. */
 
 export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
 export const lazy = lazy(null);
-
-
-// safer null value that throws at implicit type casts
-
-export const Null = lazy_("Null") (() => null);
 
 
 /*
@@ -436,16 +432,25 @@ class Thunk {
       return this.memo;
     }
 
-    // avoid evaluation due to tag introspection
+    // avoid evaluation due to tag introspection as far as possible
 
-    else if (k === Symbol.toStringTag) return this.tag;
+    else if (k === Symbol.toStringTag) {
+      if (this.tag === null) {
+        evaluate(this, f);
+        this.tag = this.memo[TAG];
+      }
+
+      return this.tag;
+    }
 
     // intercept implicit type casts
 
     else if (k === Symbol.toPrimitive
       || k === "valueOf"
       || k === "toString") {
-        if (this.memo === NULL) evaluate(this, f);
+        if (this.tag === "Null") throw new Err("implicit type cast on null");
+        else if (this.memo === NULL) evaluate(this, f);
+        
         if (Object(this.memo) === this.memo) return this.memo[k];
         
         else if (k === Symbol.toPrimitive) return hint =>
@@ -489,7 +494,7 @@ class Thunk {
 
   has(f, k) {
 
-    // prevent evaluation in case of introspection
+    // prevent evaluation in case of thunk introspection
 
     if (k === THUNK) return true;
 
@@ -691,15 +696,6 @@ export const caseOf = f => ({
 
 
 const PATTERN_MATCH = PREFIX + "pattern_match";
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████ PERSISTANT DATA STRUCTURES ██████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* TODO: Persistat data structures based on a minimal deque that in turn is
-based on a double linked list. */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1184,7 +1180,29 @@ unfoldM f s = do
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Fun = {}; // namespace
+// safer function type
+
+export const Fun = f => {
+  if (debug === true) {
+    return new Proxy(f, {
+      apply: (g, that, args) => {
+        args.forEach(arg => {
+          if (arg === undefined)
+            throw new Err("undefined argument");
+        });
+
+        const r = g(...args);
+        
+        if (r === undefined)
+          throw new Err("undefined function result");
+
+        else return r;
+      }
+    });
+  }
+
+  else return f;
+};
 
 
 export const F = Fun; // shortcut
@@ -5649,6 +5667,17 @@ class MultiMap extends Map {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ NULL █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Safer null value that also immediately throws at implicit type casts. It
+evaluates to `null` */
+
+export const Null = lazy_("Null") (() => null);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ NUMBER ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -6049,7 +6078,29 @@ Snum.emptyMul = Snum("1", "");
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Obj = {}; // namespace
+// safer object type
+
+export const Obj = o => {
+  if (debug === true) {
+    return new Proxy(o, {
+      get: (p, k) => {
+        if (p[k] === undefined)
+          throw new Err("undefined property access");
+
+        else return p[k];
+      },
+
+      set: (p, k, v) => {
+        if (v === undefined)
+          throw new Err("undefined set operation");
+
+        else return p[k] = v;
+      }
+    });
+  }
+
+  else return o;
+};
 
 
 export const O = Obj; // shortcut;
