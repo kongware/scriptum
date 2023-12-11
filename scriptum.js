@@ -30,7 +30,7 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
-const debug = true;
+const DEBUG = true;
 
 
 export const NOOP = null; // no operation
@@ -376,7 +376,7 @@ export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
-export const lazy = lazy(null);
+export const lazy = lazy_(null);
 
 
 /*
@@ -1183,7 +1183,7 @@ unfoldM f s = do
 // safer function type
 
 export const Fun = f => {
-  if (debug === true) {
+  if (DEBUG === true) {
     return new Proxy(f, {
       apply: (g, that, args) => {
         args.forEach(arg => {
