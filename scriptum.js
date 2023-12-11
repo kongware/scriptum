@@ -4032,29 +4032,22 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode synchronous computations in CPS. The type has the following
-properties:
+/* A non stack-safe continuation type merely supplied as a transformer. Maybe
+useful to encode/hanlde effects like "exceptions", "lack-of-return-value" or
+"non-determinism":
 
-  * pure core/impure shell concept
-  * synchronous evaluation
-  * deferred nested function calls
-  * stack-safe through trampoline
-  * reliable return values
-  * base monad (no transformer)
+  const some = x => Cont(k => k(x)),
+    none = Cont(k => null);
 
-In order to preserve stack-safety `Cont` uses a trampoline in its combinators:
+  const succeed = x => Cont(k => k(x)),
+    fail = e => Cont(k => new Err(e));
 
-  const mx = Cont.of(5);
-  const my = Cont.of(7);
+  const left = x => Cont(k => k2 => k(x)),
+    right = x => Cont(k => k2 => k2(x));
 
-  const mz = Cont.ap(Cont.map(x => y => x * y) (mx)) (my);
+  const array = xs => Cont(k => xs.map(k));
 
-  Loop(ma.run) (Loop.base); // 35
-
-The type has two major use cases:
-
-  * defer synchronous but impure operations (e.g. get the current datetime)
-  * allow more sophisticated control flows (e.g. fold with short circuiting) */
+Further research is necessary. */
 
 
 export const Cont = k => ({
@@ -4063,141 +4056,105 @@ export const Cont = k => ({
 });
 
 
-/*
-█████ Conjunction █████████████████████████████████████████████████████████████*/
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ CONT :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
 
-Cont.and = tx => ty =>
-  Cont(k =>
-    tx.run(x =>
-      ty.run(y =>
-        Loop.call(k, Pair(x, y)))));
-
-
-Cont.allArr = () =>
-  A.seqA({
-    map: Cont.map,
-    ap: Cont.ap,
-    of: Cont.of});
-
-
-Cont.allList = () =>
-  L.seqA({
-    map: Cont.map,
-    ap: Cont.ap,
-    of: Cont.of});
-
-
-Cont.allObj = o => {
-  return Object.keys(o).reduce((acc, key) => {
-    return Cont(k =>
-      acc.run(p =>
-        o[key].run(x =>
-          Loop.call(k, (p[key] = x, p)))));
-  }, Cont.of({}));
-};
+Cont.T = outer => thisify(o => { // outer monad's type dictionary
 
 
 /*
-█████ Delimited ███████████████████████████████████████████████████████████████*/
+█████ Delimited Contuinuations ████████████████████████████████████████████████*/
 
 
-Cont.abrupt = x => Cont(k => Loop.base(x));
+  o.reset = comp(o.lift) (o.evalCont);
 
 
-Cont.callcc = f => Cont(k => f(Cont.reify(k)) (k));
-
-
-Cont.reify = k => x => Cont(_ => Loop.call(k, x));
-
-
-Cont.reset = mx => Cont(k => Loop.call(k, mx.run(id)));
-
-
-Cont.shift = fm => Cont(k => Loop.call(fm(k).run, id));
+  o.shift = fm => Cont(comp(o.evalCont) (fm));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Cont.map = f => tx => Cont(k => tx.run(x => Loop.call(k, f(x))));
+  o.map = f => mx => Cont(k => mx.run(comp(k) (f)));
 
 
-Cont.Functor = {map: Cont.map};
+  o.Functor = {map: o.map};
 
 
 /*
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => Loop.call(k, f(x)))));
+  o.ap = mf => mx => Cont(k => mf.run(f => mx.run(comp(k) (f))));
 
 
-Cont.Apply = {
-  ...Cont.Functor,
-  ap: Cont.ap
-};
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
 
 
 /*
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Cont.of = x => Cont(k => k(x));
+  o.of = x => Cont(k => k(x));
 
 
-Cont.Applicative = {
-  ...Cont.Apply,
-  of: Cont.of
-};
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
 
 
 /*
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Cont.chain = mx => fm => Cont(k => mx.run(x => Loop.call(fm(x).run, k)));
+  o.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
 
 
-Cont.Chain = {
-  ...Cont.Apply,
-  chain: Cont.chain
-};
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
 
 
 /*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
-Cont.Monad = {
-  ...Cont.Applicative,
-  chain: Cont.chain
-};
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
 
 
 /*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
+█████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-Cont.append = Semigroup => tx => ty =>
-  Cont(k => tx.run(x => ty.run(y => Loop.call(k, Semigroup.append(x) (y)))));
-
-
-Cont.Semigroup = {append: Cont.append};
+  o.lift = mx = Cont(k => outer.chain(mx) (k));
 
 
 /*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Cont.empty = Monoid => Cont(k => Loop.call(k, Monoid.empty));
+  o.evalCont = mx => mx.run(outer.of);
+
+  
+  o.mapCont = f => mx => Cont(comp(f) (mx.run));
 
 
-Cont.Monoid = {
-  ...Cont.Semigroup,
-  empty: Cont.empty
-};
+  o.withCont = f => mx => Cont(comp(mx.run) (f));
+
+
+  return o;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
