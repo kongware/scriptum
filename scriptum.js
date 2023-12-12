@@ -620,10 +620,13 @@ export const max = x => y => x >= y ? x : y;
 export const min = x => y => x <= y ? x : y;
 
 
+export const notEq = x => y => x !== y;
+
+
 /* Since `!==` cannot be intercepted by proxies, implicit thunks are not forced
 to WHNF. Hence the strict evaluation of operands. */
 
-export const notEq = x => y => strict(x) !== strict(y);
+export const notEq_ = f => g => f() !== g();
 
 
 export const or = f => g => f() || g();
