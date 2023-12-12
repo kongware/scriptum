@@ -1576,12 +1576,12 @@ export const _throw = e => { // throw as a first class expression
 
 export const throw_ = e => {
   return {
-    on: p => x => {
+    for: p => x => {
       if (p(x)) throw e(x);
       else return x;
     },
 
-    notOn: p => x => {
+    exceptFor: p => x => {
       if (!p(x)) throw e(x);
       else return x;
     }
