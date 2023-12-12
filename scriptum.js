@@ -837,31 +837,25 @@ export const Loop3 = f => (x, y, z) => {
 // constructors
 
 
-Loop.call = (f, x) => ({constructor: Loop.call, f, x});
+Object.assign(Loop, {
+  call: (f, x) => ({constructor: Loop.call, f, x}),
+  rec: x => ({constructor: Loop.rec, x}),
+  base: x => ({constructor: Loop.base, x})
+});
 
 
-Loop.rec = x => ({constructor: Loop.rec, x});
+Object.assign(Loop2, {
+  call: (f, x, y) => ({constructor: Loop2.call, f, x, y}),
+  rec: (x, y) => ({constructor: Loop2.rec, x, y}),
+  base: x => ({constructor: Loop2.base, x})
+});
 
 
-Loop.base = x => ({constructor: Loop.base, x});
-
-
-Loop2.call = (f, x, y) => ({constructor: Loop2.call, f, x, y});
-
-
-Loop2.rec = (x, y) => ({constructor: Loop2.rec, x, y});
-
-
-Loop2.base = x => ({constructor: Loop2.base, x});
-
-
-Loop3.call = (f, x, y, z) => ({constructor: Loop3.call, f, x, y, z});
-
-
-Loop3.rec = (x, y, z) => ({constructor: Loop3.rec, x, y, z});
-
-
-Loop3.base = x => ({constructor: Loop3.base, x});
+Object.assign(Loop3, {
+  call: (f, x, y, z) => ({constructor: Loop3.call, f, x, y, z}),
+  rec: (x, y, z) => ({constructor: Loop3.rec, x, y, z}),
+  base: x => ({constructor: Loop3.base, x})
+});
 
 
 /*
@@ -2107,6 +2101,22 @@ export const A = Arr; // shortcut
 
 
 /*
+█████ Backtrack ███████████████████████████████████████████████████████████████*/
+
+
+A.giveChoice
+
+
+A.choose
+
+
+A.chooseAll
+
+
+A.chooseMany
+
+
+/*
 █████ Clonable ████████████████████████████████████████████████████████████████*/
 
 
@@ -2354,14 +2364,14 @@ A.foldi = f => init => xs => { // including index
 };
 
 
-/* A fold with `f` encoded in continuation passing style so that it can decide
-whether to continue or abort the left-associative fold. */
+/* A fold with `f` encoded in continuation passing style so that the function
+argument can decide whether to continue or abort the right-associative fold. */
 
 A.foldk = f => init => xs =>
   Loop2((acc, i) =>
     i === xs.length
       ? Loop2.base(acc)
-      : f(acc) (xs[i]) (acc2 => Loop2.rec(acc2, i + 1)))
+      : f(xs[i]) (acc) (acc2 => Loop2.rec(acc2, i + 1)))
         (init, 0);
 
 
@@ -4010,18 +4020,93 @@ Const.Applicative = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████████ CONTROL ███████████████████████████████████
+████████████████████████████████ CONTINUATIONS ████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
 /* A non stack-safe continuation type supplied as a transformer. Useful for
-elaborate control flows and separating synchronous effects from their denotation. */
+elaborate control flows and separating synchronous effects from their pure
+description. It includes some combinators to facilitate continuation passing
+style transformation. */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
   run: k
 });
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+/* Right-associative array fold in continuation passing style. `f` is a ternary
+function argument that receives the continuation for the next fold iteration.
+Hence, it is up to `f` whether folding continues or is short circuited*/
+
+Cont.foldr = f => init => xs => {
+  return Cont(k => {
+    return Loop2((acc, i) => {
+      if (i === xs.length) return Loop2.base(acc);
+
+      else {
+        const o = f(xs[i]) (acc)
+          .run(acc2 => Loop2.rec(acc2, i + 1))
+
+        // intercept short circution
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) (init, 0);
+  });
+};
+
+
+// like right-associative fold but as an array map-like loop
+
+Cont.for = f => xs => {
+  return Cont(k => {
+    return Loop2((acc, i) => {
+      if (i === xs.length) return Loop2.base(acc);
+
+      else {
+        const o = f(xs[i]).run(x => {
+          acc.push(x);
+          return Loop2.rec(acc, i + 1);
+        });
+
+        // intercept short circution
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) ([], 0);
+  });
+};
+
+
+// like right-associative fold but as an array filter
+
+Cont.filter = p => xs => {
+  return Cont(k => {
+    return Loop2((acc, i) => {
+      if (i === xs.length) return Loop2.base(acc);
+
+      else {
+        const o = p(xs[i]).run(b => {
+          if (b) acc.push(xs[i]);
+          return Loop2.rec(acc, i + 1);
+        });
+
+        // intercept short circution
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) ([], 0);
+  });
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
