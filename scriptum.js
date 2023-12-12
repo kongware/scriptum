@@ -356,14 +356,6 @@ const THUNK = PREFIX + "thunk";
 █████ API █████████████████████████████████████████████████████████████████████*/
 
 
-// striclty evaluate an expression that might be an implicit thunk
-
-export const strict = x => {
-  if (x && x[THUNK]) return x[DETHUNK];
-  else return x;
-};
-
-
 /* Create an implicit thunk. Just like with `typeof`, tag introspection should
 not force evaluation. This isn't always possible in an untyped setting, though.
 If wihtin an operation the tag for a lazy expression is known upfront, it can
@@ -377,6 +369,14 @@ export const lazy_ = tag => thunk =>
 
 
 export const lazy = lazy_(null);
+
+
+// striclty evaluate an expression that might be an implicit thunk
+
+export const strict = x => {
+  if (x && x[THUNK]) return x[DETHUNK];
+  else return x;
+};
 
 
 /*
@@ -519,22 +519,39 @@ class Thunk {
 
 
 const evaluate = (_this, f) => {
-  this.memo = f();
+  _this.memo = f();
   
-  while (this.memo && this.memo[THUNK] === true)
-    this.memo = this.memo[EVAL];
+  while (_this.memo && _this.memo[THUNK] === true)
+    _this.memo = _this.memo[EVAL];
 
-  if (this.memo === undefined)
+  if (_this.memo === undefined)
     throw new Err("thunk evaluated to undefined");
   
   // enforce tag consistency
 
-  else if (this.memo
-    && this.memo[TAG]
-    && this.memo[TAG] !== this.tag
-    && this.tag !== null)
+  else if (_this.memo
+    && _this.memo[TAG]
+    && _this.memo[TAG] !== _this.tag
+    && _this.tag !== null)
       throw new Err("tag argument deviates from actual value");
 };
+
+
+/*
+█████ Type Constants ██████████████████████████████████████████████████████████*/
+
+
+/* Safer null value that also immediately throws at implicit type casts. It
+evaluates to `null` */
+
+export const Null = lazy_("Null") (() => null);
+
+
+// proper bottom type
+
+export const Undefined = lazy_("Undefined") (() => {
+  throw new Err("undefined termination");
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1528,23 +1545,6 @@ export const introspect = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
-/* `NaN`/`Infinity`/`Invalid Date` are treaded as bottom, because they aren't
-the neutral elements of their respective types but rather cover exceptions.
-`null` on the other hand is part of the `Option` monad and just a nullary
-value constructor, not a bottom value. */
-
-export const isBottom = x => {
-  if (x === undefined) return true;
-  else if (x !== x) return true // NaN
-  
-  else if (typeof x === "object"
-    && x !== null
-    && "getTime" in x
-    && Number.isNaN(x.getTime()))
-      return true;
-};
-
-
 export const eff = f => x => (f(x), x);
 
 
@@ -1571,24 +1571,19 @@ export const _throw = e => { // throw as a first class expression
 };
 
 
-export const throw_ = f => {
+export const throw_ = e => {
   return {
     on: p => x => {
-      if (p(x)) throw f(x);
+      if (p(x)) throw e(x);
       else return x;
     },
 
     notOn: p => x => {
-      if (!p(x)) throw f(x);
+      if (!p(x)) throw e(x);
       else return x;
     }
   };
 };
-
-
-export const throwOnBottom = throw_(
-  x => new Err(`unexpected bottom type "${x}"`))
-    .on(isBottom);
 
 
 // try/catch block as an expression
@@ -1599,22 +1594,6 @@ export const _try = f => x => ({
     catch(e) {return handler(x) (e)};
   }
 });
-
-
-/* As _try but expects a thunk instead of a function as argument. The thunk is
-just a means to defer evaluation of the expression to be passed. */
-
-export const try_ = thunk => ({
-  catch: handler => {
-    try {return thunk()}
-    catch(e) {return handler(x) (e)};
-  }
-});
-
-
-// auxiliary function
-
-export const yieldNull = () => null;
 
 
 /*
@@ -4028,26 +4007,12 @@ Const.Applicative = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ CONT █████████████████████████████████████
+███████████████████████████████████ CONTROL ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* A non stack-safe continuation type merely supplied as a transformer. Maybe
-useful to encode/hanlde effects like "exceptions", "lack-of-return-value" or
-"non-determinism":
-
-  const some = x => Cont(k => k(x)),
-    none = Cont(k => null);
-
-  const succeed = x => Cont(k => k(x)),
-    fail = e => Cont(k => new Err(e));
-
-  const left = x => Cont(k => k2 => k(x)),
-    right = x => Cont(k => k2 => k2(x));
-
-  const array = xs => Cont(k => xs.map(k));
-
-Further research is necessary. */
+/* A non stack-safe continuation type supplied as a transformer. Useful for
+elaborate control flows and separating synchronous effects from their denotation. */
 
 
 export const Cont = k => ({
@@ -5621,17 +5586,6 @@ class MultiMap extends Map {
     }
   }
 };
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ NULL █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Safer null value that also immediately throws at implicit type casts. It
-evaluates to `null` */
-
-export const Null = lazy_("Null") (() => null);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
