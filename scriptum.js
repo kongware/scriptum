@@ -139,7 +139,7 @@ forms a product type: The single linked list:
 
   const xs = List.Cons({
     head: 1,
-    
+
     tail: List.Cons({
       head: 2,
       tail: List.Nil
@@ -250,7 +250,8 @@ export const consn = (_case, ...ks) => {
 };
 
 
-// dynamic catamorphism for all kinds of variant types
+/* External catamorphism for all types that resemble variant types. It only
+accept functions as arguments, no constants. */
 
 export const cata = (...ks) => dict => {
   for (const k of ks)
@@ -267,7 +268,9 @@ export const cata = (...ks) => dict => {
 };
 
 
-// more complex catamorphisms
+/* Some types like natural numbers don't have their own constructor let alone
+a recursive type definition in Javascript. For these cases, a more general
+function to create catamorphisms is supplied. */
 
 export const cata_ = (...ks) => decons => dict => {
   for (const k of ks)
