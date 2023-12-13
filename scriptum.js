@@ -75,6 +75,9 @@ let asyncCounter = 0; // upper bound: 100
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+export const ANY = PREFIX + "*";
+
+
 /*
 █████ Product Type ████████████████████████████████████████████████████████████*/
 
@@ -103,20 +106,22 @@ export const product = tag => (...ks) => o => {
 that still have the same type. scriptum only supports composite values as
 variants. You can use them as follows:
 
-* direct access to values vie the `get` property
-* indirect access by providing a type dictionary to the `run` property
-* indirect access by using the `cata` property
-
-  const Option = variant("Option", cons("Some"), value("None"));
+  const Option = variant("Option", constant("None"), cons("Some"));
 
   const tx = Option.Some(5),
     ty = Option.None;
 
+  // direct access to values via the `get` property
+
   tx.get; // yields 5
   ty.get; // yields null
 
+  // indirect access by providing a type dictionary to the `run` property
+
   tx.run({some: x => x * x, none: 0}); // yields 25
   ty.run({some: x => x * x, none: 0}); // yields 0
+
+  // indirect access by using the `cata` property
 
   const option = Option.cata({some: x => x * x, none: 0}));
 
@@ -130,14 +135,15 @@ variants.
 The next example is a recursive variant type where the second constructor is a
 forms a product type: The single linked list:
 
-  const List = variant("List", value("Nil"), consn("Cons", "head", "tail"));
+  const List = variant("List", constant("Nil"), consn("Cons", "head", "tail"));
 
   const xs = List.Cons({
     head: 1,
+    
     tail: List.Cons({
       head: 2,
       tail: List.Nil
-    });
+    })
   });
 
   const list = List.cata({
@@ -175,11 +181,11 @@ export const variant = (tag, ...cases) => {
 
 // constant
 
-export const value = _case => {
+export const constant = _case => {
   const o = {
     [_case]: (tag, k) => ({
       [TAG]: tag,
-      get: null,
+      get: constant,
       run: ({[k]: x}) => x,
       tag: _case
     })
@@ -246,17 +252,28 @@ export const consn = (_case, ...ks) => {
 
 // dynamic catamorphism for all kinds of variant types
 
-export const cata = (...ks) => (...fs) => {
-  if (tags.length !== fs.length) throw new Err("malformed catamorphism");
+export const cata = (...ks) => dict => {
+  for (const k of ks)
+    if (!(k in dict)) throw new Err(`missing case "${k}"`);
 
-  const dict = tags.reduce((acc, tag, i) => {
-    acc[tag] = fs[i]; return acc
-  }, {});
-  
-  const tag = Object.prototype.toString.call(x).slice(8, -1),
-    k = tag[0].toLowerCase() + tag.slice(1);
+  return x => {
+    const tag = Object.prototype.toString.call(x).slice(8, -1),
+      k = tag[0].toLowerCase() + tag.slice(1);
 
-  return x => dict[k] (x);
+    if (k in dict) return dict[k] (x);
+    else if (ANY in dict) return dict[ANY] (x);
+    else throw new Err(`unknown case "${k}"`);
+  };
+};
+
+
+// more complex catamorphisms
+
+export const cata_ = (...ks) => decons => dict => {
+  for (const k of ks)
+    if (!(k in dict)) throw new Err(`missing case "${k}"`);
+
+  return decons(dict);
 };
 
 
@@ -280,7 +297,6 @@ handled by the operation they occur in. Usually used along with the monadic
 export class Exception extends Error {
   constructor(s) {
     super(s);
-    Object.defineProperty(this, TAG, {value: "Exception", writable: true});
   }
 };
 
@@ -291,7 +307,6 @@ to log errors/exceptions for later reporting. */
 export class Exceptions extends Exception {
   constructor(...es) {
     super();
-    Object.defineProperty(this, TAG, {value: "Exceptions"});
     this.errors = []; // excepts `Error` and subclasses
 
     es.forEach(e => {
@@ -4065,7 +4080,7 @@ Cont.foldr = f => init => xs => {
 
 // like right-associative fold but as an array map-like loop
 
-Cont.for = f => xs => {
+Cont.map_ = f => xs => {
   return Cont(k => {
     return Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
@@ -4403,7 +4418,7 @@ export const E = Except; // shortcut
 █████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
-E.cata = x => f => tx => introspect(tx) === "Error" ? x : f(tx);
+E.cata = cata("error", ANY);
 
 
 /*
@@ -5848,19 +5863,23 @@ export const Nat = Natural; // shortcut
 numbers might be a little unusual but is quite powerful. Here is an
 implementaiton of the fibonacci sequence:
 
-  const fib = comp(Pair.fst)
-    (Nat.cata(Pair(0, 1)) (([a, b]) => Pair(b, a + b))); */
+  const fib = comp(Pair.fst) (Nat.cata({
+    zero: Pair(0, 1),
+    succ: ([a, b]) => Pair(b, a + b)
+  }));
 
-Nat.cata = zero => succ => n => {
-  let r = zero;
+  fib(10); // yields 55 */
+
+Nat.cata = cata_("zero", "succ") (dict => n => {
+  let r = dict.zero;
 
   while (n > 0) {
-    r = succ(r);
+    r = dict.succ(r);
     n -= 1;
   }
 
   return r;
-};
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6784,7 +6803,7 @@ export const Opt = Option; // shortcut
 █████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
-Opt.cata = x => f => tx => strict(tx) === null ? x : f(tx);
+Opt.cata = cata("null", ANY);
 
 
 /*
@@ -7662,10 +7681,10 @@ export const Pair_ = o => {
 █████ Extracting ██████████████████████████████████████████████████████████████*/
 
 
-Pair.fst = tx => tx[1];
+Pair.fst = tx => tx[0];
 
 
-Pair.snd = tx => tx[2];
+Pair.snd = tx => tx[1];
 
 
 /*
@@ -9623,17 +9642,6 @@ Str.splitChunk = ({from, to}) => s =>
 
 
 export const These = variant("These", cons("This"), cons("That"), cons2("Both"));
-
-
-/*
-█████ Catamorphism ████████████████████████████████████████████████████████████*/
-
-
-These.cata = _this => that => both => tx => tx.run({ // elimination rule
-  this: _this,
-  that,
-  both
-});
 
 
 /*
