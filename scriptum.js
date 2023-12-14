@@ -4398,6 +4398,16 @@ export const D = DateTime; // shortcut
 
 
 /*
+█████ Constants ███████████████████████████████████████████████████████████████*/
+
+
+D.timeStampDay = 86400000;
+
+
+D.timeStampHour = 3600000;
+
+
+/*
 █████ Calculation █████████████████████████████████████████████████████████████*/
 
 
@@ -10628,11 +10638,53 @@ export const FileSys = fs => Cons => thisify(o => {
 
 /*
 
-  * encode vagueness caused by indeterminism or fuzzy variables 
-    * add fuzzy logic types + operators
+  * encode vagueness caused by indeterminism or uncertainty
+    * fuzzy logic
+      * terminology:
+        * fuzzyfy (create a real number between 0..1)
+        * defuzzyfy (create a crisp value)
+        * rule base
+        * inference engine based on rules (determines the matching degree)
+        * allows deductive thinking
+      * fuzzy logical operators
+      * fuzzy type-1/type-2 sets
+      * set operations (union, intersection, difference, complement)
+      * fuzzyfier: a function that creates a real number between 0..1
     * add backtracking types + operators
-    * ambiguous relations (multi-map, fuzzy sets, etc.)
+      * terminology:
+        * candidate (to be added to the solution)
+        * partial solution (intermediate solution)
+        * feasable solution (of the backtracking problem)
+        * decision space (set of all condidates)
+        * decision point (point at which a specific candidate is chosen)
+        * dead end (partial solution cannot be completed)
+        * backtracking (undoing previous decisions)
+        * search space: all permutations of candidates and choices
+        * optimal solution: most effective/efficient solution
+        * greedy algos fail, because they chose local maxima to get global maxima
+        * backtracking is not a brute force algo bc it skips canidates
+          * you can also shape the search space
+        * recursive algo
+      * type:
+        * decision problem
+        * optimization problem
+        * enumeration problem
+      * depth-first approach (fair approach mitigates downsides)
+      * alternative strategies:
+        * divide and conquer
+        * exhaustive search (no unwinding/declining of candidates)
+        * dynamic programming algo (share intermediate results using memoization)
+        * greedy algos (make decisions that give immediate benefit w/out reconsidering previous choices)
+    * ambiguous relations (multi-map)
+      * a key is associated to several distinct values (1:n)
+      * several keys are associated to the same distinct value (m:1)
+      * several keys are associated to the same distinct values (m:n)
+    * fuzzy relations (fuzzy set)
+      * a value may belong to several sets with varying degree of membership
     * supervaluation/subvaluation
+      * accumulate assumptions
+      * delay decision
+      * contest function declares a winner, several winners or no winner
     * analyze + contectualize = synthesize
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
