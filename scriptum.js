@@ -30,7 +30,7 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
-const DEBUG = true;
+const DEBUG = false;
 
 
 export const NOOP = null; // no operation
@@ -270,7 +270,9 @@ export const cata = (...ks) => dict => {
 
 /* Some types like natural numbers don't have their own constructor let alone
 a recursive type definition in Javascript. For these cases, a more general
-function to create catamorphisms is supplied. */
+function to create catamorphisms is supplied. Other more well-formed types
+like single linked lists rely on non-stack-safe recursion. `cata_` can be used
+to encode a stack-safe trampoline or imperative loop. */
 
 export const cata_ = (...ks) => decons => dict => {
   for (const k of ks)
@@ -319,6 +321,91 @@ export class Exceptions extends Exception {
       else this.errors.push(e);
     });
   }
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ INTROSPECTION ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const introspectCons = x =>
+  Object.prototype.toString.call(x).slice(8, -1);
+
+
+export const introspect = x => {
+  if (x === null) return "Null";
+  else if (x === undefined) throw new Error("undefined evaluation");
+  else if (x !== x) throw new Error("not a number");
+
+  else {
+    const t = typeof x;
+
+    if (t === "object") {
+      const t2 = Object.prototype.toString.call(x).slice(8, -1);
+
+      // product/variant type
+
+      if ("run" in x && "get" in x) return `${t2}<${introspect(x.get)}>`;
+
+      else {
+        switch (t2) {
+          case "Array": return introspectArr(x);
+          case "Map": return introspectMap(x);
+          case "Set": return introspectSet(x);
+          
+          case "Date": {
+            if (Number.isNaN(x.getTime())) throw new Error("invalid date");
+            else return "Date";
+          }
+
+          default: return introspectObj(x);
+        }
+      }      
+    }
+
+    else if (t === "function") {
+      if ("sig" in x) return `(${x.name} :: ${x.sig})`;
+      else return "Function";
+    }
+
+    else return t[0].toUpperCase() + t.slice(1);
+  }
+};
+
+
+export const introspectArr = xs => {
+  if (xs.length === 0) return "[]";
+  
+  else if (xs.length <= 3) {
+    const s = xs.reduce((acc, x) => acc.add(introspect(x)), new Set());
+
+    if (s.size === 1) return `[${Array.from(s) [0]}]`;
+    else return `[${Array.from(s).join(", ")}]`;
+  }
+
+  else return `[${introspect(xs[0])}]`;
+};
+
+
+export const introspectMap = m => {
+  if (m.size === 0) return `Map<>`;
+  for (const [k, v] of m) return `Map<${introspect(k)}, ${introspect(v)}>`;
+};
+
+
+export const introspectSet = s => {
+  if (s.size === 0) return `Set<>`;
+  for (const k of s) return `Set<${introspect(k)}>`;
+};
+
+
+export const introspectObj = o => {
+  const t = Object.prototype.toString.call(o).slice(8, -1),
+    ks = Reflect.ownKeys(o);
+
+  if (ks.length === 0) return t;
+  else return `${t} {${ks.map(k => `${k}: ${introspect(o[k])}`).join(", ")}}`
 };
 
 
@@ -1212,28 +1299,52 @@ unfoldM f s = do
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// safer function type
+/* Tracked functions always carry their initial name no matter if they are in
+multi-argument or curried form. They track the argument types they were called
+with and display all unsatisfied parameters left. Tracked functions throw an
+error as soon as they detect an undefined argument or return value. Variadic
+arguments are supported but not optional arguments.
 
-export const Fun = f => {
-  if (DEBUG === true) {
-    return new Proxy(f, {
-      apply: (g, that, args) => {
-        args.forEach(arg => {
-          if (arg === undefined)
-            throw new Err("undefined argument");
-        });
+Each function will be supplied in a tracked and untracked variant. Which one
+is actually exported depends on the global `DEBUG` constant of the library.
 
-        const r = g(...args);
-        
-        if (r === undefined)
-          throw new Err("undefined function result");
+HEADS UP: You must not create dependencies against the `name` or `sig` property
+in your code. */
 
+const Fun = (f, name, arities, types = []) => {
+  Object.defineProperties(f, {
+    name: {value: name},
+
+    sig: {value: types.map(xs => xs.join(", ")).join(" -> ")
+      + (types.length ? " => " : "")
+      + arities.map(xs => xs.join(", ")).join(" => ")}
+  });
+
+  return new Proxy(f, {
+    apply: (f, _, args) => {
+      if (arities.length <= 1) {
+        const r = f(...args),
+          t = introspect(r);
+
+        if (t === undefined) throw new Error("undefined evaluation");
+        else if (t === "NaN") throw new Error("not a number");
+        else if (t === "InvalidDate") throw new Error("invalid date");
         else return r;
       }
-    });
-  }
 
-  else return f;
+      else if (arities[0] [0] [0] === ".") return fun(
+        f(...args),
+        name,
+        arities.slice(1),
+        types.concat([[introspect(args)]]));
+      
+      else return fun(
+        f(...args),
+        name,
+        arities.slice(1),
+        types.concat([arities[0].map((_, i) => introspect(args[i]))]));
+    }
+  });
 };
 
 
@@ -1554,10 +1665,6 @@ F.Profunctor = {
 
 /*
 █████ Impure ██████████████████████████████████████████████████████████████████*/
-
-
-export const introspect = x =>
-  Object.prototype.toString.call(x).slice(8, -1);
 
 
 export const eff = f => x => (f(x), x);
@@ -4431,7 +4538,7 @@ E.cata = cata("error", ANY);
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-E.map = f => tx => introspect(tx) === "Error" ? tx : f(tx);
+E.map = f => tx => introspectCons(tx) === "Error" ? tx : f(tx);
 
 
 E.Functor = {map: E.map};
@@ -4445,8 +4552,8 @@ E.Functor = {map: E.map};
 arguments, the non-empty error is picked with a left bias again. */
 
 E.alt = tx => ty => {
-  if (introspect(tx) === "Error") {
-    if (introspect(ty) === "Error") return new Exceptions(tx, ty);
+  if (introspectCons(tx) === "Error") {
+    if (introspectCons(ty) === "Error") return new Exceptions(tx, ty);
     else return ty;
   }
 
@@ -4478,12 +4585,12 @@ E.Plus = {
 
 
 E.ap = tf => tx => {
-  if (introspect(tf) === "Error") {
-    if (introspect(tx) === "Error") return new Exceptions(tf, tx);
+  if (introspectCons(tf) === "Error") {
+    if (introspectCons(tx) === "Error") return new Exceptions(tf, tx);
     else return tf;
   }
 
-  else if (introspect(tx) === "Error") return tx;
+  else if (introspectCons(tx) === "Error") return tx;
   else return tf(tx);
 };
 
@@ -4499,7 +4606,7 @@ E.Apply = {
 
 
 E.of = x => {
-  if (introspect(x) === "Error") throw new Err("invalid value");
+  if (introspectCons(x) === "Error") throw new Err("invalid value");
   else return x;
 }
 
@@ -4524,7 +4631,7 @@ E.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-E.chain = mx => fm => introspect(mx) === "Error" ? mx : fm(mx);
+E.chain = mx => fm => introspectCons(mx) === "Error" ? mx : fm(mx);
 
 
 E.Chain = {
@@ -4548,12 +4655,12 @@ E.Monad = {
 
 
 E.append = Semigroup => tx => ty => {
-  if (introspect(tx) === "Error") {
-    if (introspect(ty) === "Error") return new Exceptions(tx, ty);
+  if (introspectCons(tx) === "Error") {
+    if (introspectCons(ty) === "Error") return new Exceptions(tx, ty);
     else return tx;
   }
 
-  else if (introspect(ty) === "Error") return ty;
+  else if (introspectCons(ty) === "Error") return ty;
   else return Semigroup.append(tx) (ty);
 };
 
@@ -4579,7 +4686,7 @@ E.Monoid = {
 
 
 E.throw = tx => {
-  if (introspect(tx) === "Error") throw tx;
+  if (introspectCons(tx) === "Error") throw tx;
   else return tx;
 };
 
@@ -4607,7 +4714,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.map = f => mmx => Trans(outer.map(mx =>
-    introspect(mx) === "Error" ? mx : f(mx)) (mmx.run));
+    introspectCons(mx) === "Error" ? mx : f(mx)) (mmx.run));
 
 
   Trans.Functor = {map: Trans.map};
@@ -4618,9 +4725,9 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.alt = mmx => mmy => outer.chain(mmx.run) (mx => {
-    if (introspect(mx) === "Error") {
+    if (introspectCons(mx) === "Error") {
       return Trans(outer.map(my => {
-        if (introspect(my) === "Error") return new Exceptions(mx, my);
+        if (introspectCons(my) === "Error") return new Exceptions(mx, my);
         else return my;
       }) (mmy.run))
     }
@@ -4655,12 +4762,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.ap = mmf => mmx => {
     return Trans(outer.chain(mmf.run) (mf => {
       return outer.map(mx => {
-        if (introspect(mf) === "Error") {
-          if (introspect(mx) === "Error") return new Exceptions(mf, mx);
+        if (introspectCons(mf) === "Error") {
+          if (introspectCons(mx) === "Error") return new Exceptions(mf, mx);
           else return mf;
         }
 
-        else if (introspect(mx) === "Error") return mx;
+        else if (introspectCons(mx) === "Error") return mx;
         else return mf(mx);
       }) (mmx.run);
     }));
@@ -4691,7 +4798,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.chain = mmx => fmm => outer.chain(mmx.run) (mx => {
-    if (introspect(mx) === "Error") return outer.of(mx);
+    if (introspectCons(mx) === "Error") return outer.of(mx);
     else return fmm(mx);
   });
   
@@ -4727,13 +4834,13 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.catch = f => mmx => Trans(outer.chain(mmx.run) (mx => {
-    if (introspect(mx) === "Error") return outer.of(f(mx));
+    if (introspectCons(mx) === "Error") return outer.of(f(mx));
     else return outer.of(mx);
   }));
 
 
   Trans.throw = mmx => Trans(outer.map(x => {
-    if (introspect(x) === "Error") throw x;
+    if (introspectCons(x) === "Error") throw x;
     else return x;
   }) (mmx.run));
 
@@ -4748,12 +4855,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.append = Semigroup => mmx => mmy => {
     return Trans(outer.chain(mmx.run) (mx => {
       return outer.map(my => {
-        if (introspect(mx) === "Error") {
-          if (introspect(my) === "Error") return new Exceptions(mx, my);
+        if (introspectCons(mx) === "Error") {
+          if (introspectCons(my) === "Error") return new Exceptions(mx, my);
           else return mx;
         }
 
-        else if (introspect(my) === "Error") return my;
+        else if (introspectCons(my) === "Error") return my;
         else return Semigroup.append(mx) (my);
       }) (mmy.run);
     }));
@@ -7578,7 +7685,7 @@ Pex.or_ = mmx => mmy => {
     return [mmx, mmy].map(mmz => {
       return mmz.run(mz => {
         if (i < 1) {
-          if (introspect(mz) === "Error") {
+          if (introspectCons(mz) === "Error") {
             i++;
             return null;
           }
@@ -10470,7 +10577,12 @@ export const FileSys = fs => Cons => thisify(o => {
 
 /*
 
-  * implement non-empty list combinators
+  * encode vagueness caused by indeterminism or fuzzy variables 
+    * add fuzzy logic types + operators
+    * add backtracking types + operators
+    * ambiguous relations (multi-map, fuzzy sets, etc.)
+    * supervaluation/subvaluation
+    * analyze + contectualize = synthesize
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
