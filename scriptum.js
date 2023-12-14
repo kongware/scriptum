@@ -30,7 +30,7 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
-const DEBUG = false;
+const DEBUG = true;
 
 
 export const NOOP = null; // no operation
@@ -329,10 +329,6 @@ export class Exceptions extends Exception {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const introspectCons = x =>
-  Object.prototype.toString.call(x).slice(8, -1);
-
-
 export const introspect = x => {
   if (x === null) return "Null";
   else if (x === undefined) throw new Error("undefined evaluation");
@@ -350,16 +346,16 @@ export const introspect = x => {
 
       else {
         switch (t2) {
-          case "Array": return introspectArr(x);
-          case "Map": return introspectMap(x);
-          case "Set": return introspectSet(x);
+          case "Array": return introspect.arr(x);
+          case "Map": return introspect.map(x);
+          case "Set": return introspect.set(x);
           
           case "Date": {
             if (Number.isNaN(x.getTime())) throw new Error("invalid date");
             else return "Date";
           }
 
-          default: return introspectObj(x);
+          default: return introspect.obj(x);
         }
       }      
     }
@@ -374,7 +370,11 @@ export const introspect = x => {
 };
 
 
-export const introspectArr = xs => {
+introspect.cons = x =>
+  Object.prototype.toString.call(x).slice(8, -1);
+
+
+introspect.arr = xs => {
   if (xs.length === 0) return "[]";
   
   else if (xs.length <= 3) {
@@ -388,25 +388,65 @@ export const introspectArr = xs => {
 };
 
 
-export const introspectMap = m => {
+introspect.map = m => {
   if (m.size === 0) return `Map<>`;
   for (const [k, v] of m) return `Map<${introspect(k)}, ${introspect(v)}>`;
 };
 
 
-export const introspectSet = s => {
+introspect.set = s => {
   if (s.size === 0) return `Set<>`;
   for (const k of s) return `Set<${introspect(k)}>`;
 };
 
 
-export const introspectObj = o => {
+introspect.obj = o => {
   const t = Object.prototype.toString.call(o).slice(8, -1),
     ks = Reflect.ownKeys(o);
 
   if (ks.length === 0) return t;
   else return `${t} {${ks.map(k => `${k}: ${introspect(o[k])}`).join(", ")}}`
 };
+
+
+/*
+█████ Definitions █████████████████████████████████████████████████████████████*/
+
+
+introspect.def = {};
+
+
+introspect.def.un = (f, name) => F(f, name, [["x"]]);
+
+
+introspect.def.bin = (f, name) => F(f, name, [["x"], ["y"]]);
+
+
+introspect.def.binUn = (f, name) => F(f, name, [["x", "y"], ["z"]]);
+
+
+introspect.def.bin_ = (f, name) => F(f, name, [["x", "y"]]);
+
+
+introspect.def.tern = (f, name) => F(f, name, [["x"], ["y"], ["z"]]);
+
+
+introspect.def.ternUn = (f, name) => F(f, name, [["w", "x", "y"], ["z"]]);
+
+
+introspect.def.tern_ = (f, name) => F(f, name, [["x", "y", "z"]]);
+
+
+introspect.def.quat = (f, name) => F(f, name, [["w"], ["x"], ["y"], ["z"]]);
+
+
+introspect.def.quatUn = (f, name) => F(f, name, [["v", "w", "x", "y"], ["z"]]);
+
+
+introspect.def.quat_ = (f, name) => F(f, name, [["w", "x", "y", "z"]]);
+
+
+introspect.def.vari = (f, name) => F(f, name, [["...args"]]);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1303,42 +1343,44 @@ unfoldM f s = do
 multi-argument or curried form. They track the argument types they were called
 with and display all unsatisfied parameters left. Tracked functions throw an
 error as soon as they detect an undefined argument or return value. Variadic
-arguments are supported but not optional arguments.
+arguments are supported, optional arguments are not.
 
 Each function will be supplied in a tracked and untracked variant. Which one
 is actually exported depends on the global `DEBUG` constant of the library.
 
 HEADS UP: You must not create dependencies against the `name` or `sig` property
-in your code. */
+in your codebase. */
 
 const Fun = (f, name, arities, types = []) => {
+  if (typeof f !== "function") return f;
+
   Object.defineProperties(f, {
     name: {value: name},
 
     sig: {value: types.map(xs => xs.join(", ")).join(" -> ")
       + (types.length ? " => " : "")
-      + arities.map(xs => xs.join(", ")).join(" => ")}
+      + arities.map(xs => xs.join(", ")).join(" => ")
+      + " => ?"}
   });
 
   return new Proxy(f, {
     apply: (f, _, args) => {
       if (arities.length <= 1) {
-        const r = f(...args),
-          t = introspect(r);
+        const r = f(...args), t = introspect(r);
 
-        if (t === undefined) throw new Error("undefined evaluation");
-        else if (t === "NaN") throw new Error("not a number");
-        else if (t === "InvalidDate") throw new Error("invalid date");
+        if (t === undefined || t === "NaN" || t === "InvalidDate")
+          throw new Error("evaluated to " + t);
+
         else return r;
       }
 
-      else if (arities[0] [0] [0] === ".") return fun(
+      else if (arities[0] [0] [0] === ".") return F(
         f(...args),
         name,
         arities.slice(1),
         types.concat([[introspect(args)]]));
       
-      else return fun(
+      else return F(
         f(...args),
         name,
         arities.slice(1),
@@ -1447,7 +1489,8 @@ F.Category = () => {
 export const between = f => h => g => x => h(g(f(x)));
 
 
-export const comp = f => g => x => f(g(x));
+export let comp = f => g => x => f(g(x));
+if (DEBUG) comp = introspect.def.tern(comp, "comp");
 
 
 export const comp3 = f => g => h => x => f(g(h(x)));
@@ -4538,7 +4581,7 @@ E.cata = cata("error", ANY);
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-E.map = f => tx => introspectCons(tx) === "Error" ? tx : f(tx);
+E.map = f => tx => introspect.cons(tx) === "Error" ? tx : f(tx);
 
 
 E.Functor = {map: E.map};
@@ -4552,8 +4595,8 @@ E.Functor = {map: E.map};
 arguments, the non-empty error is picked with a left bias again. */
 
 E.alt = tx => ty => {
-  if (introspectCons(tx) === "Error") {
-    if (introspectCons(ty) === "Error") return new Exceptions(tx, ty);
+  if (introspect.cons(tx) === "Error") {
+    if (introspect.cons(ty) === "Error") return new Exceptions(tx, ty);
     else return ty;
   }
 
@@ -4585,12 +4628,12 @@ E.Plus = {
 
 
 E.ap = tf => tx => {
-  if (introspectCons(tf) === "Error") {
-    if (introspectCons(tx) === "Error") return new Exceptions(tf, tx);
+  if (introspect.cons(tf) === "Error") {
+    if (introspect.cons(tx) === "Error") return new Exceptions(tf, tx);
     else return tf;
   }
 
-  else if (introspectCons(tx) === "Error") return tx;
+  else if (introspect.cons(tx) === "Error") return tx;
   else return tf(tx);
 };
 
@@ -4606,7 +4649,7 @@ E.Apply = {
 
 
 E.of = x => {
-  if (introspectCons(x) === "Error") throw new Err("invalid value");
+  if (introspect.cons(x) === "Error") throw new Err("invalid value");
   else return x;
 }
 
@@ -4631,7 +4674,7 @@ E.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-E.chain = mx => fm => introspectCons(mx) === "Error" ? mx : fm(mx);
+E.chain = mx => fm => introspect.cons(mx) === "Error" ? mx : fm(mx);
 
 
 E.Chain = {
@@ -4655,12 +4698,12 @@ E.Monad = {
 
 
 E.append = Semigroup => tx => ty => {
-  if (introspectCons(tx) === "Error") {
-    if (introspectCons(ty) === "Error") return new Exceptions(tx, ty);
+  if (introspect.cons(tx) === "Error") {
+    if (introspect.cons(ty) === "Error") return new Exceptions(tx, ty);
     else return tx;
   }
 
-  else if (introspectCons(ty) === "Error") return ty;
+  else if (introspect.cons(ty) === "Error") return ty;
   else return Semigroup.append(tx) (ty);
 };
 
@@ -4686,7 +4729,7 @@ E.Monoid = {
 
 
 E.throw = tx => {
-  if (introspectCons(tx) === "Error") throw tx;
+  if (introspect.cons(tx) === "Error") throw tx;
   else return tx;
 };
 
@@ -4714,7 +4757,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.map = f => mmx => Trans(outer.map(mx =>
-    introspectCons(mx) === "Error" ? mx : f(mx)) (mmx.run));
+    introspect.cons(mx) === "Error" ? mx : f(mx)) (mmx.run));
 
 
   Trans.Functor = {map: Trans.map};
@@ -4725,9 +4768,9 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.alt = mmx => mmy => outer.chain(mmx.run) (mx => {
-    if (introspectCons(mx) === "Error") {
+    if (introspect.cons(mx) === "Error") {
       return Trans(outer.map(my => {
-        if (introspectCons(my) === "Error") return new Exceptions(mx, my);
+        if (introspect.cons(my) === "Error") return new Exceptions(mx, my);
         else return my;
       }) (mmy.run))
     }
@@ -4762,12 +4805,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.ap = mmf => mmx => {
     return Trans(outer.chain(mmf.run) (mf => {
       return outer.map(mx => {
-        if (introspectCons(mf) === "Error") {
-          if (introspectCons(mx) === "Error") return new Exceptions(mf, mx);
+        if (introspect.cons(mf) === "Error") {
+          if (introspect.cons(mx) === "Error") return new Exceptions(mf, mx);
           else return mf;
         }
 
-        else if (introspectCons(mx) === "Error") return mx;
+        else if (introspect.cons(mx) === "Error") return mx;
         else return mf(mx);
       }) (mmx.run);
     }));
@@ -4798,7 +4841,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.chain = mmx => fmm => outer.chain(mmx.run) (mx => {
-    if (introspectCons(mx) === "Error") return outer.of(mx);
+    if (introspect.cons(mx) === "Error") return outer.of(mx);
     else return fmm(mx);
   });
   
@@ -4834,13 +4877,13 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.catch = f => mmx => Trans(outer.chain(mmx.run) (mx => {
-    if (introspectCons(mx) === "Error") return outer.of(f(mx));
+    if (introspect.cons(mx) === "Error") return outer.of(f(mx));
     else return outer.of(mx);
   }));
 
 
   Trans.throw = mmx => Trans(outer.map(x => {
-    if (introspectCons(x) === "Error") throw x;
+    if (introspect.cons(x) === "Error") throw x;
     else return x;
   }) (mmx.run));
 
@@ -4855,12 +4898,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.append = Semigroup => mmx => mmy => {
     return Trans(outer.chain(mmx.run) (mx => {
       return outer.map(my => {
-        if (introspectCons(mx) === "Error") {
-          if (introspectCons(my) === "Error") return new Exceptions(mx, my);
+        if (introspect.cons(mx) === "Error") {
+          if (introspect.cons(my) === "Error") return new Exceptions(mx, my);
           else return mx;
         }
 
-        else if (introspectCons(my) === "Error") return my;
+        else if (introspect.cons(my) === "Error") return my;
         else return Semigroup.append(mx) (my);
       }) (mmy.run);
     }));
@@ -7685,7 +7728,7 @@ Pex.or_ = mmx => mmy => {
     return [mmx, mmy].map(mmz => {
       return mmz.run(mz => {
         if (i < 1) {
-          if (introspectCons(mz) === "Error") {
+          if (introspect.cons(mz) === "Error") {
             i++;
             return null;
           }
