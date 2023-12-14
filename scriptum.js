@@ -361,7 +361,15 @@ export const introspect = x => {
     }
 
     else if (t === "function") {
-      if ("sig" in x) return `(${x.name} :: ${x.sig})`;
+      const t2 = Object.prototype.toString.call(x).slice(8, -1);
+      
+      // check for implicit thunk
+
+      if (t2 === "Null") return "Null";
+
+      // check for tracked function
+
+      else if ("sig" in x) return `(${x.name} :: ${x.sig})`;
       else return "Function";
     }
 
@@ -780,7 +788,7 @@ export const or = f => g => f() || g();
 export const xor = x => y => {
   if (x && !y) return x;
   else if (!x && y) return y;
-  else return null;
+  else return Null;
 };
 
 
@@ -2235,13 +2243,13 @@ St.T = outer => thisify(o => { // outer monad's type dictionary
   o.gets = f => State(s => outer.of(Pair(f(s), s)));
 
 
-  o.mod = f => State(s => outer.of(Pair(null, f(s))))
+  o.mod = f => State(s => outer.of(Pair(Null, f(s))))
 
 
-  o.modM = fm => State(s => outer.map(s2 => Pair(null, s2)) (fm(s)));
+  o.modM = fm => State(s => outer.map(s2 => Pair(Null, s2)) (fm(s)));
 
 
-  o.put = s => State(_ => outer.of(Pair(null, s)))
+  o.put = s => State(_ => outer.of(Pair(Null, s)))
 
 
   o.with = f => mmx => State(s => mmx.run(f(s)));
@@ -2321,22 +2329,22 @@ A.cons = x => xs => [x].concat(xs);
 A.cons_ = xs => x => [x].concat(xs);
 
 
-A.head = xs => xs.length === 0 ? null : xs[0];
+A.head = xs => xs.length === 0 ? Null : xs[0];
 
 
 A.headOr = x => xs => xs.length === 0 ? x : xs[0];
 
 
-A.index = i => xs => (i in xs) ? xs[i] : null;
+A.index = i => xs => (i in xs) ? xs[i] : Null;
 
 
 A.indexOr = x => i => xs => (i in xs) ? xs[i] : x;
 
 
-A.init = xs => xs.length === 0 ? null : xs.slice(0, -1);
+A.init = xs => xs.length === 0 ? Null : xs.slice(0, -1);
 
 
-A.last = xs => xs.length === 0 ? null : xs[xs.length - 1];
+A.last = xs => xs.length === 0 ? Null : xs[xs.length - 1];
 
 
 A.lastOr = x => xs => xs.length === 0 ? x : xs[xs.length - 1];
@@ -2354,10 +2362,10 @@ A.push_ = xs => x => (xs.push(x), xs);
 A.pushn_ = xs => ys => (xs.push.apply(xs, ys), xs);
 
 
-A.pop = xs => Pair(xs.length === 0 ? null : xs.pop(), xs);
+A.pop = xs => Pair(xs.length === 0 ? Null : xs.pop(), xs);
 
 
-A.shift = xs => Pair(xs.length === 0 ? null : xs.shift(), xs);
+A.shift = xs => Pair(xs.length === 0 ? Null : xs.shift(), xs);
 
 
 A.singleton = x => [x];
@@ -2369,10 +2377,10 @@ A.snoc = x => xs => xs.concat([x]);
 A.snoc_ = xs => x => xs.concat([x]);
 
 
-A.tail = xs => xs.length === 0 ? null : xs.slice(1);
+A.tail = xs => xs.length === 0 ? Null : xs.slice(1);
 
 
-A.uncons = xs => Pair(xs.length === 0 ? null : xs[0], xs.slice(1));
+A.uncons = xs => Pair(xs.length === 0 ? Null : xs[0], xs.slice(1));
 
 
 A.unshift = x => xs => (xs.unshift(x), xs);
@@ -2388,7 +2396,7 @@ A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 
 
 A.unsnoc = xs => Pair(
-  xs.length === 0 ? null : xs[xs.length - 1],
+  xs.length === 0 ? Null : xs[xs.length - 1],
   xs.slice(-1));
 
 
@@ -2438,8 +2446,8 @@ altering it. The focus creates an immutable but otherwise normal array. The
 iterable protocol can be used to reify the focused portion of the original
 array. */
 
-A.focus = (i, j = null) => xs => {
-  if (j === null) j = xs.length - 1;
+A.focus = (i, j = Null) => xs => {
+  if (j === Null) j = xs.length - 1;
 
   return new Proxy(xs, {
     get(_, k, p) {
@@ -2876,7 +2884,7 @@ A.apo = f => init => {
     const pair = f(x);
     next = false;
 
-    if (strict(pair) === null) continue;
+    if (strict(pair) === Null) continue;
 
     else {
       const [y, tz] = pair;
@@ -3082,7 +3090,7 @@ and value combination. */
 
 A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
   const k = f(x);
-  return acc.set(k, g(acc.has(k) ? acc.get(k) : null) (x));
+  return acc.set(k, g(acc.has(k) ? acc.get(k) : Null) (x));
 }, new Map());
 
 
@@ -3140,7 +3148,7 @@ A.unfold = f => init => {
     const r = f(x);
     next = false;
 
-    if (strict(r) === null) continue;
+    if (strict(r) === Null) continue;
 
     else {
       const [y, z] = r;
@@ -3345,7 +3353,7 @@ L._Cons = xs => x => new L.Cons(x, xs);
 
 L.head = xss => {
   switch (xss[TAG]) {
-    case "Nil": return null;
+    case "Nil": return Null;
     case "Cons": return xss[0];
     default: throw new Err("invalid constructor");
   }
@@ -3357,7 +3365,7 @@ L.singleton = x => [x, L.Nil];
 
 L.tail = xss => {
   switch (xss[TAG]) {
-    case "Nil": return null;
+    case "Nil": return Null;
     case "Cons": return xss[1];
     default: throw new Err("invalid constructor");
   }
@@ -3660,7 +3668,7 @@ L.Monoid = {
 L.unfold = f => function go(y) {
   const r = f(y);
 
-  if (strict(r) === null) return L.Nil;
+  if (strict(r) === Null) return L.Nil;
 
   else {
     const [x, y2] = r;
@@ -4004,7 +4012,7 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
   o.unfold = f => function go(y) {
     const r = f(y);
 
-    if (strict(r) === null) return o.empty;
+    if (strict(r) === Null) return o.empty;
 
     else {
       const [x, y2] = r;
@@ -5562,7 +5570,7 @@ _Map.values = function* (m) {
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
-_Map.get = k => m => m.has(k) ? m.get(k) : null;
+_Map.get = k => m => m.has(k) ? m.get(k) : Null;
 
 
 _Map.getOr = x => k => m => m.has(k) ? m.get(k) : x;
@@ -6321,14 +6329,14 @@ O.toPairs = Object.entries;
 █████ Instantiation ███████████████████████████████████████████████████████████*/
 
 
-O.new = (tag = null) => (...ks) => (...vs) => {
+O.new = (tag = Null) => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
     throw new Err("keys don't match values");
 
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
     return acc;
-  }, tag === null ? {} : {[TAG]: tag});
+  }, tag === Null ? {} : {[TAG]: tag});
 };
 
 
@@ -6339,14 +6347,14 @@ O.new = (tag = null) => (...ks) => (...vs) => {
 O.del = k => o => (delete o[k], o);
 
 
-O.get = k => o => k in o ? o[k] : null;
+O.get = k => o => k in o ? o[k] : Null;
 
 
 O.getOr = x => k => o => k in o ? o[k] : x;
 
 
 O.getPath = keys => o =>
-  keys.reduce((acc, key) => key in acc ? acc[key] : null, o);
+  keys.reduce((acc, key) => key in acc ? acc[key] : Null, o);
 
 
 O.getPathOr = x => keys => o => {
@@ -6752,7 +6760,7 @@ Ob.Monoid = {
 █████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
 
 
-Ob.Race.empty = Ob(observer => observer.done(null));
+Ob.Race.empty = Ob(observer => observer.done(Null));
 
 
 /*
@@ -6820,13 +6828,13 @@ export const Optic = (x, parent) => ({
 // reconstruct the composite data structure and takes any change into account
 
 Optic.defocus = tx =>
-  tx.parent === null ? tx : Optic.defocus(tx.parent(tx.run));
+  tx.parent === Null ? tx : Optic.defocus(tx.parent(tx.run));
 
 
 // like `Optic.defocus` but only reconstructs a single layer
 
 Optic.defocus1 = tx =>
-  tx.parent === null ? tx : tx.parent(tx.run);
+  tx.parent === Null ? tx : tx.parent(tx.run);
 
 
 /*
@@ -6843,8 +6851,8 @@ Optic.focus = (getter, setter) => tx => Optic(
 // try to focus or use a composite default value
 
 Optic.tryFocus = x => (getter, setter) => tx => Optic(
-  tx.run === null ? getter(x) : getter(tx.run),
-  x => Optic(setter(x) (tx.run === null ? x : tx.run), tx.parent));
+  tx.run === Null ? getter(x) : getter(tx.run),
+  x => Optic(setter(x) (tx.run === Null ? x : tx.run), tx.parent));
 
 
 /*
@@ -6882,7 +6890,7 @@ Optic.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Optic.of = x => Optic(x, null);
+Optic.of = x => Optic(x, Null);
 
 
 Optic.Applicative = {
@@ -6963,7 +6971,7 @@ Opt.cata = cata("null", ANY);
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Opt.map = f => tx => strict(tx) === null ? null : f(tx);
+Opt.map = f => tx => strict(tx) === Null ? Null : f(tx);
 
 
 Opt.Functor = {map: Opt.map};
@@ -6973,7 +6981,7 @@ Opt.Functor = {map: Opt.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-Opt.alt = tx => ty => strict(tx) === null ? ty : tx;
+Opt.alt = tx => ty => strict(tx) === Null ? ty : tx;
 
 
 Opt.Alt = {
@@ -6986,7 +6994,7 @@ Opt.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-Opt.zero = null;
+Opt.zero = Null;
 
 
 Opt.Plus = {
@@ -7000,8 +7008,8 @@ Opt.Plus = {
 
 
 Opt.ap = tf => tx =>
-  strict(tf) === null ? null
-    : strict(tx) === null ? null
+  strict(tf) === Null ? Null
+    : strict(tx) === Null ? Null
     : tf(tx);
 
 
@@ -7018,7 +7026,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => strict(x) === null ? _throw("invalid value") : x;
+Opt.of = x => strict(x) === Null ? _throw("invalid value") : x;
 
 
 Opt.Applicative = {
@@ -7041,7 +7049,7 @@ Opt.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Opt.chain = mx => fm => strict(mx) === null ? null : fm(mx);
+Opt.chain = mx => fm => strict(mx) === Null ? Null : fm(mx);
 
 
 Opt.Chain = {
@@ -7065,8 +7073,8 @@ Opt.Monad = {
 
 
 Opt.append = Semigroup => tx => ty =>
-  strict(tx) === null ? tx
-    : strict(ty) === null ? tx
+  strict(tx) === Null ? tx
+    : strict(ty) === Null ? tx
     : Semigroup.append(tx) (ty);
 
 
@@ -7077,7 +7085,7 @@ Opt.Semigroup = {append: Opt.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Opt.empty = null;
+Opt.empty = Null;
 
 
 Opt.Monoid = {
@@ -7108,7 +7116,7 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  o.map = f => outer.map(mx => strict(mx) === null ? mx : f(mx));
+  o.map = f => outer.map(mx => strict(mx) === Null ? mx : f(mx));
 
 
   o.Functor = {map: o.map};
@@ -7119,7 +7127,7 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   o.alt = mmx => mmy => outer.chain(mmx) (mx => {
-    if (strict(mx) === null) return mmy;
+    if (strict(mx) === Null) return mmy;
     else return mmx;
   });
 
@@ -7134,7 +7142,7 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-  o.zero = outer.of(null);
+  o.zero = outer.of(Null);
 
 
   o.Plus = {
@@ -7148,10 +7156,10 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   o.ap = mmf => mmx => outer.chain(mf => {
-    if (strict(mf) === null) return mf;
+    if (strict(mf) === Null) return mf;
 
     else return outer.map(mx =>
-      strict(mx) === null ? mx : mf(mx)) (mmx);
+      strict(mx) === Null ? mx : mf(mx)) (mmx);
   });
 
 
@@ -7179,7 +7187,7 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   o.chain = mmx => fmm => outer.chain(mmx) (mx =>
-    strict(mx) === null ? mx : fmm(mx));
+    strict(mx) === Null ? mx : fmm(mx));
 
 
   o.Chain = {
@@ -7213,10 +7221,10 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   o.append = Semigroup => mmx => mmy => outer.chain(mmx) (mx => {
-    if (strict(mx) === null) return mmy;
+    if (strict(mx) === Null) return mmy;
 
     else return outer.map(my =>
-      strict(my) === null ? mx : Semigroup.append(mx) (my)) (mmy);
+      strict(my) === Null ? mx : Semigroup.append(mx) (my)) (mmy);
   });
 
 
@@ -7227,7 +7235,7 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-  o.empty = outer.of(null);
+  o.empty = outer.of(Null);
 
 
   o.Monoid = {
@@ -7280,7 +7288,7 @@ export const Parallel = k => ({
   runSafe: f => {
     if (asyncCounter > 100) {
       asyncCounter = 0;
-      return Promise.resolve(null).then(_ => k(f));
+      return Promise.resolve(Null).then(_ => k(f));
     }
 
     else {
@@ -7325,7 +7333,7 @@ P.and = tx => ty => {
           }
 
           if (i === 2) return k(Pair(pair[0], pair[1]));
-          else return null;
+          else return Null;
         }
 
         else return k(Pair(pair[0], pair[1]));
@@ -7363,15 +7371,15 @@ P.allObj = o => {
         if (i < keys.length) {
           if (xs[j] === undefined) {
             p[key] = x;
-            xs[j] = null;
+            xs[j] = Null;
             i++;
           }
 
           if (i === keys.length) return k(p);
-          else return null;
+          else return Null;
         }
 
-        else return null;
+        else return Null;
       });
     });
   });
@@ -7393,7 +7401,7 @@ P.or = tx => ty => {
           return k(z);
         }
 
-        else return null;
+        else return Null;
       });
     });
   });
@@ -7527,7 +7535,7 @@ P.Monoid = {
 █████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
 
 
-P.Race.empty = P(k => null);
+P.Race.empty = P(k => Null);
 
 
 /*
@@ -7639,7 +7647,7 @@ Pex.and_ = mmx => mmy => Pex(P(k => {
         }
 
         if (i === 2) return k(Pair(pair[0], pair[1]));
-        else return null;
+        else return Null;
       }
 
       else return k(Pair(pair[0], pair[1]));
@@ -7676,15 +7684,15 @@ P.allObj = o => {
         if (i < keys.length) {
           if (xs[j] === undefined) {
             p[key] = x;
-            xs[j] = null;
+            xs[j] = Null;
             i++;
           }
 
           if (i === keys.length) return k(p);
-          else return null;
+          else return Null;
         }
 
-        else return null;
+        else return Null;
       });
     });
   });
@@ -7714,7 +7722,7 @@ Pex.or = mmx => mmy => {
           return k(mz);
         }
 
-        else return null;
+        else return Null;
       });
     });
   }));
@@ -7730,7 +7738,7 @@ Pex.or_ = mmx => mmy => {
         if (i < 1) {
           if (introspect.cons(mz) === "Error") {
             i++;
-            return null;
+            return Null;
           }
 
           else {
@@ -7744,7 +7752,7 @@ Pex.or_ = mmx => mmy => {
           return k(mz);
         }
 
-        else return null;
+        else return Null;
       });
     });
   }));
@@ -7784,7 +7792,7 @@ Pex.Race.append = Pex.or;
 █████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
 
 
-Pex.Race.empty = Pex(P(k => null));
+Pex.Race.empty = Pex(P(k => Null));
 
 
 /*
@@ -8126,7 +8134,7 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
     Pair(Pair(mx[0] [0], mx[0] [1] (mx[1])))) (mmx.run));
 
 
-  o.tell = x => Writer(of(Pair(null, x)));
+  o.tell = x => Writer(of(Pair(Null, x)));
 
   
   return o;
@@ -8945,7 +8953,7 @@ export const Serial = k => ({
   runSafe: f => {
     if (asyncCounter > 100) {
       asyncCounter = 0;
-      return Promise.resolve(null).then(_ => k(f));
+      return Promise.resolve(Null).then(_ => k(f));
     }
 
     else {
@@ -10582,7 +10590,7 @@ type, which is passed as another argument. */
 export const FileSys = fs => Cons => thisify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
-      e ? k(new Exception(e)) : k(null)));
+      e ? k(new Exception(e)) : k(Null)));
 
   o.move = src => dest => // guaranteed order
     Cons.chain(o.copy(src) (dest)) (_ =>
@@ -10602,7 +10610,7 @@ export const FileSys = fs => Cons => thisify(o => {
 
   o.unlink = path => Cons(k =>
     fs.unlink(path, e =>
-      e ? k(new Exception(e)) : k(null)));
+      e ? k(new Exception(e)) : k(Null)));
 
   o.write = opt => path => s => Cons(k =>
     fs.writeFile(path, s, opt, e =>
