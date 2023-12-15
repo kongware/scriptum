@@ -2280,16 +2280,7 @@ export const A = Arr; // shortcut
 █████ Backtrack ███████████████████████████████████████████████████████████████*/
 
 
-A.giveChoice
-
-
-A.choose
-
-
-A.chooseAll
-
-
-A.chooseMany
+// TODO
 
 
 /*
@@ -4213,58 +4204,12 @@ export const Cont = k => ({
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Array Helpers ███████████████████████████████████████████████████████████*/
 
 
-/* Right-associative array fold in continuation passing style. `f` is a ternary
-function argument that receives the continuation for the next fold iteration.
-Hence, it is up to `f` whether folding continues or is short circuited*/
+// array filter with short circuit semantics
 
-Cont.foldr = f => init => xs => {
-  return Cont(k => {
-    return Loop2((acc, i) => {
-      if (i === xs.length) return Loop2.base(acc);
-
-      else {
-        const o = f(xs[i]) (acc)
-          .run(acc2 => Loop2.rec(acc2, i + 1))
-
-        // intercept short circution
-
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) (init, 0);
-  });
-};
-
-
-// like right-associative fold but as an array map-like loop
-
-Cont.map_ = f => xs => {
-  return Cont(k => {
-    return Loop2((acc, i) => {
-      if (i === xs.length) return Loop2.base(acc);
-
-      else {
-        const o = f(xs[i]).run(x => {
-          acc.push(x);
-          return Loop2.rec(acc, i + 1);
-        });
-
-        // intercept short circution
-
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) ([], 0);
-  });
-};
-
-
-// like right-associative fold but as an array filter
-
-Cont.filter = p => xs => {
+Cont.arrFilter = p => xs => {
   return Cont(k => {
     return Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
@@ -4283,6 +4228,132 @@ Cont.filter = p => xs => {
     }) ([], 0);
   });
 };
+
+
+// array fold-like loop with short circuit semantics
+
+Cont.arrFold = f => init => xs => {
+  return Cont(k => {
+    return Loop2((acc, i) => {
+      if (i === xs.length) return Loop2.base(acc);
+
+      else {
+        const o = f(xs[i]) (acc)
+          .run(acc2 => Loop2.rec(acc2, i + 1))
+
+        // intercept short circution
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) (init, 0);
+  });
+};
+
+
+// array map-like loop with short circuit semantics
+
+Cont.arrMap = f => xs => {
+  return Cont(k => {
+    return Loop2((acc, i) => {
+      if (i === xs.length) return Loop2.base(acc);
+
+      else {
+        const o = f(xs[i]).run(x => {
+          acc.push(x);
+          return Loop2.rec(acc, i + 1);
+        });
+
+        // intercept short circuit
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) ([], 0);
+  });
+};
+
+
+Cont.listMap = f => xs => {
+  return Cont(k => {
+    return Loop2((acc, ys) => {
+      if (ys.length === 0) return Loop2.base(acc);
+
+      else {
+        const o = f(ys[0]).run(y =>
+          Loop2.rec(new L.Cons(y, acc), ys[1]));
+
+        // intercept short circuit
+
+        return (!o || o.constructor !== Loop2.rec)
+          ? Loop2.base(acc) : o;
+      }
+    }) (L.Nil, xs);
+  });
+};
+
+
+/*
+█████ Effects █████████████████████████████████████████████████████████████████*/
+
+
+/* Continuations can encode all sorts of effects that may deviate semantically
+from their monadic counterparts. */
+
+
+Cont.Arr = xs => Cont(k => Cont.arrMap(k) (xs).run(k));
+
+
+Cont.Except = {};
+
+
+Cont.Except.Succeed = x => Cont(k => k(x));
+
+
+Cont.Except.Fail = e => Cont(k => e);
+
+
+Cont.List = {};
+
+
+Cont.List.Cons = xs => Cont(k => Cont.listMap(k) (xs).run(k));
+/*Cont.List.Cons = xs => xs.length === 0
+  ? Cont(k => L.Nil)
+  : Cont(k => k(xs[0]).run(x => new L.Cons(x, Cont.List.Cons(xs[1]).run(k))));*/
+
+
+Cont.List.Nil = Cont(k => []);
+
+
+Cont.Option = {};
+
+
+Cont.Option.Some = x => Cont(k => k(x));
+
+
+Cont.Option.None = Cont(k => Null);
+
+
+
+
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+Cont.comp = f => g => k => x => g(x).run(f).run(k);
+
+
+Cont.id = x => k => k(x);
+
+
+Cont.pipe = g => f => k => x => g(x).run(f).run(k);
+
+
+Cont.Category = ({
+  comp: Cont.comp,
+  id: Cont.id,
+  pipe: Cont.pipe
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4977,7 +5048,8 @@ export const Id = x => ({
 });
 
 
-//███Functor███████████████████████████████████████████████████████████████████*/
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 Id.map = f => tx => Id(f(tx.run));
@@ -10692,5 +10764,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add type wrapper for transformers?
   * add Represantable type class
   * add Distributive type class
+  * add pipe method to category type class
 
 */
