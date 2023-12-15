@@ -718,6 +718,65 @@ export const Undefined = lazy_("Undefined") (() => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ MEMOIZATION █████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Memoization of recursive functions with a single argument. You can transform
+them into CPS form in order to derive memoized and a non-memoized versions from
+them:
+
+  const app = f => x => f(x);
+
+  const cpsFib = k => {
+    const rec = k(n => n <= 1 ? n : rec(n - 1) + rec(n - 2));
+    return rec;
+  };
+
+  const fibMemo = cpsFib(memo)
+    fib = cpsFib(app);
+
+  fib(40); // yields 102334155
+  fibMemo(40); // yields 102334155 much faster
+
+Or simply rely on reference mutation of the original recursive function with
+`let fib = n => {...}; fib = memo(fib)` */
+
+
+const memo = f => {
+  const m = new Map();
+
+  return x => {
+    if (m.has(x)) return m.get(x);
+    
+    else {
+      const r = f(x);
+      m.set(x, r);
+      return r;
+    }
+  };
+};
+
+
+// more general version where the key is derived from the value
+
+const memo_ = f => g => {
+  const m = new Map();
+
+  return x => {
+    const k = f(x);
+
+    if (m.has(k)) return m.get(k);
+    
+    else {
+      const y = g(x), k2 = f(y);
+      m.set(k2, y);
+      return y;
+  }
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████ OVERLOADED OPERATORS █████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4270,8 +4329,12 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 █████ Effects █████████████████████████████████████████████████████████████████*/
 
 
-/* Continuations can encode all sorts of monadic effects that may deviate
-semantically from their monadic counterparts but mostly resembles them. */
+/* The following effect constructors transform various effectful computations
+into continuation passing style. The underlying idea is to use them with the
+`Cont` monad. You can nest several effects and process each inner effect by
+using its respective outer one's `run` method. This way, an effect hierarchy
+arises without relying on monad transformers. Whether this approach is feasable
+must be figured out. */
 
 
 Cont.Arr = scope(() => {
