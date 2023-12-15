@@ -772,7 +772,8 @@ const memo_ = f => g => {
       const y = g(x), k2 = f(y);
       m.set(k2, y);
       return y;
-  }
+    }
+  };
 };
 
 
@@ -1222,28 +1223,20 @@ export const Loopx2 = f => (x, y) => {
 // constructors
 
 
-Loopx.call = (f, x) => ({constructor: Loopx.call, f, x});
+Object.assign(Loopx, {
+  call: (f, x) => ({constructor: Loopx.call, f, x}),
+  call2: (f, x, y) => ({constructor: Loopx.call2, f, x, y}),
+  rec: x => ({constructor: Loopx.rec, x}),
+  base: x => ({constructor: Loopx.base, x})
+});
 
 
-Loopx.call2 = (f, x, y) => ({constructor: Loopx.call2, f, x, y});
-
-
-Loopx.rec = x => ({constructor: Loopx.rec, x});
-
-
-Loopx.base = x => ({constructor: Loopx.base, x});
-
-
-Loopx2.call = (f, x) => ({constructor: Loopx2.call, f, x});
-
-
-Loopx2.call2 = (f, x, y) => ({constructor: Loopx2.call2, f, x, y});
-
-
-Loopx2.rec = x => y => ({constructor: Loopx2.rec, x, y});
-
-
-Loopx2.base = x => ({constructor: Loopx2.base, x});
+Object.assign(Loopx2, {
+  call: (f, x) => ({constructor: Loopx2.call, f, x}),
+  call2: (f, x, y) => ({constructor: Loopx2.call2, f, x, y}),
+  rec: x => y => ({constructor: Loopx2.rec, x, y}),
+  base: x => ({constructor: Loopx2.base, x})
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -4289,13 +4282,13 @@ export const ContEff = (type, tag ="") => k => {
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-Cont.comp = f => g => Cont(k => x => g(x).run(f).run(k));
+Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
 
 
 Cont.id = x => Cont(k => k(x));
 
 
-Cont.pipe = g => f => Cont(k => x => g(x).run(f).run(k));
+Cont.pipe = g => f => x => Cont(k => g(x).run(f).run(k));
 
 
 Cont.Category = ({
@@ -4464,12 +4457,19 @@ Cont.list.map = f => xs => {
     return Loopx(ys => {
       if (ys.length === 0) return Loopx.base(L.Nil);
 
-      else return f(ys[0]).run(y =>
-        Loopx.call(
-          zs => new L.Cons(y, zs),
-          Loopx.rec(ys[1])
-        )
-      );
+      else {
+        const o = f(ys[0]).run(y =>
+          Loopx.call(
+            zs => new L.Cons(y, zs),
+            Loopx.rec(ys[1])
+          )
+        );
+
+        // intercept short circuit
+
+        return (!o || o.constructor !== Loopx.call)
+          ? Loopx.base(o) : o;
+      }
     }) (xs);
   });
 };
@@ -4556,16 +4556,6 @@ Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
 };
-
-
-/*
-█████ Stack Safety ████████████████████████████████████████████████████████████*/
-
-
-/* Unwind the stack to avoid overflow. Expression containing an unwind operation
-must be wrapped in a trampoline at some point on the way to its outermost layer. */
-
-Cont.unwind = cont => Loop.call(cont.run, Loop.base);
 
 
 /*
