@@ -4187,14 +4187,11 @@ Const.Applicative = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ CONTINUATIONS ████████████████████████████████
+████████████████████████████████ CONTINUATION █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* A non stack-safe continuation type supplied as a transformer. Useful for
-elaborate control flows and separating synchronous effects from their pure
-description. It includes some combinators to facilitate continuation passing
-style transformation. */
+// encodes continuation passing style
 
 
 export const Cont = k => ({
@@ -4204,12 +4201,35 @@ export const Cont = k => ({
 
 
 /*
-█████ Array Helpers ███████████████████████████████████████████████████████████*/
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+Cont.comp = f => g => Cont(k => x => g(x).run(f).run(k));
+
+
+Cont.id = x => Cont(k => k(x));
+
+
+Cont.pipe = g => f => Cont(k => x => g(x).run(f).run(k));
+
+
+Cont.Category = ({
+  comp: Cont.comp,
+  id: Cont.id,
+  pipe: Cont.pipe
+});
+
+
+/*
+█████ Helpers: Array ██████████████████████████████████████████████████████████*/
+
+
+Cont.arr = {};
 
 
 // array filter with short circuit semantics
 
-Cont.arrFilter = p => xs => {
+Cont.arr.filter = p => xs => {
   return Cont(k => {
     return Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
@@ -4232,7 +4252,7 @@ Cont.arrFilter = p => xs => {
 
 // array fold-like loop with short circuit semantics
 
-Cont.arrFold = f => init => xs => {
+Cont.arr.fold = f => init => xs => {
   return Cont(k => {
     return Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
@@ -4253,7 +4273,7 @@ Cont.arrFold = f => init => xs => {
 
 // array map-like loop with short circuit semantics
 
-Cont.arrMap = f => xs => {
+Cont.arr.map = f => xs => {
   return Cont(k => {
     return Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
@@ -4274,31 +4294,32 @@ Cont.arrMap = f => xs => {
 };
 
 
-Cont.listMap = f => xs => {
-  return Cont(k => {
-    return Loop2((acc, ys) => {
-      if (ys.length === 0) return Loop2.base(acc);
+/*
+█████ Delimited Continuations █████████████████████████████████████████████████*/
 
-      else {
-        const o = f(ys[0]).run(y =>
-          Loop2.rec(new L.Cons(y, acc), ys[1]));
 
-        // intercept short circuit
+/* Delimited continuation expecting a monad in their codomain: (a => m r) => m r
+If you only need pure values just pass the identity monad's type dictionary. */
 
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) (L.Nil, xs);
-  });
-};
+
+Cont.reify = Monad => fm => Cont.reset(Monad) (Monad.of(fm));
+
+
+Cont.reflect = Monad => mx => Cont.shift(Monad) (Cont.chain(mx));
+
+
+Cont.reset = Monad => comp(Cont.lift(Monad)) (Cont.evalCont(Monad));
+
+
+Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 
 
 /*
 █████ Effects █████████████████████████████████████████████████████████████████*/
 
 
-/* Continuations can encode all sorts of effects that may deviate semantically
-from their monadic counterparts. */
+/* Continuations can encode all sorts of monadic effects that may deviate
+semantically from their monadic counterparts but mostly resembles them. */
 
 
 Cont.Arr = xs => Cont(k => Cont.arrMap(k) (xs).run(k));
@@ -4317,9 +4338,6 @@ Cont.List = {};
 
 
 Cont.List.Cons = xs => Cont(k => Cont.listMap(k) (xs).run(k));
-/*Cont.List.Cons = xs => xs.length === 0
-  ? Cont(k => L.Nil)
-  : Cont(k => k(xs[0]).run(x => new L.Cons(x, Cont.List.Cons(xs[1]).run(k))));*/
 
 
 Cont.List.Nil = Cont(k => []);
@@ -4334,127 +4352,135 @@ Cont.Option.Some = x => Cont(k => k(x));
 Cont.Option.None = Cont(k => Null);
 
 
-
-
 /*
-█████ Category ████████████████████████████████████████████████████████████████*/
+█████ List Helpers ████████████████████████████████████████████████████████████*/
 
 
-Cont.comp = f => g => k => x => g(x).run(f).run(k);
+Cont.List = {};
 
 
-Cont.id = x => k => k(x);
+// right-associative map-like loop with short circuit semantics
 
+Cont.list.map = f => xs => {
+  return Cont(k => {
+    return Loopx(ys => {
+      if (ys.length === 0) return Loopx.base(L.Nil);
 
-Cont.pipe = g => f => k => x => g(x).run(f).run(k);
-
-
-Cont.Category = ({
-  comp: Cont.comp,
-  id: Cont.id,
-  pipe: Cont.pipe
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████ CONT :: TRANSFORMER █████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-Cont.T = outer => thisify(o => { // outer monad's type dictionary
-
-
-/*
-█████ Delimited Contuinuations ████████████████████████████████████████████████*/
-
-
-  o.reset = comp(o.lift) (o.evalCont);
-
-
-  o.shift = fm => Cont(comp(o.evalCont) (fm));
+      else return f(ys[0]).run(y =>
+        Loopx.call(
+          zs => new L.Cons(y, zs),
+          Loopx.rec(ys[1])
+        )
+      );
+    }) (xs);
+  });
+};
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-  o.map = f => mx => Cont(k => mx.run(comp(k) (f)));
+Cont.map = f => mx => Cont(k => mx.run(comp(k) (f)));
 
 
-  o.Functor = {map: o.map};
+Cont.Functor = {map: Cont.map};
 
 
 /*
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-  o.ap = mf => mx => Cont(k => mf.run(f => mx.run(comp(k) (f))));
+Cont.ap = mf => mx => Cont(k => mf.run(f => mx.run(comp(k) (f))));
 
 
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
+Cont.Apply = {
+  ...Cont.Functor,
+  ap: Cont.ap
+};
 
 
 /*
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-  o.of = x => Cont(k => k(x));
+Cont.of = x => Cont(k => k(x));
 
 
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
+Cont.Applicative = {
+  ...Cont.Apply,
+  of: Cont.of
+};
 
 
 /*
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-  o.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
 
 
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
+Cont.Chain = {
+  ...Cont.Apply,
+  chain: Cont.chain
+};
 
 
 /*
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
+Cont.Monad = {
+  ...Cont.Applicative,
+  chain: Cont.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Cont.append = Semigroup => f => g => x => Cont(k =>
+  f(x).run(y => g(x).run(z => k(Semigroup.append(y) (z)))));
+
+
+Cont.Semigroup = {append: Cont.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Cont.empty = Monoid => _ => Cont(k => k(Monoid.empty));
+
+
+Cont.Monoid = {
+  ...Cont.Semigroup,
+  empty: Cont.empty
+};
 
 
 /*
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-  o.lift = mx = Cont(k => outer.chain(mx) (k));
+Cont.lift = Monad => mx = Cont(k => Monad.chain(mx) (k));
+
+
+Cont.evalCont = Monad => mx => mx.run(Monad.of);
+
+
+Cont.mapCont = f => mx => Cont(comp(f) (mx.run));
+
+
+Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-  o.evalCont = mx => mx.run(outer.of);
-
-  
-  o.mapCont = f => mx => Cont(comp(f) (mx.run));
-
-
-  o.withCont = f => mx => Cont(comp(mx.run) (f));
-
-
-  return o;
-});
+Cont.abrupt = x => Cont(k => x);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10765,5 +10791,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Represantable type class
   * add Distributive type class
   * add pipe method to category type class
+  * add flipped chain method to chain class
 
 */
