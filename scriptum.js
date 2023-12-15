@@ -87,8 +87,10 @@ Most native Javascript types are products. */
 
 
 export const product = tag => (...ks) => o => {
-  for (const k of ks)
-    if (!(k in o)) throw new Err(`missing value "${k}"`);
+  if (DEBUG) {
+    for (const k of ks)
+      if (!(k in o)) throw new Err(`missing value "${k}"`);
+  }
 
   return {
     [TAG]: tag,
@@ -169,8 +171,10 @@ export const variant = (tag, ...cases) => {
   }, {});
 
   o.cata = p => {
-    for (const k of ks)
-      if (!(k in p)) throw new Err(`missing case "${k}"`);
+    if (DEBUG) {
+      for (const k of ks)
+        if (!(k in p)) throw new Err(`missing case "${k}"`);
+    }
 
     return tx => tx.run(p);
   };
@@ -234,8 +238,10 @@ be used to define lazy getters. */
 export const consn = (_case, ...ks) => {
   const o = {
     [_case]: (tag, k) => o => {
-      for (const k2 of ks)
-        if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
+      if (DEBUG) {
+        for (const k2 of ks)
+          if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
+      }
 
       return {
         [TAG]: tag,
@@ -254,10 +260,12 @@ export const consn = (_case, ...ks) => {
 accept functions as arguments, no constants. */
 
 export const cata = (...ks) => dict => {
-  for (const k of ks)
-    if (!(k in dict)) throw new Err(`missing case "${k}"`);
+  if (DEBUG) {
+    for (const k of ks)
+      if (!(k in dict)) throw new Err(`missing case "${k}"`);
+  }
 
-  return x => {
+  else return x => {
     const tag = Object.prototype.toString.call(x).slice(8, -1),
       k = tag[0].toLowerCase() + tag.slice(1);
 
@@ -275,10 +283,12 @@ like single linked lists rely on non-stack-safe recursion. `cata_` can be used
 to encode a stack-safe trampoline or imperative loop. */
 
 export const cata_ = (...ks) => decons => dict => {
-  for (const k of ks)
-    if (!(k in dict)) throw new Err(`missing case "${k}"`);
+  if (DEBUG) {
+    for (const k of ks)
+      if (!(k in dict)) throw new Err(`missing case "${k}"`);
+  }
 
-  return decons(dict);
+  else return decons(dict);
 };
 
 
@@ -4200,6 +4210,22 @@ export const Cont = k => ({
 });
 
 
+// `Cont` encoded product/variant type
+
+export const ContEff = (type, tag ="") => k => {
+  if (tag === "") return {
+    [TAG]: "Cont." + type,
+    run: k
+  };
+
+  else return {
+    [TAG]: "Cont." + type,
+    tag,
+    run: k
+  };
+};
+
+
 /*
 █████ Category ████████████████████████████████████████████████████████████████*/
 
@@ -4217,6 +4243,73 @@ Cont.Category = ({
   comp: Cont.comp,
   id: Cont.id,
   pipe: Cont.pipe
+});
+
+
+/*
+█████ Delimited Continuations █████████████████████████████████████████████████*/
+
+
+/* Delimited continuation expecting a monad in their codomain: (a => m r) => m r
+If you only need pure values just pass the identity monad's type dictionary. */
+
+
+Cont.reify = Monad => fm => Cont.reset(Monad) (Monad.of(fm));
+
+
+Cont.reflect = Monad => mx => Cont.shift(Monad) (Cont.chain(mx));
+
+
+Cont.reset = Monad => comp(Cont.lift(Monad)) (Cont.evalCont(Monad));
+
+
+Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
+
+
+/*
+█████ Effects █████████████████████████████████████████████████████████████████*/
+
+
+/* Continuations can encode all sorts of monadic effects that may deviate
+semantically from their monadic counterparts but mostly resembles them. */
+
+
+Cont.Arr = scope(() => {
+  const arr = ContEff("Array");
+  return xs => arr(k => Cont.arr.map(k) (xs).run(k));
+});
+
+
+Cont.Except = scope(() => {
+  const fail = ContEff("Except", "fail"),
+    succeed = ContEff("Except", "succeed");
+
+  return {
+    Fail: e => fail(k => e),
+    Succeed: x => succeed(k => k(x))
+  }
+});
+
+
+Cont.List = scope(() => {
+  const nil = ContEff("List", "nil"),
+    cons = ContEff("List", "cons");
+
+  return {
+    Nil: nil(Cont(k => L.Nil)),
+    Cons: xs => cons(k => Cont.list.map(k) (xs).run(k))
+  }
+});
+
+
+Cont.Option = scope(() => {
+  const none = ContEff("Option", "none"),
+    some = ContEff("Option", "some");
+
+  return {
+    None: none(k => Null),
+    Some: x => some(k => k(x))
+  }
 });
 
 
@@ -4295,68 +4388,10 @@ Cont.arr.map = f => xs => {
 
 
 /*
-█████ Delimited Continuations █████████████████████████████████████████████████*/
+█████ Helpers: List ████████████████████████████████████████████████████████████*/
 
 
-/* Delimited continuation expecting a monad in their codomain: (a => m r) => m r
-If you only need pure values just pass the identity monad's type dictionary. */
-
-
-Cont.reify = Monad => fm => Cont.reset(Monad) (Monad.of(fm));
-
-
-Cont.reflect = Monad => mx => Cont.shift(Monad) (Cont.chain(mx));
-
-
-Cont.reset = Monad => comp(Cont.lift(Monad)) (Cont.evalCont(Monad));
-
-
-Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
-
-
-/*
-█████ Effects █████████████████████████████████████████████████████████████████*/
-
-
-/* Continuations can encode all sorts of monadic effects that may deviate
-semantically from their monadic counterparts but mostly resembles them. */
-
-
-Cont.Arr = xs => Cont(k => Cont.arrMap(k) (xs).run(k));
-
-
-Cont.Except = {};
-
-
-Cont.Except.Succeed = x => Cont(k => k(x));
-
-
-Cont.Except.Fail = e => Cont(k => e);
-
-
-Cont.List = {};
-
-
-Cont.List.Cons = xs => Cont(k => Cont.listMap(k) (xs).run(k));
-
-
-Cont.List.Nil = Cont(k => []);
-
-
-Cont.Option = {};
-
-
-Cont.Option.Some = x => Cont(k => k(x));
-
-
-Cont.Option.None = Cont(k => Null);
-
-
-/*
-█████ List Helpers ████████████████████████████████████████████████████████████*/
-
-
-Cont.List = {};
+Cont.list = {};
 
 
 // right-associative map-like loop with short circuit semantics
@@ -4458,6 +4493,16 @@ Cont.Monoid = {
   ...Cont.Semigroup,
   empty: Cont.empty
 };
+
+
+/*
+█████ Stack Safety ████████████████████████████████████████████████████████████*/
+
+
+/* Unwind the stack to avoid overflow. Expression containing an unwind operation
+must be wrapped in a trampoline at some point on the way to its outermost layer. */
+
+Cont.unwind = cont => Loop.call(cont.run, Loop.base);
 
 
 /*
