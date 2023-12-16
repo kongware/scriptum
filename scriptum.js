@@ -557,7 +557,11 @@ class Thunk {
     // enforce evalutation to WHNF
 
     if (this.memo === NULL) evaluate(this, f);
-    if (typeof this.memo === "function") this.memo = this.memo(...args);
+
+    if (typeof this.memo === "function") {
+      this.memo = this.memo(...args);
+      return this.memo;
+    }
 
     // allow implicit thunks to be called explicitly
 
@@ -4283,6 +4287,14 @@ export const ContEff = (type, tag ="") => k => {
 
 
 Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
+
+/*Cont.comp = f => g => x => Cont(k => {
+  const r = g(x),
+    r2 = r.run(f),
+    r3 = r2.run(k)
+
+  return r3;
+});*/
 
 
 Cont.id = x => Cont(k => k(x));
@@ -10890,5 +10902,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
   * add pipe method to category type class
   * add flipped chain method to chain class
+  * define TAG through `Object.defineProperty`
 
 */
