@@ -566,7 +566,7 @@ class Thunk {
     // allow implicit thunks to be called explicitly
 
     else if (args.length === 0) return this.memo;
-    else throw Err("call of a non-callable thunk");
+    else throw Err("call of non-callable thunk");
   }
 
   get(f, k, p) {
@@ -4257,7 +4257,33 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// encodes continuation passing style
+/* Encode continuation passing style. While build up deeply nested continuations
+is stack-safe, their eventual application isn't. For now, splitting up the
+continuation tree is the most feasable method:
+
+  Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
+  const inc = x => Cont(k => k(x + 1));
+
+  const f = Cont.comp(inc) (inc),
+    g = Cont.comp(inc) (f),
+    h = Cont.comp(inc) (g),
+    i = Cont.comp(inc) (h);
+
+  const go = init => {
+
+    // unwinds the stack in the middle of the composition
+
+    const n = i(init).run(id);
+
+    const j = Cont.comp(inc) (inc),
+      k = Cont.comp(inc) (j),
+      l = Cont.comp(inc) (k),
+      m = Cont.comp(inc) (l);
+
+    return m(n);
+  };
+
+  go(0).run(id); // yields 10 */
 
 
 export const Cont = k => ({
@@ -4288,19 +4314,8 @@ export const ContEff = (type, tag ="") => k => {
 
 Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
 
-/*Cont.comp = f => g => x => Cont(k => {
-  const r = g(x),
-    r2 = r.run(f),
-    r3 = r2.run(k)
-
-  return r3;
-});*/
-
 
 Cont.id = x => Cont(k => k(x));
-
-
-Cont.pipe = g => f => x => Cont(k => g(x).run(f).run(k));
 
 
 Cont.Category = ({
@@ -4308,6 +4323,19 @@ Cont.Category = ({
   id: Cont.id,
   pipe: Cont.pipe
 });
+
+
+/*
+█████ Contravariant ███████████████████████████████████████████████████████████*/
+
+
+Cont.pipe = g => f => x => Cont(k => g(x).run(f).run(k));
+
+
+Cont.contramap = Cont.pipe;
+
+
+Cont.Contra = () => {contramap: Cont.contramap};
 
 
 /*
@@ -4337,9 +4365,9 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 /* The following effect constructors transform various effectful computations
 into continuation passing style. The underlying idea is to use them with the
 `Cont` monad. You can nest several effects and process each inner effect by
-using its respective outer one's `run` method. This way, an effect hierarchy
-arises without relying on monad transformers. Whether this approach is feasable
-must be figured out. */
+using its respective outer one's `run` method. This way, a tree-like effect
+hierarchy arises without relying on monad transformers. For now, this seems to
+be the most feasable approach. */
 
 
 Cont.Arr = scope(() => {
@@ -5252,8 +5280,8 @@ Id.Monad = {
 functional programming exercised in scriptum:
 
 * mapping over an iterator doesn't reconstruct the original data structure
-  because iterators abstract from any structure, e.g. `comp(It.force) (f)`
-  doesn't work as expected but `It.force(comp(f) (g))` does
+  because iterators abstract from any structure, e.g. `comp(It.strict) (f)`
+  doesn't work as expected but `It.strict(comp(f) (g))` does
 * it is the responsibiliy of the mapper that the outermost structure of the 
   return value is the same as was previously fed into it, e.g. `[k, v]` can
   change in `k`/`v` but not in `[]`
@@ -5298,9 +5326,10 @@ It.all = f => function* (ix) {
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
-// ignores values while performing side effects
+/* Force strict evaluation of lazy iterators and perform side effects but ignore
+values. */
 
-It.force = ix => {
+It.strict = ix => {
   let acc;
   for (acc of ix) continue;
   return acc;
@@ -10900,7 +10929,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add type wrapper for transformers?
   * add Represantable type class
   * add Distributive type class
-  * add pipe method to category type class
   * add flipped chain method to chain class
   * define TAG through `Object.defineProperty`
 
