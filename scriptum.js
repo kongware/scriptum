@@ -293,6 +293,173 @@ export const cata_ = (...ks) => decons => dict => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ COROUTINE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Coroutine to split up elaborate tasks into smaller, less complex chunks:
+
+  function* task(init) {
+    let r = yield init;
+
+    r = yield Cont.comp(inc) (inc) (r);
+    r = yield Cont.comp(inc) (inc) (r);
+    r = yield Cont.comp(inc) (inc) (r);
+    r = yield Cont.comp(inc) (inc) (r);
+    r = yield Cont.comp(inc) (inc) (r);
+  };
+
+  const tx = Co(task(0)),
+    ty = Co.map(tx => tx.run(id)) (tx);
+  
+  console.log(Co.toArr(ty)); // yields 10 */
+
+
+const Coroutine = ix => {
+  let o = ix.next(); // init
+  
+  o.next = () => {
+    const p = ix.next(o.value);
+
+    p.next = o.next;
+    p.run = o.run;
+    o = p;
+    return p;
+  };
+  
+  o.run = f => ix.done ? ix : f(ix.value);
+  return o;
+};
+
+
+const Co = Coroutine;
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Co.toArr = o => {
+  const acc = [];
+  
+  let p = o.next();
+
+  while (p.done === false) {
+    acc.push(p.value);
+    p = p.next();
+  }
+
+  return acc;
+};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+Co.fold = f => acc => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      acc = f(acc) (p.value);
+      p.value = acc;
+      yield p.value
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Co.map = f => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      p.value = f(p.value);
+      yield p.value
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Iteration ███████████████████████████████████████████████████████████████*/
+
+
+Co.iterate = o => o.next();
+
+
+Co.iterateWith = f => o => {
+  const p = o.next();
+
+  if (p.done === false) p.value = f(p.value);
+  return p;
+};
+
+
+/*
+█████ Monoid ██████████████████████████████████████████████████████████████████*/
+
+
+Co.empty = function* () {} ();
+
+
+Co.append = o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      p.value = f(p.value);
+      yield p.value
+      p = p.next();
+    }
+
+    p = o2.next();
+
+    while (p.done === false) {
+      p.value = f(p.value);
+      yield p.value
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Mics. ███████████████████████████████████████████████████████████████████*/
+
+
+Co.intertwine = f => o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next(), p2 = o2.next();
+
+    while (p.done === false && p2.done === false) {
+      p.value = f(p.value);
+      p2.value = f(p2.value);
+      yield p.value
+      yield p2.value
+      p = p.next();
+      p2 = p2.next();
+    }
+  } (o.value));
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ ERRORS ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -1064,25 +1231,49 @@ export const Loop3 = f => (x, y, z) => {
 // constructors
 
 
-Object.assign(Loop, {
-  call: (f, x) => ({constructor: Loop.call, f, x}),
-  rec: x => ({constructor: Loop.rec, x}),
-  base: x => ({constructor: Loop.base, x})
-});
+Loop.call = function call(f, x) {
+  return {[TAG]: "Loop", constructor: Loop.call, f, x};
+};
 
 
-Object.assign(Loop2, {
-  call: (f, x, y) => ({constructor: Loop2.call, f, x, y}),
-  rec: (x, y) => ({constructor: Loop2.rec, x, y}),
-  base: x => ({constructor: Loop2.base, x})
-});
+Loop.rec = function rec(x) {
+  return {[TAG]: "Loop", constructor: Loop.rec, x};
+};
 
 
-Object.assign(Loop3, {
-  call: (f, x, y, z) => ({constructor: Loop3.call, f, x, y, z}),
-  rec: (x, y, z) => ({constructor: Loop3.rec, x, y, z}),
-  base: x => ({constructor: Loop3.base, x})
-});
+Loop.base = function base(x) {
+  return {[TAG]: "Loop", constructor: Loop.base, x};
+};
+
+
+Loop2.call = function call(f, x, y) {
+  return {[TAG]: "Loop2", constructor: Loop2.call, f, x, y};
+};
+
+
+Loop2.rec = function rec(x, y) {
+  return {[TAG]: "Loop2", constructor: Loop2.rec, x, y};
+};
+
+
+Loop2.base = function base(x) {
+  return {[TAG]: "Loop2", constructor: Loop2.base, x};
+};
+
+
+Loop3.call = function call(f, x, y, z) {
+  return {[TAG]: "Loop3", constructor: Loop3.call, f, x, y, z};
+};
+
+
+Loop3.rec = function rec(x, y, z) {
+  return {[TAG]: "Loop3", constructor: Loop3.rec, x, y, z};
+};
+
+
+Loop3.base = function base(x) {
+  return {[TAG]: "Loop3", constructor: Loop3.base, x};
+};
 
 
 /*
@@ -1227,20 +1418,47 @@ export const Loopx2 = f => (x, y) => {
 // constructors
 
 
-Object.assign(Loopx, {
-  call: (f, x) => ({constructor: Loopx.call, f, x}),
-  call2: (f, x, y) => ({constructor: Loopx.call2, f, x, y}),
-  rec: x => ({constructor: Loopx.rec, x}),
-  base: x => ({constructor: Loopx.base, x})
-});
+Loopx.call = function call(f, x) {
+  return {[TAG]: "Loopx", constructor: Loopx.call, f, x};
+};
 
 
-Object.assign(Loopx2, {
-  call: (f, x) => ({constructor: Loopx2.call, f, x}),
-  call2: (f, x, y) => ({constructor: Loopx2.call2, f, x, y}),
-  rec: x => y => ({constructor: Loopx2.rec, x, y}),
-  base: x => ({constructor: Loopx2.base, x})
-});
+Loopx.call2 = function call2(f, x, y) {
+  return {[TAG]: "Loopx", constructor: Loopx.call2, f, x, y};
+};
+
+
+Loopx.rec = function rec(x) {
+  return {[TAG]: "Loopx", constructor: Loopx.rec, x};
+};
+
+
+Loopx.base = function base(x) {
+  return {[TAG]: "Loopx", constructor: Loopx.base, x};
+};
+
+
+Loopx2.call = function call(f, x) {
+  return {[TAG]: "Loopx2", constructor: Loopx2.call, f, x};
+};
+
+
+Loopx2.call2 = function call2(f, x, y) {
+  return {[TAG]: "Loopx2", constructor: Loopx2.call2, f, x, y};
+};
+
+
+Loopx2.rec = function rec(x) {
+  return function rec(y) {
+    return {[TAG]: "Loopx2", constructor: Loopx2.rec, x, y};
+  };
+};
+
+
+Loopx2.base = function base(x) {
+  return {[TAG]: "Loopx2", constructor: Loopx2.base, x};
+};
+
 
 
 /*█████████████████████████████████████████████████████████████████████████████
