@@ -335,7 +335,7 @@ const Coroutine = ix => {
     ? ix.next()
     : ix.next(f(o.value));
   
-  o.run = f => ix.done
+  o.run = f => o.done
     ? o.value
     : f(o.value);
 
