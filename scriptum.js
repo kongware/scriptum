@@ -312,9 +312,32 @@ export const cata_ = (...ks) => decons => dict => {
   const tx = Co(task(0)),
     ty = Co.map(tx => tx.run(id)) (tx);
   
-  console.log(Co.strict(ty)); // yields 10
+  Co.strict(ty); // yields 10
 
-You can use it to separate effects from pure computations, for instance. */
+What the above code basically does it separating effects from pure computation.
+While `task` is pure the effects are abstracted in the mapping. Here is another
+example:
+
+  function* foo(init) {
+    const o = yield init;
+    const v = yield o["foo"];
+    const v2 = yield o["bar"];
+    const r = yield v/v2;
+    yield `division result is ${r}`;
+  };
+
+  const tx = Co(foo({foo: 12, bar: 3})),
+    ty = Co(foo({foo: 12, baz: 3})),
+    tz = Co(foo({foo: 12, bar: 0}));
+
+  const co = tw => Co.iterate(
+    Co.iterateTry("division through zero") (Number.isFinite)
+      (Co.iterateIf(x => x !== undefined)
+        (Co.iterateIf(x => x !== undefined) (tw))));
+
+  co(tx).value; // yields "division result is 4"
+  co(ty).value; // yields undefined
+  co(tz).value; // yields "division through zero" */
 
 
 export const Coroutine = ix => {
@@ -324,6 +347,7 @@ export const Coroutine = ix => {
     const p = ix.next(o.value);
 
     p.next = o.next;
+    p.nextWith = o.nextWith;
     p.run = o.run;
     o = p;
     return p;
@@ -355,7 +379,35 @@ export const Co = Coroutine;
 Co.iterate = o => o.next();
 
 
-// evaluate a single step of the coroutine transforming the intermediate result
+// short cicuit the coroutine without a value
+
+Co.iterateIf = p => o => {
+  const q = o.next();
+
+  if (q.done === false) {
+    if (p(q.value)) return q;
+    else return Co.empty;
+  }
+
+  return q;
+};
+
+
+// short cicuit the coroutine with a reason
+
+Co.iterateTry = reason => p => o => {
+  const q = o.next();
+
+  if (q.done === false) {
+    if (p(q.value)) return q;
+    else return Co.of(reason);
+  }
+
+  return q;
+};
+
+
+// evaluate a step of the coroutine and transform the intermediate result
 
 Co.iterateWith = f => o => {
   const p = o.next();
@@ -516,6 +568,9 @@ Co.Arg.empty = Monoid => Co(function* empty(x) {
 
 /*
 █████ Mics. ███████████████████████████████████████████████████████████████████*/
+
+
+Co.of = x => Co(function* of(init) {yield init; yield x} ());
 
 
 Co.weave = o => o2 => {
