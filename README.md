@@ -35,11 +35,14 @@
 * dynamic functorial fusion using yoneda
 * static loop fusion using transducers
 * flat composition syntax using `infix`
+* memoization for recursive functions
 * functional optics
 * parser combinators
 * functor composition
 * let expressions
 * delimited continuations
+* coroutines
+* tracked functions
 * and much more..
 
 ## Status
