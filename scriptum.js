@@ -312,7 +312,9 @@ export const cata_ = (...ks) => decons => dict => {
   const tx = Co(task(0)),
     ty = Co.map(tx => tx.run(id)) (tx);
   
-  console.log(Co.strict(ty)); // yields 10 */
+  console.log(Co.strict(ty)); // yields 10
+
+You can use it to separate effects from pure computations, for instance. */
 
 
 const Coroutine = ix => {
@@ -339,8 +341,12 @@ const Co = Coroutine;
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
+// evaluate a single step of the coroutine
+
 Co.iterate = o => o.next();
 
+
+// evaluate a single step of the coroutine transforming the intermediate result
 
 Co.iterateWith = f => o => {
   const p = o.next();
@@ -353,8 +359,7 @@ Co.iterateWith = f => o => {
 // strictly evaluate coroutine to its final value
 
 Co.strict = o => {
-  let p = o.next(),
-    r = p.value;
+  let p = o.next(), r = p.value;
 
   while (p.done === false) p = p.next();
   return r;
