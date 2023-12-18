@@ -312,7 +312,7 @@ export const cata_ = (...ks) => decons => dict => {
   const tx = Co(task(0)),
     ty = Co.map(tx => tx.run(id)) (tx);
   
-  console.log(Co.toArr(ty)); // yields 10 */
+  console.log(Co.strict(ty)); // yields 10 */
 
 
 const Coroutine = ix => {
@@ -333,6 +333,32 @@ const Coroutine = ix => {
 
 
 const Co = Coroutine;
+
+
+/*
+█████ Consumption █████████████████████████████████████████████████████████████*/
+
+
+Co.iterate = o => o.next();
+
+
+Co.iterateWith = f => o => {
+  const p = o.next();
+
+  if (p.done === false) p.value = f(p.value);
+  return p;
+};
+
+
+// strictly evaluate coroutine to its final value
+
+Co.strict = o => {
+  let p = o.next(),
+    r = p.value;
+
+  while (p.done === false) p = p.next();
+  return r;
+};
 
 
 /*
@@ -389,21 +415,6 @@ Co.map = f => o => {
       p = p.next();
     }
   } (o.value));
-};
-
-
-/*
-█████ Iteration ███████████████████████████████████████████████████████████████*/
-
-
-Co.iterate = o => o.next();
-
-
-Co.iterateWith = f => o => {
-  const p = o.next();
-
-  if (p.done === false) p.value = f(p.value);
-  return p;
 };
 
 
