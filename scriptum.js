@@ -328,8 +328,17 @@ const Coroutine = ix => {
     o = p;
     return p;
   };
+
+  // update/set value feed into the coroutine
+
+  o.nextWith = f => o.done
+    ? ix.next()
+    : ix.next(f(o.value));
   
-  o.run = f => ix.done ? ix : f(ix.value);
+  o.run = f => ix.done
+    ? o.value
+    : f(o.value);
+
   return o;
 };
 
