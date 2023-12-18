@@ -317,7 +317,7 @@ export const cata_ = (...ks) => decons => dict => {
 You can use it to separate effects from pure computations, for instance. */
 
 
-const Coroutine = ix => {
+export const Coroutine = ix => {
   let o = ix.next(); // init
   
   o.next = () => {
@@ -329,7 +329,7 @@ const Coroutine = ix => {
     return p;
   };
 
-  // update/set value feed into the coroutine
+  // update/set value fed into the coroutine
 
   o.nextWith = f => o.done
     ? ix.next()
@@ -343,7 +343,7 @@ const Coroutine = ix => {
 };
 
 
-const Co = Coroutine;
+export const Co = Coroutine;
 
 
 /*
@@ -394,6 +394,24 @@ Co.toArr = o => {
 
 
 /*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+Co.filter = p => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let q = o.next();
+
+    while (q.done === false) {
+      if (p(q.value)) yield q.value;
+      q = q.next();
+    }
+  } (o.value));
+};
+
+
+/*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
@@ -406,7 +424,7 @@ Co.fold = f => acc => o => {
     while (p.done === false) {
       acc = f(acc) (p.value);
       p.value = acc;
-      yield p.value
+      yield p.value;
       p = p.next();
     }
   } (o.value));
@@ -425,7 +443,7 @@ Co.map = f => o => {
 
     while (p.done === false) {
       p.value = f(p.value);
-      yield p.value
+      yield p.value;
       p = p.next();
     }
   } (o.value));
@@ -433,10 +451,7 @@ Co.map = f => o => {
 
 
 /*
-█████ Monoid ██████████████████████████████████████████████████████████████████*/
-
-
-Co.empty = function* () {} ();
+█████ Semigroup (Temporal) ████████████████████████████████████████████████████*/
 
 
 Co.append = o => o2 => {
@@ -446,16 +461,14 @@ Co.append = o => o2 => {
     let p = o.next();
 
     while (p.done === false) {
-      p.value = f(p.value);
-      yield p.value
+      yield p.value;
       p = p.next();
     }
 
     p = o2.next();
 
     while (p.done === false) {
-      p.value = f(p.value);
-      yield p.value
+      yield p.value;
       p = p.next();
     }
   } (o.value));
@@ -463,20 +476,57 @@ Co.append = o => o2 => {
 
 
 /*
-█████ Mics. ███████████████████████████████████████████████████████████████████*/
+█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
 
 
-Co.intertwine = f => o => o2 => {
+Co.Arg = {};
+
+
+Co.Arg.append = Semigroup => o => o2 => {
   return Co(function* (init) {
     yield init;
 
     let p = o.next(), p2 = o2.next();
 
     while (p.done === false && p2.done === false) {
-      p.value = f(p.value);
-      p2.value = f(p2.value);
-      yield p.value
-      yield p2.value
+      yield Semigroup.append(p.value) (p2.value);
+      p = p.next();
+      p2 = p2.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Monoid (Temporal) ███████████████████████████████████████████████████████*/
+
+
+Co.empty = Co(function* empty() {} ());
+
+
+/*
+█████ Monoid (Argument) ███████████████████████████████████████████████████████*/
+
+
+Co.Arg.empty = Monoid => Co(function* empty(x) {
+  yield x;
+  while (true) yield x;
+} (Monoid.empty));
+
+
+/*
+█████ Mics. ███████████████████████████████████████████████████████████████████*/
+
+
+Co.weave = o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next(), p2 = o2.next();
+
+    while (p.done === false && p2.done === false) {
+      yield p.value;
+      yield p2.value;
       p = p.next();
       p2 = p2.next();
     }
