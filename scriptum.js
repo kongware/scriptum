@@ -4710,17 +4710,16 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 █████ Effects █████████████████████████████████████████████████████████████████*/
 
 
-/* The following effect constructors transform various effectful computations
-into continuation passing style. The underlying idea is to use them with the
-`Cont` monad. You can nest several effects and process each inner effect by
-using its respective outer one's `run` method. This way, a tree-like effect
-hierarchy arises without relying on monad transformers. For now, this seems to
-be the most feasable approach. */
+/* Represent effects by encoding their elimination rule using continuation
+passing style. Each computational effect has its own elimination rule. */
 
 
 Cont.Arr = scope(() => {
   const arr = ContEff("Array");
-  return xs => arr(k => Cont.arr.map(k) (xs).run(k));
+
+  return f => acc => xs => arr(k =>
+    k(Cont.arr.cata(x => acc2 => Cont(k2 =>
+      f(x) (acc2).run(k2))) (acc) (xs).run(k)));
 });
 
 
@@ -4750,10 +4749,13 @@ Cont.Option = scope(() => {
   const none = ContEff("Option", "none"),
     some = ContEff("Option", "some");
 
-  return {
+  const o = {
     None: none(k => Null),
-    Some: x => some(k => k(x))
+    Some: x => some(k => k(x)),
+    cata: x => x === null || x === Null ? o.None : o.Some(x);
   }
+
+  return o;
 });
 
 
@@ -4806,6 +4808,9 @@ Cont.arr.fold = f => init => xs => {
     }) (init, 0);
   });
 };
+
+
+Cont.arr.cata = Cont.arr.fold;
 
 
 // array map-like loop with short circuit semantics
