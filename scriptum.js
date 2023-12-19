@@ -302,11 +302,11 @@ export const cata_ = (...ks) => decons => dict => {
   function* task(init) {
     let r = yield init;
 
-    r = yield Cont.comp(inc) (inc) (r);
-    r = yield Cont.comp(inc) (inc) (r);
-    r = yield Cont.comp(inc) (inc) (r);
-    r = yield Cont.comp(inc) (inc) (r);
-    r = yield Cont.comp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
   };
 
   const tx = Co(task(0)),
@@ -900,8 +900,8 @@ class Thunk {
 
     else if (k === Symbol.toStringTag) {
       if (this.tag === null) {
-        evaluate(this, f);
-        this.tag = this.memo[TAG];
+        if (this.memo === NULL) evaluate(this, f);
+        this.tag = this.memo ? this.memo[TAG] : undefined;
       }
 
       return this.tag;
@@ -928,7 +928,7 @@ class Thunk {
 
     else if (k === Symbol.isConcatSpreadable) {
       if (this.memo === NULL) evaluate(this, f);
-      if (this.memo[Symbol.isConcatSpreadable]) return true;
+      if (this.memo && this.memo[Symbol.isConcatSpreadable]) return true;
       else return false;
     }
 
@@ -4606,16 +4606,15 @@ Const.Applicative = {
 
 
 /* Encode continuation passing style. While build up deeply nested continuations
-is stack-safe, their eventual application isn't. For now, splitting up the
+is stack-safe, their subsequent application isn't. For now, splitting up the
 continuation tree is the most feasable method:
 
-  Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
   const inc = x => Cont(k => k(x + 1));
 
-  const f = Cont.comp(inc) (inc),
-    g = Cont.comp(inc) (f),
-    h = Cont.comp(inc) (g),
-    i = Cont.comp(inc) (h);
+  const f = Cont.komp(inc) (inc),
+    g = Cont.komp(inc) (f),
+    h = Cont.komp(inc) (g),
+    i = Cont.komp(inc) (h);
 
   const go = init => {
 
@@ -4623,37 +4622,43 @@ continuation tree is the most feasable method:
 
     const n = i(init).run(id);
 
-    const j = Cont.comp(inc) (inc),
-      k = Cont.comp(inc) (j),
-      l = Cont.comp(inc) (k),
-      m = Cont.comp(inc) (l);
+    const j = Cont.komp(inc) (inc),
+      k = Cont.komp(inc) (j),
+      l = Cont.komp(inc) (k),
+      m = Cont.komp(inc) (l);
 
     return m(n);
   };
 
-  go(0).run(id); // yields 10 */
+  go(0).run(id); // yields 10
+
+Continuations can also be used to handle nested effects:
+
+  const xs = [1, 2, null, 4, 5];
+
+  const ys = Cont.Arr.cata(x => acc => Cont(k => {
+    
+    // in this scope k is invoked a non-deterministic number of times
+    
+    return Cont.Option.cata({
+
+      // in this scope k either invokes some computation or none
+
+      some: y => {
+        return acc.concat(y * y)
+      },
+
+      none: lazy(() => acc.concat(Null))
+    }) (x).run(k);
+  })) ([]) (xs);
+
+  zs.run(console.log); // yields [1, 4, Null, 16, 25] */
 
 
 export const Cont = k => ({
   [TAG]: "Cont",
   run: k
 });
-
-
-// `Cont` encoded product/variant type
-
-export const ContEff = (type, tag ="") => k => {
-  if (tag === "") return {
-    [TAG]: "Cont." + type,
-    run: k
-  };
-
-  else return {
-    [TAG]: "Cont." + type,
-    tag,
-    run: k
-  };
-};
 
 
 /*
@@ -4684,55 +4689,27 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 passing style. Each computational effect has its own elimination rule. */
 
 
-Cont.Abrupt = scope(() => {
-  const abrupt = ContEff("Abrupt");
-  return abrupt(k => k(Null));
-});
+// abrupt short circuiting with the last value
+
+Cont.Abrupt = {cata: x => Cont(k => x)};
 
 
-Cont.Arr = scope(() => {
-  const arr = ContEff("Array");
-
-  return f => acc => xs => arr(k =>
-    k(Cont.arr.cata(x => acc2 => Cont(k2 =>
-      f(x) (acc2).run(k2))) (acc) (xs).run(k)));
-});
+Cont.Arr = () => ({cata: Cont.arr.fold});
 
 
-Cont.Except = scope(() => {
-  const fail = ContEff("Except", "fail"),
-    succeed = ContEff("Except", "succeed");
-
-  return {
-    Fail: e => fail(k => e),
-    Succeed: x => succeed(k => k(x))
-  }
-});
+Cont.Except = {
+  cata: ({fail, succeed}) => x => Cont(k =>
+    introspect.cons(x) === "Error" ? k(fail(x)) : k(succeed(x)))
+};
 
 
-Cont.List = scope(() => {
-  const nil = ContEff("List", "nil"),
-    cons = ContEff("List", "cons");
-
-  return {
-    Nil: nil(Cont(k => L.Nil)),
-    Cons: xs => cons(k => Cont.list.map(k) (xs).run(k))
-  }
-});
+// TODO: Cont.List = () => ({cata: Cons.list.fold});
 
 
-Cont.Option = scope(() => {
-  const none = ContEff("Option", "none"),
-    some = ContEff("Option", "some");
-
-  const o = {
-    None: none(k => k(Null)),
-    Some: x => some(k => k(x)),
-    cata: x => x === null || x === Null ? o.None : o.Some(x)
-  };
-
-  return o;
-});
+Cont.Option = {
+  cata: ({none, some}) => x => Cont(k =>
+      x === null || x === Null ? k(none) : k(some(x)))
+};
 
 
 /*
@@ -4746,7 +4723,7 @@ Cont.arr = {};
 
 Cont.arr.filter = p => xs => {
   return Cont(k => {
-    return Loop2((acc, i) => {
+    return k(Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
 
       else {
@@ -4760,7 +4737,7 @@ Cont.arr.filter = p => xs => {
         return (!o || o.constructor !== Loop2.rec)
           ? Loop2.base(acc) : o;
       }
-    }) ([], 0);
+    }) ([], 0));
   });
 };
 
@@ -4769,7 +4746,7 @@ Cont.arr.filter = p => xs => {
 
 Cont.arr.fold = f => init => xs => {
   return Cont(k => {
-    return Loop2((acc, i) => {
+    return k(Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
 
       else {
@@ -4781,19 +4758,16 @@ Cont.arr.fold = f => init => xs => {
         return (!o || o.constructor !== Loop2.rec)
           ? Loop2.base(acc) : o;
       }
-    }) (init, 0);
+    }) (init, 0));
   });
 };
-
-
-Cont.arr.cata = Cont.arr.fold;
 
 
 // array map-like loop with short circuit semantics
 
 Cont.arr.map = f => xs => {
   return Cont(k => {
-    return Loop2((acc, i) => {
+    return k(Loop2((acc, i) => {
       if (i === xs.length) return Loop2.base(acc);
 
       else {
@@ -4807,7 +4781,7 @@ Cont.arr.map = f => xs => {
         return (!o || o.constructor !== Loop2.rec)
           ? Loop2.base(acc) : o;
       }
-    }) ([], 0);
+    }) ([], 0));
   });
 };
 
@@ -4823,7 +4797,7 @@ Cont.list = {};
 
 Cont.list.map = f => xs => {
   return Cont(k => {
-    return Loopx(ys => {
+    return k(Loopx(ys => {
       if (ys.length === 0) return Loopx.base(L.Nil);
 
       else {
@@ -4839,7 +4813,7 @@ Cont.list.map = f => xs => {
         return (!o || o.constructor !== Loopx.call)
           ? Loopx.base(o) : o;
       }
-    }) (xs);
+    }) (xs));
   });
 };
 
@@ -4961,6 +4935,13 @@ Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 This is the reason monads exists. Here is the identity part of a category. */
 
 Cont.id = tx => tx.run(id);
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+Cont.Arr = Cont.Arr();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -11273,5 +11254,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
   * add flipped chain method to chain class
   * define TAG through `Object.defineProperty`
+  * define `List[TAG]` as List and use `tag` for value constructors
 
 */
