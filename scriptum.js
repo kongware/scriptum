@@ -4684,6 +4684,12 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 passing style. Each computational effect has its own elimination rule. */
 
 
+Cont.Abrupt = scope(() => {
+  const abrupt = ContEff("Abrupt");
+  return abrupt(k => k(Null));
+});
+
+
 Cont.Arr = scope(() => {
   const arr = ContEff("Array");
 
@@ -4720,7 +4726,7 @@ Cont.Option = scope(() => {
     some = ContEff("Option", "some");
 
   const o = {
-    None: none(k => Null),
+    None: none(k => k(Null)),
     Some: x => some(k => k(x)),
     cata: x => x === null || x === Null ? o.None : o.Some(x)
   };
@@ -4955,9 +4961,6 @@ Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 This is the reason monads exists. Here is the identity part of a category. */
 
 Cont.id = tx => tx.run(id);
-
-
-Cont.abrupt = x => Cont(k => x);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
