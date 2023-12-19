@@ -1704,7 +1704,7 @@ export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
 
 
 /*
-█████ Kleisli █████████████████████████████████████████████████████████████████*/
+█████ Kleisli Composition █████████████████████████████████████████████████████*/
 
 
 // composing of monadic actions: `a -> m a`
@@ -4657,36 +4657,6 @@ export const ContEff = (type, tag ="") => k => {
 
 
 /*
-█████ Category ████████████████████████████████████████████████████████████████*/
-
-
-Cont.comp = f => g => x => Cont(k => g(x).run(f).run(k));
-
-
-Cont.id = x => Cont(k => k(x));
-
-
-Cont.Category = ({
-  comp: Cont.comp,
-  id: Cont.id,
-  pipe: Cont.pipe
-});
-
-
-/*
-█████ Contravariant ███████████████████████████████████████████████████████████*/
-
-
-Cont.pipe = g => f => x => Cont(k => g(x).run(f).run(k));
-
-
-Cont.contramap = Cont.pipe;
-
-
-Cont.Contra = () => {contramap: Cont.contramap};
-
-
-/*
 █████ Delimited Continuations █████████████████████████████████████████████████*/
 
 
@@ -4752,8 +4722,8 @@ Cont.Option = scope(() => {
   const o = {
     None: none(k => Null),
     Some: x => some(k => k(x)),
-    cata: x => x === null || x === Null ? o.None : o.Some(x);
-  }
+    cata: x => x === null || x === Null ? o.None : o.Some(x)
+  };
 
   return o;
 });
@@ -4872,7 +4842,7 @@ Cont.list.map = f => xs => {
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Cont.map = f => mx => Cont(k => mx.run(comp(k) (f)));
+Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
 
 
 Cont.Functor = {map: Cont.map};
@@ -4882,7 +4852,7 @@ Cont.Functor = {map: Cont.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Cont.ap = mf => mx => Cont(k => mf.run(f => mx.run(comp(k) (f))));
+Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
 
 
 Cont.Apply = {
@@ -4928,11 +4898,21 @@ Cont.Monad = {
 
 
 /*
+█████ Kleisli Composition █████████████████████████████████████████████████████*/
+
+
+Cont.komp = f => g => x => Cont(k => g(x).run(f).run(k));
+
+
+Cont.kipe = g => f => x => Cont(k => g(x).run(f).run(k));
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Cont.append = Semigroup => f => g => x => Cont(k =>
-  f(x).run(y => g(x).run(z => k(Semigroup.append(y) (z)))));
+Cont.append = Semigroup => tx => ty => Cont(k =>
+  tx.run(x => ty.run(y => k(Semigroup.append(x) (y)))));
 
 
 Cont.Semigroup = {append: Cont.append};
@@ -4942,7 +4922,7 @@ Cont.Semigroup = {append: Cont.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Cont.empty = Monoid => _ => Cont(k => k(Monoid.empty));
+Cont.empty = Monoid => Cont(k => k(Monoid.empty));
 
 
 Cont.Monoid = {
@@ -4969,6 +4949,12 @@ Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+/* There is no category for continuations because there is no compose operator.
+This is the reason monads exists. Here is the identity part of a category. */
+
+Cont.id = tx => tx.run(id);
 
 
 Cont.abrupt = x => Cont(k => x);
