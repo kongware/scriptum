@@ -92,11 +92,13 @@ export const product = tag => (...ks) => o => {
       if (!(k in o)) throw new Err(`missing value "${k}"`);
   }
 
-  return {
-    [TAG]: tag,
+  const p = {
     get: o,
     run: f => f(o)
   };
+
+  Object.defineProperty(p, TAG, {value: tag});
+  return p;
 };
 
 
@@ -187,12 +189,16 @@ export const variant = (tag, ...cases) => {
 
 export const constant = _case => {
   const o = {
-    [_case]: (tag, k) => ({
-      [TAG]: tag,
-      get: constant,
-      run: ({[k]: x}) => x,
-      tag: _case
-    })
+    [_case]: (tag, k) => {
+      const p = {
+        get: constant,
+        run: ({[k]: x}) => x,
+        tag: _case
+      };
+
+      Object.defineProperty(p, TAG, {value: tag});
+      return p;
+    }
   };
 
   return o[_case];
@@ -203,12 +209,16 @@ export const constant = _case => {
 
 export const cons = _case => {
   const o = {
-    [_case]: (tag, k) => x => ({
-      [TAG]: tag,
-      get: x,
-      run: ({[k]: f}) => f(x),
-      tag: _case
-    })
+    [_case]: (tag, k) => x => {
+      const p = {
+        get: x,
+        run: ({[k]: f}) => f(x),
+        tag: _case
+      };
+
+      Object.defineProperty(p, TAG, {value: tag});
+      return p;
+    }
   };
 
   return o[_case];
@@ -219,12 +229,16 @@ export const cons = _case => {
 
 export const cons2 = _case => {
   const o = {
-    [_case]: (tag, k) => x => y => ({
-      [TAG]: tag,
-      get: [x, y],
-      run: ({[k]: f}) => f(x) (y),
-      tag: _case
-    })
+    [_case]: (tag, k) => x => y => {
+      const p = {
+        get: [x, y],
+        run: ({[k]: f}) => f(x) (y),
+        tag: _case
+      };
+
+      Object.defineProperty(p, TAG, {value: tag});
+      return p;
+    }
   };
 
   return o[_case];
@@ -243,12 +257,14 @@ export const consn = (_case, ...ks) => {
           if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
       }
 
-      return {
-        [TAG]: tag,
+      const p = {
         get: o,
         run: ({[k]: f}) => f(o),
         tag: _case
       };
+
+      Object.defineProperty(p, TAG, {value: tag});
+      return p;
     }
   };
 
@@ -2381,10 +2397,12 @@ pass an argument, which from the perspetive of the base monad acts like a
 read-only environment. */
 
 
-export const Reader = fmm => ({ // constructor
-  [TAG]: "Reader",
-  run: fmm
-});
+export const Reader = fmm => { // constructor
+  const o = {run: fmm};
+
+  Object.defineProperty(o, TAG, {value: "Reader"});
+  return o;
+};
 
 
 export const R = Reader; // shortcut
@@ -2520,10 +2538,12 @@ R.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const State = fmm => ({ // constructor
-  [TAG]: "State",
-  run: fmm
-});
+export const State = fmm => { // constructor
+  const o = {run: fmm};
+
+  Object.defineProperty(o, TAG, {value: "State"});
+  return o;
+};
 
 
 export const St = State; // shortcut
@@ -3666,781 +3686,6 @@ A.ZipArr.ap = A.ZipArr.ap();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████ ARRAY :: LIST ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* List-like array in the form of nested `[head, [head, [...[]]]]` structures.
-Please note that you cannot use its array methods but the combinators provided
-with the type.
-
-Encodes non-determinism just like arrays but is recursively defined and
-forms a completely unbalanced tree structure. There are two techniques to make
-operations on the type stack-safe:
-
-  * guarded recursion through lazy evaluation
-  * tail recursion modulo cons using a stack based trampoline
-
-For most type class member functions both variants are implemented with a bias
-on modulo cons. */
-
-
-export const List = {};
-
-
-export const L = List;
-
-
-scope(() => {
-  class Cons extends Array {
-    constructor(x, xs) {
-      super(x, xs);
-      Object.defineProperty(this, TAG, {value: "Cons"});
-      Object.freeze(this);
-    }
-    
-    static [Symbol.isConcatSpreadable] = true;
-
-    [Symbol.iterator] () {
-      const _this = this;
-
-      return function* () {
-        let xss = _this;
-
-        do {
-          switch (xss[TAG]) {
-            case "Nil": return;
-
-            case "Cons": {
-              yield xss[0];
-              xss = xss[1];
-              break;
-            }
-
-            default: throw new Err("invalid constructor");
-          }
-        } while (true);
-      } ();
-    }
-  };
-  
-  class Nil extends Array {
-    constructor() {
-      super();
-      Object.defineProperty(this, TAG, {value: "Nil"});
-      Object.freeze(this);
-    }
-    
-    static [Symbol.isConcatSpreadable] = true;
-
-    [Symbol.iterator] () {
-      return function* () {return} ();
-    }
-  };
-  
-  L.Cons = Cons;
-  
-  L.Nil = new Nil();
-});
-
-
-// curried versions
-
-L.Cons_ = x => xs => new L.Cons(x, xs);
-
-
-L._Cons = xs => x => new L.Cons(x, xs);
-
-
-/*
-█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
-
-
-L.head = xss => {
-  switch (xss[TAG]) {
-    case "Nil": return Null;
-    case "Cons": return xss[0];
-    default: throw new Err("invalid constructor");
-  }
-}
-
-
-L.singleton = x => [x, L.Nil];
-
-
-L.tail = xss => {
-  switch (xss[TAG]) {
-    case "Nil": return Null;
-    case "Cons": return xss[1];
-    default: throw new Err("invalid constructor");
-  }
-};
-
-
-// uncons is redundant
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-L.fromArr = xs => {
-  let xss = L.Nil;
-
-  for (let i = xs.length - 1; i >= 0; i--) {
-    xss = new L.Cons(xs[i], xss);
-  }
-
-  return xss;
-};
-
-
-/*
-█████ Infinity ████████████████████████████████████████████████████████████████*/
-
-
-L.iterate = f => function go(x) {
-  return new L.Cons(x, lazy(() => go(f(x))));
-}
-
-
-L.repeat = x => new L.Cons(x, lazy(() => repeat(x)));
-
-
-L.replicate = n => x => function go(m) {
-  if (m === 0) return new L.Cons(x, L.Nil);
-  else return new L.Cons(x, lazy(() => go(m - 1)));
-} (n);
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-L.foldl = f => init => xss => {
-  let acc = init, done = false;
-
-  do {
-    switch (xss[TAG]) {
-      case "Nil": {
-        done = true;
-        break;
-      }
-
-      case "Cons": {
-        const [x, yss] = xss;
-        acc = f(acc) (x);
-        xss = yss;
-        break;
-      }
-
-      default: throw new Err("invalid constructor");
-    }
-  } while (!done);
-
-  return acc;
-};
-
-
-// stack-safe even if `f` is strict in its second argument
-
-L.foldr = f => acc => Loopx(xss => {
-  switch (xss[TAG]) {
-    case "Nil": return Loopx.base(acc);
-
-    case "Cons": {
-      const [x, yss] = xss;
-      return Loopx.call(f(x), Loopx.rec(yss));
-    }
-
-    default: throw new Err("invalid constructor");
-  }
-});
-
-
-// stack-safe only if `f` is non-strict in its second argument
-
-L.foldr_ = f => acc => function go(xss) {
-  switch (xss[TAG]) {
-    case "Nil": return acc;
-
-    case "Cons": {
-      const [x, yss] = xss;
-      return f(x) (lazy(() => go(yss)));
-    }
-
-    default: throw new Err("invalid constructor");
-  }
-};
-
-
-L.Foldable = {
-  foldl: L.foldl,
-  foldr: L.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-L.mapA = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
-};
-
-
-L.mapA_ = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
-};
-
-
-L.seqA = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
-};
-
-
-L.seqA_ = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
-};
-
-
-L.Traversable = () => ({
-  ...L.Foldable,
-  ...L.Functor,
-  mapA: L.mapA,
-  seqA: L.seqA
-});
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-L.map = f => L.foldr(x => acc => new L.Cons(f(x), acc)) (L.Nil);
-
-
-L.map_ = f => L.foldr_(x => acc => new L.Cons(f(x), acc)) (L.Nil);
-
-
-L.Functor = {map: L.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-L.alt = () => L.append;
-
-
-L.Alt = () => ({
-  ...L.Functor,
-  alt: L.alt
-});
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-L.zero = L.Nil;
-
-
-L.Plus = {
-  ...L.Alt,
-  zero: L.zero
-};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-L.ap = tf => tx =>
-  L.foldr(f => acc =>
-    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
-
-
-L.ap_ = tf => tx =>
-  L.foldr_(f => acc =>
-    L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
-
-
-L.Apply = {
-  ...L.Functor,
-  ap: L.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-L.of = L.singleton;
-
-
-L.Applicative = {
-  ...L.Apply,
-  of: L.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-L.chain = mx => fm => L.foldr(x => acc =>
-  L.append(fm(x)) (acc)) (L.Nil) (mx);
-
-
-L.chain_ = mx => fm => L.foldr_(x => acc =>
-  L.append_(fm(x)) (acc)) (L.Nil) (mx);
-
-
-L.Chain = {
-  ...L.Apply,
-  chain: L.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
-
-
-L.Alternative = {
-  ...L.Plus,
-  ...L.Applicative
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-L.Monad = {
-  ...L.Applicative,
-  chain: L.chain
-};
-
-
-/*
-█████ Functor :: Extend ███████████████████████████████████████████████████████*/
-
-
-// there is no valid instance because of the empty list
-
-
-/*
-█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
-
-
-// there is no valid instance because of the empty list
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-L.append = flip(L.foldr(L.Cons_));
-
-
-L.append_ = flip(L.foldr_(L.Cons_));
-
-
-L.Semigroup = {append: L.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-L.empty = L.Nil;
-
-
-L.Monoid = {
-  ...L.Semigroup,
-  empty: L.empty
-};
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-L.unfold = f => function go(y) {
-  const r = f(y);
-
-  if (strict(r) === Null) return L.Nil;
-
-  else {
-    const [x, y2] = r;
-    return new L.Cons(x, lazy(() => go(y2)));
-  }
-};
-
-
-L.Unfoldable = {unfold: L.unfold};
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-L.alt = L.alt();
-
-
-L.Alt = L.Alt();
-
-
-L.Traversable = L.Traversable();
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████ ARRAY :: LIST :: NON-EMPTY ██████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-export const NonEmptyList = {};
-
-
-export const Nea = NonEmptyList;
-
-
-scope(() => {
-  class Cons extends Array {
-    constructor(x, xs) {
-      super(x, xs);
-      Object.defineProperty(this, TAG, {value: "Cons"});
-      Object.freeze(this);
-    }
-    
-    static [Symbol.isConcatSpreadable] = true;
-
-    [Symbol.iterator] () {
-      const _this = this;
-
-      return function* () {
-        let xss = _this;
-
-        do {
-          switch (xss[TAG]) {
-            case "Eol": {
-              yield xss[0];
-              return;
-            }
-
-            case "Cons": {
-              yield xss[0];
-              xss = xss[1];
-              break;
-            }
-
-            default: throw new Err("invalid constructor");
-          }
-        } while (true);
-      } ();
-    }
-  };
-  
-  class Eol extends Array {
-    constructor(x) {
-      if (x === undefined) throw new Err("value expected");
-      
-      else {
-        super(x, []);
-        Object.defineProperty(this, TAG, {value: "Eol"});
-        Object.freeze(this);
-      }
-    }
-    
-    static [Symbol.isConcatSpreadable] = true;
-
-    [Symbol.iterator] () {
-      const _this = this;
-      return function* () {yield _this[0]; return} ();
-    }
-  };
-  
-  Nea.Cons = Cons;
-  
-  Nea.Eol = Eol;
-});
-
-
-Nea.Cons_ = x => xs => new Nea.Cons(x, xs); // curried version
-
-
-Nea._Cons = xs => x => new Nea.Cons(x, xs);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████ ARRAY :: LIST :: TRANSFORMER █████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// structure: m (List m a)
-
-
-L.T = outer => thisify(o => { // outer monad's type dictionary
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-  // List a -> m (List m a)
-  o.fromList = L.foldr(x => acc =>
-    outer.of(L.Cons_(x) (acc))) (outer.of(L.Nil));
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-  // (m a -> b -> m a) -> m a -> m (List m b) -> m a
-  o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
-    return outer.chain(mmx) (mx => {
-      switch (mx[TAG]) {
-        case "Nil": return Loop2.base(acc)
-
-        case "Cons": {
-          const [x, mmy] = mx;
-          return Loop2.rec(mmy, f(acc) (x))
-        }
-
-        default: throw new Err("invalid constructor");
-      }
-    });
-  }) (mmx, acc);
-
-
-  // (a -> m b -> m b) -> m b -> m (List m a) -> m b
-  o.foldr = f => acc => Loopx(mmx => {
-    return outer.chain(mmx) (mx => {
-      switch (mx[TAG]) {
-        case "Nil": return Loopx.base(acc);
-
-        case "Cons": {
-          const [x, mmy] = mx;
-          return Loopx.call(f(x), Loopx.rec(mmy));
-        }
-
-        default: throw new Err("invalid constructor");
-      }
-    });
-  });
-
-
-  o.Foldable = {
-    foldl: o.foldl,
-    foldr: o.foldr
-  };
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-  // (a -> t b) -> m (List m a) -> t (m (List m b))
-  o.mapA = Applicative => ft => {
-    const liftA2_ = liftA2(Applicative);
-    
-    return o.foldr(x =>
-      liftA2_(y => mmx =>
-        outer.of(L.Cons(y, mmx))) (ft(x))) (Applicative.of(o.empty));
-  };
-
-
-  // m (List m (t a)) -> t (m (List m a))
-  o.seqA = Applicative => {
-    const liftA2_ = liftA2(Applicative);
-
-    return o.foldr(liftA2_(x => mmx =>
-      outer.of(L.Cons(x, mmx)))) (Applicative.of(o.empty));
-  };
-
-
-  o.Traversable = () => ({
-    ...o.Foldable,
-    ...o.Functor,
-    mapA: o.mapA,
-    seqA: o.seqA
-  });
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-  // (a -> b) -> m (List m a) -> m (List m b)
-  o.map = f => mmx => o.foldr(x => mx =>
-    outer.of(L.Cons(f(x), mx))) (o.empty) (mmx);
-
-
-  o.Functor = {map: o.map};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-  // m (List m (a -> b)) -> m (List m a) -> m (List m b)
-  o.ap = mmf => mmx =>
-    o.foldr(f => my =>
-      o.foldr(x => mx =>
-        outer.of(L.Cons(f(x), mx)))
-          (my) (mmx)) (o.empty) (mmf);
-
-
-  o.Apply = {
-    ...o.Functor,
-    ap: o.ap
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-  // a -> m (List m a)
-  o.of = x => outer.of(L.Cons(x, outer.of(L.Nil)));
-
-
-  o.Applicative = {
-    ...o.Apply,
-    of: o.of
-  };
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-  // m (List m a) -> (a -> m (List m b)) -> m (List m b)
-  o.chain = mmx => fmm => o.foldr(x =>
-    o.append(fmm(x))) (o.empty) (mmx);
-
-
-  o.Chain = {
-    ...o.Apply,
-    chain: o.chain
-  };
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-  o.Monad = {
-    ...o.Applicative,
-    chain: o.chain
-  };
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-  // m (List m a) -> m (List m a) -> m (List m a)
-  o.append = mmx => mmy =>
-    o.foldr(x => mx => outer.of(L.Cons(x, mx))) (mmy) (mmx);
-
-
-  o.Semigroup = {append: o.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-  // m (List m a)
-  o.empty = outer.of(L.Nil);
-
-
-  o.Monoid = {
-    ...o.Semigroup,
-    empty: o.empty
-  };
-
-
-/*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-  // m a -> m (List m a)
-  o.lift = mx => outer.chain(mx) (o.of);
-
-
-  // (m a -> n a) -> m (List m a) => n (List n a)
-  o.hoist = f => Loopx(mmx => {
-    return f(outer.map(mmx) (mx => {
-      switch (mx[TAG]) {
-        case "Nil": return Loopx.base(L.Nil);
-
-        case "Cons": {
-          const [x, mmy] = mx;
-          return Loopx.call(L.Cons_(x), Loopx.rec(mmy));
-        }
-
-        default: throw new Err("invalid constructor");
-      }
-    }));
-  });
-
-
-  // (m a -> n  (List n a)) -> m (List m a) -> n (List n a)
-  o.embed = fm => function go(mmx) { // TODO: switch to trampoline (maybe with lazy)
-    return outer.chain(fm(mmx)) (mx => {
-      switch (mx[TAG]) {
-        case "Nil": return o.empty;
-
-        case "Cons": {
-          const [x, mmy] = mx;
-          return outer.of(L.Cons(x, go(mmy)));
-          //     ^^^^^^^^ Cons isn't the tail call
-        }
-
-        default: throw new Err("invalid constructor");
-      }
-    });
-  };
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-  // (b -> (a, b)) -> b -> ListT m a
-  o.unfold = f => function go(y) {
-    const r = f(y);
-
-    if (strict(r) === Null) return o.empty;
-
-    else {
-      const [x, y2] = r;
-      return new outer.of(L.Cons(x, lazy(() => go(y2))));
-    }
-  };
-
-
-  o.Unfoldable = {unfold: o.unfold};
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-  o.Traversable = o.Traversable();
-
-
-  return o;
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████████ BEHAVIOR ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4505,10 +3750,12 @@ export const Be = Behavior; // shortcut
 // encodes the composition of functors
 
 
-export const Comp = ttx => ({
-  [TAG]: "Comp",
-  run: ttx
-});
+export const Comp = ttx => {
+  const o = {run: ttx};
+
+  Object.defineProperty(o, TAG, {value: "Comp"});
+  return o;
+};
 
 
 /*
@@ -4558,10 +3805,12 @@ Comp.Applicative = {
 // encodes constant behavior in the realm of functors/monads
 
 
-export const Const = x => ({
-  [TAG]: "Const",
-  run: x
-});
+export const Const = x => {
+  const o = {run: x};
+
+  Object.defineProperty(o, TAG, {value: "Const"});
+  return o;
+};
 
 
 /*
@@ -4652,13 +3901,16 @@ Continuations can also be used to handle nested effects:
     }) (x).run(k);
   })) ([]) (xs);
 
+
   zs.run(console.log); // yields [1, 4, Null, 16, 25] */
 
 
-export const Cont = k => ({
-  [TAG]: "Cont",
-  run: k
-});
+export const Cont = k => {
+  const o = {run: k};
+
+  Object.defineProperty(o, TAG, {value: "Cont"});
+  return o;
+};
 
 
 /*
@@ -5050,73 +4302,6 @@ D.formatIso = D.format("-") (
   D.formatYear(4),
   D.formatMonth({digits: 2}),
   D.formatDay(2));
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ DLIST ████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Function based difference list for efficient append operations.
-
-Which list like structure for what task:
-
-  * Array: random element access, length, mutations (push/pop, shift/unshift)
-  * Iarray: random element access, length, push/pop, concat
-  * List: cons/uncons, init/tail
-  * DList: append, cons/snoc */
-
-
-export const DList = f => ({
-  [TAG]: "DList",
-  run: f
-});
-
-
-/*
-█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
-
-
-DList.cons = x => xss => DList(comp(L.Cons(x)) (xss));
-
-
-DList.singleton = comp(DList) (L.Cons_);
-
-
-DList.snoc = x => xss => DList(comp(xss) (L.Cons_(x)));
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-DList.fromList = xss => comp(DList) (L.append);
-
-
-DList.fromArr = xs => comp(DList) (A.append);
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-DList.append = xss => yss => DList(comp(xss) (yss));
-
-
-DList.Semigroup = {append: DList.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-DList.empty = DList(id);
-
-
-DList.Monoid = {
-  ...DList.Semigroup,
-  empty: DList.empty
-};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5529,10 +4714,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 // encodes the absence of any effects in the realm of functors/monads
 
 
-export const Id = x => ({
-  [TAG]: "Id",
-  run: x
-});
+export const Id = x => {
+  const o = {run: x};
+
+  Object.defineProperty(o, TAG, {value: "Id"});
+  return o;
+};
 
 
 /*
@@ -6099,6 +5286,852 @@ It.Traversable = It.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ LIST █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* List-like array in the form of nested `[head, [head, [...[]]]]` structures.
+Please note that you cannot use its array methods but the combinators provided
+with the type.
+
+Encodes non-determinism just like arrays but is recursively defined and
+forms a completely unbalanced tree structure. There are two techniques to make
+operations on the type stack-safe:
+
+  * guarded recursion through lazy evaluation
+  * tail recursion modulo cons using a stack based trampoline
+
+For most type class member functions both variants are implemented with a bias
+on modulo cons. */
+
+
+export const List = {};
+
+
+export const L = List;
+
+
+scope(() => {
+  class Cons extends Array {
+    constructor(x, xs) {
+      super(x, xs);
+      Object.defineProperty(this, TAG, {value: "List"});
+      this.tag = "Cons";
+      Object.freeze(this);
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+
+      return function* () {
+        let xss = _this;
+
+        do {
+          switch (xss.tag) {
+            case "Nil": return;
+
+            case "Cons": {
+              yield xss[0];
+              xss = xss[1];
+              break;
+            }
+
+            default: throw new Err("invalid constructor");
+          }
+        } while (true);
+      } ();
+    }
+  };
+  
+  class Nil extends Array {
+    constructor() {
+      super();
+      Object.defineProperty(this, TAG, {value: "List"});
+      this.tag = "Nil";
+      Object.freeze(this);
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      return function* () {return} ();
+    }
+  };
+  
+  L.Cons = Cons;
+  
+  L.Nil = new Nil();
+});
+
+
+// curried versions
+
+L.Cons_ = x => xs => new L.Cons(x, xs);
+
+
+L._Cons = xs => x => new L.Cons(x, xs);
+
+
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+L.head = xss => {
+  switch (xss.tag) {
+    case "Nil": return Null;
+    case "Cons": return xss[0];
+    default: throw new Err("invalid constructor");
+  }
+}
+
+
+L.singleton = x => [x, L.Nil];
+
+
+L.tail = xss => {
+  switch (xss.tag) {
+    case "Nil": return Null;
+    case "Cons": return xss[1];
+    default: throw new Err("invalid constructor");
+  }
+};
+
+
+// uncons is redundant
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+L.fromArr = xs => {
+  let xss = L.Nil;
+
+  for (let i = xs.length - 1; i >= 0; i--) {
+    xss = new L.Cons(xs[i], xss);
+  }
+
+  return xss;
+};
+
+
+/*
+█████ Infinity ████████████████████████████████████████████████████████████████*/
+
+
+L.iterate = f => function go(x) {
+  return new L.Cons(x, lazy(() => go(f(x))));
+}
+
+
+L.repeat = x => new L.Cons(x, lazy(() => repeat(x)));
+
+
+L.replicate = n => x => function go(m) {
+  if (m === 0) return new L.Cons(x, L.Nil);
+  else return new L.Cons(x, lazy(() => go(m - 1)));
+} (n);
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+L.foldl = f => init => xss => {
+  let acc = init, done = false;
+
+  do {
+    switch (xss.tag) {
+      case "Nil": {
+        done = true;
+        break;
+      }
+
+      case "Cons": {
+        const [x, yss] = xss;
+        acc = f(acc) (x);
+        xss = yss;
+        break;
+      }
+
+      default: throw new Err("invalid constructor");
+    }
+  } while (!done);
+
+  return acc;
+};
+
+
+// stack-safe even if `f` is strict in its second argument
+
+L.foldr = f => acc => Loopx(xss => {
+  switch (xss.tag) {
+    case "Nil": return Loopx.base(acc);
+
+    case "Cons": {
+      const [x, yss] = xss;
+      return Loopx.call(f(x), Loopx.rec(yss));
+    }
+
+    default: throw new Err("invalid constructor");
+  }
+});
+
+
+// stack-safe only if `f` is non-strict in its second argument
+
+L.foldr_ = f => acc => function go(xss) {
+  switch (xss.tag) {
+    case "Nil": return acc;
+
+    case "Cons": {
+      const [x, yss] = xss;
+      return f(x) (lazy(() => go(yss)));
+    }
+
+    default: throw new Err("invalid constructor");
+  }
+};
+
+
+L.Foldable = {
+  foldl: L.foldl,
+  foldr: L.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+L.mapA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.mapA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.seqA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.seqA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.Traversable = () => ({
+  ...L.Foldable,
+  ...L.Functor,
+  mapA: L.mapA,
+  seqA: L.seqA
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+L.map = f => L.foldr(x => acc => new L.Cons(f(x), acc)) (L.Nil);
+
+
+L.map_ = f => L.foldr_(x => acc => new L.Cons(f(x), acc)) (L.Nil);
+
+
+L.Functor = {map: L.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+L.alt = () => L.append;
+
+
+L.Alt = () => ({
+  ...L.Functor,
+  alt: L.alt
+});
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+L.zero = L.Nil;
+
+
+L.Plus = {
+  ...L.Alt,
+  zero: L.zero
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+L.ap = tf => tx =>
+  L.foldr(f => acc =>
+    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
+
+
+L.ap_ = tf => tx =>
+  L.foldr_(f => acc =>
+    L.append_(L.map_(f) (tx)) (acc)) (L.Nil) (tf);
+
+
+L.Apply = {
+  ...L.Functor,
+  ap: L.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+L.of = L.singleton;
+
+
+L.Applicative = {
+  ...L.Apply,
+  of: L.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+L.chain = mx => fm => L.foldr(x => acc =>
+  L.append(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.chain_ = mx => fm => L.foldr_(x => acc =>
+  L.append_(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.Chain = {
+  ...L.Apply,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+L.Alternative = {
+  ...L.Plus,
+  ...L.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+L.Monad = {
+  ...L.Applicative,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+// there is no valid instance because of the empty list
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+// there is no valid instance because of the empty list
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+L.append = flip(L.foldr(L.Cons_));
+
+
+L.append_ = flip(L.foldr_(L.Cons_));
+
+
+L.Semigroup = {append: L.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+L.empty = L.Nil;
+
+
+L.Monoid = {
+  ...L.Semigroup,
+  empty: L.empty
+};
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+L.unfold = f => function go(y) {
+  const r = f(y);
+
+  if (strict(r) === Null) return L.Nil;
+
+  else {
+    const [x, y2] = r;
+    return new L.Cons(x, lazy(() => go(y2)));
+  }
+};
+
+
+L.Unfoldable = {unfold: L.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.alt = L.alt();
+
+
+L.Alt = L.Alt();
+
+
+L.Traversable = L.Traversable();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ LIST :: DLIST ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Function based difference list for efficient append operations.
+
+Which list like structure for what task:
+
+  * Array: random element access, length, mutations (push/pop, shift/unshift)
+  * Iarray: random element access, length, push/pop, concat
+  * List: cons/uncons, init/tail
+  * DList: append, cons/snoc */
+
+
+export const DList = f => {
+  const o = {run: f};
+
+  Object.defineProperty(o, TAG, {value: "DList"});
+  return o;
+};
+
+
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+DList.cons = x => xss => DList(comp(L.Cons(x)) (xss));
+
+
+DList.singleton = comp(DList) (L.Cons_);
+
+
+DList.snoc = x => xss => DList(comp(xss) (L.Cons_(x)));
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+DList.fromList = xss => comp(DList) (L.append);
+
+
+DList.fromArr = xs => comp(DList) (A.append);
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+DList.append = xss => yss => DList(comp(xss) (yss));
+
+
+DList.Semigroup = {append: DList.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+DList.empty = DList(id);
+
+
+DList.Monoid = {
+  ...DList.Semigroup,
+  empty: DList.empty
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████ LIST :: NON-EMPTY ██████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const NonEmptyList = {};
+
+
+export const Nea = NonEmptyList;
+
+
+scope(() => {
+  class Cons extends Array {
+    constructor(x, xs) {
+      super(x, xs);
+      Object.defineProperty(this, TAG, {value: "Cons"});
+      Object.freeze(this);
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+
+      return function* () {
+        let xss = _this;
+
+        do {
+          switch (xss[TAG]) {
+            case "Eol": {
+              yield xss[0];
+              return;
+            }
+
+            case "Cons": {
+              yield xss[0];
+              xss = xss[1];
+              break;
+            }
+
+            default: throw new Err("invalid constructor");
+          }
+        } while (true);
+      } ();
+    }
+  };
+  
+  class Eol extends Array {
+    constructor(x) {
+      if (x === undefined) throw new Err("value expected");
+      
+      else {
+        super(x, []);
+        Object.defineProperty(this, TAG, {value: "Eol"});
+        Object.freeze(this);
+      }
+    }
+    
+    static [Symbol.isConcatSpreadable] = true;
+
+    [Symbol.iterator] () {
+      const _this = this;
+      return function* () {yield _this[0]; return} ();
+    }
+  };
+  
+  Nea.Cons = Cons;
+  
+  Nea.Eol = Eol;
+});
+
+
+Nea.Cons_ = x => xs => new Nea.Cons(x, xs); // curried version
+
+
+Nea._Cons = xs => x => new Nea.Cons(x, xs);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ LIST :: TRANSFORMER █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// structure: m (List m a)
+
+
+L.T = outer => thisify(o => { // outer monad's type dictionary
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+  // List a -> m (List m a)
+  o.fromList = L.foldr(x => acc =>
+    outer.of(L.Cons_(x) (acc))) (outer.of(L.Nil));
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+  // (m a -> b -> m a) -> m a -> m (List m b) -> m a
+  o.foldl = f => acc => mmx => Loop2((mmx, acc) => {
+    return outer.chain(mmx) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return Loop2.base(acc)
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loop2.rec(mmy, f(acc) (x))
+        }
+
+        default: throw new Err("invalid constructor");
+      }
+    });
+  }) (mmx, acc);
+
+
+  // (a -> m b -> m b) -> m b -> m (List m a) -> m b
+  o.foldr = f => acc => Loopx(mmx => {
+    return outer.chain(mmx) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return Loopx.base(acc);
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loopx.call(f(x), Loopx.rec(mmy));
+        }
+
+        default: throw new Err("invalid constructor");
+      }
+    });
+  });
+
+
+  o.Foldable = {
+    foldl: o.foldl,
+    foldr: o.foldr
+  };
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+  // (a -> t b) -> m (List m a) -> t (m (List m b))
+  o.mapA = Applicative => ft => {
+    const liftA2_ = liftA2(Applicative);
+    
+    return o.foldr(x =>
+      liftA2_(y => mmx =>
+        outer.of(L.Cons(y, mmx))) (ft(x))) (Applicative.of(o.empty));
+  };
+
+
+  // m (List m (t a)) -> t (m (List m a))
+  o.seqA = Applicative => {
+    const liftA2_ = liftA2(Applicative);
+
+    return o.foldr(liftA2_(x => mmx =>
+      outer.of(L.Cons(x, mmx)))) (Applicative.of(o.empty));
+  };
+
+
+  o.Traversable = () => ({
+    ...o.Foldable,
+    ...o.Functor,
+    mapA: o.mapA,
+    seqA: o.seqA
+  });
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+  // (a -> b) -> m (List m a) -> m (List m b)
+  o.map = f => mmx => o.foldr(x => mx =>
+    outer.of(L.Cons(f(x), mx))) (o.empty) (mmx);
+
+
+  o.Functor = {map: o.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+  // m (List m (a -> b)) -> m (List m a) -> m (List m b)
+  o.ap = mmf => mmx =>
+    o.foldr(f => my =>
+      o.foldr(x => mx =>
+        outer.of(L.Cons(f(x), mx)))
+          (my) (mmx)) (o.empty) (mmf);
+
+
+  o.Apply = {
+    ...o.Functor,
+    ap: o.ap
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+  // a -> m (List m a)
+  o.of = x => outer.of(L.Cons(x, outer.of(L.Nil)));
+
+
+  o.Applicative = {
+    ...o.Apply,
+    of: o.of
+  };
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+  // m (List m a) -> (a -> m (List m b)) -> m (List m b)
+  o.chain = mmx => fmm => o.foldr(x =>
+    o.append(fmm(x))) (o.empty) (mmx);
+
+
+  o.Chain = {
+    ...o.Apply,
+    chain: o.chain
+  };
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+  o.Monad = {
+    ...o.Applicative,
+    chain: o.chain
+  };
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+  // m (List m a) -> m (List m a) -> m (List m a)
+  o.append = mmx => mmy =>
+    o.foldr(x => mx => outer.of(L.Cons(x, mx))) (mmy) (mmx);
+
+
+  o.Semigroup = {append: o.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+  // m (List m a)
+  o.empty = outer.of(L.Nil);
+
+
+  o.Monoid = {
+    ...o.Semigroup,
+    empty: o.empty
+  };
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+  // m a -> m (List m a)
+  o.lift = mx => outer.chain(mx) (o.of);
+
+
+  // (m a -> n a) -> m (List m a) => n (List n a)
+  o.hoist = f => Loopx(mmx => {
+    return f(outer.map(mmx) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return Loopx.base(L.Nil);
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return Loopx.call(L.Cons_(x), Loopx.rec(mmy));
+        }
+
+        default: throw new Err("invalid constructor");
+      }
+    }));
+  });
+
+
+  // (m a -> n  (List n a)) -> m (List m a) -> n (List n a)
+  o.embed = fm => function go(mmx) { // TODO: switch to trampoline (maybe with lazy)
+    return outer.chain(fm(mmx)) (mx => {
+      switch (mx[TAG]) {
+        case "Nil": return o.empty;
+
+        case "Cons": {
+          const [x, mmy] = mx;
+          return outer.of(L.Cons(x, go(mmy)));
+          //     ^^^^^^^^ Cons isn't the tail call
+        }
+
+        default: throw new Err("invalid constructor");
+      }
+    });
+  };
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+  // (b -> (a, b)) -> b -> ListT m a
+  o.unfold = f => function go(y) {
+    const r = f(y);
+
+    if (strict(r) === Null) return o.empty;
+
+    else {
+      const [x, y2] = r;
+      return new outer.of(L.Cons(x, lazy(() => go(y2))));
+    }
+  };
+
+
+  o.Unfoldable = {unfold: o.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+  o.Traversable = o.Traversable();
+
+
+  return o;
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ MAP █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -6628,12 +6661,16 @@ export const SafeNum = (int, dec) => {
   if (Snum.precision_ < dec.length)
     throw new Err("unsufficient precision");
 
-  else return Object.freeze({
-    [TAG]: "SafeNum",
-    dec: dec.padEnd(Snum.precision_, "0"),
-    int,
-    run: BigInt(int + dec)
-  });
+  else {
+    const o = {
+      dec: dec.padEnd(Snum.precision_, "0"),
+      int,
+      run: BigInt(int + dec)
+    };
+
+    Object.defineProperty(o, TAG, {value: "SafeNum"});
+    return Object.freeze(o);
+  }
 };
 
 
@@ -6903,10 +6940,17 @@ O.new = (tag = Null) => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
     throw new Err("keys don't match values");
 
+  const o = scope(() => {
+    const p = {};
+
+    if (tag === Null) return p;
+    else return Object.defineProperty(p, TAG, {value: tag});
+  });
+    
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
     return acc;
-  }, tag === Null ? {} : {[TAG]: tag});
+  }, o);
 };
 
 
@@ -7069,10 +7113,12 @@ Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
 chaging values. */
 
 
-export const Observable = observe => ({ // constructor
-  [TAG]: "Observable",
-  run: observe
-});
+export const Observable = observe => { // constructor
+  const o = {run: observe};
+
+  Object.defineProperty(o, TAG, {value: "Observable"});
+  return o;  
+};
 
 
 export const Ob = Observable; // shortcut
@@ -7384,11 +7430,12 @@ const tz = comp(
 Optic.defocus(tz); // {foo: {}} */
 
 
-export const Optic = (x, parent) => ({
-  [TAG]: "Optic",
-  run: x,
-  parent
-});
+export const Optic = (x, parent) => {
+  const o = {run: x, parent};
+
+  Object.defineProperty(o, TAG, {value: "Optic"});
+  return o;  
+};
 
 
 /*
@@ -7834,39 +7881,43 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 comprehensive information. */
 
 
-export const Parallel = k => ({
-  [TAG]: "Parallel",
-  run: k,
+export const Parallel = k => {
+  const o = {
+    run: k,
 
-  get runOnce() {
-    delete this.runOnce;
-
-    Object.defineProperty(this, "runOnce", {
-      get() {throw new Err("race condition")},
-      configurable: true,
-      enumerable: true
-    });
-    
-    return f => k(x => {
-      const r = f(x);
+    get runOnce() {
       delete this.runOnce;
-      this.runOnce = _ => f(x);
-      return r;
-    });
-  },
 
-  runSafe: f => {
-    if (asyncCounter > 100) {
-      asyncCounter = 0;
-      return Promise.resolve(Null).then(_ => k(f));
-    }
+      Object.defineProperty(this, "runOnce", {
+        get() {throw new Err("race condition")},
+        configurable: true,
+        enumerable: true
+      });
+      
+      return f => k(x => {
+        const r = f(x);
+        delete this.runOnce;
+        this.runOnce = _ => f(x);
+        return r;
+      });
+    },
 
-    else {
-      asyncCounter++;
-      return k(f);
+    runSafe: f => {
+      if (asyncCounter > 100) {
+        asyncCounter = 0;
+        return Promise.resolve(Null).then(_ => k(f));
+      }
+
+      else {
+        asyncCounter++;
+        return k(f);
+      }
     }
-  }
-});
+  };
+
+  Object.defineProperty(o, TAG, {value: "Parallel"});
+  return o;
+};
 
 
 export const P = Parallel; // shortcut
@@ -8170,10 +8221,12 @@ P.anyList = P.anyList();
 // like `Parallel` but augmented with an `Except` transformer
 
 
-export const ParallelExcept = Except.T(Parallel) (mmx => ({
-  [TAG]: "Parallel.Except",
-  run: mmx
-}));
+export const ParallelExcept = Except.T(Parallel) (mmx => {
+  const o = {run: mmx};
+
+  Object.defineProperty(o, TAG, {value: "Parallel.Except"});
+  return o;  
+});
 
 
 export const Pex = ParallelExcept; // shortcut
@@ -8380,23 +8433,25 @@ Pex.allList = Pex.allList();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Pair = (x, y) => ({
-  [TAG]: "Pair",
-  0: x,
-  1: y,
-  length: 2,
+export const Pair = (x, y) => {
+  const o = {
+    0: x, 1: y, length: 2,
 
- [Symbol.iterator]: function*() {
-    yield x;
-    yield y;
-  }  
-});
+    [Symbol.iterator]: function*() {
+      yield x;
+      yield y;
+    }
+  };
+
+  Object.defineProperty(o, TAG, {value: "Pair"});
+  return o;  
+};
 
 
 // constructor to define lazy getters
 
 export const Pair_ = o => {
-  o[TAG] = "Pair";
+  Object.defineProperty(o, TAG, {value: "Pair"});
   o.length = 2;
 
   o[Symbol.iterator] = function*() {
@@ -8553,10 +8608,12 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Writer = mmx => ({ // constructor
-  [TAG]: "Writer",
-  run: mmx
-});
+export const Writer = mmx => { // constructor
+  const o = {run: mmx};
+
+  Object.defineProperty(o, TAG, {value: "Writer"});
+  return o;  
+};
 
 
 export const W = Writer; // shortcut
@@ -8723,10 +8780,12 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 `Parser` is an applicative variant. */
 
 
-const Parser = f => ({
-  [TAG]: "Parser",
-  run: f
-});
+const Parser = f => {
+  const o = {run: f};
+
+  Object.defineProperty(o, TAG, {value: "Parser"});
+  return o;  
+};
 
 
 Parser.Result = {}; // namespace
@@ -8735,22 +8794,31 @@ Parser.Result = {}; // namespace
 // value constructors
 
 
-Parser.Result.Error = ({rest, state, msg}) => ({
-  [TAG]: "ParserResult",
-  run: ({error}) => error(x)
-});
+Parser.Result.Error = ({rest, state, msg}) => {
+  const o = {run: ({error}) => error(x)};
+
+  Object.defineProperty(o, TAG, {value: "ParserResult"});
+  o.tag = "Error";
+  return o;  
+};
 
 
-Parser.Result.Some = ({res, rest, state}) => ({
-  [TAG]: "ParserResult",
-  run: ({some}) => some(x)
-});
+Parser.Result.Some = ({res, rest, state}) => {
+  const o = {run: ({some}) => some(x)};
+
+  Object.defineProperty(o, TAG, {value: "ParserResult"});
+  o.tag = "Some";
+  return o;  
+};
 
 
-Parser.Result.None = ({rest, state}) => ({
-  [TAG]: "ParserResult",
-  run: ({none}) => none(x)
-});
+Parser.Result.None = ({rest, state}) => {
+  const o = {run: ({none}) => none(x)};
+
+  Object.defineProperty(o, TAG, {value: "ParserResult"});
+  o.tag = "None";
+  return o;
+};
 
 
 /*
@@ -9499,39 +9567,43 @@ invoked several times and thus the corresponding async computation is evaluated
 several times. `runOnce` enforces zero or at most one evaluation. */
 
 
-export const Serial = k => ({
-  [TAG]: "Serial",
-  run: k,
+export const Serial = k => {
+  const o = {
+    run: k,
 
-  get runOnce() {
-    delete this.runOnce;
-
-    Object.defineProperty(this, "runOnce", {
-      get() {throw new Err("race condition")},
-      configurable: true,
-      enumerable: true
-    });
-    
-    return f => k(x => {
-      const r = f(x);
+    get runOnce() {
       delete this.runOnce;
-      this.runOnce = _ => f(x);
-      return r;
-    });
-  },
 
-  runSafe: f => {
-    if (asyncCounter > 100) {
-      asyncCounter = 0;
-      return Promise.resolve(Null).then(_ => k(f));
-    }
+      Object.defineProperty(this, "runOnce", {
+        get() {throw new Err("race condition")},
+        configurable: true,
+        enumerable: true
+      });
+      
+      return f => k(x => {
+        const r = f(x);
+        delete this.runOnce;
+        this.runOnce = _ => f(x);
+        return r;
+      });
+    },
 
-    else {
-      asyncCounter++;
-      return k(f);
+    runSafe: f => {
+      if (asyncCounter > 100) {
+        asyncCounter = 0;
+        return Promise.resolve(Null).then(_ => k(f));
+      }
+
+      else {
+        asyncCounter++;
+        return k(f);
+      }
     }
-  }
-});
+  };
+
+  Object.defineProperty(o, TAG, {value: "Serial"});
+  return o;
+};
 
 
 export const S = Serial; // shortcut
@@ -9729,10 +9801,12 @@ S.allList = S.allList();
 // like `Serial` but augmented with an `Except` transformer
 
 
-export const SerialExcept = Except.T(Serial) (mmx => ({
-  [TAG]: "Serial.Except",
-  run: mmx
-}));
+export const SerialExcept = Except.T(Serial) (mmx => {
+  const o = {run: mmx};
+
+  Object.defineProperty(o, TAG, {value: "Serial.Except"});
+  return o;
+});
 
 
 export const Sex = SerialExcept; // shortcut
@@ -9866,26 +9940,37 @@ export const Stream = {}; // namespace
 // value constructors
 
 
-Stream.Step = x => f => ({
-  [TAG]: "Stream",
+Stream.Step = x => f => {
+  const o = {
+    run: ({step}) => step({
+      yield: x,
+      get next() {return f(x)},
+      tag: "Step"
+    })
+  };
 
-  run: ({step}) => step({
-    yield: x,
-    get next() {return f(x)}
-  })
+  Object.defineProperty(o, TAG, {value: "Stream"});
+  return o;
+};
+
+
+Stream.Done = thisify(o => {
+  o.run = ({done}) => done;
+  o.tag = "Done";
+  Object.defineProperty(o, TAG, {value: "Stream"});
+  return o;
 });
 
 
-Stream.Done = ({
-  [TAG]: "Stream",
-  run: ({done}) => done
-});
+Stream.Step.lazy = o => {
+  const p = {
+    run: ({step}) => step(o),
+    tag: "Step"
+  };
 
-
-Stream.Step.lazy = o => ({
-  [TAG]: "Stream",
-  run: ({step}) => step(o)
-});
+  Object.defineProperty(p, TAG, {value: "Stream"});
+  return p;
+};
 
 
 /*
@@ -10695,18 +10780,35 @@ data structures. */
 const Tree = {};
 
 
-Tree.Empty = {[TAG]: "Empty"};
+Tree.Empty = thisify(o => {
+  Object.defineProperty(o, TAG, {value: "Tree"});
+  o.tag = "Empty";
+  return o;
+});
 
 
-Tree.Leaf = x => ({[TAG]: "Leaf", height: 0, size: 1, min: x, x});
+Tree.Leaf = x => {
+  const o = {height: 0, size: 1, min: x, x, tag: "Leaf"};
+
+  Object.defineProperty(o, TAG, {value: "Tree"});
+  return o;
+};
 
 
-Tree.Node2 = (height, size, min, left, right) =>
-  ({[TAG]: "Node2", height, size, min, left, right});
+Tree.Node2 = (height, size, min, left, right) => {
+  const o = {height, size, min, left, right, tag: "Node2"};
+
+  Object.defineProperty(o, TAG, {value: "Tree"});
+  return o;
+};
 
 
-Tree.Node3 = (height, size, min, left, middle, right) =>
-  ({[TAG]: "Node3", height, size, min, left, middle, right});
+Tree.Node3 = (height, size, min, left, middle, right) => {
+  const o = {height, size, min, left, middle, right, tag: "Node3"};
+
+  Object.defineProperty(o, TAG, {value: "Tree"});
+  return o;
+};
 
 
 Tree.node2 = (left, right) =>
@@ -10733,7 +10835,7 @@ Tree.levelUp = args => {
 
 Tree.levelHeight = (left, right) => {
   if (left.height < right.height) {
-    if (right[TAG] === "Node2") {
+    if (right.tag === "Node2") {
       const xs = Tree.levelHeight(left, right.left)
         .concat(right.right);
 
@@ -10749,7 +10851,7 @@ Tree.levelHeight = (left, right) => {
   }
 
   else if (left.height > right.height) {
-    if (left[TAG] === "Node2") {
+    if (left.tag === "Node2") {
       const xs = [left.left]
         .concat(Tree.levelHeight(left.right, right));
 
@@ -10769,8 +10871,8 @@ Tree.levelHeight = (left, right) => {
 
 
 Tree.merge = (left, right) => {
-  if (left[TAG] === "Empty") return right;
-  else if (right[TAG] === "Empty") return left;
+  if (left.tag === "Empty") return right;
+  else if (right.tag === "Empty") return left;
 
   else {
     const xs = Tree.levelHeight(left, right);
@@ -10782,14 +10884,14 @@ Tree.merge = (left, right) => {
 
 
 Tree.split = (tree, f) => {
-  if (tree[TAG] === "Empty") return [Tree.Empty, Tree.Empty];
+  if (tree.tag === "Empty") return [Tree.Empty, Tree.Empty];
 
-  else if (tree[TAG] === "Leaf") {
+  else if (tree.tag === "Leaf") {
     if (f(tree.x)) return [Tree.Empty, Tree.Leaf(tree.x)];
     else return [Tree.Leaf(tree.x), Tree.Empty];
   }
 
-  else if (tree[TAG] === "Node2") {
+  else if (tree.tag === "Node2") {
     if (f(tree.right.min)) {
       const [left, right] = Tree.split(tree.left, f);
       return [left, Tree.merge(right, tree.right)];
@@ -10827,7 +10929,7 @@ Tree.split = (tree, f) => {
 // catamorphism (structural fold)
 
 Tree.cata = ({empty, leaf, node2, node3}) => function go(tree) {
-  switch (tree[TAG]) {
+  switch (tree.tag) {
     case "Empty": return empty();
     case "Leaf": return leaf(tree.x);
 
@@ -10855,13 +10957,13 @@ Tree.fromArr = xs => xs.reduce((acc, x) => Tree.ins(acc, x), Tree.Empty)
 
 
 Tree.prepend = (tree, xs) => {
-  if (tree[TAG] === "Empty") return xs;
-  else if (tree[TAG] === "Leaf") return (xs.unshift(tree.x), xs);
+  if (tree.tag === "Empty") return xs;
+  else if (tree.tag === "Leaf") return (xs.unshift(tree.x), xs);
   
-  else if (tree[TAG] === "Node2")
+  else if (tree.tag === "Node2")
     return Tree.prepend(tree.left, Tree.prepend(tree.right, xs));
 
-  else if (tree[TAG] === "Node3")
+  else if (tree.tag === "Node3")
     return Tree.prepend(tree.left, Tree.prepend(tree.middle, Tree.prepend(tree.right, xs)));
 };
 
@@ -10897,7 +10999,7 @@ Tree.foldl_ = f => acc => Tree.cata({
 
 Tree.foldr = f => function go(acc) {
   return tree => {
-    switch (tree[TAG]) {
+    switch (tree.tag) {
       case "Empty": return acc;
       case "Leaf": {return f(tree.x) (acc);}
       case "Node2": return go(go(acc) (tree.right)) (tree.left);
@@ -10911,7 +11013,7 @@ Tree.foldr = f => function go(acc) {
 
 Tree.foldr_ = f => function go(acc) {
   return tree => {
-    switch (tree[TAG]) {
+    switch (tree.tag) {
       case "Empty": return acc;
       case "Leaf": {return f(tree.x) (acc);}
       case "Node2": return go(go(acc) (tree.left)) (tree.right);
@@ -10958,7 +11060,7 @@ data `y` can be transformed for the latter. */
 Tree.has = (tree, x) => {
   const [left, right] = Tree.split(tree, y => y >= x);
 
-  if (right[TAG] === "Empty") return false;
+  if (right.tag === "Empty") return false;
   else return right.min === x;
 };
 
@@ -10966,7 +11068,7 @@ Tree.has = (tree, x) => {
 Tree.has_ = (tree, f, x) => {
   const [left, right] = Tree.split(tree, y => (z => z >= x) (f(y)));
 
-  if (right[TAG] === "Empty") return false;
+  if (right.tag === "Empty") return false;
   else return right.min === x;
 };
 
@@ -11044,10 +11146,12 @@ Tree.nodes = Tree.cata({
 the composition cannot be defined manually upfront but only at runtime. */
 
 
-export const Yoneda = k => ({
-  [TAG]: "Yoneda",
-  run: k
-});
+export const Yoneda = k => {
+  const o = {run: k};
+
+  Object.defineProperty(o, TAG, {value: "Yoneda"});
+  return o;
+};
 
 
 export const Yo = Yoneda; // shortcut
@@ -11254,6 +11358,5 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
   * add flipped chain method to chain class
   * define TAG through `Object.defineProperty`
-  * define `List[TAG]` as List and use `tag` for value constructors
 
 */
