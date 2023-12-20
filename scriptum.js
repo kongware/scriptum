@@ -3885,22 +3885,20 @@ Continuations can also be used to handle nested effects:
 
   const xs = [1, 2, null, 4, 5];
 
-  const ys = Cont.Arr.cata(x => acc => Cont(k => {
-    
-    // in this scope k is invoked a non-deterministic number of times
-    
-    return Cont.Option.cata({
+  const ys = Cont.array(x => acc => Cont(k => {
 
-      // in this scope k either invokes some computation or none
+    // this scope will be created a indeterministic number of times
 
-      some: y => {
-        return acc.concat(y * y)
-      },
+    return Cont.option({
+      get none() {return acc.concat(Null)},
+      some: y => {return acc.concat(y * y)}
+    }) (x).run(x => {
 
-      none: lazy(() => acc.concat(Null))
-    }) (x).run(k);
+      // this scope might be created at most once
+
+      return k(x)
+    });
   })) ([]) (xs);
-
 
   zs.run(console.log); // yields [1, 4, Null, 16, 25] */
 
@@ -3934,34 +3932,53 @@ Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
 
 
 /*
-█████ Effects █████████████████████████████████████████████████████████████████*/
+█████ Effects (Control Flow) ██████████████████████████████████████████████████*/
 
 
-/* Represent effects by encoding their elimination rule using continuation
-passing style. Each computational effect has its own elimination rule. */
+/* Represent control flow effects by encoding their elimination rule using
+continuation passing style. Unfortunately, this doesn't work for the other two
+effect classes:
+
+* state modifying effects (mutations)
+* input/output effects (real world)
+
+Fortunately, we can tackle both issues with tree structures, persistent data
+strucutes with structural sharing on the one hand and nested function call
+trees on the other. */
 
 
-// abrupt short circuiting with the last value
+// loop indeterministicly (indeterministic choice)
 
-Cont.Abrupt = {cata: x => Cont(k => x)};
-
-
-Cont.Arr = () => ({cata: Cont.arr.fold});
+Cont.array = () => Cont.arr.fold;
 
 
-Cont.Except = {
-  cata: ({fail, succeed}) => x => Cont(k =>
-    introspect.cons(x) === "Error" ? k(fail(x)) : k(succeed(x)))
-};
+// catch an exception
 
+Cont.catch = ({fail, succeed}) => x => Cont(k =>
+  introspect.cons(x) === "Error" ? k(fail(x)) : k(succeed(x)));
+
+
+// discard continuation if current computation yields no value
+
+Cont.discard = _default => x =>
+  Cont(k => x === null || x === Null ? _default : k(x));
+
+
+// loop indeterministicly (indeterministic choice)
 
 // TODO: Cont.List = () => ({cata: Cons.list.fold});
 
 
-Cont.Option = {
-  cata: ({none, some}) => x => Cont(k =>
-      x === null || x === Null ? k(none) : k(some(x)))
-};
+// discard functon if previous computation yields no value
+
+Cont.option = ({none, some}) => x => Cont(k =>
+  x === null || x === Null ? k(none) : k(some(x)));
+
+
+// terminate program if previous computation raised an exception
+
+Cont.throw = succeed => x => Cont(k =>
+  introspect.cons(x) === "Error" ? _throw(x) : k(succeed(x)));
 
 
 /*
@@ -4193,7 +4210,7 @@ Cont.id = tx => tx.run(id);
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-Cont.Arr = Cont.Arr();
+Cont.array = Cont.array();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
