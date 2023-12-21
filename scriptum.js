@@ -1148,7 +1148,34 @@ lose the lazy evaluation property of the `&&` operator, if you pass them as
 expressions not wrapped in a thunk/function. */
 
 
+/*
+█████ Short Circuiting ████████████████████████████████████████████████████████*/
+
+
+// g might never be evaluated
+
 export const and = f => g => f() && g();
+
+
+// g might never be evaluated
+
+export const or = f => g => f() || g();
+
+
+// y might never be evaluated
+
+export const xor_ = _default => x => y => {
+  if (x && !y) return x;
+  else if (!x && y) return y;
+  else return _default;
+};
+
+
+/*
+█████ Boolean Logic ███████████████████████████████████████████████████████████*/
+
+
+export const between = ({lower, upper}) => x => x >= lower && y <= upper;
 
 
 export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
@@ -1212,23 +1239,13 @@ to WHNF. Hence the strict evaluation of operands. */
 export const neq_ = f => g => f() !== g();
 
 
-export const or = f => g => f() || g();
+export const notBetween = ({lower, upper}) => x => x < lower || y > upper;
 
 
 export const xor = ({true: t, false: f}) => x => y => {
   if (x && !y) return t;
   else if (!x && y) return t;
   else return f;
-};
-
-
-/* Variant of exclusive or that similar to con-/disjunctions either returns one
-of the two provided values or the default one. */
-
-export const xor_ = _default => x => y => {
-  if (x && !y) return x;
-  else if (!x && y) return y;
-  else return _default;
 };
 
 
@@ -4264,6 +4281,9 @@ Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 
 
 Cont.get = tx => Cont(k => k(tx.run));
+
+
+Cont.get_ = tx => Cont(k => tx.run(x => k(Pair(tx.run, x))));
 
 
 /* There is no category for continuations because there is no compose operator.
