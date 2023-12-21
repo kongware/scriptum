@@ -751,34 +751,76 @@ introspect.def = {};
 introspect.def.un = (f, name) => F(f, name, [["x"]]);
 
 
+introspect.def.unf = (f, name) => F(f, name, [["f"]]);
+
+
 introspect.def.bin = (f, name) => F(f, name, [["x"], ["y"]]);
+
+
+introspect.def.binf = (f, name) => F(f, name, [["f"], ["x"]]);
+
+
+introspect.def.binf2 = (f, name) => F(f, name, [["f"], ["g"]]);
 
 
 introspect.def.binUn = (f, name) => F(f, name, [["x", "y"], ["z"]]);
 
 
+introspect.def.binUnf = (f, name) => F(f, name, [["f", "x"], ["y"]]);
+
+
+introspect.def.binUnf2 = (f, name) => F(f, name, [["f", "g"], ["x"]]);
+
+
 introspect.def.bin_ = (f, name) => F(f, name, [["x", "y"]]);
+
+
+introspect.def.binf_ = (f, name) => F(f, name, [["f", "x"]]);
+
+
+introspect.def.binf2_ = (f, name) => F(f, name, [["f", "g"]]);
 
 
 introspect.def.tern = (f, name) => F(f, name, [["x"], ["y"], ["z"]]);
 
 
+introspect.def.ternf = (f, name) => F(f, name, [["f"], ["x"], ["y"]]);
+
+
+introspect.def.ternf2 = (f, name) => F(f, name, [["f"], ["g"], ["x"]]);
+
+
+introspect.def.ternf3 = (f, name) => F(f, name, [["f"], ["g"], ["h"]]);
+
+
 introspect.def.ternUn = (f, name) => F(f, name, [["w", "x", "y"], ["z"]]);
+
+
+introspect.def.ternUnf = (f, name) => F(f, name, [["f", "x", "y"], ["z"]]);
+
+
+introspect.def.ternUnf2 = (f, name) => F(f, name, [["f", "g", "x"], ["y"]]);
+
+
+introspect.def.ternUnf3 = (f, name) => F(f, name, [["f", "g", "h"], ["x"]]);
 
 
 introspect.def.tern_ = (f, name) => F(f, name, [["x", "y", "z"]]);
 
 
-introspect.def.quat = (f, name) => F(f, name, [["w"], ["x"], ["y"], ["z"]]);
+introspect.def.ternf_ = (f, name) => F(f, name, [["f", "x", "y"]]);
 
 
-introspect.def.quatUn = (f, name) => F(f, name, [["v", "w", "x", "y"], ["z"]]);
+introspect.def.ternf2_ = (f, name) => F(f, name, [["f", "g", "x"]]);
 
 
-introspect.def.quat_ = (f, name) => F(f, name, [["w", "x", "y", "z"]]);
+introspect.def.ternf3_ = (f, name) => F(f, name, [["f", "g", "h"]]);
 
 
-introspect.def.vari = (f, name) => F(f, name, [["...args"]]);
+introspect.def.vari = (f, name) => F(f, name, [["...xs"]]);
+
+
+introspect.def.varif = (f, name) => F(f, name, [["...fs"]]);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1935,11 +1977,8 @@ F.Category = () => {
 █████ Composition █████████████████████████████████████████████████████████████*/
 
 
-export const between = f => h => g => x => h(g(f(x)));
-
-
 export let comp = f => g => x => f(g(x));
-if (DEBUG) comp = introspect.def.tern(comp, "comp");
+if (DEBUG) comp = introspect.def.ternf2(comp, "comp");
 
 
 export const comp3 = f => g => h => x => f(g(h(x)));
@@ -2008,11 +2047,11 @@ export const debugIf = p => f => (...args) => {
 
 export const log = (x, tag = "") => {
   if (tag) console.log(
-    "███ LOG ███████████████████████████████████████████████████████████████████████",
+    `${"█".repeat(3)} LOG ${"█".repeat(71)}`,
     "\r\n", `${tag}:`, x, "\r\n");
 
   else console.log(
-    "███ LOG ███████████████████████████████████████████████████████████████████████",
+    `${"█".repeat(3)} LOG ${"█".repeat(71)}`,
     "\r\n", x, "\r\n");
 
   return x;
@@ -2022,8 +2061,16 @@ export const log = (x, tag = "") => {
 export const trace = x => {
   const s = JSON.stringify(x);
 
-  console.log("███ TRACE LOG █████████████████████████████████████████████████████████████████", "\r\n", x, "\r\n");
-  console.log("███ TRACE JSON ████████████████████████████████████████████████████████████████", "\r\n", s," \r\n");
+  console.log(
+    `${"█".repeat(3)} LOG ${"█".repeat(71)}`,
+    "\r\n", x, "\r\n"
+  );
+
+  console.log(
+    `${"█".repeat(3)} JSON ${"█".repeat(70)}`,
+    "\r\n", s," \r\n"
+  );
+
   return x;
 };
 
@@ -4138,6 +4185,11 @@ Cont.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
+/* The mother of all chains: Take a continuation (the previous computation) and
+a CPS function (the next computation yielding another continuation) and feed
+the CPS function into the previous continuation as soon as the next continuation
+is provided. */
+
 Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
 
 
@@ -4209,6 +4261,9 @@ Cont.withCont = f => mx => Cont(comp(mx.run) (f));
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+Cont.get = tx => Cont(k => k(tx.run));
 
 
 /* There is no category for continuations because there is no compose operator.
