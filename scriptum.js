@@ -272,8 +272,9 @@ export const consn = (_case, ...ks) => {
 };
 
 
-/* External catamorphism for all types that resemble variant types. It only
-accept functions as arguments, no constants. */
+/* General catamorphism for all types that resemble variant types. It only
+accept functions as arguments, no constants. Most suitable for types in
+Javascript that encode certain control flow effects like `Null` or `Error`. */
 
 export const cata = (...ks) => dict => {
   if (DEBUG) {
@@ -1131,21 +1132,21 @@ export const gt = x => y => x > y;
 export const gte = x => y => x >= y;
 
 
-export const iff = (t, f) => x => y => {
+export const iff = ({true: t, false: f}) => x => y => {
   if (x && y) return t;
   else if (!x && !y) return t;
   else return f;
-}
+};
 
 
-export const implies = (t, f) => x => y => {
+export const implies = ({true: t, false: f}) => x => y => {
   if (x) {
     if (y) return t;
     else return f;
   }
 
   else return t;
-}
+};
 
 
 export const lt = x => y => x < y;
@@ -1160,22 +1161,32 @@ export const max = x => y => x >= y ? x : y;
 export const min = x => y => x <= y ? x : y;
 
 
-export const notEq = x => y => x !== y;
+export const neq = x => y => x !== y;
 
 
 /* Since `!==` cannot be intercepted by proxies, implicit thunks are not forced
 to WHNF. Hence the strict evaluation of operands. */
 
-export const notEq_ = f => g => f() !== g();
+export const neq_ = f => g => f() !== g();
 
 
 export const or = f => g => f() || g();
 
 
-export const xor = x => y => {
+export const xor = ({true: t, false: f}) => x => y => {
+  if (x && !y) return t;
+  else if (!x && y) return t;
+  else return f;
+};
+
+
+/* Variant of exclusive or that similar to con-/disjunctions either returns one
+of the two provided values or the default one. */
+
+export const xor_ = _default => x => y => {
   if (x && !y) return x;
   else if (!x && y) return y;
-  else return Null;
+  else return _default;
 };
 
 
@@ -9550,6 +9561,38 @@ Parser.dropUntil = parser => Parser(rest => state => {
       none: q => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state}))
     }));
   }) (rest, state);
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ SELECT ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// backtracking search as a monad (experimental)
+
+
+const Select = k => {
+  const o = {run: k};
+  return o;
+};
+
+
+Select.of = x => Select(_ => x);
+
+
+Select.map = f => tx => Select(f(tx.run(pipe(f))));
+
+
+Select.ap = tf => tx => Select(k => {
+  const choose = f => f(tx.run(x => k(f(x))));
+  return choose(tf.run(x => k(choose(x))));
+});
+  
+
+Select.chain = mf => gm => Select(k => {
+  const choose = x => gm(x).run(k);
+  return choose(mf.run(x => k(choose(x))));
 });
 
 
