@@ -42,6 +42,9 @@ export const NOT_FOUND = -1; // native search protocol
 export const TAG = Symbol.toStringTag;
 
 
+export const VAL = PREFIX + "value";
+
+
 /*
 █████ Native Order Protocol ███████████████████████████████████████████████████*/
 
@@ -86,19 +89,39 @@ export const ANY = PREFIX + "*";
 Most native Javascript types are products. */
 
 
-export const product = tag => (...ks) => o => {
+export const product = tag => (...ks) => (...vs) => {
+  if (ks.length !== vs.length)
+    throw new Err(`insufficient arguments`);
+
+  const o = ks.reduce((acc, k,i) => (acc[k] = vs[i], acc), {});
+
+  o.run = f => f(o); // variant compliant
+  Object.defineProperty(o, TAG, {value: tag});
+  return o;
+};
+
+
+// more general product type definitions (e.g. with lazy getters)
+
+export const product_ = tag => (...ks) => o => {
   if (DEBUG) {
     for (const k of ks)
       if (!(k in o)) throw new Err(`missing value "${k}"`);
   }
 
-  const p = {
-    get: o,
-    run: f => f(o)
-  };
-
-  Object.defineProperty(p, TAG, {value: tag});
+  o.run = f => f(o); // variant compliant
+  Object.defineProperty(o, TAG, {value: tag});
   return p;
+};
+
+
+// unary product type for convenience
+
+export const product1 = tag => x => {
+  const o = {run: x};
+
+  Object.defineProperty(o, TAG, {value: tag});
+  return o;
 };
 
 
@@ -115,10 +138,9 @@ variants. You can use them as follows:
   const tx = Option.Some(5),
     ty = Option.None;
 
-  // direct access to values via the `get` property
-
-  tx.get; // yields 5
-  ty.get; // yields null
+  /* There is no direct access to the inner value of a variant type. How need
+  to pass a function to the `run` method to inspect it. While debugging you can
+  inspect the inner value using the `VAL` property key, though.
 
   // indirect access by providing a type dictionary to the `run` property
 
@@ -191,12 +213,15 @@ export const constant = _case => {
   const o = {
     [_case]: (tag, k) => {
       const p = {
-        get: constant,
         run: ({[k]: x}) => x,
         tag: _case
       };
 
-      Object.defineProperty(p, TAG, {value: tag});
+      Object.defineProperties(p, {
+        [TAG]: {value: tag},
+        [VAL]: {value: Null}
+      });
+
       return p;
     }
   };
@@ -211,12 +236,15 @@ export const cons = _case => {
   const o = {
     [_case]: (tag, k) => x => {
       const p = {
-        get: x,
         run: ({[k]: f}) => f(x),
         tag: _case
       };
 
-      Object.defineProperty(p, TAG, {value: tag});
+      Object.defineProperties(p, {
+        [TAG]: {value: tag},
+        [VAL]: {value: x}
+      });
+
       return p;
     }
   };
@@ -231,12 +259,15 @@ export const cons2 = _case => {
   const o = {
     [_case]: (tag, k) => x => y => {
       const p = {
-        get: [x, y],
         run: ({[k]: f}) => f(x) (y),
         tag: _case
       };
 
-      Object.defineProperty(p, TAG, {value: tag});
+      Object.defineProperties(p, {
+        [TAG]: {value: tag},
+        [VAL]: {value: [x, y]}
+      });
+
       return p;
     }
   };
@@ -258,12 +289,15 @@ export const consn = (_case, ...ks) => {
       }
 
       const p = {
-        get: o,
         run: ({[k]: f}) => f(o),
         tag: _case
       };
 
-      Object.defineProperty(p, TAG, {value: tag});
+      Object.defineProperties(p, {
+        [TAG]: {value: o},
+        [VAL]: {value: Null}
+      });
+
       return p;
     }
   };
@@ -666,7 +700,10 @@ export const introspect = x => {
 
       // product/variant type
 
-      if ("run" in x && "get" in x) return `${t2}<${introspect(x.get)}>`;
+      if ("run" in x) {
+        if (VAL in x) return `${t2}<${introspect(x[VAL])}>`; // variant
+        else return `${t2}<${introspect.obj(x)}>`; // product
+      }
 
       else {
         switch (t2) {
@@ -1341,7 +1378,7 @@ export const Reify = t => ({
   app_: x => Reify(y => t(y) (x)), // applies the 2nd arg of the boxed fun
   map: f => Reify(f(t)),  // applies the fun
   map_: f => Reify(x => f(x) (t)), // applies the 2nd arg of the fun
-  get: t // gets the boxed value
+  retrieve: t // retrieves the boxed value
 });
 
 
@@ -2465,19 +2502,22 @@ F.Contra = F.Contra();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* With the reader transformer `r -> m a` the base monad `m` isn't on the
-outside but in the codomain of the function. This way the inner monad (`r ->`)
-is applied before the base monad. Applying the inner monad means to implicitly
-pass an argument, which from the perspetive of the base monad acts like a
-read-only environment. */
+/* The reader monad expects like any monad a continuation (`f`) and a Kleisli
+function that produces a continuation when fed with a value (`g`):
+
+  Monad m =>  m    a  -> (a ->  m    b)  -> m    b
+             (e -> a) -> (a -> (e -> b)) -> e -> b
+  //          ^^^^^^      ^^^^^^^^^^^^^     
+              f       =>  g              => x => g(f(x)) (x)
+
+The monad portion of the type is just `e ->`. What it does is implicitly
+feeding an argument `e` both to the continuation and the Kleisli function. This
+is helpful when you need an argument at the innermost function of a deferred
+function call tree. `e` is called the environment because it acts like a read-
+only environment to the function composition. */
 
 
-export const Reader = fmm => { // constructor
-  const o = {run: fmm};
-
-  Object.defineProperty(o, TAG, {value: "Reader"});
-  return o;
-};
+export const Reader = product1("Reader");
 
 
 export const R = Reader; // shortcut
@@ -2613,12 +2653,7 @@ R.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const State = fmm => { // constructor
-  const o = {run: fmm};
-
-  Object.defineProperty(o, TAG, {value: "State"});
-  return o;
-};
+export const State = product1("State");
 
 
 export const St = State; // shortcut
@@ -3799,19 +3834,28 @@ Use `Stream` for synchronous data streams and `Observable` for asynchronous
 event streams. */
 
 
-export const Behavior = init => behave => ({ // constructor
-  [Symbol.toStringTag]: "Behavior",
-  
-  get run() {
-    delete this.run;
-    const  {state, cancel} = behave(init);
-    Object.defineProperty(this, "run", {get() {return state.run}});
-    this.cancel = cancel;
-    return init;
-  },
+// smart constructor
 
-  cancel() {}
-});
+export const Behavior = init => behave => {
+  const o = {
+    get run() {
+      delete this.run;
+      const  {state, cancel} = behave(init);
+
+      Object.defineProperty(this, "run", {
+        get() {return state.run}
+      });
+      
+      this.cancel = cancel;
+      return init;
+    },
+
+    cancel() {}
+  };
+
+  Object.defineProperty(o, TAG, {value: "Behavior"});
+  return o;
+};
 
 
 export const Be = Behavior; // shortcut
@@ -3825,12 +3869,7 @@ export const Be = Behavior; // shortcut
 // encodes the composition of functors
 
 
-export const Comp = ttx => {
-  const o = {run: ttx};
-
-  Object.defineProperty(o, TAG, {value: "Comp"});
-  return o;
-};
+export const Comp = product1("Comp");
 
 
 /*
@@ -3880,12 +3919,7 @@ Comp.Applicative = {
 // encodes constant behavior in the realm of functors/monads
 
 
-export const Const = x => {
-  const o = {run: x};
-
-  Object.defineProperty(o, TAG, {value: "Const"});
-  return o;
-};
+export const Const = product1("Const");
 
 
 /*
@@ -3978,12 +4012,7 @@ Continuations can also be used to handle nested effects:
   zs.run(console.log); // yields [1, 4, Null, 16, 25] */
 
 
-export const Cont = k => {
-  const o = {run: k};
-
-  Object.defineProperty(o, TAG, {value: "Cont"});
-  return o;
-};
+export const Cont = product1("Cont");
 
 
 /*
@@ -4817,12 +4846,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 // encodes the absence of any effects in the realm of functors/monads
 
 
-export const Id = x => {
-  const o = {run: x};
-
-  Object.defineProperty(o, TAG, {value: "Id"});
-  return o;
-};
+export const Id = product1("Id");
 
 
 /*
@@ -5838,12 +5862,7 @@ Which list like structure for what task:
   * DList: append, cons/snoc */
 
 
-export const DList = f => {
-  const o = {run: f};
-
-  Object.defineProperty(o, TAG, {value: "DList"});
-  return o;
-};
+export const DList = product1("DList");
 
 
 /*
@@ -5907,7 +5926,8 @@ scope(() => {
   class Cons extends Array {
     constructor(x, xs) {
       super(x, xs);
-      Object.defineProperty(this, TAG, {value: "Cons"});
+      Object.defineProperty(this, TAG, {value: "NonEmpty"});
+      this.tag = "Cons";
       Object.freeze(this);
     }
     
@@ -5945,7 +5965,8 @@ scope(() => {
       
       else {
         super(x, []);
-        Object.defineProperty(this, TAG, {value: "Eol"});
+        Object.defineProperty(this, TAG, {value: "NonEmpty"});
+        this.tag = "Eol";
         Object.freeze(this);
       }
     }
@@ -6755,8 +6776,12 @@ Nat.cata = cata_("zero", "succ") (dict => n => {
 
 
 // safe numbers that avoid floating point issues with arithmetics
+
+
 // TODO: add negative integers
 
+
+// smart constructor
 
 export const SafeNum = (int, dec) => {
   dec = dec.padEnd(Snum.precision_, "0");
@@ -7041,19 +7066,15 @@ O.toPairs = Object.entries;
 
 O.new = (tag = Null) => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
-    throw new Err("keys don't match values");
-
-  const o = scope(() => {
-    const p = {};
-
-    if (tag === Null) return p;
-    else return Object.defineProperty(p, TAG, {value: tag});
-  });
+    throw new Err("malformed product type");
     
   return ks.reduce((acc, k, i) => {
     acc[k] = vs[i];
     return acc;
-  }, o);
+  }, {});
+
+  if (tag !== Null) Object.defineProperty(o, TAG, {value: tag});
+  return o;
 };
 
 
@@ -7183,7 +7204,7 @@ O.valueStream = o => {
 
 O.lazyProp = k => thunk => o =>
   Object.defineProperty(o, k, {
-    get: function() {delete o[k]; return o[k] = thunk()},
+    get() {delete o[k]; return o[k] = thunk()},
     configurable: true,
     enumerable: true});
 
@@ -7216,12 +7237,7 @@ Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
 chaging values. */
 
 
-export const Observable = observe => { // constructor
-  const o = {run: observe};
-
-  Object.defineProperty(o, TAG, {value: "Observable"});
-  return o;  
-};
+export const Observable = product1("Observable");
 
 
 export const Ob = Observable; // shortcut
@@ -7533,12 +7549,7 @@ const tz = comp(
 Optic.defocus(tz); // {foo: {}} */
 
 
-export const Optic = (x, parent) => {
-  const o = {run: x, parent};
-
-  Object.defineProperty(o, TAG, {value: "Optic"});
-  return o;  
-};
+export const Optic = product1("Optic");
 
 
 /*
@@ -7984,6 +7995,8 @@ Opt.T = outer => thisify(o => { // outer monad's type dictionary
 comprehensive information. */
 
 
+// smart constructor
+
 export const Parallel = k => {
   const o = {
     run: k,
@@ -8324,6 +8337,8 @@ P.anyList = P.anyList();
 // like `Parallel` but augmented with an `Except` transformer
 
 
+// monad transformer stack
+
 export const ParallelExcept = Except.T(Parallel) (mmx => {
   const o = {run: mmx};
 
@@ -8536,6 +8551,8 @@ Pex.allList = Pex.allList();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// smart constructor
+
 export const Pair = (x, y) => {
   const o = {
     0: x, 1: y, length: 2,
@@ -8551,7 +8568,7 @@ export const Pair = (x, y) => {
 };
 
 
-// constructor to define lazy getters
+// smart constructor to define lazy getters
 
 export const Pair_ = o => {
   Object.defineProperty(o, TAG, {value: "Pair"});
@@ -8711,12 +8728,7 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Writer = mmx => { // constructor
-  const o = {run: mmx};
-
-  Object.defineProperty(o, TAG, {value: "Writer"});
-  return o;  
-};
+export const Writer = product1("Writer");
 
 
 export const W = Writer; // shortcut
@@ -8883,18 +8895,16 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 `Parser` is an applicative variant. */
 
 
-const Parser = f => {
-  const o = {run: f};
-
-  Object.defineProperty(o, TAG, {value: "Parser"});
-  return o;  
-};
+export const Parser = product1("Parser");
 
 
 Parser.Result = {}; // namespace
 
 
 // value constructors
+
+
+// TODO: incomplete, requires revision
 
 
 Parser.Result.Error = ({rest, state, msg}) => {
@@ -9644,13 +9654,31 @@ Parser.dropUntil = parser => Parser(rest => state => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// backtracking search as a monad (experimental)
+/* Backtracking search as a monad (experimental). Schematic usage:
+
+  // always select an element
+
+  const elementSelect = domain => new Select(epsilon(domain));
+
+  
+  const selectSequence = domain => new Select(k => {
+    
+    // base case
+
+    if (!domain.length || !k([])) return [];
+
+    // recursive case
+
+    const tx = Select.chain(selectElement(domain)) (choice => {
+      prepend(choice);
+      return selectSequence(domain.filter(x => x !== choice));
+    });
+
+    return tx.run(k);
+  }); */
 
 
-const Select = k => {
-  const o = {run: k};
-  return o;
-};
+export const Select = product1("Select");
 
 
 Select.of = x => Select(_ => x);
@@ -9701,6 +9729,8 @@ because `Serial` doesn't rely on return values.
 invoked several times and thus the corresponding async computation is evaluated
 several times. `runOnce` enforces zero or at most one evaluation. */
 
+
+// smart constructor
 
 export const Serial = k => {
   const o = {
@@ -9936,6 +9966,8 @@ S.allList = S.allList();
 // like `Serial` but augmented with an `Except` transformer
 
 
+// monad transformer stack
+
 export const SerialExcept = Except.T(Serial) (mmx => {
   const o = {run: mmx};
 
@@ -10072,8 +10104,7 @@ time chaging values. */
 export const Stream = {}; // namespace
 
 
-// value constructors
-
+// smart constructor
 
 Stream.Step = x => f => {
   const o = {
@@ -10915,6 +10946,8 @@ data structures. */
 const Tree = {};
 
 
+// smart constructor
+
 Tree.Empty = thisify(o => {
   Object.defineProperty(o, TAG, {value: "Tree"});
   o.tag = "Empty";
@@ -11281,12 +11314,7 @@ Tree.nodes = Tree.cata({
 the composition cannot be defined manually upfront but only at runtime. */
 
 
-export const Yoneda = k => {
-  const o = {run: k};
-
-  Object.defineProperty(o, TAG, {value: "Yoneda"});
-  return o;
-};
+export const Yoneda = product1("Yoneda");
 
 
 export const Yo = Yoneda; // shortcut
