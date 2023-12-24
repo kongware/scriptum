@@ -95,7 +95,7 @@ export const product = tag => (...ks) => (...vs) => {
 
   const o = ks.reduce((acc, k,i) => (acc[k] = vs[i], acc), {});
 
-  o.run = f => f(o); // variant compliant
+  o.run = o; // variant compliant
   Object.defineProperty(o, TAG, {value: tag});
   return o;
 };
@@ -117,7 +117,7 @@ export const product_ = tag => (...ks) => o => {
 
 // unary product type for convenience
 
-export const product1 = tag => x => {
+export const type = tag => x => {
   const o = {run: x};
 
   Object.defineProperty(o, TAG, {value: tag});
@@ -294,8 +294,8 @@ export const consn = (_case, ...ks) => {
       };
 
       Object.defineProperties(p, {
-        [TAG]: {value: o},
-        [VAL]: {value: Null}
+        [TAG]: {value: tag},
+        [VAL]: {value: o}
       });
 
       return p;
@@ -304,6 +304,10 @@ export const consn = (_case, ...ks) => {
 
   return o[_case];
 };
+
+
+/*
+█████ Catamorphism ████████████████████████████████████████████████████████████*/
 
 
 /* General catamorphism for all types that resemble variant types. It only
@@ -1245,7 +1249,7 @@ export const iff = ({true: t, false: f}) => x => y => {
 };
 
 
-export const implies = ({true: t, false: f}) => x => y => {
+export const imply = ({true: t, false: f}) => x => y => {
   if (x) {
     if (y) return t;
     else return f;
@@ -2517,7 +2521,7 @@ function call tree. `e` is called the environment because it acts like a read-
 only environment to the function composition. */
 
 
-export const Reader = product1("Reader");
+export const Reader = type("Reader");
 
 
 export const R = Reader; // shortcut
@@ -2653,7 +2657,7 @@ R.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const State = product1("State");
+export const State = type("State");
 
 
 export const St = State; // shortcut
@@ -3869,7 +3873,7 @@ export const Be = Behavior; // shortcut
 // encodes the composition of functors
 
 
-export const Comp = product1("Comp");
+export const Comp = type("Comp");
 
 
 /*
@@ -3919,7 +3923,7 @@ Comp.Applicative = {
 // encodes constant behavior in the realm of functors/monads
 
 
-export const Const = product1("Const");
+export const Const = type("Const");
 
 
 /*
@@ -4012,7 +4016,7 @@ Continuations can also be used to handle nested effects:
   zs.run(console.log); // yields [1, 4, Null, 16, 25] */
 
 
-export const Cont = product1("Cont");
+export const Cont = type("Cont");
 
 
 /*
@@ -4846,7 +4850,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 // encodes the absence of any effects in the realm of functors/monads
 
 
-export const Id = product1("Id");
+export const Id = type("Id");
 
 
 /*
@@ -5862,7 +5866,7 @@ Which list like structure for what task:
   * DList: append, cons/snoc */
 
 
-export const DList = product1("DList");
+export const DList = type("DList");
 
 
 /*
@@ -7061,24 +7065,6 @@ O.toPairs = Object.entries;
 
 
 /*
-█████ Instantiation ███████████████████████████████████████████████████████████*/
-
-
-O.new = (tag = Null) => (...ks) => (...vs) => {
-  if (ks.length !== vs.length)
-    throw new Err("malformed product type");
-    
-  return ks.reduce((acc, k, i) => {
-    acc[k] = vs[i];
-    return acc;
-  }, {});
-
-  if (tag !== Null) Object.defineProperty(o, TAG, {value: tag});
-  return o;
-};
-
-
-/*
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
@@ -7237,7 +7223,7 @@ Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
 chaging values. */
 
 
-export const Observable = product1("Observable");
+export const Observable = type("Observable");
 
 
 export const Ob = Observable; // shortcut
@@ -7549,7 +7535,7 @@ const tz = comp(
 Optic.defocus(tz); // {foo: {}} */
 
 
-export const Optic = product1("Optic");
+export const Optic = type("Optic");
 
 
 /*
@@ -8728,7 +8714,7 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-export const Writer = product1("Writer");
+export const Writer = type("Writer");
 
 
 export const W = Writer; // shortcut
@@ -8895,7 +8881,7 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 `Parser` is an applicative variant. */
 
 
-export const Parser = product1("Parser");
+export const Parser = type("Parser");
 
 
 Parser.Result = {}; // namespace
@@ -9650,6 +9636,218 @@ Parser.dropUntil = parser => Parser(rest => state => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ PREDICATE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Pred = type("Pred")
+
+
+Pred.Branch = variant("Pred.Branch", cons("Then"), cons("Else"));
+
+
+Pred.then = Pred(x => Pred.Branch.Then(x));
+
+
+Pred.else = Pred(x => Pred.Branch.Else(x));
+
+
+/*
+█████ Boolean Logic ███████████████████████████████████████████████████████████*/
+
+
+Pred.iff = tx => ty => x => tx.run(x).run({
+  then: y => ty.run(y).run({
+    then: Pred.then,
+    else: Pred.else
+  }),
+
+  else: y => ty.run(y).run({
+    then: Pred.else,
+    else: Pred.then
+  })
+});
+
+
+Pred.imply = tx => ty => x => tx.run(x).run({
+  then: y => ty.run(y).run({
+    then: Pred.then,
+    else: Pred.else
+  }),
+
+  else: Pred.then
+});
+
+
+Pred.not = tx => x => tx.run(x).run({
+  then: Pred.else,
+  else: Pred.then
+});
+
+
+/*
+█████ Backtracking (Enumeration) ██████████████████████████████████████████████*/
+
+
+// determine all possible solutions in a given search space
+
+// TODO
+
+
+/*
+█████ Backtracking (Feasable Solution) ████████████████████████████████████████*/
+
+
+// determine the first feasable solution in a search space and short circuit
+
+
+// TODO
+
+
+/*
+█████ Backtracking (Optimal Solution) █████████████████████████████████████████*/
+
+
+// determine the best solution in a search space (global maxima)
+
+
+// TODO
+
+
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+Pred.all = preds => x => {
+  let tx;
+
+  for (const pred of preds) {
+    tx = pred.run(x).run({
+      then: y => Pred.Branch.Then(y),
+      else: y => Pred.Branch.Else(y)
+    });
+
+    if (tx.tag === "Else") return tx;
+  }
+
+  return tx;
+};
+
+
+Pred.and = tx => ty => x => tx.run(x).run({
+  then: y => ty.run(y).run({
+    then: Pred.then,
+    else: Pred.else
+  }),
+
+  else: y => Pred.else
+});
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Pred.fromPred = pred => x => pred(x)
+  ? Pred.Branch.Then(x) : Pred.Branch.Else(x);
+
+
+Pred.fromBool = x => x
+  ? Pred.Branch.Then(x) : Pred.Branch.Else(x);
+
+
+Pred.toBool = tx => tx.run({then: _ => true, else: _ => false});
+
+
+Pred.if = Pred.fromPred;
+
+
+Pred.if_ = Pred.fromBool;
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+Pred.any = preds => x => {
+  let tx;
+
+  for (const pred of preds) {
+    tx = pred.run(x).run({
+      then: y => Pred.Branch.Then(y),
+      else: y => Pred.Branch.Else(y)
+    });
+
+    if (tx.tag === "Then") return tx;
+  }
+
+  return tx;
+};
+
+
+Pred.or = tx => ty => x => tx.run(x).run({
+  then: y => Pred.then,
+
+  else: y => ty.run(y).run({
+    then: Pred.then,
+    else: Pred.else
+  })
+});
+
+
+/*
+█████ Semigroup (Conjunction) █████████████████████████████████████████████████*/
+
+
+Pred.Con = {};
+
+
+Pred.Con.append = Pred.and;
+
+
+Pred.Con.Semigroup = {append: Pred.Con.append};
+
+
+/*
+█████ Monoid (Conjunction) ████████████████████████████████████████████████████*/
+
+
+Pred.Con.empty = Pred.then;
+
+
+Pred.Con.Monoid = {
+  ...Pred.Con.Semigroup,
+  empty: Pred.Con.empty
+};
+
+
+/*
+█████ Semigroup (Disjunction) █████████████████████████████████████████████████*/
+
+
+Pred.Dis = {};
+
+
+Pred.Dis.append = Pred.or;
+
+
+Pred.Dis.Semigroup = {append: Pred.Dis.append};
+
+
+/*
+█████ Monoid (Disjunction) ████████████████████████████████████████████████████*/
+
+
+Pred.Dis.empty = Pred.else;
+
+
+Pred.Dis.Monoid = {
+  ...Pred.Dis.Semigroup,
+  empty: Pred.Dis.empty
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ SELECT ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -9678,7 +9876,7 @@ Parser.dropUntil = parser => Parser(rest => state => {
   }); */
 
 
-export const Select = product1("Select");
+export const Select = type("Select");
 
 
 Select.of = x => Select(_ => x);
@@ -11314,7 +11512,7 @@ Tree.nodes = Tree.cata({
 the composition cannot be defined manually upfront but only at runtime. */
 
 
-export const Yoneda = product1("Yoneda");
+export const Yoneda = type("Yoneda");
 
 
 export const Yo = Yoneda; // shortcut
@@ -11488,7 +11686,7 @@ export const FileSys = fs => Cons => thisify(o => {
         * backtracking (undoing previous decisions)
         * search space: all permutations of candidates and choices
         * optimal solution: most effective/efficient solution
-        * greedy algos fail, because they chose local maxima to get global maxima
+        * greedy algos fail, because they choose local maxima to get global maxima
         * backtracking is not a brute force algo bc it skips canidates
           * you can also shape the search space
         * recursive algo
@@ -11496,7 +11694,11 @@ export const FileSys = fs => Cons => thisify(o => {
         * decision problem
         * optimization problem
         * enumeration problem
-      * depth-first approach (fair approach mitigates downsides)
+      * depth-first approach
+        * fair approach considers at least first level of breadth
+        * exclusive branching/choice (pruning choices): if/else
+        * inclusive branching/choice (enumerate choices): if/if
+        * if represent deterministic, depth first pruning (backtracking)
       * alternative strategies:
         * divide and conquer
         * exhaustive search (no unwinding/declining of candidates)
