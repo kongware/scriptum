@@ -9640,159 +9640,74 @@ Parser.dropUntil = parser => Parser(rest => state => {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// dynamic predicates
+
+
 export const Pred = type("Pred")
-
-
-Pred.Branch = variant("Pred.Branch", cons("Then"), cons("Else"));
-
-
-Pred.then = Pred(x => Pred.Branch.Then(x));
-
-
-Pred.else = Pred(x => Pred.Branch.Else(x));
 
 
 /*
 █████ Boolean Logic ███████████████████████████████████████████████████████████*/
 
 
-Pred.iff = tx => ty => x => tx.run(x).run({
-  then: y => ty.run(y).run({
-    then: Pred.then,
-    else: Pred.else
-  }),
+Pred.iff = tx => ty => Pred(x => {
+  if (tx.run(x) === true && ty.run(x) === true)
+    return true;
 
-  else: y => ty.run(y).run({
-    then: Pred.else,
-    else: Pred.then
-  })
+  else if (tx.run(x) === false && ty.run(x) === false)
+    return false;
 });
 
 
-Pred.imply = tx => ty => x => tx.run(x).run({
-  then: y => ty.run(y).run({
-    then: Pred.then,
-    else: Pred.else
-  }),
+Pred.imply = tx => ty => Pred(x => {
+  if (tx.run(x) === true && ty.run(x) !== true)
+    return false;
 
-  else: Pred.then
+  else return true;
 });
 
 
-Pred.not = tx => x => tx.run(x).run({
-  then: Pred.else,
-  else: Pred.then
-});
-
-
-/*
-█████ Backtracking (Enumeration) ██████████████████████████████████████████████*/
-
-
-// determine all possible solutions in a given search space
-
-// TODO
-
-
-/*
-█████ Backtracking (Feasable Solution) ████████████████████████████████████████*/
-
-
-// determine the first feasable solution in a search space and short circuit
-
-
-// TODO
-
-
-/*
-█████ Backtracking (Optimal Solution) █████████████████████████████████████████*/
-
-
-// determine the best solution in a search space (global maxima)
-
-
-// TODO
+Pred.not = tx => Pred(x => !tx.run(x));
 
 
 /*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-Pred.all = preds => x => {
-  let tx;
+Pred.all = xs => Pred(x => {
+  for (const tx of xs)
+    if (tx.run(x) === false) return false;
 
-  for (const pred of preds) {
-    tx = pred.run(x).run({
-      then: y => Pred.Branch.Then(y),
-      else: y => Pred.Branch.Else(y)
-    });
-
-    if (tx.tag === "Else") return tx;
-  }
-
-  return tx;
-};
-
-
-Pred.and = tx => ty => x => tx.run(x).run({
-  then: y => ty.run(y).run({
-    then: Pred.then,
-    else: Pred.else
-  }),
-
-  else: y => Pred.else
+  return true;
 });
 
 
+Pred.and = tx => ty => Pred(x => tx.run(x) && ty.run(x));
+
+
 /*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
+█████ Constant ████████████████████████████████████████████████████████████████*/
 
 
-Pred.fromPred = pred => x => pred(x)
-  ? Pred.Branch.Then(x) : Pred.Branch.Else(x);
+Pred.then = x => true;
 
 
-Pred.fromBool = x => x
-  ? Pred.Branch.Then(x) : Pred.Branch.Else(x);
-
-
-Pred.toBool = tx => tx.run({then: _ => true, else: _ => false});
-
-
-Pred.if = Pred.fromPred;
-
-
-Pred.if_ = Pred.fromBool;
+Pred.else = x => false;
 
 
 /*
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
-Pred.any = preds => x => {
-  let tx;
+Pred.any = preds => Pred(x => {
+  for (const tx of xs)
+    if (tx.run(x) === true) return true;
 
-  for (const pred of preds) {
-    tx = pred.run(x).run({
-      then: y => Pred.Branch.Then(y),
-      else: y => Pred.Branch.Else(y)
-    });
-
-    if (tx.tag === "Then") return tx;
-  }
-
-  return tx;
-};
-
-
-Pred.or = tx => ty => x => tx.run(x).run({
-  then: y => Pred.then,
-
-  else: y => ty.run(y).run({
-    then: Pred.then,
-    else: Pred.else
-  })
+  return false;
 });
+
+
+Pred.or = tx => ty => Pred(x => tx.run(x) || ty.run(x);
 
 
 /*
@@ -11723,5 +11638,4 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
   * add flipped chain method to chain class
   * define TAG through `Object.defineProperty`
-
 */
