@@ -1283,6 +1283,18 @@ export const neq_ = f => g => f() !== g();
 export const notBetween = ({lower, upper}) => x => x < lower || y > upper;
 
 
+export const order = ({lt, eq, gt}) => x => y =>
+  x < y ? lt(Pair(x, y))
+    : x > y ? gt(Pair(x, y))
+    : eq(Pair(x, y));
+
+
+export const orderOn = Order => ({lt, eq, gt}) => x => y =>
+  Order.lt(x) (y) ? lt(Pair(x, y))
+    : Order.gt(x) (y) ? gt(Pair(x, y))
+    : eq(Pair(x, y));
+
+
 export const xor = ({true: t, false: f}) => x => y => {
   if (x && !y) return t;
   else if (!x && y) return t;
@@ -9643,7 +9655,7 @@ Parser.dropUntil = parser => Parser(rest => state => {
 // dynamic predicates
 
 
-export const Pred = type("Pred")
+export const Pred = type("Pred");
 
 
 /*
@@ -9707,7 +9719,7 @@ Pred.any = preds => Pred(x => {
 });
 
 
-Pred.or = tx => ty => Pred(x => tx.run(x) || ty.run(x);
+Pred.or = tx => ty => Pred(x => tx.run(x) || ty.run(x));
 
 
 /*
@@ -11638,4 +11650,5 @@ export const FileSys = fs => Cons => thisify(o => {
   * add Distributive type class
   * add flipped chain method to chain class
   * define TAG through `Object.defineProperty`
+
 */
