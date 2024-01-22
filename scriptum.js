@@ -1996,18 +1996,18 @@ maintaining a flat syntax. Creates the following function call structures:
   (x, f, y, g, z) => g(f(x) (y)) (z)
   (x, f, y, g, z) => g(z) (f(x) (y))
 
-There are two alternatives because binary functions can be composed in their
-first or second argument. `ap` of applicative, for instance, composes in the
-first argument, whereas functorial's `map` composes in the second one. */
+Classic function composition composes operators `comp`/`pipe` compose in their
+first argument just like applicative `ap`. Functorial `map`, however, composes
+in its second argument. */
 
-const _infix = compFst => (...args) => {
+const _infix = first => (...args) => {
   if (args.length === 0) throw new Err("no argument found");
 
   let i = 1, x = args[0];
 
   while (i < args.length) {
     if (i === 1) x = args[i++] (x) (args[i++]);
-    else if (compFst) x = args[i++] (x) (args[i++]);
+    else if (first) x = args[i++] (x) (args[i++]);
     else x = args[i++] (args[i++]) (x);
   }
 
@@ -4934,14 +4934,13 @@ Id.Monad = {
 /* The lazyness property of native iterators entail some pitfalls together with
 functional programming exercised in scriptum:
 
-* mapping over an iterator doesn't reconstruct the original data structure
-  because iterators abstract from any structure, e.g. `comp(It.strict) (f)`
-  doesn't work as expected but `It.strict(comp(f) (g))` does
-* it is the responsibiliy of the mapper that the outermost structure of the 
-  return value is the same as was previously fed into it, e.g. `[k, v]` can
-  change in `k`/`v` but not in `[]`
-* consumption functions must not be part of explicit composition using `comp`
-  or `pipe` but always the outermost function call */
+* it is the responsibiliy of the mapper to maintain the outermost structure of
+  the return value across generator function calls, e.g. with `[k, v]` the key
+  or value may change inside `[]` but not the array itself
+* strict functions must not be passed to `comp`/`pipe` as an argument but always
+  be the outermost function call
+* folds require only strict exhaustion with `It.strict` to obtain an accumulated
+  result value because they operate their own internal accumulator */
 
 
 export const It = {};
@@ -4978,55 +4977,6 @@ It.all = f => function* (ix) {
 
 
 /*
-█████ Consumption █████████████████████████████████████████████████████████████*/
-
-
-/* Force strict evaluation of lazy iterators and perform side effects but ignore
-values. */
-
-It.strict = ix => {
-  let acc;
-  for (acc of ix) continue;
-  return acc;
-};
-
-
-It.toArr = ix => {
-  const xs = [];
-  for (const x of ix) xs.push(x);
-  return xs;
-};
-
-
-It.toMap = ix => {
-  const m = new Map();
-  for (const [k, v] of ix) m.set(k, v);
-  return m;
-};
-
-
-It.toMultiMap = ix => {
-  const m = new MultiMap();
-  for (const [k, v] of ix) m.setItem(k, v);
-  return m;
-};
-
-
-It.toObj = ix => {
-  const o = {};
-  for (const [k, v] of ix) o[k] = v;
-  return o;
-};
-
-
-It.toSet = ix => {
-  const s = new Set();
-  for (const k of ix) s.add(k);
-  return s;
-};
-
-
-/*
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -5038,6 +4988,20 @@ It.any = f => function* (ix) {
   } while (!f(x));
 
   return true;
+};
+
+
+/*
+█████ Exhaustion ██████████████████████████████████████████████████████████████*/
+
+
+/* Force strict evaluation of lazy iterators and perform side effects but ignore
+values. */
+
+It.strict = ix => {
+  let acc;
+  for (acc of ix) continue;
+  return acc;
 };
 
 
@@ -5420,6 +5384,59 @@ It.takeWhile = p => function* (ix) {
     else if (p(x)) yield x;
     else return;
   } while (true);
+};
+
+
+/*
+█████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+It.toArr = ix => {
+  const xs = [];
+  for (const x of ix) xs.push(x);
+  return xs;
+};
+
+
+It.toArrOfKeys = ix => {
+  const xs = [];
+  for (const [k] of ix) xs.push(k);
+  return xs;
+};
+
+
+It.toArrOfValues = ix => {
+  const xs = [];
+  for (const [, v] of ix) xs.push(v);
+  return xs;
+};
+
+
+It.toMap = ix => {
+  const m = new Map();
+  for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
+
+
+It.toMultiMap = ix => {
+  const m = new MultiMap();
+  for (const [k, v] of ix) m.setItem(k, v);
+  return m;
+};
+
+
+It.toObj = ix => {
+  const o = {};
+  for (const [k, v] of ix) o[k] = v;
+  return o;
+};
+
+
+It.toSet = ix => {
+  const s = new Set();
+  for (const k of ix) s.add(k);
+  return s;
 };
 
 
@@ -7079,7 +7096,7 @@ O.fromArr = header => xs => {
   const o = {};
 
   for (let i = 0; i < xs.length; i++)
-    o[header.get(i)] = xs[i];
+    if (header.has(i)) o[header.get(i)] = xs[i];
 
   return o;
 };
