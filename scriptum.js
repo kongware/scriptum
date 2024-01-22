@@ -1385,23 +1385,6 @@ const PATTERN_MATCH = PREFIX + "pattern_match";
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████ REIFICATION █████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Reifies the object within a method chain thus enabling flat method chaining
-with access to the object itself by not relying on `this`. */
-
-export const Reify = t => ({
-  app: x => Reify(t(x)), // applies the boxed fun
-  app_: x => Reify(y => t(y) (x)), // applies the 2nd arg of the boxed fun
-  map: f => Reify(f(t)),  // applies the fun
-  map_: f => Reify(x => f(x) (t)), // applies the 2nd arg of the fun
-  retrieve: t // retrieves the boxed value
-});
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████ STACK SAFETY █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -1731,6 +1714,22 @@ Loopx2.base = function base(x) {
   return {[TAG]: "Loopx2", constructor: Loopx2.base, x};
 };
 
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ THIS █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// make the receiving object explicit thus dropping `this`
+
+export const This = t => ({
+  app: x => This(t(x)), // applies the boxed fun
+  app_: x => This(y => t(y) (x)), // applies the 2nd arg of the boxed fun
+  map: f => This(f(t)),  // applies the fun
+  map_: f => This(x => f(x) (t)), // applies the 2nd arg of the fun
+  unbox: t // retrieves the boxed value
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
