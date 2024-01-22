@@ -1219,7 +1219,10 @@ export const xor_ = _default => x => y => {
 export const between = ({lower, upper}) => x => x >= lower && y <= upper;
 
 
-export const compare = x => y => x < y ? LT : x > y ? GT : EQ;
+export const compareAsc = x => y => x < y ? LT : x > y ? GT : EQ;
+
+
+export const compareDesc = x => y => y < x ? LT : y > x ? GT : EQ;
 
 
 export const compareOn_ = () => compBoth(compare);
@@ -4359,10 +4362,10 @@ export const D = DateTime; // shortcut
 █████ Constants ███████████████████████████████████████████████████████████████*/
 
 
-D.timeStampDay = 86400000;
+D.timestampDay = 86400000;
 
 
-D.timeStampHour = 3600000;
+D.timestampHour = 3600000;
 
 
 /*
@@ -4390,7 +4393,7 @@ D.fromStr = s => {
 
 
 D.fromStrSafe = f => infix(
-  E.throw, comp, D.fromStr, comp, f);
+  E.throwOnErr, comp, D.fromStr, comp, f);
 
 
 /*
@@ -4637,7 +4640,7 @@ E.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-E.throw = tx => {
+E.throwOnErrOnErr = tx => {
   if (introspect.cons(tx) === "Error") throw tx;
   else return tx;
 };
@@ -6283,9 +6286,22 @@ export const _Map = {}; // namespace
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+_Map.fromArrOfObj = k => xs => xs.reduce((acc, o) => acc.set(o[k], o), new Map());
+
+
 // use iterator if each key/value pair is needed separately
 
 _Map.interconvert = f => m => new Map(f(Array.from(m)));
+
+
+// convert a map to an array ignoring the keys
+
+_Map.toArr = m => {
+  const xs = [];
+
+  for (const [k, v] of m) xs.push(v);
+  return xs;
+};
 
 
 /*
@@ -6349,8 +6365,8 @@ _Map.updOr = x => k => f => m => {
 It maintains the element order of deque operations. `id` is used to generate
 unique keys from the stored values and thus hide keys from the interface. If
 you want to use values as keys themselves, just pass the identity function.
-Please note that `push`/`pop` are way faster than `unshift`/`shift` due to the
-native array implementation in Javascript. */
+Useful if lots of lookups are performed but interstion order via `push`/`pop`
+and `shift`/`unshift` matters. */
 
 
 class DequeMap extends Map {
@@ -6623,7 +6639,7 @@ Num.fromStr = s => {
 
 
 Num.fromStrSafe = f => infix(
-  E.throw, comp, Num.fromStr, comp, f);
+  E.throwOnErr, comp, Num.fromStr, comp, f);
 
 
 /*
@@ -10720,7 +10736,7 @@ Str.normalizeDate = locale => s => {
 };
 
 
-Str.normalizeNumber = ({sep: {thd, dec}, places = 0}) => s => {
+Str.normalizeNum = ({sep: {thd, dec}, places = 0}) => s => {
   if (places > 0 && (thd !== "" || dec !== ""))
     throw new Err("invalid arguments");
 
@@ -11595,11 +11611,12 @@ export const FileSys = fs => Cons => thisify(o => {
       * terminology:
         * fuzzyfy (create a real number between 0..1)
         * defuzzyfy (create a crisp value)
-        * rule base
-        * inference engine based on rules (determines the matching degree)
-        * allows deductive thinking
+        * rule based: inference engine based on rules (determines the matching degree)
+        * allows deductive reasoing
       * fuzzy logical operators
       * fuzzy type-1/type-2 sets
+        * type-1 fuzzy sets are working with a fixed membership function
+        * type-2 fuzzy sets are working with a fluctuating membership function
       * set operations (union, intersection, difference, complement)
       * fuzzyfier: a function that creates a real number between 0..1
     * add backtracking types + operators
@@ -11631,6 +11648,7 @@ export const FileSys = fs => Cons => thisify(o => {
         * exhaustive search (no unwinding/declining of candidates)
         * dynamic programming algo (share intermediate results using memoization)
         * greedy algos (make decisions that give immediate benefit w/out reconsidering previous choices)
+          * gains local maxima
     * ambiguous relations (multi-map)
       * a key is associated to several distinct values (1:n)
       * several keys are associated to the same distinct value (m:1)
