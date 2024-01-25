@@ -4939,7 +4939,7 @@ functional programming exercised in scriptum:
   or value may change inside `[]` but not the array itself
 * strict functions must not be passed to `comp`/`pipe` as an argument but always
   be the outermost function call
-* folds require only strict exhaustion with `It.strict` to obtain an accumulated
+* folds require only strict exhaustion with `It.toAccum` to obtain an accumulated
   result value because they operate their own internal accumulator */
 
 
@@ -4988,20 +4988,6 @@ It.any = f => function* (ix) {
   } while (!f(x));
 
   return true;
-};
-
-
-/*
-█████ Exhaustion ██████████████████████████████████████████████████████████████*/
-
-
-/* Force strict evaluation of lazy iterators and perform side effects but ignore
-values. */
-
-It.strict = ix => {
-  let acc;
-  for (acc of ix) continue;
-  return acc;
 };
 
 
@@ -5233,6 +5219,17 @@ It.make = it => it[Symbol.iterator] ();
 
 
 /*
+█████ Iterate █████████████████████████████████████████████████████████████████*/
+
+
+// perform effects but discard values
+
+It.iterate = f => it => {
+  for (const x of it) f(x);
+};
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -5388,7 +5385,16 @@ It.takeWhile = p => function* (ix) {
 
 
 /*
-█████ Transformation ██████████████████████████████████████████████████████████*/
+█████ Transformation (Strict) █████████████████████████████████████████████████*/
+
+
+// transforms to the accumulator that is handled by the generator internally
+
+It.toAccum = ix => {
+  let acc;
+  for (acc of ix) continue;
+  return acc;
+};
 
 
 It.toArr = ix => {
@@ -5421,7 +5427,7 @@ It.toMap = ix => {
 
 It.toMultiMap = ix => {
   const m = new MultiMap();
-  for (const [k, v] of ix) m.setItem(k, v);
+  for (const [k, v] of ix) m.addItem(k, v);
   return m;
 };
 
@@ -6509,17 +6515,17 @@ class MultiMap extends Map {
   static fromTable(table, i) {
     const m = new MultiMap();
 
-    for (const cols of table) m.setItem(cols[i], cols);
+    for (const cols of table) m.addItem(cols[i], cols);
     return m;
-  };
+  }
 
 
   static fromTableBy(table, f, i) {
     const m = new MultiMap();
 
-    for (const cols of table) m.setItem(f(cols), cols);
+    for (const cols of table) m.addItem(f(cols), cols);
     return m;
-  };
+  }
 
 
   /*
@@ -6529,13 +6535,29 @@ class MultiMap extends Map {
   map(f) {
     const m = new MultiMap();
 
-    for (const [k, v] of this) m.setItem(k, f(v));
+    for (const [k, v] of this) m.addItem(k, f(v));
     return m;
   }
 
 
   /*
   █████ Getters/Setters ███████████████████████████████████████████████████████*/
+
+
+  // rely on reference identity
+
+  addItem(k, v) {
+    if (this.has(k)) {
+      const s = this.get(k);
+      s.add(v);
+      return this;
+    }
+
+    else {
+      this.set(k, new Set([v]));
+      return this;
+    }
+  }
 
 
   delItem(k, pred) {
@@ -6568,17 +6590,21 @@ class MultiMap extends Map {
   }
 
 
-  setItem(k, v) {
-    if (this.has(k)) {
-      const s = this.get(k);
-      s.add(v);
-      return this;
+  setItem(k, v, pred) {
+    const s = this.get(k);
+    let exists = false;
+
+    for (const v2 of s) {
+      if (pred(v2)) {
+        s.delete(v2);
+        s.add(v);
+        exists = true;
+        break;
+      }
     }
 
-    else {
-      this.set(k, new Set([v]));
-      return this;
-    }
+    if (!exists) s.add(v);
+    return this;
   }
 
 
@@ -6596,7 +6622,7 @@ class MultiMap extends Map {
   }
 
 
-  updItem(k, pred, f) {
+  updItem(k, f, pred) {
     const s = this.get(k);
 
     if (s === undefined) return s;
