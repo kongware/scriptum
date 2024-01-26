@@ -1216,7 +1216,7 @@ export const xor_ = _default => x => y => {
 █████ Boolean Logic ███████████████████████████████████████████████████████████*/
 
 
-export const between = ({lower, upper}) => x => x >= lower && y <= upper;
+export const between = ({lower, upper}) => x => x >= lower && x <= upper;
 
 
 export const compareAsc = x => y => x < y ? LT : x > y ? GT : EQ;
@@ -4992,6 +4992,19 @@ It.any = f => function* (ix) {
 
 
 /*
+█████ Evaluation (Strict) █████████████████████████████████████████████████████*/
+
+
+// evaluates to null on lack of value
+
+It.strict = ix => {
+  let acc = null;
+  for (acc of ix) continue;
+  return acc;
+};
+
+
+/*
 █████ Filterable ██████████████████████████████████████████████████████████████*/
 
 
@@ -5230,6 +5243,25 @@ It.iterate = f => it => {
 
 
 /*
+█████ Search ██████████████████████████████████████████████████████████████████*/
+
+
+It.find = p => function* (ix) {
+  do {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    
+    else if (p(x)) {
+      yield x;
+      return;
+    }
+
+  } while (true);
+};
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -5386,15 +5418,6 @@ It.takeWhile = p => function* (ix) {
 
 /*
 █████ Transformation (Strict) █████████████████████████████████████████████████*/
-
-
-// transforms to the accumulator that is handled by the generator internally
-
-It.toAccum = ix => {
-  let acc;
-  for (acc of ix) continue;
-  return acc;
-};
 
 
 It.toArr = ix => {
@@ -6529,18 +6552,6 @@ class MultiMap extends Map {
 
 
   /*
-  █████ Functor ███████████████████████████████████████████████████████████████*/
-
-
-  map(f) {
-    const m = new MultiMap();
-
-    for (const [k, v] of this) m.addItem(k, f(v));
-    return m;
-  }
-
-
-  /*
   █████ Getters/Setters ███████████████████████████████████████████████████████*/
 
 
@@ -6665,15 +6676,6 @@ export const Num = {}; // namespace
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-Num.fromSnum = tx => {
-  const s = String(tx.run),
-    int = s.slice(0, -Snum.precision_),
-    dec = s.slice(-Snum.precision_);
-
-  return Number(`${int}.${dec}`);
-};
-
-
 Num.fromStr = s => {
   if (/^(?:\+|\-)?\d+(?:\.\d+)?$/.test(s)) return Number(s);
   else return new Exception(`invalid number string: "${s}"`);
@@ -6688,37 +6690,34 @@ Num.fromStrSafe = f => infix(
 █████ Decimal Places ██████████████████████████████████████████████████████████*/
 
 
-/* Just patches patches the floating point issue most adequately without
-solving the underlying problem. */
-
-Num.decimalPatch = (k, n, digits) => {
-  const p = Math.pow(10, digits);
-
-  if (Math.round(n * p) / p === n)
-    return n;
-
-  const m = (n * p) * (1 + Number.EPSILON);
-  return Math[k] (m) / p;
+Num.ceil = decPlaces => n => {
+  // TODO
 };
 
 
-Num.ceil = digits => n =>
-  Num.decimalPatch("ceil", n, digits);
+Num.floor = decPlaces => n => {
+  // TODO
+}
 
 
-Num.floor = digits => n =>
-  Num.decimalPatch("floor", n, digits);
+Num.round = decPlaces => n => {
+  const factor = Number("1".padEnd(decPlaces + 1, "0")),
+    s = String(n * factor * 10).split(".") [0];
 
-
-Num.round = digits => n =>
-  Num.decimalPatch("round", n, digits);
+  switch (s[s.length - 1]) {
+    case "0":
+    case "1":
+    case "2":
+    case "3":
+    case "4": return Number(s.slice(0, -1)) / factor;
+    default: return n < 0
+      ? (Number(s.slice(0, -1)) - 1) / factor
+      : (Number(s.slice(0, -1)) + 1) / factor;
+  }
+};
 
 
 Num.round2 = Num.round(2);
-
-
-Num.trunc = digits => n =>
-  Num.decimalPatch("trunc", n, digits);
 
 
 /*
@@ -6797,7 +6796,7 @@ Num.formatFrac = digits => n =>
 
 
 Num.formatInt = sep => n =>
-  String(Num.trunc(0) (n))
+  String(Math.trunc(n))
     .replace(/^-/, "")
     .replace(new RegExp("(\\d)(?=(?:\\d{3})+$)", "g"), `$1${sep}`);
 
@@ -6807,6 +6806,13 @@ Num.formatSign = ({pos, neg}) => n =>
 
 
 Num.formatSep = sep => n => sep;
+
+
+Num.formatIso = Num.format(
+  Num.formatSign({pos: "", neg: "-"}),
+  Num.formatInt(""),
+  Num.formatSep("."),
+  Num.formatFrac(2));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6842,223 +6848,6 @@ Nat.cata = cata_("zero", "succ") (dict => n => {
 
   return r;
 });
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████ NUMBER :: SAFENUM ██████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// safe numbers that avoid floating point issues with arithmetics
-
-
-// TODO: add negative integers
-
-
-// smart constructor
-
-export const SafeNum = (int, dec) => {
-  dec = dec.padEnd(Snum.precision_, "0");
-
-  if (Snum.precision_ < dec.length)
-    throw new Err("unsufficient precision");
-
-  else {
-    const o = {
-      dec: dec.padEnd(Snum.precision_, "0"),
-      int,
-      run: BigInt(int + dec)
-    };
-
-    Object.defineProperty(o, TAG, {value: "SafeNum"});
-    return Object.freeze(o);
-  }
-};
-
-
-export const Snum = SafeNum;
-
-
-/*
-█████ Constants ███████████████████████████████████████████████████████████████*/
-
-
-Snum.precision = 10000; // four decimal points
-
-
-Snum.precision_ = String(Snum.precision).length - 1;
-
-
-/*
-█████ Arithmetics █████████████████████████████████████████████████████████████*/
-
-
-Snum.add = tx => ty => {
-  const s = String(tx.run + ty.run),
-    int = s.slice(0, -Snum.precision_),
-    dec = s.slice(-Snum.precision_);
-
-  return Snum(int, dec);
-};
-
-
-Snum.div = tx => ty => {
-  const [int, dec = ""] = String(Number(tx.run) / Number(ty.run)).split("."),
-    tz = Snum.round(Snum.precision_) ({int, dec});
-
-  return Snum(int, tz.dec);
-};
-
-
-Snum.mul = tx => ty => {
-  const s = String(tx.run * ty.run),
-    precision = tx.dec.length + ty.dec.length,
-    int = s.slice(0, -precision),
-    dec = s.slice(-precision);
-
-  return Snum.round(Snum.precision_) ({int, dec});
-};
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Snum.fromNum = n => {
-  const [int, dec = ""] = String(n).split(".");
-  return Snum(int, dec);
-};
-
-
-Snum.fromBigInt = n => {
-  const int = String(n);
-    dec = "0".repeat(Snum.precision_);
-
-  return Snum(int, dec);
-};
-
-
-Snum.fromSafeBigInt = n => {
-  const s = String(n),
-    int = s.slice(0, Snum.precision_),
-    dec = s.slice(Snum.precision_);
-
-  return Snum(int, dec);
-};
-
-
-/*
-█████ Decimal Places ██████████████████████████████████████████████████████████*/
-
-
-Snum.ceil = places => tx => {
-  let int = tx.int,
-    dec = tx.dec;
-
-  while (dec.length > places) {
-    dec = dec.slice(0, -1);
-
-    for (let i = dec.length - 1; i >= 0; i--) {
-      const n = Number(dec[i]);
-
-      if (n === 9) {
-        if (i === 0) {
-          dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
-          int = String(Number(int) + 1);
-        }
-        
-        else dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
-      }
-
-      else {
-        dec = dec.slice(0, i) + (n + 1) + dec.slice(i + 1);
-        break;
-      }
-    }
-  }
-
-  return Snum(int, dec);
-};
-
-
-Snum.floor = places => tx => {
-  let int = tx.int,
-    dec = tx.dec;
-    
-  dec = dec.slice(0, places);
-  return Snum(int, dec);
-};
-
-
-Snum.round = places => tx => {
-  let int = tx.int,
-    dec = tx.dec;
-
-  while (dec.length > places) {
-    if (dec[dec.length - 1] >= 5) {
-      dec = dec.slice(0, -1);
-
-      for (let i = dec.length - 1; i >= 0; i--) {
-        const n = Number(dec[i]);
-
-        if (n === 9) {
-          if (i === 0) {
-            dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
-            int = String(Number(int) + 1);
-          }
-          
-          else dec = dec.slice(0, i) + "0" + dec.slice(i + 1);
-        }
-
-        else {
-          dec = dec.slice(0, i) + (n + 1) + dec.slice(i + 1);
-          break;
-        }
-      }
-    }
-
-    else dec = dec.slice(0, -1);
-  }
-
-  return Snum(int, dec);
-};
-
-
-/*
-█████ Semigroup (Addition) ████████████████████████████████████████████████████*/
-
-
-Snum.appendAdd = Snum.add;
-
-
-Snum.Semigroup = {append: Snum.appendAdd};
-
-
-/*
-█████ Semigroup (Multiplication) ██████████████████████████████████████████████*/
-
-
-Snum.appendMul = Snum.mul;
-
-
-/*
-█████ Semigroup :: Monoid (Addition) ██████████████████████████████████████████*/
-
-
-Snum.emptyAdd = Snum("0", "");
-
-
-Snum.Monoid = {
-  ...Snum.Semigroup,
-  empty: Snum.empty
-};
-
-
-/*
-█████ Semigroup :: Monoid (Multiplication) ████████████████████████████████████*/
-
-
-Snum.emptyMul = Snum("1", "");
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7201,21 +6990,21 @@ O.entries = function* (o) {
   for (let prop in o) {
     yield [prop, o[prop]];
   }
-}
+};
 
 
 O.keys = function* (o) {
   for (let prop in o) {
     yield prop;
   }
-}
+};
 
 
 O.values = function* (o) {
   for (let prop in o) {
     yield o[prop];
   }
-}
+};
 
 
 /*
@@ -10720,13 +10509,6 @@ Str.cat = Str.catWith("");
 
 
 Str.cat_ = Str.catWith(" ");
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Str.fromSnum = tx => `${tx.int}.${tx.dec.replace(/0+$/, "")}`;
 
 
 /*
