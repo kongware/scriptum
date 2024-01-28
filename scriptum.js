@@ -348,303 +348,6 @@ export const cata_ = (...ks) => decons => dict => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ COROUTINE ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Coroutine to split up elaborate tasks into smaller, less complex chunks:
-
-  function* task(init) {
-    let r = yield init;
-
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-  };
-
-  const tx = Co(task(0)),
-    ty = Co.map(tx => tx.run(id)) (tx);
-  
-  Co.strict(ty); // yields 10
-
-What the above code basically does it separating effects from pure computation.
-While `task` is pure the effects are abstracted in the mapping. Here is another
-example:
-
-  function* foo(init) {
-    const o = yield init;
-    const v = yield o["foo"];
-    const v2 = yield o["bar"];
-    const r = yield v/v2;
-    yield `division result is ${r}`;
-  };
-
-  const tx = Co(foo({foo: 12, bar: 3})),
-    ty = Co(foo({foo: 12, baz: 3})),
-    tz = Co(foo({foo: 12, bar: 0}));
-
-  const co = tw => Co.iterate(
-    Co.iterateTry("division through zero") (Number.isFinite)
-      (Co.iterateIf(x => x !== undefined)
-        (Co.iterateIf(x => x !== undefined) (tw))));
-
-  co(tx).value; // yields "division result is 4"
-  co(ty).value; // yields undefined
-  co(tz).value; // yields "division through zero" */
-
-
-export const Coroutine = ix => {
-  let o = ix.next(); // init
-  
-  o.next = () => {
-    const p = ix.next(o.value);
-
-    p.next = o.next;
-    p.nextWith = o.nextWith;
-    p.run = o.run;
-    o = p;
-    return p;
-  };
-
-  // update/set value fed into the coroutine
-
-  o.nextWith = f => o.done
-    ? ix.next()
-    : ix.next(f(o.value));
-  
-  o.run = f => o.done
-    ? o.value
-    : f(o.value);
-
-  return o;
-};
-
-
-export const Co = Coroutine;
-
-
-/*
-█████ Consumption █████████████████████████████████████████████████████████████*/
-
-
-// evaluate a single step of the coroutine
-
-Co.iterate = o => o.next();
-
-
-// short cicuit the coroutine without a value
-
-Co.iterateIf = p => o => {
-  const q = o.next();
-
-  if (q.done === false) {
-    if (p(q.value)) return q;
-    else return Co.empty;
-  }
-
-  return q;
-};
-
-
-// short cicuit the coroutine with a reason
-
-Co.iterateTry = reason => p => o => {
-  const q = o.next();
-
-  if (q.done === false) {
-    if (p(q.value)) return q;
-    else return Co.of(reason);
-  }
-
-  return q;
-};
-
-
-// evaluate a step of the coroutine and transform the intermediate result
-
-Co.iterateWith = f => o => {
-  const p = o.next();
-
-  if (p.done === false) p.value = f(p.value);
-  return p;
-};
-
-
-// strictly evaluate coroutine to its final value
-
-Co.strict = o => {
-  let p = o.next(), r = p.value;
-
-  while (p.done === false) p = p.next();
-  return r;
-};
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Co.toArr = o => {
-  const acc = [];
-  
-  let p = o.next();
-
-  while (p.done === false) {
-    acc.push(p.value);
-    p = p.next();
-  }
-
-  return acc;
-};
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-Co.filter = p => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let q = o.next();
-
-    while (q.done === false) {
-      if (p(q.value)) yield q.value;
-      q = q.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-Co.fold = f => acc => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      acc = f(acc) (p.value);
-      p.value = acc;
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Co.map = f => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      p.value = f(p.value);
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Semigroup (Temporal) ████████████████████████████████████████████████████*/
-
-
-Co.append = o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      yield p.value;
-      p = p.next();
-    }
-
-    p = o2.next();
-
-    while (p.done === false) {
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
-
-
-Co.Arg = {};
-
-
-Co.Arg.append = Semigroup => o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next(), p2 = o2.next();
-
-    while (p.done === false && p2.done === false) {
-      yield Semigroup.append(p.value) (p2.value);
-      p = p.next();
-      p2 = p2.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Monoid (Temporal) ███████████████████████████████████████████████████████*/
-
-
-Co.empty = Co(function* empty() {} ());
-
-
-/*
-█████ Monoid (Argument) ███████████████████████████████████████████████████████*/
-
-
-Co.Arg.empty = Monoid => Co(function* empty(x) {
-  yield x;
-  while (true) yield x;
-} (Monoid.empty));
-
-
-/*
-█████ Mics. ███████████████████████████████████████████████████████████████████*/
-
-
-Co.of = x => Co(function* of(init) {yield init; yield x} ());
-
-
-Co.weave = o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next(), p2 = o2.next();
-
-    while (p.done === false && p2.done === false) {
-      yield p.value;
-      yield p2.value;
-      p = p.next();
-      p2 = p2.next();
-    }
-  } (o.value));
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ ERRORS ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -741,10 +444,6 @@ export const introspect = x => {
     else return t[0].toUpperCase() + t.slice(1);
   }
 };
-
-
-introspect.cons = x =>
-  Object.prototype.toString.call(x).slice(8, -1);
 
 
 introspect.arr = xs => {
@@ -2299,6 +1998,10 @@ export const effFirst = (...exps) => exps[0];
 export const effLast = (...exps) => exps[exps.length - 1];
 
 
+export const intro = x =>
+  Object.prototype.toString.call(x).slice(8, -1);
+
+
 export const _throw = e => { // throw as a first class expression
   throw e;
 };
@@ -3575,14 +3278,33 @@ A.union = xs => ys => Array.from(new Set(xs.concat(ys)));
 
 
 /*
-█████ Streaming ███████████████████████████████████████████████████████████████*/
+█████ Special Folds ███████████████████████████████████████████████████████████*/
 
 
-A.stream = xs => {
-  return function go(i) {
-    if (i === xs.length) return Stream.Done;
-    else return Stream.Step(Pair(i, xs[i])) (_ => go(i + 1));
-  } (0);
+A.foldSucc = f => acc => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc = f(acc) (Pair(xs[i], xs[j]));
+
+  return acc;
+};
+
+
+A.sum = A.foldl(m => n => m + n) (0);
+
+
+/*
+█████ Special Maps ████████████████████████████████████████████████████████████*/
+
+
+A.mapSucc = f => xs => {
+  const acc = [];
+
+  for (let i = 0, j = 1; j < xs.length; i++, j++)
+    acc.push(f(Pair(xs[i], xs[j])));
+
+  return acc;
 };
 
 
@@ -3745,59 +3467,6 @@ A.unzip = () => A.foldl(([x, y]) => ([xs, ys]) =>
 
 
 /*
-█████ Special Folds ███████████████████████████████████████████████████████████*/
-
-
-A.foldSucc = f => acc => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc = f(acc) (Pair(xs[i], xs[j]));
-
-  return acc;
-};
-
-
-// like `A.foldl` but with multi-argument reducer
-
-A.reduce = f => init => xs => {
-  let acc = init;
-
-  for (let i = 0; i < xs.length; i++)
-    acc = f(acc, xs[i]);
-
-  return acc;
-};
-
-
-A.reduceSucc = f => acc => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc = f(acc, xs[i], xs[j]);
-
-  return acc;
-};
-
-
-A.sum = A.foldl(m => n => m + n) (0);
-
-
-/*
-█████ Special Mappings ████████████████████████████████████████████████████████*/
-
-
-A.mapSucc = f => xs => {
-  const acc = [];
-
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc.push(f(Pair(xs[i], xs[j])));
-
-  return acc;
-};
-
-
-/*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
@@ -3818,17 +3487,14 @@ A.ZipArr.ap = A.ZipArr.ap();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes a time changing value that is asynchronously mutated over time by
-events. It is implemented as an object property defined as a lazy getter. As
-opposed to normal streams a time changing value or the property holding it
-always has a current value, either by initialization or by the latest processed
-event. The type has the following properties:
+/* Encode time changing values. Such a value is asynchronously mutated over time
+by the events it has subscribed to. As opposed to `Observable`, a `Behavior` has
+a continuous value over its entire lifespan. It has the following properties:
 
   * multicast
   * async
-  * pull
+  * push
   * lazy
-  * cancelable
 
 A `Behavior` takes an initial value and a function that in turn takes this
 initial value and returns an intermediate object. The intermediate object (A)
@@ -3846,10 +3512,7 @@ As behaviors are multicast, cancelation is an issue because other parts of the
 code might rely on them. Usually, cancelation just means the behavior keeps
 holding the value of the last processed event. It is more safe to throw an
 exception in case of post cancellation access, though. This can be easily
-defined inside the nullary `cancel` function.
-
-Use `Stream` for synchronous data streams and `Observable` for asynchronous
-event streams. */
+defined inside the nullary `cancel` function. */
 
 
 // smart constructor
@@ -4077,7 +3740,7 @@ Cont.array = () => Cont.arr.fold;
 // catch an exception
 
 Cont.catch = ({fail, succeed}) => x => Cont(k =>
-  introspect.cons(x) === "Error" ? k(fail(x)) : k(succeed(x)));
+  intro(x) === "Error" ? k(fail(x)) : k(succeed(x)));
 
 
 // discard continuation if current computation yields no value
@@ -4100,7 +3763,7 @@ Cont.option = ({none, some}) => x => Cont(k =>
 // terminate program if previous computation raised an exception
 
 Cont.throw = succeed => x => Cont(k =>
-  introspect.cons(x) === "Error" ? _throw(x) : k(succeed(x)));
+  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
 
 
 /*
@@ -4347,6 +4010,321 @@ Cont.array = Cont.array();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████████ COROUTINE ██████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Coroutine to split up elaborate tasks into smaller, less complex chunks:
+
+  function* task(init) {
+    let r = yield init;
+
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+    r = yield Cont.komp(inc) (inc) (r);
+  };
+
+  const tx = Co(task(0)),
+    ty = Co.map(tx => tx.run(id)) (tx);
+  
+  Co.strict(ty); // yields 10
+
+What the above code basically does it separating effects from pure computation.
+While `task` is pure the effects are abstracted in the mapping. Here is another
+example:
+
+  function* foo(init) {
+    const o = yield init;
+    const v = yield o["foo"];
+    const v2 = yield o["bar"];
+    const r = yield v/v2;
+    yield `division result is ${r}`;
+  };
+
+  const tx = Co(foo({foo: 12, bar: 3})),
+    ty = Co(foo({foo: 12, baz: 3})),
+    tz = Co(foo({foo: 12, bar: 0}));
+
+  const co = tw => Co.iterate(
+    Co.iterateTry("division through zero") (Number.isFinite)
+      (Co.iterateIf(x => x !== undefined)
+        (Co.iterateIf(x => x !== undefined) (tw))));
+
+  co(tx).value; // yields "division result is 4"
+  co(ty).value; // yields undefined
+  co(tz).value; // yields "division through zero" */
+
+
+export const Coroutine = ix => {
+  let o = ix.next(); // init
+  
+  o.next = () => {
+    const p = ix.next(o.value);
+
+    p.next = o.next;
+    p.nextWith = o.nextWith;
+    p.run = o.run;
+    o = p;
+    return p;
+  };
+
+  // update/set value fed into the coroutine
+
+  o.nextWith = f => o.done
+    ? ix.next()
+    : ix.next(f(o.value));
+  
+  o.run = f => o.done
+    ? o.value
+    : f(o.value);
+
+  return o;
+};
+
+
+export const Co = Coroutine;
+
+
+/*
+█████ Consumption █████████████████████████████████████████████████████████████*/
+
+
+// evaluate a single step of the coroutine
+
+Co.iterate = o => o.next();
+
+
+// short cicuit the coroutine without a value
+
+Co.iterateIf = p => o => {
+  const q = o.next();
+
+  if (q.done === false) {
+    if (p(q.value)) return q;
+    else return Co.empty;
+  }
+
+  return q;
+};
+
+
+// short cicuit the coroutine with a reason
+
+Co.iterateTry = reason => p => o => {
+  const q = o.next();
+
+  if (q.done === false) {
+    if (p(q.value)) return q;
+    else return Co.of(reason);
+  }
+
+  return q;
+};
+
+
+// evaluate a step of the coroutine and transform the intermediate result
+
+Co.iterateWith = f => o => {
+  const p = o.next();
+
+  if (p.done === false) p.value = f(p.value);
+  return p;
+};
+
+
+// strictly evaluate coroutine to its final value
+
+Co.strict = o => {
+  let p = o.next(), r = p.value;
+
+  while (p.done === false) p = p.next();
+  return r;
+};
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Co.toArr = o => {
+  const acc = [];
+  
+  let p = o.next();
+
+  while (p.done === false) {
+    acc.push(p.value);
+    p = p.next();
+  }
+
+  return acc;
+};
+
+
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+Co.filter = p => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let q = o.next();
+
+    while (q.done === false) {
+      if (p(q.value)) yield q.value;
+      q = q.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+Co.fold = f => acc => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      acc = f(acc) (p.value);
+      p.value = acc;
+      yield p.value;
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Co.map = f => o => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      p.value = f(p.value);
+      yield p.value;
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Co.append = o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next();
+
+    while (p.done === false) {
+      yield p.value;
+      p = p.next();
+    }
+
+    p = o2.next();
+
+    while (p.done === false) {
+      yield p.value;
+      p = p.next();
+    }
+  } (o.value));
+};
+
+
+Co.Semigroup = {append: Co.append};
+
+
+/*
+█████ Semigroup (Alignment) ███████████████████████████████████████████████████*/
+
+
+Co.Align = {};
+
+
+Co.Align.append = Semigroup => o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next(), p2 = o2.next();
+
+    while (p.done === false && p2.done === false) {
+      yield Semigroup.append(p.value) (p2.value);
+      p = p.next();
+      p2 = p2.next();
+    }
+  } (o.value));
+};
+
+
+Co.Align.Semigroup = {append: Co.Align.append};
+
+
+/*
+█████ Monoid ██████████████████████████████████████████████████████████████████*/
+
+
+Co.empty = Co(function* empty() {} ());
+
+
+Co.Monoid = {
+  ...Co.Semigroup,
+  empty: Co.empty
+};
+
+
+/*
+█████ Monoid (Alignment) ██████████████████████████████████████████████████████*/
+
+
+Co.Align.empty = Monoid => Co(function* empty(x) {
+  yield x;
+  while (true) yield x;
+} (Monoid.empty));
+
+
+Co.Align.Monoid = {
+  ...Co.Align.Semigroup,
+  empty: Co.Align.empty
+};
+
+
+/*
+█████ Mics. ███████████████████████████████████████████████████████████████████*/
+
+
+Co.of = x => Co(function* of(init) {yield init; yield x} ());
+
+
+Co.weave = o => o2 => {
+  return Co(function* (init) {
+    yield init;
+
+    let p = o.next(), p2 = o2.next();
+
+    while (p.done === false && p2.done === false) {
+      yield p.value;
+      yield p2.value;
+      p = p.next();
+      p2 = p2.next();
+    }
+  } (o.value));
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ DATE █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -4492,7 +4470,7 @@ E.cata = cata("error", ANY);
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-E.map = f => tx => introspect.cons(tx) === "Error" ? tx : f(tx);
+E.map = f => tx => intro(tx) === "Error" ? tx : f(tx);
 
 
 E.Functor = {map: E.map};
@@ -4506,8 +4484,8 @@ E.Functor = {map: E.map};
 arguments, the non-empty error is picked with a left bias again. */
 
 E.alt = tx => ty => {
-  if (introspect.cons(tx) === "Error") {
-    if (introspect.cons(ty) === "Error") return new Exceptions(tx, ty);
+  if (intro(tx) === "Error") {
+    if (intro(ty) === "Error") return new Exceptions(tx, ty);
     else return ty;
   }
 
@@ -4539,12 +4517,12 @@ E.Plus = {
 
 
 E.ap = tf => tx => {
-  if (introspect.cons(tf) === "Error") {
-    if (introspect.cons(tx) === "Error") return new Exceptions(tf, tx);
+  if (intro(tf) === "Error") {
+    if (intro(tx) === "Error") return new Exceptions(tf, tx);
     else return tf;
   }
 
-  else if (introspect.cons(tx) === "Error") return tx;
+  else if (intro(tx) === "Error") return tx;
   else return tf(tx);
 };
 
@@ -4560,7 +4538,7 @@ E.Apply = {
 
 
 E.of = x => {
-  if (introspect.cons(x) === "Error") throw new Err("invalid value");
+  if (intro(x) === "Error") throw new Err("invalid value");
   else return x;
 }
 
@@ -4585,7 +4563,7 @@ E.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-E.chain = mx => fm => introspect.cons(mx) === "Error" ? mx : fm(mx);
+E.chain = mx => fm => intro(mx) === "Error" ? mx : fm(mx);
 
 
 E.Chain = {
@@ -4609,12 +4587,12 @@ E.Monad = {
 
 
 E.append = Semigroup => tx => ty => {
-  if (introspect.cons(tx) === "Error") {
-    if (introspect.cons(ty) === "Error") return new Exceptions(tx, ty);
+  if (intro(tx) === "Error") {
+    if (intro(ty) === "Error") return new Exceptions(tx, ty);
     else return tx;
   }
 
-  else if (introspect.cons(ty) === "Error") return ty;
+  else if (intro(ty) === "Error") return ty;
   else return Semigroup.append(tx) (ty);
 };
 
@@ -4640,7 +4618,7 @@ E.Monoid = {
 
 
 E.throwOnErrOnErr = tx => {
-  if (introspect.cons(tx) === "Error") throw tx;
+  if (intro(tx) === "Error") throw tx;
   else return tx;
 };
 
@@ -4668,7 +4646,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.map = f => mmx => Trans(outer.map(mx =>
-    introspect.cons(mx) === "Error" ? mx : f(mx)) (mmx.run));
+    intro(mx) === "Error" ? mx : f(mx)) (mmx.run));
 
 
   Trans.Functor = {map: Trans.map};
@@ -4679,9 +4657,9 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.alt = mmx => mmy => outer.chain(mmx.run) (mx => {
-    if (introspect.cons(mx) === "Error") {
+    if (intro(mx) === "Error") {
       return Trans(outer.map(my => {
-        if (introspect.cons(my) === "Error") return new Exceptions(mx, my);
+        if (intro(my) === "Error") return new Exceptions(mx, my);
         else return my;
       }) (mmy.run))
     }
@@ -4716,12 +4694,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.ap = mmf => mmx => {
     return Trans(outer.chain(mmf.run) (mf => {
       return outer.map(mx => {
-        if (introspect.cons(mf) === "Error") {
-          if (introspect.cons(mx) === "Error") return new Exceptions(mf, mx);
+        if (intro(mf) === "Error") {
+          if (intro(mx) === "Error") return new Exceptions(mf, mx);
           else return mf;
         }
 
-        else if (introspect.cons(mx) === "Error") return mx;
+        else if (intro(mx) === "Error") return mx;
         else return mf(mx);
       }) (mmx.run);
     }));
@@ -4752,7 +4730,7 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.chain = mmx => fmm => outer.chain(mmx.run) (mx => {
-    if (introspect.cons(mx) === "Error") return outer.of(mx);
+    if (intro(mx) === "Error") return outer.of(mx);
     else return fmm(mx);
   });
   
@@ -4788,13 +4766,13 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
 
 
   Trans.catch = f => mmx => Trans(outer.chain(mmx.run) (mx => {
-    if (introspect.cons(mx) === "Error") return outer.of(f(mx));
+    if (intro(mx) === "Error") return outer.of(f(mx));
     else return outer.of(mx);
   }));
 
 
   Trans.throw = mmx => Trans(outer.map(x => {
-    if (introspect.cons(x) === "Error") throw x;
+    if (intro(x) === "Error") throw x;
     else return x;
   }) (mmx.run));
 
@@ -4809,12 +4787,12 @@ Except.T = outer => Trans => { // outer monad's type dict + value constructor
   Trans.append = Semigroup => mmx => mmy => {
     return Trans(outer.chain(mmx.run) (mx => {
       return outer.map(my => {
-        if (introspect.cons(mx) === "Error") {
-          if (introspect.cons(my) === "Error") return new Exceptions(mx, my);
+        if (intro(mx) === "Error") {
+          if (intro(my) === "Error") return new Exceptions(mx, my);
           else return mx;
         }
 
-        else if (introspect.cons(my) === "Error") return my;
+        else if (intro(my) === "Error") return my;
         else return Semigroup.append(mx) (my);
       }) (mmy.run);
     }));
@@ -4931,8 +4909,12 @@ Id.Monad = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* The lazyness property of native iterators entail some pitfalls together with
-functional programming exercised in scriptum:
+/* Iterators defer execution which isn't sufficient for lazy evaluation because
+it lacks sharing. You cannot share an iterator since every invocation of `next`
+destructively changes the iterator's state. For this reason, scriptum provides
+a wrapper that renders native iterators idempotent.
+
+Some basic rules on working with impure iterators:
 
 * it is the responsibiliy of the mapper to maintain the outermost structure of
   the return value across generator function calls, e.g. with `[k, v]` the key
@@ -4960,6 +4942,59 @@ It.Category = ({
   comp: It.comp,
   id: It.id
 });
+
+
+/*
+█████ Conversion (Strict) █████████████████████████████████████████████████████*/
+
+
+It.toArr = ix => {
+  const xs = [];
+  for (const x of ix) xs.push(x);
+  return xs;
+};
+
+
+It.toArrOfKeys = ix => {
+  const xs = [];
+  for (const [k] of ix) xs.push(k);
+  return xs;
+};
+
+
+It.toArrOfValues = ix => {
+  const xs = [];
+  for (const [, v] of ix) xs.push(v);
+  return xs;
+};
+
+
+It.toMap = ix => {
+  const m = new Map();
+  for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
+
+
+It.toMultiMap = ix => {
+  const m = new MultiMap();
+  for (const [k, v] of ix) m.addItem(k, v);
+  return m;
+};
+
+
+It.toObj = ix => {
+  const o = {};
+  for (const [k, v] of ix) o[k] = v;
+  return o;
+};
+
+
+It.toSet = ix => {
+  const s = new Set();
+  for (const k of ix) s.add(k);
+  return s;
+};
 
 
 /*
@@ -5228,11 +5263,32 @@ It.Monad = {
 █████ Iterable ████████████████████████████████████████████████████████████████*/
 
 
+It.fromObjEntries = function* (o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+};
+
+
+It.fromObjKeys = function* (o) {
+  for (let prop in o) {
+    yield prop;
+  }
+};
+
+
+It.fromObjValues = function* (o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+};
+
+
 It.make = it => it[Symbol.iterator] ();
 
 
 /*
-█████ Iterate █████████████████████████████████████████████████████████████████*/
+█████ Iterate (Strict) ████████████████████████████████████████████████████████*/
 
 
 // perform effects but discard values
@@ -5240,6 +5296,13 @@ It.make = it => it[Symbol.iterator] ();
 It.iterate = f => it => {
   for (const x of it) f(x);
 };
+
+
+/*
+█████ Recursion Schemes ███████████████████████████████████████████████████████*/
+
+
+// TODO
 
 
 /*
@@ -5265,16 +5328,45 @@ It.find = p => function* (ix) {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-It.append = Semigroup => ix => function* (iy) {
-  const {value: x, done} = ix.next(),
-    {value: y, done: done2} = iy.next();
+It.append = ix => function* (iy) {
+  do {
+    const {value: x, done} = ix.next(),
 
-  if (done || done2) return;
-  else yield Semigroup.append(x) (y);
+    if (done) break;
+    else yield x;
+  } while(true)
+
+  do {
+    const {value: y, done} = iy.next(),
+
+    if (done) return;
+    else yield y;
+  } while(true);
 };
 
 
 It.Semigroup = {append: It.append};
+
+
+/*
+█████ Semigroup (Alignment) ███████████████████████████████████████████████████*/
+
+
+It.Align = {};
+
+
+It.Align.append = Semigroup => ix => function* (iy) {
+  do {
+    const {value: x, done} = ix.next(),
+      {value: y, done: done2} = iy.next();
+
+    if (done || done2) return;
+    else yield Semigroup.append(x) (y);
+  } while (true);
+};
+
+
+It.Align.Semigroup = {append: It.Align.append};
 
 
 /*
@@ -5291,7 +5383,19 @@ It.Monoid = {
 
 
 /*
-█████ Special Fold ███████████████████████████████████████████████████████████████████*/
+█████ Semigroup :: Monoid (Alignment) █████████████████████████████████████████*/
+
+
+It.Align.empty = function* (empty) {yield empty};
+
+
+It.Align.Monoid = {
+  ...It.Align.Semigroup,
+  empty: It.Align.empty
+};
+
+/*
+█████ Special Folds ███████████████████████████████████████████████████████████*/
 
 
 It.foldSucc = f => acc => function* (ix) {
@@ -5310,34 +5414,8 @@ It.foldSucc = f => acc => function* (ix) {
 };
 
 
-It.reduce = f => acc => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) return;
-    else yield f(acc, x);
-  } while (true);
-};
-
-
-It.reduceSucc = f => acc => function* (ix) {
-  let {value: x} = ix.next();
-
-  do {
-    const {value: y, done} = ix.next();
-
-    if (done) return;
-
-    else {
-      yield f(acc, x, y);
-      x = y;
-    }
-  } while (true);
-};
-
-
 /*
-█████ Special Mappings ████████████████████████████████████████████████████████*/
+█████ Special Maps ████████████████████████████████████████████████████████████*/
 
 
 It.mapSucc = f => function* (ix) {
@@ -5417,56 +5495,17 @@ It.takeWhile = p => function* (ix) {
 
 
 /*
-█████ Transformation (Strict) █████████████████████████████████████████████████*/
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
-It.toArr = ix => {
-  const xs = [];
-  for (const x of ix) xs.push(x);
-  return xs;
-};
+// TODO
 
 
-It.toArrOfKeys = ix => {
-  const xs = [];
-  for (const [k] of ix) xs.push(k);
-  return xs;
-};
+/*
+█████ Zipping █████████████████████████████████████████████████████████████████*/
 
 
-It.toArrOfValues = ix => {
-  const xs = [];
-  for (const [, v] of ix) xs.push(v);
-  return xs;
-};
-
-
-It.toMap = ix => {
-  const m = new Map();
-  for (const [k, v] of ix) m.set(k, v);
-  return m;
-};
-
-
-It.toMultiMap = ix => {
-  const m = new MultiMap();
-  for (const [k, v] of ix) m.addItem(k, v);
-  return m;
-};
-
-
-It.toObj = ix => {
-  const o = {};
-  for (const [k, v] of ix) o[k] = v;
-  return o;
-};
-
-
-It.toSet = ix => {
-  const s = new Set();
-  for (const k of ix) s.add(k);
-  return s;
-};
+// TODO
 
 
 /*
@@ -5474,6 +5513,34 @@ It.toSet = ix => {
 
 
 It.Traversable = It.Traversable();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████ ITERATOR (IDEMPOTENT) ████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+export const Ii = ix => {
+  let o = {
+    value: null,
+    done: false,
+
+    next() {
+      const p = ix.next();
+
+      Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
+      p.next = o.next
+      delete o.next;
+      o.next = () => p;
+      o = p;
+      return p;
+    }
+  };
+
+  Object.defineProperty(o, TAG, {value: "IdempotentIterator"});
+  return o;
+};
+
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6983,65 +7050,6 @@ O.updOr = x => k => f => o => {
 
 
 /*
-█████ Generators ██████████████████████████████████████████████████████████████*/
-
-
-O.entries = function* (o) {
-  for (let prop in o) {
-    yield [prop, o[prop]];
-  }
-};
-
-
-O.keys = function* (o) {
-  for (let prop in o) {
-    yield prop;
-  }
-};
-
-
-O.values = function* (o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-};
-
-
-/*
-█████ Streaming ███████████████████████████████████████████████████████████████*/
-
-
-O.keyStream = o => {
-  const keys = Object.entries(o);
-
-  return function go(i) {
-    if (i === keys.length) return Stream.Done;
-    else return Stream.Step(keys[i]) (_ => go(i + 1));
-  } (0);
-};
-
-
-O.propStream = o => {
-  const props = Object.entries(o);
-
-  return function go(i) {
-    if (i === props.length) return Stream.Done;
-    else return Stream.Step(props[i]) (_ => go(i + 1));
-  } (0);
-};
-
-
-O.valueStream = o => {
-  const values = Object.values(o);
-
-  return function go(i) {
-    if (i === values.length) return Stream.Done;
-    else return Stream.Step(values[i]) (_ => go(i + 1));
-  } (0);
-};
-
-
-/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
@@ -7070,16 +7078,12 @@ O.thisify = thisify;
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes asynchronos event streams. It has the following properties:
+/* Encode asynchronous event streams. It has the following properties:
 
-  * unicast
-  * sync/async
+  * broadcast
+  * async
   * push
-  * lazy
-  * cancelable
-
-Use `Stream` for synchronous data streams and `Behavior` for asynchronous time
-chaging values. */
+  * lazy */
 
 
 export const Observable = type("Observable");
@@ -7110,42 +7114,6 @@ Ob.fromPormise = p => Ob(observer =>
 
 
 /*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-// folds only work for finite event streams
-
-
-Ob.foldl = f => init => tx => Ob(observer => function go(acc) {
-  tx.run({
-    next: x => go(f(acc) (x)),
-    error: e => observer.error(e),
-    done: y => eff0(observer.next(acc), observer.done(y))
-  })} (init));
-
-
-Ob.foldr = f => acc => tx => Ob(observer => function go(g) {
-  tx.run({
-    next: x => go(y => f(x) (lazy(() => g(y)))),
-    error: e => observer.error(e),
-    done: y => eff0(observer.next(g(acc)), observer.done(y))
-  })} (id));
-
-
-Ob.Foldable = {
-  foldl: Ob.foldl,
-  foldr: Ob.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-// TODO
-
-
-/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -7159,26 +7127,6 @@ Ob.map = f => tx => Ob(observer =>
 
 
 Ob.Functor = {map: Ob.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-/*Ob.Alt = {
-  ...Ob.Functor,
-  alt: Ob.alt
-};*/
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-/*Ob.Plus = {
-  ...Ob.Alt,
-  zero: Ob.zero
-};*/
 
 
 /*
@@ -7262,85 +7210,6 @@ Ob.Monad = {
   ...Ob.Applicative,
   chain: Ob.chain
 };
-
-
-/*
-█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
-
-
-Ob.append = Semigroup => tx => ty => Ob(observer =>
-  tx.run({
-    next: x => ty.run({
-      next: x2 => observer.next(Semigroup.append(x) (x2)),
-      error: e2 => observer.error(e2),
-      done: y2 => observer.done(y2)
-    }),
-
-    error: e => observer.error(e),
-    done: y => observer.done(y)
-  }));
-
-
-Ob.Semigroup = {append: Ob.append};
-
-
-/*
-█████ Semigroup (Race) ████████████████████████████████████████████████████████*/
-
-
-Ob.Race = {}; // namespace
-
-
-/* TODO: race for every data chunk not onyl the 1st. Maybe make it the
-Alternative type class. */
-
-Ob.Race.append = tx => ty => Ob(observer => {
-  const o = {
-    next: x => {
-      p.next = () => {};
-      return observer.next(x);
-    },
-    
-    error: e => observer.error(e),
-
-    done: y => {
-      p.done = y2 => observer.done(y2);
-    }
-  };
-
-  const p = {
-    next: x => {
-      o.next = () => {};
-      return observer.next(x);
-    },
-    
-    error: e => observer.error(e),
-
-    done: y => {
-      o.done = y2 => observer.done(y2);
-    }
-  };
-});
-
-
-/*
-█████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
-
-
-Ob.empty = Monoid => Ob(observer => observer.next(Monoid.empty));
-
-
-Ob.Monoid = {
-  ...Ob.Semigroup,
-  empty: Ob.empty
-};
-
-
-/*
-█████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
-
-
-Ob.Race.empty = Ob(observer => observer.done(Null));
 
 
 /*
@@ -8079,7 +7948,7 @@ P.Monad = {
 
 
 /*
-█████ Semigroup (Argument) ████████████████████████████████████████████████████*/
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
 P.append = Semigroup => tx => ty => P(k =>
@@ -8100,8 +7969,11 @@ P.Race = {};
 P.Race.append = P.or;
 
 
+P.Race.Semigroup = {append: P.Race.append};
+
+
 /*
-█████ Semigroup :: Monoid (Argument) ██████████████████████████████████████████*/
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
 P.empty = Monoid => P(k => k(Monoid.empty));
@@ -8118,6 +7990,12 @@ P.Monoid = {
 
 
 P.Race.empty = P(k => Null);
+
+
+P.Race.Monoid = {
+  ...P.Race.Semigroup,
+  empty: P.Race.empty
+};
 
 
 /*
@@ -8322,7 +8200,7 @@ Pex.or_ = mmx => mmy => {
     return [mmx, mmy].map(mmz => {
       return mmz.run(mz => {
         if (i < 1) {
-          if (introspect.cons(mz) === "Error") {
+          if (intro(mz) === "Error") {
             i++;
             return Null;
           }
@@ -8362,23 +8240,6 @@ Pex.anyObj = o =>
     Pex.Race.append(acc) (tx))
       (Pex.Race.empty)
         (Object.values(o));
-
-
-/*
-█████ Semigroup (Race) ████████████████████████████████████████████████████████*/
-
-
-Pex.Race = {};
-
-
-Pex.Race.append = Pex.or;
-
-
-/*
-█████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
-
-
-Pex.Race.empty = Pex(P(k => Null));
 
 
 /*
@@ -8732,50 +8593,98 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████ PARSER ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
-/* Parser are broadly distinguished by their context type (simplified): 
 
-  * applicative: newtype Parser a = P (String -> (String, Either Error a))
-  * monadic:     newtype Parser m a = P (String -> (String, m a))
+// parser generators with an applicative based on idempotent iterators
 
-`Parser` is an applicative variant. */
-
-
-export const Parser = type("Parser");
+const Parser = Applicative => {
+  const Parser = {};
 
 
-Parser.Result = {}; // namespace
+  // always accept any input
+
+  Parser.accept = Parser(tx => Applicative.map(ix => {
+    const iy = ix.next();
+
+    if (iy.done) return new Exception("end of input");
+    else return {value: iy.value, ix: iy};
+  }) (tx));
 
 
-// value constructors
+  // always fail regardless of the input
+
+  Parser.fail = Parser(tx => Applicative.map(ix => {
+    const iy = ix.next();
+
+    if (iy.done) return new Exception("end of input");
+    else return {value: new Exception("always fails"), ix: iy};
+  }) (tx));
 
 
-// TODO: incomplete, requires revision
+  // only succeed on input that satisfies a predicate
+
+  Parser.satisfy = msg => p => Parser(tx => Applicative.map(ix => {
+    const iy = ix.next();
+
+    if (iy.done) return new Exception("end of input");
+    else if (p(iy.value)) return {value: iy.value, ix: iy};
+    else return new Exception(msg);
+  }) (tx));
 
 
-Parser.Result.Error = ({rest, state, msg}) => {
-  const o = {run: ({error}) => error(x)};
+  // try to parse the next input but restore original state on failure
 
-  Object.defineProperty(o, TAG, {value: "ParserResult"});
-  o.tag = "Error";
-  return o;  
-};
+  Parser.try = p => Parser(tx => Applicative.map(ix => {
+    const iy = ix.next();
 
-
-Parser.Result.Some = ({res, rest, state}) => {
-  const o = {run: ({some}) => some(x)};
-
-  Object.defineProperty(o, TAG, {value: "ParserResult"});
-  o.tag = "Some";
-  return o;  
-};
+    if (iy.done) return new Exception("end of input");
+    else if (p(iy.value)) return {value: iy.value, ix: iy};
+    else return {value: new Exception("failed try"), ix};
+  }) (tx));
 
 
-Parser.Result.None = ({rest, state}) => {
-  const o = {run: ({none}) => none(x)};
+  // verify end of input
 
-  Object.defineProperty(o, TAG, {value: "ParserResult"});
-  o.tag = "None";
-  return o;
+  Parser.eoi = Parser(tx => Applicative.map(ix => {
+    if (ix.done) return {value: null, ix};
+    else return new Exception("leftover input");
+  }) (tx));
+
+
+  /* Try the first parser or the second one on error and take the first error
+  message if both fail. */
+
+  Parser.alt = tx => Parser(ty => Applicative.ap(Applicative.map(ix => iy => {
+    const iz = ix.next();
+
+    if (iz.done || intro(iz.value) === "Error") {
+      const iz2 = iy.next();
+
+      if (iz2.done) return new Exception("end of input");
+      else if (intro(iz2.value) === "Error") return {value: iz.value, ix};
+      else return {value: iz2.value, ix: iz2};
+    }
+
+    else return {value: iz.value, ix: iz};
+  }) (tx)) (ty);
+
+
+  Parser.map = f => Parser(tx => Applicative.map(ix => {
+    const iy = ix.next();
+
+    if (iy.done) return new Exception("end of input");
+    else return {value: f(iy.value), ix: iy};
+  }) (tx));
+
+
+  Parser.ap = tf => Parser(tx => Applicative.ap(Applicative.map(f => ix => {
+    const iy = ix.next();
+
+    if (iy.done) return new Exception("end of input");
+    else return {value: f(iy.value), ix: iy};
+  }) (tf)) (tx);
+
+
+  return Parser;
 };
 
 
@@ -9052,6 +8961,8 @@ Object.defineProperty(Parser, "DERIVED_LETTERS", {
 /*
 █████ Combinator ██████████████████████████████████████████████████████████████*/
 
+
+/* obsolete:
 
 Parser.accept = Parser(({text, i}) => state =>
   i < text.length
@@ -9491,7 +9402,7 @@ Parser.dropUntil = parser => Parser(rest => state => {
       none: q => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state}))
     }));
   }) (rest, state);
-});
+}); */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9570,54 +9481,51 @@ Pred.or = tx => ty => Pred(x => tx.run(x) || ty.run(x));
 
 
 /*
-█████ Semigroup (Conjunction) █████████████████████████████████████████████████*/
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Pred.Con = {};
+Pred.append = Pred.and;
 
 
-Pred.Con.append = Pred.and;
-
-
-Pred.Con.Semigroup = {append: Pred.Con.append};
-
-
-/*
-█████ Monoid (Conjunction) ████████████████████████████████████████████████████*/
-
-
-Pred.Con.empty = Pred.then;
-
-
-Pred.Con.Monoid = {
-  ...Pred.Con.Semigroup,
-  empty: Pred.Con.empty
-};
+Pred.Semigroup = {append: Pred.append};
 
 
 /*
 █████ Semigroup (Disjunction) █████████████████████████████████████████████████*/
 
 
-Pred.Dis = {};
+Pred.Disjunct = {};
 
 
-Pred.Dis.append = Pred.or;
+Pred.Disjunct.append = Pred.or;
 
 
-Pred.Dis.Semigroup = {append: Pred.Dis.append};
+Pred.Disjunct.Semigroup = {append: Pred.Disjunct.append};
+
+
+/*
+█████ Monoid ██████████████████████████████████████████████████████████████████*/
+
+
+Pred.empty = Pred.then;
+
+
+Pred.Monoid = {
+  ...Pred.Semigroup,
+  empty: Pred.empty
+};
 
 
 /*
 █████ Monoid (Disjunction) ████████████████████████████████████████████████████*/
 
 
-Pred.Dis.empty = Pred.else;
+Pred.Disjunct.empty = Pred.else;
 
 
-Pred.Dis.Monoid = {
-  ...Pred.Dis.Semigroup,
-  empty: Pred.Dis.empty
+Pred.Disjunct.Monoid = {
+  ...Pred.Disjunct.Semigroup,
+  empty: Pred.Disjunct.empty
 };
 
 
@@ -10058,440 +9966,44 @@ _Set.del = k => s => s.delete(k);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encodes the concept of supplying a meaningful chunk of data synchronously
-one at a time from a potentially infinite source along with a function to
-request the next chunk. The type uses a lazy object getter to suspend the
-process. It has the following properties:
+/* Encode synchronous data streams. Based on the following Haskell type:
+
+  data Stream f m r = Step !(f (Stream f m r))
+                    | Effect (m (Stream f m r))
+                    | Return r
+
+  instance (Functor f, Monad m) => Functor (Stream f m) where
+    fmap f = loop where
+      loop stream = case stream of
+        Return r -> Return (f r)
+        Effect m -> Effect (do {stream' <- m; return (loop stream')})
+        Step   g -> Step (fmap loop g)
+
+It has the following properties:
 
   * unicast
   * sync
   * pull
-  * lazy
-  * cancelable (pull)
-
-Use `Observable` for asynchronous event streams and `Behavior` for asynchronous
-time chaging values. */
+  * lazy */
 
 
-export const Stream = {}; // namespace
-
-
-// smart constructor
-
-Stream.Step = x => f => {
-  const o = {
-    run: ({step}) => step({
-      yield: x,
-      get next() {return f(x)},
-      tag: "Step"
-    })
-  };
-
-  Object.defineProperty(o, TAG, {value: "Stream"});
-  return o;
-};
-
-
-Stream.Done = thisify(o => {
-  o.run = ({done}) => done;
-  o.tag = "Done";
-  Object.defineProperty(o, TAG, {value: "Stream"});
-  return o;
-});
-
-
-Stream.Step.lazy = o => {
-  const p = {
-    run: ({step}) => step(o),
-    tag: "Step"
-  };
-
-  Object.defineProperty(p, TAG, {value: "Stream"});
-  return p;
-};
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Stream.fromArr = xs => function go(i) {
-  if (i === xs.length) return Stream.Done;
-  else return Stream.Step(xs[i]) (_ => go(i + 1));
-} (0);
-
-
-Stream.takeArr = n => tx => function go(acc, ty, m) {
-  if (m <= 0) return acc;
-
-  else {
-    return ty.run({
-      step: o => {
-        acc.push(o.yield)
-        return go(acc, o.next, m - 1);
-      },
-      
-      done: acc
-    });
-  }
-} ([], tx, n);
-
-
-// TODO: Stream.takeList
-
-
-Stream.toArr = tx => Loop2((ty, acc) => {
-  ty.run({
-    step: o => {
-      acc.push(o.yield);
-      return Loop2.rec(o.next);
-    },
-
-    done: Loop2.base(acc)
-  });
-}) (tx, []);
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-Stream.foldl = f => init => tx => function go(ty, acc) {
-  return ty.run({
-    step: o => {
-      acc = f(acc) (o.yield);
-
-      Stream.Step.lazy({
-        yield: acc,
-        get next() {return go(o.next, acc)}
-      })
-    },
-
-    done: acc
-  });
-} (tx, init);
-
-
-Stream.foldr = f => init => tx => function go(ty, acc) {
-  return ty.run({
-    step: o => {
-      acc = f(o.yield) (acc);
-
-      Stream.Step.lazy({
-        yield: acc,
-        get next() {return go(o.next, acc)}
-      })
-    },
-
-    done: acc
-  });
-} (tx, init);
-
-
-Stream.Foldable = {
-  foldl: Stream.foldl,
-  foldr: Stream.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-Stream.mapA = Applicative => ft => function go(tx) {
-  return tx.run({
-    step: o => Applicative.map(x => Stream.Step.lazy({
-      yield: x,
-      get next() {return go(o.next)}
-    }) (ft(o.yield))),
-
-    done: Applicative.of(Stream.Done)
-  });
-};
-
-
-Stream.seqA = Applicative => function go(ttx) {
-  return ttx.run({
-    step: tx => Applicative.map(o => Stream.Step.lazy({
-      yield: o.yield,
-      get next() {return go(o.next)}
-    })) (tx),
-
-    done: Applicative.of(Stream.Done)
-  });
-};
-
-
-Stream.Traversable = () => ({
-  ...Stream.Foldable,
-  ...Stream.Functor,
-  mapA: Stream.mapA,
-  seqA: Stream.seqA
-});
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-/* If the data source is infinite the combinator can lead to infinite recursion
-provided no data chunk satisfies the predicate. */
-
-Stream.filter = pred => function go(tx) {
-  return tx.run({
-    step: o => {
-      if (pred(o.yield)) {
-        return Stream.Step.lazy({
-          yield: o.yield,
-          get next() {return go(o.next)}
-        });
-      }
-
-      else return go(o.next);
-    },
-
-    done: Stream.Done
-  });
-};
-
-
-Stream.Filterable = {filter: Stream.filter};
+export const Stream = variant("Stream", cons("Step"), cons("Eff"), cons2("Done"));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Stream.map = f => function go(tx) {
+Stream.map = (Functor, Monad) => f => function go(tx) {
   return tx.run({
-    step: o => Stream.Step.lazy({
-      yield: f(o.yield),
-      get next() {return go(o.next)}
-    }),
-
-    done: Stream.Done
+    Step: ty => Stream.Step(Functor.map(x => lazy(() => go(x))) (ty)),
+    Eff: mx => Stream.Eff(Monad.chain(mx) (x => Monad.of(lazy(() => go(x))))),
+    Done: x => Stream.Done(Monad.of(lazy(() => f(x))))
   });
 };
 
 
 Stream.Functor = {map: Stream.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-/* Takes two streams and exhauts the first and then the second one directly one
-after the other. This is the way the traversable list instance  works. */
-
-Stream.alt = tx => ty => function go(tz, done_) {
-  return tz.run({
-    step: o => Stream.Step.lazy({
-      yield: o.yield,
-      get next() {return go(o.next, done_)}
-    }),
-
-    get done() {
-      if (done_) return Stream.Done; 
-
-      else return Stream.Step.lazy({
-        yield: p.yield,
-        get next() {return go(ty, true)}
-      });
-    }
-  });
-} (tx, false);
-
-
-Stream.Alt = {
-  ...Stream.Functor,
-  alt: Stream.alt
-};
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-Stream.zero = Stream.Done;
-
-
-Stream.Plus = {
-  ...Stream.Alt,
-  zero: Stream.zero
-};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-/* Takes two streams one yielding partially applied functions and another
-yielding values and applies the function to the value. Both streams don't need
-to have the same length, even though this may lead to information loss. */
-
-Stream.ap = ft => tx => function go(gt, ty) {
-  return gt.run({
-    step: o => ty.run({
-      step: o2 => Stream.Step.lazy({
-        yield: o.yield(o2.yield),
-        get next() {return go(o.next, o2.next)}
-      }),
-
-      done: Stream.Done
-    }),
-
-    done: Stream.Done
-  }) (ft, tx);
-};
-
-
-Stream.Apply = {
-  ...Stream.Functor,
-  ap: Stream.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Stream.of = x => Stream.Step.lazy({ // infinite stream
-  yield: x,
-  get next() {return Stream.of(x)}
-});
-
-
-Stream.Applicative = {
-  ...Stream.Apply,
-  of: Stream.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-/* For each iteration, creates a new stream by applying `fm` with the current
-element of the original stream. Then yields its elements until the new stream
-is exhausted and starts a new iteration until the original stream is exhausted
-as well. */
-
-Stream.chain = fm => function go(mx) {
-  return mx.run({
-    step: o => {
-      const my = fm(o.yield);
-
-      my.run({
-        step: o2 => Stream.Step.lazy({
-          yield: o2.yield,
-          get next() {return go(o2.next)}
-        }),
-
-        get done() {return go(o.next)}
-      });
-    },
-
-    done: Stream.Done
-  });
-};
-
-
-Stream.Chain = {
-  ...Stream.Apply,
-  chain: Stream.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
-
-
-Stream.Alternative = {
-  ...Stream.Plus,
-  ...Stream.Applicative
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Stream.Monad = {
-  ...Stream.Applicative,
-  chain: Stream.chain
-};
-
-
-/*
-█████ Functor :: Extend ███████████████████████████████████████████████████████*/
-
-
-// TODO: head of the stream
-
-
-/*
-█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
-
-
-// TODO: f applied to each tail of the stream (i.e. stream.next)
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Stream.append = Semigroup => tx => ty => function go(tx2, ty2) {
-  return tx2.run({
-    step: o => ty2.run({
-      step: o2 => Stream.Step.lazy({
-        yield: Semigroup.append(o.yield) (o2.yield),
-        get next() {return go(o.next, o2.next)}
-      }),
-      
-      get done() {
-        return Stream.Step.lazy({
-          yield: o.yield,
-          get next() {return go(o.next, Stream.Done)}
-        });
-      }
-    }),
-
-    get done() {
-      return ty2.run({
-        step: o2 => Stream.Step.lazy({
-          yield: o2.yield,
-          get next() {return go(Stream.Done, o2.next)}
-        }),
-        
-        done: Stream.Done
-      });
-    }
-  });
-} (tx, ty);
-
-
-Stream.Semigroup = {append: Stream.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-Stream.empty = Stream.Nis;
-
-
-Stream.Monoid = {
-  ...Stream.Semigroup,
-  empty: Stream.empty
-};
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Stream.Traversable = Stream.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -11484,13 +10996,15 @@ export const FileSys = fs => Cons => thisify(o => {
       * delay decision
       * contest function declares a winner, several winners or no winner
     * analyze + contectualize = synthesize
+
+  * rewrite Stream using generators
+  * rewrite Parser using generators
+  * add context type (array of arrays)
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
   * delete S.once/P.once etc. provided it is redundant
-  * add type wrapper for transformers?
   * add Represantable type class
   * add Distributive type class
   * add flipped chain method to chain class
-  * define TAG through `Object.defineProperty`
 
 */
