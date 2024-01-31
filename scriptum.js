@@ -917,15 +917,6 @@ export const xor_ = _default => x => y => {
 export const between = ({lower, upper}) => x => x >= lower && x <= upper;
 
 
-export const compareAsc = x => y => x < y ? LT : x > y ? GT : EQ;
-
-
-export const compareDesc = x => y => y < x ? LT : y > x ? GT : EQ;
-
-
-export const compareOn_ = () => compBoth(compare);
-
-
 /* Since `===` cannot be intercepted by proxies, implicit thunks are not forced
 to WHNF. Hence the strict evaluation of operands. */
 
@@ -984,23 +975,30 @@ export const neq_ = f => g => f() !== g();
 export const notBetween = ({lower, upper}) => x => x < lower || y > upper;
 
 
-export const order = ({lt, eq, gt}) => x => y =>
-  x < y ? lt(Pair(x, y))
-    : x > y ? gt(Pair(x, y))
-    : eq(Pair(x, y));
-
-
-export const orderOn = Order => ({lt, eq, gt}) => x => y =>
-  Order.lt(x) (y) ? lt(Pair(x, y))
-    : Order.gt(x) (y) ? gt(Pair(x, y))
-    : eq(Pair(x, y));
-
-
 export const xor = ({true: t, false: f}) => x => y => {
   if (x && !y) return t;
   else if (!x && y) return t;
   else return f;
 };
+
+
+/*
+█████ Ordering ████████████████████████████████████████████████████████████████*/
+
+
+export const compareAsc = x => y => x < y ? LT : x > y ? GT : EQ;
+
+
+export const compareDesc = y => x => x < y ? LT : x > y ? GT : EQ;
+
+
+export const compareOn_ = () => compBoth(compareAsc);
+
+
+export const order = ({lt, eq, gt}) => x => y =>
+  x < y ? lt(Pair(x, y))
+    : x > y ? gt(Pair(x, y))
+    : eq(Pair(x, y));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1539,7 +1537,7 @@ export const join = Chain => mmx => Chain.chain(mmx) (id);
 
 // ignore the result of the first monad
 
-export const seq = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
+export const seqM = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
 
 
 /*
@@ -5343,14 +5341,14 @@ It.find = p => function* (ix) {
 
 It.append = ix => function* (iy) {
   do {
-    const {value: x, done} = ix.next(),
+    const {value: x, done} = ix.next();
 
     if (done) break;
     else yield x;
   } while(true)
 
   do {
-    const {value: y, done} = iy.next(),
+    const {value: y, done} = iy.next();
 
     if (done) return;
     else yield y;
@@ -8622,7 +8620,7 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 // stateful parser generators with an applicative based on idempotent iterators
 
 
-const Parser = type("Parser"),
+const Parser = type("Parser");
   
 
 Parser.Result = variant("Parser.Result", cons("Invalid"), cons("Valid"));
@@ -9097,7 +9095,7 @@ Parser.const = x => px => Parser(next => state => {
       state: tx.state
     })
   })
-};
+});
 
 
 // lift a function into the context of a parser result
@@ -9138,7 +9136,7 @@ Parser.ap = pf => px => Parser(next => state => {
 // put a pure value in a parser context
 
 Parser.of = x => Parser(next => state =>
-  Parser.Result.Valid({value: x, next, state});
+  Parser.Result.Valid({value: x, next, state}));
 
 
 /* Conditionally sequence two parsers so that the second parser depends on the
