@@ -129,8 +129,8 @@ export const type = tag => x => {
 █████ Variant Types ███████████████████████████████████████████████████████████*/
 
 
-/* Variant types allow different shapes of values in an exclusive or relation
-that still have the same type. scriptum only supports composite values as
+/* Variant types allow different shapes in the form of an exclusive-or relation
+subsumed under a single type. scriptum only supports composite values as
 variants. You can use them as follows:
 
   const Option = variant("Option", constant("None"), cons("Some"));
@@ -138,16 +138,13 @@ variants. You can use them as follows:
   const tx = Option.Some(5),
     ty = Option.None;
 
-  /* There is no direct access to the inner value of a variant type. How need
-  to pass a function to the `run` method to inspect it. While debugging you can
-  inspect the inner value using the `VAL` property key, though.
-
-  // indirect access by providing a type dictionary to the `run` property
+  /* The value of a variant type cannot be accessed direclty. You need to invoke
+  the `run` method and provide a type dictionary to inspect it:
 
   tx.run({some: x => x * x, none: 0}); // yields 25
   ty.run({some: x => x * x, none: 0}); // yields 0
 
-  // indirect access by using the `cata` property
+  You can also resort to the predefined catamorphism:
 
   const option = Option.cata({some: x => x * x, none: 0}));
 
@@ -158,8 +155,10 @@ variants. You can use them as follows:
 i.e. it assures that the provided type dictionary provides all necessary
 variants.
 
-The next example is a recursive variant type where the second constructor is a
-forms a product type: The single linked list:
+You can use the `VAL` property key during debugging to facilitate the process.
+
+The next example is a recursive variant type in which the second constructor is a
+product type. In general, you can ecnode sums of products using variant types:
 
   const List = variant("List", constant("Nil"), consn("Cons", "head", "tail"));
 
@@ -1780,6 +1779,20 @@ export const pipe = g => f => x => f(g(x));
 
 
 export const pipe3 = h => g => f => x => f(g(h(x)));
+
+
+/* Create a queue of functions that can be applied in sequence in a stack-safe
+manner. You can not only get the final result but recover all intermediate
+results by consuming the generator with `Array.from`. */
+
+export const seq = fs => function* (x) {
+  for (let i = 0; i < fs.length; i++) {
+    x = fs[i] (x);
+    yield x;
+  }
+
+  return x;
+};
 
 
 /*
@@ -5520,6 +5533,18 @@ It.Traversable = It.Traversable();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+/* `next` method of an iterator object can be called any number of times but
+the underlying iterator is only advanced once:
+  
+  ix.next();
+  ix.next();
+  ix.next();
+
+The iterator can be advanced further by calling `next` of the returned object:
+  
+  ix.next().next(); */
+
+
 export const Ii = ix => {
   let o = {
     value: null,
@@ -8594,98 +8619,13 @@ W.T = outer => thisify(o => { // outer monad's type dictionary
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// parser generators with an applicative based on idempotent iterators
-
-const Parser = Applicative => {
-  const Parser = {};
+// stateful parser generators with an applicative based on idempotent iterators
 
 
-  // always accept any input
+const Parser = type("Parser"),
+  
 
-  Parser.accept = Parser(tx => Applicative.map(ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else return {value: iy.value, ix: iy};
-  }) (tx));
-
-
-  // always fail regardless of the input
-
-  Parser.fail = Parser(tx => Applicative.map(ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else return {value: new Exception("always fails"), ix: iy};
-  }) (tx));
-
-
-  // only succeed on input that satisfies a predicate
-
-  Parser.satisfy = msg => p => Parser(tx => Applicative.map(ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else if (p(iy.value)) return {value: iy.value, ix: iy};
-    else return new Exception(msg);
-  }) (tx));
-
-
-  // try to parse the next input but restore original state on failure
-
-  Parser.try = p => Parser(tx => Applicative.map(ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else if (p(iy.value)) return {value: iy.value, ix: iy};
-    else return {value: new Exception("failed try"), ix};
-  }) (tx));
-
-
-  // verify end of input
-
-  Parser.eoi = Parser(tx => Applicative.map(ix => {
-    if (ix.done) return {value: null, ix};
-    else return new Exception("leftover input");
-  }) (tx));
-
-
-  /* Try the first parser or the second one on error and take the first error
-  message if both fail. */
-
-  Parser.alt = tx => Parser(ty => Applicative.ap(Applicative.map(ix => iy => {
-    const iz = ix.next();
-
-    if (iz.done || intro(iz.value) === "Error") {
-      const iz2 = iy.next();
-
-      if (iz2.done) return new Exception("end of input");
-      else if (intro(iz2.value) === "Error") return {value: iz.value, ix};
-      else return {value: iz2.value, ix: iz2};
-    }
-
-    else return {value: iz.value, ix: iz};
-  }) (tx)) (ty);
-
-
-  Parser.map = f => Parser(tx => Applicative.map(ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else return {value: f(iy.value), ix: iy};
-  }) (tx));
-
-
-  Parser.ap = tf => Parser(tx => Applicative.ap(Applicative.map(f => ix => {
-    const iy = ix.next();
-
-    if (iy.done) return new Exception("end of input");
-    else return {value: f(iy.value), ix: iy};
-  }) (tf)) (tx);
-
-
-  return Parser;
-};
+Parser.Result = variant("Parser.Result", cons("Invalid"), cons("Valid"));
 
 
 /*
@@ -8959,450 +8899,279 @@ Object.defineProperty(Parser, "DERIVED_LETTERS", {
 
 
 /*
-█████ Combinator ██████████████████████████████████████████████████████████████*/
+█████ Combinators █████████████████████████████████████████████████████████████*/
 
 
-/* obsolete:
+// always accept any input
 
-Parser.accept = Parser(({text, i}) => state =>
-  i < text.length
-    ? [Parser.Result.Some({res: text[i], rest: {text, i: i + 1}, state})]
-    : [Parser.Result.Error({rest: {text, i}, state, msg: "end of text"})]);
+Parser.accept = Parser(next => state => {
+  const ix = next();
+
+  if (ix.done) throw new Exception("end of input");
+
+  else return Parser.Result.Valid({
+    value: ix.value,
+    next: ix.next,
+    state: ix.state
+  });
+});
 
 
-Parser.fail = msg => Parser(({text, i}) => state =>
-  [Parser.Result.Error({rest: {text, i}, state, msg})]);
- 
+// always fail regardless of the input but allow to recover (zero)
 
-Parser.satisfy = msg => p => Parser(({text, i}) => state => {
-  if (i < text.length) {
-    return [
-      p(text[i])
-        ? Parser.Result.Some({res: text[i], rest: {text, i: i + 1}, state})
-        : Parser.Result.Error({rest: {text, i}, state, msg})
-    ];
+Parser.fail = msg => Parser(next => state => {
+  const ix = next();
+
+  if (ix.done) return new Exception("end of input");
+
+  else return Parser.Result.Invalid({
+    value: new Exception(msg),
+    next,
+    state
+  });
+});
+
+
+// only succeed on input that satisfies a predicate
+
+Parser.satisfy = msg => p => Parser(next => state => {
+  const ix = next();
+
+  if (ix.done) return new Exception("end of input");
+
+  else if (p(ix.value)) return Parser.Result.Valid({
+    value: ix.value,
+    next: ix.next,
+    state: ix.state
+  });
+
+  else return new Exception(msg);
+});
+
+
+// try to parse the next input and allow to recover on failure (backtracking)
+
+Parser.try = p => Parser(next => state => {
+  const ix = next();
+
+  if (ix.done) return new Exception("end of input");
+
+  else if (p(ix.value)) return Parser.Result.Valid({
+    value: ix.value,
+    next: ix.next,
+    state: ix.state
+  });
+
+  else return Parser.Result.Invalid({
+    value: new Exception("failed try"),
+    next,
+    state
+  });
+});
+
+
+// verify end of input
+
+Parser.eoi = Parser(next => state => {
+  const ix = next();
+
+  if (ix.done) return new Exception("end of input");
+
+  else return Parser.Result.Valid({
+    value: null,
+    next,
+    state
+  });
+});
+
+
+/* Try the first parser or the second one on error but return the first error
+message if both fail. */
+
+Parser.or = px => py => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: tx => py(next) (state).run({
+      Invlaid: _ => {
+        if (intro(tx) === "Error") throw tx;
+        else return tx;
+      },
+      
+      Valid: id
+    }),
+
+    Valid: id
+  })
+});
+
+
+/* Try the first parser and the second and fail if either of them does,
+otherwise succeed. */
+
+Parser.and = px => py => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: tx => {
+      if (intro(tx) === "Error") throw tx;
+      else return tx;
+    },
+
+    Valid: ty => py(ty.next) (ty.state).run({
+      Invalid: tz => {
+        if (intro(tz) === "Error") throw tz;
+        else return tz;
+      },
+
+      Valid: id
+    })
+  });
+});
+
+
+Parser.xor = px => py => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: tx => py(next) (state).run({
+      Invlaid: _ => tx,
+      Valid: id
+    }),
+
+    Valid: ty => py(next) (state).run({
+      Invlaid: _ => ty,
+      Valid: id
+    })
+  });
+});
+
+
+Parser.any = ps => Parser(next => state => {
+  let tx, first = null;
+
+  for (const px of ps) {
+    tx = px(next) (state);
+
+    if (first === null) first = tx;
+
+    if (tx.tag === "Valid") return tx;
+    else continue;
   }
 
-  else return [Parser.Result.Error({rest: {text, i}, state, msg: "end of text"})];
-});
- 
-
-Parser.alt = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => {
-      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
-        some: p2 => [Parser.Result.Some(p2)],
-        none: q2 => [Parser.Result.None(q2)]
-      }));
-    },
-
-    some: p => [Parser.Result.Some(p)],
-    none: q => [Parser.Result.None(q)]
-  }));
+  return first;
 });
 
 
-Parser.xalt = parser => parser2 => Parser(rest => state => { // exclusive alternative
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => {
-      return parser2(rest) (state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
-        some: p2 => [Parser.Result.Some(p2)],
-        none: q2 => [Parser.Result.None(q2)]
-      }));
-    },
+Parser.all = ps => Parser(next => state => {
+  let tx;
 
-    some: p => {
-      return parser2(rest) (state).map(ty => ty.run({
-        error: o2 => Parser.Result.Some(p),
-        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "non-exclusive alt"}),
-        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "non-exclusive alt"})
-      }));
-    },
+  for (const px of ps) {
+    tx = px(next) (state);
 
-    none: p => {
-      return parser2(rest) (state).map(ty => ty.run({
-        error: o2 => Parser.Result.Some(p),
-        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "non-exclusive alt"}),
-        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "non-exclusive alt"})
-      }));
-    }
-  }));
-});
-
-
-Parser.amb = parser => parser2 => Parser(rest => state => { // ambiguity
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => {
-      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Error(o), Parser.Result.Error(o2)],
-        some: p2 => [Parser.Result.Some(p2)],
-        none: q2 => [Parser.Result.None(q2)]
-      }));
-    },
-
-    some: p => {
-      return parser2(p.rest) (p.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Some(p)],
-        some: p2 => [Parser.Result.Some(p), Parser.Result.Some(p2)],
-        none: q2 => [Parser.Result.Some(p), Parser.Result.None(q2)]
-      }));
-    },
-
-    none: q => {
-      return parser2(q.rest) (q.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.None(q)],
-        some: p2 => [Parser.Result.None(q), Parser.Result.Some(p2)],
-        none: q2 => [Parser.Result.None(q), Parser.Result.None(q2)]
-      }));
-    }
-  }));
-});
-
-
-Parser.seq = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some({res: Pair(p.res, p2.res), rest: p2.rest, state: p2.state}),
-        none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
-      }));
-    },
-
-    none: q => {
-      return parser2(q.rest) (q.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some({res: p2.res, rest: p2.rest, state: p2.state}),
-        none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
-      }));
-    }
-  }));
-});
-
-
-Parser.seqLeft = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some({res: p.res, rest: p2.rest, state: p2.state}),
-        none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
-      }));
-    },
-
-    none: q => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.None({rest: p2.rest, state: p2.state}),
-        none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
-      }));
-    }
-  }));
-});
- 
-
-Parser.notSeqLeft = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Some({res: p.res, rest: o2.rest, state: o2.state}),
-        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "unexpected sequence"}),
-        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "unexpected sequence"})
-      }));
-    },
-
-    none: q => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.None({rest: o2.rest, state: o2.state}),
-        some: p2 => Parser.Result.Error({rest: p2.rest, state: p2.state, msg: "unexpected sequence"}),
-        none: q2 => Parser.Result.Error({rest: q2.rest, state: q2.state, msg: "unexpected sequence"})
-      }));
-    },
-  }));
-});
-
-
-Parser.seqRight = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some(p2),
-        none: q2 => Parser.Result.None(q2)
-      }));
-    },
-
-    none: p => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some(p2),
-        none: q2 => Parser.Result.None(q2)
-      }));
-    }
-  }));
-});
-
-
-Parser.notSeqRight = parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => {
-      return parser2(p.rest) (p.state).map(ty => ty.run({
-        error: o2 => Parser.Result.Error(o2),
-        some: p2 => Parser.Result.Some(p2),
-        none: q2 => Parser.Result.None(q2)
-      }));
-    },
-
-    some: p => [Parser.Result.Error({rest: p.rest, state: p.state, msg: "unexpected sequence"})],
-    none: q => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})]
-  }));
-});
-
-
-Parser.seqMid = parser => parser2 => parser3 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Error(o2)],
-
-        some: p2 => {
-          return parser3(p2.rest) (p2.state).map(tz => tz.run({
-            error: o3 => Parser.Result.Error(o3),
-            some: p3 => Parser.Result.Some({res: p2.res, rest: p3.rest, state: p3.state}),
-            none: q3 => Parser.Result.Some({res: p2.res, rest: q3.rest, state: q3.state})
-          }));
-        },
-
-        none: q2 => {
-          return parser3(q2.rest) (q2.state).map(tz => tz.run({
-            error: o3 => Parser.Result.Error(o3),
-            some: p3 => Parser.Result.None({rest: p3.rest, state: p3.state}),
-            none: q3 => Parser.Result.None({rest: q3.rest, state: q3.state})
-          }));
-        }
-      }));
-    }
-  }));
-});
- 
-
-Parser.notSeqMid = parser => parser2 => parser3 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => {
-      return parser2(o.rest) (o.state).flatMap(ty => ty.run({
-        error: o2 => [Parser.Result.Error(o2)],
-
-        some: p2 => {
-          return parser3(p2.rest) (p2.state).map(tz => tz.run({
-            error: o3 => Parser.Result.Some({res: p2.res, rest: o3.rest, state: o3.state}),
-            some: p3 => Parser.Result.Error({rest: p3.rest, state: q3.state, msg: "unexpected sequence"}),
-            none: q3 => Parser.Result.Error({rest: q3.rest, state: q3.state, msg: "unexpected sequence"})
-          }));
-        },
-
-        none: q2 => {
-          return parser3(q2.rest) (q2.state).map(tz => tz.run({
-            error: o3 => Parser.Result.None({rest: o3.rest, state: o3.state}),
-            some: p3 => Parser.Result.Error({rest: p3.rest, state: q3.state, msg: "unexpected sequence"}),
-            none: q3 => Parser.Result.Error({rest: q3.rest, state: q3.state, msg: "unexpected sequence"})
-          }));
-        }
-      }));
-    },
-
-    some: p => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})],
-    none: q => [Parser.Result.Error({rest: q.rest, state: q.state, msg: "unexpected sequence"})]
-  }));
-});
-
-
-Parser.append = Semigroup => parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => {
-      return parser2(p.rest) (p.state).map(ty =>
-        ty.run({
-          error: o2 => Parser.Result.Error(o2),
-          some: p2 => Parser.Result.Some({res: Semigroup.append(p.res) (p2.res), rest: p2.rest, state: p2.state}),
-          none: q2 => Parser.Result.Some({res: p.res, rest: q2.rest, state: q2.state})
-        })
-      );
-    },
-
-    none: p => {
-      return parser2(p.rest) (p.state).map(ty =>
-        ty.run({
-          error: o2 => Parser.Result.Error(o2),
-          some: p2 => Parser.Result.Some({res: p2.res, rest: p2.rest, state: p2.state}),
-          none: q2 => Parser.Result.None({rest: q2.rest, state: q2.state})
-        })
-      );
-    }
-  }));
-});
-
-
-Parser.empty = Monoid => Parser(rest => state =>
-  [Parser.Result.Some({res: Monoid.empty, rest, state})]);
-
-
-Parser.map = f => parser => Parser(rest => state => {
-  return parser(rest) (state).map(tx => tx.run({
-    error: o => Parser.Result.Error(o),
-    some: p => Parser.Result.Some({res: f(p.res), rest: p.rest, state: p.state}),
-    none: q => Parser.Result.None({rest: q.rest, state: q.state})
-  }));
-});
-
-
-Parser.ap = Monoid => parser => parser2 => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-
-    some: p => parser2(p.rest) (p.state).map(ty => ty.run({
-      error: o2 => Parser.Result.Error(o2),
-      some: p2 => Parser.Result.Some({res: p.res(p2.res), rest: p2.rest, state: p2.state}),
-      none: q2 => Parser.Result.Some({res: p.res(Monoid.empty), rest: q2.rest, state: q2.state})
-    }))
-  }));
-});
-
-
-Parser.of = x => Parser(rest => state =>
-  [Parser.Result.Some({res: x, rest, state})]);
-
-
-Parser.chain = Monoid => fm => parser => Parser(rest => state => {
-  return parser(rest) (state).flatMap(tx => tx.run({
-    error: o => [Parser.Result.Error(o)],
-    some: p => fm(p.res) (p.rest) (p.state),
-    none: q => fm(Monoid.empty) (q.rest) (q.state)
-  }));
-});
-
-
-Parser.eof = Parser(rest => rest =>
-  rest.i === text.length
-    ? Parser.Result.Some({res: "", rest, state})
-    : Parser.Result.Error({rest, state, msg: "not end of file"}));
-
-
-Parser.const = x => parser => Parser(rest => state =>
-  [Parser.Result.Some({res: x, rest, state})]);
-
-
-Parser.opt = parser => Parser(rest => state => {
-  return parser(rest) (state).map(tx => tx.run({
-    error: o => Parser.Result.None({rest: o.rest, state: o.state}),
-    some: p => Parser.Result.Some(p),
-    none: q => Parser.Result.None(q)
-  }));
-});
-
-
-Parser.optOr = res => parser => Parser(rest => state => {
-  return parser(rest) (state).map(tx => tx.run({
-    error: o => Parser.Result.Some({res, rest: o.rest, state: o.state}),
-    some: p => Parser.Result.Some(p),
-    none: q => Parser.Result.Some({res, rest: q.rest, state: q.state})
-  }));
-});
-
-
-Parser.take = n => Parser(({text, i}) => state => {
-  const j = n + i < text.length ? n + i : text.length;
-  return [Parser.Result.Some({res: text.slice(0, j), rest: {text: text.slice(j), i: j}, state})];
-});
-
-
-Parser.take1 = n => Parser(({text, i}) => state => {
-  if (i + 1 === text.length)
-    return [Parser.Result.Error({rest, state, msg: "cannot take at least one element"})]
-
-  else {
-    const j = n + i < text.length ? n + i : text.length;
-    return [Parser.Result.Some({res: text.slice(0, j), rest: {text: text.slice(j), i: j}, state})];
+    if (tx.tag === "Invalid") return tx;
+    else continue;
   }
+
+  return tx;
 });
 
 
-Parser.takeWhile = f => init => parser => Parser(rest => state => {
-  return Loop3((acc, rest2, state2) => {
-    return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop3.base(Parser.Result.Some({res: acc, rest: o.rest, state: o.state})),
-      some: p => Loop3.rec(f(p.res) (acc), p.rest, p.state),
-      none: q => Loop3.rec(acc, q.rest, q.state)
-    }));
-  }) (init, rest, state);
+Parser.many = px => function go(acc) {
+  return Parser(next => state => {
+    return px(next) (state).run({
+      Invalid: _ => Parser.Result.Valid({
+        value: acc, next, state
+      }),
+
+      Valid: tx =>
+        go(A.push(tx.value) (acc)) (tx.next) (tx.state)
+    });
+  });
+} ([]);
+
+
+// ignores the next value provided the supplied parser yields a valid result
+
+Parser.const = x => px => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: id,
+
+    Valid: tx => Parser.Result.Valid({
+      value: x,
+      next: tx.next,
+      state: tx.state
+    })
+  })
+};
+
+
+// lift a function into the context of a parser result
+
+Parser.map = f => px => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: id,
+
+    Valid: tx => Parser.Result.Valid({
+      value: f(tx.value),
+      next: tx.next,
+      state: tx.state
+    })
+  })
 });
 
 
-Parser.takeWhile1 = f => init => parser => Parser(rest => state => {
-  return parser(rest2) (state2).map(tx => tx.run({
-    error: o => Parser.Result.Some({res: init, rest: o.rest, state: o.state}),
-    
-    some: p => {
-      return Loop3((acc, rest2, state2) => {
-        return parser(rest2) (state2).map(tx => tx.run({
-          error: o2 => Loop3.base(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
-          some: p2 => Loop3.rec(f(p2.res) (acc), p2.rest, p2.state),
-          none: q2 => Loop3.rec(acc, q2.rest, q2.state)
-        }));
-      }) (f(p.res) (init), p.rest, p.state);
-    },
+/* Sequence two parsers so that a binary curried function is lifted into the
+context of the parser result values. */
 
-    none: q => {
-      return Loop3((acc, rest2, state2) => {
-        return parser(rest2) (state2).map(tx => tx.run({
-          error: o2 => Loop3.base(Parser.Result.Some({res: acc, rest: o2.rest, state: o2.state})),
-          some: p2 => Loop3.rec(f(p2.res) (acc), p2.rest, p2.state),
-          none: q2 => Loop3.rec(acc, q2.rest, q2.state)
-        }));
-      }) (init, p.rest, p.state);
-    }
-  }));
+Parser.ap = pf => px => Parser(next => state => {
+  return pf(next) (state).run({
+    Invalid: id,
+
+    Valid: tf => px(tf.next) (tf.state).run({
+      Invalid: id,
+
+      Valid: tx => Parser.Result.Valid({
+        value: tf.value(tx.value),
+        next: tx.next,
+        state: tx.state
+      })
+    })
+  });
 });
 
 
-Parser.drop = n => Parser(({text, i}) => state => {
-  const j = n + i < text.length ? n + i : text.length;
-  return [Parser.Result.None({rest: {text, i: j}, state})];
+// put a pure value in a parser context
+
+Parser.of = x => Parser(next => state =>
+  Parser.Result.Valid({value: x, next, state});
+
+
+/* Conditionally sequence two parsers so that the second parser depends on the
+result value of the first one. */
+
+Parser.chain = px => fm => Parser(next => state => {
+  return px(next) (state).run({
+    Invalid: id,
+    Valid: tx => fm(tx.value) (tx.next) (state)
+  });
 });
 
 
-Parser.dropWhile = parser => Parser(rest => state => {
-  return Loop2((rest2, state2) => {
-    return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop2.base(Parser.Result.None({rest: o.rest, state: o.state})),
-      some: p => Loop2.rec(p.rest, p.state),
-      none: q => Loop2.rec(q.rest, q.state)
-    }));
-  }) (rest, state);
-});
+/* Todo:
 
-
-Parser.dropUntil = parser => Parser(rest => state => {
-  return Loop2((rest2, state2) => {
-    return parser(rest2) (state2).map(tx => tx.run({
-      error: o => Loop2.rec(o.rest, o.state),
-      some: p => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state})),
-      none: q => Loop2.base(Parser.Result.None({rest: p.rest, state: p.state}))
-    }));
-  }) (rest, state);
-}); */
+seq (sequence of more than two parsers)
+option (returns a default value on error)
+none (opposite of all)
+sepBy (reads chars separated by a separator)
+many1
+fromTo
+times
+drop
+dropWhile
+takeWhile
+amb
+between
+digit
+alnum
+letter
+space
+char (character)
+chars (sequence of characters) */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9984,7 +9753,12 @@ It has the following properties:
   * unicast
   * sync
   * pull
-  * lazy */
+  * lazy
+
+In Javascript/Node.js functional, linked-list-like streams are less useful, as
+there are native iterators but no monad/transformer ecosystem. scriptum also
+offers an iterator wrapper that renders them idempotent in their `next` method.
+See the iterator section for more details. */
 
 
 export const Stream = variant("Stream", cons("Step"), cons("Eff"), cons2("Done"));
@@ -10997,8 +10771,6 @@ export const FileSys = fs => Cons => thisify(o => {
       * contest function declares a winner, several winners or no winner
     * analyze + contectualize = synthesize
 
-  * rewrite Stream using generators
-  * rewrite Parser using generators
   * add context type (array of arrays)
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
