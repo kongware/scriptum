@@ -4025,71 +4025,100 @@ Cont.array = Cont.array();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Coroutine to split up elaborate tasks into smaller, less complex chunks:
+/* Separate pure computation from effect handling. Exemplary computation that
+might don't return a result:
+
+  // pure computation;
 
   function* task(init) {
-    let r = yield init;
-
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-    r = yield Cont.komp(inc) (inc) (r);
-  };
-
-  const tx = Co(task(0)),
-    ty = Co.map(tx => tx.run(id)) (tx);
-  
-  Co.strict(ty); // yields 10
-
-What the above code basically does it separating effects from pure computation.
-While `task` is pure the effects are abstracted in the mapping. Here is another
-example:
-
-  function* foo(init) {
     const o = yield init;
-    const v = yield o["foo"];
-    const v2 = yield o["bar"];
-    const r = yield v/v2;
-    yield `division result is ${r}`;
+
+    const x = yield o.foo,
+      y = yield o.bar;
+
+    yield x * y;
+  }
+
+  // effect handling
+
+  const interpreter = ix => {
+    const iy = ix.next();
+
+    if (iy.done) return iy;
+    else if (iy.value === null) return Co.empty;
+    else if (iy.value === undefined) return Co.empty;
+
+    const iz = iy.nextWith(o => o.x);
+
+    if (iz.done) return iy;
+    else if (iz.value === null) return Co.empty;
+    else if (iz.value === undefined) return Co.empty;
+
+    const ia = iz.nextWith(o => o.x);
+    return ia;
   };
 
-  const tx = Co(foo({foo: 12, bar: 3})),
-    ty = Co(foo({foo: 12, baz: 3})),
-    tz = Co(foo({foo: 12, bar: 0}));
+  const ix = Co(task({foo: 2, bar: 3})),
+    iy = Co(task({fou: 2, bar: 3}));
 
-  const co = tw => Co.iterate(
-    Co.iterateTry("division through zero") (Number.isFinite)
-      (Co.iterateIf(x => x !== undefined)
-        (Co.iterateIf(x => x !== undefined) (tw))));
+  interpreter(ix).value; // yields 6
+  interpreter(iy).value; // yields undefined
 
-  co(tx).value; // yields "division result is 4"
-  co(ty).value; // yields undefined
-  co(tz).value; // yields "division through zero" */
+Exemplary asynchronous computation:
+
+  function* task(init) {
+    const s = yield init;
+
+    const s2 = yield Promise.resolve("hi, " + s);
+
+    yield s2.toUpperCase() + "!";
+  }
+
+  const interpreter = ix => {
+    const iy = ix.next();
+
+    if (iy.done) return;
+
+    else if (iy.value[Symbol.toStringTag] === "Promise") iy.value.then(x => {
+      const iz = iy.next(x);
+      console.log(iz);
+    });
+  };
+
+  const ix = Co(task2("Joe"));
+
+  interpreter(ix).value; // yields "HI, JOE!"
+*/
 
 
 export const Coroutine = ix => {
   let o = ix.next(); // init
-  
-  o.next = () => {
-    const p = ix.next(o.value);
+
+  o.next = x => {
+    const p = ix.next(x || o.value);
 
     p.next = o.next;
     p.nextWith = o.nextWith;
-    p.run = o.run;
+    delete o.next;
+    delete o.nextWith;
+    o.next = () => p;
+    o.nextWith = () => p;
     o = p;
     return p;
   };
 
-  // update/set value fed into the coroutine
+  o.nextWith = f => {
+    const p = ix.next(f(o.value));
 
-  o.nextWith = f => o.done
-    ? ix.next()
-    : ix.next(f(o.value));
-  
-  o.run = f => o.done
-    ? o.value
-    : f(o.value);
+    p.next = o.next;
+    p.nextWith = o.nextWith;
+    delete o.next;
+    delete o.nextWith;
+    o.next = () => p;
+    o.nextWith = () => p;
+    o = p;
+    return p;
+  }
 
   return o;
 };
@@ -4107,7 +4136,7 @@ export const Co = Coroutine;
 Co.iterate = o => o.next();
 
 
-// short cicuit the coroutine without a value
+// short circuit the coroutine without a value
 
 Co.iterateIf = p => o => {
   const q = o.next();
@@ -4316,7 +4345,10 @@ Co.Align.Monoid = {
 █████ Mics. ███████████████████████████████████████████████████████████████████*/
 
 
-Co.of = x => Co(function* of(init) {yield init; yield x} ());
+Co.of = x => Co(function* of(init) {
+  yield init;
+  yield x;
+} (null));
 
 
 Co.weave = o => o2 => {
