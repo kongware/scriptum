@@ -3743,38 +3743,65 @@ strucutes with structural sharing on the one hand and nested function call
 trees on the other. */
 
 
-// loop indeterministicly (indeterministic choice)
-
-Cont.array = () => Cont.arr.fold;
+// ███ Computation without result value
 
 
-// catch an exception
-
-Cont.catch = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? k(fail(x)) : k(succeed(x)));
+Cont.Null = {};
 
 
-// discard continuation if current computation yields no value
-
-Cont.discard = _default => x =>
-  Cont(k => x === null || x === Null ? _default : k(x));
-
-
-// loop indeterministicly (indeterministic choice)
-
-// TODO: Cont.List = () => ({cata: Cons.list.fold});
-
-
-// discard functon if previous computation yields no value
-
-Cont.option = ({none, some}) => x => Cont(k =>
+Cont.Null.default = ({none, some}) => x => Cont(k =>
   x === null || x === Null ? k(none) : k(some(x)));
 
 
-// terminate program if previous computation raised an exception
+Cont.Null.option = ({none, some}) => x => Cont(k =>
+  x === null || x === Null ? none : k(some(x)));
 
-Cont.throw = succeed => x => Cont(k =>
+
+// ███ Exception handling
+
+
+Cont.Exception = {};
+
+Cont.Exception.try = ({fail, succeed}) => x => Cont(k =>
+  intro(x) === "Error" ? fail(x) : k(succeed(x)));
+
+
+Cont.Exception.tryCatch = ({fail, succeed}) => x => Cont(k =>
+  intro(x) === "Error" ? k(fail(x)) : k(succeed(x)));
+
+
+Cont.Exception.TryThrow = ({fail, succeed}) => x => Cont(k =>
   intro(x) === "Error" ? _throw(x) : k(succeed(x)));
+
+
+// ███ Implicit arguments
+
+
+// TODO
+
+
+// ███ Indeterminism
+
+
+Cont.Indeterminism = {};
+
+
+Cont.Indeterminism.array = () => Cont.arr.fold;
+
+
+// TODO: Cont.Indeterminism.list
+
+
+// ███ Logging
+
+
+// TODO
+
+
+// ███ State
+
+
+// TODO
 
 
 /*
@@ -4081,13 +4108,13 @@ Exemplary asynchronous computation:
 
     else if (iy.value[Symbol.toStringTag] === "Promise") iy.value.then(x => {
       const iz = iy.next(x);
-      console.log(iz);
+      console.log(iz.value);
     });
   };
 
   const ix = Co(task2("Joe"));
 
-  interpreter(ix).value; // yields "HI, JOE!"
+  interpreter(ix).value; // logs "HI, JOE!"
 */
 
 
