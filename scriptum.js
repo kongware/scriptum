@@ -4089,7 +4089,7 @@ Cont.lift = Monad => mx = Cont(k => Monad.chain(mx) (Cont.Tramp.call_(k)));
 Cont.get = tx => Cont(k => Cont.Tramp.call(k, tx.run));
 
 
-Cont.reify = f => x => Cont(k => f(x));
+Cont.reify = k => x => Cont(_ => k(x));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8129,37 +8129,6 @@ P.Race.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-P.capture = tx => P(k => tx.run(x => k(Pair(k, x))));
-
-
-P.once = tx => { // TODO: delete
-  let x = lazy(() => {
-    throw new Err("race condition");
-  });
-
-  let done = false;
-
-  const k = f => {
-    if (done) {
-      f(x);
-      return k;
-    }
-
-    else {
-      tx.run(y => {
-        x = y; f(y);
-        return k;
-      });
-
-      done = true; // sync
-      return k;
-    }
-  };
-
-  return S(k);
-};
-
-
 P.reify = k => x => P(_ => k(x));
 
 
@@ -9665,37 +9634,6 @@ S.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-S.capture = tx => S(k => tx.run(x => k(Pair(k, x))));
-
-
-S.once = tx => { // TODO: delete
-  let x = lazy(() => {
-    throw new Err("race condition");
-  });
-
-  let done = false;
-
-  const k = f => {
-    if (done) {
-      f(x);
-      return k;
-    }
-
-    else {
-      tx.run(y => {
-        x = y; f(y);
-        return k;
-      });
-
-      done = true; // sync
-      return k;
-    }
-  };
-
-  return S(k);
-};
-
-
 S.reify = k => x => S(_ => k(x));
 
 
@@ -10876,7 +10814,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add context type (array of arrays)
   * add foldl1/foldr1 to all container types
   * conversion: fromFoldable instead of fromList/fromArray
-  * delete S.once/P.once etc. provided it is redundant
   * add Represantable type class
   * add Distributive type class
   * add flipped chain method to chain class
