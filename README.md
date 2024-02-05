@@ -21,21 +21,21 @@
 * lazy evaluation with implicit/explicit thunks
 * principled, purely functional async computation (serial/parallel)
 * stack safe recursion (tail recursion, modulo cons, monad recursion)
+* reification control flow using CPS and the `Cont` type
 * product and variant types
 * simple pattern matching
-* various type class implementations for native `Iterator`
-* purely functional data streams as iterator alternative
+* functional `Iterator` machinery
+* functional iterator type idempotent in its `next` method
 * reactive programming with event streams and behaviors
-* linked lists, non-empty list, difference list
 * `DequeMap`, a doubly-ended queue based on a native map
 * `MultiMap` to encode 1:m key/value relations
 * lots of predefined type class definitions
 * lots of predefined polymorphic functions
-* extensive monad and monad transformer machinery
+* lots of functor, applicative and monad definitions
 * dynamic functorial fusion using yoneda
 * static loop fusion using transducers
 * flat composition syntax using `infix`
-* memoization for recursive functions
+* memoization of recursive functions
 * functional optics
 * parser combinators
 * functor composition
@@ -58,6 +58,7 @@ Obsolete projects:
 ## Future Studies
 
 - [ ] probabilistic data structures
+- [ ] fuzzy logic and encoding uncertainty
 - [ ] separation of command and query model + event sourcing (CQRS/ES)
 - [ ] software transaction memory (STM) 
 - [ ] strong eventual consistency (CRDTs)
