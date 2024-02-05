@@ -34,7 +34,7 @@ Since I/O is asynchronous in Javascript/Node.js, the first iteration of the even
 * they are lazy
 * they are stateless
 
-While the native `Promise` type misses both criteria, scriptum's `Serial` and `Parallel` type are compliant.
+While the native `Promise` type misses both criteria, scriptum's `Serial` and `Parallel` types are compliant.
 
 Control flow comprises the following instances:
 
