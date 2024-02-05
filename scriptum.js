@@ -394,7 +394,7 @@ export class Exceptions extends Exception {
 
 
 export const introspect = x => {
-  if (x === null) return "Null";
+  if (x === null || x === Null) return "Null";
   else if (x === undefined) throw new Error("undefined evaluation");
   else if (x !== x) throw new Error("not a number");
 
@@ -626,7 +626,7 @@ export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
-export const lazy = lazy_(null);
+export const lazy = lazy_(Null);
 
 
 // striclty evaluate an expression that might be an implicit thunk
@@ -697,7 +697,7 @@ class Thunk {
     // avoid evaluation due to tag introspection as far as possible
 
     else if (k === Symbol.toStringTag) {
-      if (this.tag === null) {
+      if (this.tag === Null) {
         if (this.memo === NULL) evaluate(this, f);
         this.tag = this.memo ? this.memo[TAG] : undefined;
       }
@@ -794,7 +794,7 @@ const evaluate = (_this, f) => {
   else if (_this.memo
     && _this.memo[TAG]
     && _this.memo[TAG] !== _this.tag
-    && _this.tag !== null)
+    && _this.tag !== Null)
       throw new Err("tag argument deviates from actual value");
 };
 
@@ -3128,22 +3128,21 @@ A.transpose = xss =>
 
 // left associative, eager unfold due to non-recursive array data type
 
-A.unfold = f => init => {
-  let acc = [], x = init, next;
+A.unfold = f => seed => {
+  let acc = [], x = seed;
 
-  do {
+  while (true) {
     const r = f(x);
-    next = false;
 
-    if (strict(r) === Null) continue;
+    if (strict(r) === Null) break;
 
     else {
       const [y, z] = r;
+
       x = z;
-      next = true;
-      return (acc.push(y), acc);
+      acc.push(y);
     }
-  } while (next);
+  }
 
   return acc;
 };
@@ -3450,9 +3449,9 @@ Cont.A.foldr = f => init => xs => Cont(k => function go(acc, i) {
 
 Cont.A.chain = xs => fm => Cont(k => {
   return Cont.A.foldr(x => acc => Cont(k2 => {
-    acc.push.apply(acc, fm(x).map(k));
+    acc.push.apply(acc, fm(x));
     return Cont.Tramp.call(k2, acc);
-  })) ([]) (xs).run(id)
+  })) ([]) (xs).run(id).map(k);
 });
 
 
@@ -3488,30 +3487,17 @@ Cont.Except.tryThrow = ({fail, succeed}) => x => Cont(k =>
   intro(x) === "Error" ? _throw(x) : Cont.Tramp.call(k, succeed(x)));
 
 
-/* Cont.L = {};
-
-
-Cont.L.foldr = TODO
-
-
-Cont.L.chain = mx => fm => Cont(cons => nil =>
-  mx.run(x => k => Cont.A.chain(fm(x)) (cons).run(k)) (nil));
-
-
-Cont.L.of = x => Cont(cons => nil => cons(x) (nil)); */
-
-
 Cont.Option = {};
 
 
 // computation that may not yield a result
 
 Cont.Option.option = ({none, some}) => x => Cont(k =>
-  x === null || x === Null ? none : Cont.Tramp.call(k, some(x)));
+  x === Null ? none : Cont.Tramp.call(k, some(x)));
 
 
 Cont.Option.chain = ({none, some}) => mx => fm => Cont(k =>
-  mx === null || mx === Null ? none : Cont.Tramp.call(k, fm(mx)));
+  mx === Null ? none : Cont.Tramp.call(k, fm(mx)));
 
 
 Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
@@ -3520,9 +3506,7 @@ Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
 // computation that may not yield a result but a default value
 
 Cont.Option.default = ({none, some}) => x => Cont(k =>
-  x === null || x === Null
-    ? Cont.Tramp.call(k, none)
-    : Cont.Tramp.call(k, some(x)));
+  x === Null ? Cont.Tramp.call(k, none) : Cont.Tramp.call(k, some(x)));
 
 
 // compututation with arguments implicitly threaded through function invocations
@@ -3629,6 +3613,16 @@ Cont.Monad = {
   ...Cont.Applicative,
   chain: Cont.chain
 };
+
+
+/*
+█████ Lifting █████████████████████████████████████████████████████████████████*/
+
+
+Cont.lift = f = x => Cont(k => k(f(x)));
+
+
+Cont.lift2 = f = x => y => Cont(k => k(f(x) (y)));
 
 
 /*
@@ -3770,13 +3764,6 @@ Cont.Tramp.call2_ = function call2_(f) {
 
 
 /*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-Cont.lift = Monad => mx = Cont(k => Monad.chain(mx) (Cont.Tramp.call_(k)));
-
-
-/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
@@ -3811,13 +3798,13 @@ might don't return a result:
     const iy = ix.next();
 
     if (iy.done) return iy;
-    else if (iy.value === null) return Co.empty;
+    else if (iy.value === Null) return Co.empty;
     else if (iy.value === undefined) return Co.empty;
 
     const iz = iy.nextWith(o => o.x);
 
     if (iz.done) return iy;
-    else if (iz.value === null) return Co.empty;
+    else if (iz.value === Null) return Co.empty;
     else if (iz.value === undefined) return Co.empty;
 
     const ia = iz.nextWith(o => o.x);
@@ -4114,7 +4101,7 @@ Co.Align.Monoid = {
 Co.of = x => Co(function* of(init) {
   yield init;
   yield x;
-} (null));
+} (Null));
 
 
 Co.weave = o => o2 => {
@@ -4631,7 +4618,7 @@ It.any = f => function* (ix) {
 // evaluates to null on lack of value
 
 It.strict = ix => {
-  let acc = null;
+  let acc = Null;
   for (acc of ix) continue;
   return acc;
 };
@@ -5096,7 +5083,24 @@ It.takeWhile = p => function* (ix) {
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
-// TODO
+// lazy, potentially infinite unfold
+
+It.unfold = f => seed => {
+  let x = seed;
+
+  while (true) {
+    const r = f(x);
+    
+    if (strict(r) === Null) return;
+    
+    else {
+      const [y, z] = r;
+
+      x = z;
+      yield y;
+    }
+  }
+};
 
 
 /*
@@ -5132,7 +5136,7 @@ The iterator can be advanced further by calling `next` of the returned object:
 
 export const Ii = ix => {
   let o = {
-    value: null,
+    value: Null,
     done: false,
 
     next() {
@@ -6320,7 +6324,7 @@ export const Parallel = k => {
   const o = {
     run: k,
 
-    get runOnce() {
+    get runOnce() { // DEPRECATED
       delete this.runOnce;
 
       Object.defineProperty(this, "runOnce", {
@@ -6356,6 +6360,38 @@ export const Parallel = k => {
 
 
 export const P = Parallel; // shortcut
+
+
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+P.comp = f => g => P(k => x => g(x).run(f).run(k));
+
+
+P.id = tx => tx.run(id);
+
+
+P.Category = {
+  comp: P.comp,
+  id: P.id
+};
+
+
+/*
+█████ Composition █████████████████████████████████████████████████████████████*/
+
+
+// (r -> r) -> P r t -> P r t
+P.mapCont = f => tx => P(k => f(tx.run(k)));
+
+
+P.pipe = g => f => P(k => x =>
+  g(x).run(f).run(k));
+
+
+// ((s -> r) -> t -> r) -> P r t -> P r s
+P.withCont = f => tx => P(k => tx.run(f(k)));
 
 
 /*
@@ -6543,6 +6579,104 @@ P.Chain = {
 P.Monad = {
   ...P.Applicative,
   chain: P.chain
+};
+
+
+/*
+█████ Effects █████████████████████████████████████████████████████████████████*/
+
+
+// encode control flow effects in parallel continuation passing style
+
+
+P.A = {};
+
+
+// intedetministic computation
+
+P.A.foldr = f => init => xs => P(k => function go(acc, i) {
+  if (i === xs.length) return k(acc);
+  else return f(xs[i]) (acc).run(acc2 => go(acc2, i + 1));
+} (init, 0));
+
+
+P.A.chain = xs => fm => P(k => {
+  return P.A.foldr(x => acc => P(k2 => {
+    acc.push.apply(acc, fm(x));
+    return k2(acc);
+  })) ([]) (xs).run(id).map(k);
+});
+
+
+P.A.of = x => P(k => [k(x)]);
+
+
+// computation that may cause an exception
+
+P.Except.except = ({fail, succeed}) => x => P(k =>
+  intro(x) === "Error" ? fail(x) : k(succeed(x)));
+
+
+P.Except.chain = mx => fm => P(k => intro(mx) === "Error" ? mx : fm(mx));
+
+
+P.Except.of = ({fail, succeed}) => x => P(k => k(succeed(x)));
+
+
+// computation that may cause an exception and catches it
+
+P.Except.tryCatch = ({fail, succeed}) => x => P(k =>
+  intro(x) === "Error"
+    ? k(fail(x))
+    : k(succeed(x)));
+
+
+// computation that may cause an exception and immediately terminate the program
+
+P.Except.tryThrow = ({fail, succeed}) => x => P(k =>
+  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
+
+
+P.Option = {};
+
+
+// computation that may not yield a result
+
+P.Option.option = ({none, some}) => x => P(k =>
+  x === Null ? none : k(some(x)));
+
+
+P.Option.chain = ({none, some}) => mx => fm => P(k =>
+  mx === Null ? none : k(fm(mx)));
+
+
+P.Option.of = ({none, some}) => x => P(k => k(some(x)));
+
+
+// computation that may not yield a result but a default value
+
+P.Option.default = ({none, some}) => x => P(k =>
+  x === Null ? k(none) : k(some(x)));
+
+
+/*
+█████ Profunctor ██████████████████████████████████████████████████████████████*/
+
+
+P.dimap = h => g => f => P(k => x => h(x).run(f).run(g).run(k));
+
+
+P.lmap = P.pipe;
+
+
+P.rmap = P.comp;
+
+
+P.Profunctor = {
+  ...P.Functor,
+  dimap: P.dimap,
+  lmap: P.lmap,
+  rmap: P.rmap
 };
 
 
@@ -7161,7 +7295,7 @@ Parser.eoi = Parser(next => state => {
   if (ix.done) return new Exception("end of input");
 
   else return Parser.Result.Valid({
-    value: null,
+    value: Null,
     next,
     state
   });
@@ -7225,12 +7359,12 @@ Parser.xor = px => py => Parser(next => state => {
 
 
 Parser.any = ps => Parser(next => state => {
-  let tx, first = null;
+  let tx, first = Null;
 
   for (const px of ps) {
     tx = px(next) (state);
 
-    if (first === null) first = tx;
+    if (first === Null) first = tx;
 
     if (tx.tag === "Valid") return tx;
     else continue;
@@ -7559,7 +7693,11 @@ because `Serial` doesn't rely on return values.
 
 `Serial` is based on multi-shot continuations, i.e. its continuation can be
 invoked several times and thus the corresponding async computation is evaluated
-several times. `runOnce` enforces zero or at most one evaluation. */
+several times. If you need sharing provide a function scope in applicative or
+monadic style that provides the only once evaluated expressions.
+
+Exception handling isn't handled by the type. You need to use one of the
+supplied combinators that handle control flow effects. */
 
 
 // smart constructor
@@ -7568,7 +7706,7 @@ export const Serial = k => {
   const o = {
     run: k,
 
-    get runOnce() {
+    get runOnce() { // DEPRECATED
       delete this.runOnce;
 
       Object.defineProperty(this, "runOnce", {
@@ -7604,6 +7742,38 @@ export const Serial = k => {
 
 
 export const S = Serial; // shortcut
+
+
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+S.comp = f => g => S(k => x => g(x).run(f).run(k));
+
+
+S.id = tx => tx.run(id);
+
+
+S.Category = {
+  comp: S.comp,
+  id: S.id
+};
+
+
+/*
+█████ Composition █████████████████████████████████████████████████████████████*/
+
+
+// (r -> r) -> S r t -> S r t
+S.mapCont = f => tx => S(k => f(tx.run(k)));
+
+
+S.pipe = g => f => S(k => x =>
+  g(x).run(f).run(k));
+
+
+// ((s -> r) -> t -> r) -> S r t -> S r s
+S.withCont = f => tx => S(k => tx.run(f(k)));
 
 
 /*
@@ -7708,6 +7878,104 @@ S.Chain = {
 S.Monad = {
   ...S.Applicative,
   chain: S.chain
+};
+
+
+/*
+█████ Effects █████████████████████████████████████████████████████████████████*/
+
+
+// encode control flow effects in serial continuation passing style
+
+
+S.A = {};
+
+
+// intedetministic computation
+
+S.A.foldr = f => init => xs => S(k => function go(acc, i) {
+  if (i === xs.length) return k(acc);
+  else return f(xs[i]) (acc).run(acc2 => go(acc2, i + 1));
+} (init, 0));
+
+
+S.A.chain = xs => fm => S(k => {
+  return S.A.foldr(x => acc => S(k2 => {
+    acc.push.apply(acc, fm(x));
+    return k2(acc);
+  })) ([]) (xs).run(id).map(k);
+});
+
+
+S.A.of = x => S(k => [k(x)]);
+
+
+// computation that may cause an exception
+
+S.Except.except = ({fail, succeed}) => x => S(k =>
+  intro(x) === "Error" ? fail(x) : k(succeed(x)));
+
+
+S.Except.chain = mx => fm => S(k => intro(mx) === "Error" ? mx : fm(mx));
+
+
+S.Except.of = ({fail, succeed}) => x => S(k => k(succeed(x)));
+
+
+// computation that may cause an exception and catches it
+
+S.Except.tryCatch = ({fail, succeed}) => x => S(k =>
+  intro(x) === "Error"
+    ? k(fail(x))
+    : k(succeed(x)));
+
+
+// computation that may cause an exception and immediately terminate the program
+
+S.Except.tryThrow = ({fail, succeed}) => x => S(k =>
+  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
+
+
+S.Option = {};
+
+
+// computation that may not yield a result
+
+S.Option.option = ({none, some}) => x => S(k =>
+  x === Null ? none : k(some(x)));
+
+
+S.Option.chain = ({none, some}) => mx => fm => S(k =>
+  mx === Null ? none : k(fm(mx)));
+
+
+S.Option.of = ({none, some}) => x => S(k => k(some(x)));
+
+
+// computation that may not yield a result but a default value
+
+S.Option.default = ({none, some}) => x => S(k =>
+  x === Null ? k(none) : k(some(x)));
+
+
+/*
+█████ Profunctor ██████████████████████████████████████████████████████████████*/
+
+
+S.dimap = h => g => f => S(k => x => h(x).run(f).run(g).run(k));
+
+
+S.lmap = S.pipe;
+
+
+S.rmap = S.comp;
+
+
+S.Profunctor = {
+  ...S.Functor,
+  dimap: S.dimap,
+  lmap: S.lmap,
+  rmap: S.rmap
 };
 
 
@@ -8833,10 +9101,6 @@ export const FileSys = fs => Cons => thisify(o => {
 
   * add context type (array of arrays)
   * add monotonically increasing array type
-  * add foldl1/foldr1 to all container types
-  * conversion: fromFoldable instead of fromList/fromArray
-  * add Represantable type class
-  * add Distributive type class
-  * add flipped chain method to chain class
+  * add async iterator machinery
 
 */
