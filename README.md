@@ -15,7 +15,33 @@
 
 # Functional Programming Unorthodoxly Adjusted to Client-/Server-side Javascript
 
-[scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js), a functional standard library featuring
+[scriptum](https://github.com/kongware/scriptum/blob/master/scriptum.js), a functional standard library.
+
+There are three categories of effects:
+
+* mutations
+* input/output
+* control flow
+
+scriptum handles these three categories using the following concepts:
+
+* tree-based persistent data structures (mutations)
+* continuation types optimized for serial/parallel asynchronous processing (I/O)
+* continuation type optimized for synchronous processing (control flow)
+
+Since I/O is asynchronous in Javascript/Node.js, the first iteration of the event loop is pure in terms of interacting with the real world. It is thus possible in the context of the event loop to implement the pure core imperative shell design pattern provided the following two requirements are met by asynchronous types:
+
+* they are lazy
+* they are stateless
+
+While the native `Promise` type misses both criteria, scriptum's `Serial` and `Parallel` type are compliant.
+
+Control flow comprises the following instances:
+
+* short circuiting
+* indeterminism (0..n iterations of evaluation)
+
+Features:
 
 * persistent data structures based on 2-3 trees
 * lazy evaluation with implicit/explicit thunks
