@@ -812,7 +812,7 @@ export const Null = lazy_("Null") (() => null);
 // proper bottom type
 
 export const Undefined = lazy_("Undefined") (() => {
-  throw new Err("undefined termination");
+  throw new Err("undefined program state");
 });
 
 
@@ -1243,48 +1243,48 @@ Transformed into the trampoline version it becomes:
 
   const add = x => y => x + y;
 
-  const fib = Loopx(n =>
+  const fib = Stack(n =>
     n <= 1
-      ? Loopx.base(n)
-      : Loopx.call2(
+      ? Stack.base(n)
+      : Stack.call2(
           add,
-          Loopx.rec(n - 1),
-          Loopx.rec(n - 2))); */
+          Stack.rec(n - 1),
+          Stack.rec(n - 2))); */
 
 
-export const Loopx = f => x => {
+export const Stack = f => x => {
   const stack = [f(x)];
 
-  while (stack.length > 1 || stack[0].constructor !== Loopx.base) {
+  while (stack.length > 1 || stack[0].constructor !== Stack.base) {
     let o = stack[stack.length - 1];
 
     switch (o.constructor) {
-      case Loopx.call:
-      case Loopx.call2: {
+      case Stack.call:
+      case Stack.call2: {
         o = f(o.x.x); // 1st x of call and 2nd x of next tag
         stack.push(o);
         break;
       }
 
-      case Loopx.rec: {
+      case Stack.rec: {
         o = f(o.x);
         break;
       }
 
-      case Loopx.base: {
-        while (stack.length > 1 && stack[stack.length - 1].constructor === Loopx.base) {
+      case Stack.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Stack.base) {
           const p = (stack.pop(), stack.pop());
 
           switch (p.constructor) {
-            case Loopx.call: {
-              o = Loopx.base(p.f(o.x));
+            case Stack.call: {
+              o = Stack.base(p.f(o.x));
               stack.push(o);
 
               break;
             }
 
-            case Loopx.call2: {
-              o = Loopx.call(p.f(o.x), p.y);
+            case Stack.call2: {
+              o = Stack.call(p.f(o.x), p.y);
               stack.push(o);
               break;
             }
@@ -1309,39 +1309,39 @@ export const Loopx = f => x => {
 };
 
 
-export const Loopx2 = f => (x, y) => {
+export const Stack2 = f => (x, y) => {
   const stack = [f(x, y)];
 
-  while (stack.length > 1 || stack[0].constructor !== Loopx2.base) {
+  while (stack.length > 1 || stack[0].constructor !== Stack2.base) {
     let o = stack[stack.length - 1];
 
     switch (o.constructor) {
-      case Loopx2.call:      
-      case Loopx2.call2: {
+      case Stack2.call:      
+      case Stack2.call2: {
         o = f(o.x.x, o.x.y);
         stack.push(o);
         break;
       }
 
-      case Loopx2.rec: {
+      case Stack2.rec: {
         o = f(o.x, o.y);
         break;
       }
 
-      case Loopx2.base: {
-        while (stack.length > 1 && stack[stack.length - 1].constructor === Loopx2.base) {
+      case Stack2.base: {
+        while (stack.length > 1 && stack[stack.length - 1].constructor === Stack2.base) {
           const p = (stack.pop(), stack.pop());
 
           switch (p.constructor) {
-            case Loopx2.call: {
-              o = Loopx2.base(p.f(o.x, o.y));
+            case Stack2.call: {
+              o = Stack2.base(p.f(o.x, o.y));
               stack.push(o);
 
               break;
             }
 
-            case Loopx2.call2: {
-              o = Loopx2.call(p.f(o.x, o.y), p.y);
+            case Stack2.call2: {
+              o = Stack2.call(p.f(o.x, o.y), p.y);
               stack.push(o);
               break;
             }
@@ -1369,45 +1369,45 @@ export const Loopx2 = f => (x, y) => {
 // constructors
 
 
-Loopx.call = function call(f, x) {
-  return {[TAG]: "Loopx", constructor: Loopx.call, f, x};
+Stack.call = function call(f, x) {
+  return {[TAG]: "Stack", constructor: Stack.call, f, x};
 };
 
 
-Loopx.call2 = function call2(f, x, y) {
-  return {[TAG]: "Loopx", constructor: Loopx.call2, f, x, y};
+Stack.call2 = function call2(f, x, y) {
+  return {[TAG]: "Stack", constructor: Stack.call2, f, x, y};
 };
 
 
-Loopx.rec = function rec(x) {
-  return {[TAG]: "Loopx", constructor: Loopx.rec, x};
+Stack.rec = function rec(x) {
+  return {[TAG]: "Stack", constructor: Stack.rec, x};
 };
 
 
-Loopx.base = function base(x) {
-  return {[TAG]: "Loopx", constructor: Loopx.base, x};
+Stack.base = function base(x) {
+  return {[TAG]: "Stack", constructor: Stack.base, x};
 };
 
 
-Loopx2.call = function call(f, x) {
-  return {[TAG]: "Loopx2", constructor: Loopx2.call, f, x};
+Stack2.call = function call(f, x) {
+  return {[TAG]: "Stack2", constructor: Stack2.call, f, x};
 };
 
 
-Loopx2.call2 = function call2(f, x, y) {
-  return {[TAG]: "Loopx2", constructor: Loopx2.call2, f, x, y};
+Stack2.call2 = function call2(f, x, y) {
+  return {[TAG]: "Stack2", constructor: Stack2.call2, f, x, y};
 };
 
 
-Loopx2.rec = function rec(x) {
+Stack2.rec = function rec(x) {
   return function rec(y) {
-    return {[TAG]: "Loopx2", constructor: Loopx2.rec, x, y};
+    return {[TAG]: "Stack2", constructor: Stack2.rec, x, y};
   };
 };
 
 
-Loopx2.base = function base(x) {
-  return {[TAG]: "Loopx2", constructor: Loopx2.base, x};
+Stack2.base = function base(x) {
+  return {[TAG]: "Stack2", constructor: Stack2.base, x};
 };
 
 
@@ -1535,11 +1535,6 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 export const join = Chain => mmx => Chain.chain(mmx) (id);
 
 
-// ignore the result of the first monad
-
-export const seqM = Chain => mmx => mmy => Chain.chain(mmx) (_ => mmy);
-
-
 /*
 █████ Kleisli Composition █████████████████████████████████████████████████████*/
 
@@ -1584,6 +1579,18 @@ unfoldM f s = do
     case mres of
         Nothing      -> return []
         Just (a, s') -> liftM2 (:) (return a) (unfoldM f s')*/
+
+
+// ignore the result of the first monad
+
+export const then = Monad => mmx => mmy => Monad.chain(mmx) (_ =>
+  Chain.chain(mmy) (Monad.of));
+
+
+// ignore the result of the second monad
+
+export const then_ = Monad => mmx => mmy => Monad.chain(mmx) (x =>
+  Chain.chain(mmy) (_ => Monad.of(x)));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -2820,24 +2827,24 @@ A.foldk = f => init => xs =>
 
 // eager, right-associative and yet stack-safe fold
 
-A.foldr = f => acc => xs => Loopx(i => {
-  if (i === xs.length) return Loopx.base(acc);
+A.foldr = f => acc => xs => Stack(i => {
+  if (i === xs.length) return Stack.base(acc);
 
-  else return Loopx.call(
+  else return Stack.call(
     f(xs[i]),
-    Loopx.rec(i + 1));
+    Stack.rec(i + 1));
 }) (0);
 
 
-A.foldr1 = f => xs => Loopx(i => {
+A.foldr1 = f => xs => Stack(i => {
   let acc = xs.length === 0
     ? _throw(new Err("empty array")) : xs[0];
 
-  if (i === xs.length) return Loopx.base(acc);
+  if (i === xs.length) return Stack.base(acc);
 
-  else return Loopx.call(
+  else return Stack.call(
     f(xs[i]),
-    Loopx.rec(i + 1));
+    Stack.rec(i + 1));
 }) (0);
 
 
@@ -3655,56 +3662,56 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode continuation passing style. While build up deeply nested continuations
-is stack-safe, their subsequent application isn't. For now, splitting up the
-continuation tree is the most feasable method:
-
-  const inc = x => Cont(k => k(x + 1));
-
-  const f = Cont.komp(inc) (inc),
-    g = Cont.komp(inc) (f),
-    h = Cont.komp(inc) (g),
-    i = Cont.komp(inc) (h);
-
-  const go = init => {
-
-    // unwinds the stack in the middle of the composition
-
-    const n = i(init).run(id);
-
-    const j = Cont.komp(inc) (inc),
-      k = Cont.komp(inc) (j),
-      l = Cont.komp(inc) (k),
-      m = Cont.komp(inc) (l);
-
-    return m(n);
-  };
-
-  go(0).run(id); // yields 10
-
-Continuations can also be used to handle nested effects:
-
-  const xs = [1, 2, null, 4, 5];
-
-  const ys = Cont.array(x => acc => Cont(k => {
-
-    // this scope will be created a indeterministic number of times
-
-    return Cont.option({
-      get none() {return acc.concat(Null)},
-      some: y => {return acc.concat(y * y)}
-    }) (x).run(x => {
-
-      // this scope might be created at most once
-
-      return k(x)
-    });
-  })) ([]) (xs);
-
-  zs.run(console.log); // yields [1, 4, Null, 16, 25] */
+/* Encode stack-safe continuation passing style using a trampoline to reify
+the control flow. */
 
 
 export const Cont = type("Cont");
+
+
+Cont.evalCont = tx => tx.run(id);
+
+
+Cont.run = f => tx => tx.run(f);
+
+
+Cont.runOnce = f => tx => tx.run(x => {
+  tx.run = () => x;
+  return x;
+});
+
+
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+Cont.comp = f => g => Cont(k =>
+  x => g(x).run(f).run(Cont.Tramp.call_(k)));
+
+
+Cont.id = tx => tx.run(id);
+
+
+Cont.Category = {
+  comp: Cont.comp,
+  id: Cont.id
+};
+
+
+/*
+█████ Composition █████████████████████████████████████████████████████████████*/
+
+
+// (r -> r) -> Cont r t -> Cont r t
+Cont.mapCont = f => tx => Cont(k => f(tx.run(Cont.Tramp.call_(k))));
+
+
+Cont.pipe = g => f => Cont(k =>
+  x => g(x).run(f).run(Cont.Tramp.call_(k)));
+
+
+// ((s -> r) -> t -> r) -> Cont r t -> Cont r s
+Cont.withCont = f => tx => Cont(k => tx.run(f(Cont.Tramp.call_(k))));
 
 
 /*
@@ -3715,206 +3722,147 @@ export const Cont = type("Cont");
 If you only need pure values just pass the identity monad's type dictionary. */
 
 
-Cont.reify = Monad => fm => Cont.reset(Monad) (Monad.of(fm));
+// Cont r r -> Cont s r
+Cont.reset = tx => Cont(k => k(tx.run(id)));
 
-
-Cont.reflect = Monad => mx => Cont.shift(Monad) (Cont.chain(mx));
-
-
-Cont.reset = Monad => comp(Cont.lift(Monad)) (Cont.evalCont(Monad));
-
-
-Cont.shift = Monad => fm => Cont(comp(Cont.evalCont(Monad)) (fm));
+// ((t -> r) -> Cont r r) -> Cont r t
+Cont.shift = ft => Cont(k => ft(k).run(id));
 
 
 /*
-█████ Effects (Control Flow) ██████████████████████████████████████████████████*/
+█████ Effects █████████████████████████████████████████████████████████████████*/
 
 
-/* Represent control flow effects by encoding their elimination rule using
-continuation passing style. Unfortunately, this doesn't work for the other two
-effect classes:
+// encode control flow effects in continuation passing style
 
-* state modifying effects (mutations)
-* input/output effects (real world)
 
-Fortunately, we can tackle both issues with tree structures, persistent data
-strucutes with structural sharing on the one hand and nested function call
-trees on the other. */
+Cont.A = {};
 
 
-// ███ Computation without result value
+// intedetministic computation
 
+Cont.A.foldr = f => init => xs => Cont(k => function go(acc, i) {
+  if (i === xs.length) return Cont.Tramp.call(k, acc);
+  else return f(xs[i]) (acc).run(acc2 => Cont.Tramp.call2(go, acc2, i + 1));
+} (init, 0));
 
-Cont.Null = {};
 
+Cont.A.chain = xs => fm => Cont(k => {
+  return Cont.A.foldr(x => acc => Cont(k2 => {
+    acc.push.apply(acc, fm(x).map(k));
+    return Cont.Tramp.call(k2, acc);
+  })) ([]) (xs).run(id)
+});
 
-Cont.Null.default = ({none, some}) => x => Cont(k =>
-  x === null || x === Null ? k(none) : k(some(x)));
 
+Cont.A.of = x => Cont(k => [k(x)]);
 
-Cont.Null.option = ({none, some}) => x => Cont(k =>
-  x === null || x === Null ? none : k(some(x)));
 
+/* Cont.L.chain = mx => fm => Cont(cons => nil =>
+  mx.run(x => k => Cont.A.chain(fm(x)) (cons).run(k)) (nil));
 
-// ███ Exception handling
+Cont.L.of = x => Cont(cons => nil => cons(x) (nil)); */
 
 
-Cont.Exception = {};
+Cont.Except = {};
 
-Cont.Exception.try = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? fail(x) : k(succeed(x)));
 
+// computation that may cause an exception
 
-Cont.Exception.tryCatch = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? k(fail(x)) : k(succeed(x)));
+Cont.Except.except = ({fail, succeed}) => x => Cont(k =>
+  intro(x) === "Error" ? fail(x) : Cont.Tramp.call(k, succeed(x)));
 
 
-Cont.Exception.TryThrow = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
+Cont.Except.chain = mx => fm => Cont(k => intro(mx) === "Error" ? mx : fm(mx));
 
 
-// ███ Implicit arguments
+Cont.Except.of = ({fail, succeed}) => x => Cont(k => Cont.Tramp.call(k, succeed(x)));
 
 
-// TODO
+// computation that may cause an exception and catches it
 
+Cont.Except.tryCatch = ({fail, succeed}) => x => Cont(k =>
+  intro(x) === "Error"
+    ? Cont.Tramp.call(k, fail(x))
+    : Cont.Tramp.call(k, succeed(x)));
 
-// ███ Indeterminism
 
+// computation that may cause an exception and immediately terminate the program
 
-Cont.Indeterminism = {};
+Cont.Except.tryThrow = ({fail, succeed}) => x => Cont(k =>
+  intro(x) === "Error" ? _throw(x) : Cont.Tramp.call(k, succeed(x)));
 
 
-Cont.Indeterminism.array = () => Cont.arr.fold;
+Cont.Option = {};
 
 
-// TODO: Cont.Indeterminism.list
+// computation that may not yield a result
 
+Cont.Option.option = ({none, some}) => x => Cont(k =>
+  x === null || x === Null ? none : Cont.Tramp.call(k, some(x)));
 
-// ███ Logging
 
+Cont.Option.chain = ({none, some}) => mx => fm => Cont(k =>
+  mx === null || mx === Null ? none : Cont.Tramp.call(k, fm(mx)));
 
-// TODO
 
+Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
 
-// ███ State
 
+// computation that may not yield a result but a default value
 
-// TODO
+Cont.Option.default = ({none, some}) => x => Cont(k =>
+  x === null || x === Null
+    ? Cont.Tramp.call(k, none)
+    : Cont.Tramp.call(k, some(x)));
 
 
-/*
-█████ Helpers: Array ██████████████████████████████████████████████████████████*/
+// compututation with arguments implicitly threaded through function invocations
 
 
-Cont.arr = {};
+Cont.Reader = {};
 
 
-// array filter with short circuit semantics
+Cont.Reader.chain = mx => fm => Cont(k => e =>
+  mx(y => fm(y) (k) (e))) (e);
 
-Cont.arr.filter = p => xs => {
-  return Cont(k => {
-    return k(Loop2((acc, i) => {
-      if (i === xs.length) return Loop2.base(acc);
 
-      else {
-        const o = p(xs[i]).run(b => {
-          if (b) acc.push(xs[i]);
-          return Loop2.rec(acc, i + 1);
-        });
+Cont.Reader.of = x => Cont(k => _ => Cont.Tramp.call(k, x));
 
-        // intercept short circution
 
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) ([], 0));
-  });
-};
+Cont.State = {};
 
 
-// array fold-like loop with short circuit semantics
+// computation with state implicitly threaded through function invocations
 
-Cont.arr.fold = f => init => xs => {
-  return Cont(k => {
-    return k(Loop2((acc, i) => {
-      if (i === xs.length) return Loop2.base(acc);
 
-      else {
-        const o = f(xs[i]) (acc)
-          .run(acc2 => Loop2.rec(acc2, i + 1))
+Cont.State.chain = mx => fm => Cont(k => s =>
+  _let(mx(s)).in(pair => Cont.Tramp.call(k, fm(pair[0]) (pair[1]))));
 
-        // intercept short circution
 
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) (init, 0));
-  });
-};
+Cont.State.of = x => Cont(k => s => Cont.Tramp.call(k, Pair(x, s)));
 
 
-// array map-like loop with short circuit semantics
+Cont.Writer = {};
 
-Cont.arr.map = f => xs => {
-  return Cont(k => {
-    return k(Loop2((acc, i) => {
-      if (i === xs.length) return Loop2.base(acc);
 
-      else {
-        const o = f(xs[i]).run(x => {
-          acc.push(x);
-          return Loop2.rec(acc, i + 1);
-        });
+// comutation with results implicitly logged
 
-        // intercept short circuit
 
-        return (!o || o.constructor !== Loop2.rec)
-          ? Loop2.base(acc) : o;
-      }
-    }) ([], 0));
-  });
-};
+Cont.Writer.chain = Monoid => mx => fm => Cont(k =>
+  _let(fm(mx[0])).in(my =>
+    Cont.Tramp.call(k, Pair(my[0], Monoid.append(mx[1]) (my[1])))));
 
 
-/*
-█████ Helpers: List ████████████████████████████████████████████████████████████*/
-
-
-Cont.list = {};
-
-
-// right-associative map-like loop with short circuit semantics
-
-Cont.list.map = f => xs => {
-  return Cont(k => {
-    return k(Loopx(ys => {
-      if (ys.length === 0) return Loopx.base(L.Nil);
-
-      else {
-        const o = f(ys[0]).run(y =>
-          Loopx.call(
-            zs => new L.Cons(y, zs),
-            Loopx.rec(ys[1])
-          )
-        );
-
-        // intercept short circuit
-
-        return (!o || o.constructor !== Loopx.call)
-          ? Loopx.base(o) : o;
-      }
-    }) (xs));
-  });
-};
+Cont.Writer.of = Monoid => x => Cont(k =>
+  Cont.Tramp.call(k, Pair(x, Monoid.empty)));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Cont.map = f => tx => Cont(k => tx.run(x => k(f(x))));
+Cont.map = f => tx => Cont(k => tx.run(x => Cont.Tramp.call(k, f(x))));
 
 
 Cont.Functor = {map: Cont.map};
@@ -3924,7 +3872,8 @@ Cont.Functor = {map: Cont.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Cont.ap = tf => tx => Cont(k => tf.run(f => tx.run(x => k(f(x)))));
+Cont.ap = tf => tx => Cont(k =>
+  tf.run(f => tx.run(x => Cont.Tramp.call(k, f(x)))));
 
 
 Cont.Apply = {
@@ -3937,7 +3886,7 @@ Cont.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Cont.of = x => Cont(k => k(x));
+Cont.of = x => Cont(k => Cont.Tramp.call(k, x));
 
 
 Cont.Applicative = {
@@ -3955,7 +3904,7 @@ a CPS function (the next computation yielding another continuation) and feed
 the CPS function into the previous continuation as soon as the next continuation
 is provided. */
 
-Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(k)));
+Cont.chain = mx => fm => Cont(k => mx.run(x => fm(x).run(Cont.Tramp.call_(k))));
 
 
 Cont.Chain = {
@@ -3975,13 +3924,44 @@ Cont.Monad = {
 
 
 /*
-█████ Kleisli Composition █████████████████████████████████████████████████████*/
+█████ Monadic █████████████████████████████████████████████████████████████████*/
 
 
-Cont.komp = f => g => x => Cont(k => g(x).run(f).run(k));
+Cont.join = mmx => Cont(mmx.run(id));
 
 
-Cont.kipe = g => f => x => Cont(k => g(x).run(f).run(k));
+// sequence two monads and ignore the first value
+
+Cont.then = mx => my => Cont(k =>
+  Cont.Tramp.call(k, Cont.ap(Cont.map(_ => y => y) (mx)) (my).run(id)));
+
+
+// sequence two monads and ignore the second value
+
+Cont.then_ = mx => my => Cont(k =>
+  Cont.Tramp.call(k, Cont.ap(Cont.map(x => _ => x) (mx)) (my).run(id)));
+
+
+/*
+█████ Profunctor ██████████████████████████████████████████████████████████████*/
+
+
+Cont.dimap = h => g => f => Cont(k =>
+  x => h(x).run(f).run(g).run(Cont.Tramp.call_(k)));
+
+
+Cont.lmap = Cont.pipe;
+
+
+Cont.rmap = Cont.comp;
+
+
+Cont.Profunctor = {
+  ...Cont.Functor,
+  dimap: Cont.dimap,
+  lmap: Cont.lmap,
+  rmap: Cont.rmap
+};
 
 
 /*
@@ -3989,7 +3969,7 @@ Cont.kipe = g => f => x => Cont(k => g(x).run(f).run(k));
 
 
 Cont.append = Semigroup => tx => ty => Cont(k =>
-  tx.run(x => ty.run(y => k(Semigroup.append(x) (y)))));
+  tx.run(x => ty.run(y => Cont.Tramp.call(k, Semigroup.append(x) (y)))));
 
 
 Cont.Semigroup = {append: Cont.append};
@@ -3999,7 +3979,7 @@ Cont.Semigroup = {append: Cont.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Cont.empty = Monoid => Cont(k => k(Monoid.empty));
+Cont.empty = Monoid => Cont(k => Cont.Tramp.call(k, Monoid.empty));
 
 
 Cont.Monoid = {
@@ -4009,42 +3989,93 @@ Cont.Monoid = {
 
 
 /*
+█████ Short Circuiting █████████████████████████████████████████████████████████*/
+
+
+Cont.abrupt = x => Cont(k => x);
+
+
+/* Short circuit mechanism (unwinds the whole stack). Usage:
+
+  Cont.callcc(shortCircuit => Cont.chain(shortCircuit(0))
+    (x => Cont.of(x * x))).run(x => x); */
+
+Cont.callcc = f => Cont(k => f(x => Cont(_ => k(x))).run(k));
+
+
+/*
+█████ Trampoline ██████████████████████████████████████████████████████████████*/
+
+
+// stack-safe invocation of the deferred function call tree using a trampoline
+
+Cont.Tramp = {};
+
+
+// strictly call the deferred function call tree
+
+Cont.Tramp.continuous = tx => {
+  while (tx && tx.tag === "call") {
+    tx = tx.f(tx.x);
+  }
+
+  return tx;
+};
+
+
+// non-strictly call the deferred function call tree
+
+Cont.Tramp.step = function* interpret_(tx) {
+  while (tx && tx.tag === "call") {
+    yield tx.x;
+    tx = tx.f(tx.x);
+  }
+
+  yield tx;
+};
+
+
+Cont.Tramp.call = function call(f, x) {
+  return {[TAG]: "Cont.Tramp", constructor: Cont.Tramp.call, f, x};
+};
+
+
+Cont.Tramp.call2 = function call2(f, x, y) {
+  return {[TAG]: "Cont.Tramp", constructor: Cont.Tramp.call2, f, x, y};
+};
+
+
+Cont.Tramp.call_ = function call_(f) {
+  return function call_(x) {
+    return {[TAG]: "Cont.Tramp", constructor: Cont.Tramp.call, f, x};
+  };
+};
+
+
+Cont.Tramp.call2_ = function call2_(f) {
+  return function call2_(x) {
+    return function call2_(y) {
+      return {[TAG]: "Cont.Tramp", constructor: Cont.Tramp.call2, f, x, y};
+    };
+  };
+};
+
+
+/*
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-Cont.lift = Monad => mx = Cont(k => Monad.chain(mx) (k));
-
-
-Cont.evalCont = Monad => mx => mx.run(Monad.of);
-
-
-Cont.mapCont = f => mx => Cont(comp(f) (mx.run));
-
-
-Cont.withCont = f => mx => Cont(comp(mx.run) (f));
+Cont.lift = Monad => mx = Cont(k => Monad.chain(mx) (Cont.Tramp.call_(k)));
 
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Cont.get = tx => Cont(k => k(tx.run));
+Cont.get = tx => Cont(k => Cont.Tramp.call(k, tx.run));
 
 
-Cont.get_ = tx => Cont(k => tx.run(x => k(Pair(tx.run, x))));
-
-
-/* There is no category for continuations because there is no compose operator.
-This is the reason monads exists. Here is the identity part of a category. */
-
-Cont.id = tx => tx.run(id);
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Cont.array = Cont.array();
+Cont.reify = f => x => Cont(k => f(x));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5806,13 +5837,13 @@ L.foldl = f => init => xss => {
 
 // stack-safe even if `f` is strict in its second argument
 
-L.foldr = f => acc => Loopx(xss => {
+L.foldr = f => acc => Stack(xss => {
   switch (xss.tag) {
-    case "Nil": return Loopx.base(acc);
+    case "Nil": return Stack.base(acc);
 
     case "Cons": {
       const [x, yss] = xss;
-      return Loopx.call(f(x), Loopx.rec(yss));
+      return Stack.call(f(x), Stack.rec(yss));
     }
 
     default: throw new Err("invalid constructor");
@@ -6246,14 +6277,14 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   // (a -> m b -> m b) -> m b -> m (List m a) -> m b
-  o.foldr = f => acc => Loopx(mmx => {
+  o.foldr = f => acc => Stack(mmx => {
     return outer.chain(mmx) (mx => {
       switch (mx[TAG]) {
-        case "Nil": return Loopx.base(acc);
+        case "Nil": return Stack.base(acc);
 
         case "Cons": {
           const [x, mmy] = mx;
-          return Loopx.call(f(x), Loopx.rec(mmy));
+          return Stack.call(f(x), Stack.rec(mmy));
         }
 
         default: throw new Err("invalid constructor");
@@ -6403,14 +6434,14 @@ L.T = outer => thisify(o => { // outer monad's type dictionary
 
 
   // (m a -> n a) -> m (List m a) => n (List n a)
-  o.hoist = f => Loopx(mmx => {
+  o.hoist = f => Stack(mmx => {
     return f(outer.map(mmx) (mx => {
       switch (mx[TAG]) {
-        case "Nil": return Loopx.base(L.Nil);
+        case "Nil": return Stack.base(L.Nil);
 
         case "Cons": {
           const [x, mmy] = mx;
-          return Loopx.call(L.Cons_(x), Loopx.rec(mmy));
+          return Stack.call(L.Cons_(x), Stack.rec(mmy));
         }
 
         default: throw new Err("invalid constructor");
