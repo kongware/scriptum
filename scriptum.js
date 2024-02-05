@@ -3682,6 +3682,13 @@ Cont.runOnce = f => tx => tx.run(x => {
 
 
 /*
+█████ Binary ██████████████████████████████████████████████████████████████████*/
+
+
+Cont.binary = mx => my => Cont(k => mx.run(x => my.run(y => k(x, y)));
+
+
+/*
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
@@ -3758,12 +3765,6 @@ Cont.A.chain = xs => fm => Cont(k => {
 Cont.A.of = x => Cont(k => [k(x)]);
 
 
-/* Cont.L.chain = mx => fm => Cont(cons => nil =>
-  mx.run(x => k => Cont.A.chain(fm(x)) (cons).run(k)) (nil));
-
-Cont.L.of = x => Cont(cons => nil => cons(x) (nil)); */
-
-
 Cont.Except = {};
 
 
@@ -3791,6 +3792,19 @@ Cont.Except.tryCatch = ({fail, succeed}) => x => Cont(k =>
 
 Cont.Except.tryThrow = ({fail, succeed}) => x => Cont(k =>
   intro(x) === "Error" ? _throw(x) : Cont.Tramp.call(k, succeed(x)));
+
+
+/* Cont.L = {};
+
+
+Cont.L.foldr = TODO
+
+
+Cont.L.chain = mx => fm => Cont(cons => nil =>
+  mx.run(x => k => Cont.A.chain(fm(x)) (cons).run(k)) (nil));
+
+
+Cont.L.of = x => Cont(cons => nil => cons(x) (nil)); */
 
 
 Cont.Option = {};
