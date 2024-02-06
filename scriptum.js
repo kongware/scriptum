@@ -395,7 +395,7 @@ export class Exceptions extends Exception {
 
 export const introspect = x => {
   if (x === null || x === Null) return "Null";
-  else if (x === undefined) throw new Error("undefined evaluation");
+  else if (x === undefined || x === Undefined) throw new Error("undefined evaluation");
   else if (x !== x) throw new Error("not a number");
 
   else {
@@ -626,7 +626,7 @@ export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
-export const lazy = lazy_(Null);
+const lazy__ = () => lazy_(Null);
 
 
 // striclty evaluate an expression that might be an implicit thunk
@@ -699,7 +699,7 @@ class Thunk {
     else if (k === Symbol.toStringTag) {
       if (this.tag === Null) {
         if (this.memo === NULL) evaluate(this, f);
-        this.tag = this.memo ? this.memo[TAG] : undefined;
+        this.tag = this.memo ? this.memo[TAG] : Undefined;
       }
 
       return this.tag;
@@ -786,7 +786,7 @@ const evaluate = (_this, f) => {
   while (_this.memo && _this.memo[THUNK] === true)
     _this.memo = _this.memo[EVAL];
 
-  if (_this.memo === undefined)
+  if (_this.memo === undefined || _this.memo === Undefined)
     throw new Err("thunk evaluated to undefined");
   
   // enforce tag consistency
@@ -800,7 +800,7 @@ const evaluate = (_this, f) => {
 
 
 /*
-█████ Type Constants ██████████████████████████████████████████████████████████*/
+█████ Safer Types █████████████████████████████████████████████████████████████*/
 
 
 /* Safer null value that also immediately throws at implicit type casts. It
@@ -814,6 +814,13 @@ export const Null = lazy_("Null") (() => null);
 export const Undefined = lazy_("Undefined") (() => {
   throw new Err("undefined program state");
 });
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+export const lazy = lazy__();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1632,12 +1639,8 @@ const Fun = (f, name, arities, types = []) => {
   return new Proxy(f, {
     apply: (f, _, args) => {
       if (arities.length <= 1) {
-        const r = f(...args), t = introspect(r);
-
-        if (t === undefined || t === "NaN" || t === "InvalidDate")
-          throw new Error("evaluated to " + t);
-
-        else return r;
+        introspect(r); // perform the effect and ignore result
+        return f(...args);
       }
 
       else if (arities[0] [0] [0] === ".") return F(
@@ -2274,7 +2277,7 @@ A.Clonable = {clone: A.clone};
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-A.fromList = xss => xss.flat(Number.POSITIVE_INFINITY);
+A.fromTable = xss => xss.flat(Number.POSITIVE_INFINITY);
 
 
 A.fromCsv = ({sep, skipFirst}) => csv => {
@@ -2427,7 +2430,7 @@ A.focus = (i, j = Null) => xs => {
             const i2 = Number(k);
 
             if (String(i2) === k) {
-              if (i + i2 > j) return undefined;
+              if (i + i2 > j) return Undefined;
               else return xs[i + i2];
             }
 
@@ -3140,9 +3143,6 @@ A.alt = A.alt();
 A.Alt = A.Alt();
 
 
-A.ana = A.ana();
-
-
 A.Traversable = A.Traversable();
 
 
@@ -3334,7 +3334,7 @@ Cont.runOnce = f => tx => tx.run(x => {
 █████ Binary ██████████████████████████████████████████████████████████████████*/
 
 
-Cont.binary = mx => my => Cont(k => mx.run(x => my.run(y => k(x, y)));
+Cont.binary = mx => my => Cont(k => mx.run(x => my.run(y => k(x, y))));
 
 
 /*
@@ -3575,10 +3575,10 @@ Cont.Monad = {
 █████ Lifting █████████████████████████████████████████████████████████████████*/
 
 
-Cont.lift = f = x => Cont(k => k(f(x)));
+Cont.lift = f => x => Cont(k => k(f(x)));
 
 
-Cont.lift2 = f = x => y => Cont(k => k(f(x) (y)));
+Cont.lift2 = f => x => y => Cont(k => k(f(x) (y)));
 
 
 /*
@@ -3786,7 +3786,7 @@ Exemplary asynchronous computation:
   const interpreter = ix => {
     const iy = ix.next();
 
-    if (iy.done) return;
+    if (iy.done) return Undefined;
 
     else if (iy.value[Symbol.toStringTag] === "Promise") iy.value.then(x => {
       const iz = iy.next(x);
@@ -4588,7 +4588,7 @@ It.filter = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else if (p(x)) yield x;
   }
 };
@@ -4607,7 +4607,7 @@ It.foldl = f => acc => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else {
       acc = f(acc) (x);
@@ -4623,7 +4623,7 @@ It.foldr = f => acc => function* go(ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else {
       acc = f(x) (acc);
@@ -4646,7 +4646,7 @@ It.Foldable = {
 It.mapA = Functor => ft => function* (ix) {
   const {value: x, done} = ix.next();
 
-  if (done) return;
+  if (done) return Undefined;
   else return Functor.map(y => function* () {yield y} ()) (ft(x));
 };
 
@@ -4654,7 +4654,7 @@ It.mapA = Functor => ft => function* (ix) {
 It.seqA = Functor => function* (itx) {
   const {value: tx, done} = itx.next();
 
-  if (done) return;
+  if (done) return Undefined;
   else return Functor.map(x => function* () {yield x} ()) (tx);
 };
 
@@ -4675,7 +4675,7 @@ It.map = f => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield f(x);
   }
 };
@@ -4694,7 +4694,7 @@ It.alt = ix => function* (iy) {
 
   if (!done) yield x;
   else if (!done2) yield y;
-  else return;
+  else return Undefined;
 };
 
 
@@ -4726,7 +4726,7 @@ It.ap = tf => function* (ix) {
     const {value: f, done} = tf.next(),
       {value: x, done: done2} = ix.next();
 
-    if (done || done2) return;
+    if (done || done2) return Undefined;
     else yield function* () {yield f(x)} ();
   }
 };
@@ -4746,7 +4746,7 @@ It.chain = mx => function* (fm) {
   while (true) {
     const {value: x, done} = mx.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield* fm(x);
   }
 };
@@ -4871,14 +4871,14 @@ It.apo = f => function* (seed) {
   while (true) {
     const pair = f(x);
     
-    if (strict(pair) === Null) return;
+    if (strict(pair) === Null) return Undefined;
     
     else {
       const [y, z] = pair;
 
       if (intro(z) === "Error") {
         yield y;
-        return;
+        return Undefined;
       }
 
       else {
@@ -4901,7 +4901,7 @@ It.para = f => acc => o => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else {
       acc = f(x) (o) (acc);
@@ -4938,11 +4938,11 @@ It.find = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else if (p(x)) {
       yield x;
-      return;
+      return Undefined;
     }
 
   }
@@ -4964,7 +4964,7 @@ It.append = ix => function* (iy) {
   do {
     const {value: y, done} = iy.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield y;
   } while(true);
 };
@@ -4985,7 +4985,7 @@ It.Align.append = Semigroup => ix => function* (iy) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
-    if (done || done2) return;
+    if (done || done2) return Undefined;
     else yield Semigroup.append(x) (y);
   }
 };
@@ -5029,7 +5029,7 @@ It.foldSucc = f => acc => function* (ix) {
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else {
       yield f(acc) (Pair(x, y));
@@ -5049,7 +5049,7 @@ It.mapSucc = f => function* (ix) {
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     
     else {
       yield f(Pair(x, y));
@@ -5066,13 +5066,13 @@ It.mapSucc = f => function* (ix) {
 It.drop = n => function* (ix) {
   while (n-- > 0) {
     const {done} = ix.next();
-    if (done) return;
+    if (done) return Undefined;
   };
 
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield x;
   }
 };
@@ -5081,7 +5081,7 @@ It.drop = n => function* (ix) {
 It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
-    if (done) return;
+    if (done) return Undefined;
 
     else if (!p(x)) {
       yield x;
@@ -5092,7 +5092,7 @@ It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield x;
   }
 };
@@ -5102,7 +5102,7 @@ It.take = n => function* (ix) {
   do {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else yield x;
   } while (--n > 0);
 };
@@ -5112,9 +5112,9 @@ It.takeWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return;
+    if (done) return Undefined;
     else if (p(x)) yield x;
-    else return;
+    else return Undefined;
   }
 };
 
@@ -5132,7 +5132,7 @@ It.unfold = f => function* (seed) {
   while (true) {
     const pair = f(x);
     
-    if (strict(pair) === Null) return;
+    if (strict(pair) === Null) return Undefined;
     
     else {
       const [y, z] = pair;
@@ -5474,7 +5474,7 @@ class MultiMap extends Map {
         if (pred(v)) return v;
       }
 
-      return undefined;
+      return Undefined;
     }
   }
 
@@ -5746,7 +5746,7 @@ export const Obj = o => {
       },
 
       set: (p, k, v) => {
-        if (v === undefined)
+        if (v === undefined || v === Undefined)
           throw new Err("undefined set operation");
 
         else return p[k] = v;
@@ -6477,13 +6477,6 @@ P.allArr = () =>
     of: P.of});
 
 
-P.allList = () =>
-  L.seqA({
-    map: P.map,
-    ap: P.ap,
-    of: P.of});
-
-
 P.allObj = o => {
   const keys = Object.keys(o);
 
@@ -6537,12 +6530,6 @@ P.or = tx => ty => {
 
 P.anyArr = () =>
   A.foldl(acc => tx =>
-    P.Race.append(acc) (tx))
-      (P.Race.empty);
-
-
-P.anyList = () =>
-  L.foldl(acc => tx =>
     P.Race.append(acc) (tx))
       (P.Race.empty);
 
@@ -6650,6 +6637,9 @@ P.A.chain = xs => fm => P(k => {
 
 
 P.A.of = x => P(k => [k(x)]);
+
+
+P.Except = {};
 
 
 // computation that may cause an exception
@@ -6786,13 +6776,7 @@ P.reify = k => x => P(_ => k(x));
 P.allArr = P.allArr();
 
 
-P.allList = P.allList();
-
-
 P.anyArr = P.anyArr();
-
-
-P.anyList = P.anyList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7842,13 +7826,6 @@ S.allArr = () =>
     of: S.of});
 
 
-S.allList = () =>
-  L.seqA({
-    map: S.map,
-    ap: S.ap,
-    of: S.of});
-
-
 S.allObj = o => {
   return Object.keys(o).reduce((acc, key) => {
     return S(k =>
@@ -7949,6 +7926,9 @@ S.A.chain = xs => fm => S(k => {
 
 
 S.A.of = x => S(k => [k(x)]);
+
+
+S.Except = {};
 
 
 // computation that may cause an exception
@@ -8057,9 +8037,6 @@ S.reify = k => x => S(_ => k(x));
 
 
 S.allArr = S.allArr();
-
-
-S.allList = S.allList();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
