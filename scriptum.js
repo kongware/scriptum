@@ -4895,16 +4895,14 @@ It.apo = f => function* (seed) {
 It.cata = It.foldr;
 
 
-// paramorphism: catamorphism plus access to the source structure
-
-It.para = f => acc => o => function* (ix) {
+It.para = f => source => acc => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return Undefined;
     
     else {
-      acc = f(x) (o) (acc);
+      acc = f(x) (source) (acc);
       yield acc;
     }
   } 
@@ -4914,17 +4912,35 @@ It.para = f => acc => o => function* (ix) {
 // hylomorphism: anamorphism and immediately following catamorphism
 
 It.hylo = f => g => function* (seed) {
-  yield cata(g) (yield ana(f) (seed));
+  const ix = ana(f) (seed);
+
+  for (const x of ix) yield* cata(g) (x);
 };
 
 
-// TODO: It.zygo
+/* Zygomorphism: fold that depends on another fold. Example: Check whether the
+length of the list is even or odd and how long it actual is at the same time. */
+
+It.zygo = f => g => acc => acc2 => function* (ix) {
+  for ([value, done] of It.cata(x => pair =>
+    Pair(f(x) (pair[0]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
+      yield value[1];
+  }
+};
 
 
-// TODO: It.mutu
+
+// mutumorphism: two folds that depend on each other (mutual recursion asa fold)
+
+It.mutu = f => g => acc => acc2 => function* (ix) {
+  for ([value, done] of It.cata(x => pair =>
+    Pair(f(x) (pair[0]) (pair[1]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
+      yield value[1];
+  }
+};
 
 
-// TODO: It.hysto
+// TODO: It.histo
 
 
 // TODO: It.futu
