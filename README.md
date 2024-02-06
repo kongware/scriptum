@@ -66,6 +66,7 @@ Features:
 * parser combinators
 * functor composition
 * let expressions
+* recursion schemes
 * delimited continuations
 * coroutines
 * tracked functions
