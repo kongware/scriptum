@@ -1580,14 +1580,6 @@ export const foldrM = (Foldable, Monad) => fm => init => mx =>
     Monad.chain(fm(x) (acc)) (gm)) (Monad.of) (mx) (init);
 
 
-/* TODO: unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
-unfoldM f s = do
-    mres <- f s
-    case mres of
-        Nothing      -> return []
-        Just (a, s') -> liftM2 (:) (return a) (unfoldM f s')*/
-
-
 // ignore the result of the first monad
 
 export const then = Monad => mmx => mmy => Monad.chain(mmx) (_ =>
@@ -1598,6 +1590,20 @@ export const then = Monad => mmx => mmy => Monad.chain(mmx) (_ =>
 
 export const then_ = Monad => mmx => mmy => Monad.chain(mmx) (x =>
   Chain.chain(mmy) (_ => Monad.of(x)));
+
+
+// Monad -> (s -> m (Maybe [a, s])) -> s -> m [a]
+export const unfoldrM = Monad => fm => function go(seed) {
+  return Monad.chain(fm(seed)) (pair => {
+    const t = intro(pair);
+    
+    if (t === null || t === Null) return [];
+
+    else return liftA2(Monad) (A.cons)
+      (Monad.of(pair[0]))
+        (lazy(() => go(pair[1])));
+  });
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
