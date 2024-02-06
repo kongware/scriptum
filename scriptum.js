@@ -2839,54 +2839,7 @@ A.sortOn = Order => f => xs => xs.sort(uncurry(compBoth(Order.compare) (f)));
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
-// strict due to imperative arrays
-
-
-A.ana = A.unfold;
-
-
-A.apo = f => init => { 
-  let acc = [], x = init, next;
-
-  do {
-    const pair = f(x);
-    next = false;
-
-    if (strict(pair) === Null) continue;
-
-    else {
-      const [y, tz] = pair;
-
-      tz.run({
-        left: _ => (acc.push(y), acc),
-
-        right: z => {
-          x = z;
-          next = true;
-          return (acc.push(y), acc);
-        }
-      });
-    }
-  } while (next);
-
-  return acc;
-};
-
-
-A.cata = A.foldl;
-
-
-A.para = f => init => xs => { 
-  let acc = init, x;
-
-  while (true) {
-    x = xs.pop();
-    if (x === undefined) break;
-    else acc = f(x) (xs) (acc);
-  }
-
-  return acc;
-};
+// eager arrays don't comply with lazy recursion schemes
 
 
 /*
@@ -3185,6 +3138,9 @@ A.alt = A.alt();
 
 
 A.Alt = A.Alt();
+
+
+A.ana = A.ana();
 
 
 A.Traversable = A.Traversable();
@@ -4629,12 +4585,12 @@ It.strict = ix => {
 
 
 It.filter = p => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
     else if (p(x)) yield x;
-  } while (true);
+  }
 };
 
 
@@ -4645,23 +4601,35 @@ It.Filterable = {filter: It.filter};
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
+// stateful accumulator
+
 It.foldl = f => acc => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else yield f(acc) (x);
-  } while (true);
+    
+    else {
+      acc = f(acc) (x);
+      yield acc;
+    }
+  }
 };
 
 
-It.foldr = f => acc => function* (ix) {
-  do {
+// left-associative fold with just the arguments flipped
+
+It.foldr = f => acc => function* go(ix) {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
-    else yield f(acc) (x);
-  } while (true);
+    
+    else {
+      acc = f(x) (acc);
+      yield acc;
+    }
+  }
 };
 
 
@@ -4704,12 +4672,12 @@ It.Traversable = () => ({
 
 
 It.map = f => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
     else yield f(x);
-  } while (true);
+  }
 };
 
 
@@ -4754,13 +4722,13 @@ It.Plus = {
 
 
 It.ap = tf => function* (ix) {
-  do {
+  while (true) {
     const {value: f, done} = tf.next(),
       {value: x, done: done2} = ix.next();
 
     if (done || done2) return;
     else yield function* () {yield f(x)} ();
-  } while (true);
+  }
 };
 
 
@@ -4775,12 +4743,12 @@ It.Apply = {
 
 
 It.chain = mx => function* (fm) {
-  do {
+  while (true) {
     const {value: x, done} = mx.next();
 
     if (done) return;
     else yield* fm(x);
-  } while (true);
+  }
 };
 
 
@@ -4887,7 +4855,79 @@ It.iterate = f => it => {
 █████ Recursion Schemes ███████████████████████████████████████████████████████*/
 
 
-// TODO
+// lazy recursion schemes are suitable to be encoded using native iterators
+
+
+// anamorphism
+
+It.ana = () => It.unfold;
+
+
+// apomorhism: anamorphism plus extra short circuit mechanism
+
+It.apo = f => function* (seed) {
+  let x = seed;
+
+  while (true) {
+    const pair = f(x);
+    
+    if (strict(pair) === Null) return;
+    
+    else {
+      const [y, z] = pair;
+
+      if (intro(z) === "Error") {
+        yield y;
+        return;
+      }
+
+      else {
+        x = z;
+        yield y;
+      }
+    }
+  }
+};
+
+
+// catamorphism
+
+It.cata = It.foldr;
+
+
+// paramorphism: catamorphism plus access to the source structure
+
+It.para = f => acc => o => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    
+    else {
+      acc = f(x) (o) (acc);
+      yield acc;
+    }
+  } 
+};
+
+
+// hylomorphism: anamorphism and immediately following catamorphism
+
+It.hylo = f => g => function* (seed) {
+  yield cata(g) (yield ana(f) (seed));
+};
+
+
+// TODO: It.zygo
+
+
+// TODO: It.mutu
+
+
+// TODO: It.hysto
+
+
+// TODO: It.futu
 
 
 /*
@@ -4895,7 +4935,7 @@ It.iterate = f => it => {
 
 
 It.find = p => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
@@ -4905,7 +4945,7 @@ It.find = p => function* (ix) {
       return;
     }
 
-  } while (true);
+  }
 };
 
 
@@ -4941,13 +4981,13 @@ It.Align = {};
 
 
 It.Align.append = Semigroup => ix => function* (iy) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
     if (done || done2) return;
     else yield Semigroup.append(x) (y);
-  } while (true);
+  }
 };
 
 
@@ -4986,7 +5026,7 @@ It.Align.Monoid = {
 It.foldSucc = f => acc => function* (ix) {
   let {value: x} = ix.next();
 
-  do {
+  while (true) {
     const {value: y, done} = ix.next();
 
     if (done) return;
@@ -4995,7 +5035,7 @@ It.foldSucc = f => acc => function* (ix) {
       yield f(acc) (Pair(x, y));
       x = y;
     }
-  } while (true);
+  }
 };
 
 
@@ -5006,7 +5046,7 @@ It.foldSucc = f => acc => function* (ix) {
 It.mapSucc = f => function* (ix) {
   let {value: x} = ix.next();
 
-  do {
+  while (true) {
     const {value: y, done} = ix.next();
 
     if (done) return;
@@ -5015,7 +5055,7 @@ It.mapSucc = f => function* (ix) {
       yield f(Pair(x, y));
       x = y;
     }
-  } while (true);
+  }
 };
 
 
@@ -5029,12 +5069,12 @@ It.drop = n => function* (ix) {
     if (done) return;
   };
 
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
     else yield x;
-  } while (true);
+  }
 };
 
 
@@ -5049,12 +5089,12 @@ It.dropWhile = p => function* (ix) {
     }
   };
 
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
     else yield x;
-  } while (true);
+  }
 };
 
 
@@ -5069,13 +5109,13 @@ It.take = n => function* (ix) {
 
 
 It.takeWhile = p => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return;
     else if (p(x)) yield x;
     else return;
-  } while (true);
+  }
 };
 
 
@@ -5083,18 +5123,19 @@ It.takeWhile = p => function* (ix) {
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
-// lazy, potentially infinite unfold
+/* Lazy, potentially infinite unfold that always needs to be at the beginning
+of the iterator chain. */
 
-It.unfold = f => seed => {
+It.unfold = f => function* (seed) {
   let x = seed;
 
   while (true) {
-    const r = f(x);
+    const pair = f(x);
     
-    if (strict(r) === Null) return;
+    if (strict(pair) === Null) return;
     
     else {
-      const [y, z] = r;
+      const [y, z] = pair;
 
       x = z;
       yield y;
@@ -8487,7 +8528,7 @@ data structures. */
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// doubly ended queue
+// TODO: doubly ended queue
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8495,7 +8536,7 @@ data structures. */
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// immutable map
+// TODO: immutable map
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8503,7 +8544,7 @@ data structures. */
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// immutable set
+// TODO: immutable set
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8511,7 +8552,7 @@ data structures. */
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// Prioq
+// TODO: Prioq
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8873,7 +8914,7 @@ Tree.nodes = Tree.cata({
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// tree-based list
+// TODO: sequence (list like)
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8881,7 +8922,7 @@ Tree.nodes = Tree.cata({
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// indexed list (array like)
+// TODO: vector (array/indexed list like)
 
 
 /*█████████████████████████████████████████████████████████████████████████████
