@@ -330,8 +330,8 @@ export const cata = (...ks) => dict => {
 };
 
 
-/* Some types like natural numbers don't have their own constructor let alone
-a recursive type definition in Javascript. For these cases, a more general
+/* Some types don't have their own constructor in Havascript (natural numbers)
+or a recursive type definition (linked lists). For these cases, a more general
 function to create catamorphisms is supplied. Other more well-formed types
 like single linked lists rely on non-stack-safe recursion. `cata_` can be used
 to encode a stack-safe trampoline or imperative loop. */
@@ -2268,6 +2268,85 @@ export const A = Arr; // shortcut
 
 // TODO
 
+/* the easiest bracktracking: combining pairs
+
+mzero :: Choice a
+mzero = choose []
+
+guard :: Bool -> Choice ()
+guard True  = return ()
+guard False = mzero
+
+solveConstraint = do
+  x <- choose [1,2,3]
+  y <- choose [4,5,6]
+  _ <- guard (x*y == 8)
+  return (x,y)
+
+-- take 2 solveConstraint yields [(2, 4)]
+*/
+
+/*
+* depth/breadth first strategies
+* disjunctions are encoded by mplus
+* conjunctions are encoded by chain
+* dis-/conjunctions can be fair (BFS)
+* dis-/conjunctions can be unfair (DFS)
+* pruning: e.g. stop at the first result
+* List implements depth first
+* Logic implements breadth first
+* DFS adds new tasks at the front of the queue
+* BFS adds them at the tail of the queue
+*/
+
+/* depth-first search trategy:
+
+newtype BacktrackT r m a = BacktrackT {
+  runBacktrackT :: (String -> m r) -- failure
+                -> (a      -> m r) -- success
+                ->            m r  -- result
+                }
+
+instance Functor (BacktrackT r m) where
+    fmap f m = BacktrackT $ \cf cs -> runBacktrackT m cf $ cs . f
+    {-# INLINE fmap #-}
+
+instance Applicative (BacktrackT r m) where
+    pure x  = BacktrackT  (\_cf cs -> cs x)
+    {-# INLINE pure #-}
+    f <*> v = BacktrackT $ \cf cs -> runBacktrackT f cf
+                         $ \r     -> runBacktrackT v cf (cs . r)
+    {-# INLINE (<*>) #-}
+
+instance Monad (BacktrackT r m) where
+    m >>= k  = BacktrackT $ \cf cs -> runBacktrackT m cf (\v -> runBacktrackT (k v) cf cs)
+    fail s   = BacktrackT $ \cf _cs -> cf s
+
+instance Alternative (BacktrackT r m) where
+  empty   = BacktrackT $ \cf _cs -> cf "<empty alternative>"
+  {-# INLINE empty #-}
+  a <|> b = BacktrackT $ \cf  cs -> runBacktrackT a (\_s -> runBacktrackT b cf cs) cs
+  {-# INLINE (<|>) #-}
+  many = munch []
+  {-# INLINE many #-}
+  some p = p >>= (\a -> munch [a] p)
+  {-# INLINE some #-}
+
+-- | Munch as many as possible, depth-first.
+--   Note that it always succeeds - possibly with empty result.
+--   That allows it to backjump efficiently, instead of using @Alternative@.
+munch :: [a] -> BacktrackT r m a -> BacktrackT r m [a]
+munch initialAcc p = BacktrackT $ \_cf cs -> go cs initialAcc
+  where
+    go cs acc = runBacktrackT p onFailure onSuccess 
+      where
+        onSuccess a = go cs $ a:acc
+        onFailure _ = cs $ reverse acc
+{-# INLINE munch #-} */
+
+
+
+
 
 /*
 █████ Clonable ████████████████████████████████████████████████████████████████*/
@@ -2750,88 +2829,6 @@ A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
 
 
 /*
-█████ Non-Empty ███████████████████████████████████████████████████████████████*/
-
-
-/* Non-empty arrays are just regular arrays wrapped in a proxy that cannot be
-empty. Usually, each method that creates a new array returns a non-empty one
-exept for `filter`, which may return an empty array and thus must not rely on
-non-emptiness. */
-
-
-A.nonEmpty = xs => {
-  if (xs.length === 0) throw new Err("must not be empty");
-
-  return new Proxy(xs, {
-    deleteProperty(_, i) {
-      throw new Err("invalid operation");
-    },
-
-    get(_, i, p) {
-      if (xs[i] && xs[i].bind) {
-        // * distinguish between impure/pure methods
-        // * functions that reduce the array in some way always return a normal array
-
-        //return (...args) => A.nonEmpty(xs[i] (...args));
-
-        return (...args) => {
-          switch(i) {
-
-            // keep type constructor
-
-            case "concat":
-            case "fill":
-            case "flat":
-            case "flatMap":
-            case "map":
-            case "reverse":
-            case "sort": return A.nonEmpty(xs[i] (...args));
-
-            // conversion to regular array
-
-            case "filter":
-            case "slice": return xs[i] (...args);
-            
-            // added method
-
-            case "of": return x => A.nonEmpty([x]);
-
-            // deviate from default array behavior
-
-            case "push":
-            case "shift": {
-              xs[i] (...args);
-              return p;
-            }
-
-            case "pop":
-            case "splice":
-            case "unshift": throw new Err("invalid operation");
-
-            // change type constructor
-
-            default: return xs[i] (...args);
-          }
-        };
-      }
-
-      else return xs[i];
-    },
-
-    set(_, k, v, p) {
-      if (k === "length" && v === 0)
-        throw new Err("must not be empty");
-
-      else {
-        xs[k] = v;
-        return p;
-      }
-    }
-  });
-};
-
-
-/*
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
@@ -3153,6 +3150,186 @@ A.Traversable = A.Traversable();
 
 
 A.ZipArr.ap = A.ZipArr.ap();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ ARRAY :: LIST ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* The functional single-linked list has the advantage over native arrays of
+non-distructive consing. For this reason the type is implemented with a very
+limited number of combinators. The idea is to create a list by repeatedly
+consing it and than fold it into another datatype or convert it directly into
+an array. */
+
+
+export const List = variant("List", constant("Nil"), cons2("Cons"));
+
+
+export const L = List;
+
+
+export const Cons_ = tail => head => List.Cons(head) (tail);
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+L.fromArr = xs => {
+  let ys = L.Nil;
+
+  for (let i = xs.length - 1; i >= 0; i--) ys = L.Cons(xs[i]) (ys);
+  return ys;
+};
+
+
+L.toArr = () => L.foldl(acc => x => (acc.push(x), acc)) ([]);
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+L.foldl = f => init => xs => {
+  let acc = init, done = false;
+
+  do {
+    xs.run({
+      get nil() {
+        done = true;
+        return [];
+      },
+
+      cons: head => tail => {
+        acc = f(acc) (x);
+        xs = tail;
+      }
+    });
+  } while (done == false);
+
+  return acc;
+};
+
+
+// stack-safe even if `f` is strict in its second argument
+
+L.foldr = f => acc => Stack(xs => {
+  return xs.run({
+    get nil() {return Stack.base(acc)},
+    cons: head => tail => Stack.call(f(head), Stack.rec(tail))
+  });
+});
+
+
+// stack-safe only if `f` is non-strict in its second argument
+
+L.foldr_ = f => acc => function go(xs) {
+  return xs.run({
+    nil: acc,
+    cons: head => tail => f(head) (lazy(() => go(tail)))
+  });
+};
+
+
+L.Foldable = {
+  foldl: L.foldl,
+  foldr: L.foldr
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+L.append = flip(L.foldr(L.Cons_));
+
+
+L.Semigroup = {append: L.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+L.empty = L.Nil;
+
+
+L.Monoid = {
+  ...L.Semigroup,
+  empty: L.empty
+};
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+L.unfold = f => function go(y) {
+  const pair = strict(f(y));
+
+  if (pair === null || pair === Null) return L.Nil;
+  else return new L.Cons(pair[0], lazy(() => go(pair[1])));
+};
+
+
+L.Unfoldable = {unfold: L.unfold};
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.toArr = L.toArr();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ ARRAY :: NON-EMPTY ██████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Non-empty arrays are guaranteed to contain at least a single value. The only
+way to allow this in untyped Javascript is to provide a monotonically increasing
+array type, i.e. one that can only add additional elements, not remove them.
+You can use all normal array combinators with non-empty arrays but shouldn't
+mix both types. */
+
+
+export class NEArray extends Array {
+  constructor(x) {
+    switch (x) {
+      case undefined:
+      case Undefined: throw new Err("missing initial element");
+    }
+
+    super();
+    this.push(x);
+  }
+
+  // invalid methods
+
+  filter() {throw new Err("invalid method")}
+  pop() {throw new Err("invalid method")}
+  slice() {throw new Err("invalid method")}
+  splice() {throw new Err("invalid method")}
+  unshift() {throw new Err("invalid method")}
+
+  // slightly diverging from standard behavior
+
+  push(...args) {
+    super.push(...args);
+    return this;
+  }
+
+  shift(...args) {
+    super.shift(...args);
+    return this;
+  }
+}
+
+
+export const NEA = NEArray;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9142,5 +9319,6 @@ export const FileSys = fs => Cons => thisify(o => {
   * add context type (array of arrays)
   * add monotonically increasing array type
   * add async iterator machinery
+  * add fuzzy type-2 sets
 
 */
