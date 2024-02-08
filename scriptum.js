@@ -2263,92 +2263,6 @@ export const A = Arr; // shortcut
 
 
 /*
-█████ Backtrack ███████████████████████████████████████████████████████████████*/
-
-
-// TODO
-
-/* the easiest bracktracking: combining pairs
-
-mzero :: Choice a
-mzero = choose []
-
-guard :: Bool -> Choice ()
-guard True  = return ()
-guard False = mzero
-
-solveConstraint = do
-  x <- choose [1,2,3]
-  y <- choose [4,5,6]
-  _ <- guard (x*y == 8)
-  return (x,y)
-
--- take 2 solveConstraint yields [(2, 4)]
-*/
-
-/*
-* depth/breadth first strategies
-* disjunctions are encoded by mplus
-* conjunctions are encoded by chain
-* dis-/conjunctions can be fair (BFS)
-* dis-/conjunctions can be unfair (DFS)
-* pruning: e.g. stop at the first result
-* List implements depth first
-* Logic implements breadth first
-* DFS adds new tasks at the front of the queue
-* BFS adds them at the tail of the queue
-*/
-
-/* depth-first search trategy:
-
-newtype BacktrackT r m a = BacktrackT {
-  runBacktrackT :: (String -> m r) -- failure
-                -> (a      -> m r) -- success
-                ->            m r  -- result
-                }
-
-instance Functor (BacktrackT r m) where
-    fmap f m = BacktrackT $ \cf cs -> runBacktrackT m cf $ cs . f
-    {-# INLINE fmap #-}
-
-instance Applicative (BacktrackT r m) where
-    pure x  = BacktrackT  (\_cf cs -> cs x)
-    {-# INLINE pure #-}
-    f <*> v = BacktrackT $ \cf cs -> runBacktrackT f cf
-                         $ \r     -> runBacktrackT v cf (cs . r)
-    {-# INLINE (<*>) #-}
-
-instance Monad (BacktrackT r m) where
-    m >>= k  = BacktrackT $ \cf cs -> runBacktrackT m cf (\v -> runBacktrackT (k v) cf cs)
-    fail s   = BacktrackT $ \cf _cs -> cf s
-
-instance Alternative (BacktrackT r m) where
-  empty   = BacktrackT $ \cf _cs -> cf "<empty alternative>"
-  {-# INLINE empty #-}
-  a <|> b = BacktrackT $ \cf  cs -> runBacktrackT a (\_s -> runBacktrackT b cf cs) cs
-  {-# INLINE (<|>) #-}
-  many = munch []
-  {-# INLINE many #-}
-  some p = p >>= (\a -> munch [a] p)
-  {-# INLINE some #-}
-
--- | Munch as many as possible, depth-first.
---   Note that it always succeeds - possibly with empty result.
---   That allows it to backjump efficiently, instead of using @Alternative@.
-munch :: [a] -> BacktrackT r m a -> BacktrackT r m [a]
-munch initialAcc p = BacktrackT $ \_cf cs -> go cs initialAcc
-  where
-    go cs acc = runBacktrackT p onFailure onSuccess 
-      where
-        onSuccess a = go cs $ a:acc
-        onFailure _ = cs $ reverse acc
-{-# INLINE munch #-} */
-
-
-
-
-
-/*
 █████ Clonable ████████████████████████████████████████████████████████████████*/
 
 
@@ -3157,11 +3071,11 @@ A.ZipArr.ap = A.ZipArr.ap();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* The functional single-linked list has the advantage over native arrays of
-non-distructive consing. For this reason the type is implemented with a very
-limited number of combinators. The idea is to create a list by repeatedly
-consing it and than fold it into another datatype or convert it directly into
-an array. */
+/* The functional single-linked list implementation is used for the following
+tasks:
+
+* utilizing non-destructive and fast consing
+* allow a fair choice in con-/disjunctions (logic in an indeterministic context) */
 
 
 export const List = variant("List", constant("Nil"), cons2("Cons"));
@@ -3240,6 +3154,242 @@ L.Foldable = {
 
 
 /*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+L.mapA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.mapA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.seqA = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.seqA_ = Applicative => {
+  const liftA2_ = liftA2(Applicative) (L.Cons_);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+};
+
+
+L.Traversable = () => ({
+  ...L.Foldable,
+  ...L.Functor,
+  mapA: L.mapA,
+  seqA: L.seqA
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+L.map = f => L.foldr(x => acc => new L.Cons(f(x)) (acc)) (L.Nil);
+
+
+L.Functor = {map: L.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+L.alt = () => L.append;
+
+
+L.Alt = () => ({
+  ...L.Functor,
+  alt: L.alt
+});
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+L.zero = L.Nil;
+
+
+L.Plus = {
+  ...L.Alt,
+  zero: L.zero
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+L.ap = tf => tx =>
+  L.foldr(f => acc =>
+    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
+
+
+L.Apply = {
+  ...L.Functor,
+  ap: L.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+L.of = x => L.Cons(x) (L.Nil);
+
+
+L.Applicative = {
+  ...L.Apply,
+  of: L.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+L.chain = mx => fm => L.foldr(x => acc =>
+  L.append(fm(x)) (acc)) (L.Nil) (mx);
+
+
+L.Chain = {
+  ...L.Apply,
+  chain: L.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+L.Alternative = {
+  ...L.Plus,
+  ...L.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+L.Monad = {
+  ...L.Applicative,
+  chain: L.chain
+};
+
+
+/*
+█████ Logic/Backtrack █████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+/* the easiest bracktracking: combining pairs
+
+type Choice a = [a]
+choose :: [a] -> Choice a
+choose xs = xs
+
+mzero :: Choice a
+mzero = choose []
+
+guard :: Bool -> Choice ()
+guard True  = return ()
+guard False = mzero
+
+solveConstraint = do
+  x <- choose [1,2,3]
+  y <- choose [4,5,6]
+  _ <- guard (x*y == 8)
+  return (x,y)
+
+-- take 2 solveConstraint yields [(2, 4)]
+*/
+
+/*
+* depth/breadth first strategies
+* disjunctions are encoded by mplus
+* conjunctions are encoded by chain
+* dis-/conjunctions can be fair (BFS)
+* dis-/conjunctions can be unfair (DFS)
+* pruning: e.g. stop at the first result
+* List implements depth first
+* Logic implements breadth first
+* DFS adds new tasks at the front of the queue
+* BFS adds them at the tail of the queue
+*/
+
+/* depth-first search trategy:
+
+newtype BacktrackT r m a = BacktrackT {
+  runBacktrackT :: (String -> m r) -- failure
+                -> (a      -> m r) -- success
+                ->            m r  -- result
+                }
+
+instance Functor (BacktrackT r m) where
+    fmap f m = BacktrackT $ \cf cs -> runBacktrackT m cf $ cs . f
+    {-# INLINE fmap #-}
+
+instance Applicative (BacktrackT r m) where
+    pure x  = BacktrackT  (\_cf cs -> cs x)
+    {-# INLINE pure #-}
+    f <*> v = BacktrackT $ \cf cs -> runBacktrackT f cf
+                         $ \r     -> runBacktrackT v cf (cs . r)
+    {-# INLINE (<*>) #-}
+
+instance Monad (BacktrackT r m) where
+    m >>= k  = BacktrackT $ \cf cs -> runBacktrackT m cf (\v -> runBacktrackT (k v) cf cs)
+    fail s   = BacktrackT $ \cf _cs -> cf s
+
+instance Alternative (BacktrackT r m) where
+  empty   = BacktrackT $ \cf _cs -> cf "<empty alternative>"
+  {-# INLINE empty #-}
+  a <|> b = BacktrackT $ \cf  cs -> runBacktrackT a (\_s -> runBacktrackT b cf cs) cs
+  {-# INLINE (<|>) #-}
+  many = munch []
+  {-# INLINE many #-}
+  some p = p >>= (\a -> munch [a] p)
+  {-# INLINE some #-}
+
+-- | Munch as many as possible, depth-first.
+--   Note that it always succeeds - possibly with empty result.
+--   That allows it to backjump efficiently, instead of using @Alternative@.
+munch :: [a] -> BacktrackT r m a -> BacktrackT r m [a]
+munch initialAcc p = BacktrackT $ \_cf cs -> go cs initialAcc
+  where
+    go cs acc = runBacktrackT p onFailure onSuccess 
+      where
+        onSuccess a = go cs $ a:acc
+        onFailure _ = cs $ reverse acc
+{-# INLINE munch #-} */
+
+
+// interleave: fair disjunction
+
+
+// chainFair: fair conjunction
+
+
+// ifte: soft cut
+
+
+// once: pruning
+
+
+// msplit: generalization of all th above
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -3279,6 +3429,15 @@ L.Unfoldable = {unfold: L.unfold};
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+L.alt = L.alt();
+
+
+L.Alt = L.Alt();
+
+
+L.Traversable = L.Traversable();
 
 
 L.toArr = L.toArr();
