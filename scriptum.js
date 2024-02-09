@@ -1484,6 +1484,34 @@ export const mapEff = Functor => x => Functor.map(_ => x);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████ FUNCTOR :: ALTERNATIVE ████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Usage of guard:
+
+  A.chain([1,2,3]) (x =>
+    A.chain([4,5,6]) (y =>
+      A.chain(guard(A.Alternative) (x * y === 8)) (_ =>
+        A.of(Pair(x, y))))); // yields [[2, 4]]
+
+This is backtracking with left-biased conjunctions. */
+
+export const guard = Alternative => x =>
+  (x && x !== Null && x => Undefined)
+    ? Alternative.of(Null)
+    : Alternative.zero;
+
+
+export const some = Alternative => tx => // TODO: make stack-safe
+  Alternative.ap(Alternative.map(A.Cons) (tx)) (many(Alternative) (tx));
+
+
+export const many = Alternative => tx => // TODO: make stack-safe
+  Alternative.alt(some(Alternative) (tx)) (Alternative.of([]));
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████ FUNCTOR :: APPLY ███████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -3293,27 +3321,6 @@ L.Monad = {
 
 // TODO
 
-/* the easiest bracktracking: combining pairs
-
-type Choice a = [a]
-choose :: [a] -> Choice a
-choose xs = xs
-
-mzero :: Choice a
-mzero = choose []
-
-guard :: Bool -> Choice ()
-guard True  = return ()
-guard False = mzero
-
-solveConstraint = do
-  x <- choose [1,2,3]
-  y <- choose [4,5,6]
-  _ <- guard (x*y == 8)
-  return (x,y)
-
--- take 2 solveConstraint yields [(2, 4)]
-*/
 
 /*
 * depth/breadth first strategies
@@ -3328,51 +3335,6 @@ solveConstraint = do
 * BFS adds them at the tail of the queue
 */
 
-/* depth-first search trategy:
-
-newtype BacktrackT r m a = BacktrackT {
-  runBacktrackT :: (String -> m r) -- failure
-                -> (a      -> m r) -- success
-                ->            m r  -- result
-                }
-
-instance Functor (BacktrackT r m) where
-    fmap f m = BacktrackT $ \cf cs -> runBacktrackT m cf $ cs . f
-    {-# INLINE fmap #-}
-
-instance Applicative (BacktrackT r m) where
-    pure x  = BacktrackT  (\_cf cs -> cs x)
-    {-# INLINE pure #-}
-    f <*> v = BacktrackT $ \cf cs -> runBacktrackT f cf
-                         $ \r     -> runBacktrackT v cf (cs . r)
-    {-# INLINE (<*>) #-}
-
-instance Monad (BacktrackT r m) where
-    m >>= k  = BacktrackT $ \cf cs -> runBacktrackT m cf (\v -> runBacktrackT (k v) cf cs)
-    fail s   = BacktrackT $ \cf _cs -> cf s
-
-instance Alternative (BacktrackT r m) where
-  empty   = BacktrackT $ \cf _cs -> cf "<empty alternative>"
-  {-# INLINE empty #-}
-  a <|> b = BacktrackT $ \cf  cs -> runBacktrackT a (\_s -> runBacktrackT b cf cs) cs
-  {-# INLINE (<|>) #-}
-  many = munch []
-  {-# INLINE many #-}
-  some p = p >>= (\a -> munch [a] p)
-  {-# INLINE some #-}
-
--- | Munch as many as possible, depth-first.
---   Note that it always succeeds - possibly with empty result.
---   That allows it to backjump efficiently, instead of using @Alternative@.
-munch :: [a] -> BacktrackT r m a -> BacktrackT r m [a]
-munch initialAcc p = BacktrackT $ \_cf cs -> go cs initialAcc
-  where
-    go cs acc = runBacktrackT p onFailure onSuccess 
-      where
-        onSuccess a = go cs $ a:acc
-        onFailure _ = cs $ reverse acc
-{-# INLINE munch #-} */
-
 
 // interleave: fair disjunction
 
@@ -3384,6 +3346,9 @@ munch initialAcc p = BacktrackT $ \_cf cs -> go cs initialAcc
 
 
 // once: pruning
+
+
+// lnot: logical not
 
 
 // msplit: generalization of all th above
