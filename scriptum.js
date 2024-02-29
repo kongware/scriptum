@@ -2894,9 +2894,7 @@ A.union = xs => ys => Array.from(new Set(xs.concat(ys)));
 █████ Special Folds ███████████████████████████████████████████████████████████*/
 
 
-A.foldSucc = f => acc => xs => {
-  const acc = [];
-
+A.foldBin = f => acc => xs => {
   for (let i = 0, j = 1; j < xs.length; i++, j++)
     acc = f(acc) (Pair(xs[i], xs[j]));
 
@@ -2911,11 +2909,13 @@ A.sum = A.foldl(m => n => m + n) (0);
 █████ Special Maps ████████████████████████████████████████████████████████████*/
 
 
-A.mapSucc = f => xs => {
+A.mapBin = f => xs => {
   const acc = [];
 
-  for (let i = 0, j = 1; j < xs.length; i++, j++)
-    acc.push(f(Pair(xs[i], xs[j])));
+  for (let i = 0, j = 1; j < xs.length; i++, j++) {
+    const pair = f(Pair(xs[i], xs[j]))
+    acc.push(pair[0], pair[1]);
+  }
 
   return acc;
 };
@@ -5346,7 +5346,7 @@ It.Align.Monoid = {
 █████ Special Folds ███████████████████████████████████████████████████████████*/
 
 
-It.foldSucc = f => acc => function* (ix) {
+It.foldBin = f => acc => function* (ix) {
   let {value: x} = ix.next();
 
   while (true) {
@@ -5366,7 +5366,7 @@ It.foldSucc = f => acc => function* (ix) {
 █████ Special Maps ████████████████████████████████████████████████████████████*/
 
 
-It.mapSucc = f => function* (ix) {
+It.mapBin = f => function* (ix) {
   let {value: x} = ix.next();
 
   while (true) {
@@ -5375,7 +5375,10 @@ It.mapSucc = f => function* (ix) {
     if (done) return Undefined;
     
     else {
-      yield f(Pair(x, y));
+      const pair = f(Pair(x, y));
+
+      yield pair[0];
+      yield pair[1];
       x = y;
     }
   }
