@@ -908,15 +908,6 @@ export const and = f => g => f() && g();
 export const or = f => g => f() || g();
 
 
-// y might never be evaluated
-
-export const xor_ = _default => x => y => {
-  if (x && !y) return x;
-  else if (!x && y) return y;
-  else return _default;
-};
-
-
 /*
 █████ Boolean Logic ███████████████████████████████████████████████████████████*/
 
@@ -982,11 +973,14 @@ export const neq_ = f => g => f() !== g();
 export const notBetween = ({lower, upper}) => x => x < lower || y > upper;
 
 
-export const xor = ({true: t, false: f}) => x => y => {
+export const xor = ({t, f}) => x => y => {
   if (x && !y) return t;
   else if (!x && y) return t;
   else return f;
 };
+
+
+export const xor_ = xor({t: true, f: false});
 
 
 /*
@@ -5892,7 +5886,7 @@ class MultiMap extends Map {
 
   // do not abstract from multiple mapped datasets
 
-  iterate() {
+  *iterate() {
     for (const [k, s] of super[Symbol.iterator]()) yield Pair(k, s);
   }
 };
