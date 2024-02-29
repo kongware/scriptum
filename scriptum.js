@@ -5882,10 +5882,18 @@ class MultiMap extends Map {
   █████ Iterator ██████████████████████████████████████████████████████████████*/
 
 
+  // default
+
   *[Symbol.iterator]() {
     for (const [k, s] of super[Symbol.iterator]()) {
-      for (const v of s) yield [k, v];
+      for (const v of s) yield Pair(k, v);
     }
+  }
+
+  // do not abstract from multiple mapped datasets
+
+  iterate() {
+    for (const [k, s] of super[Symbol.iterator]()) yield Pair(k, s);
   }
 };
 
