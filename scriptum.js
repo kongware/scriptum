@@ -1498,14 +1498,14 @@ export const mapEff = Functor => x => Functor.map(_ => x);
 This is backtracking with left-biased conjunctions. */
 
 export const guard = Alternative => x =>
-  (x && x !== Null && x => Undefined)
+  (x && x !== Null && x !== Undefined)
     ? Alternative.of(Null)
     : Alternative.zero;
 
 
 export const some = Alternative => tx => // TODO: make stack-safe
   Alternative.ap(Alternative.map(A.Cons) (tx)) (many(Alternative) (tx));
-
+  
 
 export const many = Alternative => tx => // TODO: make stack-safe
   Alternative.alt(some(Alternative) (tx)) (Alternative.of([]));
