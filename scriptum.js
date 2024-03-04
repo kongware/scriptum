@@ -939,7 +939,7 @@ export const iff = ({true: t, false: f}) => x => y => {
 };
 
 
-export const imply = ({true: t, false: f}) => x => y => {
+export const implies = ({true: t, false: f}) => x => y => {
   if (x) {
     if (y) return t;
     else return f;
@@ -5537,6 +5537,290 @@ export const Ii = ix => {
 
   Object.defineProperty(o, TAG, {value: "IdempotentIterator"});
   return o;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████ FUZZY LOGIC █████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+const Fuzzy = ({x, fuzzified}) => ({
+  [TAG]: Fuzzy,
+  x,
+  fuzzified
+});
+
+
+/*
+█████ Defuzzifiction ██████████████████████████████████████████████████████████*/
+
+
+// retrieving a crisp value from a fuzzy set
+
+
+Fuzzy.defuzzify = {};
+
+
+Fuzzy.defuzzify.centroid = os => {
+  const sums = os.reduce(
+    (acc, {x, fuzzified}) => ({
+      top: acc.top + fuzzified * x,
+      bottom: acc.bottom + fuzzified,
+    }), {top: 0, bottom: 0}
+  );
+
+  return sums.top / sums.bottom;
+};
+
+
+Fuzzy.defuzzify.getMax = os => {
+  const max = os.reduce((acc, {fuzzified}) =>
+    fuzzified > acc ? fuzzified : acc, 0);
+
+  return os.filter(o => o.fuzzified === max);
+};
+
+
+Fuzzy.defuzzify.headOfMax = os =>
+  Fuzzy.defuzzify.getMax(os) [0].x;
+
+
+Fuzzy.defuzzify.lastOfMax = os =>
+  Fuzzy.defuzzify.getMax(os) [os.length - 1].x;
+
+
+Fuzzy.defuzzify.meanOfMax = os => {
+  const ps = Fuzzy.defuzzify.getMax(os),
+    sum = ps.reduce((acc, {x}) => acc + x, 0);
+
+  return sum / ps.length;
+};
+
+
+/*
+█████ Fuzzifiction ████████████████████████████████████████████████████████████*/
+
+
+// membership function calculating the degree of membership to a fuzzy set
+
+
+Fuzzy.fuzzify = {};
+
+
+Fuzzy.fuzzify.gaussian = ({center, standardDeviation}) => x => Fuzzy({
+  x, fuzzified: Math.exp(-0.5 * Math.pow((x - center) / standardDeviation, 2))
+});
+
+
+// linear s-shaped
+
+Fuzzy.fuzzify.lins = ({start, end}) => x =>
+  x <= start ? Fuzzy({x, fuzzified: 0})
+    : x >= end ? Fuzzy({x, fuzzified: 1})
+    : Fuzzy({x, fuzzified: (x / (end - start)) - (start / (end - start))});
+
+
+// linear z-shaped
+
+Fuzzy.fuzzify.linz =  ({start, end}) => x =>
+  x <= start ? Fuzzy({x, fuzzified: 1})
+    : x >= end ? Fuzzy({x, fuzzified: 0})
+    : Fuzzy({x, fuzzified: (-x / (end - start)) + (end / (end - start))});
+
+
+Fuzzy.fuzzify.sigmoid = ({center, slope}) => x =>
+  Fuzzy({x, fuzzified: 1 / (1 + Math.exp(-slope * (x - center)))});
+
+
+Fuzzy.fuzzify.trapezoidal = ({topLeft, topRight, bottomLeft, bottomRight}) => x => {
+  const xs = [
+    (x - bottomLeft) / (topLeft - bottomLeft),
+    1,
+    (bottomRight - x) / (bottomRight - topRight),
+  ].filter(y => !Number.isNaN(y));
+
+  return Fuzzy({x, fuzzified: Math.max(Math.min(...values), 0)});
+};
+
+
+Fuzzy.fuzzify.triangular = ({left, center, right}) => x => {
+  const xs = [
+    (x - left) / (center - left),
+    (right - x) / (right - center)
+  ].filter(y => !Number.isNaN(y));
+
+  return Fuzzy({x, fuzzified: Math.max(Math.min(...values), 0)});
+};
+
+
+/*
+█████ Rules ███████████████████████████████████████████████████████████████████*/
+
+
+Fuzzy.and = tx => ty => {
+  const r = Math.min(tx.fuzzified, ty.fuzzified);
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+// if and only if
+
+Fuzzy.iff = tx => ty => {
+  const r = Fuzzy.and(Fuzzy.implies(tx) (ty)) (Fuzzy.implies(ty) (tx));
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+// if then else
+
+Fuzzy.ifte = tx => ty => z => {
+  const r = Fuzzy.and(Fuzzy.or(Fuzzy.not(tx)) (ty)) (Fuzzy.or(tx) (z));
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+Fuzzy.implies = tx => ty => {
+  const r = Fuzzy.or(Fuzzy.not(tx)) (ty);
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+// not and
+
+Fuzzy.nand = tx => ty => {
+  const r = Math.min(tx.fuzzified, 1 - ty.fuzzified):
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+// not or
+
+Fuzzy.nor = tx => ty => {
+  const r = Math.max(tx.fuzzified, 1 - ty.fuzzified):
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+Fuzzy.not = tx => Fuzzy({
+  x: tx.x,
+  fuzzified: 1 - tx.fuzzified
+});
+
+
+Fuzzy.or = tx => ty => {
+  const r = Math.max(tx.fuzzified, ty.fuzzified);
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+Fuzzy.xor = tx => ty => {
+  const r = Fuzzy.or(Fuzzy.and(tx) (Fuzzy.not(ty)))
+    (Fuzzy.and(Fuzzy.not(tx) (ty)));
+
+  return Fuzzy({
+    x: r === tx.fuzzified ? tx.x : ty.x,
+    fuzzified: r
+  });
+};
+
+
+/*
+█████ Set Operations ██████████████████████████████████████████████████████████*/
+
+
+Fuzzy.createMap = os => os.reduce((acc, {x, fuzzified}) => 
+  acc.set(x, fuzzified), new Map());
+
+
+Fuzzy.alphaCut = ({alpha, strong = false}) => os => os
+  .filter(o => (strong ? o.fuzzified > alpha : o.fuzzified >= alpha))
+  .map(({x}) => x);
+
+
+Fuzzy.complement = os => os.map(o => Fuzzy({
+  x: o.x,
+  fuzzified: Fuzzy.not(o.fuzzified)
+}));
+
+
+Fuzzy.diff = os => ps => os.map((o, i) => {
+  const m = Fuzzy.createMap(os),
+    n = Fuzzy.createMap(ps),
+    acc = [];
+
+  for ([k, v] of m) {
+    if (!n.has(k)) throw new Err("incompatible fuzzy sets");
+    else acc.push(Fuzzy.nand(v) (n.get(k)));
+  }
+
+  return acc;
+};
+
+
+Fuzzy.height = os =>
+  os.reduce((acc, {fuzzified}) => (fuzzified > acc ? fuzzified : acc), 0);
+
+
+Fuzzy.intersect = os => ps => os.map((o, i) => {
+  const m = Fuzzy.createMap(os),
+    n = Fuzzy.createMap(ps),
+    acc = [];
+
+  for ([k, v] of m) {
+    if (!n.has(k)) throw new Err("incompatible fuzzy sets");
+    else acc.push(Fuzzy.and(v) (n.get(k)));
+  }
+
+  return acc;
+};
+
+
+Fuzzy.isNormal = os => Fuzzy.height(os) === 1;
+
+
+Fuzzy.support = alphacut({alpha: 0, strong: true});
+
+
+Fuzzy.union = os => ps => os.map((o, i) => {
+  const m = Fuzzy.createMap(os),
+    n = Fuzzy.createMap(ps),
+    acc = [];
+
+  for ([k, v] of m) {
+    if (!n.has(k)) throw new Err("incompatible fuzzy sets");
+    else acc.push(Fuzzy.or(v) (n.get(k)));
+  }
+
+  return acc;
 };
 
 
