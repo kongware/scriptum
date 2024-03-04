@@ -5379,9 +5379,7 @@ It.foldBin = f => acc => function* (ix) {
 };
 
 
-It.sum = function* (ix) {
-  let acc = 0;
-
+It.sum = acc => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
@@ -5420,6 +5418,10 @@ It.mapBin = f => function* (ix) {
 
 /*
 █████ Sublists ████████████████████████████████████████████████████████████████*/
+
+
+/* All drop- and take-like combinators are non-strict because they only specify
+the quantity, not the strucutre. */
 
 
 It.drop = n => function* (ix) {
@@ -5467,13 +5469,17 @@ It.take = n => function* (ix) {
 };
 
 
+/* Keep iterating until the provided prediate fails and return the generator in
+this case, otherwise return `Undefined` as usual. This way, the generator can
+be resumed with another predicate afterwards. */
+
 It.takeWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return Undefined;
     else if (p(x)) yield x;
-    else return Undefined;
+    else return ix; // special case
   }
 };
 
