@@ -5161,7 +5161,7 @@ It.fromObjValues = function* (o) {
 };
 
 
-It.make = it => it[Symbol.iterator] ();
+It.from = it => it[Symbol.iterator] ();
 
 
 /*
@@ -5374,6 +5374,22 @@ It.foldBin = f => acc => function* (ix) {
     else {
       yield f(acc) (Pair(x, y));
       x = y;
+    }
+  }
+};
+
+
+It.sum = function* (ix) {
+  let acc = 0;
+
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return;
+    
+    else {
+      acc = acc + x;
+      yield acc;
     }
   }
 };
