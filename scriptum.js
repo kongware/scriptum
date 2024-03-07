@@ -1931,9 +1931,12 @@ export const _const = x => y => x;
 export const const_ = x => y => y;
 
 
+F.of = _const;
+
+
 F.Applicative = {
   ...F.Apply,
-  of: _const
+  of: F.of
 };
 
 
@@ -2601,17 +2604,17 @@ A.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-A.mapA = Applicative => ft => xs => {
+A.mapA = Applicative => ft => {
   const liftA2_ = liftA2(Applicative);
 
-  return A.foldl(ys => y =>
-    liftA2_(A.push) (ft(y)) (ys))
-      (Applicative.of([])) (xs);
+  return A.foldl(acc => x =>
+    liftA2_(A.push) (ft(x)) (acc))
+      (Applicative.of([]));
 };
 
 
-A.seqA = Applicative => xs =>
-  A.foldl(liftA2(Applicative) (A.push_)) (Applicative.of([])) (xs);
+A.seqA = Applicative =>
+  A.foldl(liftA2(Applicative) (A.push_)) (Applicative.of([]))
 
 
 A.Traversable = () => ({
@@ -4966,28 +4969,7 @@ It.Foldable = {
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
-It.mapA = Functor => ft => function* (ix) {
-  const {value: x, done} = ix.next();
-
-  if (done) return Undefined;
-  else return Functor.map(y => function* () {yield y} ()) (ft(x));
-};
-
-
-It.seqA = Functor => function* (itx) {
-  const {value: tx, done} = itx.next();
-
-  if (done) return Undefined;
-  else return Functor.map(x => function* () {yield x} ()) (tx);
-};
-
-
-It.Traversable = () => ({
-  ...It.Foldable,
-  ...It.Functor,
-  mapA: It.mapA,
-  seqA: It.seqA
-});
+// no meaningful implementation
 
 
 /*
@@ -5015,8 +4997,8 @@ It.alt = ix => function* (iy) {
   const {value: x, done} = ix.next(),
     {value: y, done: done2} = iy.next();
 
-  if (!done) yield x;
-  else if (!done2) yield y;
+  if (done === false) yield x;
+  else if (done2 === false) yield y;
   else return Undefined;
 };
 
@@ -5031,7 +5013,7 @@ It.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-It.zero = function* () {} ();
+It.zero = function* () {return Undefined} ();
 
 
 It.Plus = {
@@ -5044,9 +5026,9 @@ It.Plus = {
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-It.ap = tf => function* (ix) {
+It.ap = _if => function* (ix) {
   while (true) {
-    const {value: f, done} = tf.next(),
+    const {value: f, done} = _if.next(),
       {value: x, done: done2} = ix.next();
 
     if (done || done2) return Undefined;
@@ -5085,7 +5067,7 @@ It.Chain = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-It.of = x => function* () {yield x} ();
+It.of = function* (x) {yield x; return Undefined};
 
 
 It.Applicative = {
@@ -5169,8 +5151,9 @@ It.from = it => it[Symbol.iterator] ();
 
 // perform effects but discard values
 
-It.iterate = f => it => {
-  for (const x of it) f(x);
+It.iterate = f => ix => {
+  for (const x of ix) f(x);
+  return Undefined;
 };
 
 
@@ -5283,7 +5266,16 @@ It.find = p => function* (ix) {
       yield x;
       return Undefined;
     }
+  }
+};
 
+
+It.findAll = p => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return Undefined;
+    else if (p(x)) yield x;
   }
 };
 
@@ -5350,7 +5342,7 @@ It.Monoid = {
 █████ Semigroup :: Monoid (Alignment) █████████████████████████████████████████*/
 
 
-It.Align.empty = function* (empty) {yield empty};
+It.Align.empty = function* (empty) {yield empty; return Undefined};
 
 
 It.Align.Monoid = {
@@ -5363,7 +5355,10 @@ It.Align.Monoid = {
 
 
 It.foldBin = f => acc => function* (ix) {
-  let {value: x} = ix.next();
+  const o = ix.next();
+  let x = o.value;
+
+  if (o.done) return Undefined;
 
   while (true) {
     const {value: y, done} = ix.next();
@@ -5371,7 +5366,8 @@ It.foldBin = f => acc => function* (ix) {
     if (done) return Undefined;
     
     else {
-      yield f(acc) (Pair(x, y));
+      acc = f(acc) (Pair(x, y));
+      yield acc;
       x = y;
     }
   }
@@ -5441,6 +5437,7 @@ It.drop = n => function* (ix) {
 It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
+
     if (done) return Undefined;
 
     else if (!p(x)) {
@@ -5476,7 +5473,7 @@ It.takeWhile = p => function* (ix) {
 
     if (done) return Undefined;
     else if (p(x)) yield x;
-    else return ix;
+    else return Undefined;
   }
 };
 
@@ -5517,7 +5514,7 @@ It.unfold = f => function* (seed) {
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-It.Traversable = It.Traversable();
+It.ana = It.ana();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5535,680 +5532,31 @@ once:
 
 In order to advance it farther, invocations need to be recursive:
   
-  ix.next().next(); */
+  ix.next().next();
+
+Idempotent iterators are just a wrapper around native iterators. There are some
+cases where standard combinator implementations are overwritten, though. */
 
 
-export const Ii = o => {
-  let p = {
+export const Ii = ix => {
+  let o = {
     value: Null,
     done: false,
 
     next() {
-      const q = o.next();
+      const p = ix.next();
 
-      Object.defineProperty(q, TAG, {value: "IdempotentIterator"});
-      q.next = p.next
-      delete p.next;
-      p.next = () => q;
-      p = q;
-      return q;
+      Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
+      p.next = o.next
+      delete o.next;
+      o.next = () => p;
+      o = p;
+      return p;
     }
   };
 
-  Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
-  return p;
-};
-
-
-/*
-█████ Category ████████████████████████████████████████████████████████████████*/
-
-
-Ii.comp = comp;
-
-
-Ii.id = id;
-
-
-Ii.Category = ({
-  comp: Ii.comp,
-  id: Ii.id
-});
-
-
-/*
-█████ Conversion (Strict) █████████████████████████████████████████████████████*/
-
-
-Ii.toArr = o => {
-  const xs = [];
-
-  while (true) {
-    o = o.next();
-    if (o.done) return xs;
-    else xs.push(o.value);
-  }
-};
-
-
-Ii.toArrOfKeys = o => {
-  const xs = [];
-
-  while (true) {
-    o = o.next();
-    if (o.done) return xs;
-    else xs.push(o.value[0]);
-  }
-};
-
-
-Ii.toArrOfValues = o => {
-  const xs = [];
-
-  while (true) {
-    o = o.next();
-    if (o.done) return xs;
-    else xs.push(o.value[1]);
-  }
-};
-
-
-Ii.toMap = o => {
-  const m = new Map();
-
-  while (true) {
-    o = o.next();
-    if (o.done) return m;
-    else m.set(o.value[0], o.value[1]);
-  }
-};
-
-
-Ii.toMultiMap = o => {
-  const m = new MultiMap();
-
-  while (true) {
-    o = o.next();
-    if (o.done) return m;
-    else m.addItem(o.value[0], o.value[1]);
-  }
-};
-
-
-Ii.toObj = o => {
-  const p = {};
-
-  while (true) {
-    o = o.next();
-    if (o.done) return p;
-    else p[o.value[0]] = o.value[1];
-  }
-};
-
-
-Ii.toSet = o => {
-  const s = new Set();
-  
-  while (true) {
-    o = o.next();
-    if (o.done) return s;
-    else s.add(o.value);
-  }
-};
-
-
-/*
-█████ Conjunction █████████████████████████████████████████████████████████████*/
-
-
-Ii.all = f => function* (o) {
-  do {
-    o = o.next();
-    if (o.done) return true;
-  } while (f(o.value));
-
-  return false;
-};
-
-
-/*
-█████ Disjunction █████████████████████████████████████████████████████████████*/
-
-
-Ii.any = f => function* (o) {
-  do {
-    o = o.next();
-    if (o.done) return false;
-  } while (!f(o.value));
-
-  return true;
-};
-
-
-/*
-█████ Evaluation (Strict) █████████████████████████████████████████████████████*/
-
-
-// evaluates to null on lack of value
-
-Ii.strict = o => {
-  let acc = Null;
-
-  while (true) {
-    o = o.next();
-    if (o.done) return acc;
-    else acc = o.value;
-  }
-};
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-Ii.filter = p => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (o.done) return Undefined;
-    else if (p(o.value)) yield o.value;
-  }
-};
-
-
-Ii.Filterable = {filter: Ii.filter};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-// stateful accumulator
-
-Ii.foldl = f => acc => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (o.done) return Undefined;
-    
-    else {
-      acc = f(acc) (value);
-      yield acc;
-    }
-  }
-};
-
-
-// left-associative fold with just the arguments flipped
-
-Ii.foldr = f => acc => function* go(o) {
-  while (true) {
-    o = o.next();
-
-    if (o.done) return Undefined;
-    
-    else {
-      acc = f(o.value) (acc);
-      yield acc;
-    }
-  }
-};
-
-
-Ii.Foldable = {
-  foldl: Ii.foldl,
-  foldr: Ii.foldr
-};
-
-
-/*
-█████ Foldable :: Traversable █████████████████████████████████████████████████*/
-
-
-Ii.mapA = Functor => ft => function* (o) {
-  o = o.next();
-
-  if (done) return Undefined;
-  else return Functor.map(y => function* () {yield y} ()) (ft(x));
-};
-
-
-Ii.seqA = Functor => function* (itx) {
-  const {value: tx, done} = itx.next();
-
-  if (done) return Undefined;
-  else return Functor.map(x => function* () {yield x} ()) (tx);
-};
-
-
-Ii.Traversable = () => ({
-  ...Ii.Foldable,
-  ...Ii.Functor,
-  mapA: Ii.mapA,
-  seqA: Ii.seqA
-});
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Ii.map = f => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (done) return Undefined;
-    else yield f(x);
-  }
-};
-
-
-Ii.Functor = {map: Ii.map};
-
-
-/*
-█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
-
-
-Ii.alt = o => function* (p) {
-  o = o.next(), p = p.next();
-
-  if (!done) yield x;
-  else if (!done2) yield y;
-  else return Undefined;
-};
-
-
-Ii.Alt = {
-  ...Ii.Functor,
-  alt: Ii.alt
-};
-
-
-/*
-█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
-
-
-Ii.zero = function* () {} ();
-
-
-Ii.Plus = {
-  ...Ii.Alt,
-  zero: Ii.zero
-};
-
-
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Ii.ap = tf => function* (o) {
-  while (true) {
-    const {value: f, done} = tf.next(),
-      {value: x, done: done2} = o.next();
-
-    if (done || done2) return Undefined;
-    else yield function* () {yield f(x)} ();
-  }
-};
-
-
-Ii.Apply = {
-  ...Ii.Functor,
-  ap: Ii.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Ii.chain = mx => function* (fm) {
-  while (true) {
-    o = mx.next();
-
-    if (done) return Undefined;
-    else yield* fm(x);
-  }
-};
-
-
-Ii.Chain = {
-  ...Ii.Apply,
-  chain: Ii.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Ii.of = x => function* () {yield x} ();
-
-
-Ii.Applicative = {
-  ...Ii.Apply,
-  of: Ii.of
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
-
-
-Ii.Alternative = {
-  ...Ii.Plus,
-  ...Ii.Applicative
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-// kleisli composition
-
-
-// (b -> Iterator c) -> (a -> Iterator b) -> a -> Iterator c
-Ii.komp = f => g => function* (x) {
-  for (let y of g(x)) {
-    yield* f(y);
-  }
-};
-
-
-// (b -> Iterator c) -> (a -> Iterator b) -> Iterator a -> Iterator c
-Ii.komp_ = f => g => function* (o) {
-  for (let x of o) {
-    for (let y of g(x)) {
-      yield* f(y);
-    }
-  }
-};
-
-
-Ii.Monad = {
-  ...Ii.Applicative,
-  chain: Ii.chain
-};
-
-
-/*
-█████ Iterable ████████████████████████████████████████████████████████████████*/
-
-
-Ii.fromObjEntries = function* (o) {
-  for (let prop in o) {
-    yield [prop, o[prop]];
-  }
-};
-
-
-Ii.fromObjKeys = function* (o) {
-  for (let prop in o) {
-    yield prop;
-  }
-};
-
-
-Ii.fromObjValues = function* (o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-};
-
-
-Ii.from = it => it[Symbol.iterator] ();
-
-
-/*
-█████ Iterate (Strict) ████████████████████████████████████████████████████████*/
-
-
-// perform effects but discard values
-
-Ii.iterate = f => it => {
-  for (const x of it) f(x);
-};
-
-
-/*
-█████ Recursion Schemes ███████████████████████████████████████████████████████*/
-
-
-// lazy recursion schemes are suitable to be encoded using native iterators
-
-
-// anamorphism
-
-Ii.ana = () => Ii.unfold;
-
-
-// apomorhism: anamorphism plus extra short circuit mechanism
-
-Ii.apo = f => function* (seed) {
-  let x = seed;
-
-  while (true) {
-    const pair = f(x);
-    
-    if (strict(pair) === Null) return Undefined;
-    
-    else {
-      const [y, z] = pair;
-
-      if (intro(z) === "Error") {
-        yield y;
-        return Undefined;
-      }
-
-      else {
-        x = z;
-        yield y;
-      }
-    }
-  }
-};
-
-
-// catamorphism
-
-Ii.cata = Ii.foldr;
-
-
-Ii.para = f => source => acc => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (done) return Undefined;
-    
-    else {
-      acc = f(x) (source) (acc);
-      yield acc;
-    }
-  } 
-};
-
-
-// hylomorphism: anamorphism and immediately following catamorphism
-
-Ii.hylo = f => g => function* (seed) {
-  const o = ana(f) (seed);
-
-  for (const x of o) yield* cata(g) (x);
-};
-
-
-/* Zygomorphism: fold that depends on another fold. Example: Check whether the
-length of the list is even or odd and how long it actual is at the same time. */
-
-Ii.zygo = f => g => acc => acc2 => function* (o) {
-  for ([value, done] of Ii.cata(x => pair =>
-    Pair(f(x) (pair[0]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
-      yield value[1];
-  }
-};
-
-
-
-// mutumorphism: two folds that depend on each other (mutual recursion asa fold)
-
-Ii.mutu = f => g => acc => acc2 => function* (o) {
-  for ([value, done] of Ii.cata(x => pair =>
-    Pair(f(x) (pair[0]) (pair[1]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
-      yield value[1];
-  }
-};
-
-
-// TODO: Ii.histo
-
-
-// TODO: Ii.futu
-
-
-/*
-█████ Search ██████████████████████████████████████████████████████████████████*/
-
-
-Ii.find = p => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (done) return Undefined;
-    
-    else if (p(x)) {
-      yield x;
-      return Undefined;
-    }
-
-  }
-};
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Ii.append = o => function* (p) {
-  do {
-    o = o.next();
-
-    if (done) break;
-    else yield x;
-  } while(true)
-
-  do {
-    p = p.next();
-
-    if (done) return Undefined;
-    else yield y;
-  } while(true);
-};
-
-
-Ii.Semigroup = {append: Ii.append};
-
-
-/*
-█████ Semigroup (Alignment) ███████████████████████████████████████████████████*/
-
-
-Ii.Align = {};
-
-
-Ii.Align.append = Semigroup => o => function* (p) {
-  while (true) {
-    o = o.next(), p = p.next();
-
-    if (done || done2) return Undefined;
-    else yield Semigroup.append(x) (y);
-  }
-};
-
-
-Ii.Align.Semigroup = {append: Ii.Align.append};
-
-
-/*
-█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
-
-
-Ii.empty = function* () {} ();
-
-
-Ii.Monoid = {
-  ...Ii.Semigroup,
-  empty: Ii.empty
-};
-
-
-/*
-█████ Semigroup :: Monoid (Alignment) █████████████████████████████████████████*/
-
-
-Ii.Align.empty = function* (empty) {yield empty};
-
-
-Ii.Align.Monoid = {
-  ...Ii.Align.Semigroup,
-  empty: Ii.Align.empty
-};
-
-/*
-█████ Special Folds ███████████████████████████████████████████████████████████*/
-
-
-Ii.foldBin = f => acc => function* (o) {
-  let {value: x} = o.next();
-
-  while (true) {
-    const {value: y, done} = o.next();
-
-    if (done) return Undefined;
-    
-    else {
-      yield f(acc) (Pair(x, y));
-      x = y;
-    }
-  }
-};
-
-
-Ii.sum = acc => function* (o) {
-  while (true) {
-    o = o.next();
-
-    if (done) return;
-    
-    else {
-      acc = acc + x;
-      yield acc;
-    }
-  }
-};
-
-
-/*
-█████ Special Maps ████████████████████████████████████████████████████████████*/
-
-
-Ii.mapBin = f => function* (o) {
-  let {value: x} = o.next();
-
-  while (true) {
-    const {value: y, done} = o.next();
-
-    if (done) return Undefined;
-    
-    else {
-      const pair = f(Pair(x, y));
-
-      yield pair[0];
-      yield pair[1];
-      x = y;
-    }
-  }
+  Object.defineProperty(o, TAG, {value: "IdempotentIterator"});
+  return o;
 };
 
 
@@ -6216,105 +5564,33 @@ Ii.mapBin = f => function* (o) {
 █████ Sublists ████████████████████████████████████████████████████████████████*/
 
 
-/* All drop- and take-like combinators are non-strict because they only specify
-the quantity, not the strucutre. */
-
-
-Ii.drop = n => function* (o) {
-  while (n-- > 0) {
-    const {done} = o.next();
-    if (done) return Undefined;
-  };
-
-  while (true) {
-    o = o.next();
-
-    if (done) return Undefined;
-    else yield x;
-  }
-};
-
-
-Ii.dropWhile = p => function* (o) {
-  while (true) {
-    o = o.next();
-    if (done) return Undefined;
-
-    else if (!p(x)) {
-      yield x;
-      break;
-    }
-  };
-
-  while (true) {
-    o = o.next();
-
-    if (done) return Undefined;
-    else yield x;
-  }
-};
-
+// resumable as opposed to the original implemenation
 
 Ii.take = n => function* (o) {
   while (true) {
-    o = o.next();
+    const p = o.next();
 
-    if (done) return Undefined;
-    else if (n <= 0) return Undefined;
-    else yield x;
+    if (p.done) return Undefined;
+    else if (n <= 0) return o;
+    else yield p.value;
+    o = p;
     n--;
   }
 };
 
 
+// resumable as opposed to the original implemenation
+
 Ii.takeWhile = p => function* (o) {
   while (true) {
-    o = o.next();
+    const q = o.next();
 
-    if (done) return Undefined;
-    else if (p(x)) yield x;
+    if (q.done) return Undefined;
+    else if (p(q.value)) yield o.value;
     else return o;
+    o = q;
   }
 };
-
-
-/*
-█████ Unfoldable ██████████████████████████████████████████████████████████████*/
-
-
-/* Lazy, potentially infinite unfold that always needs to be at the beginning
-of the iterator chain. */
-
-Ii.unfold = f => function* (seed) {
-  let x = seed;
-
-  while (true) {
-    const pair = f(x);
-    
-    if (strict(pair) === Null) return Undefined;
-    
-    else {
-      const [y, z] = pair;
-
-      x = z;
-      yield y;
-    }
-  }
-};
-
-
-/*
-█████ Zipping █████████████████████████████████████████████████████████████████*/
-
-
-// TODO
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Ii.Traversable = Ii.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
