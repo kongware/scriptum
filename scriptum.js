@@ -4883,7 +4883,6 @@ It.all = f => function* (ix) {
 It.any = f => function* (ix) {
   do {
     const {value: x, done} = ix.next();
-
     if (done) return false;
   } while (!f(x));
 
@@ -5460,18 +5459,16 @@ It.dropWhile = p => function* (ix) {
 
 
 It.take = n => function* (ix) {
-  do {
+  while (true) {
     const {value: x, done} = ix.next();
 
     if (done) return Undefined;
+    else if (n <= 0) return Undefined;
     else yield x;
-  } while (--n > 0);
+    n--;
+  }
 };
 
-
-/* Keep iterating until the provided prediate fails and return the generator in
-this case, otherwise return `Undefined` as usual. This way, the generator can
-be resumed with another predicate afterwards. */
 
 It.takeWhile = p => function* (ix) {
   while (true) {
@@ -5479,7 +5476,7 @@ It.takeWhile = p => function* (ix) {
 
     if (done) return Undefined;
     else if (p(x)) yield x;
-    else return ix; // special case
+    else return ix;
   }
 };
 
@@ -5528,38 +5525,796 @@ It.Traversable = It.Traversable();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* `next` method of an iterator object can be called any number of times but
-the underlying iterator is only advanced once:
+/* Idempotent iterators mimic immutable ones by rendering the `next` method
+idempotent. The following sequence of invocations advances the iterator only
+once:
   
   ix.next();
   ix.next();
   ix.next();
 
-The iterator can be advanced further by calling `next` of the returned object:
+In order to advance it farther, invocations need to be recursive:
   
   ix.next().next(); */
 
 
-export const Ii = ix => {
-  let o = {
+export const Ii = o => {
+  let p = {
     value: Null,
     done: false,
 
     next() {
-      const p = ix.next();
+      const q = o.next();
 
-      Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
-      p.next = o.next
-      delete o.next;
-      o.next = () => p;
-      o = p;
-      return p;
+      Object.defineProperty(q, TAG, {value: "IdempotentIterator"});
+      q.next = p.next
+      delete p.next;
+      p.next = () => q;
+      p = q;
+      return q;
     }
   };
 
-  Object.defineProperty(o, TAG, {value: "IdempotentIterator"});
-  return o;
+  Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
+  return p;
 };
+
+
+/*
+█████ Category ████████████████████████████████████████████████████████████████*/
+
+
+Ii.comp = comp;
+
+
+Ii.id = id;
+
+
+Ii.Category = ({
+  comp: Ii.comp,
+  id: Ii.id
+});
+
+
+/*
+█████ Conversion (Strict) █████████████████████████████████████████████████████*/
+
+
+Ii.toArr = o => {
+  const xs = [];
+
+  while (true) {
+    o = o.next();
+    if (o.done) return xs;
+    else xs.push(o.value);
+  }
+};
+
+
+Ii.toArrOfKeys = o => {
+  const xs = [];
+
+  while (true) {
+    o = o.next();
+    if (o.done) return xs;
+    else xs.push(o.value[0]);
+  }
+};
+
+
+Ii.toArrOfValues = o => {
+  const xs = [];
+
+  while (true) {
+    o = o.next();
+    if (o.done) return xs;
+    else xs.push(o.value[1]);
+  }
+};
+
+
+Ii.toMap = o => {
+  const m = new Map();
+
+  while (true) {
+    o = o.next();
+    if (o.done) return m;
+    else m.set(o.value[0], o.value[1]);
+  }
+};
+
+
+Ii.toMultiMap = o => {
+  const m = new MultiMap();
+
+  while (true) {
+    o = o.next();
+    if (o.done) return m;
+    else m.addItem(o.value[0], o.value[1]);
+  }
+};
+
+
+Ii.toObj = o => {
+  const p = {};
+
+  while (true) {
+    o = o.next();
+    if (o.done) return p;
+    else p[o.value[0]] = o.value[1];
+  }
+};
+
+
+Ii.toSet = o => {
+  const s = new Set();
+  
+  while (true) {
+    o = o.next();
+    if (o.done) return s;
+    else s.add(o.value);
+  }
+};
+
+
+/*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+Ii.all = f => function* (o) {
+  do {
+    o = o.next();
+    if (o.done) return true;
+  } while (f(o.value));
+
+  return false;
+};
+
+
+/*
+█████ Disjunction █████████████████████████████████████████████████████████████*/
+
+
+Ii.any = f => function* (o) {
+  do {
+    o = o.next();
+    if (o.done) return false;
+  } while (!f(o.value));
+
+  return true;
+};
+
+
+/*
+█████ Evaluation (Strict) █████████████████████████████████████████████████████*/
+
+
+// evaluates to null on lack of value
+
+Ii.strict = o => {
+  let acc = Null;
+
+  while (true) {
+    o = o.next();
+    if (o.done) return acc;
+    else acc = o.value;
+  }
+};
+
+
+/*
+█████ Filterable ██████████████████████████████████████████████████████████████*/
+
+
+Ii.filter = p => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (o.done) return Undefined;
+    else if (p(o.value)) yield o.value;
+  }
+};
+
+
+Ii.Filterable = {filter: Ii.filter};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+// stateful accumulator
+
+Ii.foldl = f => acc => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (o.done) return Undefined;
+    
+    else {
+      acc = f(acc) (value);
+      yield acc;
+    }
+  }
+};
+
+
+// left-associative fold with just the arguments flipped
+
+Ii.foldr = f => acc => function* go(o) {
+  while (true) {
+    o = o.next();
+
+    if (o.done) return Undefined;
+    
+    else {
+      acc = f(o.value) (acc);
+      yield acc;
+    }
+  }
+};
+
+
+Ii.Foldable = {
+  foldl: Ii.foldl,
+  foldr: Ii.foldr
+};
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+Ii.mapA = Functor => ft => function* (o) {
+  o = o.next();
+
+  if (done) return Undefined;
+  else return Functor.map(y => function* () {yield y} ()) (ft(x));
+};
+
+
+Ii.seqA = Functor => function* (itx) {
+  const {value: tx, done} = itx.next();
+
+  if (done) return Undefined;
+  else return Functor.map(x => function* () {yield x} ()) (tx);
+};
+
+
+Ii.Traversable = () => ({
+  ...Ii.Foldable,
+  ...Ii.Functor,
+  mapA: Ii.mapA,
+  seqA: Ii.seqA
+});
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Ii.map = f => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    else yield f(x);
+  }
+};
+
+
+Ii.Functor = {map: Ii.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+Ii.alt = o => function* (p) {
+  o = o.next(), p = p.next();
+
+  if (!done) yield x;
+  else if (!done2) yield y;
+  else return Undefined;
+};
+
+
+Ii.Alt = {
+  ...Ii.Functor,
+  alt: Ii.alt
+};
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+Ii.zero = function* () {} ();
+
+
+Ii.Plus = {
+  ...Ii.Alt,
+  zero: Ii.zero
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Ii.ap = tf => function* (o) {
+  while (true) {
+    const {value: f, done} = tf.next(),
+      {value: x, done: done2} = o.next();
+
+    if (done || done2) return Undefined;
+    else yield function* () {yield f(x)} ();
+  }
+};
+
+
+Ii.Apply = {
+  ...Ii.Functor,
+  ap: Ii.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Ii.chain = mx => function* (fm) {
+  while (true) {
+    o = mx.next();
+
+    if (done) return Undefined;
+    else yield* fm(x);
+  }
+};
+
+
+Ii.Chain = {
+  ...Ii.Apply,
+  chain: Ii.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Ii.of = x => function* () {yield x} ();
+
+
+Ii.Applicative = {
+  ...Ii.Apply,
+  of: Ii.of
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+Ii.Alternative = {
+  ...Ii.Plus,
+  ...Ii.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+// kleisli composition
+
+
+// (b -> Iterator c) -> (a -> Iterator b) -> a -> Iterator c
+Ii.komp = f => g => function* (x) {
+  for (let y of g(x)) {
+    yield* f(y);
+  }
+};
+
+
+// (b -> Iterator c) -> (a -> Iterator b) -> Iterator a -> Iterator c
+Ii.komp_ = f => g => function* (o) {
+  for (let x of o) {
+    for (let y of g(x)) {
+      yield* f(y);
+    }
+  }
+};
+
+
+Ii.Monad = {
+  ...Ii.Applicative,
+  chain: Ii.chain
+};
+
+
+/*
+█████ Iterable ████████████████████████████████████████████████████████████████*/
+
+
+Ii.fromObjEntries = function* (o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+};
+
+
+Ii.fromObjKeys = function* (o) {
+  for (let prop in o) {
+    yield prop;
+  }
+};
+
+
+Ii.fromObjValues = function* (o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
+};
+
+
+Ii.from = it => it[Symbol.iterator] ();
+
+
+/*
+█████ Iterate (Strict) ████████████████████████████████████████████████████████*/
+
+
+// perform effects but discard values
+
+Ii.iterate = f => it => {
+  for (const x of it) f(x);
+};
+
+
+/*
+█████ Recursion Schemes ███████████████████████████████████████████████████████*/
+
+
+// lazy recursion schemes are suitable to be encoded using native iterators
+
+
+// anamorphism
+
+Ii.ana = () => Ii.unfold;
+
+
+// apomorhism: anamorphism plus extra short circuit mechanism
+
+Ii.apo = f => function* (seed) {
+  let x = seed;
+
+  while (true) {
+    const pair = f(x);
+    
+    if (strict(pair) === Null) return Undefined;
+    
+    else {
+      const [y, z] = pair;
+
+      if (intro(z) === "Error") {
+        yield y;
+        return Undefined;
+      }
+
+      else {
+        x = z;
+        yield y;
+      }
+    }
+  }
+};
+
+
+// catamorphism
+
+Ii.cata = Ii.foldr;
+
+
+Ii.para = f => source => acc => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    
+    else {
+      acc = f(x) (source) (acc);
+      yield acc;
+    }
+  } 
+};
+
+
+// hylomorphism: anamorphism and immediately following catamorphism
+
+Ii.hylo = f => g => function* (seed) {
+  const o = ana(f) (seed);
+
+  for (const x of o) yield* cata(g) (x);
+};
+
+
+/* Zygomorphism: fold that depends on another fold. Example: Check whether the
+length of the list is even or odd and how long it actual is at the same time. */
+
+Ii.zygo = f => g => acc => acc2 => function* (o) {
+  for ([value, done] of Ii.cata(x => pair =>
+    Pair(f(x) (pair[0]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
+      yield value[1];
+  }
+};
+
+
+
+// mutumorphism: two folds that depend on each other (mutual recursion asa fold)
+
+Ii.mutu = f => g => acc => acc2 => function* (o) {
+  for ([value, done] of Ii.cata(x => pair =>
+    Pair(f(x) (pair[0]) (pair[1]), g(x) (pair[0]) (pair[1]))) (Pair(acc, acc2))) {
+      yield value[1];
+  }
+};
+
+
+// TODO: Ii.histo
+
+
+// TODO: Ii.futu
+
+
+/*
+█████ Search ██████████████████████████████████████████████████████████████████*/
+
+
+Ii.find = p => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    
+    else if (p(x)) {
+      yield x;
+      return Undefined;
+    }
+
+  }
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Ii.append = o => function* (p) {
+  do {
+    o = o.next();
+
+    if (done) break;
+    else yield x;
+  } while(true)
+
+  do {
+    p = p.next();
+
+    if (done) return Undefined;
+    else yield y;
+  } while(true);
+};
+
+
+Ii.Semigroup = {append: Ii.append};
+
+
+/*
+█████ Semigroup (Alignment) ███████████████████████████████████████████████████*/
+
+
+Ii.Align = {};
+
+
+Ii.Align.append = Semigroup => o => function* (p) {
+  while (true) {
+    o = o.next(), p = p.next();
+
+    if (done || done2) return Undefined;
+    else yield Semigroup.append(x) (y);
+  }
+};
+
+
+Ii.Align.Semigroup = {append: Ii.Align.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Ii.empty = function* () {} ();
+
+
+Ii.Monoid = {
+  ...Ii.Semigroup,
+  empty: Ii.empty
+};
+
+
+/*
+█████ Semigroup :: Monoid (Alignment) █████████████████████████████████████████*/
+
+
+Ii.Align.empty = function* (empty) {yield empty};
+
+
+Ii.Align.Monoid = {
+  ...Ii.Align.Semigroup,
+  empty: Ii.Align.empty
+};
+
+/*
+█████ Special Folds ███████████████████████████████████████████████████████████*/
+
+
+Ii.foldBin = f => acc => function* (o) {
+  let {value: x} = o.next();
+
+  while (true) {
+    const {value: y, done} = o.next();
+
+    if (done) return Undefined;
+    
+    else {
+      yield f(acc) (Pair(x, y));
+      x = y;
+    }
+  }
+};
+
+
+Ii.sum = acc => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return;
+    
+    else {
+      acc = acc + x;
+      yield acc;
+    }
+  }
+};
+
+
+/*
+█████ Special Maps ████████████████████████████████████████████████████████████*/
+
+
+Ii.mapBin = f => function* (o) {
+  let {value: x} = o.next();
+
+  while (true) {
+    const {value: y, done} = o.next();
+
+    if (done) return Undefined;
+    
+    else {
+      const pair = f(Pair(x, y));
+
+      yield pair[0];
+      yield pair[1];
+      x = y;
+    }
+  }
+};
+
+
+/*
+█████ Sublists ████████████████████████████████████████████████████████████████*/
+
+
+/* All drop- and take-like combinators are non-strict because they only specify
+the quantity, not the strucutre. */
+
+
+Ii.drop = n => function* (o) {
+  while (n-- > 0) {
+    const {done} = o.next();
+    if (done) return Undefined;
+  };
+
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    else yield x;
+  }
+};
+
+
+Ii.dropWhile = p => function* (o) {
+  while (true) {
+    o = o.next();
+    if (done) return Undefined;
+
+    else if (!p(x)) {
+      yield x;
+      break;
+    }
+  };
+
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    else yield x;
+  }
+};
+
+
+Ii.take = n => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    else if (n <= 0) return Undefined;
+    else yield x;
+    n--;
+  }
+};
+
+
+Ii.takeWhile = p => function* (o) {
+  while (true) {
+    o = o.next();
+
+    if (done) return Undefined;
+    else if (p(x)) yield x;
+    else return o;
+  }
+};
+
+
+/*
+█████ Unfoldable ██████████████████████████████████████████████████████████████*/
+
+
+/* Lazy, potentially infinite unfold that always needs to be at the beginning
+of the iterator chain. */
+
+Ii.unfold = f => function* (seed) {
+  let x = seed;
+
+  while (true) {
+    const pair = f(x);
+    
+    if (strict(pair) === Null) return Undefined;
+    
+    else {
+      const [y, z] = pair;
+
+      x = z;
+      yield y;
+    }
+  }
+};
+
+
+/*
+█████ Zipping █████████████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*
+█████ Resolve Deps ████████████████████████████████████████████████████████████*/
+
+
+Ii.Traversable = Ii.Traversable();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5727,7 +6482,7 @@ Fuzzy.implies = tx => ty => {
 // not and
 
 Fuzzy.nand = tx => ty => {
-  const r = Math.min(tx.fuzzified, 1 - ty.fuzzified):
+  const r = Math.min(tx.fuzzified, 1 - ty.fuzzified);
 
   return Fuzzy({
     x: r === tx.fuzzified ? tx.x : ty.x,
@@ -5739,7 +6494,7 @@ Fuzzy.nand = tx => ty => {
 // not or
 
 Fuzzy.nor = tx => ty => {
-  const r = Math.max(tx.fuzzified, 1 - ty.fuzzified):
+  const r = Math.max(tx.fuzzified, 1 - ty.fuzzified);
 
   return Fuzzy({
     x: r === tx.fuzzified ? tx.x : ty.x,
@@ -5805,7 +6560,7 @@ Fuzzy.diff = os => ps => os.map((o, i) => {
   }
 
   return acc;
-};
+});
 
 
 Fuzzy.height = os =>
@@ -5823,13 +6578,13 @@ Fuzzy.intersect = os => ps => os.map((o, i) => {
   }
 
   return acc;
-};
+});
 
 
 Fuzzy.isNormal = os => Fuzzy.height(os) === 1;
 
 
-Fuzzy.support = alphacut({alpha: 0, strong: true});
+Fuzzy.support = Fuzzy.alphaCut({alpha: 0, strong: true});
 
 
 Fuzzy.union = os => ps => os.map((o, i) => {
@@ -5843,7 +6598,7 @@ Fuzzy.union = os => ps => os.map((o, i) => {
   }
 
   return acc;
-};
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
