@@ -5027,13 +5027,41 @@ It.toSet = ix => {
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-It.all = f => function* (ix) {
+/* Yield either the next element provided the next and the next but one element
+satisfy the given predicate or short circuit the stream. */
+
+It.and = p => function* (ix) {
+  let {value: x, done} = ix.next();
+
+  if (done || !p(x)) return Undefined;
+
+  while (true) {
+    const {value: y, done: done2} = ix.next();
+
+    if (done2) return Undefined;
+  
+    else if (p(y)) {
+      yield x;
+      x = y;
+    }
+
+    else return Undefined;
+  }
+};
+
+
+It.all = p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
-    if (done) return true;
-  } while (f(x));
+    
+    if (done) {
+      yield true;
+      return Undefined;
+    }
+  } while (p(x));
 
-  return false;
+  yield false;
+  return Undefined;
 };
 
 
@@ -5041,13 +5069,38 @@ It.all = f => function* (ix) {
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
-It.any = f => function* (ix) {
+/* Yield the next or the next but one element provided one of them satisfies
+the given predicate or short circuit the stream. */
+
+It.or = p => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return Undefined;
+    else if (p(x)) yield x;
+
+    else {
+      const {value: y, done: done2} = ix.next();
+
+      if (done2 || !p(y)) return Undefined;
+      else yield y;
+    }
+  }
+};
+
+
+It.any = p => function* (ix) {
   do {
     const {value: x, done} = ix.next();
-    if (done) return false;
-  } while (!f(x));
 
-  return true;
+    if (done) {
+      yield false;
+      return Undefined;
+    }
+  } while (!p(x));
+
+  yield true;
+  return Undefined;
 };
 
 
@@ -5055,7 +5108,13 @@ It.any = f => function* (ix) {
 █████ Evaluation (Strict) █████████████████████████████████████████████████████*/
 
 
-// evaluates to null on lack of value
+// perform effects but discard values
+
+It.forEach = f => ix => {
+  for (const x of ix) f(x);
+  return Null;
+};
+
 
 It.strict = ix => {
   let acc = Null;
@@ -5279,15 +5338,23 @@ It.Monad = {
 █████ Infinite ████████████████████████████████████████████████████████████████*/
 
 
-It.repeat = function* (x) {
-  while (true) yield x;
-};
-
-
 It.cycle = function* (xs) {
   while (true) {
     yield* xs[Symbol.iterator]();
   }
+};
+
+
+It.iterate = f => function* (x) {
+  while (true) {
+    yield x;
+    x = f(x);
+  }
+};
+
+
+It.repeat = function* (x) {
+  while (true) yield x;
 };
 
 
@@ -5317,18 +5384,6 @@ It.fromObjValues = function* (o) {
 
 
 It.from = it => it[Symbol.iterator] ();
-
-
-/*
-█████ Iterate (Strict) ████████████████████████████████████████████████████████*/
-
-
-// perform effects but discard values
-
-It.iterate = f => ix => {
-  for (const x of ix) f(x);
-  return Undefined;
-};
 
 
 /*
@@ -5765,7 +5820,10 @@ It.unfold = f => function* (seed) {
 █████ Zipping █████████████████████████████████████████████████████████████████*/
 
 
-// TODO
+// TODO: zip
+
+
+// TODO: zipWith
 
 
 /*
