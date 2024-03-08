@@ -2288,13 +2288,10 @@ export const A = Arr; // shortcut
 
 
 /*
-█████ Clonable ████████████████████████████████████████████████████████████████*/
+█████ Cloning █████████████████████████████████████████████████████████████████*/
 
 
 A.clone = xs => xs.concat();
-
-
-A.Clonable = {clone: A.clone};
 
 
 /*
@@ -2922,7 +2919,7 @@ A.foldBin = f => acc => xs => {
 };
 
 
-A.sum = A.foldl(m => n => m + n) (0);
+A.sum = acc => A.foldl(m => n => m + n) (acc);
 
 
 /*
@@ -4797,6 +4794,39 @@ export const It = {};
 
 
 /*
+█████ Alternate ███████████████████████████████████████████████████████████████*/
+
+
+It.interleave = y => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return Undefined;
+
+    else {
+      yield x;
+      yield y;
+    }
+  }
+};
+
+
+It.interweave = ix => function* (iy) {
+  while (true) {
+    const {value: x, done} = ix.next(),
+      {value: y, done: done2} = iy.next();
+
+    if (done || done2) return Undefined;
+
+    else {
+      yield x;
+      yield y;
+    }
+  }
+};
+
+
+/*
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
@@ -4810,6 +4840,134 @@ It.Category = ({
   comp: It.comp,
   id: It.id
 });
+
+
+/*
+█████ Cloning █████████████████████████████████████████████████████████████████*/
+
+
+// native iterators are stateful hence cloning requires some hussle
+
+It.clone = ix => {
+  const buf = [], buf2 = [];
+
+  return Pair(
+    function* () {
+      while (true) {
+        if (buf.length) yield buf.shift();
+
+        else {
+          const {value: x, done} = ix.next();
+
+          if (done) return Undefined;
+          
+          else {
+            buf2.push(x);
+            yield x;
+          }
+        }
+      }
+    } (),
+
+    function* () {
+      while (true) {
+        if (buf2.length) yield buf2.shift();
+
+        else {
+          const {value: x, done} = ix.next();
+
+          if (done) return Undefined;
+          
+          else {
+            buf.push(x);
+            yield x;
+          }
+        }
+      }
+    } ()
+  );
+};
+
+
+// TODO: clone n iterators
+
+
+/*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+It.cons = x => function* (ix) {
+  yield x;
+
+  while (true) {
+    const {value: y, done} = ix.next();
+
+    if (done) return Undefined;
+    else yield y;
+  }
+};
+
+
+It.cons_ = ix => function* (x) {
+  yield x;
+
+  while (true) {
+    const {value: y, done} = ix.next();
+
+    if (done) return Undefined;
+    else yield y;
+  }
+};
+
+
+It.head = function* (ix) {
+  const {value: x, done} = ix.next();
+
+  if (done) return Undefined;
+  else yield x;
+
+  return Undefined;
+};
+
+
+It.snoc = x => function* (ix) {
+  while (true) {
+    const {value: y, done} = ix.next();
+
+    if (done) {
+      yield x;
+      return Undefined;
+    }
+
+    else yield y;
+  }
+};
+
+
+It.snoc_ = ix => function* (x) {
+  while (true) {
+    const {value: y, done} = ix.next();
+
+    if (done) {
+      yield x;
+      return Undefined;
+    }
+
+    else yield y;
+  }
+};
+
+
+It.tail = function* (ix) {
+  ix.next();
+
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return Undefined;
+    else yield x;
+  }
+};
 
 
 /*
@@ -5118,6 +5276,22 @@ It.Monad = {
 
 
 /*
+█████ Infinite ████████████████████████████████████████████████████████████████*/
+
+
+It.repeat = function* (x) {
+  while (true) yield x;
+};
+
+
+It.cycle = function* (xs) {
+  while (true) {
+    yield* xs[Symbol.iterator]();
+  }
+};
+
+
+/*
 █████ Iterable ████████████████████████████████████████████████████████████████*/
 
 
@@ -5253,34 +5427,6 @@ It.mutu = f => g => acc => acc2 => function* (ix) {
 
 
 /*
-█████ Search ██████████████████████████████████████████████████████████████████*/
-
-
-It.find = p => function* (ix) {
-  while (true) {
-    const {value: x, done} = ix.next();
-
-    if (done) return Undefined;
-    
-    else if (p(x)) {
-      yield x;
-      return Undefined;
-    }
-  }
-};
-
-
-It.findAll = p => function* (ix) {
-  while (true) {
-    const {value: x, done} = ix.next();
-
-    if (done) return Undefined;
-    else if (p(x)) yield x;
-  }
-};
-
-
-/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -5329,7 +5475,7 @@ It.Align.Semigroup = {append: It.Align.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-It.empty = function* () {} ();
+It.empty = function* () {return Undefined} ();
 
 
 It.Monoid = {
@@ -5349,6 +5495,7 @@ It.Align.Monoid = {
   ...It.Align.Semigroup,
   empty: It.Align.empty
 };
+
 
 /*
 █████ Special Folds ███████████████████████████████████████████████████████████*/
@@ -5479,6 +5626,117 @@ It.takeWhile = p => function* (ix) {
 
 
 /*
+█████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+It.flatten = function* (iix) {
+  while (true) {
+    const {value: ix, done} = iix.next();
+
+    if (done) return Undefined;
+
+    while (true) {
+      const {value: x, done: done2} = ix.next();
+
+      if (done2) break;
+      else yield x;
+    }
+  }
+};
+
+
+It.groupBy = p => function* (ix) {
+  let {value: x, done} = ix.next(),
+    acc = [x];
+
+  if (done) return Undefined;
+
+  while (true) {
+    let {value: y, done: done2} = ix.next();
+
+    if (done2) {
+      yield acc;
+      return Undefined;
+    }
+    
+    else if (p(x) (y)) {
+      acc.push(y);
+      x = y;
+    }
+    
+    else {
+      yield acc;
+      acc = [y];
+    }
+  }
+};
+
+
+It.pair = function* (ix) {
+  const o = ix.next();
+
+  if (o.done) return Undefined;
+
+  let x = o.value;
+
+  while (true) {
+    const {value: y, done} = ix.next();
+
+    if (done) return Undefined;
+    
+    else {
+      yield Pair(x, y);
+      x = y;
+    }
+  }
+};
+
+
+It.partition = p => ix => {
+  const [iy, iz] = It.clone(ix);
+
+  return Pair(
+    function* () {
+      while (true) {
+        const {value: y, done} = iy.next();
+
+        if (done) return Undefined;
+        else if (p(y)) yield y;
+      }
+    } (),
+
+    function* () {
+      while (true) {
+        const {value: z, done} = iz.next();
+
+        if (done) return Undefined;
+        else if (p(z)) yield z;
+      }
+    } ()
+  );
+};
+
+
+// TODO: partitionBy
+
+
+It.transpose = function* (iix) {
+  const xs = [];
+
+  for (const ix of iix) xs.push(ix);
+
+  while (true) {
+    for (let i = 0; i < xs.length; i++) {
+      const {value: x, done} = xs[i].next();
+
+      if (done) return Undefined;
+      else yield x;
+    }
+  }
+};
+
+
+/*
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
@@ -5561,10 +5819,17 @@ export const Ii = ix => {
 
 
 /*
+█████ Cloning █████████████████████████████████████████████████████████████████*/
+
+
+// TODO
+
+
+/*
 █████ Sublists ████████████████████████████████████████████████████████████████*/
 
 
-// resumable as opposed to the original implemenation
+// resumable after the generator is forwarded n times
 
 Ii.take = n => function* (o) {
   while (true) {
@@ -5579,7 +5844,7 @@ Ii.take = n => function* (o) {
 };
 
 
-// resumable as opposed to the original implemenation
+// resumable after the generator is forwarded x times
 
 Ii.takeWhile = p => function* (o) {
   while (true) {
@@ -5591,6 +5856,13 @@ Ii.takeWhile = p => function* (o) {
     o = q;
   }
 };
+
+
+/*
+█████ Transformation ██████████████████████████████████████████████████████████*/
+
+
+// TODO: It.partition
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6449,7 +6721,7 @@ export const O = Obj; // shortcut;
 
 
 /*
-█████ Clonable ████████████████████████████████████████████████████████████████*/
+█████ Cloning █████████████████████████████████████████████████████████████████*/
 
 
 // getter/setter safe cloning
@@ -6463,9 +6735,6 @@ O.clone = o => {
 
   return p;
 };
-
-
-O.Clonable = {clone: O.clone};
 
 
 /*
