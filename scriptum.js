@@ -4794,39 +4794,6 @@ export const It = {};
 
 
 /*
-█████ Alternate ███████████████████████████████████████████████████████████████*/
-
-
-It.interleave = y => function* (ix) {
-  while (true) {
-    const {value: x, done} = ix.next();
-
-    if (done) return Undefined;
-
-    else {
-      yield x;
-      yield y;
-    }
-  }
-};
-
-
-It.interweave = ix => function* (iy) {
-  while (true) {
-    const {value: x, done} = ix.next(),
-      {value: y, done: done2} = iy.next();
-
-    if (done || done2) return Undefined;
-
-    else {
-      yield x;
-      yield y;
-    }
-  }
-};
-
-
-/*
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
@@ -4890,6 +4857,39 @@ It.clone = ix => {
 
 
 // TODO: clone n iterators
+
+
+/*
+█████ Combining ███████████████████████████████████████████████████████████████*/
+
+
+It.interleave = y => function* (ix) {
+  while (true) {
+    const {value: x, done} = ix.next();
+
+    if (done) return Undefined;
+
+    else {
+      yield x;
+      yield y;
+    }
+  }
+};
+
+
+It.interweave = ix => function* (iy) {
+  while (true) {
+    const {value: x, done} = ix.next(),
+      {value: y, done: done2} = iy.next();
+
+    if (done || done2) return Undefined;
+
+    else {
+      yield x;
+      yield y;
+    }
+  }
+};
 
 
 /*
@@ -5817,13 +5817,47 @@ It.unfold = f => function* (seed) {
 
 
 /*
+█████ Unzipping ███████████████████████████████████████████████████████████████*/
+
+
+It.unzip = ix => function* (iy) {
+  while (true) {
+    const {value: pair, done} = ix.next();
+
+    if (done) return Undefined;
+    
+    else {
+      yield pair[0];
+      yield pair[1];
+    }
+  }
+};
+
+
+/*
 █████ Zipping █████████████████████████████████████████████████████████████████*/
 
 
-// TODO: zip
+It.zip = ix => function* (iy) {
+  while (true) {
+    const {value: x, done} = ix.next(),
+      {value: y, done: done2} = iy.next();
+
+    if (done || done2) return Undefined;
+    else yield Pair(x, y);
+  }
+};
 
 
-// TODO: zipWith
+It.zipWith = f => ix => function* (iy) {
+  while (true) {
+    const {value: x, done} = ix.next(),
+      {value: y, done: done2} = iy.next();
+
+    if (done || done2) return Undefined;
+    else yield f(x) (y);
+  }
+};
 
 
 /*
