@@ -626,9 +626,6 @@ export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
-const lazy__ = () => lazy_(Null);
-
-
 // striclty evaluate an expression that might be an implicit thunk
 
 export const strict = x => {
@@ -820,7 +817,7 @@ export const Undefined = lazy_("Undefined") (() => {
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-export const lazy = lazy__();
+export const lazy = lazy_(Null);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -5962,11 +5959,28 @@ Ii.takeWhile = p => function* (o) {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+// a mean for interpolation
+
+
 const Fuzzy = ({x, fuzzified}) => ({
   [TAG]: Fuzzy,
   x,
   fuzzified
 });
+
+
+/* TODO
+  * evolving fuzzy rules
+  * review set operations
+  * add dileate/concentrate functions
+  * add defuzzification
+    * center of sums
+    * center of gravity
+    * centroid of area
+    * bisector of area
+    * weighted Average
+    * maxima
+  * conisder rules
 
 
 /*
@@ -6072,7 +6086,7 @@ Fuzzy.fuzzify.triangular = ({left, center, right}) => x => {
 
 
 /*
-█████ Rules ███████████████████████████████████████████████████████████████████*/
+█████ Operators ███████████████████████████████████████████████████████████████*/
 
 
 Fuzzy.and = tx => ty => {
