@@ -30,9 +30,6 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
-const DEBUG = false;
-
-
 export const NOOP = null; // no operation
 
 
@@ -81,6 +78,16 @@ let asyncCounter = 0; // upper bound: 100
 export const ANY = PREFIX + "*";
 
 
+// unary type for convenience
+
+export const type = tag => x => {
+  const o = {run: x};
+
+  Object.defineProperty(o, TAG, {value: tag});
+  return o;
+};
+
+
 /*
 █████ Product Type ████████████████████████████████████████████████████████████*/
 
@@ -104,24 +111,12 @@ export const product = tag => (...ks) => (...vs) => {
 // more general product type definitions (e.g. with lazy getters)
 
 export const product_ = tag => (...ks) => o => {
-  if (DEBUG) {
-    for (const k of ks)
-      if (!(k in o)) throw new Err(`missing value "${k}"`);
-  }
+  for (const k of ks)
+    if (!(k in o)) throw new Err(`missing value "${k}"`);
 
-  o.run = f => f(o); // variant compliant
+  o.run = f => f(o); // provide the variant interface
   Object.defineProperty(o, TAG, {value: tag});
   return p;
-};
-
-
-// unary type for convenience
-
-export const type = tag => x => {
-  const o = {run: x};
-
-  Object.defineProperty(o, TAG, {value: tag});
-  return o;
 };
 
 
@@ -194,10 +189,8 @@ export const variant = (tag, ...cases) => {
   }, {});
 
   o.cata = p => {
-    if (DEBUG) {
-      for (const k of ks)
-        if (!(k in p)) throw new Err(`missing case "${k}"`);
-    }
+    for (const k of ks)
+      if (!(k in p)) throw new Err(`missing case "${k}"`);
 
     return tx => tx.run(p);
   };
@@ -282,10 +275,8 @@ be used to define lazy getters. */
 export const consn = (_case, ...ks) => {
   const o = {
     [_case]: (tag, k) => o => {
-      if (DEBUG) {
-        for (const k2 of ks)
-          if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
-      }
+      for (const k2 of ks)
+        if (!(k2 in o)) throw new Err(`missing case "${k2}"`);
 
       const p = {
         run: ({[k]: f}) => f(o),
@@ -310,14 +301,12 @@ export const consn = (_case, ...ks) => {
 
 
 /* General catamorphism for all types that resemble variant types. It only
-accept functions as arguments, no constants. Most suitable for types in
+accepts functions as arguments, no constants. Most suitable for types in
 Javascript that encode certain control flow effects like `Null` or `Error`. */
 
 export const cata = (...ks) => dict => {
-  if (DEBUG) {
-    for (const k of ks)
-      if (!(k in dict)) throw new Err(`missing case "${k}"`);
-  }
+  for (const k of ks)
+    if (!(k in dict)) throw new Err(`missing case "${k}"`);
 
   else return x => {
     const tag = Object.prototype.toString.call(x).slice(8, -1),
@@ -335,13 +324,11 @@ or have a recursive type definition (linked lists) and thus require a stack-safe
 elimination rule. For these cases, a more general function to create
 catamorphisms is supplied (see `Nat.cata_` as an examplary use). */
 
-export const cata_ = (...ks) => decons => dict => {
-  if (DEBUG) {
-    for (const k of ks)
-      if (!(k in dict)) throw new Err(`missing case "${k}"`);
-  }
+export const cata_ = (...ks) => elimination => dict => {
+  for (const k of ks)
+    if (!(k in dict)) throw new Err(`missing case "${k}"`);
 
-  else return decons(dict);
+  else return elimination(dict);
 };
 
 
@@ -1622,9 +1609,6 @@ multi-argument or curried form. They track the argument types they were called
 with and display all unsatisfied parameters left. Tracked functions throw an
 error as soon as they detect an undefined argument or return value. Variadic
 arguments are supported, optional arguments are not.
-
-Each function will be supplied in a tracked and untracked variant. Which one
-is actually exported depends on the global `DEBUG` constant of the library.
 
 HEADS UP: You must not create dependencies against the `name` or `sig` property
 in your codebase. */
