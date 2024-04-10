@@ -30,7 +30,7 @@
 const PREFIX = "$riptum_"; // avoid property name collisions
 
 
-const DEBUG = true;
+const DEBUG = false;
 
 
 export const NOOP = null; // no operation
@@ -115,7 +115,7 @@ export const product_ = tag => (...ks) => o => {
 };
 
 
-// unary product type for convenience
+// unary type for convenience
 
 export const type = tag => x => {
   const o = {run: x};
@@ -218,7 +218,7 @@ export const constant = _case => {
 
       Object.defineProperties(p, {
         [TAG]: {value: tag},
-        [VAL]: {value: Null}
+        [VAL]: {value: null}
       });
 
       return p;
@@ -394,8 +394,8 @@ export class Exceptions extends Exception {
 
 
 export const introspect = x => {
-  if (x === null || x === Null) return "Null";
-  else if (x === undefined || x === Undefined) throw new Error("undefined evaluation");
+  if (x === null) return "Null";
+  else if (x === undefined) throw new Error("undefined evaluation");
   else if (x !== x) throw new Error("not a number");
 
   else {
@@ -694,9 +694,9 @@ class Thunk {
     // avoid evaluation due to tag introspection as far as possible
 
     else if (k === Symbol.toStringTag) {
-      if (this.tag === Null) {
+      if (this.tag === null) {
         if (this.memo === NULL) evaluate(this, f);
-        this.tag = this.memo ? this.memo[TAG] : Undefined;
+        this.tag = this.memo ? this.memo[TAG] : undefined;
       }
 
       return this.tag;
@@ -783,7 +783,7 @@ const evaluate = (_this, f) => {
   while (_this.memo && _this.memo[THUNK] === true)
     _this.memo = _this.memo[EVAL];
 
-  if (_this.memo === undefined || _this.memo === Undefined)
+  if (_this.memo === undefined)
     throw new Err("thunk evaluated to undefined");
   
   // enforce tag consistency
@@ -791,33 +791,16 @@ const evaluate = (_this, f) => {
   else if (_this.memo
     && _this.memo[TAG]
     && _this.memo[TAG] !== _this.tag
-    && _this.tag !== Null)
+    && _this.tag !== null)
       throw new Err("tag argument deviates from actual value");
 };
-
-
-/*
-█████ Safer Types █████████████████████████████████████████████████████████████*/
-
-
-/* Safer null value that also immediately throws at implicit type casts. It
-evaluates to `null` */
-
-export const Null = lazy_("Null") (() => null);
-
-
-// proper bottom type
-
-export const Undefined = lazy_("Undefined") (() => {
-  throw new Err("undefined program state");
-});
 
 
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
-export const lazy = lazy_(Null);
+export const lazy = lazy_(null);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1489,9 +1472,7 @@ export const mapEff = Functor => x => Functor.map(_ => x);
 This is backtracking with left-biased conjunctions. */
 
 export const guard = Alternative => x =>
-  (x && x !== Null && x !== Undefined)
-    ? Alternative.of(Null)
-    : Alternative.zero;
+  x ? Alternative.of(null) : Alternative.zero;
 
 
 export const some = Alternative => tx => // TODO: make stack-safe
@@ -1616,7 +1597,7 @@ export const unfoldrM = Monad => fm => function go(seed) {
   return Monad.chain(fm(seed)) (pair => {
     const t = intro(pair);
     
-    if (t === null || t === Null) return [];
+    if (t === null) return [];
 
     else return liftA2(Monad) (A.cons)
       (Monad.of(pair[0]))
@@ -1780,8 +1761,7 @@ F.Category = () => {
 █████ Composition █████████████████████████████████████████████████████████████*/
 
 
-export let comp = f => g => x => f(g(x));
-if (DEBUG) comp = introspect.def.ternf2(comp, "comp");
+export const comp = f => g => x => f(g(x));
 
 
 export const comp3 = f => g => h => x => f(g(h(x)));
@@ -2341,22 +2321,22 @@ A.cons = x => xs => [x].concat(xs);
 A.cons_ = xs => x => [x].concat(xs);
 
 
-A.head = xs => xs.length === 0 ? Null : xs[0];
+A.head = xs => xs.length === 0 ? null : xs[0];
 
 
 A.headOr = x => xs => xs.length === 0 ? x : xs[0];
 
 
-A.index = i => xs => (i in xs) ? xs[i] : Null;
+A.index = i => xs => (i in xs) ? xs[i] : null;
 
 
 A.indexOr = x => i => xs => (i in xs) ? xs[i] : x;
 
 
-A.init = xs => xs.length === 0 ? Null : xs.slice(0, -1);
+A.init = xs => xs.length === 0 ? null : xs.slice(0, -1);
 
 
-A.last = xs => xs.length === 0 ? Null : xs[xs.length - 1];
+A.last = xs => xs.length === 0 ? null : xs[xs.length - 1];
 
 
 A.lastOr = x => xs => xs.length === 0 ? x : xs[xs.length - 1];
@@ -2374,10 +2354,10 @@ A.push_ = xs => x => (xs.push(x), xs);
 A.pushn_ = xs => ys => (xs.push.apply(xs, ys), xs);
 
 
-A.pop = xs => Pair(xs.length === 0 ? Null : xs.pop(), xs);
+A.pop = xs => Pair(xs.length === 0 ? null : xs.pop(), xs);
 
 
-A.shift = xs => Pair(xs.length === 0 ? Null : xs.shift(), xs);
+A.shift = xs => Pair(xs.length === 0 ? null : xs.shift(), xs);
 
 
 A.singleton = x => [x];
@@ -2389,10 +2369,10 @@ A.snoc = x => xs => xs.concat([x]);
 A.snoc_ = xs => x => xs.concat([x]);
 
 
-A.tail = xs => xs.length === 0 ? Null : xs.slice(1);
+A.tail = xs => xs.length === 0 ? null : xs.slice(1);
 
 
-A.uncons = xs => Pair(xs.length === 0 ? Null : xs[0], xs.slice(1));
+A.uncons = xs => Pair(xs.length === 0 ? null : xs[0], xs.slice(1));
 
 
 A.unshift = x => xs => (xs.unshift(x), xs);
@@ -2408,7 +2388,7 @@ A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 
 
 A.unsnoc = xs => Pair(
-  xs.length === 0 ? Null : xs[xs.length - 1],
+  xs.length === 0 ? null : xs[xs.length - 1],
   xs.slice(-1));
 
 
@@ -2458,8 +2438,8 @@ altering it. The focus creates an immutable but otherwise normal array. The
 iterable protocol can be used to reify the focused portion of the original
 array. */
 
-A.focus = (i, j = Null) => xs => {
-  if (j === Null) j = xs.length - 1;
+A.focus = (i, j = null) => xs => {
+  if (j === null) j = xs.length - 1;
 
   return new Proxy(xs, {
     get(_, k, p) {
@@ -2471,7 +2451,7 @@ A.focus = (i, j = Null) => xs => {
             const i2 = Number(k);
 
             if (String(i2) === k) {
-              if (i + i2 > j) return Undefined;
+              if (i + i2 > j) return undefined;
               else return xs[i + i2];
             }
 
@@ -2992,7 +2972,7 @@ and value combination. */
 
 A.partitionBy = f => g => xs => xs.reduce((acc, x) => {
   const k = f(x);
-  return acc.set(k, g(acc.has(k) ? acc.get(k) : Null) (x));
+  return acc.set(k, g(acc.has(k) ? acc.get(k) : null) (x));
 }, new Map());
 
 
@@ -3049,7 +3029,7 @@ A.unfold = f => seed => {
   while (true) {
     const r = f(x);
 
-    if (strict(r) === Null) break;
+    if (strict(r) === null) break;
 
     else {
       const [y, z] = r;
@@ -3398,7 +3378,7 @@ L.Monoid = {
 L.unfold = f => function go(y) {
   const pair = strict(f(y));
 
-  if (pair === null || pair === Null) return L.Nil;
+  if (pair === null || pair === null) return L.Nil;
   else return new L.Cons(pair[0], lazy(() => go(pair[1])));
 };
 
@@ -3437,8 +3417,7 @@ mix both types. */
 export class NEArray extends Array {
   constructor(x) {
     switch (x) {
-      case undefined:
-      case Undefined: throw new Err("missing initial element");
+      case undefined: throw new Err("missing initial element");
     }
 
     super();
@@ -3770,11 +3749,11 @@ Cont.Option = {};
 // computation that may not yield a result
 
 Cont.Option.option = ({none, some}) => x => Cont(k =>
-  x === Null ? none : Cont.Tramp.call(k, some(x)));
+  x === null ? none : Cont.Tramp.call(k, some(x)));
 
 
 Cont.Option.chain = ({none, some}) => mx => fm => Cont(k =>
-  mx === Null ? none : Cont.Tramp.call(k, fm(mx)));
+  mx === null ? none : Cont.Tramp.call(k, fm(mx)));
 
 
 Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
@@ -3783,7 +3762,7 @@ Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
 // computation that may not yield a result but a default value
 
 Cont.Option.default = ({none, some}) => x => Cont(k =>
-  x === Null ? Cont.Tramp.call(k, none) : Cont.Tramp.call(k, some(x)));
+  x === null ? Cont.Tramp.call(k, none) : Cont.Tramp.call(k, some(x)));
 
 
 // compututation with arguments implicitly threaded through function invocations
@@ -4075,13 +4054,13 @@ might don't return a result:
     const iy = ix.next();
 
     if (iy.done) return iy;
-    else if (iy.value === Null) return Co.empty;
+    else if (iy.value === null) return Co.empty;
     else if (iy.value === undefined) return Co.empty;
 
     const iz = iy.nextWith(o => o.x);
 
     if (iz.done) return iy;
-    else if (iz.value === Null) return Co.empty;
+    else if (iz.value === null) return Co.empty;
     else if (iz.value === undefined) return Co.empty;
 
     const ia = iz.nextWith(o => o.x);
@@ -4107,7 +4086,7 @@ Exemplary asynchronous computation:
   const interpreter = ix => {
     const iy = ix.next();
 
-    if (iy.done) return Undefined;
+    if (iy.done) return undefined;
 
     else if (iy.value[Symbol.toStringTag] === "Promise") iy.value.then(x => {
       const iz = iy.next(x);
@@ -4378,7 +4357,7 @@ Co.Align.Monoid = {
 Co.of = x => Co(function* of(init) {
   yield init;
   yield x;
-} (Null));
+} (null));
 
 
 Co.weave = o => o2 => {
@@ -4442,8 +4421,7 @@ D.fromStr = s => {
 };
 
 
-D.fromStrSafe = f => infix(
-  E.throwOnErr, comp, D.fromStr, comp, f);
+D.fromStrSafe = infix(E.throwOnErr, comp, D.fromStr);
 
 
 /*
@@ -4823,7 +4801,7 @@ It.clone = ix => {
         else {
           const {value: x, done} = ix.next();
 
-          if (done) return Undefined;
+          if (done) return undefined;
           
           else {
             buf2.push(x);
@@ -4840,7 +4818,7 @@ It.clone = ix => {
         else {
           const {value: x, done} = ix.next();
 
-          if (done) return Undefined;
+          if (done) return undefined;
           
           else {
             buf.push(x);
@@ -4864,7 +4842,7 @@ It.interleave = y => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
 
     else {
       yield x;
@@ -4879,7 +4857,7 @@ It.interweave = ix => function* (iy) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
-    if (done || done2) return Undefined;
+    if (done || done2) return undefined;
 
     else {
       yield x;
@@ -4899,7 +4877,7 @@ It.cons = x => function* (ix) {
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield y;
   }
 };
@@ -4911,7 +4889,7 @@ It.cons_ = ix => function* (x) {
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield y;
   }
 };
@@ -4920,10 +4898,10 @@ It.cons_ = ix => function* (x) {
 It.head = function* (ix) {
   const {value: x, done} = ix.next();
 
-  if (done) return Undefined;
+  if (done) return undefined;
   else yield x;
 
-  return Undefined;
+  return undefined;
 };
 
 
@@ -4933,7 +4911,7 @@ It.snoc = x => function* (ix) {
 
     if (done) {
       yield x;
-      return Undefined;
+      return undefined;
     }
 
     else yield y;
@@ -4947,7 +4925,7 @@ It.snoc_ = ix => function* (x) {
 
     if (done) {
       yield x;
-      return Undefined;
+      return undefined;
     }
 
     else yield y;
@@ -4961,7 +4939,7 @@ It.tail = function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield x;
   }
 };
@@ -5030,19 +5008,19 @@ satisfy the given predicate or short circuit the stream. */
 It.and = p => function* (ix) {
   let {value: x, done} = ix.next();
 
-  if (done || !p(x)) return Undefined;
+  if (done || !p(x)) return undefined;
 
   while (true) {
     const {value: y, done: done2} = ix.next();
 
-    if (done2) return Undefined;
+    if (done2) return undefined;
   
     else if (p(y)) {
       yield x;
       x = y;
     }
 
-    else return Undefined;
+    else return undefined;
   }
 };
 
@@ -5053,12 +5031,12 @@ It.all = p => function* (ix) {
     
     if (done) {
       yield true;
-      return Undefined;
+      return undefined;
     }
   } while (p(x));
 
   yield false;
-  return Undefined;
+  return undefined;
 };
 
 
@@ -5073,13 +5051,13 @@ It.or = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else if (p(x)) yield x;
 
     else {
       const {value: y, done: done2} = ix.next();
 
-      if (done2 || !p(y)) return Undefined;
+      if (done2 || !p(y)) return undefined;
       else yield y;
     }
   }
@@ -5092,12 +5070,12 @@ It.any = p => function* (ix) {
 
     if (done) {
       yield false;
-      return Undefined;
+      return undefined;
     }
   } while (!p(x));
 
   yield true;
-  return Undefined;
+  return undefined;
 };
 
 
@@ -5109,12 +5087,12 @@ It.any = p => function* (ix) {
 
 It.forEach = f => ix => {
   for (const x of ix) f(x);
-  return Null;
+  return null;
 };
 
 
 It.strict = ix => {
-  let acc = Null;
+  let acc = null;
   for (acc of ix) continue;
   return acc;
 };
@@ -5128,7 +5106,7 @@ It.filter = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else if (p(x)) yield x;
   }
 };
@@ -5147,7 +5125,7 @@ It.foldl = f => acc => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       acc = f(acc) (x);
@@ -5163,7 +5141,7 @@ It.foldr = f => acc => function* go(ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       acc = f(x) (acc);
@@ -5194,7 +5172,7 @@ It.map = f => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield f(x);
   }
 };
@@ -5213,7 +5191,7 @@ It.alt = ix => function* (iy) {
 
   if (done === false) yield x;
   else if (done2 === false) yield y;
-  else return Undefined;
+  else return undefined;
 };
 
 
@@ -5227,7 +5205,7 @@ It.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-It.zero = function* () {return Undefined} ();
+It.zero = function* () {return undefined} ();
 
 
 It.Plus = {
@@ -5245,7 +5223,7 @@ It.ap = _if => function* (ix) {
     const {value: f, done} = _if.next(),
       {value: x, done: done2} = ix.next();
 
-    if (done || done2) return Undefined;
+    if (done || done2) return undefined;
     else yield function* () {yield f(x)} ();
   }
 };
@@ -5265,7 +5243,7 @@ It.chain = mx => function* (fm) {
   while (true) {
     const {value: x, done} = mx.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield* fm(x);
   }
 };
@@ -5281,7 +5259,7 @@ It.Chain = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-It.of = function* (x) {yield x; return Undefined};
+It.of = function* (x) {yield x; return undefined};
 
 
 It.Applicative = {
@@ -5403,14 +5381,14 @@ It.apo = f => function* (seed) {
   while (true) {
     const pair = f(x);
     
-    if (strict(pair) === Null) return Undefined;
+    if (strict(pair) === null) return undefined;
     
     else {
       const [y, z] = pair;
 
       if (intro(z) === "Error") {
         yield y;
-        return Undefined;
+        return undefined;
       }
 
       else {
@@ -5431,7 +5409,7 @@ It.para = f => source => acc => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       acc = f(x) (source) (acc);
@@ -5493,7 +5471,7 @@ It.append = ix => function* (iy) {
   do {
     const {value: y, done} = iy.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield y;
   } while(true);
 };
@@ -5514,7 +5492,7 @@ It.Align.append = Semigroup => ix => function* (iy) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
-    if (done || done2) return Undefined;
+    if (done || done2) return undefined;
     else yield Semigroup.append(x) (y);
   }
 };
@@ -5527,7 +5505,7 @@ It.Align.Semigroup = {append: It.Align.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-It.empty = function* () {return Undefined} ();
+It.empty = function* () {return undefined} ();
 
 
 It.Monoid = {
@@ -5540,7 +5518,7 @@ It.Monoid = {
 █████ Semigroup :: Monoid (Alignment) █████████████████████████████████████████*/
 
 
-It.Align.empty = function* (empty) {yield empty; return Undefined};
+It.Align.empty = function* (empty) {yield empty; return undefined};
 
 
 It.Align.Monoid = {
@@ -5557,12 +5535,12 @@ It.foldBin = f => acc => function* (ix) {
   const o = ix.next();
   let x = o.value;
 
-  if (o.done) return Undefined;
+  if (o.done) return undefined;
 
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       acc = f(acc) (Pair(x, y));
@@ -5597,7 +5575,7 @@ It.mapBin = f => function* (ix) {
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       const pair = f(Pair(x, y));
@@ -5621,13 +5599,13 @@ the quantity, not the strucutre. */
 It.drop = n => function* (ix) {
   while (n-- > 0) {
     const {done} = ix.next();
-    if (done) return Undefined;
+    if (done) return undefined;
   };
 
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield x;
   }
 };
@@ -5637,7 +5615,7 @@ It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
 
     else if (!p(x)) {
       yield x;
@@ -5648,7 +5626,7 @@ It.dropWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else yield x;
   }
 };
@@ -5658,8 +5636,8 @@ It.take = n => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
-    else if (n <= 0) return Undefined;
+    if (done) return undefined;
+    else if (n <= 0) return undefined;
     else yield x;
     n--;
   }
@@ -5670,9 +5648,9 @@ It.takeWhile = p => function* (ix) {
   while (true) {
     const {value: x, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     else if (p(x)) yield x;
-    else return Undefined;
+    else return undefined;
   }
 };
 
@@ -5685,7 +5663,7 @@ It.flatten = function* (iix) {
   while (true) {
     const {value: ix, done} = iix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
 
     while (true) {
       const {value: x, done: done2} = ix.next();
@@ -5701,14 +5679,14 @@ It.groupBy = p => function* (ix) {
   let {value: x, done} = ix.next(),
     acc = [x];
 
-  if (done) return Undefined;
+  if (done) return undefined;
 
   while (true) {
     let {value: y, done: done2} = ix.next();
 
     if (done2) {
       yield acc;
-      return Undefined;
+      return undefined;
     }
     
     else if (p(x) (y)) {
@@ -5727,14 +5705,14 @@ It.groupBy = p => function* (ix) {
 It.pair = function* (ix) {
   const o = ix.next();
 
-  if (o.done) return Undefined;
+  if (o.done) return undefined;
 
   let x = o.value;
 
   while (true) {
     const {value: y, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       yield Pair(x, y);
@@ -5752,7 +5730,7 @@ It.partition = p => ix => {
       while (true) {
         const {value: y, done} = iy.next();
 
-        if (done) return Undefined;
+        if (done) return undefined;
         else if (p(y)) yield y;
       }
     } (),
@@ -5761,7 +5739,7 @@ It.partition = p => ix => {
       while (true) {
         const {value: z, done} = iz.next();
 
-        if (done) return Undefined;
+        if (done) return undefined;
         else if (p(z)) yield z;
       }
     } ()
@@ -5781,7 +5759,7 @@ It.transpose = function* (iix) {
     for (let i = 0; i < xs.length; i++) {
       const {value: x, done} = xs[i].next();
 
-      if (done) return Undefined;
+      if (done) return undefined;
       else yield x;
     }
   }
@@ -5801,7 +5779,7 @@ It.unfold = f => function* (seed) {
   while (true) {
     const pair = f(x);
     
-    if (strict(pair) === Null) return Undefined;
+    if (strict(pair) === null) return undefined;
     
     else {
       const [y, z] = pair;
@@ -5821,7 +5799,7 @@ It.unzip = ix => function* (iy) {
   while (true) {
     const {value: pair, done} = ix.next();
 
-    if (done) return Undefined;
+    if (done) return undefined;
     
     else {
       yield pair[0];
@@ -5840,7 +5818,7 @@ It.zip = ix => function* (iy) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
-    if (done || done2) return Undefined;
+    if (done || done2) return undefined;
     else yield Pair(x, y);
   }
 };
@@ -5851,7 +5829,7 @@ It.zipWith = f => ix => function* (iy) {
     const {value: x, done} = ix.next(),
       {value: y, done: done2} = iy.next();
 
-    if (done || done2) return Undefined;
+    if (done || done2) return undefined;
     else yield f(x) (y);
   }
 };
@@ -5887,7 +5865,7 @@ cases where standard combinator implementations are overwritten, though. */
 
 export const Ii = ix => {
   let o = {
-    value: Null,
+    value: null,
     done: false,
 
     next() {
@@ -5924,7 +5902,7 @@ Ii.take = n => function* (o) {
   while (true) {
     const p = o.next();
 
-    if (p.done) return Undefined;
+    if (p.done) return undefined;
     else if (n <= 0) return o;
     else yield p.value;
     o = p;
@@ -5939,7 +5917,7 @@ Ii.takeWhile = p => function* (o) {
   while (true) {
     const q = o.next();
 
-    if (q.done) return Undefined;
+    if (q.done) return undefined;
     else if (p(q.value)) yield o.value;
     else return o;
     o = q;
@@ -6307,7 +6285,7 @@ _Map.values = function* (m) {
 █████ Getters/Setters █████████████████████████████████████████████████████████*/
 
 
-_Map.get = k => m => m.has(k) ? m.get(k) : Null;
+_Map.get = k => m => m.has(k) ? m.get(k) : null;
 
 
 _Map.getOr = x => k => m => m.has(k) ? m.get(k) : x;
@@ -6531,7 +6509,7 @@ class MultiMap extends Map {
         if (pred(v)) return v;
       }
 
-      return Undefined;
+      return undefined;
     }
   }
 
@@ -6625,8 +6603,7 @@ Num.fromStr = s => {
 };
 
 
-Num.fromStrSafe = f => infix(
-  E.throwOnErr, comp, Num.fromStr, comp, f);
+Num.fromStrSafe = infix(E.throwOnErr, comp, Num.fromStr);
 
 
 /*
@@ -6811,7 +6788,7 @@ export const Obj = o => {
       },
 
       set: (p, k, v) => {
-        if (v === undefined || v === Undefined)
+        if (v === undefined)
           throw new Err("undefined set operation");
 
         else return p[k] = v;
@@ -6870,14 +6847,14 @@ O.toPairs = Object.entries;
 O.del = k => o => (delete o[k], o);
 
 
-O.get = k => o => k in o ? o[k] : Null;
+O.get = k => o => k in o ? o[k] : null;
 
 
 O.getOr = x => k => o => k in o ? o[k] : x;
 
 
 O.getPath = keys => o =>
-  keys.reduce((acc, key) => key in acc ? acc[key] : Null, o);
+  keys.reduce((acc, key) => key in acc ? acc[key] : null, o);
 
 
 O.getPathOr = x => keys => o => {
@@ -7146,13 +7123,13 @@ export const Optic = type("Optic");
 // reconstruct the composite data structure and takes any change into account
 
 Optic.defocus = tx =>
-  tx.parent === Null ? tx : Optic.defocus(tx.parent(tx.run));
+  tx.parent === null ? tx : Optic.defocus(tx.parent(tx.run));
 
 
 // like `Optic.defocus` but only reconstructs a single layer
 
 Optic.defocus1 = tx =>
-  tx.parent === Null ? tx : tx.parent(tx.run);
+  tx.parent === null ? tx : tx.parent(tx.run);
 
 
 /*
@@ -7169,8 +7146,8 @@ Optic.focus = (getter, setter) => tx => Optic(
 // try to focus or use a composite default value
 
 Optic.tryFocus = x => (getter, setter) => tx => Optic(
-  tx.run === Null ? getter(x) : getter(tx.run),
-  x => Optic(setter(x) (tx.run === Null ? x : tx.run), tx.parent));
+  tx.run === null ? getter(x) : getter(tx.run),
+  x => Optic(setter(x) (tx.run === null ? x : tx.run), tx.parent));
 
 
 /*
@@ -7208,7 +7185,7 @@ Optic.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-Optic.of = x => Optic(x, Null);
+Optic.of = x => Optic(x, null);
 
 
 Optic.Applicative = {
@@ -7289,7 +7266,7 @@ Opt.cata = cata("null", ANY);
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Opt.map = f => tx => strict(tx) === Null ? Null : f(tx);
+Opt.map = f => tx => strict(tx) === null ? null : f(tx);
 
 
 Opt.Functor = {map: Opt.map};
@@ -7299,7 +7276,7 @@ Opt.Functor = {map: Opt.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-Opt.alt = tx => ty => strict(tx) === Null ? ty : tx;
+Opt.alt = tx => ty => strict(tx) === null ? ty : tx;
 
 
 Opt.Alt = {
@@ -7312,7 +7289,7 @@ Opt.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-Opt.zero = Null;
+Opt.zero = null;
 
 
 Opt.Plus = {
@@ -7326,8 +7303,8 @@ Opt.Plus = {
 
 
 Opt.ap = tf => tx =>
-  strict(tf) === Null ? Null
-    : strict(tx) === Null ? Null
+  strict(tf) === null ? null
+    : strict(tx) === null ? null
     : tf(tx);
 
 
@@ -7344,7 +7321,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => strict(x) === Null ? _throw("invalid value") : x;
+Opt.of = x => strict(x) === null ? _throw("invalid value") : x;
 
 
 Opt.Applicative = {
@@ -7367,7 +7344,7 @@ Opt.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Opt.chain = mx => fm => strict(mx) === Null ? Null : fm(mx);
+Opt.chain = mx => fm => strict(mx) === null ? null : fm(mx);
 
 
 Opt.Chain = {
@@ -7391,8 +7368,8 @@ Opt.Monad = {
 
 
 Opt.append = Semigroup => tx => ty =>
-  strict(tx) === Null ? tx
-    : strict(ty) === Null ? tx
+  strict(tx) === null ? tx
+    : strict(ty) === null ? tx
     : Semigroup.append(tx) (ty);
 
 
@@ -7403,7 +7380,7 @@ Opt.Semigroup = {append: Opt.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Opt.empty = Null;
+Opt.empty = null;
 
 
 Opt.Monoid = {
@@ -7447,7 +7424,7 @@ export const Parallel = k => {
     runSafe: f => {
       if (asyncCounter > 100) {
         asyncCounter = 0;
-        return Promise.resolve(Null).then(_ => k(f));
+        return Promise.resolve(null).then(_ => k(f));
       }
 
       else {
@@ -7522,7 +7499,7 @@ P.and = tx => ty => {
           }
 
           if (i === 2) return k(Pair(pair[0], pair[1]));
-          else return Null;
+          else return null;
         }
 
         else return k(Pair(pair[0], pair[1]));
@@ -7553,15 +7530,15 @@ P.allObj = o => {
         if (i < keys.length) {
           if (xs[j] === undefined) {
             p[key] = x;
-            xs[j] = Null;
+            xs[j] = null;
             i++;
           }
 
           if (i === keys.length) return k(p);
-          else return Null;
+          else return null;
         }
 
-        else return Null;
+        else return null;
       });
     });
   });
@@ -7583,7 +7560,7 @@ P.or = tx => ty => {
           return k(z);
         }
 
-        else return Null;
+        else return null;
       });
     });
   });
@@ -7736,11 +7713,11 @@ P.Option = {};
 // computation that may not yield a result
 
 P.Option.option = ({none, some}) => x => P(k =>
-  x === Null ? none : k(some(x)));
+  x === null ? none : k(some(x)));
 
 
 P.Option.chain = ({none, some}) => mx => fm => P(k =>
-  mx === Null ? none : k(fm(mx)));
+  mx === null ? none : k(fm(mx)));
 
 
 P.Option.of = ({none, some}) => x => P(k => k(some(x)));
@@ -7749,7 +7726,7 @@ P.Option.of = ({none, some}) => x => P(k => k(some(x)));
 // computation that may not yield a result but a default value
 
 P.Option.default = ({none, some}) => x => P(k =>
-  x === Null ? k(none) : k(some(x)));
+  x === null ? k(none) : k(some(x)));
 
 
 /*
@@ -7815,7 +7792,7 @@ P.Monoid = {
 █████ Semigroup :: Monoid (Race) ██████████████████████████████████████████████*/
 
 
-P.Race.empty = P(k => Null);
+P.Race.empty = P(k => null);
 
 
 P.Race.Monoid = {
@@ -8382,7 +8359,7 @@ Parser.eoi = Parser(next => state => {
   if (ix.done) return new Exception("end of input");
 
   else return Parser.Result.Valid({
-    value: Null,
+    value: null,
     next,
     state
   });
@@ -8446,12 +8423,12 @@ Parser.xor = px => py => Parser(next => state => {
 
 
 Parser.any = ps => Parser(next => state => {
-  let tx, first = Null;
+  let tx, first = null;
 
   for (const px of ps) {
     tx = px(next) (state);
 
-    if (first === Null) first = tx;
+    if (first === null) first = tx;
 
     if (tx.tag === "Valid") return tx;
     else continue;
@@ -8813,7 +8790,7 @@ export const Serial = k => {
     runSafe: f => {
       if (asyncCounter > 100) {
         asyncCounter = 0;
-        return Promise.resolve(Null).then(_ => k(f));
+        return Promise.resolve(null).then(_ => k(f));
       }
 
       else {
@@ -9025,11 +9002,11 @@ S.Option = {};
 // computation that may not yield a result
 
 S.Option.option = ({none, some}) => x => S(k =>
-  x === Null ? none : k(some(x)));
+  x === null ? none : k(some(x)));
 
 
 S.Option.chain = ({none, some}) => mx => fm => S(k =>
-  mx === Null ? none : k(fm(mx)));
+  mx === null ? none : k(fm(mx)));
 
 
 S.Option.of = ({none, some}) => x => S(k => k(some(x)));
@@ -9038,7 +9015,7 @@ S.Option.of = ({none, some}) => x => S(k => k(some(x)));
 // computation that may not yield a result but a default value
 
 S.Option.default = ({none, some}) => x => S(k =>
-  x === Null ? k(none) : k(some(x)));
+  x === null ? k(none) : k(some(x)));
 
 
 /*
@@ -10084,7 +10061,7 @@ type, which is passed as another argument. */
 export const FileSys = fs => Cons => thisify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
-      e ? k(new Exception(e)) : k(Null)));
+      e ? k(new Exception(e)) : k(null)));
 
   o.move = src => dest => // guaranteed order
     Cons.chain(o.copy(src) (dest)) (_ =>
@@ -10104,7 +10081,7 @@ export const FileSys = fs => Cons => thisify(o => {
 
   o.unlink = path => Cons(k =>
     fs.unlink(path, e =>
-      e ? k(new Exception(e)) : k(Null)));
+      e ? k(new Exception(e)) : k(null)));
 
   o.write = opt => path => s => Cons(k =>
     fs.writeFile(path, s, opt, e =>
