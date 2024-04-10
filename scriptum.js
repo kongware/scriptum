@@ -330,11 +330,10 @@ export const cata = (...ks) => dict => {
 };
 
 
-/* Some types don't have their own constructor in Havascript (natural numbers)
-or a recursive type definition (linked lists). For these cases, a more general
-function to create catamorphisms is supplied. Other more well-formed types
-like single linked lists rely on non-stack-safe recursion. `cata_` can be used
-to encode a stack-safe trampoline or imperative loop. */
+/* Some types don't have their own constructor in Javascript (natural numbers)
+or have a recursive type definition (linked lists) and thus require a stack-safe
+elimination rule. For these cases, a more general function to create
+catamorphisms is supplied (see `Nat.cata_` as an examplary use). */
 
 export const cata_ = (...ks) => decons => dict => {
   if (DEBUG) {
