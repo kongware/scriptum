@@ -4671,7 +4671,7 @@ E.Monoid = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-E.throwOnErrOnErr = tx => {
+E.throwOnErr = tx => {
   if (intro(tx) === "Error") throw tx;
   else return tx;
 };
