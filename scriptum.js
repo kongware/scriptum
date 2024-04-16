@@ -2258,13 +2258,19 @@ A.clone = xs => xs.concat();
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-A.fromCsv = ({sep, skipFirst}) => csv => {
-  if (skipFirst) csv = csv.replace(new RegExp("^[^\\r\\n]+\\r?\\n", ""), "");
-
-  return csv.trim()
+A.fromCsv = ({sep, header}) => csv => {
+  const table = csv.trim()
     .replace(/"/g, "")
     .split(/\r?\n/)
-    .map(row => row.split(sep))
+    .map(row => row.split(sep));
+
+  let names;
+
+  if (header) names = table.shift();
+
+  return header
+    ? table.map(cols => cols.reduce((acc, col, i) => (acc[names[i]] = col, acc), {}))
+    : table;
 };
 
 
@@ -2924,6 +2930,18 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 █████ Transformation ██████████████████████████████████████████████████████████*/
 
 
+// collect all consecutive elements of a certain length
+
+A.consecs = chunkLen => xs => {
+  const ys = [];
+
+  for (let i = 0; i + chunkLen <= xs.length; i++)
+    ys.push(xs.slice(i, i + chunkLen));
+
+  return ys;
+};
+
+
 /* Groups all consecutive elements by applying a binary predicate to the
 pervious/current element. If the predicate fails, a new subgroup is created
 otherwise the element is pushed on the current subgroup. */
@@ -2943,6 +2961,8 @@ A.groupBy = p => xs => Loop2((acc, i) => {
   }
 }) ([], 1);
 
+
+// binary parition function
 
 A.partition = p => xs => xs.reduce((pair, x)=> {
   if (p(x)) return (pair[0].push(x), pair);
