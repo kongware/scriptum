@@ -2932,11 +2932,11 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 
 // collect all consecutive elements of a certain length
 
-A.consecs = chunkLen => xs => {
+A.consecs = chunkLen => f => xs => {
   const ys = [];
 
   for (let i = 0; i + chunkLen <= xs.length; i++)
-    ys.push(xs.slice(i, i + chunkLen));
+    ys.push(f(xs.slice(i, i + chunkLen)));
 
   return ys;
 };
@@ -6312,6 +6312,17 @@ _Map.upd = k => f => m => {
 _Map.updOr = x => k => f => m => {
   if (m.has(k)) return m.set(k, f(m.get(k)));
   else return m.set(k, x);
+};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+// destructive update
+
+_Map.merge = m => n => {
+  n.forEach((v, k) => m.set(k, v));
 };
 
 
