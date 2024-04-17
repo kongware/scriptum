@@ -953,19 +953,22 @@ export const xor_ = xor({t: true, f: false});
 █████ Ordering ████████████████████████████████████████████████████████████████*/
 
 
-export const compareAsc = x => y => x < y ? LT : x > y ? GT : EQ;
+export const asc = x => y => x - y;
 
 
-export const compareDesc = y => x => x < y ? LT : x > y ? GT : EQ;
+export const asc_ = (x, y) => x - y;
 
 
-export const compareOn_ = () => compBoth(compareAsc);
+export const desc = y => x => x - y;
 
 
-export const order = ({lt, eq, gt}) => x => y =>
-  x < y ? lt(Pair(x, y))
-    : x > y ? gt(Pair(x, y))
-    : eq(Pair(x, y));
+export const desc_ = (y, x) => x - y;
+
+
+export const compareOn = order => compBoth(order);
+
+
+export const compareOn_ = order => f => x => y => order(f(x), f(y));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10046,9 +10049,6 @@ Yo.lower = tx => tx.run(id);
 A.unzip = A.unzip();
 
 
-export const compareOn = compareOn_();
-
-  
 /*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ IO ██████████████████████████████████████
