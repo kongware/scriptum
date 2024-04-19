@@ -78,10 +78,10 @@ let asyncCounter = 0; // upper bound: 100
 export const ANY = PREFIX + "*";
 
 
-// unary type for convenience
+// unary/variadic type for convenience
 
-export const type = tag => x => {
-  const o = {run: x};
+export const type = tag => (...args) => {
+  const o = {run: args.length === 1 ? args[0] : args};
 
   Object.defineProperty(o, TAG, {value: tag});
   return o;
@@ -100,7 +100,7 @@ export const product = tag => (...ks) => (...vs) => {
   if (ks.length !== vs.length)
     throw new Err(`insufficient arguments`);
 
-  const o = ks.reduce((acc, k,i) => (acc[k] = vs[i], acc), {});
+  const o = ks.reduce((acc, k, i) => (acc[k] = vs[i], acc), {});
 
   o.run = o; // variant compliant
   Object.defineProperty(o, TAG, {value: tag});
@@ -2754,19 +2754,6 @@ A.values = function* (m) {
 
 
 A.at = i => xs => xs[i]; // curried `at` non-reliant on `this`
-
-
-/*
-█████ Ordering ████████████████████████████████████████████████████████████████*/
-
-
-A.sort = Order => xs => xs.sort(uncurry(Order.compare));
-
-
-A.sortBy = f => xs => xs.sort(uncurry(f));
-
-
-A.sortOn = Order => f => xs => xs.sort(uncurry(compBoth(Order.compare) (f)));
 
 
 /*
@@ -6683,6 +6670,9 @@ Num.prng = ([a, b, c, d]) => {
     [a, b, c, d]
   );
 };
+
+
+Num.rand = min => max => Math.floor(Math.random() * (max - min + 1)) + min;
 
 
 /*
