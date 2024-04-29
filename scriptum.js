@@ -111,8 +111,8 @@ export const product = tag => (...ks) => (...vs) => {
 // more general product type definitions (e.g. with lazy getters)
 
 export const product_ = tag => (...ks) => o => {
-  for (const k of ks)
-    if (!(k in o)) throw new Err(`missing value "${k}"`);
+  if (ks.length !== Object.keys(o).length)
+    throw new Err(`insufficient arguments`);
 
   o.run = f => f(o); // provide the variant interface
   Object.defineProperty(o, TAG, {value: tag});
@@ -3500,6 +3500,23 @@ export const Behavior = init => behave => {
 
 
 export const Be = Behavior; // shortcut
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████████████ BIT █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+const popCount = n => {
+  let bits = 0;
+
+  while (n !== 0n) {
+    bits += Number(n & 1n);
+    n >>= 1n;
+  }
+
+  return bits;
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9176,6 +9193,27 @@ Stream.Functor = {map: Stream.map};
 
 
 export const Str = {}; // namespace
+
+
+/*
+█████ Chars ███████████████████████████████████████████████████████████████████*/
+
+
+const countChar = chr => s => {
+  let n = 0, i = 0;
+
+  while (true) {
+    i = s.indexOf(chr, i);
+    if (i >= 0) {++n; i++}
+    else break;
+  }
+
+  return n;
+};
+
+
+/*
+█████ Concatenization █████████████████████████████████████████████████████████*/
 
 
 Str.catWith = s => (...xs) => xs.join(s);
