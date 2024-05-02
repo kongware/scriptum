@@ -42,19 +42,6 @@ export const TAG = Symbol.toStringTag;
 export const VAL = PREFIX + "value";
 
 
-/*
-█████ Native Order Protocol ███████████████████████████████████████████████████*/
-
-
-export const LT = {[TAG]: "Ordering", tag: "LT", valueOf: () => -1};
-
-
-export const EQ = {[TAG]: "Ordering", tag: "EQ", valueOf: () => 0};
-
-
-export const GT = {[TAG]: "Ordering", tag: "GT", valueOf: () => 1};
-
-
 /*█████████████████████████████████████████████████████████████████████████████
 ████████████████████████████████████ STATE ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
@@ -2820,7 +2807,7 @@ A.diff = xs => ys => {
 };
 
 
-// ignores duplicates 
+// leaf biased difference (ignores duplicates)
 
 A.diffl = xs => ys => {
   const s = new Set(xs),
@@ -2829,20 +2816,6 @@ A.diffl = xs => ys => {
 
   for (const x of s)
     if (!s2.has(x)) acc.push(x);
-
-  return acc;
-};
-
-
-// ignores duplicates 
-
-A.diffr = xs => ys => {
-  const s = new Set(xs),
-    s2 = new Set(ys),
-    acc = [];
-
-  for (const y of s2)
-    if (!s.has(y)) acc.push(y);
 
   return acc;
 };
@@ -2925,8 +2898,12 @@ A.takeWhile = p => xs => Loop2((acc, i) => {
 A.consecs = chunkLen => f => xs => {
   const ys = [];
 
-  for (let i = 0; i + chunkLen <= xs.length; i++)
-    ys.push(f(xs.slice(i, i + chunkLen)));
+  if (chunkLen > xs.length) return ys;
+
+  else {
+    for (let i = 0; i + chunkLen <= xs.length; i++)
+      ys.push(f(xs.slice(i, i + chunkLen)));
+  }
 
   return ys;
 };
@@ -4431,7 +4408,7 @@ D.fromStr = s => {
 };
 
 
-D.fromStrSafe = infix(E.throwOnErr, comp, D.fromStr);
+D.fromStrSafe = () => infix(E.throwOnErr, comp, D.fromStr);
 
 
 /*
@@ -7414,6 +7391,65 @@ Opt.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ ORDER ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// Native Order Protocol
+
+export const Order = {};
+
+
+/*
+█████ Native Order Protocol ███████████████████████████████████████████████████*/
+
+
+export const LT = {[TAG]: "Order", tag: "LT", valueOf: () => -1};
+
+
+Order.LT = LT;
+
+
+export const LT_ = -1
+
+
+Order.LT_ = LT_;
+
+
+export const EQ = {[TAG]: "Order", tag: "EQ", valueOf: () => 0};
+
+
+Order.EQ = EQ;
+
+
+export const EQ_ = 0;
+
+
+Order.EQ_ = EQ_;
+
+
+export const GT = {[TAG]: "Order", tag: "GT", valueOf: () => 1};
+
+
+Order.GT = GT;
+
+
+export const GT_ = 1;
+
+
+Order.GT_ = GT_;
+
+
+// alternative version
+
+Order.get = n => ({
+  get LT() {return n < 0},
+  get EQ() {return n === 0},
+  get GT() {return n > 0}
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████████████ PARALLEL ███████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -10075,6 +10111,9 @@ Yo.lower = tx => tx.run(id);
 
 
 A.unzip = A.unzip();
+
+
+D.fromStrSafe = D.fromStrSafe();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
