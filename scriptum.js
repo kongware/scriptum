@@ -5324,27 +5324,6 @@ It.repeat = function* (x) {
 █████ Iterable ████████████████████████████████████████████████████████████████*/
 
 
-It.fromObjEntries = function* (o) {
-  for (let prop in o) {
-    yield [prop, o[prop]];
-  }
-};
-
-
-It.fromObjKeys = function* (o) {
-  for (let prop in o) {
-    yield prop;
-  }
-};
-
-
-It.fromObjValues = function* (o) {
-  for (let prop in o) {
-    yield o[prop];
-  }
-};
-
-
 It.from = it => it[Symbol.iterator] ();
 
 
@@ -6649,7 +6628,7 @@ Num.round = decPlaces => n => {
       case "2":
       case "3":
       case "4": return Number(s.slice(0, -1)) / factor;
-      
+
       default: return n < 0
         ? (Number(s.slice(0, -1)) - 1) / factor
         : (Number(s.slice(0, -1)) + 1) / factor;
@@ -6920,6 +6899,31 @@ O.upd_ = k => f => o => {
 O.updOr = x => k => f => o => {
   if (k in o) return (o[k] = f(o[k]), o);
   else return (o[k] = x, o);
+};
+
+
+/*
+█████ Iterable ████████████████████████████████████████████████████████████████*/
+
+
+O.entries = function* (o) {
+  for (let prop in o) {
+    yield [prop, o[prop]];
+  }
+};
+
+
+O.keys = function* (o) {
+  for (let prop in o) {
+    yield prop;
+  }
+};
+
+
+O.values = function* (o) {
+  for (let prop in o) {
+    yield o[prop];
+  }
 };
 
 
