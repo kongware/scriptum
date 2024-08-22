@@ -6615,22 +6615,45 @@ Num.ceil = decPlaces => n => {
 
 Num.floor = decPlaces => n => {
   // TODO
-}
+};
 
 
 Num.round = decPlaces => n => {
-  const factor = Number("1".padEnd(decPlaces + 1, "0")),
-    s = String(n * factor * 10).split(".") [0];
+  let [int, frac = null] = String(n).split(".");
 
-  switch (s[s.length - 1]) {
-    case "0":
-    case "1":
-    case "2":
-    case "3":
-    case "4": return Number(s.slice(0, -1)) / factor;
-    default: return n < 0
-      ? (Number(s.slice(0, -1)) - 1) / factor
-      : (Number(s.slice(0, -1)) + 1) / factor;
+  // consider scientific notation
+
+  if (int.search(/e\-/) !== NOT_FOUND) {
+    const [frac2, decPlaces2] = int.split(/e\-/);
+
+    int = "0";
+    frac = "0".repeat(decPlaces2).slice(-1) + frac2;
+  }
+
+  // integer case
+
+  if (frac === null) return n;
+
+  // number below precision
+
+  else if (frac.slice(0, n) === "0".repeat(decPlaces))
+    return Number(int);
+
+  else {
+    const factor = Number("1".padEnd(decPlaces + 1, "0")),
+      s = String(n * factor * 10).split(".") [0];
+
+    switch (s[s.length - 1]) {
+      case "0":
+      case "1":
+      case "2":
+      case "3":
+      case "4": return Number(s.slice(0, -1)) / factor;
+      
+      default: return n < 0
+        ? (Number(s.slice(0, -1)) - 1) / factor
+        : (Number(s.slice(0, -1)) + 1) / factor;
+    }
   }
 };
 
