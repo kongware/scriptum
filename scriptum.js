@@ -9337,19 +9337,15 @@ Str.normalizeDate = locale => s => {
 };
 
 
-Str.normalizeNum = ({sep: {thd, dec}, places = 0}) => s => {
-  if (places > 0 && (thd !== "" || dec !== ""))
-    throw new Err("invalid arguments");
+Str.normalizeNum = ({thdSep = "", decSep, implicitDecPlaces = 0}) => s => {
+  if (decSep !== "" && implicitDecPlaces > 0) throw new Err("invalid arguments");
+  if (thdSep !== "") s = s.split(thd).join("");
+  if (decSep !== "") s = s.split(dec).join(".");
 
-  if (thd) s = s.split(thd).join("");
-  if (dec) s = s.split(dec).join(".");
+  if (implicitDecPlaces)
+    return s.slice(0, -implicitDecPlaces) + "." + s.slice(-implicitDecPlaces);
 
-  if (places) {
-    if (/[^\d]/.test(s)) return s;
-    s = `${s.slice(0, -places)}.${s.slice(-places)}`;
-  }
-
-  return s;
+  else return s;
 };
 
 
