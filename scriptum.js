@@ -6283,36 +6283,36 @@ _Map.updOr = x => k => f => m => {
 
 
 _Map.monthRes = new Map([
-  ["Januar", 0],
-  ["Februar", 1],
-  ["März", 2],
-  ["Maerz", 2],
-  ["April", 3],
-  ["Mai", 4],
-  ["Juni", 5],
-  ["Juli", 6],
-  ["August", 7],
-  ["September", 8],
-  ["Oktober", 9],
-  ["November", 10],
-  ["Dezember", 11]
+  ["Januar", "01"],
+  ["Februar", "02"],
+  ["März", "03"],
+  ["Maerz", "03"],
+  ["April", "04"],
+  ["Mai", "05"],
+  ["Juni", "06"],
+  ["Juli", "07"],
+  ["August", "08"],
+  ["September", "09"],
+  ["Oktober", "10"],
+  ["November", "11"],
+  ["Dezember", "12"]
 ]);
 
 
 _Map.monthAbbrRes = new Map([
-  ["Jan", 0],
-  ["Feb", 1],
-  ["Mär", 2],
-  ["Mar", 2],
-  ["Apr", 3],
-  ["Mai", 4],
-  ["Jun", 5],
-  ["Jul", 6],
-  ["Aug", 7],
-  ["Sep", 8],
-  ["Okt", 9],
-  ["Nov", 10],
-  ["Dez", 11]
+  ["Jan", "01"],
+  ["Feb", "02"],
+  ["Mär", "03"],
+  ["Mar", "03"],
+  ["Apr", "04"],
+  ["Mai", "05"],
+  ["Jun", "06"],
+  ["Jul", "07"],
+  ["Aug", "08"],
+  ["Sep", "09"],
+  ["Okt", "10"],
+  ["Nov", "11"],
+  ["Dez", "12"]
 ]);
 
 
