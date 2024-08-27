@@ -6279,6 +6279,44 @@ _Map.updOr = x => k => f => m => {
 
 
 /*
+█████ Resolution ██████████████████████████████████████████████████████████████*/
+
+
+_Map.monthRes = new Map([
+  ["Januar", 0],
+  ["Februar", 1],
+  ["März", 2],
+  ["Maerz", 2],
+  ["April", 3],
+  ["Mai", 4],
+  ["Juni", 5],
+  ["Juli", 6],
+  ["August", 7],
+  ["September", 8],
+  ["Oktober", 9],
+  ["November", 10],
+  ["Dezember", 11]
+]);
+
+
+_Map.monthAbbrRes = new Map([
+  ["Jan", 0],
+  ["Feb", 1],
+  ["Mär", 2],
+  ["Mar", 2],
+  ["Apr", 3],
+  ["Mai", 4],
+  ["Jun", 5],
+  ["Jul", 6],
+  ["Aug", 7],
+  ["Sep", 8],
+  ["Okt", 9],
+  ["Nov", 10],
+  ["Dez", 11]
+]);
+
+
+/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
@@ -6580,7 +6618,7 @@ Num.fromStr = s => {
 };
 
 
-Num.fromStrSafe = infix(E.throwOnErr, comp, Num.fromStr);
+Num.fromStrSafe = comp(E.throwOnErr) (Num.fromStr);
 
 
 /*
@@ -8767,6 +8805,22 @@ Pred.Disjunct.Monoid = {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+█████████████████████████████ REGULAR EXPRESSIONS █████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+Rex.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+
+Rex.common = {
+  "de-DE": {
+    months: /(\b(?:Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b)/i,
+    monthAbbr: /(\b(?:Jan|Feb|Mär|Mar|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez)\b)\.?/i
+  }
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████ SELECT ████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -9289,15 +9343,15 @@ Str.cat_ = Str.catWith(" ");
 
 
 /*
-█████ Regular Expressions █████████████████████████████████████████████████████*/
+█████ Normalization ███████████████████████████████████████████████████████████*/
 
 
-Str.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+Str.capitalize = s => s[0].strToUpper() + s.slice(1).strToLower();
 
 
 Str.normalizeDate = locale => s => {
   switch (locale) {
-    case "de": {
+    case "de-DE": {
       let rx;
 
       rx = s.match(new RegExp("^(?<d>\\d{1,2})\\.(?<m>\\d{1,2})\\.(?:20)?(?<y>\\d{2})$", ""));
@@ -9347,6 +9401,10 @@ Str.normalizeNum = ({thdSep = "", decSep, implicitDecPlaces = 0}) => s => {
 
   else return s;
 };
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
 Str.splitChunk = ({from, to}) => s =>
