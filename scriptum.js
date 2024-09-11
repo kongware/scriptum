@@ -103,7 +103,7 @@ export const product_ = tag => (...ks) => o => {
 
   o.run = f => f(o); // provide the variant interface
   Object.defineProperty(o, TAG, {value: tag});
-  return p;
+  return o;
 };
 
 
@@ -4422,8 +4422,8 @@ D.format = sep => (...fs) => d =>
 
 D.formatDay = digits => d => {
   switch (digits) {
-    case 1: return String(d.getUTCDate());
-    case 2: return String(d.getUTCDate()).padStart(2, "0");
+    case 1: return String(d.getDate());
+    case 2: return String(d.getDate()).padStart(2, "0");
     default: throw new Err("invalid number of digits");
   }
 };
@@ -4431,9 +4431,9 @@ D.formatDay = digits => d => {
 
 D.formatMonth = ({names = [], digits}) => d => {
   switch (digits) {
-    case 1: return String(d.getUTCMonth() + 1);
-    case 2: return String(d.getUTCMonth() + 1).padStart(2, "0");
-    case 3: return names[String(d.getUTCMonth())];
+    case 1: return String(d.getMonth() + 1);
+    case 2: return String(d.getMonth() + 1).padStart(2, "0");
+    case 3: return names[String(d.getMonth())];
     default: throw new Err("invalid number of digits");
   }
 };
@@ -4441,9 +4441,9 @@ D.formatMonth = ({names = [], digits}) => d => {
 
 D.formatWeekday = ({names = [], digits}) => d => {
   switch (digits) {
-    case 1: return String(d.getUTCDay());
-    case 2: return String(d.getUTCDay()).padStart(2, "0");
-    case 3: return names[String(d.getUTCDay())];
+    case 1: return String(d.getDay());
+    case 2: return String(d.getDay()).padStart(2, "0");
+    case 3: return names[String(d.getDay())];
     default: throw new Err("invalid number of digits");
   }
 };
@@ -4451,8 +4451,8 @@ D.formatWeekday = ({names = [], digits}) => d => {
 
 D.formatYear = digits => d => {
   switch (digits) {
-    case 2: return String(d.getUTCFullYear()).slice(2);
-    case 4: return String(d.getUTCFullYear());
+    case 2: return String(d.getFullYear()).slice(2);
+    case 4: return String(d.getFullYear());
     default: throw new Err("invalid number of digits");
   }
 };
@@ -8809,6 +8809,9 @@ Pred.Disjunct.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+export const Rex = {};
+
+
 Rex.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
@@ -9393,8 +9396,8 @@ Str.normalizeDate = locale => s => {
 
 Str.normalizeNum = ({thdSep = "", decSep, implicitDecPlaces = 0}) => s => {
   if (decSep !== "" && implicitDecPlaces > 0) throw new Err("invalid arguments");
-  if (thdSep !== "") s = s.split(thd).join("");
-  if (decSep !== "") s = s.split(dec).join(".");
+  if (thdSep !== "") s = s.split(thdSep).join("");
+  if (decSep !== "") s = s.split(decSep).join(".");
 
   if (implicitDecPlaces)
     return s.slice(0, -implicitDecPlaces) + "." + s.slice(-implicitDecPlaces);
