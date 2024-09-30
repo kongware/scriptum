@@ -6340,7 +6340,7 @@ Useful if lots of lookups are performed but interstion order via `push`/`pop`
 and `shift`/`unshift` matters. */
 
 
-class DequeMap extends Map {
+export class DequeMap extends Map {
   constructor(id) {
     super();
     Object.defineProperty(this, TAG, {value: "DequeMap"});
@@ -6450,7 +6450,7 @@ class DequeMap extends Map {
 the idea of unique keys assigned to conditionally ambiguous values, i.e. it can
 encode fuzzy key/value relations. */
 
-class MultiMap extends Map {
+export class MultiMap extends Map {
   constructor() {
     super();
     Object.defineProperty(this, TAG, {value: "MultiMap"});
