@@ -6636,15 +6636,26 @@ Num.floor = decPlaces => n => {
 
 
 Num.round = decPlaces => n => {
-  let [int, frac = null] = String(n).split(".");
+  let [int, frac = null] = String(n).split("."),
+    sign = "";
+
+  if (int[0] === "-") {
+    int = int.slice(1);
+    sign = "-";
+  }
 
   // consider scientific notation
 
-  if (int.search(/e\-/) !== NOT_FOUND) {
-    const [frac2, decPlaces2] = int.split(/e\-/);
+  if (frac.search(/e/) !== NOT_FOUND) {
+    const [frac2, decPlaces2] = frac.split(/e/),
+      frac3 = int + frac2;
 
-    int = "0";
-    frac = "0".repeat(decPlaces2).slice(-1) + frac2;
+    if (decPlaces2 < 0) {
+      int = sign + "0";
+      frac = "0".repeat(Math.abs(decPlaces2) - 1) + frac3;
+    }
+
+    else throw new Err("not yet implemented");
   }
 
   // integer case
@@ -6653,7 +6664,7 @@ Num.round = decPlaces => n => {
 
   // number below precision
 
-  else if (frac.slice(0, n) === "0".repeat(decPlaces))
+  else if (frac.slice(0, decPlaces) === "0".repeat(decPlaces))
     return Number(int);
 
   else {
