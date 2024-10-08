@@ -6636,36 +6636,39 @@ Num.floor = decPlaces => n => {
 
 
 Num.round = decPlaces => n => {
-  let [int, frac = null] = String(n).split("."),
-    sign = "";
-
-  if (int[0] === "-") {
-    int = int.slice(1);
-    sign = "-";
-  }
-
-  // consider scientific notation
-
-  if (frac.search(/e/) !== NOT_FOUND) {
-    const [frac2, decPlaces2] = frac.split(/e/),
-      frac3 = int + frac2;
-
-    if (decPlaces2 < 0) {
-      int = sign + "0";
-      frac = "0".repeat(Math.abs(decPlaces2) - 1) + frac3;
-    }
-
-    else throw new Err("not yet implemented");
-  }
+  let [int, frac = null] = String(n).split(".");
 
   // integer case
 
   if (frac === null) return n;
 
+  // consider scientific notation
+
+  else if (frac.search(/e/) !== NOT_FOUND) {
+    let sign = "";
+
+    if (int[0] === "-") {
+      int = int.slice(1);
+      sign = "-";
+    }
+
+    const [frac2, decPlaces2] = frac.split(/e/),
+      frac3 = int + frac2,
+      decPlaces3 = Number(decPlaces2);
+
+    if (decPlaces3 < 0) {
+      int = sign + "0";
+      frac = "0".repeat(Math.abs(decPlaces3) - 1) + frac3;
+    }
+
+    else throw new Err("not yet implemented");
+  }
+
   // number below precision
 
-  else if (frac.slice(0, decPlaces) === "0".repeat(decPlaces))
-    return Number(int);
+  if (frac.slice(0, decPlaces + 1) === "0".repeat(decPlaces + 1)) return Number(int);
+
+  // round
 
   else {
     const factor = Number("1".padEnd(decPlaces + 1, "0")),
