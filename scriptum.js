@@ -137,7 +137,7 @@ export const nullary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
 
         [k2]: {
           value: {
-            run: ({[k]: x}) => x,
+            run: ({[_case]: x}) => x,
             val: null,
             tag: k
           },
@@ -160,7 +160,7 @@ export const unary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
 
         [k2]: {
           value: {
-            run: ({[k]: f}) => f(x),
+            run: ({[_case]: f}) => f(x),
             val: x,
             tag: k
           },
@@ -183,8 +183,8 @@ export const binary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
 
         [k2]: {
           value: {
-            run: ({[k]: f}) => f(x) (y),
-            val: [x, y],
+            run: ({[_case]: f}) => f(x) (y),
+            val: Pair(x, y),
             tag: k
           },
 
@@ -204,8 +204,8 @@ export const binary_ = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
 
         [k2]: {
           value: {
-            run: ({[k]: f}) => f(x, y),
-            val: [x, y],
+            run: ({[_case]: f}) => f(x, y),
+            val: Pair(x, y),
             tag: k
           },
 
@@ -227,7 +227,7 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 
         [k2]: {
           value: {
-            run: ({[k]: f}) => f(...args),
+            run: ({[_case]: f}) => f(...args),
             val: args,
             tag: k
           },
@@ -261,6 +261,9 @@ export class Exception extends Error {
 };
 
 
+export const Exc = Exception;
+
+
 // throw as a first class expression
 
 export const _throw = e => {
@@ -291,6 +294,13 @@ export const _try = f => x => ({
     catch(e) {return handler(x) (e)};
   }
 });
+
+
+Exc.accum = (...es) => es.reduceRight((acc, e) => {
+  e.prev = acc;
+  acc = e;
+  return acc;
+}, null);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -661,13 +671,6 @@ export const gt = x => y => x > y;
 export const gte = x => y => x >= y;
 
 
-export const iff = ({true: t, false: f}) => x => y => {
-  if (x && y) return t;
-  else if (!x && !y) return t;
-  else return f;
-};
-
-
 export const imply = ({true: t, false: f}) => x => y => {
   if (x) {
     if (y) return t;
@@ -706,7 +709,8 @@ export const xor = ({t, f}) => x => y => {
 export const xor_ = xor({t: true, f: false});
 
 
-export const xnor = ({t, f}) => x => y => (x && y) || (!x && !y) ? t : f;
+export const xnor = ({t, f}) => x => y => // aka iff
+  (x && y) || (!x && !y) ? t : f;
 
 
 /*
@@ -1507,13 +1511,29 @@ export const asyncS = f => msecs => x => S(k =>
   setTimeout(comp(k) (f), msecs, x));
 
 
-export const debug = f => (...args) => {
+// debug after a (sub-)expression is evaluated
+
+export const debug = expr => {
+  debugger;
+  return expr;
+};
+
+
+// debug before a function call
+
+export const debugf = f => (...args) => {
   debugger;
   return f(...args);
 };
 
 
-export const debugIf = p => f => (...args) => {
+export const debugIf = p => expr => {
+  if (p(expr)) debugger;
+  return expr;
+};
+
+
+export const debugIfF = p => f => (...args) => {
   if (p(...args)) debugger;
   return f(...args);
 };
@@ -1528,7 +1548,7 @@ export const log = (x, tag = "") => {
 
 export const trace = x => {
   console.log(x);
-  console.log(JSON.stringify(x));
+  console.log("JSON:", JSON.stringify(x));
   return x;
 };
 
@@ -4396,7 +4416,7 @@ E.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-E.zero = new Exception();
+E.zero = new Exc();
 
 
 E.Plus = {
@@ -5690,7 +5710,13 @@ once:
 
 In order to advance it further, invocations need to be recursive:
   
-  ix.next().next(); */
+  ix.next().next();
+
+You must not separate the next method from its receiver, as with native
+iterators:
+
+  const next = ix.next;
+  next(); // will advance the iterator */
 
 
 export const Iit = ix => {
@@ -6780,12 +6806,11 @@ Optic.Functor = {map: Optic.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-/* The combination of two optics require a choice which parent property to pick
-for the resulting optic, since two optics cannot be appended in general in a
-meaningful way. The current implementation is left-biased. */
+/* Lift a binary function into an applicative functor. There is an ambiguity
+regarding which object propert is to be updated with the final result value. */
 
 
-Optic.ap = tf => tx => Optic(tf.opt.run(tx.opt.run), tf.parent);
+Optic.ap = tf => tx => Optic(tf.opt.run(tx.opt.run), tf.parent); // left-biased
 
 
 Optic.ap_ = tf => tx => Optic(tf.opt.run(tx.opt.run), tx.parent); // right-biased
@@ -6815,9 +6840,12 @@ Optic.Applicative = {
 
 
 /* Discards the parent of the next monadic computation but takes the current
-one. */
+one. Dunno whether this is meaningful in any way. */
 
-Optic.chain = mx => fm =>  Optic(fm(mx.opt.run).opt.run, mx);
+Optic.chain = mx => fm => {
+  const my = fm(mx.opt.run);
+  return Optic(my.opt.run, mx);
+}
 
 
 Optic.Chain = {
@@ -7654,553 +7682,267 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// applicative/monadic parser combinators based on idempotent iterators
+// monoidal parser combinators based on idempotent iterators
 
 
-const Parser = type("Parser", "par");
+export const Parser = type("Parser", "pr");
   
 
-Parser.Parsed = variant("Parsed", "ped") (unary("Invalid"), unary("Valid"));
+export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 
 
 /*
-█████ Constants ███████████████████████████████████████████████████████████████*/
+█████ Combinators (Consuming) █████████████████████████████████████████████████*/
 
 
-const charClasses = {
-  letter: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[a-z]/, "i");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{L}/, "u");
-      return this.utf8;
-    },
-
-    uc: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[A-Z]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Lu}/, "u");
-        return this.utf8;
-      }
-    },
-
-    lc: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[A-Z]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Lu}/, "u");
-        return this.utf8;
-      }
-    }
-  },
-
-  number: {
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{N}/, "u");
-      return this.utf8;
-    },
-
-    decimal: {
-      get ascii() {
-        delete this.ascii;
-        this.ascii = new RegExp(/[0-9]/, "");
-        return this.ascii;
-      },
-
-      get latin1() {
-        delete this.latin1;
-        this.latin1 = new RegExp(/[0-9]/, "");
-        return this.latin1;
-      },
-
-      get utf8() {
-        delete this.utf8;
-        this.utf8 = new RegExp(/\p{Nd}/, "u");
-        return this.utf8;
-      }
-    }
-  },
-
-  alphanum: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(`${this.number.ascii.source}|${this.letter.ascci.source}`, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(`${this.number.latin1.source}|${this.letter.latin1.source}`, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(`${this.number.utf8.source}|${this.letter.utf8.source}`, "u");
-      return this.utf8;
-    }
-  },
-
-  control: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
-      return this.utf8;
-    }
-  },
-  
-  punctuation: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
-      return this.utf8;
-    }
-  },
-  
-  currency: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/[$]/, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/[¤$€£¥¢]/, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{Sc}/, "u");
-      return this.utf8;
-    }
-  },
-  
-  space: {
-    get ascii() {
-      delete this.ascii;
-      this.ascii = new RegExp(/ /, "");
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-      this.latin1 = new RegExp(/  /, "");
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      this.utf8 = new RegExp(/\p{Zs}/, "u");
-      return this.utf8;
-    }
-  },
-
-  nonalphanum: {
-    get ascii() {
-      delete this.ascii;
-      
-      this.ascii = new RegExp(
-        `${this.control.ascii.source}|${this.punctuation.ascci.source}|${this.currency.ascci.source}|${this.space.ascci.source}`, "");
-      
-      return this.ascii;
-    },
-
-    get latin1() {
-      delete this.latin1;
-
-      this.latin1 = new RegExp(
-        `${this.control.latin1.source}|${this.punctuation.latin1.source}|${this.currency.latin1.source}|${this.space.latin1.source}`, "");
-
-      return this.latin1;
-    },
-
-    get utf8() {
-      delete this.utf8;
-      
-      this.utf8 = new RegExp(
-        `${this.control.utf8.source}|${this.punctuation.utf8.source}|${this.currency.utf8.source}|${this.space.utf8.source}`, "u");
-
-      return this.utf8;
-    }
-  },
-};
-
-
-/* map all letters derived from the latin alphabet to their most appropriate
-ASCII representation. */
-
-Object.defineProperty(Parser, "derivedLetters", {
-  get() {
-    const m = new Map([
-      ["Æ", "AE"], ["æ", "ae"], ["Ä", "Ae"], ["ä", "ae"], ["Œ", "OE"],
-      ["œ", "oe"], ["Ö", "Oe"], ["ö", "oe"], ["ß", "ss"], ["ẞ", "ss"],
-      ["Ü", "Ue"], ["ü", "ue"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"],
-      ["ɑ", "a"], ["ɐ", "a"], ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"],
-      ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"],
-      ["ᶀ", "b"], ["Ƈ", "C"], ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"],
-      ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"],
-      ["Đ", "D"], ["đ", "d"], ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"],
-      ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"],
-      ["ɠ", "g"], ["Ǥ", "G"], ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"],
-      ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"],
-      ["ɥ", "h"], ["ɦ", "h"], ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"],
-      ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"],
-      ["Ƙ", "K"], ["ƙ", "k"], ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"],
-      ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"],
-      ["Ⱡ", "L"], ["ⱡ", "l"], ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"],
-      ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"],
-      ["ŋ", "n"], ["Ɲ", "N"], ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"],
-      ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"],
-      ["ɵ", "o"], ["Ƥ", "P"], ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"],
-      ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"],
-      ["Ʀ", "R"], ["ʀ", "r"], ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"],
-      ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"],
-      ["ᵴ", "s"], ["ᶊ", "s"], ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"],
-      ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"],
-      ["ʉ", "u"], ["Ʋ", "V"], ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"],
-      ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"],
-      ["ƴ", "y"], ["Ɏ", "Y"], ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"],
-      ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"],
-      ["ⱬ", "z"], ["Ʒ", "Z"], ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"],
-      ["Ʒ", "Z"], ["ʒ", "z"]
-    ]);
-
-    delete this.derivedLetters;
-    this.derivedLetters = m;
-    return m;
-  }
-});
-
-
-/*
-█████ Combinators █████████████████████████████████████████████████████████████*/
+// first order parser combinators
 
 
 // always accept any input
 
-Parser.accept = Parser(next => state => {
-  const ix = next();
+Parser.accept = Parser(ix => {
+  const iy = ix.next();
 
-  if (ix.done) throw new Err("end of input");
-
-  else return Parser.Parsed.Valid({
-    value: ix.value,
-    next: ix.next,
-    state: ix.state
-  });
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Valid(iy.value, iy);
 });
 
 
-// always fail regardless of the input but allow to recover (zero)
+// always reject any input
 
-Parser.fail = msg => Parser(next => state => {
-  const ix = next();
+Parser.fail = msg => Parser(ix => {
+  const iy = ix.next();
 
-  if (ix.done) return new Exception("end of input");
-
-  else return Parser.Parsed.Invalid({
-    value: new Exception(msg),
-    next,
-    state
-  });
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Invalid(new Exc(msg), ix);
 });
 
 
-// only succeed on input that satisfies a predicate
+// succeed on input that satisfies a predicate
 
-Parser.satisfy = msg => p => Parser(next => state => {
-  const ix = next();
+Parser.satisfy = msg => p => Parser(ix => {
+  const iy = ix.next();
 
-  if (ix.done) return new Exception("end of input");
-
-  else if (p(ix.value)) return Parser.Parsed.Valid({
-    value: ix.value,
-    next: ix.next,
-    state: ix.state
-  });
-
-  else return new Exception(msg);
-});
-
-
-// try to parse the next input and allow to recover on failure (backtracking)
-
-Parser.try = p => Parser(next => state => {
-  const ix = next();
-
-  if (ix.done) return new Exception("end of input");
-
-  else if (p(ix.value)) return Parser.Parsed.Valid({
-    value: ix.value,
-    next: ix.next,
-    state: ix.state
-  });
-
-  else return Parser.Parsed.Invalid({
-    value: new Exception("failed try"),
-    next,
-    state
-  });
+  if (iy.done) throw new Err("end of input");
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Exc(msg), ix)
 });
 
 
 // verify end of input
 
-Parser.eoi = Parser(next => state => {
-  const ix = next();
+Parser.eoi = Parser(ix => {
+  const iy = ix.next();
 
-  if (ix.done) return new Exception("end of input");
-
-  else return Parser.Parsed.Valid({
-    value: null,
-    next,
-    state
-  });
+  if (iy.done) return Parsed.Valid(null, ix);
+  else return Parsed.Invalid(new Exc("no end of input"), ix);
 });
 
 
-/* Try the first parser or the second one on error but return the first error
-message if both fail. */
+/*
+█████ Combinators (Logical Structuring) ███████████████████████████████████████*/
 
-Parser.or = px => py => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: tx => py(next) (state).run({
-      Invlaid: _ => {
-        if (intro(tx) === "Error") throw tx;
-        else return tx;
-      },
-      
-      Valid: id
-    }),
 
-    Valid: id
+// higher order parser combinators
+
+
+/* Try the first parser and short circuit the second one on success. If it
+fails, try the second parser. Return the accumulated exceptions if both fail. */
+
+Parser.or = tx => ty => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+
+    Invalid: (e, _) => ty.pr(ix).parsed.run({
+      Valid: (v, iy) => Parsed.Valid(v, iy),
+      Invalid: (e2, _) => Parsed.Invalid(Exc.accum(e, e2), ix)
+    })
   })
 });
 
 
-/* Try the first parser and the second and fail if either of them does,
-otherwise succeed. */
+/* Try both parsers and return the first or second exception, if one fails.
+Append both results on success. */
 
-Parser.and = px => py => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: tx => {
-      if (intro(tx) === "Error") throw tx;
-      else return tx;
-    },
-
-    Valid: ty => py(ty.next) (ty.state).run({
-      Invalid: tz => {
-        if (intro(tz) === "Error") throw tz;
-        else return tz;
-      },
-
-      Valid: id
-    })
-  });
-});
-
-
-Parser.xor = px => py => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: tx => py(next) (state).run({
-      Invlaid: _ => tx,
-      Valid: id
+Parser.and = Monoid => tx => ty => Parser(ix => { // aka seq
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => ty.pr(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(Monoid.append(v) (v2), iz),
+      Invalid: (e2, _) => Parsed.Invalid(e, ix)
     }),
 
-    Valid: ty => py(next) (state).run({
-      Invlaid: _ => ty,
-      Valid: id
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
+  })
+});
+
+
+/* Negate a parser result by either returning the parsed value as an exception
+or by returning the empty element of the desired monoid. */
+
+Parser.not = Monoid => tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, _) => Parsed.Invalid(new Exc(v), ix),
+    Invalid: (e, iy) => Parsed.Valid(Monoid.empty, iy)
+  })
+});
+
+
+// exclusive or, return values wrapped in exception in case both parsers succeed
+
+Parser.xor = tx => ty => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => ty.pr(iy).parsed.run({
+      Valid: (v2, _) => Parsed.Invalid(Exc.accum(new Exc(v), new Exc(v2)), ix),
+      Invalid: (e, iz) => Parsed.Valid(v, iz)
+    }),
+
+    Invalid: (e, _) => ty.pr(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(v, iz),
+      Invalid: (e2, _) => Parsed.Invalid(Exc.accum(e, e2), ix)
     })
   });
 });
 
 
-Parser.any = ps => Parser(next => state => {
-  let tx, first = null;
+/*
+can be derived with not + logical combinator:
 
-  for (const px of ps) {
-    tx = px(next) (state);
-
-    if (first === null) first = tx;
-
-    if (tx.tag === "Valid") return tx;
-    else continue;
-  }
-
-  return first;
-});
+Parser.nor
+Parser.nand
+Parser.xnor // aka iff
+*/
 
 
-Parser.all = ps => Parser(next => state => {
-  let tx;
-
-  for (const px of ps) {
-    tx = px(next) (state);
-
-    if (tx.tag === "Invalid") return tx;
-    else continue;
-  }
-
-  return tx;
-});
+/*
+█████ Combinators (Quantitative Structuring) ██████████████████████████████████*/
 
 
-Parser.many = px => function go(acc) {
-  return Parser(next => state => {
-    return px(next) (state).run({
-      Invalid: _ => Parser.Parsed.Valid({
-        value: acc, next, state
-      }),
+// higher order parser combinators
 
-      Valid: tx =>
-        go(A.push(tx.value) (acc)) (tx.next) (tx.state)
+
+Parser.min = Monoid => n => tx => Parser(ix => {
+  const acc = [];
+  let iy = ix;
+
+  while (true) {
+    const o = tx.pr(iy).parsed.run({
+      Valid: (v, iz) => Parsed.Valid(v, iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix)
     });
-  });
-} ([]);
+
+    if (o.parsed.tag === "invalid") break;
+    
+    else {
+      acc.push(o.parsed.val[0]);
+      iy = o.parsed.val[1];
+    }
+  }
+
+  if (acc.length < n) return Parsed.Invalid(
+    new Exc(`min constrained of "${n}" not met`), ix);
+
+  else return Parsed.Valid(
+    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
+});
 
 
-// ignores the next value provided the supplied parser yields a valid result
+/*
+Parser.min // lower..∞
+Parser.max // 0..upper
+Parser.min1 // 1..∞
+Parser.max1 // 0..1
+Parser.once // 1
+Parser.none // 0
+Parser.times // n (static)
+Parser.exactly // n (static, with lookAhead)
+Parser.all // n (dynamic)
+Parser.last // 1
+Parser.first // 1
+Parser.nth // 1
+Parser.between // lower..upper
 
-Parser.const = x => px => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: id,
+// not between can be derived from not and between
+*/
 
-    Valid: tx => Parser.Parsed.Valid({
-      value: x,
-      next: tx.next,
-      state: tx.state
-    })
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+// lift a function into the context of a parser
+
+Parser.map = f => tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(f(v), iy),
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
   })
 });
 
 
-// lift a function into the context of a parser result
+// lift a binary function into the context of two parsers
 
-Parser.map = f => px => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: id,
+Parser.ap = tf => tx => Parser(ix => {
+  return tf.pr(ix).parsed.run({
+    Valid: (f, iy) => tx.pr(iy).parsed.run({
+      Valid: (v, iz) => Parsed.Valid(f(v), iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix)
+    }),
 
-    Valid: tx => Parser.Parsed.Valid({
-      value: f(tx.value),
-      next: tx.next,
-      state: tx.state
-    })
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
   })
-});
-
-
-/* Sequence two parsers so that a binary curried function is lifted into the
-context of the parser result values. */
-
-Parser.ap = pf => px => Parser(next => state => {
-  return pf(next) (state).run({
-    Invalid: id,
-
-    Valid: tf => px(tf.next) (tf.state).run({
-      Invalid: id,
-
-      Valid: tx => Parser.Parsed.Valid({
-        value: tf.value(tx.value),
-        next: tx.next,
-        state: tx.state
-      })
-    })
-  });
 });
 
 
 // put a pure value in a parser context
 
-Parser.of = x => Parser(next => state =>
-  Parser.Parsed.Valid({value: x, next, state}));
+Parser.of = x => Parser(ix => Parsed.Valid(x, ix));
 
 
 /* Conditionally sequence two parsers so that the second parser depends on the
 result value of the first one. */
 
-Parser.chain = px => fm => Parser(next => state => {
-  return px(next) (state).run({
-    Invalid: id,
-    Valid: tx => fm(tx.value) (tx.next) (state)
+Parser.chain = tx => fm => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => fm(v).pr(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(v2, iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix)
+    }),
+
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
   });
+});
+
+
+// Semigroup/Monoid
+// Alt/Zero
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+/* Replace the next value with a default one, provided the next parser yields
+a valid result. */
+
+Parser.const = x => tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (_, iy) => Parsed.Valid(x, iy),
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
+  })
 });
 
 
 /* TODO:
 
-seq (sequence of more than two parsers)
+lookAhead
+lookBehind
+
 option (returns a default value on error)
-none (opposite of all)
 sepBy (reads chars separated by a separator)
-many1
 fromTo
-times
 drop
 dropWhile
 takeWhile
-amb
-between
 digit
 alnum
 letter
@@ -8900,6 +8642,43 @@ Str.normalizeNum = locale => s => {
 
     default: throw new Err(`unknown locale "${locale}"`);
   }
+};
+
+
+/*
+█████ Indexing ████████████████████████████████████████████████████████████████*/
+
+
+/* Finds the index of the given pattern in the passed string. The `i` argument
+refers to the array and can be positive or negative. A positive value denotes
+the index in the match pattern. A negative index denotes the position in the
+array relative to the end. -1 means the last element. -2 the penultimate element. */
+
+Str.findIndex = (pattern, i) => s => {
+  const xs = Array.from(s.matchAll(pattern));
+  let rx;
+
+  if (xs.length === 0) return null;
+  else if (i < 0) rx = xs.slice(i) [0];
+  else rx = xs[i];
+
+  if (rx === undefined) return null;
+  else return rx.index;
+};
+
+
+Str.findIndexes = pattern => s => Array.from(s.matchAll(pattern));
+
+
+// find the first and last index of a pattern in the passed string
+
+Str.findFirstLast = pattern => s => {
+  const xs = Array.from(s.matchAll(pattern));
+  let rx;
+
+  if (xs.length === 0) return null;
+  else if (xs.length === 1) return Pair(xs[0].index, xs[0].index);
+  else return Pair(xs[0].index, xs[xs.length - 1].index);
 };
 
 
@@ -9670,7 +9449,7 @@ type, which is passed as another argument. */
 export const FileSys = fs => Cons => thisify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
-      e ? k(new Exception(e)) : k(null)));
+      e ? k(new Exc(e)) : k(null)));
 
   o.move = src => dest => // guaranteed order
     Cons.chain(o.copy(src) (dest)) (_ =>
@@ -9678,23 +9457,23 @@ export const FileSys = fs => Cons => thisify(o => {
 
   o.read = opt => path => Cons(k =>
     fs.readFile(path, opt, (e, x) =>
-      e ? k(new Exception(e)) : k(x)));
+      e ? k(new Exc(e)) : k(x)));
 
   o.scanDir = path => Cons(k =>
     fs.readdir(path, (e, xs) =>
-      e ? k(new Exception(e)) : k(xs)));
+      e ? k(new Exc(e)) : k(xs)));
 
   o.stat = path => Cons(k =>
     fs.stat(path, (e, o) =>
-      e ? k(new Exception(e)) : k(o)));
+      e ? k(new Exc(e)) : k(o)));
 
   o.unlink = path => Cons(k =>
     fs.unlink(path, e =>
-      e ? k(new Exception(e)) : k(null)));
+      e ? k(new Exc(e)) : k(null)));
 
   o.write = opt => path => s => Cons(k =>
     fs.writeFile(path, s, opt, e =>
-      e ? k(new Exception(e)) : k(s)));
+      e ? k(new Exc(e)) : k(s)));
 
   return o;
 });
@@ -9711,5 +9490,6 @@ export const FileSys = fs => Cons => thisify(o => {
 
   * add context type (array of arrays)
   * add async iterator machinery
+  * add amb functions
 
 */
