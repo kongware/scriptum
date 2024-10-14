@@ -5716,28 +5716,37 @@ You must not separate the next method from its receiver, as with native
 iterators:
 
   const next = ix.next;
-  next(); // will advance the iterator */
+  next(); // will advance the iterator as a side effect
+
+Iterator results are nested and can be traversed backwards via the `prev`
+property:
+
+  const iy = ix.next().next().next();
+  iy.prev.prev; // yields the first iterator result
+
+*/
 
 
 export const Iit = ix => {
-  let o = {
+  let iy = {
     value: null,
     done: false,
 
     next() {
-      const p = ix.next();
+      const iz = ix.next();
 
-      Object.defineProperty(p, TAG, {value: "IdempotentIterator"});
-      p.next = o.next
-      delete o.next;
-      o.next = () => p;
-      o = p;
-      return p;
+      Object.defineProperty(iz, TAG, {value: "IdempotentIterator"});
+      iz.next = iy.next;
+      iz.prev = iy;
+      delete iy.next;
+      iy.next = () => iz;
+      iy = iz;
+      return iz;
     }
   };
 
-  Object.defineProperty(o, TAG, {value: "IdempotentIterator"});
-  return o;
+  Object.defineProperty(iy, TAG, {value: "IdempotentIterator"});
+  return iy;
 };
 
 
@@ -5747,14 +5756,14 @@ export const Iit = ix => {
 
 // resumable after the generator is forwarded n times
 
-Iit.take = n => function* (o) {
+Iit.take = n => function* (ix) {
   while (true) {
-    const p = o.next();
+    const iy = ix.next();
 
-    if (p.done) return undefined;
-    else if (n <= 0) return o;
-    else yield p.value;
-    o = p;
+    if (iy.done) return undefined;
+    else if (n <= 0) return ix;
+    else yield iy.value;
+    ix = iy;
     n--;
   }
 };
@@ -5762,16 +5771,25 @@ Iit.take = n => function* (o) {
 
 // resumable after the generator is forwarded x times
 
-Iit.takeWhile = p => function* (o) {
+Iit.takeWhile = p => function* (ix) {
   while (true) {
-    const q = o.next();
+    const iy = ix.next();
 
-    if (q.done) return undefined;
-    else if (p(q.value)) yield o.value;
-    else return o;
-    o = q;
+    if (iy.done) return undefined;
+    else if (p(iy.value)) yield ix.value;
+    else return ix;
+    ix = iy;
   }
 };
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+// clear the previous iterator result chain to avoid memeory leakage
+
+Iit.clear = ix => (ix.prev = null, ix);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7682,7 +7700,14 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// monoidal parser combinators based on idempotent iterators
+/* Monoidal parser combinators meant to be used with idempotent iterators. Look
+into the respetive section on `Iit` to get more information. Parser features:
+
+* look ahead
+* look behind
+
+Monoidal means that parser results are combined using monoids, i.e. every type
+that implements the monodial interface can be utilized. */
 
 
 export const Parser = type("Parser", "pr");
@@ -7692,7 +7717,7 @@ export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 
 
 /*
-█████ Combinators (Consuming) █████████████████████████████████████████████████*/
+█████ Consumption █████████████████████████████████████████████████████████████*/
 
 
 // first order parser combinators
@@ -7708,13 +7733,29 @@ Parser.accept = Parser(ix => {
 });
 
 
+// backwards
+
+Parser.acceptPrev = Parser(ix => {
+  const iy = ix.prev;
+  return Parsed.Valid(iy.value, iy);
+});
+
+
 // always reject any input
 
-Parser.fail = msg => Parser(ix => {
+Parser.reject = msg => Parser(ix => {
   const iy = ix.next();
 
   if (iy.done) throw new Err("end of input");
   else return Parsed.Invalid(new Exc(msg), ix);
+});
+
+
+// backwards
+
+Parser.rejectPrev = msg => Parser(ix => {
+  const iy = ix.prev;
+  return Parsed.Invalid(new Exc(msg), ix);
 });
 
 
@@ -7725,7 +7766,29 @@ Parser.satisfy = msg => p => Parser(ix => {
 
   if (iy.done) throw new Err("end of input");
   else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Exc(msg), ix)
+  else return Parsed.Invalid(new Exc(msg), ix);
+});
+
+
+// backwards
+
+Parser.satisfyPrev = msg => p => Parser(ix => {
+  const iy = ix.prev;
+
+  if (p(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Exc(msg), ix);
+});
+
+
+// for performance reasons not derived from `Parser.satisfy`
+
+Parser.char = c => Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) throw new Err("end of input");
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
+  
+  else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
 });
 
 
@@ -7740,7 +7803,26 @@ Parser.eoi = Parser(ix => {
 
 
 /*
-█████ Combinators (Logical Structuring) ███████████████████████████████████████*/
+ascii
+iso88591
+win1252
+digit
+letter
+alphaNum
+space
+punct
+control
+digitUtf8
+letterUtf8
+alphaNumUtf8
+spaceUtf8
+punctUtf8
+controlUtf8
+*/
+
+
+/*
+█████ Combining (Logical) █████████████████████████████████████████████████████*/
 
 
 // higher order parser combinators
@@ -7814,13 +7896,15 @@ Parser.xnor // aka iff
 
 
 /*
-█████ Combinators (Quantitative Structuring) ██████████████████████████████████*/
+█████ Combining (Quantitative) ████████████████████████████████████████████████*/
 
 
 // higher order parser combinators
 
 
-Parser.min = Monoid => n => tx => Parser(ix => {
+// must at least be 1 (n..∞)
+
+Parser.min = Semigroup => n => tx => Parser(ix => {
   const acc = [];
   let iy = ix;
 
@@ -7839,29 +7923,136 @@ Parser.min = Monoid => n => tx => Parser(ix => {
   }
 
   if (acc.length < n) return Parsed.Invalid(
-    new Exc(`min constrained of "${n}" not met`), ix);
+    new Exc(`min constrained of "${n}" occurrences not met`), ix);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
+    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), iy);
+});
+
+
+// 1..∞
+
+Parser.min1 = Semigroup => Parser.min(Semigroup) (1);
+
+
+// must at least be 1 (1..n)
+
+Parser.max = Semigroup => n => tx => Parser(ix => {
+  const acc = [];
+  let iy = ix;
+
+  while (acc.length <= n) {
+    const o = tx.pr(iy).parsed.run({
+      Valid: (v, iz) => Parsed.Valid(v, iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix)
+    });
+
+    if (o.parsed.tag === "invalid") break;
+    
+    else {
+      acc.push(o.parsed.val[0]);
+      iy = o.parsed.val[1];
+    }
+  }
+
+  if (acc.length > n) return Parsed.Invalid(
+    new Exc(`max constrained of "${n}" occurrences not met`), ix);
+
+  else return Parsed.Valid(
+    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), iy);
+});
+
+
+// 1..∞
+
+Parser.max1 = Semigroup => Parser.max(Semigroup) (1);
+
+
+Parser.string = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.char(s[i]).pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
+    else break;
+  }
+
+  if (acc === s) return Parsed.Valid(acc, o.parsed.val[1]);
+  else return Parsed.Invalid(new Exc(`string "${s}" expected`), ix);
+});
+
+
+// n (static)
+
+Parser.times = Semigroup => n => tx => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = [];
+
+  for (let i = 0; i < n;i++) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
+    else return Parsed.Invalid(new Exc(`expected pattern ${n} times`), ix);
+  }
+
+  return Parsed.Valid(
+    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), o.parsed.val[1]);
+});
+
+
+// n..n (static)
+
+Parser.timesExactly = Semigroup => n => tx => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = [];
+
+  for (let i = 0; i <= n;i++) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (i < n && o.parsed.tag === "valid") acc + o.parsed.val[0];
+    
+    else if (i === n && o.parsed.tag === "valid") 
+      return Parsed.Invalid(new Exc(`expected pattern exactly ${n} times`), ix);
+    
+    else if (i === n && o.parsed.tag === "invalid") break;
+
+    else return Parsed.Invalid(new Exc(`expected pattern exactly ${n} times`), ix);
+  }
+
+  return Parsed.Valid(
+    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), o.parsed.val[1]);
+});
+
+
+// 1..1
+
+Parser.once = tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => tx.pr(iy).parsed.run({
+      Valid: (_, __) => Parsed.Invalid(new Exc(`received ${v} more than once`), ix),
+      Invalid: (_, __) => Parsed.Valid(v, iy)
+    }),
+
+    Invalid: (_, __) => Parsed.Invalid(new Exc(`"${v}" expected`), ix),
+  });
+});
+
+
+// 0
+
+Parser.none = tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, _) => Parsed.Invalid(new Exc(`unexpected "${v}"`), ix),
+    Invalid: (_, __) => Parsed.Valid(null, ix)
+  });
 });
 
 
 /*
-Parser.min // lower..∞
-Parser.max // 0..upper
-Parser.min1 // 1..∞
-Parser.max1 // 0..1
-Parser.once // 1
-Parser.none // 0
-Parser.times // n (static)
-Parser.exactly // n (static, with lookAhead)
 Parser.all // n (dynamic)
-Parser.last // 1
-Parser.first // 1
-Parser.nth // 1
+Parser.last // 1 (dynamic)
+Parser.first // 1 (dynamic)
+Parser.nth // 1 (dynamic)
 Parser.between // lower..upper
-
-// not between can be derived from not and between
 */
 
 
@@ -7915,6 +8106,7 @@ Parser.chain = tx => fm => Parser(ix => {
 
 // Semigroup/Monoid
 // Alt/Zero
+// Traversable
 
 
 /*
@@ -7924,7 +8116,7 @@ Parser.chain = tx => fm => Parser(ix => {
 /* Replace the next value with a default one, provided the next parser yields
 a valid result. */
 
-Parser.const = x => tx => Parser(ix => {
+Parser.ignore = x => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (_, iy) => Parsed.Valid(x, iy),
     Invalid: (e, _) => Parsed.Invalid(e, ix)
@@ -7932,23 +8124,32 @@ Parser.const = x => tx => Parser(ix => {
 });
 
 
+// look ahead or behind depending on the passed parser
+
+Parser.look = tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(null, ix),
+    Invalid: (e, _) => Parsed.Invalid(e, ix)
+  })
+});
+
+
+Parser.optional = x => tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+    Invalid: (_, __) => Parsed.Valid(x, __)
+  })
+});
+
+
 /* TODO:
 
-lookAhead
-lookBehind
+state
 
-option (returns a default value on error)
 sepBy (reads chars separated by a separator)
-fromTo
 drop
 dropWhile
-takeWhile
-digit
-alnum
-letter
-space
-char (character)
-chars (sequence of characters) */
+takeWhile */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9490,6 +9691,6 @@ export const FileSys = fs => Cons => thisify(o => {
 
   * add context type (array of arrays)
   * add async iterator machinery
-  * add amb functions
+  * add amb function
 
 */
