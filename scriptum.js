@@ -241,6 +241,239 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ EFFECTS ███████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Handle effects in a dynamically typed environment, i.e. the following types
+aren't lawful functors, applicatives or monads but good enough to be useful. */
+
+
+export const Eff = {};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Eff.comp = (ftor, ftor2) => f => ttx => ftor(ftor2(f)) (ttx);
+
+
+// zero, one or several results (indeterministic)
+
+Eff.array = f => xs => xs?.constructor?.name === "Array"
+  ? xs.map(f)
+  : f(xs);
+
+
+// asynchronous function serially evaluated
+
+Eff.async = f => tf => typeof tf === "function"
+  ? k => tf(x => k(f(x)))
+  : f(tf);
+
+
+// bottom type immediately throws an error to avoid silent errors
+
+Eff.bottom = f => tx => tx === undefined
+  ? _throw("received undefined")
+  : f(tx);
+
+
+// either left or right (used for short circuiting)
+
+Eff.either = f => tx => {
+  if (tx?.[TAG] === "Either") {
+    switch (tx.either.tag) {
+      case "left": return tx;
+      case "right": return Either.Right(f(tx.either.val))
+    }
+  }
+
+  else return f(tx);
+};
+
+
+// exception, i.e. an anticipatable error that doesn't throw immediately
+
+Eff.except = f => tx => tx?.constructor?.name === "Exception"
+  ? tx : f(tx);
+
+
+// no result value
+
+Eff.option = f => tx => tx === null ? tx : f(tx);
+
+
+/*
+█████ Functor :: Applicative ██████████████████████████████████████████████████*/
+
+
+Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
+
+
+Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
+
+
+Eff.arrayA = tf => tx => tx?.constructor?.name === "Array"
+  ? tf?.constructor?.name === "Array"
+    ? tx.reduce((acc, x) => tf.reduce((acc2, f) => (acc2.push(f(x)), acc2), acc), [])
+    : tx.map(tf)
+  : tf?.constructor?.name === "Array"
+    ? tf.map(f => f(tx))
+    : tf(tx);
+
+
+Eff.arrayOf = x => [x];
+
+
+Eff.asyncA = tf => tx => k => tf(f => tx(x => k(f(x))))
+
+
+Eff.asyncOf = x => k => k(x);
+
+
+Eff.bottomA = tf => tx => tf === undefined
+  ? _throw("received undefined")
+  : tx === undefined
+    ? _throw("received undefined")
+    : tf(tx);
+
+
+Eff.bottomOf = x => x === null ? _throw("unexpected null") : x;
+
+
+Eff.eitherA = tf => tx => {
+  if (tf?.[TAG] === "Either") {
+    if (tx?.[TAG] === "Either") {
+      switch (tf.either.tag) {
+        case "left": return tf;
+
+        case "right": {
+          switch (tx.either.tag) {
+            case "left": return tx;
+
+            case "right": return Either.Right(
+              tf.either.val(tx.either.val));
+          }
+        }
+      }
+    }
+  }
+
+  else if (tx?.[TAG] === "Either") {
+    switch (tx.either.tag) {
+      case "left": return tx;
+        
+      case "right": return Either.Right(
+        tf(tx.either.val));
+    }
+  }
+
+  else return tf(tx);
+};
+
+
+Eff.exceptA = tf => tx => tf?.constructor?.name === "Exception" ? tf
+  : tx?.constructor?.name === "Exception" ? tx
+  : tf(tx);
+
+
+Eff.exceptOf = x => x?.constructor?.name === "Exception"
+  ? _throw("unexpected exception") : x;
+
+
+Eff.optionA = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
+
+
+Eff.optionOf = x => x === null ? _throw("unexpected null") : x;
+
+
+/*
+█████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
+
+
+// monads cannot be composed in a general way but often enough
+
+Eff.compM = (monad, monad2) => fmm => mmx =>
+  monad(mx => monad2(x => fmm(x)) (mx)) (mmx);
+
+
+// arrays are no monads in the first place
+
+Eff.arrayM = fm => mx =>
+  mx?.constructor?.name === "Array" ? mx.flatMap(fm) : fm(mx);
+
+
+// stricter, stack-safe array "monad" variant that allows short circuiting
+
+Eff.arrayM_ = fm => mx => Loop2((acc, i) => {
+  if (mx?.constructor?.name === "Array") {
+    if (i >= mx.length) return Loop2.base(acc);
+    
+    else {
+      const my = fm(mx[i]);
+
+      if (my?.constructor?.name === "Array")
+        return Loop2.rec(A.pushn(my) (acc), i + 1);
+
+      else return Loop2.base(my);
+//         ^^^^^^^^^^^^^^^^^^^^^ short circuit
+    }
+  } 
+
+  else return fm(mx);
+}) ([], 0);
+
+
+// can only be the outermost monad in a composition
+
+Eff.async = fm => mx => k => mx(x => fm(x) (k));
+
+
+Eff.bottomM = fm => mx => {
+  if (mx === undefined) throw new Err("received undefined");
+
+  else {
+    const my = fm(mx);
+    if (my === undefined) throw new Err("returned undefined");
+    else return my;
+  }
+};
+
+
+Eff.eitherM = fm => mx => {
+  if (mx?.[TAG] === "Either") {
+    switch (mx.either.tag) {
+      case "left": return mx;
+      case "right": return fm(mx.either.val);
+    }
+  }
+
+  else return fm(mx.either.val);
+};
+
+
+Eff.eitherOf = x => Either.Right(x);
+
+
+Eff.exceptM = fm => mx => mx?.constructor?.name === "Exception" ? mx : fm(mx);
+
+
+Eff.optionM = fm => mx => mx === null ? mx : fm(mx);
+
+
+/*
+█████ Monadic Operations ██████████████████████████████████████████████████████*/
+
+
+// (b -> a -> m b) -> b -> t a -> m b
+Eff.foldM = (monad, of) => fm => init => xs =>
+  A.foldr(x => gm => acc =>
+    monad(gm) (fm(acc) (x))) (of) (xs) (init);
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████ ERROR/EXCEPTION ███████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -248,9 +481,9 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 export const Err = Error; // shortcut
 
 
-/* Exception denotes an error that is not thrown but dynamically handled,
-because exceptions are contingent events considered upfront. An exception can
-hold a previous one in order to accumulate all contingent exceptions during a
+/* Exception denotes an anticipatable error that is not thrown but dynamically
+handled, because you can take it into account upfront. An exception can hold a
+previous one in order to accumulate all contingent exceptions during a
 computation. */
 
 export class Exception extends Error {
@@ -1695,17 +1928,17 @@ of evaluated values of each one. Useful if statements are mixed with expressions
 or destructive operations return a value but also modify the initial reference
 value (e.g. `effs(xs.pop(), xs)`). */
 
-export const effs = (...exps) => exps;
+export const enumEffs = (...exps) => exps;
 
 
 // like `effs` but only returns the first evaluated value
 
-export const effFirst = (...exps) => exps[0];
+export const enumEffsFirst = (...exps) => exps[0];
 
 
 // like `effs` but only returns the last evaluated value
 
-export const effLast = (...exps) => exps[exps.length - 1];
+export const enumEffsLast = (...exps) => exps[exps.length - 1];
 
 
 // introspection
@@ -4325,6 +4558,17 @@ D.lastDayOfMonth = ({m, y}) => {
 
 
 D.numDaysOfMonth = (y, m) => new Date(y, m, 0).getDate();
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████████ EITHER ████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// either left or right (used for short circuiting)
+
+
+export const Either = variant("Either") (unary("Left"), unary("Right"));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7707,7 +7951,9 @@ into the respetive section on `Iit` to get more information. Parser features:
 * look behind
 
 Monoidal means that parser results are combined using monoids, i.e. every type
-that implements the monodial interface can be utilized. */
+that implements the monodial interface can be utilized.
+
+TODO: How state can be best incorporated into the implementation isn't clear yet. */
 
 
 export const Parser = type("Parser", "pr");
@@ -7725,7 +7971,7 @@ export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 
 // always accept any input
 
-Parser.accept = Parser(ix => {
+Parser.take = Parser(ix => {
   const iy = ix.next();
 
   if (iy.done) throw new Err("end of input");
@@ -7735,7 +7981,7 @@ Parser.accept = Parser(ix => {
 
 // backwards
 
-Parser.acceptPrev = Parser(ix => {
+Parser.takePrev = Parser(ix => {
   const iy = ix.prev;
   return Parsed.Valid(iy.value, iy);
 });
@@ -7803,6 +8049,10 @@ Parser.eoi = Parser(ix => {
 
 
 /*
+takeWhile
+drop
+dropWhile
+sepBy???
 ascii
 iso88591
 win1252
@@ -7886,13 +8136,7 @@ Parser.xor = tx => ty => Parser(ix => {
 });
 
 
-/*
-can be derived with not + logical combinator:
-
-Parser.nor
-Parser.nand
 Parser.xnor // aka iff
-*/
 
 
 /*
@@ -7902,9 +8146,9 @@ Parser.xnor // aka iff
 // higher order parser combinators
 
 
-// must at least be 1 (n..∞)
+// 0..n
 
-Parser.min = Semigroup => n => tx => Parser(ix => {
+Parser.min = Monoid => n => tx => Parser(ix => {
   const acc = [];
   let iy = ix;
 
@@ -7923,21 +8167,21 @@ Parser.min = Semigroup => n => tx => Parser(ix => {
   }
 
   if (acc.length < n) return Parsed.Invalid(
-    new Exc(`min constrained of "${n}" occurrences not met`), ix);
+    new Exc(`expected pattern min ${n} times`), ix);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), iy);
+    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
 });
 
 
-// 1..∞
+// 1..n
 
-Parser.min1 = Semigroup => Parser.min(Semigroup) (1);
+Parser.min1 = Monoid => Parser.min(Monoid) (1);
 
 
-// must at least be 1 (1..n)
+// 0..max
 
-Parser.max = Semigroup => n => tx => Parser(ix => {
+Parser.max = Monoid => n => tx => Parser(ix => {
   const acc = [];
   let iy = ix;
 
@@ -7956,16 +8200,16 @@ Parser.max = Semigroup => n => tx => Parser(ix => {
   }
 
   if (acc.length > n) return Parsed.Invalid(
-    new Exc(`max constrained of "${n}" occurrences not met`), ix);
+    new Exc(`expected pattern max ${n} times`), ix);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), iy);
+    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
 });
 
 
-// 1..∞
+// 0..1
 
-Parser.max1 = Semigroup => Parser.max(Semigroup) (1);
+Parser.max1 = Monoid => Parser.max(Monoid) (1);
 
 
 Parser.string = s => Parser(ix => {
@@ -7983,27 +8227,29 @@ Parser.string = s => Parser(ix => {
 });
 
 
-// n (static)
+// `n` must be at least 1 - n (static)
 
 Parser.times = Semigroup => n => tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = [];
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
 
   for (let i = 0; i < n;i++) {
     o = tx.pr(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else return Parsed.Invalid(new Exc(`expected pattern ${n} times`), ix);
+    else return Parsed.Invalid(new Exc(`received pattern less than ${n} times`), ix);
   }
 
-  return Parsed.Valid(
-    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), o.parsed.val[1]);
+  return Parsed.Valid(acc.reduce((acc2, v) =>
+    Semigroup.append(acc2) (v)), o.parsed.val[1]);
 });
 
 
-// n..n (static)
+// variant that uses a look ahead to exclude further pattern occurrences
 
-Parser.timesExactly = Semigroup => n => tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = [];
+Parser.times_ = Semigroup => n => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
 
   for (let i = 0; i <= n;i++) {
     o = tx.pr(o.parsed.val[1]);
@@ -8011,49 +8257,120 @@ Parser.timesExactly = Semigroup => n => tx => Parser(ix => {
     if (i < n && o.parsed.tag === "valid") acc + o.parsed.val[0];
     
     else if (i === n && o.parsed.tag === "valid") 
-      return Parsed.Invalid(new Exc(`expected pattern exactly ${n} times`), ix);
+      return Parsed.Invalid(new Exc(`received pattern less than ${n} times`), ix);
     
     else if (i === n && o.parsed.tag === "invalid") break;
 
-    else return Parsed.Invalid(new Exc(`expected pattern exactly ${n} times`), ix);
+    else return Parsed.Invalid(new Exc(`received pattern more than ${n} times`), ix);
   }
 
-  return Parsed.Valid(
-    acc.reduce((acc2, v) => Semigroup.append(acc2) (v)), o.parsed.val[1]);
+  return Parsed.Valid(acc.reduce((acc2, v) =>
+    Semigroup.append(acc2) (v)), o.parsed.val[1]);
 });
 
 
-// 1..1
+// 1 (static)
 
 Parser.once = tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (v, iy) => tx.pr(iy).parsed.run({
-      Valid: (_, __) => Parsed.Invalid(new Exc(`received ${v} more than once`), ix),
+      Valid: (_, __) => Parsed.Invalid(new Exc("received pattern more than once"), ix),
       Invalid: (_, __) => Parsed.Valid(v, iy)
     }),
 
-    Invalid: (_, __) => Parsed.Invalid(new Exc(`"${v}" expected`), ix),
+    Invalid: (_, __) => Parsed.Invalid(new Exc("received pattern not once"), ix),
   });
 });
 
 
-// 0
+// 0 (static)
 
 Parser.none = tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
-    Valid: (v, _) => Parsed.Invalid(new Exc(`unexpected "${v}"`), ix),
+    Valid: (v, _) => Parsed.Invalid(new Exc("unexpected pattern"), ix),
     Invalid: (_, __) => Parsed.Valid(null, ix)
   });
 });
 
 
-/*
-Parser.all // n (dynamic)
-Parser.last // 1 (dynamic)
-Parser.first // 1 (dynamic)
-Parser.nth // 1 (dynamic)
-Parser.between // lower..upper
-*/
+// 0..n (dynamic)
+
+Parser.all = Monoid => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
+
+  while (true) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+    else break;
+  }
+
+  return Parsed.Valid(acc.reduce((acc2, v) =>
+    Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
+});
+
+
+// 1..n (dynamic)
+
+Parser.all1 = Semigroup => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
+
+  while (true) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+    else break;
+  }
+
+  if (acc.length === 0) return Parsed.Invalid(
+    new Exc("received pattern not once"), ix);
+
+  return Parsed.Valid(acc.reduce((acc2, v) =>
+    Semigroup.append(acc2) (v)), o.parsed.val[1]);
+});
+
+
+// 1 (dynamic)
+
+Parser.last = tx => Parser(ix => {
+  let o = Parsed.Valid(null, ix), p = null;
+
+  while (true) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") p = o;
+    else break;
+  }
+
+  if (p === null) return Parsed.Invalid(
+    new Exc("received pattern not once"), ix);
+
+  return Parsed.Valid(p.parsed.val[0], p.parsed.val[1]);
+});
+
+
+// 1 (dynamic)
+
+Parser.nth = n => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
+
+  while (true) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") {
+      acc.push(o.parsed.val[0]);
+      if (n === acc.length) break;
+    }
+    
+    else return Parsed.Invalid(
+      new Exc(`received pattern less than ${n} times`), ix);
+  }
+
+  return Parsed.Valid(acc[n].parsed.val[0], acc[n].parsed.val[1]);
+});
 
 
 /*
@@ -8070,6 +8387,39 @@ Parser.map = f => tx => Parser(ix => {
 });
 
 
+Parser.Functor = {map: Parser.map};
+
+
+/*
+█████ Functor :: Alt ██████████████████████████████████████████████████████████*/
+
+
+// TODO: Parser.alt
+
+
+/*Parser.Alt = () => ({
+  ...Parser.Functor,
+  alt: Parser.alt
+});*/
+
+
+/*
+█████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
+
+
+// TODO: Parser.zero
+
+
+/*Parser.Plus = {
+  ...Parser.Alt,
+  zero: Parser.zero
+};*/
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
 // lift a binary function into the context of two parsers
 
 Parser.ap = tf => tx => Parser(ix => {
@@ -8084,9 +8434,39 @@ Parser.ap = tf => tx => Parser(ix => {
 });
 
 
+Parser.Apply = {
+  ...Parser.Functor,
+  ap: Parser.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
 // put a pure value in a parser context
 
 Parser.of = x => Parser(ix => Parsed.Valid(x, ix));
+
+
+Parser.Applicative = {
+  ...Parser.Apply,
+  of: Parser.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Parser.Chain = {
+  ...Parser.Apply,
+  chain: Parser.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
 /* Conditionally sequence two parsers so that the second parser depends on the
@@ -8104,9 +8484,33 @@ Parser.chain = tx => fm => Parser(ix => {
 });
 
 
-// Semigroup/Monoid
-// Alt/Zero
-// Traversable
+Parser.Monad = {
+  ...Parser.Applicative,
+  chain: Parser.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+// TODO: Parser.append
+
+
+// Parser.Semigroup = {append: Parser.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+// TODO: Parser.empty
+
+
+/*Parser.Monoid = {
+  ...Parser.Semigroup,
+  empty: Parser.empty
+};*/
 
 
 /*
@@ -8140,16 +8544,6 @@ Parser.optional = x => tx => Parser(ix => {
     Invalid: (_, __) => Parsed.Valid(x, __)
   })
 });
-
-
-/* TODO:
-
-state
-
-sepBy (reads chars separated by a separator)
-drop
-dropWhile
-takeWhile */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
