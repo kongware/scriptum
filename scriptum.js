@@ -266,7 +266,7 @@ Eff.array = f => xs => xs?.constructor?.name === "Array"
   : f(xs);
 
 
-// asynchronous function serially evaluated
+// asynchronous function (serially evaluated)
 
 Eff.async = f => tf => typeof tf === "function"
   ? k => tf(x => k(f(x)))
@@ -280,7 +280,7 @@ Eff.bottom = f => tx => tx === undefined
   : f(tx);
 
 
-// either left or right (used for short circuiting)
+// either arbitrary value or valid computation (used for short circuiting)
 
 Eff.either = f => tx => {
   if (tx?.[TAG] === "Either") {
@@ -294,13 +294,13 @@ Eff.either = f => tx => {
 };
 
 
-// exception, i.e. an anticipatable error that doesn't throw immediately
+// either exception or valid computation (more restricted than either)
 
 Eff.except = f => tx => tx?.constructor?.name === "Exception"
   ? tx : f(tx);
 
 
-// no result value
+// computations that might not yield a result
 
 Eff.option = f => tx => tx === null ? tx : f(tx);
 
@@ -374,6 +374,9 @@ Eff.eitherA = tf => tx => {
 };
 
 
+Eff.eitherOf = x => Either.Right(x);
+
+
 Eff.exceptA = tf => tx => tf?.constructor?.name === "Exception" ? tf
   : tx?.constructor?.name === "Exception" ? tx
   : tf(tx);
@@ -393,21 +396,22 @@ Eff.optionOf = x => x === null ? _throw("unexpected null") : x;
 █████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
 
 
-// monads cannot be composed in a general way but often enough
+/* Monads cannot be composed in a general way, i.e. the following combinator
+doesn't work for many monad compositions. */
 
-Eff.compM = (monad, monad2) => fmm => mmx =>
-  monad(mx => monad2(x => fmm(x)) (mx)) (mmx);
+Eff.compM = (monad, monad2) => mmx => fmm =>
+  monad(mmx) (mx => monad2(mx) (x => fmm(x)));
 
 
 // arrays are no monads in the first place
 
-Eff.arrayM = fm => mx =>
+Eff.arrayM = mx => fm =>
   mx?.constructor?.name === "Array" ? mx.flatMap(fm) : fm(mx);
 
 
-// stricter, stack-safe array "monad" variant that allows short circuiting
+// even more lawless array "monad" variant that short circuits
 
-Eff.arrayM_ = fm => mx => Loop2((acc, i) => {
+Eff.arrayM_ = mx => fm => Loop2((acc, i) => {
   if (mx?.constructor?.name === "Array") {
     if (i >= mx.length) return Loop2.base(acc);
     
@@ -417,7 +421,7 @@ Eff.arrayM_ = fm => mx => Loop2((acc, i) => {
       if (my?.constructor?.name === "Array")
         return Loop2.rec(A.pushn(my) (acc), i + 1);
 
-      else return Loop2.base(my);
+      else return Loop2.base(acc);
 //         ^^^^^^^^^^^^^^^^^^^^^ short circuit
     }
   } 
@@ -428,10 +432,10 @@ Eff.arrayM_ = fm => mx => Loop2((acc, i) => {
 
 // can only be the outermost monad in a composition
 
-Eff.async = fm => mx => k => mx(x => fm(x) (k));
+Eff.async = mx => fm => k => mx(x => fm(x) (k));
 
 
-Eff.bottomM = fm => mx => {
+Eff.bottomM = mx => fm => {
   if (mx === undefined) throw new Err("received undefined");
 
   else {
@@ -442,7 +446,7 @@ Eff.bottomM = fm => mx => {
 };
 
 
-Eff.eitherM = fm => mx => {
+Eff.eitherM = mx => fm => {
   if (mx?.[TAG] === "Either") {
     switch (mx.either.tag) {
       case "left": return mx;
@@ -454,20 +458,37 @@ Eff.eitherM = fm => mx => {
 };
 
 
-Eff.eitherOf = x => Either.Right(x);
+Eff.exceptM = mx => fm => mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
-Eff.exceptM = fm => mx => mx?.constructor?.name === "Exception" ? mx : fm(mx);
-
-
-Eff.optionM = fm => mx => mx === null ? mx : fm(mx);
+Eff.optionM = mx => fm => mx === null ? mx : fm(mx);
 
 
 /*
-█████ Monadic Operations ██████████████████████████████████████████████████████*/
+█████ Traversable █████████████████████████████████████████████████████████████*/
 
 
-// (b -> a -> m b) -> b -> t a -> m b
+// Applicative f => (a -> f b) -> [a] -> f [b]
+Eff.arrayT = (ftor, ator, of) => ft => {
+  const liftA = Eff.liftA(ftor, ator);
+
+  return A.foldl(acc => x =>
+    liftA(A.push) (ft(x)) (acc)) (of([]));
+};
+
+
+// Applicative f => [f a] -> f [a]
+Eff.arrayT_ = (ftor, ator, of) =>
+  A.foldl(Eff.liftA(ftor, ator) (A.push_)) (of([]));
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+// fold with effects
+
+// Monad m => (b -> a -> m b) -> b -> [a] -> m b
 Eff.foldM = (monad, of) => fm => init => xs =>
   A.foldr(x => gm => acc =>
     monad(gm) (fm(acc) (x))) (of) (xs) (init);
@@ -2489,7 +2510,7 @@ A.mapA = Applicative => ft => {
 
 
 A.seqA = Applicative =>
-  A.foldl(liftA2(Applicative) (A.push_)) (Applicative.of([]))
+  A.foldl(liftA2(Applicative) (A.push_)) (Applicative.of([]));
 
 
 A.Traversable = () => ({
