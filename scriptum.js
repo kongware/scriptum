@@ -6506,6 +6506,10 @@ Num.fromStr_ = s => {
 █████ Decimal Places ██████████████████████████████████████████████████████████*/
 
 
+/* Note: All combinators may fail for large positive numbers encoded in
+scientific notation. */
+
+
 Num.ceil = places => n => {
   const n2 = Math.abs(n),
     sign = n < 0 ? "-" : "";
@@ -6515,7 +6519,8 @@ Num.ceil = places => n => {
 
   let s;
 
-  if (frac === 0) s = String(n3).split(".") [0];
+  if (n3 < Number("0." + "0".repeat(places) + "1")) return 0;
+  else if (frac === 0) s = String(n3).split(".") [0];
   
   else {
     if (sign === "-") s = String(n3).split(".") [0];
@@ -6545,7 +6550,8 @@ Num.floor = places => n => {
 
   let s;
 
-  if (frac === 0) s = String(n3).split(".") [0];
+  if (n3 < Number("0." + "0".repeat(places) + "1")) return 0;
+  else if (frac === 0) s = String(n3).split(".") [0];
   
   else {
     if (sign === "-") s = String(n3 + 1).split(".") [0];
@@ -6575,7 +6581,8 @@ Num.round = places => n => {
 
   let s;
 
-  if (frac < 0.5) s = String(n3).split(".") [0];
+  if (n3 < Number("0." + "0".repeat(places) + "5")) return 0;
+  else if (frac < 0.5) s = String(n3).split(".") [0];
   else s = String(n3 + 1).split(".") [0];
 
   if (s[0] === "-") s = s.slice(1);
