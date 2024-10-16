@@ -4348,14 +4348,14 @@ Returns a date object either with UTC time or the timezone offset. */
 D.fromStr = s => {
   let s2 = "", offset = 0;
 
-  if (s.length === 8 && Rex.iso.date8.test(s)) {
+  if (s.length === 8 && Rex.iso.dates.date8.test(s)) {
     s2 = "20" + s;
   }
 
-  else if (s.length === 10 && Rex.iso.date10.test(s)) s2 = s;
-  else if (s.length === 24 && Rex.iso.datetimeUTC.test(s)) s2 = s;
+  else if (s.length === 10 && Rex.iso.dates.date10.test(s)) s2 = s;
+  else if (s.length === 24 && Rex.iso.dates.datetimeUTC.test(s)) s2 = s;
 
-  else if (s.length === 29 && Rex.iso.datetimeLoc.test(s)) {
+  else if (s.length === 29 && Rex.iso.dates.datetimeLoc.test(s)) {
     s2 = s.slice(0, 23) + "Z";
     offset = Number(s.slice(23, -3)) * D.hourInMs;
   }
@@ -6487,7 +6487,7 @@ export const Num = {}; // namespace
 // expects an ISO number string
 
 Num.fromStr = s => {
-  if (Rex.iso.num.test(s)) return Number(s);
+  if (Rex.iso.nums.num.test(s)) return Number(s);
   else throw new Err(`invalid number string: "${s}"`);
 };
 
@@ -6524,8 +6524,8 @@ Num.ceil = places => n => {
 
   if (s[0] === "-") s = s.slice(1);
 
-  if (s.length < places) return Number(sign + "0." + s.padEnd(places, "0"));
-  else if (s.length === places) return sign + Number("0." + s);
+  if (s.length < places) return Number(sign + "0." + s.padStart(places, "0"));
+  else if (s.length === places) return Number(sign + "0." + s);
 
   else {
     const intLen = String(n2).split(".") [0].length,
@@ -6554,8 +6554,8 @@ Num.floor = places => n => {
 
   if (s[0] === "-") s = s.slice(1);
 
-  if (s.length < places) return Number(sign + "0." + s.padEnd(places, "0"));
-  else if (s.length === places) return sign + Number("0." + s);
+  if (s.length < places) return Number(sign + "0." + s.padStart(places, "0"));
+  else if (s.length === places) return Number(sign + "0." + s);
 
   else {
     const intLen = String(n2).split(".") [0].length,
@@ -6580,8 +6580,8 @@ Num.round = places => n => {
 
   if (s[0] === "-") s = s.slice(1);
 
-  if (s.length < places) return Number(sign + "0." + s.padEnd(places, "0"));
-  else if (s.length === places) return sign + Number("0." + s);
+  if (s.length < places) return Number(sign + "0." + s.padStart(places, "0"));
+  else if (s.length === places) return Number(sign + "0." + s);
 
   else {
     const intLen = String(n2).split(".") [0].length,
@@ -7965,14 +7965,14 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Monoidal parser combinators meant to be used with idempotent iterators. Look
-into the respetive section on `Iit` to get more information. Parser features:
+/* Parser combinators meant to be used with idempotent iterators. Look into the
+respetive section on `Iit` to get more information. Parser features:
 
 * look ahead
 * look behind
 
-Monoidal means that parser results are combined using monoids, i.e. every type
-that implements the monodial interface can be utilized.
+For the time being parser results are combined using monoids. I don't know if
+this is the optimal approach, though.
 
 TODO: How state can be best incorporated into the implementation isn't clear yet. */
 
@@ -7990,7 +7990,7 @@ export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 // first order parser combinators
 
 
-// always accept any input
+// accept any input
 
 Parser.take = Parser(ix => {
   const iy = ix.next();
@@ -8008,6 +8008,24 @@ Parser.takePrev = Parser(ix => {
 });
 
 
+// drop any input
+
+Parser.drop = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Valid(null, iy);
+});
+
+
+Parser.dropPrev = Parser(ix => {
+  const iy = ix.prev;
+
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Valid(null, iy);
+});
+
+
 // always reject any input
 
 Parser.reject = msg => Parser(ix => {
@@ -8017,8 +8035,6 @@ Parser.reject = msg => Parser(ix => {
   else return Parsed.Invalid(new Exc(msg), ix);
 });
 
-
-// backwards
 
 Parser.rejectPrev = msg => Parser(ix => {
   const iy = ix.prev;
@@ -8036,8 +8052,6 @@ Parser.satisfy = msg => p => Parser(ix => {
   else return Parsed.Invalid(new Exc(msg), ix);
 });
 
-
-// backwards
 
 Parser.satisfyPrev = msg => p => Parser(ix => {
   const iy = ix.prev;
@@ -8059,6 +8073,16 @@ Parser.char = c => Parser(ix => {
 });
 
 
+Parser.charPrev = c => Parser(ix => {
+  const iy = ix.prev;
+
+  if (iy.done) throw new Err("end of input");
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
+  
+  else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
+});
+
+
 // verify end of input
 
 Parser.eoi = Parser(ix => {
@@ -8071,12 +8095,18 @@ Parser.eoi = Parser(ix => {
 
 /*
 takeWhile
-drop
 dropWhile
-sepBy???
+sepBy (same separator or class of sep)
+nestedIn (probably needs state)
+
+encodings:
+
 ascii
 iso88591
 win1252
+
+char classes:
+
 digit
 letter
 alphaNum
@@ -8562,7 +8592,7 @@ Parser.look = tx => Parser(ix => {
 Parser.optional = x => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (_, __) => Parsed.Valid(x, __)
+    Invalid: (_, __) => Parsed.Valid(x, ix)
   })
 });
 
@@ -8723,7 +8753,8 @@ Rex.iso = {
   nums: {
     nat: /^(?<sign>\+)?(?<int>[1-9]\d*)$/, // natural numbers
     int: /^(?<sign>\+|\-)?(?<int>[1-9]\d*)$/, // integers
-    num: /^(?<sign>\+|\-)?(?<int>\d+)\.(?<frac>\d+)$/ // all numbers but scientific notation
+    float: /^(?<sign>\+|\-)?(?<int>\d+)\.(?<frac>\d+)$/, // only floating point numbers
+    num: /^(?<sign>\+|\-)?(?<int>\d+)(?:\.(?<frac>\d+))?$/ // all numbers
   }
 };
 
