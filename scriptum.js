@@ -7991,6 +7991,256 @@ export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 
 
 /*
+█████ Codesets & Char Classes █████████████████████████████████████████████████*/
+
+
+const ascii = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/[a-z]/, "i");
+    return this.letter;
+  },
+
+  get uc() {
+    delete this.uc;
+    this.uc = new RegExp(/[A-Z]/, "");
+    return this.uc;
+  },
+
+  get lc() {
+    delete this.lc;
+    this.lc = new RegExp(/[a-z]/, "");
+    return this.lc;
+  },
+
+  get num() {
+    delete this.num;
+    this.num = new RegExp(/[0-9]/, "");
+    return this.num;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+    return this.control;
+  },
+
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
+    return this.punct;
+  },
+
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/[$]/, "");
+    return this.currency;
+  },
+
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/ /, "");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+    
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
+    
+    return this.nonAlnum;
+  }
+};
+
+
+/* CP1252 (Windows 1252) has the same characaters as latin1 (ISO-8859-1) but
+between 128-159 they are not at the same code points. */
+
+const latin1 = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
+    return this.letter;
+  },
+
+  get uc() {
+    delete this.uc;
+    this.uc = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
+    return this.uc;
+  },
+
+  get lc() {
+    delete this.lc;
+    this.lc = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
+    return this.lc;
+  },
+
+  get num() {
+    delete this.num;
+    this.num = new RegExp(/[0-9]/, "");
+    return this.num;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+    return this.control;
+  },
+  
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
+    return this.punct;
+  },
+  
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/[¤$€£¥¢]/, "");
+    return this.currency;
+  },
+  
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/  /, "");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
+
+    return this.nonAlnum;
+  }
+};
+
+
+const utf8 = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/\p{L}/, "u");
+    return this.letter;
+  },
+
+  get uc() {
+    delete this.uc;
+    this.uc = new RegExp(/\p{Lu}/, "u");
+    return this.uc;
+  },
+
+  get lc() {
+    delete this.lc;
+    this.lc = new RegExp(/\p{Lu}/, "u");
+    return this.lc;
+  },
+
+  get num() {
+    delete this.num;
+    this.num = new RegExp(/\p{N}/, "u");
+    return this.num;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "u");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
+    return this.control;
+  },
+
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
+    return this.punct;
+  },
+
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/\p{Sc}/, "u");
+    return this.currency;
+  },
+
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/\p{Zs}/, "u");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+    
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "u");
+
+    return this.nonAlnum;
+  }
+};
+
+
+// map all special letters from latin-based alphabets onto ASCII
+
+Object.defineProperty(Parser, "toAscii", {
+  get() {
+    const m = new Map([
+      ["Æ", "AE"], ["æ", "ae"], ["Ä", "Ae"], ["ä", "ae"], ["Œ", "OE"],
+      ["œ", "oe"], ["Ö", "Oe"], ["ö", "oe"], ["ß", "ss"], ["ẞ", "ss"],
+      ["Ü", "Ue"], ["ü", "ue"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"],
+      ["ɑ", "a"], ["ɐ", "a"], ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"],
+      ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"],
+      ["ᶀ", "b"], ["Ƈ", "C"], ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"],
+      ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"],
+      ["Đ", "D"], ["đ", "d"], ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"],
+      ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"],
+      ["ɠ", "g"], ["Ǥ", "G"], ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"],
+      ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"],
+      ["ɥ", "h"], ["ɦ", "h"], ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"],
+      ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"],
+      ["Ƙ", "K"], ["ƙ", "k"], ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"],
+      ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"],
+      ["Ⱡ", "L"], ["ⱡ", "l"], ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"],
+      ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"],
+      ["ŋ", "n"], ["Ɲ", "N"], ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"],
+      ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"],
+      ["ɵ", "o"], ["Ƥ", "P"], ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"],
+      ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"],
+      ["Ʀ", "R"], ["ʀ", "r"], ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"],
+      ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"],
+      ["ᵴ", "s"], ["ᶊ", "s"], ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"],
+      ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"],
+      ["ʉ", "u"], ["Ʋ", "V"], ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"],
+      ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"],
+      ["ƴ", "y"], ["Ɏ", "Y"], ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"],
+      ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"],
+      ["ⱬ", "z"], ["Ʒ", "Z"], ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"],
+      ["Ʒ", "Z"], ["ʒ", "z"]
+    ]);
+
+    delete this.toAscii;
+    this.toAscii = m;
+    return m;
+  }
+});
+
+
+/*
 █████ Consumption █████████████████████████████████████████████████████████████*/
 
 
