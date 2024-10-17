@@ -253,10 +253,34 @@ export const Eff = {};
 
 
 /*
-█████ Functor █████████████████████████████████████████████████████████████████*/
+█████ Composition █████████████████████████████████████████████████████████████*/
 
+
+// functor
 
 Eff.comp = (ftor, ftor2) => f => ttx => ftor(ftor2(f)) (ttx);
+
+
+// applicative functor
+
+Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
+
+
+// monads cannot be composed in a general way
+
+// Eff.compM = ???
+
+
+// Kleisli composition
+
+Eff.komp = monad => fm => gm => x => monad(fm(x)) (gm);
+
+
+Eff.kipe = monad => gm => fm => x => monad(fm(x)) (gm);
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
 
 
 // zero, one or several results (indeterministic)
@@ -294,6 +318,12 @@ Eff.either = f => tx => {
 };
 
 
+// defer evaluation with thunks
+
+Eff.defer = f => tx => typeof tx === "function" && tx.length === 0
+  ? f(tx()) : tx;
+
+
 // either exception or valid computation (more restricted than either)
 
 Eff.except = f => tx => tx?.constructor?.name === "Exception"
@@ -307,9 +337,6 @@ Eff.option = f => tx => tx === null ? tx : f(tx);
 
 /*
 █████ Functor :: Applicative ██████████████████████████████████████████████████*/
-
-
-Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
 
 
 Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
@@ -341,6 +368,16 @@ Eff.bottomA = tf => tx => tf === undefined
 
 
 Eff.bottomOf = x => x === null ? _throw("unexpected null") : x;
+
+
+Eff.deferA = tf => tx => typeof tf === "function" && tf.length === 0
+  ? typeof tx === "function" && tx.length === 0
+    ? tf() (tx()) : tf() (tx)
+  : typeof tx === "function" && tx.length === 0
+    ? tf(tx()) : tf(tx);
+
+
+Eff.deferOf = x => () => x;
 
 
 Eff.eitherA = tf => tx => {
@@ -396,14 +433,7 @@ Eff.optionOf = x => x === null ? _throw("unexpected null") : x;
 █████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
 
 
-/* Monads cannot be composed in a general way, i.e. the following combinator
-doesn't work for many monad compositions. */
-
-Eff.compM = (monad, monad2) => mmx => fmm =>
-  monad(mmx) (mx => monad2(mx) (x => fmm(x)));
-
-
-// arrays are no monads in the first place
+// arrays are no monads in the first place (they lack the empty case)
 
 Eff.arrayM = mx => fm =>
   mx?.constructor?.name === "Array" ? mx.flatMap(fm) : fm(mx);
@@ -446,6 +476,10 @@ Eff.bottomM = mx => fm => {
 };
 
 
+Eff.deferM = mx => fm => typeof mx === "function" && mx.length === 0
+    ? fm(mx()) : fm(mx);
+
+
 Eff.eitherM = mx => fm => {
   if (mx?.[TAG] === "Either") {
     switch (mx.either.tag) {
@@ -484,6 +518,11 @@ Eff.arrayT_ = (ftor, ator, of) =>
 
 /*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+// observe the effect of the first monad but discard its value
+
+Eff.seq = monad => mx => my => monad(mx) (_ => my);
 
 
 // fold with effects
@@ -6487,7 +6526,7 @@ export const Num = {}; // namespace
 // expects an ISO number string
 
 Num.fromStr = s => {
-  if (Rex.iso.nums.num.test(s)) return Number(s);
+  if (Rex.iso.numbers.num.test(s)) return Number(s);
   else throw new Err(`invalid number string: "${s}"`);
 };
 
@@ -7994,34 +8033,34 @@ export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 █████ Codesets & Char Classes █████████████████████████████████████████████████*/
 
 
-const ascii = {
+Parser.asciiCodeset = {
   get letter() {
     delete this.letter;
     this.letter = new RegExp(/[a-z]/, "i");
     return this.letter;
   },
 
-  get uc() {
-    delete this.uc;
-    this.uc = new RegExp(/[A-Z]/, "");
-    return this.uc;
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/[A-Z]/, "");
+    return this.ucl;
   },
 
-  get lc() {
-    delete this.lc;
-    this.lc = new RegExp(/[a-z]/, "");
-    return this.lc;
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/[a-z]/, "");
+    return this.lcl;
   },
 
-  get num() {
-    delete this.num;
-    this.num = new RegExp(/[0-9]/, "");
-    return this.num;
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/[0-9]/, "");
+    return this.digit;
   },
 
   get alnum() {
     delete this.alnum;
-    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "");
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
     return this.alnum;
   },
 
@@ -8063,34 +8102,34 @@ const ascii = {
 /* CP1252 (Windows 1252) has the same characaters as latin1 (ISO-8859-1) but
 between 128-159 they are not at the same code points. */
 
-const latin1 = {
+Parser.latin1CodeSet = {
   get letter() {
     delete this.letter;
     this.letter = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
     return this.letter;
   },
 
-  get uc() {
-    delete this.uc;
-    this.uc = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
-    return this.uc;
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
+    return this.ucl;
   },
 
-  get lc() {
-    delete this.lc;
-    this.lc = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
-    return this.lc;
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
+    return this.lcl;
   },
 
-  get num() {
-    delete this.num;
-    this.num = new RegExp(/[0-9]/, "");
-    return this.num;
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/[0-9]/, "");
+    return this.digit;
   },
 
   get alnum() {
     delete this.alnum;
-    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "");
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
     return this.alnum;
   },
 
@@ -8129,34 +8168,34 @@ const latin1 = {
 };
 
 
-const utf8 = {
+Parser.utf8Codeset = {
   get letter() {
     delete this.letter;
     this.letter = new RegExp(/\p{L}/, "u");
     return this.letter;
   },
 
-  get uc() {
-    delete this.uc;
-    this.uc = new RegExp(/\p{Lu}/, "u");
-    return this.uc;
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/\p{Lu}/, "u");
+    return this.ucl;
   },
 
-  get lc() {
-    delete this.lc;
-    this.lc = new RegExp(/\p{Lu}/, "u");
-    return this.lc;
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/\p{Lu}/, "u");
+    return this.lcl;
   },
 
-  get num() {
-    delete this.num;
-    this.num = new RegExp(/\p{N}/, "u");
-    return this.num;
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/\p{N}/, "u");
+    return this.digit;
   },
 
   get alnum() {
     delete this.alnum;
-    this.alnum = new RegExp(`${this.num.source}|${this.letter.source}`, "u");
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "u");
     return this.alnum;
   },
 
@@ -8340,42 +8379,93 @@ Parser.charPrev = c => Parser(ix => {
 });
 
 
-// verify end of input
+Parser.asciiLetter = Parser.satisfy("ASCII letter expected")
+  (c => Parser.asciiCodeset.letter);
 
-Parser.eoi = Parser(ix => {
-  const iy = ix.next();
 
-  if (iy.done) return Parsed.Valid(null, ix);
-  else return Parsed.Invalid(new Exc("no end of input"), ix);
-});
+Parser.asciiLcl = Parser.satisfy("ASCII lower case letter expected")
+  (c => Parser.asciiCodeset.lcl);
+
+
+Parser.asciiUcl = Parser.satisfy("ASCII upper case letter expected")
+  (c => Parser.asciiCodeset.ucl);
+
+
+Parser.asciiDigit = Parser.satisfy("ASCII digit expected")
+  (c => Parser.asciiCodeset.digit);
+
+
+Parser.asciiAlnum = Parser.satisfy("ASCII alphanumeric character expected")
+  (c => Parser.asciiCodeset.alnum);
+
+
+Parser.asciiPunct = Parser.satisfy("ASCII punctuation expected")
+  (c => Parser.asciiCodeset.punct);
+
+
+Parser.asciiSpace = Parser.satisfy("ASCII space character expected")
+  (c => Parser.asciiCodeset.space);
+
+
+Parser.latin1Letter = Parser.satisfy("Latin1 letter expected")
+  (c => Parser.latin1CodeSet.letter);
+
+
+Parser.latin1Lcl = Parser.satisfy("Latin1 lower case letter expected")
+  (c => Parser.latin1CodeSet.lcl);
+
+
+Parser.latin1Ucl = Parser.satisfy("Latin1 upper case letter expected")
+  (c => Parser.latin1CodeSet.ucl);
+
+
+Parser.latin1Digit = Parser.satisfy("Latin1 digit expected")
+  (c => Parser.latin1CodeSet.digit);
+
+
+Parser.latin1Alnum = Parser.satisfy("Latin1 alphanumeric character expected")
+  (c => Parser.latin1CodeSet.alnum);
+
+
+Parser.latin1Punct = Parser.satisfy("Latin1 punctuation expected")
+  (c => Parser.latin1CodeSet.punct);
+
+
+Parser.latin1Space = Parser.satisfy("Latin1 space character expected")
+  (c => Parser.latin1CodeSet.space);
+
+
+Parser.utf8Letter = Parser.satisfy("UTF8 letter expected")
+  (c => Parser.utf8Codeset.letter);
+
+
+Parser.utf8Lcl = Parser.satisfy("UTF8 lower case letter expected")
+  (c => Parser.utf8Codeset.lcl);
+
+
+Parser.utf8Ucl = Parser.satisfy("UTF8 upper case letter expected")
+  (c => Parser.utf8Codeset.ucl);
+
+
+Parser.utf8Digit = Parser.satisfy("UTF8 digit expected")
+  (c => Parser.utf8Codeset.digit);
+
+
+Parser.utf8Alnum = Parser.satisfy("UTF8 alphanumeric character expected")
+  (c => Parser.utf8Codeset.alnum);
+
+
+Parser.utf8Punct = Parser.satisfy("UTF8 punctuation expected")
+  (c => Parser.utf8Codeset.punct);
+
+
+Parser.utf8Space = Parser.satisfy("UTF8 space character expected")
+  (c => Parser.utf8Codeset.space);
 
 
 /*
-takeWhile
-dropWhile
 sepBy (same separator or class of sep)
 nestedIn (probably needs state)
-
-encodings:
-
-ascii
-iso88591
-win1252
-
-char classes:
-
-digit
-letter
-alphaNum
-space
-punct
-control
-digitUtf8
-letterUtf8
-alphaNumUtf8
-spaceUtf8
-punctUtf8
-controlUtf8
 */
 
 
@@ -8681,6 +8771,25 @@ Parser.nth = n => tx => Parser(ix => {
 });
 
 
+// 0..n (dynamic)
+
+Parser.while = Monoid => p => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
+
+  while (true) {
+    o = tx.pr(o.parsed.val[1]);
+
+    if (o.parsed.tag === "invalid") break;
+    else if (!p(o.parsed.val[0])) break;
+    else acc.push(o.parsed.val[0]);
+  }
+
+  return Parsed.Valid(acc.reduce((acc2, v) =>
+    Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
+});
+
+
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
@@ -8825,6 +8934,16 @@ Parser.Monad = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
+// verify end of input
+
+Parser.eoi = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(null, ix);
+  else return Parsed.Invalid(new Exc("no end of input"), ix);
+});
+
+
 /* Replace the next value with a default one, provided the next parser yields
 a valid result. */
 
@@ -8836,20 +8955,22 @@ Parser.ignore = x => tx => Parser(ix => {
 });
 
 
+// either take the next parsed value or a default one, if the parser fails
+
+Parser.optional = x => tx => Parser(ix => {
+  return tx.pr(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+    Invalid: (_, __) => Parsed.Valid(x, ix)
+  })
+});
+
+
 // look ahead or behind depending on the passed parser
 
 Parser.look = tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(null, ix),
     Invalid: (e, _) => Parsed.Invalid(e, ix)
-  })
-});
-
-
-Parser.optional = x => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (_, __) => Parsed.Valid(x, ix)
   })
 });
 
@@ -9007,7 +9128,7 @@ Rex.iso = {
     time8: /^(?<h>\d\d):(?<min>\d\d):(?<s>\d\d)$/
   },
 
-  nums: {
+  numbers: {
     nat: /^(?<sign>\+)?(?<int>[1-9]\d*)$/, // natural numbers
     int: /^(?<sign>\+|\-)?(?<int>[1-9]\d*)$/, // integers
     float: /^(?<sign>\+|\-)?(?<int>\d+)\.(?<frac>\d+)$/, // only floating point numbers
@@ -9028,7 +9149,7 @@ Rex.i18n = {
       dateLong: /^(?<d>\d{1,2})\.? +(?<m>[A-Z][a-zä]+)\.? +(?<y>\d{2,4})$/
     },
 
-    nums : {
+    numbers : {
       num: /^(?<sign>\+|\-)?(?<int>\d+(?:\.\d{3})*),(?<frac>\d+)$/
     },
 
@@ -9527,7 +9648,7 @@ Str.normalizeDate = (locale, century = 20) => s => {
 Str.normalizeNum = locale => s => {
   switch (locale) {
     case "de-DE": {
-      for (const r of O.values(Rex.i18n.deDE.nums)) {
+      for (const r of O.values(Rex.i18n.deDE.numbers)) {
         if (r.test(s)) {
           const rx = s.match(r);
           let decPoint = "";
