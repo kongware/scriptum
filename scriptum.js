@@ -276,9 +276,6 @@ Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
 Eff.komp = monad => fm => gm => x => monad(fm(x)) (gm);
 
 
-Eff.kipe = monad => gm => fm => x => monad(fm(x)) (gm);
-
-
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
@@ -423,6 +420,11 @@ Eff.exceptOf = x => x?.constructor?.name === "Exception"
   ? _throw("unexpected exception") : x;
 
 
+// see list monad below
+
+Eff.listOf = x => [x, []];
+
+
 Eff.optionA = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
 
 
@@ -462,7 +464,7 @@ Eff.arrayM_ = mx => fm => Loop2((acc, i) => {
 
 // can only be the outermost monad in a composition
 
-Eff.async = mx => fm => k => mx(x => fm(x) (k));
+Eff.asyncM = mx => fm => k => mx(x => fm(x) (k));
 
 
 Eff.bottomM = mx => fm => {
@@ -495,7 +497,53 @@ Eff.eitherM = mx => fm => {
 Eff.exceptM = mx => fm => mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
+/* Since single linked lists have a lawful monad instance, arrays can borrow
+their implementation. The derived array monad accepts both normal and nested
+list-like arrays in the form of `[1, [2, [3, []]]]` for convenience. */
+
+Eff.listM = mx => fm => Loop3((acc, step, init) => {
+  if (init === null) init = acc;
+
+  // base cases
+
+  if (step.pair.length === 0) return Loop3.base(init);
+  else if (step.i >= step.pair.length) return Loop3.base(init);
+
+  // list case
+
+  else if (step.pair.length === 2 && Array.isArray(step.pair[1])) {
+    const [head, tail] = fm(step.pair[0]);
+    acc[0] = head;
+    acc[1] = tail;
+    return Loop3.rec(acc[1], {pair: step.pair[1], i: 0}, init);
+  }
+
+  // array case
+
+  else {
+    const [head, tail] = fm(step.pair[step.i]);
+    acc[0] = head;
+    acc[1] = tail;
+    return Loop3.rec(acc[1], {pair: step.pair, i: step.i + 1}, init);
+  }
+}) ([], {pair: mx, i: 0}, null);
+
+
 Eff.optionM = mx => fm => mx === null ? mx : fm(mx);
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+/*const bind = (monad, of) => m => f =>
+  monad(m) (step =>
+    step
+      ? x => m2 => foldr(monad, of) (cons(of)) (m2) (f(x))
+          (step.head)
+            (foldr(monad, of) (x => m2 => foldr(monad, of) (cons(of)) (m2) (f(x))) (nil(of)) (step.tail))
+      : nil(of)
+  );*/
 
 
 /*
@@ -503,7 +551,7 @@ Eff.optionM = mx => fm => mx === null ? mx : fm(mx);
 
 
 // Applicative f => (a -> f b) -> [a] -> f [b]
-Eff.arrayT = (ftor, ator, of) => ft => {
+Eff.arrayTr = (ftor, ator, of) => ft => {
   const liftA = Eff.liftA(ftor, ator);
 
   return A.foldl(acc => x =>
@@ -512,7 +560,7 @@ Eff.arrayT = (ftor, ator, of) => ft => {
 
 
 // Applicative f => [f a] -> f [a]
-Eff.arrayT_ = (ftor, ator, of) =>
+Eff.arrayTr_ = (ftor, ator, of) =>
   A.foldl(Eff.liftA(ftor, ator) (A.push_)) (of([]));
 
 
@@ -1036,17 +1084,17 @@ export const ordering = n => n < 0 ? -1 : n > 0 ? 1 : 0;
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Pattern matching for the poor man with first class switch expressions and
-the advantage of simply returning in each case block instead of having to rely
-on the awkward `break` statement. Usage:
+/* Pattern matching for the poor man with first class switch expressions and a
+default case check. You can simply return in each case block instead of having
+to rely on the awkward `break` statement. Usage:
 
 match(o => {
-  switch(o) {
+  switch(o.tag) {
     case "foo": {return ...}
     case "bar": {return ...}
     default: {return ...}
   }
-}).pattern({...})
+}).pattern({tag: ...})
 
 match(o => {
   switch(typeof o) {
@@ -1054,7 +1102,7 @@ match(o => {
     case "object": {return ...}
     default: {return ...}
   }
-}).pattern({...})
+}).pattern(x => {...})
 
 match(xs => {
   switch(xs.length) {
@@ -1062,9 +1110,15 @@ match(xs => {
     case 2: {return ...}
     default: {return ...}
   }
-}).pattern({...}) */
+}).pattern([...]) */
 
-const match = f => ({pattern: o => f(o)});
+const match = f => ({
+  pattern: o => {
+    const r = f(o);
+    if (r === undefined) throw new Err("missing default case");
+    else return r;
+  }
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3055,6 +3109,8 @@ A.ZipArr.ap = A.ZipArr.ap();
 structural sharing together with consing, i.e. adding elements to the head of
 a list without altering the existing one. */
 
+
+// TODO: convert into nested arrays/pairs
 
 export const List = variant("List") (nullary("Nil"), binary("Cons"));
 
