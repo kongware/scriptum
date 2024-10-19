@@ -93,6 +93,7 @@ export const product = (tag, k = tag[0].toLowerCase() + tag.slice(1)) => (...ks)
 
     [k]: {
       value: ks.reduce((acc, k2, i) => (acc[k2] = vs[i], acc), {}),
+      enumerable: true,
       writable: true
     }
   });
@@ -142,6 +143,7 @@ export const nullary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
             tag: k
           },
 
+          enumerable: true,
           writable: true
         }
       });
@@ -165,6 +167,7 @@ export const unary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
             tag: k
           },
 
+          enumerable: true,
           writable: true
         }
       });
@@ -188,6 +191,7 @@ export const binary = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
             tag: k
           },
 
+          enumerable: true,
           writable: true
         }
       });
@@ -209,6 +213,7 @@ export const binary_ = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => {
             tag: k
           },
 
+          enumerable: true,
           writable: true
         }
       });
@@ -232,6 +237,7 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
             tag: k
           },
 
+          enumerable: true,
           writable: true
         }
       });
@@ -245,11 +251,59 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Handle effects in a dynamically typed environment, i.e. the following types
-aren't lawful functors, applicatives or monads but good enough to be useful. */
+// effectively handle effects in a dynamically typed environment
 
 
 export const Eff = {};
+
+
+/*
+█████ Catamorphisms ███████████████████████████████████████████████████████████*/
+
+
+// get rid of effects
+
+
+Eff.arrayCata = f => acc => xs => xs.reduce(f, acc);
+
+
+Eff.asynxCata = tx => tx(id);
+
+
+Eff.bottomCata = tx => {
+  if (tx === undefined) throw new Err("received undefined");
+  else return tx;
+};
+
+
+Eff.deferCata = thunk => thunk();
+
+
+Eff.eitherCata = tx => tx.either.val
+
+
+Eff.exceptCata = tx => {
+  if (tx?.constructor?.name === "Exception") throw tx;
+  else return tx;
+};
+
+
+Eff.exceptCata_ = x => tx => {
+  if (tx?.constructor?.name === "Exception") return x;
+  else return tx;
+};
+
+
+Eff.lazyCata = tx => tx.lazy;
+
+
+Eff.listCata = () => L.foldl;
+
+
+Eff.optionCata = x => tx => tx === null ? x : tx;
+
+
+Eff.trampCata = tx => Tramp(tx);
 
 
 /*
@@ -266,9 +320,8 @@ Eff.comp = (ftor, ftor2) => f => ttx => ftor(ftor2(f)) (ttx);
 Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
 
 
-// monads cannot be composed in a general way
-
-// Eff.compM = ???
+/* Monads cannot be composed in a general way. Use monad transformers instead
+or implement your own specific monad composition that suits your needs. */
 
 
 // Kleisli composition
@@ -282,16 +335,12 @@ Eff.komp = monad => fm => gm => x => monad(fm(x)) (gm);
 
 // zero, one or several results (indeterministic)
 
-Eff.array = f => xs => xs?.constructor?.name === "Array"
-  ? xs.map(f)
-  : f(xs);
+Eff.array = f => xs => xs.map(f);
 
 
 // asynchronous function (serially evaluated)
 
-Eff.async = f => tf => typeof tf === "function"
-  ? k => tf(x => k(f(x)))
-  : f(tf);
+Eff.async = f => tf => k => tf(x => k(f(x)))
 
 
 // bottom type immediately throws an error to avoid silent errors
@@ -304,21 +353,17 @@ Eff.bottom = f => tx => tx === undefined
 // either arbitrary value or valid computation (used for short circuiting)
 
 Eff.either = f => tx => {
-  if (tx?.[TAG] === "Either") {
-    switch (tx.either.tag) {
-      case "left": return tx;
-      case "right": return Either.Right(f(tx.either.val))
-    }
+  switch (tx.either.tag) {
+    case "left": return tx;
+    case "right": return Either.Right(f(tx.either.val))
+    default: throw new Err("Either expected");
   }
-
-  else return f(tx);
 };
 
 
 // defer evaluation with thunks
 
-Eff.defer = f => tx => typeof tx === "function" && tx.length === 0
-  ? f(tx()) : tx;
+Eff.defer = f => tx => () => f(tx());
 
 
 // either exception or valid computation (more restricted than either)
@@ -327,25 +372,29 @@ Eff.except = f => tx => tx?.constructor?.name === "Exception"
   ? tx : f(tx);
 
 
+// lazy evaluation with thunks (defer + only-once-evaluation)
+
+Eff.lazy = f => tx => Lazy(() => f(tx.lazy));
+
+
 // computations that might not yield a result
 
 Eff.option = f => tx => tx === null ? tx : f(tx);
+
+
+/* Trampoline effect to ensure stack safety. You must wrap the expression into
+a trampoline using `Tramp.bounce`. */
+
+Eff.tramp = f => tx => Eff.trampM(tx) (x => Eff.tampOf(f(x)));
 
 
 /*
 █████ Functor :: Applicative ██████████████████████████████████████████████████*/
 
 
-Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
-
-
-Eff.arrayA = tf => tx => tx?.constructor?.name === "Array"
-  ? tf?.constructor?.name === "Array"
-    ? tx.reduce((acc, x) => tf.reduce((acc2, f) => (acc2.push(f(x)), acc2), acc), [])
-    : tx.map(tf)
-  : tf?.constructor?.name === "Array"
-    ? tf.map(f => f(tx))
-    : tf(tx);
+Eff.arrayA = tf => tx => tx.reduce((acc, x) =>
+  tf.reduce((acc2, f) =>
+    (acc2.push(f(x)), acc2), acc), []);
 
 
 Eff.arrayOf = x => [x];
@@ -367,44 +416,29 @@ Eff.bottomA = tf => tx => tf === undefined
 Eff.bottomOf = x => x === null ? _throw("unexpected null") : x;
 
 
-Eff.deferA = tf => tx => typeof tf === "function" && tf.length === 0
-  ? typeof tx === "function" && tx.length === 0
-    ? tf() (tx()) : tf() (tx)
-  : typeof tx === "function" && tx.length === 0
-    ? tf(tx()) : tf(tx);
+Eff.deferA = tf => tx => () => tf() (tx());
 
 
 Eff.deferOf = x => () => x;
 
 
 Eff.eitherA = tf => tx => {
-  if (tf?.[TAG] === "Either") {
-    if (tx?.[TAG] === "Either") {
-      switch (tf.either.tag) {
-        case "left": return tf;
+  switch (tf.either.tag) {
+    case "left": return tf;
 
-        case "right": {
-          switch (tx.either.tag) {
-            case "left": return tx;
+    case "right": {
+      switch (tx.either.tag) {
+        case "left": return tx;
 
-            case "right": return Either.Right(
-              tf.either.val(tx.either.val));
-          }
-        }
+        case "right": return Either.Right(
+          tf.either.val(tx.either.val));
+
+        default: throw new Err("Either expected");
       }
     }
-  }
 
-  else if (tx?.[TAG] === "Either") {
-    switch (tx.either.tag) {
-      case "left": return tx;
-        
-      case "right": return Either.Right(
-        tf(tx.either.val));
-    }
+    default: throw new Err("Either expected");
   }
-
-  else return tf(tx);
 };
 
 
@@ -416,8 +450,18 @@ Eff.exceptA = tf => tx => tf?.constructor?.name === "Exception" ? tf
   : tf(tx);
 
 
-Eff.exceptOf = x => x?.constructor?.name === "Exception"
-  ? _throw("unexpected exception") : x;
+Eff.exceptOf = x => {
+  if (x?.constructor?.name === "Exception")
+    throw new Err("unexpected exception");
+
+  else return x;
+};
+
+
+Eff.lazyA = tf => tx => Lazy(() => tf.lazy(tx.lazy));
+
+
+Eff.lazyOf = x => Lazy(() => x);
 
 
 // see list monad below
@@ -428,38 +472,48 @@ Eff.listOf = x => [x, []];
 Eff.optionA = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
 
 
-Eff.optionOf = x => x === null ? _throw("unexpected null") : x;
+Eff.optionOf = x => {
+  if (x === null) throw new Err("unexpected null");
+  else return x;
+};
+
+
+Eff.trampA = tf => tx => Eff.trampM(tf) (f =>
+  Eff.trampM(tx) (x => Eff.trampOf(f(x))));
+
+
+Eff.trampOf = () => Tramp.return;
 
 
 /*
 █████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
 
 
-// arrays are no monads in the first place (they lack the empty case)
+// lawless array monad (arrays are no ADTs because they lack the empty case)
 
-Eff.arrayM = mx => fm =>
-  mx?.constructor?.name === "Array" ? mx.flatMap(fm) : fm(mx);
+Eff.arrayM = mx => fm => mx.flatMap(fm);
+
+/*Eff.arrayM = mx => fm => function go(acc, i) {
+  if (i >= mx.length) return acc;
+  else return go(A.pushn(fm(mx[i])) (acc), i + 1);
+} ([], 0);*/
 
 
 // even more lawless array "monad" variant that short circuits
 
-Eff.arrayM_ = mx => fm => Loop2((acc, i) => {
-  if (mx?.constructor?.name === "Array") {
-    if (i >= mx.length) return Loop2.base(acc);
-    
-    else {
-      const my = fm(mx[i]);
+Eff.arrayM_ = mx => fm => function go(acc, i) {
+  if (i >= mx.length) return acc;
+  
+  else {
+    const my = fm(mx[i]);
 
-      if (my?.constructor?.name === "Array")
-        return Loop2.rec(A.pushn(my) (acc), i + 1);
+    if (my?.constructor?.name === "Array")
+      return go(A.pushn(my) (acc), i + 1);
 
-      else return Loop2.base(acc);
-//         ^^^^^^^^^^^^^^^^^^^^^ short circuit
-    }
-  } 
-
-  else return fm(mx);
-}) ([], 0);
+    else return acc;
+//       ^^^^^^^^^^ short circuit
+  }
+} ([], 0);
 
 
 // can only be the outermost monad in a composition
@@ -478,72 +532,80 @@ Eff.bottomM = mx => fm => {
 };
 
 
-Eff.deferM = mx => fm => typeof mx === "function" && mx.length === 0
-    ? fm(mx()) : fm(mx);
+Eff.deferM = mx => fm => () => fm(mx()) ();
 
 
 Eff.eitherM = mx => fm => {
-  if (mx?.[TAG] === "Either") {
-    switch (mx.either.tag) {
-      case "left": return mx;
-      case "right": return fm(mx.either.val);
-    }
+  switch (mx.either.tag) {
+    case "left": return mx;
+    case "right": return fm(mx.either.val);
+    default: throw new Err("Either expected");
   }
-
-  else return fm(mx.either.val);
 };
 
 
 Eff.exceptM = mx => fm => mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
-/* Since single linked lists have a lawful monad instance, arrays can borrow
-their implementation. The derived array monad accepts both normal and nested
-list-like arrays in the form of `[1, [2, [3, []]]]` for convenience. */
+Eff.lazyM = mx => fm => Lazy(() => fm(mx.lazy).lazy);
 
-Eff.listM = mx => fm => Loop3((acc, step, init) => {
-  if (init === null) init = acc;
 
-  // base cases
+// the lawful array monad is the list monad
 
-  if (step.pair.length === 0) return Loop3.base(init);
-  else if (step.i >= step.pair.length) return Loop3.base(init);
-
-  // list case
-
-  else if (step.pair.length === 2 && Array.isArray(step.pair[1])) {
-    const [head, tail] = fm(step.pair[0]);
-    acc[0] = head;
-    acc[1] = tail;
-    return Loop3.rec(acc[1], {pair: step.pair[1], i: 0}, init);
-  }
-
-  // array case
+Eff.listM = mx => fm => function go(acc, my, root = acc) {
+  if (my.length === 0) return root;
 
   else {
-    const [head, tail] = fm(step.pair[step.i]);
+    const [head, tail] = fm(my[0]);
     acc[0] = head;
     acc[1] = tail;
-    return Loop3.rec(acc[1], {pair: step.pair, i: step.i + 1}, init);
+    return go(acc[1], my[1], root);
   }
-}) ([], {pair: mx, i: 0}, null);
+} ([], mx);
 
 
 Eff.optionM = mx => fm => mx === null ? mx : fm(mx);
+
+
+/* Can only be the outermost monad in a composition. Keep in mind that `fm`
+needs to be wrapped in a trampoline using `Tramp.Bounce_`. */
+
+Eff.trampM = mx => fm => {
+  if (mx.constructor === Tramp.bounce)
+    return Tramp.bounce(mx.x) (y => Eff.trampM(mx.f(y)) (fm));
+
+  else if (mx.constructor === Tramp.return) return fm(mx.x);
+  else throw new Err("invalid constructor");
+};
 
 
 /*
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
-/*const bind = (monad, of) => m => f =>
-  monad(m) (step =>
-    step
-      ? x => m2 => foldr(monad, of) (cons(of)) (m2) (f(x))
-          (step.head)
-            (foldr(monad, of) (x => m2 => foldr(monad, of) (cons(of)) (m2) (f(x))) (nil(of)) (step.tail))
-      : nil(of)
-  );*/
+// not a lawful monad transformer, i.e. won't always behave as expected
+
+Eff.arrayT = (outer, outerOf) => mmx => fmm => function go(acc, i) {
+  return outer(mmx) (mx => {
+    if (i >= mx.length) return outerOf(acc);
+    else return outer(fmm(mx[i])) (my => go(A.pushn(my) (acc), i + 1));
+  });
+} ([], 0);
+
+
+// lawful monad transformer
+
+Eff.listT = (outer, outerOf) => mmx => fmm => function go(acc, mmy, root = acc) {
+  return outer(mmy) (my => {
+    if (my.length === 0) return outerOf(root);
+
+    else return outer(fmm(my[0])) (mz => {
+      acc[0] = mz[0];
+      acc[1] = mz[1];
+      return go(acc[1], my[1], root);
+    });
+  });
+} ([], mmx);
 
 
 /*
@@ -568,12 +630,16 @@ Eff.arrayTr_ = (ftor, ator, of) =>
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
+Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
+
+
 // observe the effect of the first monad but discard its value
 
 Eff.seq = monad => mx => my => monad(mx) (_ => my);
 
 
-// fold with effects
+/* Fold with effects, e.g. use with Either to short circuit and keep the already
+computed results. */
 
 // Monad m => (b -> a -> m b) -> b -> [a] -> m b
 Eff.foldM = (monad, of) => fm => init => xs =>
@@ -1139,7 +1205,7 @@ function invocations. */
 export const Loop = f => x => {
   let o = f(x);
 
-  while (o.constructor !== Loop.base) {
+  while (o?.constructor === Loop.rec) {
     switch (o.constructor) {
       case Loop.call: {
         o = o.f(o.x);
@@ -1160,14 +1226,15 @@ export const Loop = f => x => {
     }
   }
 
-  return o.x;
+  if (o?.constructor === Loop.base) return o.x;
+  else return o;
 };
 
 
 export const Loop2 = f => (x, y) => {
   let o = f(x, y);
 
-  while (o.constructor !== Loop2.base) {
+  while (o?.constructor === Loop2.rec) {
     switch (o.constructor) {
       case Loop2.call: {
         o = o.f(o.x, o.y);
@@ -1188,14 +1255,15 @@ export const Loop2 = f => (x, y) => {
     }
   }
 
-  return o.x;
+  if (o?.constructor === Loop2.base) return o.x;
+  else return o;
 };
 
 
 export const Loop3 = f => (x, y, z) => {
   let o = f(x, y, z);
 
-  while (o.constructor !== Loop3.base) {
+  while (o?.constructor === Loop3.rec) {
     switch (o.constructor) {
       case Loop3.call: {
         o = o.f(o.x, o.y, o.z);
@@ -1216,7 +1284,8 @@ export const Loop3 = f => (x, y, z) => {
     }
   }
 
-  return o.x;
+  if (o?.constructor === Loop3.base) return o.x;
+  else return o;
 };
 
 
@@ -2308,6 +2377,12 @@ A.fromKeys = m => {
 };
 
 
+A.fromList = () => L.foldl(acc => x => (acc.push(x), acc)) ([]);
+
+
+A.fromListF = f => L.foldl(acc => x => (acc.push(f(x)), acc)) ([]);
+
+
 A.fromTable = xss => xss.flat();
 
 
@@ -3110,15 +3185,19 @@ structural sharing together with consing, i.e. adding elements to the head of
 a list without altering the existing one. */
 
 
-// TODO: convert into nested arrays/pairs
-
-export const List = variant("List") (nullary("Nil"), binary("Cons"));
+export const List = {}
 
 
 export const L = List;
 
 
-export const Cons_ = tail => head => List.Cons(head) (tail);
+L.cons = head => tail => [head, tail];
+
+
+L.cons_ = tail => head => [head, tail];
+
+
+L.nil = [];
 
 
 /*
@@ -3126,64 +3205,44 @@ export const Cons_ = tail => head => List.Cons(head) (tail);
 
 
 L.fromArr = xs => {
-  let ys = L.Nil;
+  let ys = L.nil;
 
-  for (let i = xs.length - 1; i >= 0; i--) ys = L.Cons(xs[i]) (ys);
+  for (let i = xs.length - 1; i >= 0; i--) ys = [xs[i], ys];
   return ys;
 };
-
-
-L.toArr = () => L.foldl(acc => x => (acc.push(x), acc)) ([]);
 
 
 /*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-L.foldl = f => init => xs => {
-  let acc = init, done = false;
+L.foldl = f => acc => xs => {
+  while (true) {
+    if (xs.length === 0) break;
 
-  do {
-    xs.list.run({
-      get nil() {
-        done = true;
-        return [];
-      },
-
-      cons: head => tail => {
-        acc = f(acc) (x);
-        xs = tail;
-      }
-    });
-  } while (done == false);
+    else {
+      acc = f(acc) (xs[0]);
+      xs = xs[1];
+    }
+  }
 
   return acc;
 };
 
 
-// stack-safe even if `f` is strict in its second argument
+// stack-safe even if the passed function is strict in its second argument
 
 L.foldr = f => acc => Stack(xs => {
-  return xs.list.run({
-    get nil() {return Stack.base(acc)},
-    cons: head => tail => Stack.call(f(head), Stack.rec(tail))
-  });
+  if (xs.length === 0) return Stack.base(acc);
+  else return Stack.call(f(xs[0]), Stack.rec(xs[1]));
 });
 
 
-// stack-safe only if `f` is non-strict in its second argument
+// stack-safe only if the passed function is non-strict in its second argument
 
 L.foldr_ = f => acc => function go(xs) {
-  return xs.list.run({
-    nil: acc,
-    cons: head => tail => f(head) (lazy(() => go(tail)))
-  });
-};
-
-
-L.Foldable = {
-  foldl: L.foldl,
-  foldr: L.foldr
+  if (xs.length === 0) return acc;
+  else return f(xs[0]) (lazy(() => go(xs[1])));
 };
 
 
@@ -3192,26 +3251,26 @@ L.Foldable = {
 
 
 L.mapA = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+  const liftA2_ = liftA2(Applicative) (L.cons_);
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.nil));
 };
 
 
 L.mapA_ = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.Nil));
+  const liftA2_ = liftA2(Applicative) (L.cons_);
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.nil));
 };
 
 
 L.seqA = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+  const liftA2_ = liftA2(Applicative) (L.cons_);
+  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.nil));
 };
 
 
 L.seqA_ = Applicative => {
-  const liftA2_ = liftA2(Applicative) (L.Cons_);
-  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.Nil));
+  const liftA2_ = liftA2(Applicative) (L.cons_);
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.nil));
 };
 
 
@@ -3227,7 +3286,7 @@ L.Traversable = () => ({
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-L.map = f => L.foldr(x => acc => new L.Cons(f(x)) (acc)) (L.Nil);
+L.map = f => L.foldr(x => acc => [f(x), acc]) (L.nil);
 
 
 L.Functor = {map: L.map};
@@ -3250,7 +3309,7 @@ L.Alt = () => ({
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-L.zero = L.Nil;
+L.zero = L.nil;
 
 
 L.Plus = {
@@ -3265,7 +3324,7 @@ L.Plus = {
 
 L.ap = tf => tx =>
   L.foldr(f => acc =>
-    L.append(L.map(f) (tx)) (acc)) (L.Nil) (tf);
+    L.append(L.map(f) (tx)) (acc)) (L.nil) (tf);
 
 
 L.Apply = {
@@ -3278,7 +3337,7 @@ L.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-L.of = x => L.Cons(x) (L.Nil);
+L.of = x => [x, L.nil];
 
 
 L.Applicative = {
@@ -3292,7 +3351,7 @@ L.Applicative = {
 
 
 L.chain = mx => fm => L.foldr(x => acc =>
-  L.append(fm(x)) (acc)) (L.Nil) (mx);
+  L.append(fm(x)) (acc)) (L.nil) (mx);
 
 
 L.Chain = {
@@ -3322,29 +3381,10 @@ L.Monad = {
 
 
 /*
-█████ Logic/Backtracking ██████████████████████████████████████████████████████*/
-
-
-/* Notes:
-
-  * depth/breadth first strategies
-    * BFS is fair but biased for all branches
-    * DFS is unfair for all branches
-  * disjunctions are encoded by Alt/Plus
-  * conjunctions are encoded by Chain
-  * pruning: e.g. stop at the first result
-  * List implements depth first
-  * Logic implements breadth first
-  * DFS adds new tasks at the front of the queue
-  * BFS adds them at the tail of the queue
-  * TODO: implement logict */
-
-
-/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-L.append = flip(L.foldr(L.Cons_));
+L.append = flip(L.foldr(L.cons_));
 
 
 L.Semigroup = {append: L.append};
@@ -3354,7 +3394,7 @@ L.Semigroup = {append: L.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-L.empty = L.Nil;
+L.empty = L.nil;
 
 
 L.Monoid = {
@@ -3367,11 +3407,13 @@ L.Monoid = {
 █████ Unfoldable ██████████████████████████████████████████████████████████████*/
 
 
+// lazy unfold
+
 L.unfold = f => function go(y) {
   const pair = strict(f(y));
 
-  if (pair === null || pair === null) return L.Nil;
-  else return new L.Cons(pair[0], lazy(() => go(pair[1])));
+  if (pair === null) return L.nil;
+  else return new [pair[0], lazy(() => go(pair[1]))];
 };
 
 
@@ -3389,9 +3431,6 @@ L.Alt = L.Alt();
 
 
 L.Traversable = L.Traversable();
-
-
-L.toArr = L.toArr();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -3713,6 +3752,9 @@ Cont.shift = ft => Cont(k => ft(k).cont.run(id));
 
 
 // encode control flow effects in continuation passing style
+
+
+// TODO: bugfix
 
 
 Cont.A = {};
@@ -6153,6 +6195,32 @@ Iit.clear = ix => (ix.prev = null, ix);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ LAZY █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// the value is wrapped in a getter named "val"
+
+export const Lazy = thunk => {
+  return Object.defineProperties({}, {
+    [TAG]: {value: "Lazy"},
+
+    lazy: {
+      get: function lazy() {
+        const r = thunk();
+        delete this.lazy;
+        this.lazy = r;
+        return r;
+      },
+
+      configurable: true,
+      enumerable: true
+    }
+  });
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 █████████████████████████████████████ MAP █████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -6934,11 +7002,13 @@ O.values = function* (o) {
 
 // create lazy property that shares its result
 
-O.lazyProp = k => thunk => o =>
-  Object.defineProperty(o, k, {
+O.lazyProp = k => thunk => o => {
+  return Object.defineProperty(o, k, {
     get() {delete o[k]; return o[k] = thunk()},
     configurable: true,
-    enumerable: true});
+    enumerable: true
+  });
+};
 
 
 O.lazyProps = dtors => o => Object.defineProperties(o, ...dtors);
@@ -7288,7 +7358,7 @@ Opt.cata = x => tx => tx === null ? x : tx;
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Opt.map = f => tx => strict(tx) === null ? null : f(tx);
+Opt.map = f => tx => tx === null ? null : f(tx);
 
 
 Opt.Functor = {map: Opt.map};
@@ -7298,7 +7368,7 @@ Opt.Functor = {map: Opt.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-Opt.alt = tx => ty => strict(tx) === null ? ty : tx;
+Opt.alt = tx => ty => tx === null ? ty : tx;
 
 
 Opt.Alt = {
@@ -7325,8 +7395,8 @@ Opt.Plus = {
 
 
 Opt.ap = tf => tx =>
-  strict(tf) === null ? null
-    : strict(tx) === null ? null
+  tf === null ? null
+    : tx === null ? null
     : tf(tx);
 
 
@@ -7343,7 +7413,7 @@ Opt.Apply = {
 /* Since the type isn't defined as a sum type some imperative introspection is
 required. */
 
-Opt.of = x => strict(x) === null ? _throw("invalid value") : x;
+Opt.of = x => x === null ? _throw("invalid value") : x;
 
 
 Opt.Applicative = {
@@ -7366,7 +7436,7 @@ Opt.Alternative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Opt.chain = mx => fm => strict(mx) === null ? null : fm(mx);
+Opt.chain = mx => fm => mx === null ? null : fm(mx);
 
 
 Opt.Chain = {
@@ -7420,8 +7490,8 @@ Opt.singleton_ = xs => xs.length === 0 ? [] : [xs[xs.length - 1]];
 
 
 Opt.append = Semigroup => tx => ty =>
-  strict(tx) === null ? tx
-    : strict(ty) === null ? tx
+  tx === null ? tx
+    : ty === null ? tx
     : Semigroup.append(tx) (ty);
 
 
@@ -7721,6 +7791,9 @@ P.Monad = {
 
 
 // encode control flow effects in parallel continuation passing style
+
+
+// TODO: bugfix
 
 
 P.A = {};
@@ -8067,8 +8140,8 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Parser combinators meant to be used with idempotent iterators. Look into the
-respetive section on `Iit` to get more information. Parser features:
+/* Stateless parser combinators meant to be used with idempotent iterators. Look
+into the respetive section on `Iit` to get more information. Parser features:
 
 * look ahead
 * look behind
@@ -8076,7 +8149,9 @@ respetive section on `Iit` to get more information. Parser features:
 For the time being parser results are combined using monoids. I don't know if
 this is the optimal approach, though.
 
-TODO: How state can be best incorporated into the implementation isn't clear yet. */
+The type doesn't handle state, because stateful parsing should be the exception.
+If you need state for a specific task, just build a suitable stateful parser
+like with `Parser.nestedIn`. */
 
 
 export const Parser = type("Parser", "pr");
@@ -8519,10 +8594,51 @@ Parser.utf8Space = Parser.satisfy("UTF8 space character expected")
   (c => Parser.utf8Codeset.space);
 
 
-/*
-sepBy (same separator or class of sep)
-nestedIn (probably needs state)
-*/
+// parse nested patterns
+
+Parser.nestedIn = Monoid => (open, close) => Parser(ix => {
+  let acc = Monoid.empty, iy = ix.next(), level = 0;
+  
+  do {
+    if (iy.done) throw new Err("end of input");
+
+    else if (level === 0 && iy.value !== open)
+      return Parsed.Invalid(new Exc(`"${open}" expected`), ix);
+
+    else if (iy.value === open) level++;
+    else if (iy.value === close) level--;
+
+    acc = Monoid.append(acc) (iy.value);
+    if (level > 0) iy = iy.next();
+  } while (level > 0);
+
+  return Parsed.Valid(acc, iy);
+});
+
+
+// parse pattern delimited by one or two separators
+
+Parser.sepBy = Monoid => (left, right = left) => Parser(ix => {
+  let acc = Monoid.empty, iy = ix.next(), initial = true;
+  
+  while (true) {
+    if (iy.done) throw new Err("end of input");
+
+    else if (initial) {
+      if (iy.value !== left)
+        return Parsed.Invalid(new Exc(`"${left}" expected`), ix);
+
+      else initial = false;
+    }
+
+    acc = Monoid.append(acc) (iy.value);
+    
+    if (iy.value === right) break;
+    else iy = ix.next();
+  }
+
+  return Parsed.Valid(acc, iy);
+});
 
 
 /*
@@ -9246,8 +9362,7 @@ invoked several times and thus the corresponding async computation is evaluated
 several times. If you need sharing, provide a function scope in applicative or
 monadic style that provides the only once evaluated expressions.
 
-Exception handling isn't handled by the type. You need to use one of the
-supplied combinators that handle control flow effects. */
+The type doesn't handel exceptions but you need take care of them yourself. */
 
 
 // smart constructor
@@ -9431,6 +9546,9 @@ S.Monad = {
 
 
 // encode control flow effects in serial continuation passing style
+
+
+// TODO: bugfix
 
 
 S.A = {};
@@ -9962,98 +10080,23 @@ of a transformer stack. */
 
 
 export const Trampoline = o => {
-  while (o.constructor === Trampoline.rec) o = o.f(o.x);
+  while (o.constructor === Trampoline.bounce) o = o.f(o.x);
 
-  return o.constructor === Trampoline.base
-    ? o.x
-    : _throw(new Err("invalid constructor"));
+  if (o.constructor === Trampoline.return) return o.x;
+  else return o;
 };
 
 
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
+export const Tramp = Trampoline;
 
 
-Trampoline.map = f => tx =>
-  Trampoline.chain(tx) (x => Trampoline.of(f(x)));
+Tramp.bounce = x => f => ({constructor: Tramp.bounce, f, x});
 
 
-Trampoline.Functor = {map: Trampoline.map};
+Tramp.bounce_ = f => x => ({constructor: Tramp.bounce, f, x});
 
 
-/*
-█████ Functor :: Apply ████████████████████████████████████████████████████████*/
-
-
-Trampoline.ap = tf => tx =>
-  Trampoline.chain(tf) (f =>
-    Trampoline.chain(tx) (x =>
-      Trampoline.of(f(x))));
-
-
-Trampoline.Apply = {
-  ...Trampoline.Functor,
-  ap: Trampoline.ap
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
-
-
-Trampoline.of = () => Trampoline.base;
-
-
-Trampoline.Applicative = {
-  ...Trampoline.Apply,
-  of: Trampoline.of
-};
-
-
-/*
-█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
-
-
-Trampoline.chain = mx => fm =>
-  mx.constructor === Trampoline.rec
-    ? Trampoline.rec(mx.x) (y => Trampoline.chain(mx.f(y)) (fm))
-      : mx.constructor === Trampoline.base ? fm(mx.x)
-      : _throw(new Err("invalid constructor"));
-
-
-Trampoline.Chain = {
-  ...Trampoline.Apply,
-  chain: Trampoline.chain
-};
-
-
-/*
-█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
-
-
-Trampoline.Monad = {
-  ...Trampoline.Applicative,
-  chain: Trampoline.chain
-};
-
-
-/*
-█████ Tags ████████████████████████████████████████████████████████████████████*/
-
-
-Trampoline.rec = x => f =>
-  ({constructor: Trampoline.rec, f, x});
-
-
-Trampoline.base = x =>
-  ({constructor: Trampoline.base, x});
-
-
-/*
-█████ Resolve Deps ████████████████████████████████████████████████████████████*/
-
-
-Trampoline.of = Trampoline.of();
+Tramp.return = x => ({constructor: Tramp.return, x});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10497,11 +10540,20 @@ Yo.lower = tx => tx.yo.run(id);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-█████████████████████████████████ RESOLVE DEP █████████████████████████████████
+████████████████████████████████ RESOLVE DEPS █████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+A.fromList = A.fromList();
+
+
 A.unzip = A.unzip();
+
+
+Eff.listCata = Eff.listCata();
+
+
+Eff.trampOf = Eff.trampOf();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10572,5 +10624,18 @@ export const FileSys = fs => Cons => thisify(o => {
   * add context type (array of arrays)
   * add async iterator machinery
   * add amb function
+
+  * backtacking
+    * depth/breadth first strategies
+      * BFS is fair but biased for all branches
+      * DFS is unfair for all branches
+    * disjunctions are encoded by Alt/Plus
+    * conjunctions are encoded by Chain
+    * pruning: e.g. stop at the first result
+    * List implements depth first
+    * Logic implements breadth first
+    * DFS adds new tasks at the front of the queue
+    * BFS adds them at the tail of the queue
+    * TODO: implement logict
 
 */
