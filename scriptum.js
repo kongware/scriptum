@@ -382,8 +382,8 @@ Eff.lazy = f => tx => Lazy(() => f(tx.lazy));
 Eff.option = f => tx => tx === null ? tx : f(tx);
 
 
-/* Trampoline effect to ensure stack safety. You must wrap the expression into
-a trampoline using `Tramp.bounce`. */
+/* Trampoline effect to ensure stack safety. You must wrap the whole expression
+into a trampoline using `Tramp.bounce` in order for it to work. */
 
 Eff.tramp = f => tx => Eff.trampM(tx) (x => Eff.tampOf(f(x)));
 
@@ -544,7 +544,8 @@ Eff.eitherM = mx => fm => {
 };
 
 
-Eff.exceptM = mx => fm => mx?.constructor?.name === "Exception" ? mx : fm(mx);
+Eff.exceptM = mx => fm =>
+  mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
 Eff.lazyM = mx => fm => Lazy(() => fm(mx.lazy).lazy);
@@ -638,13 +639,26 @@ Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
 Eff.seq = monad => mx => my => monad(mx) (_ => my);
 
 
-/* Fold with effects, e.g. use with Either to short circuit and keep the already
-computed results. */
+/* Fold with effects:
+
+Eff.foldM(Eff.optionM, Eff.optionOf) (acc => x =>
+  x === null ? null : acc + x) (0) ([1, 2, 3, null, 5]); // yields null
+
+Eff.foldM(Eff.eitherM, Eff.eitherOf) (acc => tx =>
+  tx.either.tag === "left"
+    ? Either.Left(acc)
+    : Either.Right(acc + tx.either.val)) (0) ([
+        Either.Right(1),
+        Either.Right(2),
+        Either.Right(3),
+        Either.Left(4),
+        Either.Right(5)])); // yields Left(6)
+*/
 
 // Monad m => (b -> a -> m b) -> b -> [a] -> m b
 Eff.foldM = (monad, of) => fm => init => xs =>
   A.foldr(x => gm => acc =>
-    monad(gm) (fm(acc) (x))) (of) (xs) (init);
+    monad(fm(acc) (x)) (gm)) (of) (xs) (init);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -774,7 +788,7 @@ export const lazy_ = tag => thunk =>
   new Proxy(thunk, new Thunk(tag));
 
 
-// striclty evaluate an expression that might be an implicit thunk
+// evaluate an expression to weak head normal form (WHNF) provided it is a thunk
 
 export const strict = x => {
   if (x && x[THUNK]) return x[DETHUNK];
@@ -2644,6 +2658,22 @@ A.foldr = f => acc => xs => Stack(i => {
 }) (0);
 
 
+// not stack-safe
+
+A.foldr_ = f => acc => xs => function go(i) {
+  if (i === xs.length) return acc;
+  else return f(xs[i]) (go(i + 1));
+} (0);
+
+
+// only stack-safe if `f` is non-strict in its second argument
+
+A._foldr = f => acc => xs => function go(i) {
+  if (i === xs.length) return acc;
+  else return f(xs[i]) (lazy(() => go(i + 1)));
+} (0);
+
+
 A.foldr1 = f => xs => Stack(i => {
   let acc = xs.length === 0
     ? _throw(new Err("empty array")) : xs[0];
@@ -3238,11 +3268,25 @@ L.foldr = f => acc => Stack(xs => {
 });
 
 
-// stack-safe only if the passed function is non-strict in its second argument
+// not stack-safe
 
 L.foldr_ = f => acc => function go(xs) {
   if (xs.length === 0) return acc;
+  else return f(xs[0]) (go(xs[1]));
+};
+
+
+// only stack-safe if `f` is non-strict in its second argument
+
+L._foldr = f => acc => function go(xs) {
+  if (xs.length === 0) return acc;
   else return f(xs[0]) (lazy(() => go(xs[1])));
+};
+
+
+L.Foldable = {
+  foldl: L.foldl,
+  foldr: L.foldr
 };
 
 
@@ -3384,7 +3428,7 @@ L.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-L.append = flip(L.foldr(L.cons_));
+L.append = flip(L.foldr(L.cons));
 
 
 L.Semigroup = {append: L.append};
@@ -4939,6 +4983,134 @@ E.Monoid = {
 E.throwOnErr = tx => {
   if (tx?.constructor?.name === "Exception") throw tx;
   else return tx;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████████ FREE █████████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Of course you wanna be free, who wouldn't? `Free` separates program
+construction from its evaluation. */
+
+
+export const Free = {};
+
+
+/*
+█████ Constructors ████████████████████████████████████████████████████████████*/
+
+
+// (() -> Free a) -> Free a
+Free.thunk = eval_ => ({constructor: Free.thunk, eval: eval_});
+
+
+/*
+█████ Interpretation ██████████████████████████████████████████████████████████*/
+
+
+// Free a -> a
+Free.interpret = expression => {
+  let expr = expression, stack = null;
+
+  while (true) {
+    switch (expr.constructor) {
+      case Free.of: {
+        if (stack === null) return expr.value;
+        expr = stack.fm(expr.value);
+        stack = stack.stack;
+        break;
+      }
+
+      case Free.chain: {
+        stack = { fm: expr.fm, stack };
+        expr = expr.monad;
+        break;
+      }
+
+      // deferring thunks
+
+      case Free.thunk: {
+        expr = expr.eval();
+        break;
+      }
+
+      // lazy evaluated thunks
+
+      case Thunk: {
+        expr = strict(expr);
+        break;
+      }
+
+      default: throw new Err(
+        `unknown constructor "${expr?.constructor?.name}"`);
+    }
+  }
+};
+
+
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+// (a -> b) -> Free a -> Free b
+Free.map = f => mx => Free.chain(mx) (x => Free.of(f(x)));
+
+
+Free.Functor = {map: Free.map};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+// Free (a -> b) -> Free a -> Free b
+Free.ap = mf => mx => Free.chain(mf) (f =>
+  Free.chain(mx) (x => f(t)));
+
+
+Free.Apply = {
+  ...Free.Functor,
+  ap: Free.ap
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+// a -> Free a
+Free.of = value => ({constructor: Free.of, value});
+
+
+Free.Applicative = {
+  ...Free.Apply,
+  of: Free.of
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+// Free a -> (a -> Free b) -> Free b
+Free.chain = mx => fm => ({constructor: Free.chain, monad: mx, fm});
+
+
+Free.Chain = {
+  ...Free.Apply,
+  chain: Free.chain
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Free.Monad = {
+  ...Free.Applicative,
+  chain: Free.chain
 };
 
 
