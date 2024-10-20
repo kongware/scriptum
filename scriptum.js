@@ -251,7 +251,9 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// effectively handle effects in a dynamically typed environment
+/* Effectively handle effects in a dynamically typed environment. The classic
+Reader, Writer and State monad aren't implemented yet, because the don't seem
+that useful in imperative Javasctipt. */
 
 
 export const Eff = {};
@@ -323,13 +325,21 @@ Eff.Fold.except_ = x => tx => {
 };
 
 
-Eff.Fold.lazy = tx => tx.lazy;
+Eff.Fold.lazy = tx => strict(tx);
 
 
 Eff.Fold.list = () => L.foldl;
 
 
+// swallow the null exception
+
 Eff.Fold.option = x => tx => tx === null ? x : tx;
+
+
+Eff.Fold.option_ = tx => {
+  if (tx === null) throw new Err("missing value");
+  else return tx;
+}
 
 
 Eff.Fold.tramp = tx => Tramp(tx);
@@ -339,21 +349,26 @@ Eff.Fold.tramp = tx => Tramp(tx);
 █████ Foldable :: Traversable █████████████████████████████████████████████████*/
 
 
+/* Sequence effects in a mechanistically applicative way. Usage:
+
+Eff.Trav.array(Eff.dict.either)
+  (x => x & 1 === 1 ? Either.Left(x) : Either.Right(x * x))
+    ([2,4,6]); // yields Right([4, 16, 36])
+
+Eff.Trav.array(Eff.dict.either)
+  (x => x & 1 === 1 ? Either.Left(x) : Either.Right(x * x))
+    ([2,5,6]); // yields Left(5) */
+
+
 Eff.Trav = {};
 
 
 // Applicative f => (a -> f b) -> [a] -> f [b]
-Eff.Trav.array = dict => ft => {
-  const liftA = Eff.liftA(dict);
-
-  return Eff.Fold.array(acc => x =>
-    liftA(A.push) (ft(x)) (acc)) (dict.of([]));
-};
+Eff.Trav.array = () => A.mapA;
 
 
 // Applicative f => [f a] -> f [a]
-Eff.Trav.arraySeq = dict =>
-  Eff.Fold.array(Eff.liftA(dict) (A.push_)) (dict.of([]));
+Eff.Trav.arraySeq = () => A.seqA;
 
 
 Eff.Trav.either = dict => ft => tx => {
@@ -377,13 +392,26 @@ Eff.Trav.eitherSeq = dict => ft => tx => {
 };
 
 
-Eff.Trav.option = dict => ft => tx => tx === null ? dict.of(tx) : fm(x);
+Eff.Trav.except = dict => ft => tx =>
+  tx?.constructor?.name === "Exception" ? dict.of(tx) : fm(tx);
+
+
+Eff.Trav.exceptSeq = dict => tx =>
+  tx?.constructor?.name === "Exception" ? dict.of(tx) : tx;
+
+
+// Applicative f => (a -> f b) -> List a -> f (List b)
+Eff.Trav.list = () => L.mapA;
+
+
+// Applicative f => List (f a) -> f (List a)
+Eff.Trav.listSeq = () => L.seqA;
+
+
+Eff.Trav.option = dict => ft => tx => tx === null ? dict.of(tx) : fm(tx);
 
 
 Eff.Trav.optionSeq = dict => tx => tx === null ? dict.of(tx) : tx;
-
-
-// TODO : other types
 
 
 /*
@@ -432,9 +460,9 @@ Eff.F.except = f => tx => tx?.constructor?.name === "Exception"
   ? tx : f(tx);
 
 
-// lazy evaluation with thunks (defer + only-once-evaluation)
+// lazy evaluation with thunks (deferred evaluation + sharing)
 
-Eff.F.lazy = f => tx => Lazy(() => f(tx.lazy));
+Eff.F.lazy = f => tx => lazy(() => f(tx));
 
 
 // computations that might not yield a result
@@ -445,7 +473,7 @@ Eff.F.option = f => tx => tx === null ? tx : f(tx);
 /* Trampoline effect to ensure stack safety. You must wrap the whole expression
 into a trampoline using `Tramp.bounce` in order for it to work. */
 
-Eff.F.tramp = f => tx => Eff.trampM(tx) (x => Eff.tampOf(f(x)));
+Eff.F.tramp = f => tx => Eff.M.tramp(tx) (x => Eff.tampOf(f(x)));
 
 
 /*
@@ -521,10 +549,10 @@ Eff.A.exceptOf = x => {
 };
 
 
-Eff.A.lazy = tf => tx => Lazy(() => tf.lazy(tx.lazy));
+Eff.A.lazy = tf => tx => lazy(() => tf(tx));
 
 
-Eff.A.lazyOf = x => Lazy(() => x);
+Eff.A.lazyOf = x => lazy(() => x);
 
 
 // see list monad below
@@ -541,8 +569,8 @@ Eff.A.optionOf = x => {
 };
 
 
-Eff.A.tramp = tf => tx => Eff.trampM(tf) (f =>
-  Eff.trampM(tx) (x => Eff.trampOf(f(x))));
+Eff.A.tramp = tf => tx => Eff.M.tramp(tf) (f =>
+  Eff.M.tramp(tx) (x => Eff.A.trampOf(f(x))));
 
 
 Eff.A.trampOf = () => Tramp.return;
@@ -598,6 +626,8 @@ Eff.M.bottom = mx => fm => {
 };
 
 
+// can only be the outermost monad in a composition
+
 Eff.M.defer = mx => fm => () => fm(mx()) ();
 
 
@@ -614,7 +644,14 @@ Eff.M.except = mx => fm =>
   mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
-Eff.M.lazy = mx => fm => Lazy(() => fm(mx.lazy).lazy);
+// can only be the outermost monad in a composition
+
+Eff.M.lazy = mx => fm => lazy(() => fm(mx));
+
+
+// stricter version
+
+Eff.M.lazy_ = mx => fm => lazy(() => strict(fm(mx)));
 
 
 // the lawful array monad is the list monad
@@ -634,12 +671,15 @@ Eff.M.list = mx => fm => function go(acc, my, root = acc) {
 Eff.M.option = mx => fm => mx === null ? mx : fm(mx);
 
 
-/* Can only be the outermost monad in a composition. Keep in mind that `fm`
-needs to be wrapped in a trampoline using `Tramp.Bounce_`. */
+/* Can only be the outermost monad in a composition. Usage:
+
+Tramp(Eff.T.array(Eff.dict.tramp)
+  (Eff.A.trampOf(Array(1e6).fill(1)))
+    (Tramp.bounce_(x => Eff.A.trampOf([x + 1]))))); // stack-safe */
 
 Eff.M.tramp = mx => fm => {
   if (mx.constructor === Tramp.bounce)
-    return Tramp.bounce(mx.x) (y => Eff.trampM(mx.f(y)) (fm));
+    return Tramp.bounce(mx.x) (y => Eff.M.tramp(mx.f(y)) (fm));
 
   else if (mx.constructor === Tramp.return) return fm(mx.x);
   else throw new Err("invalid constructor");
@@ -660,10 +700,10 @@ Eff.seq = dict => mx => my => dict.chain(mx) (_ => my);
 
 /* Fold with effects:
 
-Eff.foldM(Eff.optionM, Eff.optionOf) (acc => x =>
+Eff.foldM(Eff.dict.option) (acc => x =>
   x === null ? null : acc + x) (0) ([1, 2, 3, null, 5]); // yields null
 
-Eff.foldM(Eff.eitherM, Eff.eitherOf) (acc => tx =>
+Eff.foldM(Eff.dict.either) (acc => tx =>
   tx.either.tag === "left"
     ? Either.Left(acc)
     : Either.Right(acc + tx.either.val)) (0) ([
@@ -671,8 +711,7 @@ Eff.foldM(Eff.eitherM, Eff.eitherOf) (acc => tx =>
         Either.Right(2),
         Either.Right(3),
         Either.Left(4),
-        Either.Right(5)])); // yields Left(6)
-*/
+        Either.Right(5)]); // yields Left(6) */
 
 // Monad m => (b -> a -> m b) -> b -> [a] -> m b
 Eff.foldM = dict => fm => init => xs =>
@@ -701,6 +740,26 @@ Eff.T.array = dict => mmx => fmm => function go(acc, i) {
 } ([], 0);
 
 
+Eff.T.bottom = dict => mmx => fmm => dict.chain(mmx) (mx => {
+  if (mx === undefined) throw new Err("received undefined");
+  else return fmm(mx);
+});
+
+
+Eff.T.either = dict => mmx => fmm => dict.chain(mmx) (mx => {
+  switch (mx.either.tag) {
+    case "left": return dict.of(mx);
+    case "right": return fmm(mx.either.val);
+  }  
+});
+
+
+Eff.T.except = dict => mmx => fmm => dict.chain(mmx) (mx => {
+  if (mx?.constructor?.name === "Exception") return dict.of(mx);
+  else return fmm(mx);
+});
+
+
 // lawful monad transformer
 
 // Monad m -> m (List a) -> (a -> (List b)) -> (List b)
@@ -715,6 +774,12 @@ Eff.T.list = dict => mmx => fmm => function go(acc, mmy, root = acc) {
     });
   });
 } ([], mmx);
+
+
+Eff.T.option = dict => mmx => fmm => dict.chain(mmx) (mx => {
+  if (mx === null) return dict.of(mx);
+  else return fmm(mx);
+});
 
 
 /*
@@ -735,7 +800,7 @@ Eff.T.Fold.array = dict => fmm => acc => mmx => function go(i) {
 
 // Monad m -> (a -> m b -> m b) -> m b -> m (List a) -> m b
 Eff.T.Fold.list = dict => fmm => acc => function go(mmx) {
-  return dict.chain(mmx) (mx => mx.length === 0 ? acc : f(mx[0]) (go(mx[1])));
+  return dict.chain(mmx) (mx => mx.length === 0 ? acc : fmm(mx[0]) (go(mx[1])));
 };
 
 
@@ -751,9 +816,75 @@ Eff.dict.array = {
   ap: Eff.A.array,
   of: Eff.A.arrayOf,
   chain: Eff.M.array,
-  mapA: Eff.Trav.array,
-  seqA: Eff.Trav.arraySeq,
-  fold: Eff.Fold.array
+  get mapA() {return Eff.Trav.array},
+  get seqA() {return Eff.Trav.arraySeq},
+  get fold() {return Eff.Fold.array}
+};
+
+
+Eff.dict.async = {
+  map: Eff.F.async,
+  ap: Eff.A.async,
+  of: Eff.A.asyncOf,
+  chain: Eff.M.async,
+  mapA: Eff.Trav.async,
+  seqA: Eff.Trav.asyncSeq,
+  fold: Eff.Fold.async
+};
+
+
+Eff.dict.bottom = {
+  map: Eff.F.bottom,
+  ap: Eff.A.bottom,
+  of: Eff.A.bottomOf,
+  chain: Eff.M.bottom,
+  mapA: Eff.Trav.bottom,
+  seqA: Eff.Trav.bottomSeq,
+  fold: Eff.Fold.bottom
+};
+
+
+Eff.dict.defer = {
+  map: Eff.F.defer,
+  ap: Eff.A.defer,
+  of: Eff.A.deferOf,
+  chain: Eff.M.defer,
+  mapA: Eff.Trav.defer,
+  seqA: Eff.Trav.deferSeq,
+  fold: Eff.Fold.defer
+};
+
+
+Eff.dict.either = {
+  map: Eff.F.either,
+  ap: Eff.A.either,
+  of: Eff.A.eitherOf,
+  chain: Eff.M.either,
+  mapA: Eff.Trav.either,
+  seqA: Eff.Trav.eitherSeq,
+  fold: Eff.Fold.either
+};
+
+
+Eff.dict.except = {
+  map: Eff.F.except,
+  ap: Eff.A.except,
+  of: Eff.A.exceptOf,
+  chain: Eff.M.except,
+  mapA: Eff.Trav.except,
+  seqA: Eff.Trav.exceptSeq,
+  fold: Eff.Fold.except
+};
+
+
+Eff.dict.lazy = {
+  map: Eff.F.lazy,
+  ap: Eff.A.lazy,
+  of: Eff.A.lazyOf,
+  chain: Eff.M.lazy,
+  mapA: Eff.Trav.lazy,
+  seqA: Eff.Trav.lazySeq,
+  fold: Eff.Fold.lazy
 };
 
 
@@ -762,9 +893,31 @@ Eff.dict.list = {
   ap: Eff.A.list,
   of: Eff.A.listOf,
   chain: Eff.M.list,
-  mapA: Eff.Trav.list,
-  seqA: Eff.Trav.listSeq,
-  fold: Eff.Fold.list
+  get mapA() {return Eff.Trav.list},
+  get seqA() {return Eff.Trav.listSeq},
+  get fold() {return Eff.Fold.list}
+};
+
+
+Eff.dict.option = {
+  map: Eff.F.option,
+  ap: Eff.A.option,
+  of: Eff.A.optionOf,
+  chain: Eff.M.option,
+  mapA: Eff.Trav.option,
+  seqA: Eff.Trav.optionSeq,
+  fold: Eff.Fold.option
+};
+
+
+Eff.dict.tramp = {
+  map: Eff.F.tramp,
+  ap: Eff.A.tramp,
+  get of() {return Eff.A.trampOf},
+  chain: Eff.M.tramp,
+  mapA: Eff.Trav.tramp,
+  seqA: Eff.Trav.trampSeq,
+  fold: Eff.Fold.tramp
 };
 
 
@@ -898,7 +1051,7 @@ export const lazy_ = tag => thunk =>
 // evaluate an expression to weak head normal form (WHNF) provided it is a thunk
 
 export const strict = x => {
-  if (x && x[THUNK]) return x[DETHUNK];
+  if (x?.[THUNK]) return x[DETHUNK];
   else return x;
 };
 
@@ -927,7 +1080,7 @@ class Thunk {
     // allow implicit thunks to be called explicitly
 
     else if (args.length === 0) return this.memo;
-    else throw Err("call of non-callable thunk");
+    else throw Err("calling a non-callable thunk");
   }
 
   get(f, k, p) {
@@ -940,17 +1093,10 @@ class Thunk {
     // enforce evaluation of a single layer
 
     else if (k === EVAL) {
-      if (this.memo === NULL) {
-        this.memo = f();
-        return this.memo;
-      }
-
-      else if (this.memo && this.memo[THUNK] === true) {
-        this.memo = this.memo[EVAL];
-        return this.memo;
-      }
-
-      else return this.memo;
+      if (this.memo === NULL) this.memo = f();
+      else if (this?.memo?.[THUNK] === true) this.memo = this.memo[EVAL];
+      
+      return this.memo;
     }
 
     // enforce evaluation to WHNF
@@ -960,7 +1106,7 @@ class Thunk {
       return this.memo;
     }
 
-    // avoid evaluation due to tag introspection as far as possible
+    // avoid evaluation due to tag introspection
 
     else if (k === Symbol.toStringTag) {
       if (this.tag === null) {
@@ -976,23 +1122,23 @@ class Thunk {
     else if (k === Symbol.toPrimitive
       || k === "valueOf"
       || k === "toString") {
-        if (this.tag === "Null") throw new Err("implicit type cast on null");
-        else if (this.memo === NULL) evaluate(this, f);
+        if (this.memo === NULL) evaluate(this, f);
         
-        if (Object(this.memo) === this.memo) return this.memo[k];
+        if (this.memo === null) throw new Err("implicit type cast on null");
+        else if (k === "valueOf") return () => this.memo.valueOf();
+        else if (k === "toString") return () => this.memo.toString();
         
-        else if (k === Symbol.toPrimitive) return hint =>
-          hint === "string" ? String(this.memo) : this.memo;
+        else if (k === Symbol.toPrimitive && this.memo?.[k]) 
+          return () => this.memo[k] ();
 
-        else if (k === "valueOf") return () => this.memo;
-        else return () => String(this.memo);
+        else return undefined;
     }
 
     // enforce evaluation to WHNF due to array context
 
     else if (k === Symbol.isConcatSpreadable) {
       if (this.memo === NULL) evaluate(this, f);
-      if (this.memo && this.memo[Symbol.isConcatSpreadable]) return true;
+      if (this.memo?.[Symbol.isConcatSpreadable]) return true;
       else return false;
     }
 
@@ -1008,7 +1154,20 @@ class Thunk {
         && this.memo[k].bind)
           return this.memo[k].bind(this.memo);
 
-      else return this.memo[k];
+      else {
+        const r = this.memo[k];
+
+        if (r?.[THUNK]) {
+          const x = r[DETHUNK];
+          
+          // replace thunk with result value
+
+          this.memo[k] = x;
+          return x;
+        }
+
+        else return r;
+      }
     }
   }
 
@@ -1041,7 +1200,7 @@ class Thunk {
   }
 
   set(o) {
-    throw new Err("set op on immutable value");
+    throw new Err("set operation on immutable value");
   }
 }
 
@@ -1049,19 +1208,17 @@ class Thunk {
 const evaluate = (_this, f) => {
   _this.memo = f();
   
-  while (_this.memo && _this.memo[THUNK] === true)
-    _this.memo = _this.memo[EVAL];
+  while (_this.memo?.[THUNK] === true) _this.memo = _this.memo[EVAL];
+
+  // throw on undefined program state
 
   if (_this.memo === undefined)
     throw new Err("thunk evaluated to undefined");
   
   // enforce tag consistency
 
-  else if (_this.memo
-    && _this.memo[TAG]
-    && _this.memo[TAG] !== _this.tag
-    && _this.tag !== null)
-      throw new Err("tag argument deviates from actual value");
+  else if (_this.tag !== null && _this.memo?.[TAG] !== _this.tag)
+    throw new Err("tag argument deviates from actual value");
 };
 
 
@@ -3905,9 +4062,6 @@ Cont.shift = ft => Cont(k => ft(k).cont.run(id));
 // encode control flow effects in continuation passing style
 
 
-// TODO: bugfix
-
-
 Cont.A = {};
 
 
@@ -5099,7 +5253,28 @@ E.throwOnErr = tx => {
 
 
 /* Of course you wanna be free, who wouldn't? `Free` separates program
-construction from its evaluation. */
+construction from its evaluation. Usage:
+
+// Monad m -> ListT m a
+const nil = dict => dict.of([]);
+
+// Monad m -> a -> ListT m a -> ListT m a
+const cons = dict => head => tail => dict.of([head, tail]);
+
+// Number -> a -> ListT Free a
+const replicate = n => x => n
+  ? cons(Free.Monad) (x) (Free.thunk(() => replicate(n - 1) (x)))
+  : nil(Free.Monad);
+
+// Number -> Free Number -> Free Number
+const add = x => Free.map(y => x + y);
+
+// Free Number
+const tx = Eff.T.Fold.list(Free.Monad) (add)
+  (Free.of(0))
+    (replicate(1000000) (1));
+
+Free.interpret(tx); // yields 1000000 */
 
 
 export const Free = {};
@@ -6471,32 +6646,6 @@ Iit.takeWhile = p => function* (ix) {
 // clear the previous iterator result chain to avoid memeory leakage
 
 Iit.clear = ix => (ix.prev = null, ix);
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-████████████████████████████████████ LAZY █████████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// the value is wrapped in a getter named "val"
-
-export const Lazy = thunk => {
-  return Object.defineProperties({}, {
-    [TAG]: {value: "Lazy"},
-
-    lazy: {
-      get: function lazy() {
-        const r = thunk();
-        delete this.lazy;
-        this.lazy = r;
-        return r;
-      },
-
-      configurable: true,
-      enumerable: true
-    }
-  });
-};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10829,13 +10978,25 @@ A.fromList = A.fromList();
 A.unzip = A.unzip();
 
 
+Eff.A.trampOf = Eff.A.trampOf();
+
+
 Eff.Fold.array = Eff.Fold.array();
 
 
 Eff.Fold.list = Eff.Fold.list();
 
 
-Eff.A.trampOf = Eff.A.trampOf();
+Eff.Trav.array = Eff.Trav.array();
+
+
+Eff.Trav.arraySeq = Eff.Trav.arraySeq();
+
+
+Eff.Trav.list = Eff.Trav.list();
+
+
+Eff.Trav.listSeq = Eff.Trav.listSeq();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
