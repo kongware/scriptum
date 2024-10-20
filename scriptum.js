@@ -557,7 +557,7 @@ Eff.A.lazyOf = x => lazy(() => x);
 
 // see list monad below
 
-Eff.A.listOf = x => [x, []];
+Eff.A.listOf = x => [x, L.nil];
 
 
 Eff.A.option = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
@@ -644,28 +644,26 @@ Eff.M.except = mx => fm =>
   mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
-// can only be the outermost monad in a composition
+/* Can only be the outermost monad in a composition. Usage:
+
+const tx = Eff.T.list(Eff.dict.lazy)
+  (L.fromArr([1,2,3,4,5]))
+    (x => lazy(() => L.of(x * x)));
+
+// result list not evaluated yet
+
+L.take(3) (tx); // evaluates the first three elements and yields 9
+tx[1] [0]; // evaluates nothing due to sharing and yields 4 */
 
 Eff.M.lazy = mx => fm => lazy(() => fm(mx));
 
 
-// stricter version
-
-Eff.M.lazy_ = mx => fm => lazy(() => strict(fm(mx)));
-
-
 // the lawful array monad is the list monad
 
-Eff.M.list = mx => fm => function go(acc, my, root = acc) {
-  if (my.length === 0) return root;
-
-  else {
-    const [head, tail] = fm(my[0]);
-    acc[0] = head;
-    acc[1] = tail;
-    return go(acc[1], my[1], root);
-  }
-} ([], mx);
+Eff.M.list = mx => fm => function go(my) {
+  if (my.length === 0) return L.nil;
+  else return L.append(fm(my[0])) (go(my[1]));
+} (mx);
 
 
 Eff.M.option = mx => fm => mx === null ? mx : fm(mx);
@@ -762,18 +760,19 @@ Eff.T.except = dict => mmx => fmm => dict.chain(mmx) (mx => {
 
 // lawful monad transformer
 
-// Monad m -> m (List a) -> (a -> (List b)) -> (List b)
-Eff.T.list = dict => mmx => fmm => function go(acc, mmy, root = acc) {
-  return dict.chain(mmy) (my => {
-    if (my.length === 0) return dict.of(root);
+Eff.M.list = mx => fm => function go(my) {
+  if (my.length === 0) return L.nil;
+  else return L.append(fm(my[0])) (go(my[1]));
+} (mx);
 
-    else return dict.chain(fmm(my[0])) (mz => {
-      acc[0] = mz[0];
-      acc[1] = mz[1];
-      return go(acc[1], my[1], root);
-    });
+
+// Monad m -> m (List a) -> (a -> (List b)) -> (List b)
+Eff.T.list = dict => mmx => fmm => function go(mmy) {
+  return dict.chain(mmy) (my => {
+    if (my.length === 0) return dict.of(L.nil);
+    else return L.append(fmm(my[0])) (go(my[1]));
   });
-} ([], mmx);
+} (mmx);
 
 
 Eff.T.option = dict => mmx => fmm => dict.chain(mmx) (mx => {
@@ -3726,6 +3725,27 @@ L.unfold = f => function go(y) {
 
 
 L.Unfoldable = {unfold: L.unfold};
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+L.take = n => tx => {
+  let acc = [];
+  const root = acc;
+
+  while (tx.length === 2) {
+    acc[0] = tx[0];
+    acc[1] = [];
+    acc = acc[1];
+
+    if (--n === 0) break;
+    else tx = tx[1];
+  }
+
+  return root;
+};
 
 
 /*
