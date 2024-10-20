@@ -3748,6 +3748,25 @@ L.take = n => tx => {
 };
 
 
+L.takeWhile = p => tx => {
+  let acc = [];
+  const root = acc;
+
+  while (tx.length === 2) {
+    if (!p(tx[0])) break;
+
+    else {
+      acc[0] = tx[0];
+      acc[1] = [];
+      acc = acc[1];
+      tx = tx[1];
+    }
+  }
+
+  return root;
+};
+
+
 /*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
@@ -8959,87 +8978,87 @@ Parser.charPrev = c => Parser(ix => {
 
 
 Parser.asciiLetter = Parser.satisfy("ASCII letter expected")
-  (c => Parser.asciiCodeset.letter);
+  (c => Parser.asciiCodeset.letter.test(c));
 
 
 Parser.asciiLcl = Parser.satisfy("ASCII lower case letter expected")
-  (c => Parser.asciiCodeset.lcl);
+  (c => Parser.asciiCodeset.lcl.test(c));
 
 
 Parser.asciiUcl = Parser.satisfy("ASCII upper case letter expected")
-  (c => Parser.asciiCodeset.ucl);
+  (c => Parser.asciiCodeset.ucl.test(c));
 
 
 Parser.asciiDigit = Parser.satisfy("ASCII digit expected")
-  (c => Parser.asciiCodeset.digit);
+  (c => Parser.asciiCodeset.digit.test(c));
 
 
 Parser.asciiAlnum = Parser.satisfy("ASCII alphanumeric character expected")
-  (c => Parser.asciiCodeset.alnum);
+  (c => Parser.asciiCodeset.alnum.test(c));
 
 
 Parser.asciiPunct = Parser.satisfy("ASCII punctuation expected")
-  (c => Parser.asciiCodeset.punct);
+  (c => Parser.asciiCodeset.punct.test(c));
 
 
 Parser.asciiSpace = Parser.satisfy("ASCII space character expected")
-  (c => Parser.asciiCodeset.space);
+  (c => Parser.asciiCodeset.space.test(c));
 
 
 Parser.latin1Letter = Parser.satisfy("Latin1 letter expected")
-  (c => Parser.latin1CodeSet.letter);
+  (c => Parser.latin1CodeSet.letter.test(c));
 
 
 Parser.latin1Lcl = Parser.satisfy("Latin1 lower case letter expected")
-  (c => Parser.latin1CodeSet.lcl);
+  (c => Parser.latin1CodeSet.lcl.test(c));
 
 
 Parser.latin1Ucl = Parser.satisfy("Latin1 upper case letter expected")
-  (c => Parser.latin1CodeSet.ucl);
+  (c => Parser.latin1CodeSet.ucl.test(c));
 
 
 Parser.latin1Digit = Parser.satisfy("Latin1 digit expected")
-  (c => Parser.latin1CodeSet.digit);
+  (c => Parser.latin1CodeSet.digit.test(c));
 
 
 Parser.latin1Alnum = Parser.satisfy("Latin1 alphanumeric character expected")
-  (c => Parser.latin1CodeSet.alnum);
+  (c => Parser.latin1CodeSet.alnum.test(c));
 
 
 Parser.latin1Punct = Parser.satisfy("Latin1 punctuation expected")
-  (c => Parser.latin1CodeSet.punct);
+  (c => Parser.latin1CodeSet.punct.test(c));
 
 
 Parser.latin1Space = Parser.satisfy("Latin1 space character expected")
-  (c => Parser.latin1CodeSet.space);
+  (c => Parser.latin1CodeSet.space.test(c));
 
 
 Parser.utf8Letter = Parser.satisfy("UTF8 letter expected")
-  (c => Parser.utf8Codeset.letter);
+  (c => Parser.utf8Codeset.letter.test(c));
 
 
 Parser.utf8Lcl = Parser.satisfy("UTF8 lower case letter expected")
-  (c => Parser.utf8Codeset.lcl);
+  (c => Parser.utf8Codeset.lcl.test(c));
 
 
 Parser.utf8Ucl = Parser.satisfy("UTF8 upper case letter expected")
-  (c => Parser.utf8Codeset.ucl);
+  (c => Parser.utf8Codeset.ucl.test(c));
 
 
 Parser.utf8Digit = Parser.satisfy("UTF8 digit expected")
-  (c => Parser.utf8Codeset.digit);
+  (c => Parser.utf8Codeset.digit.test(c));
 
 
 Parser.utf8Alnum = Parser.satisfy("UTF8 alphanumeric character expected")
-  (c => Parser.utf8Codeset.alnum);
+  (c => Parser.utf8Codeset.alnum.test(c));
 
 
 Parser.utf8Punct = Parser.satisfy("UTF8 punctuation expected")
-  (c => Parser.utf8Codeset.punct);
+  (c => Parser.utf8Codeset.punct.test(c));
 
 
 Parser.utf8Space = Parser.satisfy("UTF8 space character expected")
-  (c => Parser.utf8Codeset.space);
+  (c => Parser.utf8Codeset.space.test(c));
 
 
 // parse nested patterns
@@ -9099,13 +9118,13 @@ Parser.sepBy = Monoid => (left, right = left) => Parser(ix => {
 /* Try the first parser and short circuit the second one on success. If it
 fails, try the second parser. Return the accumulated exceptions if both fail. */
 
-Parser.or = tx => ty => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, iy),
+Parser.or = tx => ty => Parser(iw => {
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => Parsed.Valid(v, ix),
 
-    Invalid: (e, _) => ty.pr(ix).parsed.run({
+    Invalid: (e, ix) => ty.pr(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, _) => Parsed.Invalid(Exc.accum(e, e2), ix)
+      Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
     })
   })
 });
@@ -9114,14 +9133,14 @@ Parser.or = tx => ty => Parser(ix => {
 /* Try both parsers and return the first or second exception, if one fails.
 Append both results on success. */
 
-Parser.and = Monoid => tx => ty => Parser(ix => { // aka seq
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => ty.pr(iy).parsed.run({
-      Valid: (v2, iz) => Parsed.Valid(Monoid.append(v) (v2), iz),
-      Invalid: (e2, _) => Parsed.Invalid(e, ix)
+Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => ty.pr(ix).parsed.run({
+      Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
+      Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
 
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Invalid: (e, ix) => Parsed.Invalid(e, ix)
   })
 });
 
@@ -9131,30 +9150,44 @@ or by returning the empty element of the desired monoid. */
 
 Parser.not = Monoid => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
-    Valid: (v, _) => Parsed.Invalid(new Exc(v), ix),
-    Invalid: (e, iy) => Parsed.Valid(Monoid.empty, iy)
+    Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("valid result received"), new Exc(v), ix)),
+    Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
   })
 });
 
 
 // exclusive or, return values wrapped in exception in case both parsers succeed
 
-Parser.xor = tx => ty => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => ty.pr(iy).parsed.run({
-      Valid: (v2, _) => Parsed.Invalid(Exc.accum(new Exc(v), new Exc(v2)), ix),
+Parser.xor = tx => ty => Parser(iw => {
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => ty.pr(ix).parsed.run({
+      Valid: (v2, iy) => Parsed.Invalid(Exc.accum(new Exc("valid/valid results received"), new Exc(v), new Exc(v2)), iw),
       Invalid: (e, iz) => Parsed.Valid(v, iz)
     }),
 
-    Invalid: (e, _) => ty.pr(iy).parsed.run({
-      Valid: (v2, iz) => Parsed.Valid(v, iz),
-      Invalid: (e2, _) => Parsed.Invalid(Exc.accum(e, e2), ix)
+    Invalid: (e, ix) => ty.pr(ix).parsed.run({
+      Valid: (v, iy) => Parsed.Valid(v, iy),
+      Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
     })
   });
 });
 
 
-Parser.xnor // aka iff
+// xnor aka if and only if (iff)
+
+Parser.xnor = Monoid => tx => ty => Parser(iw => {
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => ty.pr(ix).parsed.run({
+      Valid: (v2, iy) => Parsed.Valid(Monoid.append(v) (v2), iy),
+      Invalid: (e, iz) => Parsed.Invalid(Exc.accum(new Exc("valid/invalid results received"), new Exc(v), e), iw)
+    }),
+
+    Invalid: (e, ix) => ty.pr(ix).parsed.run({
+      Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("invalid/valid results received"), e, new Exc(v)), iw),
+      Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz)
+    })
+  });
+});
 
 
 /*
@@ -9166,29 +9199,29 @@ Parser.xnor // aka iff
 
 // 0..n
 
-Parser.min = Monoid => n => tx => Parser(ix => {
+Parser.min = Monoid => n => tx => Parser(iw => {
   const acc = [];
-  let iy = ix;
+  let ix = iw;
 
   while (true) {
     const o = tx.pr(iy).parsed.run({
-      Valid: (v, iz) => Parsed.Valid(v, iz),
-      Invalid: (e, _) => Parsed.Invalid(e, ix)
+      Valid: (v, iy) => Parsed.Valid(v, iy),
+      Invalid: (e, iz) => Parsed.Invalid(e, iz)
     });
 
     if (o.parsed.tag === "invalid") break;
     
     else {
       acc.push(o.parsed.val[0]);
-      iy = o.parsed.val[1];
+      ix = o.parsed.val[1];
     }
   }
 
   if (acc.length < n) return Parsed.Invalid(
-    new Exc(`expected pattern min ${n} times`), ix);
+    new Exc(`pattern less than ${n} times received`), iw);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
+    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
 });
 
 
@@ -9199,29 +9232,29 @@ Parser.min1 = Monoid => Parser.min(Monoid) (1);
 
 // 0..max
 
-Parser.max = Monoid => n => tx => Parser(ix => {
+Parser.max = Monoid => n => tx => Parser(iw => {
   const acc = [];
-  let iy = ix;
+  let ix = iw;
 
   while (acc.length <= n) {
     const o = tx.pr(iy).parsed.run({
-      Valid: (v, iz) => Parsed.Valid(v, iz),
-      Invalid: (e, _) => Parsed.Invalid(e, ix)
+      Valid: (v, iy) => Parsed.Valid(v, iy),
+      Invalid: (e, iz) => Parsed.Invalid(e, iz)
     });
 
     if (o.parsed.tag === "invalid") break;
     
     else {
       acc.push(o.parsed.val[0]);
-      iy = o.parsed.val[1];
+      ix = o.parsed.val[1];
     }
   }
 
   if (acc.length > n) return Parsed.Invalid(
-    new Exc(`expected pattern max ${n} times`), ix);
+    new Exc(`pattern more than ${n} times received`), iw);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), iy);
+    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
 });
 
 
@@ -9236,12 +9269,12 @@ Parser.string = s => Parser(ix => {
   for (let i = 0; i < s.length; i++) {
     o = Parser.char(s[i]).pr(o.parsed.val[1]);
 
-    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
+    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
     else break;
   }
 
   if (acc === s) return Parsed.Valid(acc, o.parsed.val[1]);
-  else return Parsed.Invalid(new Exc(`string "${s}" expected`), ix);
+  else return Parsed.Invalid(new Exc(`"${s}" expected`), ix);
 });
 
 
@@ -9255,7 +9288,7 @@ Parser.times = Semigroup => n => tx => Parser(ix => {
     o = tx.pr(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else return Parsed.Invalid(new Exc(`received pattern less than ${n} times`), ix);
+    else return Parsed.Invalid(new Exc(`pattern less than ${n} times received`), ix);
   }
 
   return Parsed.Valid(acc.reduce((acc2, v) =>
@@ -9275,11 +9308,11 @@ Parser.times_ = Semigroup => n => tx => Parser(ix => {
     if (i < n && o.parsed.tag === "valid") acc + o.parsed.val[0];
     
     else if (i === n && o.parsed.tag === "valid") 
-      return Parsed.Invalid(new Exc(`received pattern less than ${n} times`), ix);
+      return Parsed.Invalid(new Exc(`pattern less than ${n} times received`), ix);
     
     else if (i === n && o.parsed.tag === "invalid") break;
 
-    else return Parsed.Invalid(new Exc(`received pattern more than ${n} times`), ix);
+    else return Parsed.Invalid(new Exc(`pattern more than ${n} times received`), ix);
   }
 
   return Parsed.Valid(acc.reduce((acc2, v) =>
@@ -9289,24 +9322,24 @@ Parser.times_ = Semigroup => n => tx => Parser(ix => {
 
 // 1 (static)
 
-Parser.once = tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => tx.pr(iy).parsed.run({
-      Valid: (_, __) => Parsed.Invalid(new Exc("received pattern more than once"), ix),
-      Invalid: (_, __) => Parsed.Valid(v, iy)
+Parser.once = tx => Parser(iw => {
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => tx.pr(ix).parsed.run({
+      Valid: (v2, iy) => Parsed.Invalid(new Exc("pattern more than once received"), iw),
+      Invalid: (e, iz) => Parsed.Valid(v, ix)
     }),
 
-    Invalid: (_, __) => Parsed.Invalid(new Exc("received pattern not once"), ix),
+    Invalid: (e, ix) => Parsed.Invalid(new Exc("pattern not once received"), ix)
   });
 });
 
 
 // 0 (static)
 
-Parser.none = tx => Parser(ix => {
+Parser.none = Monoid => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
-    Valid: (v, _) => Parsed.Invalid(new Exc("unexpected pattern"), ix),
-    Invalid: (_, __) => Parsed.Valid(null, ix)
+    Valid: (v, iy) => Parsed.Invalid(new Exc("pattern at least once received"), ix),
+    Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
   });
 });
 
@@ -9343,7 +9376,7 @@ Parser.all1 = Semigroup => tx => Parser(ix => {
   }
 
   if (acc.length === 0) return Parsed.Invalid(
-    new Exc("received pattern not once"), ix);
+    new Exc("pattern not once received"), ix);
 
   return Parsed.Valid(acc.reduce((acc2, v) =>
     Semigroup.append(acc2) (v)), o.parsed.val[1]);
@@ -9363,7 +9396,7 @@ Parser.last = tx => Parser(ix => {
   }
 
   if (p === null) return Parsed.Invalid(
-    new Exc("received pattern not once"), ix);
+    new Exc("pattern not once received"), ix);
 
   return Parsed.Valid(p.parsed.val[0], p.parsed.val[1]);
 });
@@ -9384,7 +9417,7 @@ Parser.nth = n => tx => Parser(ix => {
     }
     
     else return Parsed.Invalid(
-      new Exc(`received pattern less than ${n} times`), ix);
+      new Exc(`pattern less than ${n} times received`), ix);
   }
 
   return Parsed.Valid(acc[n].parsed.val[0], acc[n].parsed.val[1]);
@@ -9419,7 +9452,7 @@ Parser.while = Monoid => p => tx => Parser(ix => {
 Parser.map = f => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(f(v), iy),
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
 });
 
@@ -9431,26 +9464,26 @@ Parser.Functor = {map: Parser.map};
 █████ Functor :: Alt ██████████████████████████████████████████████████████████*/
 
 
-// TODO: Parser.alt
+Parser.alt = Parser.or;
 
 
-/*Parser.Alt = () => ({
+Parser.Alt = ({
   ...Parser.Functor,
   alt: Parser.alt
-});*/
+});
 
 
 /*
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-// TODO: Parser.zero
+Parser.zero = Parser.reject("zero reject");
 
 
-/*Parser.Plus = {
+Parser.Plus = {
   ...Parser.Alt,
   zero: Parser.zero
-};*/
+};
 
 
 /*
@@ -9459,14 +9492,14 @@ Parser.Functor = {map: Parser.map};
 
 // lift a binary function into the context of two parsers
 
-Parser.ap = tf => tx => Parser(ix => {
-  return tf.pr(ix).parsed.run({
-    Valid: (f, iy) => tx.pr(iy).parsed.run({
-      Valid: (v, iz) => Parsed.Valid(f(v), iz),
-      Invalid: (e, _) => Parsed.Invalid(e, ix)
+Parser.ap = tf => tx => Parser(iw => {
+  return tf.pr(iw).parsed.run({
+    Valid: (f, ix) => tx.pr(ix).parsed.run({
+      Valid: (v, iy) => Parsed.Valid(f(v), iy),
+      Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
 
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Invalid: (e, ix) => Parsed.Invalid(e, ix)
   })
 });
 
@@ -9509,14 +9542,14 @@ Parser.Chain = {
 /* Conditionally sequence two parsers so that the second parser depends on the
 result value of the first one. */
 
-Parser.chain = tx => fm => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => fm(v).pr(iy).parsed.run({
-      Valid: (v2, iz) => Parsed.Valid(v2, iz),
-      Invalid: (e, _) => Parsed.Invalid(e, ix)
+Parser.chain = Semigroup => tx => fm => Parser(iw => {
+  return tx.pr(iw).parsed.run({
+    Valid: (v, ix) => fm(v).pr(ix).parsed.run({
+      Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
+      Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
 
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Invalid: (e, ix) => Parsed.Invalid(e, ix)
   });
 });
 
@@ -9531,23 +9564,23 @@ Parser.Monad = {
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-// TODO: Parser.append
+Parser.append = Parser.and;
 
 
-// Parser.Semigroup = {append: Parser.append};
+Parser.Semigroup = {append: Parser.append};
 
 
 /*
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-// TODO: Parser.empty
+Parser.empty = Parser.reject("empty reject");
 
 
-/*Parser.Monoid = {
+Parser.Monoid = {
   ...Parser.Semigroup,
   empty: Parser.empty
-};*/
+};
 
 
 /*
@@ -9556,11 +9589,11 @@ Parser.Monad = {
 
 // verify end of input
 
-Parser.eoi = Parser(ix => {
+Parser.eoi = Monoid => Parser(ix => {
   const iy = ix.next();
 
-  if (iy.done) return Parsed.Valid(null, ix);
-  else return Parsed.Invalid(new Exc("no end of input"), ix);
+  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Exc("end of input expected"), ix);
 });
 
 
@@ -9569,8 +9602,8 @@ a valid result. */
 
 Parser.ignore = x => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
-    Valid: (_, iy) => Parsed.Valid(x, iy),
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Valid: (v, iy) => Parsed.Valid(x, iy),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
 });
 
@@ -9580,17 +9613,17 @@ Parser.ignore = x => tx => Parser(ix => {
 Parser.optional = x => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (_, __) => Parsed.Valid(x, ix)
+    Invalid: (e, iz) => Parsed.Valid(x, iz)
   })
 });
 
 
-// look ahead or behind depending on the passed parser
+// look ahead or behind depending on the supplied parser
 
-Parser.look = tx => Parser(ix => {
+Parser.look = Monoid => tx => Parser(ix => {
   return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(null, ix),
-    Invalid: (e, _) => Parsed.Invalid(e, ix)
+    Valid: (v, iy) => Parsed.Valid(Monoid.empty, ix),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
 });
 
