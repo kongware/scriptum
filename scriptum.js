@@ -258,66 +258,18 @@ export const Eff = {};
 
 
 /*
-█████ Catamorphisms ███████████████████████████████████████████████████████████*/
-
-
-// get rid of effects
-
-
-Eff.arrayCata = f => acc => xs => xs.reduce(f, acc);
-
-
-Eff.asynxCata = tx => tx(id);
-
-
-Eff.bottomCata = tx => {
-  if (tx === undefined) throw new Err("received undefined");
-  else return tx;
-};
-
-
-Eff.deferCata = thunk => thunk();
-
-
-Eff.eitherCata = tx => tx.either.val
-
-
-Eff.exceptCata = tx => {
-  if (tx?.constructor?.name === "Exception") throw tx;
-  else return tx;
-};
-
-
-Eff.exceptCata_ = x => tx => {
-  if (tx?.constructor?.name === "Exception") return x;
-  else return tx;
-};
-
-
-Eff.lazyCata = tx => tx.lazy;
-
-
-Eff.listCata = () => L.foldl;
-
-
-Eff.optionCata = x => tx => tx === null ? x : tx;
-
-
-Eff.trampCata = tx => Tramp(tx);
-
-
-/*
 █████ Composition █████████████████████████████████████████████████████████████*/
 
 
 // functor
 
-Eff.comp = (ftor, ftor2) => f => ttx => ftor(ftor2(f)) (ttx);
+Eff.comp = (dict, dict2) => f => ttx => dict.map(dict2.map(f)) (ttx);
 
 
 // applicative functor
 
-Eff.compA = (ftor, ator, ator2) => ttf => ttx => ator(ftor(ator2) (ttf)) (ttx);
+Eff.compA = (dict, dict2) => ttf => ttx =>
+  dict.ap(dict.map(dict2.ap) (ttf)) (ttx);
 
 
 /* Monads cannot be composed in a general way. Use monad transformers instead
@@ -326,33 +278,141 @@ or implement your own specific monad composition that suits your needs. */
 
 // Kleisli composition
 
-Eff.komp = monad => fm => gm => x => monad(fm(x)) (gm);
+Eff.komp = dict => fm => gm => x => dict.chain(fm(x)) (gm);
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+// eliminiate the effect
+
+
+Eff.Fold = {};
+
+
+Eff.Fold.array = () => A.foldl;
+
+
+Eff.Fold.async = tx => tx(id);
+
+
+Eff.Fold.bottom = tx => {
+  if (tx === undefined) throw new Err("received undefined");
+  else return tx;
+};
+
+
+Eff.Fold.defer = thunk => thunk();
+
+
+Eff.Fold.either = tx => tx.either.val
+
+
+Eff.Fold.except = tx => {
+  if (tx?.constructor?.name === "Exception") throw tx;
+  else return tx;
+};
+
+
+// swallow the exception
+
+Eff.Fold.except_ = x => tx => {
+  if (tx?.constructor?.name === "Exception") return x;
+  else return tx;
+};
+
+
+Eff.Fold.lazy = tx => tx.lazy;
+
+
+Eff.Fold.list = () => L.foldl;
+
+
+Eff.Fold.option = x => tx => tx === null ? x : tx;
+
+
+Eff.Fold.tramp = tx => Tramp(tx);
+
+
+/*
+█████ Foldable :: Traversable █████████████████████████████████████████████████*/
+
+
+Eff.Trav = {};
+
+
+// Applicative f => (a -> f b) -> [a] -> f [b]
+Eff.Trav.array = dict => ft => {
+  const liftA = Eff.liftA(dict);
+
+  return Eff.Fold.array(acc => x =>
+    liftA(A.push) (ft(x)) (acc)) (dict.of([]));
+};
+
+
+// Applicative f => [f a] -> f [a]
+Eff.Trav.arraySeq = dict =>
+  Eff.Fold.array(Eff.liftA(dict) (A.push_)) (dict.of([]));
+
+
+Eff.Trav.either = dict => ft => tx => {
+  switch (tx.either.tag) {
+    case "left": return dict.of(tx);
+
+    case "right": return dict.map(x =>
+      Either.Right(x)) (ft(tx.either.val));
+
+    default: throw new Err("Either expected");
+  }
+};
+
+
+Eff.Trav.eitherSeq = dict => ft => tx => {
+  switch (tx.either.tag) {
+    case "left": return dict.map(Either.Left) (tx);
+    case "right": return dict.map(Either.Right) (tx);
+    default: throw new Err("Either expected");
+  }
+};
+
+
+Eff.Trav.option = dict => ft => tx => tx === null ? dict.of(tx) : fm(x);
+
+
+Eff.Trav.optionSeq = dict => tx => tx === null ? dict.of(tx) : tx;
+
+
+// TODO : other types
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
+Eff.F = {};
+
+
 // zero, one or several results (indeterministic)
 
-Eff.array = f => xs => xs.map(f);
+Eff.F.array = f => xs => xs.map(f);
 
 
 // asynchronous function (serially evaluated)
 
-Eff.async = f => tf => k => tf(x => k(f(x)))
+Eff.F.async = f => tf => k => tf(x => k(f(x)))
 
 
 // bottom type immediately throws an error to avoid silent errors
 
-Eff.bottom = f => tx => tx === undefined
+Eff.F.bottom = f => tx => tx === undefined
   ? _throw("received undefined")
   : f(tx);
 
 
 // either arbitrary value or valid computation (used for short circuiting)
 
-Eff.either = f => tx => {
+Eff.F.either = f => tx => {
   switch (tx.either.tag) {
     case "left": return tx;
     case "right": return Either.Right(f(tx.either.val))
@@ -363,66 +423,69 @@ Eff.either = f => tx => {
 
 // defer evaluation with thunks
 
-Eff.defer = f => tx => () => f(tx());
+Eff.F.defer = f => tx => () => f(tx());
 
 
 // either exception or valid computation (more restricted than either)
 
-Eff.except = f => tx => tx?.constructor?.name === "Exception"
+Eff.F.except = f => tx => tx?.constructor?.name === "Exception"
   ? tx : f(tx);
 
 
 // lazy evaluation with thunks (defer + only-once-evaluation)
 
-Eff.lazy = f => tx => Lazy(() => f(tx.lazy));
+Eff.F.lazy = f => tx => Lazy(() => f(tx.lazy));
 
 
 // computations that might not yield a result
 
-Eff.option = f => tx => tx === null ? tx : f(tx);
+Eff.F.option = f => tx => tx === null ? tx : f(tx);
 
 
 /* Trampoline effect to ensure stack safety. You must wrap the whole expression
 into a trampoline using `Tramp.bounce` in order for it to work. */
 
-Eff.tramp = f => tx => Eff.trampM(tx) (x => Eff.tampOf(f(x)));
+Eff.F.tramp = f => tx => Eff.trampM(tx) (x => Eff.tampOf(f(x)));
 
 
 /*
 █████ Functor :: Applicative ██████████████████████████████████████████████████*/
 
 
-Eff.arrayA = tf => tx => tx.reduce((acc, x) =>
+Eff.A = {};
+
+
+Eff.A.array = tf => tx => tx.reduce((acc, x) =>
   tf.reduce((acc2, f) =>
     (acc2.push(f(x)), acc2), acc), []);
 
 
-Eff.arrayOf = x => [x];
+Eff.A.arrayOf = x => [x];
 
 
-Eff.asyncA = tf => tx => k => tf(f => tx(x => k(f(x))))
+Eff.A.async = tf => tx => k => tf(f => tx(x => k(f(x))))
 
 
-Eff.asyncOf = x => k => k(x);
+Eff.A.asyncOf = x => k => k(x);
 
 
-Eff.bottomA = tf => tx => tf === undefined
+Eff.A.bottom = tf => tx => tf === undefined
   ? _throw("received undefined")
   : tx === undefined
     ? _throw("received undefined")
     : tf(tx);
 
 
-Eff.bottomOf = x => x === null ? _throw("unexpected null") : x;
+Eff.A.bottomOf = x => x === null ? _throw("unexpected null") : x;
 
 
-Eff.deferA = tf => tx => () => tf() (tx());
+Eff.A.defer = tf => tx => () => tf() (tx());
 
 
-Eff.deferOf = x => () => x;
+Eff.A.deferOf = x => () => x;
 
 
-Eff.eitherA = tf => tx => {
+Eff.A.either = tf => tx => {
   switch (tf.either.tag) {
     case "left": return tf;
 
@@ -442,15 +505,15 @@ Eff.eitherA = tf => tx => {
 };
 
 
-Eff.eitherOf = x => Either.Right(x);
+Eff.A.eitherOf = x => Either.Right(x);
 
 
-Eff.exceptA = tf => tx => tf?.constructor?.name === "Exception" ? tf
+Eff.A.except = tf => tx => tf?.constructor?.name === "Exception" ? tf
   : tx?.constructor?.name === "Exception" ? tx
   : tf(tx);
 
 
-Eff.exceptOf = x => {
+Eff.A.exceptOf = x => {
   if (x?.constructor?.name === "Exception")
     throw new Err("unexpected exception");
 
@@ -458,40 +521,43 @@ Eff.exceptOf = x => {
 };
 
 
-Eff.lazyA = tf => tx => Lazy(() => tf.lazy(tx.lazy));
+Eff.A.lazy = tf => tx => Lazy(() => tf.lazy(tx.lazy));
 
 
-Eff.lazyOf = x => Lazy(() => x);
+Eff.A.lazyOf = x => Lazy(() => x);
 
 
 // see list monad below
 
-Eff.listOf = x => [x, []];
+Eff.A.listOf = x => [x, []];
 
 
-Eff.optionA = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
+Eff.A.option = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
 
 
-Eff.optionOf = x => {
+Eff.A.optionOf = x => {
   if (x === null) throw new Err("unexpected null");
   else return x;
 };
 
 
-Eff.trampA = tf => tx => Eff.trampM(tf) (f =>
+Eff.A.tramp = tf => tx => Eff.trampM(tf) (f =>
   Eff.trampM(tx) (x => Eff.trampOf(f(x))));
 
 
-Eff.trampOf = () => Tramp.return;
+Eff.A.trampOf = () => Tramp.return;
 
 
 /*
 █████ Functor :: Applicative :: Monad █████████████████████████████████████████*/
 
 
+Eff.M = {};
+
+
 // lawless array monad (arrays are no ADTs because they lack the empty case)
 
-Eff.arrayM = mx => fm => mx.flatMap(fm);
+Eff.M.array = mx => fm => mx.flatMap(fm);
 
 /*Eff.arrayM = mx => fm => function go(acc, i) {
   if (i >= mx.length) return acc;
@@ -501,7 +567,7 @@ Eff.arrayM = mx => fm => mx.flatMap(fm);
 
 // even more lawless array "monad" variant that short circuits
 
-Eff.arrayM_ = mx => fm => function go(acc, i) {
+Eff.M.array_ = mx => fm => function go(acc, i) {
   if (i >= mx.length) return acc;
   
   else {
@@ -518,10 +584,10 @@ Eff.arrayM_ = mx => fm => function go(acc, i) {
 
 // can only be the outermost monad in a composition
 
-Eff.asyncM = mx => fm => k => mx(x => fm(x) (k));
+Eff.M.async = mx => fm => k => mx(x => fm(x) (k));
 
 
-Eff.bottomM = mx => fm => {
+Eff.M.bottom = mx => fm => {
   if (mx === undefined) throw new Err("received undefined");
 
   else {
@@ -532,10 +598,10 @@ Eff.bottomM = mx => fm => {
 };
 
 
-Eff.deferM = mx => fm => () => fm(mx()) ();
+Eff.M.defer = mx => fm => () => fm(mx()) ();
 
 
-Eff.eitherM = mx => fm => {
+Eff.M.either = mx => fm => {
   switch (mx.either.tag) {
     case "left": return mx;
     case "right": return fm(mx.either.val);
@@ -544,16 +610,16 @@ Eff.eitherM = mx => fm => {
 };
 
 
-Eff.exceptM = mx => fm =>
+Eff.M.except = mx => fm =>
   mx?.constructor?.name === "Exception" ? mx : fm(mx);
 
 
-Eff.lazyM = mx => fm => Lazy(() => fm(mx.lazy).lazy);
+Eff.M.lazy = mx => fm => Lazy(() => fm(mx.lazy).lazy);
 
 
 // the lawful array monad is the list monad
 
-Eff.listM = mx => fm => function go(acc, my, root = acc) {
+Eff.M.list = mx => fm => function go(acc, my, root = acc) {
   if (my.length === 0) return root;
 
   else {
@@ -565,13 +631,13 @@ Eff.listM = mx => fm => function go(acc, my, root = acc) {
 } ([], mx);
 
 
-Eff.optionM = mx => fm => mx === null ? mx : fm(mx);
+Eff.M.option = mx => fm => mx === null ? mx : fm(mx);
 
 
 /* Can only be the outermost monad in a composition. Keep in mind that `fm`
 needs to be wrapped in a trampoline using `Tramp.Bounce_`. */
 
-Eff.trampM = mx => fm => {
+Eff.M.tramp = mx => fm => {
   if (mx.constructor === Tramp.bounce)
     return Tramp.bounce(mx.x) (y => Eff.trampM(mx.f(y)) (fm));
 
@@ -581,62 +647,15 @@ Eff.trampM = mx => fm => {
 
 
 /*
-█████ Transformer █████████████████████████████████████████████████████████████*/
-
-
-// not a lawful monad transformer, i.e. won't always behave as expected
-
-Eff.arrayT = (outer, outerOf) => mmx => fmm => function go(acc, i) {
-  return outer(mmx) (mx => {
-    if (i >= mx.length) return outerOf(acc);
-    else return outer(fmm(mx[i])) (my => go(A.pushn(my) (acc), i + 1));
-  });
-} ([], 0);
-
-
-// lawful monad transformer
-
-Eff.listT = (outer, outerOf) => mmx => fmm => function go(acc, mmy, root = acc) {
-  return outer(mmy) (my => {
-    if (my.length === 0) return outerOf(root);
-
-    else return outer(fmm(my[0])) (mz => {
-      acc[0] = mz[0];
-      acc[1] = mz[1];
-      return go(acc[1], my[1], root);
-    });
-  });
-} ([], mmx);
-
-
-/*
-█████ Traversable █████████████████████████████████████████████████████████████*/
-
-
-// Applicative f => (a -> f b) -> [a] -> f [b]
-Eff.arrayTr = (ftor, ator, of) => ft => {
-  const liftA = Eff.liftA(ftor, ator);
-
-  return A.foldl(acc => x =>
-    liftA(A.push) (ft(x)) (acc)) (of([]));
-};
-
-
-// Applicative f => [f a] -> f [a]
-Eff.arrayTr_ = (ftor, ator, of) =>
-  A.foldl(Eff.liftA(ftor, ator) (A.push_)) (of([]));
-
-
-/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Eff.liftA = (ftor, ator) => f => tx => ty => ator(ftor(f) (tx)) (ty);
+Eff.liftA = dict => f => tx => ty => dict.ap(dict.map(f) (tx)) (ty);
 
 
 // observe the effect of the first monad but discard its value
 
-Eff.seq = monad => mx => my => monad(mx) (_ => my);
+Eff.seq = dict => mx => my => dict.chain(mx) (_ => my);
 
 
 /* Fold with effects:
@@ -656,9 +675,97 @@ Eff.foldM(Eff.eitherM, Eff.eitherOf) (acc => tx =>
 */
 
 // Monad m => (b -> a -> m b) -> b -> [a] -> m b
-Eff.foldM = (monad, of) => fm => init => xs =>
+Eff.foldM = dict => fm => init => xs =>
   A.foldr(x => gm => acc =>
-    monad(fm(acc) (x)) (gm)) (of) (xs) (init);
+    dict.chain(fm(acc) (x)) (gm)) (dict.of) (xs) (init);
+
+
+/*
+█████ Transformer █████████████████████████████████████████████████████████████*/
+
+
+// compose monadic effects
+
+
+Eff.T = {};
+
+
+// not a lawful monad transformer, i.e. won't always behave as expected
+
+// Monad m -> m [a] -> (a -> m [b]) -> m [b]
+Eff.T.array = dict => mmx => fmm => function go(acc, i) {
+  return dict.chain(mmx) (mx => {
+    if (i >= mx.length) return dict.of(acc);
+    else return dict.chain(fmm(mx[i])) (my => go(A.pushn(my) (acc), i + 1));
+  });
+} ([], 0);
+
+
+// lawful monad transformer
+
+// Monad m -> m (List a) -> (a -> (List b)) -> (List b)
+Eff.T.list = dict => mmx => fmm => function go(acc, mmy, root = acc) {
+  return dict.chain(mmy) (my => {
+    if (my.length === 0) return dict.of(root);
+
+    else return dict.chain(fmm(my[0])) (mz => {
+      acc[0] = mz[0];
+      acc[1] = mz[1];
+      return go(acc[1], my[1], root);
+    });
+  });
+} ([], mmx);
+
+
+/*
+█████ Transformer :: Foldable █████████████████████████████████████████████████*/
+
+
+// eliminiate the inner effect
+
+
+Eff.T.Fold = {};
+
+
+// Monad m -> (a -> m b -> m b) -> m b -> m [a] -> m b
+Eff.T.Fold.array = dict => fmm => acc => mmx => function go(i) {
+  return dict.chain(mmx) (mx => mx.length === 0 ? acc : f(mx[i]) (go(i + 1)));
+} (0);
+
+
+// Monad m -> (a -> m b -> m b) -> m b -> m (List a) -> m b
+Eff.T.Fold.list = dict => fmm => acc => function go(mmx) {
+  return dict.chain(mmx) (mx => mx.length === 0 ? acc : f(mx[0]) (go(mx[1])));
+};
+
+
+/*
+█████ Type Dictionaries ███████████████████████████████████████████████████████*/
+
+
+Eff.dict = {};
+
+
+Eff.dict.array = {
+  map: Eff.F.array,
+  ap: Eff.A.array,
+  of: Eff.A.arrayOf,
+  chain: Eff.M.array,
+  mapA: Eff.Trav.array,
+  seqA: Eff.Trav.arraySeq,
+  fold: Eff.Fold.array
+};
+
+
+Eff.dict.list = {
+  map: Eff.F.list,
+  ap: Eff.A.list,
+  of: Eff.A.listOf,
+  chain: Eff.M.list,
+  mapA: Eff.Trav.list,
+  seqA: Eff.Trav.listSeq,
+  fold: Eff.Fold.list
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10722,10 +10829,13 @@ A.fromList = A.fromList();
 A.unzip = A.unzip();
 
 
-Eff.listCata = Eff.listCata();
+Eff.Fold.array = Eff.Fold.array();
 
 
-Eff.trampOf = Eff.trampOf();
+Eff.Fold.list = Eff.Fold.list();
+
+
+Eff.A.trampOf = Eff.A.trampOf();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
