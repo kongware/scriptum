@@ -2196,14 +2196,6 @@ F.Contra = () => {contramap: F.contramap};
 █████ Debugging ███████████████████████████████████████████████████████████████*/
 
 
-export const asyncP = f => msecs => x => P(k =>
-  setTimeout(comp(k) (f), msecs, x));
-
-
-export const asyncS = f => msecs => x => S(k =>
-  setTimeout(comp(k) (f), msecs, x));
-
-
 // debug after a (sub-)expression is evaluated
 
 export const debug = expr => {
@@ -3993,7 +3985,8 @@ Const.Functor = {map: Const.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Const.ap = Semigroup => tf => tx => Const(Semigroup.append(tf.const.run) (tx.const.run));
+Const.ap = Semigroup => tf => tx =>
+  Const(Semigroup.append(tf.const) (tx.const));
 
 
 Const.Apply = {
@@ -4020,30 +4013,23 @@ Const.Applicative = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Encode stack-safe continuation passing style using a trampoline to reify
-the control flow. */
+// encode stack-safe continuation passing style using a trampoline
 
 
 export const Cont = type("Cont");
 
 
-Cont.evalCont = tx => tx.cont.run(id);
+Cont.eval = tx => tx.cont(id);
 
 
-Cont.run = f => tx => tx.cont.run(f);
-
-
-Cont.runOnce = f => tx => tx.cont.run(x => {
-  tx.cont.run = () => x;
-  return x;
-});
+Cont.run = f => tx => tx.cont(f);
 
 
 /*
 █████ Binary ██████████████████████████████████████████████████████████████████*/
 
 
-Cont.binary = mx => my => Cont(k => mx.cont.run(x => my.cont.run(y => k(x, y))));
+Cont.binary = mx => my => Cont(k => mx.cont(x => my.cont(y => k(x, y))));
 
 
 /*
@@ -4051,10 +4037,10 @@ Cont.binary = mx => my => Cont(k => mx.cont.run(x => my.cont.run(y => k(x, y))))
 
 
 Cont.comp = f => g => Cont(k => x =>
-  g(x).cont.run(f).cont.run(Cont.Tramp.call_(k)));
+  g(x).cont(f).cont(Cont.Tramp.call_(k)));
 
 
-Cont.id = tx => tx.cont.run(id);
+Cont.id = tx => tx.cont(id);
 
 
 Cont.Category = {
@@ -4068,15 +4054,15 @@ Cont.Category = {
 
 
 // (r -> r) -> Cont r t -> Cont r t
-Cont.mapCont = f => tx => Cont(k => f(tx.cont.run(Cont.Tramp.call_(k))));
+Cont.mapCont = f => tx => Cont(k => f(tx.cont(Cont.Tramp.call_(k))));
 
 
 Cont.pipe = g => f => Cont(k => x =>
-  g(x).cont.run(f).cont.run(Cont.Tramp.call_(k)));
+  g(x).cont(f).cont(Cont.Tramp.call_(k)));
 
 
 // ((s -> r) -> t -> r) -> Cont r t -> Cont r s
-Cont.withCont = f => tx => Cont(k => tx.cont.run(f(Cont.Tramp.call_(k))));
+Cont.withCont = f => tx => Cont(k => tx.cont(f(Cont.Tramp.call_(k))));
 
 
 /*
@@ -4088,10 +4074,10 @@ If you only need pure values just pass the identity monad's type dictionary. */
 
 
 // Cont r r -> Cont s r
-Cont.reset = tx => Cont(k => k(tx.cont.run(id)));
+Cont.reset = tx => Cont(k => k(tx.cont(id)));
 
 // ((t -> r) -> Cont r r) -> Cont r t
-Cont.shift = ft => Cont(k => ft(k).cont.run(id));
+Cont.shift = ft => Cont(k => ft(k).cont(id));
 
 
 /*
@@ -4108,7 +4094,7 @@ Cont.A = {};
 
 Cont.A.foldr = f => init => xs => Cont(k => function go(acc, i) {
   if (i === xs.length) return Cont.Tramp.call(k, acc);
-  else return f(xs[i]) (acc).cont.run(acc2 => Cont.Tramp.call2(go, acc2, i + 1));
+  else return f(xs[i]) (acc).cont(acc2 => Cont.Tramp.call2(go, acc2, i + 1));
 } (init, 0));
 
 
@@ -4116,7 +4102,7 @@ Cont.A.chain = xs => fm => Cont(k => {
   return Cont.A.foldr(x => acc => Cont(k2 => {
     acc.push.apply(acc, fm(x));
     return Cont.Tramp.call(k2, acc);
-  })) ([]) (xs).cont.run(id).map(k);
+  })) ([]) (xs).cont(id).map(k);
 });
 
 
@@ -4219,7 +4205,7 @@ Cont.Writer.of = Monoid => x => Cont(k =>
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Cont.map = f => tx => Cont(k => tx.cont.run(x => Cont.Tramp.call(k, f(x))));
+Cont.map = f => tx => Cont(k => tx.cont(x => Cont.Tramp.call(k, f(x))));
 
 
 Cont.Functor = {map: Cont.map};
@@ -4230,7 +4216,7 @@ Cont.Functor = {map: Cont.map};
 
 
 Cont.ap = tf => tx => Cont(k =>
-  tf.cont.run(f => tx.cont.run(x => Cont.Tramp.call(k, f(x)))));
+  tf.cont(f => tx.cont(x => Cont.Tramp.call(k, f(x)))));
 
 
 Cont.Apply = {
@@ -4261,7 +4247,7 @@ a CPS function (the next computation yielding another continuation) and feed
 the CPS function into the previous continuation as soon as the next continuation
 is provided. */
 
-Cont.chain = mx => fm => Cont(k => mx.cont.run(x => fm(x).cont.run(Cont.Tramp.call_(k))));
+Cont.chain = mx => fm => Cont(k => mx.cont(x => fm(x).cont(Cont.Tramp.call_(k))));
 
 
 Cont.Chain = {
@@ -4294,19 +4280,19 @@ Cont.lift2 = f => x => y => Cont(k => k(f(x) (y)));
 █████ Monadic █████████████████████████████████████████████████████████████████*/
 
 
-Cont.join = mmx => Cont(mmx.cont.run(id));
+Cont.join = mmx => Cont(mmx.cont(id));
 
 
 // sequence two monads and ignore the first value
 
 Cont.then = mx => my => Cont(k =>
-  Cont.Tramp.call(k, Cont.ap(Cont.map(_ => y => y) (mx)) (my).cont.run(id)));
+  Cont.Tramp.call(k, Cont.ap(Cont.map(_ => y => y) (mx)) (my).cont(id)));
 
 
 // sequence two monads and ignore the second value
 
 Cont.then_ = mx => my => Cont(k =>
-  Cont.Tramp.call(k, Cont.ap(Cont.map(x => _ => x) (mx)) (my).cont.run(id)));
+  Cont.Tramp.call(k, Cont.ap(Cont.map(x => _ => x) (mx)) (my).cont(id)));
 
 
 /*
@@ -4314,7 +4300,7 @@ Cont.then_ = mx => my => Cont(k =>
 
 
 Cont.dimap = h => g => f => Cont(k =>
-  x => h(x).cont.run(f).cont.run(g).cont.run(Cont.Tramp.call_(k)));
+  x => h(x).cont(f).cont(g).cont(Cont.Tramp.call_(k)));
 
 
 Cont.lmap = Cont.pipe;
@@ -4336,7 +4322,7 @@ Cont.Profunctor = {
 
 
 Cont.append = Semigroup => tx => ty => Cont(k =>
-  tx.cont.run(x => ty.cont.run(y => Cont.Tramp.call(k, Semigroup.append(x) (y)))));
+  tx.cont(x => ty.cont(y => Cont.Tramp.call(k, Semigroup.append(x) (y)))));
 
 
 Cont.Semigroup = {append: Cont.append};
@@ -4365,9 +4351,9 @@ Cont.abrupt = x => Cont(k => x);
 /* Short circuit mechanism (unwinds the whole stack). Usage:
 
   Cont.callcc(shortCircuit => Cont.chain(shortCircuit(0))
-    (x => Cont.of(x * x))).cont.run(x => x); */
+    (x => Cont.of(x * x))).cont(x => x); */
 
-Cont.callcc = f => Cont(k => f(x => Cont(_ => k(x))).cont.run(k));
+Cont.callcc = f => Cont(k => f(x => Cont(_ => k(x))).cont(k));
 
 
 /*
@@ -4432,7 +4418,7 @@ Cont.Tramp.call2_ = function call2_(f) {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Cont.get = tx => Cont(k => Cont.Tramp.call(k, tx.cont.run));
+Cont.get = tx => Cont(k => Cont.Tramp.call(k, tx.cont));
 
 
 Cont.reify = k => x => Cont(_ => k(x));
@@ -5450,7 +5436,7 @@ export const Id = type("Id");
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Id.map = f => tx => Id(f(tx.id.run));
+Id.map = f => tx => Id(f(tx.id));
 
 
 Id.Functor = {map: Id.map};
@@ -5460,7 +5446,7 @@ Id.Functor = {map: Id.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Id.ap = tf => tx => Id(tf.id.run(tx.id.run));
+Id.ap = tf => tx => Id(tf.id(tx.id));
 
 
 Id.Apply = {
@@ -5486,7 +5472,7 @@ Id.Applicative = {
 █████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
 
 
-Id.chain = mx => fm => fm(mx.id.run);
+Id.chain = mx => fm => fm(mx.id);
 
 
 Id.Chain = {
@@ -7534,7 +7520,7 @@ Ob.fromPormise = p => Ob(observer =>
 
 
 Ob.map = f => tx => Ob(observer =>
-  tx.ob.run({
+  tx.ob({
     next: x => observer.next(f(x)),
     error: e => observer.error(e),
     done: y => observer.done(y)
@@ -7550,8 +7536,8 @@ Ob.Functor = {map: Ob.map};
 
 
 Ob.ap = tf => tx => Ob(observer =>
-  tf.ob.run({
-    next: f => tx.ob.run({
+  tf.ob({
+    next: f => tx.ob({
       next: x => observer.next(f(x)),
       error: e2 => observer.error(e2),
       done: y => observer.done(y)
@@ -7597,9 +7583,9 @@ Ob.Alternative = {
 
 
 Ob.chain = tx => fm => Ob(observer =>
-  tx.ob.run({
+  tx.ob({
     next: x => {
-      return fm(x).ob.run({
+      return fm(x).ob({
         next: x2 => observer.next(x2),
         error: e2 => observer.error(e2),
         done: y2 => observer.done(y2)
@@ -7632,7 +7618,7 @@ Ob.Monad = {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-Ob.subscribe = observer => observable => observable.ob.run(observer);
+Ob.subscribe = observer => observable => observable.ob(observer);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7687,13 +7673,13 @@ export const Optic = type("Optic", "opt");
 // reconstruct the data structure with the specified modifications
 
 Optic.defocus = tx =>
-  tx.parent === null ? tx : Optic.defocus(tx.parent(tx.opt.run));
+  tx.parent === null ? tx : Optic.defocus(tx.parent(tx.opt));
 
 
 // only reconstructs a single layer
 
 Optic.defocus1 = tx =>
-  tx.parent === null ? tx : tx.parent(tx.opt.run);
+  tx.parent === null ? tx : tx.parent(tx.opt);
 
 
 /*
@@ -7703,22 +7689,22 @@ Optic.defocus1 = tx =>
 // set a composable focus on a sub element of a data structure
 
 Optic.focus = (getter, setter) => tx => Optic(
-  getter(tx.opt.run),
-  x => Optic(setter(x) (tx.opt.run), tx.parent));
+  getter(tx.opt),
+  x => Optic(setter(x) (tx.opt), tx.parent));
 
 
 // try to focus on the specified element or use a default value
 
 Optic.tryFocus = x => (getter, setter) => tx => Optic(
-  tx.opt.run === null ? getter(x) : getter(tx.opt.run),
-  y => Optic(setter(y) (tx.opt.run === null ? y : tx.opt.run), tx.parent));
+  tx.opt === null ? getter(x) : getter(tx.opt),
+  y => Optic(setter(y) (tx.opt === null ? y : tx.opt), tx.parent));
 
 
 /*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Optic.map = f => tx => Optic(f(tx.opt.run), tx.parent);
+Optic.map = f => tx => Optic(f(tx.opt), tx.parent);
 
 
 Optic.Functor = {map: Optic.map};
@@ -7732,10 +7718,10 @@ Optic.Functor = {map: Optic.map};
 regarding which object propert is to be updated with the final result value. */
 
 
-Optic.ap = tf => tx => Optic(tf.opt.run(tx.opt.run), tf.parent); // left-biased
+Optic.ap = tf => tx => Optic(tf.opt(tx.opt), tf.parent); // left-biased
 
 
-Optic.ap_ = tf => tx => Optic(tf.opt.run(tx.opt.run), tx.parent); // right-biased
+Optic.ap_ = tf => tx => Optic(tf.opt(tx.opt), tx.parent); // right-biased
 
 
 Optic.Apply = {
@@ -7765,8 +7751,8 @@ Optic.Applicative = {
 one. Dunno whether this is meaningful in any way. */
 
 Optic.chain = mx => fm => {
-  const my = fm(mx.opt.run);
-  return Optic(my.opt.run, mx);
+  const my = fm(mx.opt);
+  return Optic(my.opt, mx);
 }
 
 
@@ -7795,13 +7781,13 @@ is skipped because it doesn't need a lambda in the first place. */
 
 
 Optic.add = Semigroup => x => tx =>
-  Optic(Semigroup.append(tx.opt.run) (x), tx.parent);
+  Optic(Semigroup.append(tx.opt) (x), tx.parent);
 
 
 Optic.set = x => tx => Optic(x, tx.parent);
 
 
-Optic.upd = f => tx => Optic(f(tx.opt.run), tx.parent);
+Optic.upd = f => tx => Optic(f(tx.opt), tx.parent);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8004,26 +7990,9 @@ comprehensive information. */
 
 export const Parallel = k => {
   const o = {
-    run: k,
+    par: k,
 
-    get runOnce() { // may cause race conditions
-      delete this.runOnce;
-
-      Object.defineProperty(this, "runOnce", {
-        get() {throw new Err("race condition")},
-        configurable: true,
-        enumerable: true
-      });
-      
-      return f => k(x => {
-        const r = f(x);
-        delete this.runOnce;
-        this.runOnce = _ => f(x);
-        return r;
-      });
-    },
-
-    runSafe: f => { // stack-safe
+    parSafe: f => { // stack-safe
       if (asyncCounter > 100) {
         asyncCounter = 0;
         return Promise.resolve(null).then(_ => k(f));
@@ -8048,10 +8017,10 @@ export const P = Parallel; // shortcut
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-P.comp = f => g => P(k => x => g(x).opt.run(f).run(k));
+P.comp = f => g => P(k => x => g(x).opt.par(f).par(k));
 
 
-P.id = tx => tx.run(id);
+P.id = tx => tx.par(id);
 
 
 P.Category = {
@@ -8065,24 +8034,22 @@ P.Category = {
 
 
 // (r -> r) -> P r t -> P r t
-P.mapCont = f => tx => P(k => f(tx.run(k)));
+P.mapCont = f => tx => P(k => f(tx.par(k)));
 
 
 P.pipe = g => f => P(k => x =>
-  g(x).run(f).run(k));
+  g(x).par(f).par(k));
 
 
 // ((s -> r) -> t -> r) -> P r t -> P r s
-P.withCont = f => tx => P(k => tx.run(f(k)));
+P.withCont = f => tx => P(k => tx.par(f(k)));
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-// not strictly necessary but rather for better clarity
-
-P.fromSerial = tx => P(tx.run);
+P.fromSerial = tx => P(tx.ser);
 
 
 /*
@@ -8095,7 +8062,7 @@ P.and = tx => ty => {
     let i = 0;
 
     return [tx, ty].map((tz, j) => {
-      return tz.run(z => {
+      return tz.par(z => {
         if (i < 2) {
           if (pair[j] === undefined) {
             pair[j] = z;
@@ -8130,7 +8097,7 @@ P.allObj = o => {
     let i = 0;
 
     return keys.map((key, j) => {
-      return o[key].run(x => {
+      return o[key].par(x => {
         if (i < keys.length) {
           if (xs[j] === undefined) {
             p[key] = x;
@@ -8150,6 +8117,13 @@ P.allObj = o => {
 
 
 /*
+█████ Debugging ███████████████████████████████████████████████████████████████*/
+
+
+P.async = f => msecs => x => P(k => setTimeout(comp(k) (f), msecs, x));
+
+
+/*
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -8158,7 +8132,7 @@ P.or = tx => ty => {
     let done = false;
 
     return [tx, ty].map(tz => {
-      return tz.run(z => {
+      return tz.par(z => {
         if (!done) {
           done = true;
           return k(z);
@@ -8189,7 +8163,7 @@ P.anyObj = o =>
 
 
 P.map = f => tx =>
-  P(k => tx.run(x => k(f(x))));
+  P(k => tx.par(x => k(f(x))));
 
 
 P.Functor = {map: P.map};
@@ -8200,7 +8174,7 @@ P.Functor = {map: P.map};
 
 
 P.ap = tf => tx => P(k =>
-  P.and(tf) (tx).run(([f, x]) =>
+  P.and(tf) (tx).par(([f, x]) =>
     k(f(x))));
 
 
@@ -8231,7 +8205,7 @@ P.Applicative = {
 
 
 P.chain = mx => fm =>
-  P(k => mx.run(x => fm(x).run(k)));
+  P(k => mx.par(x => fm(x).par(k)));
 
 
 P.Chain = {
@@ -8270,7 +8244,7 @@ P.A = {};
 
 P.A.foldr = f => init => xs => P(k => function go(acc, i) {
   if (i === xs.length) return k(acc);
-  else return f(xs[i]) (acc).run(acc2 => go(acc2, i + 1));
+  else return f(xs[i]) (acc).par(acc2 => go(acc2, i + 1));
 } (init, 0));
 
 
@@ -8278,7 +8252,7 @@ P.A.chain = xs => fm => P(k => {
   return P.A.foldr(x => acc => P(k2 => {
     acc.push.apply(acc, fm(x));
     return k2(acc);
-  })) ([]) (xs).run(id).map(k);
+  })) ([]) (xs).par(id).map(k);
 });
 
 
@@ -8340,7 +8314,7 @@ P.Option.default = ({none, some}) => x => P(k =>
 █████ Profunctor ██████████████████████████████████████████████████████████████*/
 
 
-P.dimap = h => g => f => P(k => x => h(x).run(f).run(g).run(k));
+P.dimap = h => g => f => P(k => x => h(x).par(f).par(g).par(k));
 
 
 P.lmap = P.pipe;
@@ -8362,7 +8336,7 @@ P.Profunctor = {
 
 
 P.append = Semigroup => tx => ty => P(k =>
-  P.and(tx) (ty).run(([x, y]) =>
+  P.and(tx) (ty).par(([x, y]) =>
     k(Semigroup.append(x) (y))));
 
 
@@ -9644,10 +9618,10 @@ export const Pred = type("Pred");
 
 
 Pred.iff = tx => ty => Pred(x => {
-  if (tx.run(x) === true && ty.run(x) === true)
+  if (tx.pred(x) === true && ty.pred(x) === true)
     return true;
 
-  else if (tx.run(x) === false && ty.run(x) === false)
+  else if (tx.pred(x) === false && ty.pred(x) === false)
     return true;
 
   else return false;
@@ -9655,14 +9629,14 @@ Pred.iff = tx => ty => Pred(x => {
 
 
 Pred.imply = tx => ty => Pred(x => {
-  if (tx.run(x) === true && ty.run(x) !== true)
+  if (tx.pred(x) === true && ty.pred(x) !== true)
     return false;
 
   else return true;
 });
 
 
-Pred.not = tx => Pred(x => !tx.run(x));
+Pred.not = tx => Pred(x => !tx.pred(x));
 
 
 /*
@@ -9671,13 +9645,13 @@ Pred.not = tx => Pred(x => !tx.run(x));
 
 Pred.all = xs => Pred(x => {
   for (const tx of xs)
-    if (tx.run(x) === false) return false;
+    if (tx.pred(x) === false) return false;
 
   return true;
 });
 
 
-Pred.and = tx => ty => Pred(x => tx.run(x) && ty.run(x));
+Pred.and = tx => ty => Pred(x => tx.pred(x) && ty.pred(x));
 
 
 /*
@@ -9696,13 +9670,13 @@ Pred.else = x => false;
 
 Pred.any = preds => Pred(x => {
   for (const tx of xs)
-    if (tx.run(x) === true) return true;
+    if (tx.pred(x) === true) return true;
 
   return false;
 });
 
 
-Pred.or = tx => ty => Pred(x => tx.run(x) || ty.run(x));
+Pred.or = tx => ty => Pred(x => tx.pred(x) || ty.pred(x));
 
 
 /*
@@ -9850,26 +9824,11 @@ The type doesn't handel exceptions but you need take care of them yourself. */
 
 export const Serial = k => {
   const o = {
-    run: k,
+    ser: k,
 
-    get runOnce() { // may cause race conditions
-      delete this.runOnce;
+    // stack-safe
 
-      Object.defineProperty(this, "runOnce", {
-        get() {throw new Err("race condition")},
-        configurable: true,
-        enumerable: true
-      });
-      
-      return f => k(x => {
-        const r = f(x);
-        delete this.runOnce;
-        this.runOnce = _ => f(x);
-        return r;
-      });
-    },
-
-    runSafe: f => { // stack-safe
+    serSafe: f => {
       if (asyncCounter > 100) {
         asyncCounter = 0;
         return Promise.resolve(null).then(_ => k(f));
@@ -9894,10 +9853,10 @@ export const S = Serial; // shortcut
 █████ Category ████████████████████████████████████████████████████████████████*/
 
 
-S.comp = f => g => S(k => x => g(x).run(f).run(k));
+S.comp = f => g => S(k => x => g(x).ser(f).ser(k));
 
 
-S.id = tx => tx.run(id);
+S.id = tx => tx.ser(id);
 
 
 S.Category = {
@@ -9911,24 +9870,22 @@ S.Category = {
 
 
 // (r -> r) -> S r t -> S r t
-S.mapCont = f => tx => S(k => f(tx.run(k)));
+S.mapCont = f => tx => S(k => f(tx.ser(k)));
 
 
 S.pipe = g => f => S(k => x =>
-  g(x).run(f).run(k));
+  g(x).ser(f).ser(k));
 
 
 // ((s -> r) -> t -> r) -> S r t -> S r s
-S.withCont = f => tx => S(k => tx.run(f(k)));
+S.withCont = f => tx => S(k => tx.ser(f(k)));
 
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-// not strictly necessary but rather for better clarity
-
-S.fromParallel = tx => S(tx.run);
+S.fromParallel = tx => S(tx.par);
 
 
 /*
@@ -9937,8 +9894,8 @@ S.fromParallel = tx => S(tx.run);
 
 S.and = tx => ty =>
   S(k =>
-    tx.run(x =>
-      ty.run(y =>
+    tx.ser(x =>
+      ty.ser(y =>
         k(Pair(x, y)))));
 
 
@@ -9952,11 +9909,18 @@ S.allArr = () =>
 S.allObj = o => {
   return Object.keys(o).reduce((acc, key) => {
     return S(k =>
-      acc.run(p =>
-        o[key].run(x =>
+      acc.ser(p =>
+        o[key].ser(x =>
           k((p[key] = x, p)))));
   }, S.of({}));
 };
+
+
+/*
+█████ Debugging ███████████████████████████████████████████████████████████████*/
+
+
+S.async = f => msecs => x => S(k => setTimeout(comp(k) (f), msecs, x));
 
 
 /*
@@ -9964,7 +9928,7 @@ S.allObj = o => {
 
 
 S.map = f => tx =>
-  S(k => tx.run(x => k(f(x))));
+  S(k => tx.ser(x => k(f(x))));
 
 
 S.Functor = {map: S.map};
@@ -9975,7 +9939,7 @@ S.Functor = {map: S.map};
 
 
 S.ap = tf => tx => S(k =>
-  S.and(tf) (tx).run(([f, x]) =>
+  S.and(tf) (tx).ser(([f, x]) =>
     k(f(x))));
 
 
@@ -10003,7 +9967,7 @@ S.Applicative = {
 
 
 S.chain = mx => fm =>
-  S(k => mx.run(x => fm(x).run(k)));
+  S(k => mx.ser(x => fm(x).ser(k)));
 
 
 S.Chain = {
@@ -10039,7 +10003,7 @@ S.A = {};
 
 S.A.foldr = f => init => xs => S(k => function go(acc, i) {
   if (i === xs.length) return k(acc);
-  else return f(xs[i]) (acc).run(acc2 => go(acc2, i + 1));
+  else return f(xs[i]) (acc).ser(acc2 => go(acc2, i + 1));
 } (init, 0));
 
 
@@ -10047,7 +10011,7 @@ S.A.chain = xs => fm => S(k => {
   return S.A.foldr(x => acc => S(k2 => {
     acc.push.apply(acc, fm(x));
     return k2(acc);
-  })) ([]) (xs).run(id).map(k);
+  })) ([]) (xs).ser(id).map(k);
 });
 
 
@@ -10109,7 +10073,7 @@ S.Option.default = ({none, some}) => x => S(k =>
 █████ Profunctor ██████████████████████████████████████████████████████████████*/
 
 
-S.dimap = h => g => f => S(k => x => h(x).run(f).run(g).run(k));
+S.dimap = h => g => f => S(k => x => h(x).ser(f).ser(g).ser(k));
 
 
 S.lmap = S.pipe;
@@ -10131,7 +10095,7 @@ S.Profunctor = {
 
 
 S.append = Semigroup => tx => ty => S(k =>
-  S.and(tx) (ty).run(([x, y]) =>
+  S.and(tx) (ty).ser(([x, y]) =>
     k(Semigroup.append(x) (y))));
 
 
@@ -10954,7 +10918,7 @@ export const Yo = Yoneda; // shortcut
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-Yo.map = f => tx => Yo(g => tx.yo.run(comp(g) (f)));
+Yo.map = f => tx => Yo(g => tx.yo(comp(g) (f)));
 
 
 Yo.Functor = {map: Yo.map};
@@ -10964,7 +10928,7 @@ Yo.Functor = {map: Yo.map};
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-Yo.ap = Apply => tf => tx => Yo(f => Apply.ap(tf.yo.run(comp(f))) (tx.yo.run(id)));
+Yo.ap = Apply => tf => tx => Yo(f => Apply.ap(tf.yo(comp(f))) (tx.yo(id)));
 
 
 Yo.Apply = {
@@ -10991,7 +10955,7 @@ Yo.Applicative = {
 
 
 Yo.chain = Chain => mx => fm =>
-  Yo(f => Chain.chain(mx.yo.run(id)) (x => fm(x).yo.run(f)));
+  Yo(f => Chain.chain(mx.yo(id)) (x => fm(x).yo(f)));
     
 
 Yo.Chain = {
@@ -11017,7 +10981,7 @@ Yo.Monad = {
 Yo.lift = Functor => tx => Yo(f => Functor.map(f) (tx));
 
 
-Yo.lower = tx => tx.yo.run(id);
+Yo.lower = tx => tx.yo(id);
 
 
 /*█████████████████████████████████████████████████████████████████████████████
