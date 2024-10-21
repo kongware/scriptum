@@ -685,39 +685,6 @@ Eff.M.tramp = mx => fm => {
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-Eff.liftA = dict => f => tx => ty => dict.ap(dict.map(f) (tx)) (ty);
-
-
-// observe the effect of the first monad but discard its value
-
-Eff.seq = dict => mx => my => dict.chain(mx) (_ => my);
-
-
-/* Fold with effects:
-
-Eff.foldM(Eff.dict.option) (acc => x =>
-  x === null ? null : acc + x) (0) ([1, 2, 3, null, 5]); // yields null
-
-Eff.foldM(Eff.dict.either) (acc => tx =>
-  tx.either.tag === "left"
-    ? Either.Left(acc)
-    : Either.Right(acc + tx.either.val)) (0) ([
-        Either.Right(1),
-        Either.Right(2),
-        Either.Right(3),
-        Either.Left(4),
-        Either.Right(5)]); // yields Left(6) */
-
-// Monad m => (b -> a -> m b) -> b -> [a] -> m b
-Eff.foldM = dict => fm => init => xs =>
-  A.foldr(x => gm => acc =>
-    dict.chain(fm(acc) (x)) (gm)) (dict.of) (xs) (init);
-
-
-/*
 █████ Transformer █████████████████████████████████████████████████████████████*/
 
 
@@ -801,6 +768,49 @@ Eff.T.Fold.array = dict => fmm => acc => mmx => function go(i) {
 Eff.T.Fold.list = dict => fmm => acc => function go(mmx) {
   return dict.chain(mmx) (mx => mx.length === 0 ? acc : fmm(mx[0]) (go(mx[1])));
 };
+
+
+/*
+█████ Type Class Operations ███████████████████████████████████████████████████*/
+
+
+Eff.liftA = dict => f => tx => ty => dict.ap(dict.map(f) (tx)) (ty);
+
+
+// map the effect but discard the result
+
+Eff.mapEff = dict => x => dict.map(_ => x);
+
+
+// applicative map but discard the second result
+
+Eff.apEff1 = dict => tx => ty => dict.ap(dict.map(_const) (tx)) (ty);
+
+
+// applicative map but discard the first result
+
+Eff.apEff2 = dict => tx => ty => dict.ap(dict.map(const_) (tx)) (ty);
+
+
+/* Fold with effects:
+
+Eff.foldM(Eff.dict.option) (acc => x =>
+  x === null ? null : acc + x) (0) ([1, 2, 3, null, 5]); // yields null
+
+Eff.foldM(Eff.dict.either) (acc => tx =>
+  tx.either.tag === "left"
+    ? Either.Left(acc)
+    : Either.Right(acc + tx.either.val)) (0) ([
+        Either.Right(1),
+        Either.Right(2),
+        Either.Right(3),
+        Either.Left(4),
+        Either.Right(5)]); // yields Left(6) */
+
+// Monad m => (b -> a -> m b) -> b -> [a] -> m b
+Eff.foldM = dict => fm => init => xs =>
+  A.foldr(x => gm => acc =>
+    dict.chain(fm(acc) (x)) (gm)) (dict.of) (xs) (init);
 
 
 /*
@@ -4229,6 +4239,19 @@ Cont.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
+// applicative map but discard the second result
+
+
+Cont.apEff1 = tx => ty => Cont(k =>
+  Cont.Tramp.call(k, Cont.ap(Cont.map(_const) (tx)) (ty)));
+
+
+// applicative map but discard the first result
+
+Cont.apEff2 = tx => ty => Cont(k =>
+  Cont.Tramp.call(k, Cont.ap(Cont.map(const_) (tx)) (ty)));
+
+
 Cont.of = x => Cont(k => Cont.Tramp.call(k, x));
 
 
@@ -4260,6 +4283,9 @@ Cont.Chain = {
 █████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
 
 
+Cont.join = mmx => Cont(mmx.cont(id));
+
+
 Cont.Monad = {
   ...Cont.Applicative,
   chain: Cont.chain
@@ -4274,25 +4300,6 @@ Cont.lift = f => x => Cont(k => k(f(x)));
 
 
 Cont.lift2 = f => x => y => Cont(k => k(f(x) (y)));
-
-
-/*
-█████ Monadic █████████████████████████████████████████████████████████████████*/
-
-
-Cont.join = mmx => Cont(mmx.cont(id));
-
-
-// sequence two monads and ignore the first value
-
-Cont.then = mx => my => Cont(k =>
-  Cont.Tramp.call(k, Cont.ap(Cont.map(_ => y => y) (mx)) (my).cont(id)));
-
-
-// sequence two monads and ignore the second value
-
-Cont.then_ = mx => my => Cont(k =>
-  Cont.Tramp.call(k, Cont.ap(Cont.map(x => _ => x) (mx)) (my).cont(id)));
 
 
 /*
@@ -4367,8 +4374,8 @@ Cont.Tramp = {};
 
 // strictly call the deferred function call tree
 
-Cont.Tramp.continuous = tx => {
-  while (tx && tx.tag === "call") {
+Cont.Tramp.pogo = tx => {
+  while (tx?.tag === "call") {
     tx = tx.f(tx.x);
   }
 
@@ -4379,7 +4386,7 @@ Cont.Tramp.continuous = tx => {
 // non-strictly call the deferred function call tree
 
 Cont.Tramp.step = function* interpret_(tx) {
-  while (tx && tx.tag === "call") {
+  while (tx?.tag === "call") {
     yield tx.x;
     tx = tx.f(tx.x);
   }
@@ -5075,36 +5082,6 @@ export const E = Except; // shortcut
 
 
 E.cata = x => tx => tx?.constructor?.name === "Exception" ? x : tx;
-
-
-/*
-█████ Exceptions ██████████████████████████████████████████████████████████████*/
-
-
-E.mapEx = f => tx => {
-  const xs = [];
-
-  do {
-    xs.unshift(f(tx));
-    tx = tx.prev
-  } while (tx !== null);
-
-  return xs;
-};
-
-
-// perform effects but discard results
-
-E.mapEffEx = f => tx => {
-  let  ty = tx;
-
-  do {
-    f(ty);
-    ty = ty.prev
-  } while (ty !== null);
-
-  return tx;
-};
 
 
 /*
