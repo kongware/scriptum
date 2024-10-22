@@ -251,9 +251,7 @@ export const variadic = (_case, k = _case[0].toLowerCase() + _case.slice(1)) => 
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Effectively handle effects in a dynamically typed environment. The classic
-Reader, Writer and State monad aren't implemented yet, because the don't seem
-that useful in imperative Javasctipt. */
+// effectively handle effects in a dynamically typed environment
 
 
 export const Eff = {};
@@ -317,29 +315,13 @@ Eff.Fold.except = tx => {
 };
 
 
-// swallow the exception
-
-Eff.Fold.except_ = x => tx => {
-  if (tx?.constructor?.name === "Exception") return x;
-  else return tx;
-};
-
-
 Eff.Fold.lazy = tx => strict(tx);
 
 
 Eff.Fold.list = () => L.foldl;
 
 
-// swallow the null exception
-
 Eff.Fold.option = x => tx => tx === null ? x : tx;
-
-
-Eff.Fold.option_ = tx => {
-  if (tx === null) throw new Err("missing value");
-  else return tx;
-}
 
 
 Eff.Fold.tramp = tx => Tramp(tx);
@@ -470,10 +452,25 @@ Eff.F.lazy = f => tx => lazy(() => f(tx));
 Eff.F.option = f => tx => tx === null ? tx : f(tx);
 
 
+// implicit argument
+
+Eff.F.reader = f => tx => r => f(tx(r));
+
+
+// stateful computation
+
+Eff.F.state = f => tx => s => _let(tx(s)).in(([x, s2]) => [f(x), s2]);
+
+
 /* Trampoline effect to ensure stack safety. You must wrap the whole expression
 into a trampoline using `Tramp.bounce` in order for it to work. */
 
 Eff.F.tramp = f => tx => Eff.M.tramp(tx) (x => Eff.tampOf(f(x)));
+
+
+// logging
+
+Eff.F.writer = f => ([x, w]) => [f(x), w];
 
 
 /*
@@ -569,11 +566,30 @@ Eff.A.optionOf = x => {
 };
 
 
+Eff.A.reader = tf => tx => r => tf(r) (tx(r));
+
+
+Eff.A.readerOf = x => _ => x;
+
+
 Eff.A.tramp = tf => tx => Eff.M.tramp(tf) (f =>
   Eff.M.tramp(tx) (x => Eff.A.trampOf(f(x))));
 
 
+Eff.A.state = tf => tx => s => _let(tf(s)).in(([f, s2]) =>
+  _let(tx(s2)).in(([x, s3]) => [f(x), s3]));
+
+
+Eff.A.stateOf = x => s => [x, s];
+
+
 Eff.A.trampOf = () => Tramp.return;
+
+
+Eff.A.writer = dict => ([f, w]) => ([x, w2]) => [f(x), dict.append(w) (w2)];
+
+
+Eff.A.writerOf = dict => x => [x, dict.empty];
 
 
 /*
@@ -669,6 +685,12 @@ Eff.M.list = mx => fm => function go(my) {
 Eff.M.option = mx => fm => mx === null ? mx : fm(mx);
 
 
+Eff.M.reader = mx => fm => r => fm(mx(r)) (r);
+
+
+Eff.M.state = mx => fm => s => _let(mx(s)).in(([x, s2]) => fm(x) (s2));
+
+
 /* Can only be the outermost monad in a composition. Usage:
 
 Tramp(Eff.T.array(Eff.dict.tramp)
@@ -682,6 +704,10 @@ Eff.M.tramp = mx => fm => {
   else if (mx.constructor === Tramp.return) return fm(mx.x);
   else throw new Err("invalid constructor");
 };
+
+
+Eff.M.writer = dict => ([x, w]) => fm => 
+  _let(f(x)).in(([y, w2]) => [y, dict.append(w, w2)]);
 
 
 /*
@@ -771,7 +797,7 @@ Eff.T.Fold.list = dict => fmm => acc => function go(mmx) {
 
 
 /*
-█████ Type Class Operations ███████████████████████████████████████████████████*/
+█████ Type Class Ops ██████████████████████████████████████████████████████████*/
 
 
 Eff.liftA = dict => f => tx => ty => dict.ap(dict.map(f) (tx)) (ty);
@@ -811,6 +837,28 @@ Eff.foldM(Eff.dict.either) (acc => tx =>
 Eff.foldM = dict => fm => init => xs =>
   A.foldr(x => gm => acc =>
     dict.chain(fm(acc) (x)) (gm)) (dict.of) (xs) (init);
+
+
+// exception
+
+Eff.except = {};
+
+
+Eff.except.catch = x => tx => {
+  if (tx?.constructor?.name === "Exception") return x;
+  else return tx;
+};
+
+
+// option
+
+Eff.option = {};
+
+
+Eff.option.throw = tx => {
+  if (tx === null) throw new Err("missing value");
+  else return tx;
+};
 
 
 /*
@@ -4026,6 +4074,9 @@ Const.Applicative = {
 // encode stack-safe continuation passing style using a trampoline
 
 
+// TODO: remove trampoline at less expensive combinators
+
+
 export const Cont = type("Cont");
 
 
@@ -4088,127 +4139,6 @@ Cont.reset = tx => Cont(k => k(tx.cont(id)));
 
 // ((t -> r) -> Cont r r) -> Cont r t
 Cont.shift = ft => Cont(k => ft(k).cont(id));
-
-
-/*
-█████ Effects █████████████████████████████████████████████████████████████████*/
-
-
-// encode control flow effects in continuation passing style
-
-
-Cont.A = {};
-
-
-// intedetministic computation
-
-Cont.A.foldr = f => init => xs => Cont(k => function go(acc, i) {
-  if (i === xs.length) return Cont.Tramp.call(k, acc);
-  else return f(xs[i]) (acc).cont(acc2 => Cont.Tramp.call2(go, acc2, i + 1));
-} (init, 0));
-
-
-Cont.A.chain = xs => fm => Cont(k => {
-  return Cont.A.foldr(x => acc => Cont(k2 => {
-    acc.push.apply(acc, fm(x));
-    return Cont.Tramp.call(k2, acc);
-  })) ([]) (xs).cont(id).map(k);
-});
-
-
-Cont.A.of = x => Cont(k => [k(x)]);
-
-
-Cont.Except = {};
-
-
-// computation that may cause an exception
-
-Cont.Except.except = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? fail(x) : Cont.Tramp.call(k, succeed(x)));
-
-
-Cont.Except.chain = mx => fm => Cont(k => intro(mx) === "Error" ? mx : fm(mx));
-
-
-Cont.Except.of = ({fail, succeed}) => x => Cont(k => Cont.Tramp.call(k, succeed(x)));
-
-
-// computation that may cause an exception and catches it
-
-Cont.Except.tryCatch = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error"
-    ? Cont.Tramp.call(k, fail(x))
-    : Cont.Tramp.call(k, succeed(x)));
-
-
-// computation that may cause an exception and immediately terminate the program
-
-Cont.Except.tryThrow = ({fail, succeed}) => x => Cont(k =>
-  intro(x) === "Error" ? _throw(x) : Cont.Tramp.call(k, succeed(x)));
-
-
-Cont.Option = {};
-
-
-// computation that may not yield a result
-
-Cont.Option.option = ({none, some}) => x => Cont(k =>
-  x === null ? none : Cont.Tramp.call(k, some(x)));
-
-
-Cont.Option.chain = ({none, some}) => mx => fm => Cont(k =>
-  mx === null ? none : Cont.Tramp.call(k, fm(mx)));
-
-
-Cont.Option.of = ({none, some}) => x => Cont(k => Cont.Tramp.call(k, some(x)));
-
-
-// computation that may not yield a result but a default value
-
-Cont.Option.default = ({none, some}) => x => Cont(k =>
-  x === null ? Cont.Tramp.call(k, none) : Cont.Tramp.call(k, some(x)));
-
-
-// compututation with arguments implicitly threaded through function invocations
-
-
-Cont.Reader = {};
-
-
-Cont.Reader.chain = mx => fm => Cont(k => e =>
-  mx(y => fm(y) (k) (e))) (e);
-
-
-Cont.Reader.of = x => Cont(k => _ => Cont.Tramp.call(k, x));
-
-
-Cont.State = {};
-
-
-// computation with state implicitly threaded through function invocations
-
-
-Cont.State.chain = mx => fm => Cont(k => s =>
-  _let(mx(s)).in(pair => Cont.Tramp.call(k, fm(pair[0]) (pair[1]))));
-
-
-Cont.State.of = x => Cont(k => s => Cont.Tramp.call(k, Pair(x, s)));
-
-
-Cont.Writer = {};
-
-
-// comutation with results implicitly logged
-
-
-Cont.Writer.chain = Monoid => mx => fm => Cont(k =>
-  _let(fm(mx[0])).in(my =>
-    Cont.Tramp.call(k, Pair(my[0], Monoid.append(mx[1]) (my[1])))));
-
-
-Cont.Writer.of = Monoid => x => Cont(k =>
-  Cont.Tramp.call(k, Pair(x, Monoid.empty)));
 
 
 /*
@@ -4371,6 +4301,8 @@ Cont.callcc = f => Cont(k => f(x => Cont(_ => k(x))).cont(k));
 
 Cont.Tramp = {};
 
+
+// TODO: consider call2/call2_
 
 // strictly call the deferred function call tree
 
@@ -8136,6 +8068,22 @@ P.anyObj = o =>
 
 
 /*
+█████ Excaption Handling ██████████████████████████████████████████████████████*/
+
+
+P.tryCatch = k2 => tx => P(k => tx.par(x => {
+  if (x?.constructor?.name === "Exception") retrun k2(x);
+  else return k(x);
+}));
+
+
+P.tryThrow = tx => P(k => tx.par(x => {
+  if (x?.constructor?.name === "Exception") throw x;
+  else return k(x);
+}));
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -8202,89 +8150,6 @@ P.Monad = {
   ...P.Applicative,
   chain: P.chain
 };
-
-
-/*
-█████ Effects █████████████████████████████████████████████████████████████████*/
-
-
-// encode control flow effects in parallel continuation passing style
-
-
-// TODO: bugfix
-
-
-P.A = {};
-
-
-// intedetministic computation
-
-P.A.foldr = f => init => xs => P(k => function go(acc, i) {
-  if (i === xs.length) return k(acc);
-  else return f(xs[i]) (acc).par(acc2 => go(acc2, i + 1));
-} (init, 0));
-
-
-P.A.chain = xs => fm => P(k => {
-  return P.A.foldr(x => acc => P(k2 => {
-    acc.push.apply(acc, fm(x));
-    return k2(acc);
-  })) ([]) (xs).par(id).map(k);
-});
-
-
-P.A.of = x => P(k => [k(x)]);
-
-
-P.Except = {};
-
-
-// computation that may cause an exception
-
-P.Except.except = ({fail, succeed}) => x => P(k =>
-  intro(x) === "Error" ? fail(x) : k(succeed(x)));
-
-
-P.Except.chain = mx => fm => P(k => intro(mx) === "Error" ? mx : fm(mx));
-
-
-P.Except.of = ({fail, succeed}) => x => P(k => k(succeed(x)));
-
-
-// computation that may cause an exception and catches it
-
-P.Except.tryCatch = ({fail, succeed}) => x => P(k =>
-  intro(x) === "Error"
-    ? k(fail(x))
-    : k(succeed(x)));
-
-
-// computation that may cause an exception and immediately terminate the program
-
-P.Except.tryThrow = ({fail, succeed}) => x => P(k =>
-  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
-
-
-P.Option = {};
-
-
-// computation that may not yield a result
-
-P.Option.option = ({none, some}) => x => P(k =>
-  x === null ? none : k(some(x)));
-
-
-P.Option.chain = ({none, some}) => mx => fm => P(k =>
-  mx === null ? none : k(fm(mx)));
-
-
-P.Option.of = ({none, some}) => x => P(k => k(some(x)));
-
-
-// computation that may not yield a result but a default value
-
-P.Option.default = ({none, some}) => x => P(k =>
-  x === null ? k(none) : k(some(x)));
 
 
 /*
@@ -9901,6 +9766,22 @@ S.async = f => msecs => x => S(k => setTimeout(comp(k) (f), msecs, x));
 
 
 /*
+█████ Excaption Handling ██████████████████████████████████████████████████████*/
+
+
+S.tryCatch = k2 => tx => S(k => tx.ser(x => {
+  if (x?.constructor?.name === "Exception") retrun k2(x);
+  else return k(x);
+}));
+
+
+S.tryThrow = tx => S(k => tx.ser(x => {
+  if (x?.constructor?.name === "Exception") throw x;
+  else return k(x);
+}));
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -9961,89 +9842,6 @@ S.Monad = {
   ...S.Applicative,
   chain: S.chain
 };
-
-
-/*
-█████ Effects █████████████████████████████████████████████████████████████████*/
-
-
-// encode control flow effects in serial continuation passing style
-
-
-// TODO: bugfix
-
-
-S.A = {};
-
-
-// intedetministic computation
-
-S.A.foldr = f => init => xs => S(k => function go(acc, i) {
-  if (i === xs.length) return k(acc);
-  else return f(xs[i]) (acc).ser(acc2 => go(acc2, i + 1));
-} (init, 0));
-
-
-S.A.chain = xs => fm => S(k => {
-  return S.A.foldr(x => acc => S(k2 => {
-    acc.push.apply(acc, fm(x));
-    return k2(acc);
-  })) ([]) (xs).ser(id).map(k);
-});
-
-
-S.A.of = x => S(k => [k(x)]);
-
-
-S.Except = {};
-
-
-// computation that may cause an exception
-
-S.Except.except = ({fail, succeed}) => x => S(k =>
-  intro(x) === "Error" ? fail(x) : k(succeed(x)));
-
-
-S.Except.chain = mx => fm => S(k => intro(mx) === "Error" ? mx : fm(mx));
-
-
-S.Except.of = ({fail, succeed}) => x => S(k => k(succeed(x)));
-
-
-// computation that may cause an exception and catches it
-
-S.Except.tryCatch = ({fail, succeed}) => x => S(k =>
-  intro(x) === "Error"
-    ? k(fail(x))
-    : k(succeed(x)));
-
-
-// computation that may cause an exception and immediately terminate the program
-
-S.Except.tryThrow = ({fail, succeed}) => x => S(k =>
-  intro(x) === "Error" ? _throw(x) : k(succeed(x)));
-
-
-S.Option = {};
-
-
-// computation that may not yield a result
-
-S.Option.option = ({none, some}) => x => S(k =>
-  x === null ? none : k(some(x)));
-
-
-S.Option.chain = ({none, some}) => mx => fm => S(k =>
-  mx === null ? none : k(fm(mx)));
-
-
-S.Option.of = ({none, some}) => x => S(k => k(some(x)));
-
-
-// computation that may not yield a result but a default value
-
-S.Option.default = ({none, some}) => x => S(k =>
-  x === null ? k(none) : k(some(x)));
 
 
 /*
@@ -11005,18 +10803,17 @@ Eff.Trav.listSeq = Eff.Trav.listSeq();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Scriptum defines the file system as a formal parameter to avoid a hard
-dependency. The file system can via a continuation monad supplied in different
-variations that span the following semantics:
+/* The file system is supplied as a formal parameter to avoid a hard dependency.
+You can pass two different constructors to determine the continuation semantics:
 
-  * error throwing vs. exeption handling
-  * serial vs. parallel processing
+  * Parallel
+  * Serial
 
-What semantics is used depends on the constructor of the monadic continuation
-type, which is passed as another argument. */
+Since both types don't have built-in exception handling, you either immediately
+throw or pass on exceptions for later handling. */
 
 
-export const FileSys = fs => Cons => thisify(o => {
+export const FileSysHandle = fs => Cons => thisify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
       e ? k(new Exc(e)) : k(null)));
@@ -11044,6 +10841,39 @@ export const FileSys = fs => Cons => thisify(o => {
   o.write = opt => path => s => Cons(k =>
     fs.writeFile(path, s, opt, e =>
       e ? k(new Exc(e)) : k(s)));
+
+  return o;
+});
+
+
+export const FileSysThrow = fs => Cons => thisify(o => {
+  o.copy = src => dest => Cons(k =>
+    fs.copyFile(src, dest, e =>
+      e ? _throw(e) : k(null)));
+
+  o.move = src => dest => // guaranteed order
+    Cons.chain(o.copy(src) (dest)) (_ =>
+      o.unlink(src));
+
+  o.read = opt => path => Cons(k =>
+    fs.readFile(path, opt, (e, x) =>
+      e ? _throw(e) : k(x)));
+
+  o.scanDir = path => Cons(k =>
+    fs.readdir(path, (e, xs) =>
+      e ? _throw(e) : k(xs)));
+
+  o.stat = path => Cons(k =>
+    fs.stat(path, (e, o) =>
+      e ? _throw(e) : k(o)));
+
+  o.unlink = path => Cons(k =>
+    fs.unlink(path, e =>
+      e ? _throw(e) : k(null)));
+
+  o.write = opt => path => s => Cons(k =>
+    fs.writeFile(path, s, opt, e =>
+      e ? _throw(e) : k(s)));
 
   return o;
 });
