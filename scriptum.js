@@ -1874,6 +1874,76 @@ export const This = t => ({
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+████████████████████████████████ VALUE OBJECTS ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Value objects are objects but with value identity just like primitives, i.e.
+comparing two value objects is equivalent to comparing two numbers. Equality
+solely depends on values not references. Value objects don't create a memory
+leak because they use weak references. Usage:
+
+  const Tuple = ValObj("Tuple") ("1", "2");
+
+  const tx = Tuple(123, true),
+    ty = Tuple(123, true),
+    tz = Tuple(123, false),
+    ta = Tuple(tx, ty),
+    tb = Tuple(tx, ty),
+    tc = Tuple(ty, tz);
+
+  tx === ty // true
+  tx === tz // false
+  ta === tb // true
+  ta === tc // false
+
+Internally, the value objects depend on JSON serialization as a hashing
+mechanism. Hence, functions and symbols are invalid values. Please note
+that a performance penalty only exists at value object creation time, not
+afterwards. */
+
+export const ValObj = (tag, store = new Map())  => (...ks) => (...vs) => {
+  let hash = "";
+
+  for (let i = 0; i < ks.length; i++) {
+    hash += "|" + JSON.stringify(vs[i], function replacer(k, v) {
+      if (this?.[""]?.tag === "$_valObj") return v;
+
+      else {
+        const tag2 = Object.prototype.toString.call(v).slice(8, -1);
+
+        switch (tag2) {
+          case "Function":
+          case "Symbol":
+          case "Undefined": throw new Err(`invalid value of type "${tag2}"`);
+          default: return v;
+        }
+      }
+    });
+  }
+
+  // value objects should be concise
+
+  if (hash.length > 80) throw new Err("malformed value object");
+
+  let o = store.get(hash)?.deref();
+
+  if (o === undefined) {
+    o = Object.defineProperties({}, {
+      [TAG]: {value: tag},
+      [PREFIX + "valObj"]: {value: true}
+    });
+
+    for (let i = 0; i < ks.length; i++) o[ks[i]] = vs[i];
+    store.set(hash, new WeakRef(o));
+    return o;
+  }
+
+  else return o;
+};
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
 ███████████████████████████ TYPE CLASS COMBINATORS ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████
@@ -8072,7 +8142,7 @@ P.anyObj = o =>
 
 
 P.tryCatch = k2 => tx => P(k => tx.par(x => {
-  if (x?.constructor?.name === "Exception") retrun k2(x);
+  if (x?.constructor?.name === "Exception") return k2(x);
   else return k(x);
 }));
 
@@ -9770,7 +9840,7 @@ S.async = f => msecs => x => S(k => setTimeout(comp(k) (f), msecs, x));
 
 
 S.tryCatch = k2 => tx => S(k => tx.ser(x => {
-  if (x?.constructor?.name === "Exception") retrun k2(x);
+  if (x?.constructor?.name === "Exception") return k2(x);
   else return k(x);
 }));
 
