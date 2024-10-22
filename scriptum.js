@@ -1918,10 +1918,6 @@ export const ValObj = (tag, store = new Map())  => (...ks) => (...vs) => {
     });
   }
 
-  // value objects should be concise
-
-  if (hash.length > 80) throw new Err("malformed value object");
-
   let o = store.get(hash)?.deref();
 
   if (o === undefined) {
@@ -3585,9 +3581,7 @@ A.ZipArr.ap = A.ZipArr.ap();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Functional single-linked lists are useful if you need immutability through
-structural sharing together with consing, i.e. adding elements to the head of
-a list without altering the existing one. */
+// immutable stack (FILO) implemented as single linked list
 
 
 export const List = {}
@@ -3880,6 +3874,13 @@ L.takeWhile = p => tx => {
 
 
 /*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+L.reverse = L.foldl(x => y => [y, x]) ([]);
+
+
+/*
 █████ Resolve Deps ████████████████████████████████████████████████████████████*/
 
 
@@ -3897,8 +3898,7 @@ L.Traversable = L.Traversable();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Functional difference lists are useful if you need to efficiently append to
-lists without altering either of them. */
+// difference list for more efficient append operation
 
 
 export const DList = f => ({
@@ -3951,6 +3951,141 @@ DList.Monoid = {
   ...DList.Semigroup,
   empty: DList.empty
 };
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ ARRAY :: QUEUE ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// immutable queue (FIFO) implemented as two single linked lists
+
+
+export const Queue = {};
+
+
+Queue.en = x => ([fw, bw]) => {
+  if (bw.length === 0 && fw.length === 0) return [[x, fw], bw];
+  else return [fw, [x, bw]];
+};
+
+
+Queue.de = ([fw, bw]) => {
+  if (fw.length === 2) return [fw[0], [fw[1], bw]];
+  else if (bw.length === 0) return null;
+
+  else {
+    const fw2 = L.reverse(bw);
+    return [fw2[0], [fw2[1], []]];
+  }
+};
+
+
+Queue.map = f => tx => [
+  L.map(f) (tx[0]),
+  L.map(f) (tx[1])
+];
+
+
+Queue.ap = tf => tx => [
+  L.ap(tf[0]) (tx[0]),
+  L.ap(tf[1]) (tx[1])
+];
+
+
+Queue.of = x => [[x], []];
+
+
+Queue.chain = mx => fm => [
+  L.chain(fm) (mx[0]),
+  L.chain(fm) (mx[1])
+];
+
+
+Queue.append = tx => ty => [
+  tx[0],
+  L.append(ty[1]) (L.append(L.reverse(ty[0])) (tx[1]))
+];
+
+
+Queue.empty = [[], []];
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████████ ARRAY :: DEQUE ████████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// combined immutable stack/queue
+
+
+export const Deque = {};
+
+
+Deque.push = x => ([fw, bw]) => [fw, [x, bw]];
+
+
+Deque.pop = x => ([fw, bw]) => {
+  if (bw.length === 2) return [bw[0], [fw, bw[1]]];
+
+  else {
+    const bw2 = L.reverse(fw);
+    return [bw2[0], [[], bw2[1]]]
+  }
+};
+
+
+Deque.unshift = x => ([fw, bw]) => {
+  if (bw.length === 0 && fw.length === 0) return [[x, fw], bw];
+  else return [fw, [x, bw]];
+};
+
+
+Deque.shift = ([fw, bw]) => {
+  if (fw.length === 2) return [fw[0], [fw[1], bw]];
+  else if (bw.length === 0) return null;
+
+  else {
+    const fw2 = L.reverse(bw);
+    return [fw2[0], [fw2[1], []]];
+  }
+};
+
+
+Deque.map = f => tx => [
+  L.map(f) (tx[0]),
+  L.map(f) (tx[1])
+];
+
+
+Deque.ap = tf => tx => [
+  L.ap(tf[0]) (tx[0]),
+  L.ap(tf[1]) (tx[1])
+];
+
+
+Deque.of = x => [[x], []];
+
+
+Deque.chain = mx => fm => [
+  L.chain(fm) (mx[0]),
+  L.chain(fm) (mx[1])
+];
+
+
+[1[2[3]]], [6[5[4]]]
+[7[8]], [9]
+[1[2[3]]], [9[8[7[6[5[4]]]]]]
+
+
+Deque.append = tx => ty => [
+  tx[0],
+  L.append(ty[1]) (L.append(L.reverse(ty[0])) (tx[1]))
+];
+
+
+Deque.empty = [[], []];
+
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6779,120 +6914,6 @@ _Map.monthsShortDe = new Map([
 
 _Map.merge = m => n => {
   n.forEach((v, k) => m.set(k, v));
-};
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ MAP :: DEQUEMAP ███████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Map variant combining features of a doubly-ended queue and a hash table.
-It maintains the element order of deque operations. `id` is used to generate
-unique keys from the stored values and thus hide keys from the interface. If
-you want to use values as keys themselves, just pass the identity function.
-Useful if lots of lookups are performed but insertion order via `push`/`pop`
-and `shift`/`unshift` matters. */
-
-
-export class DequeMap extends Map {
-  constructor(id) {
-    super();
-    Object.defineProperty(this, TAG, {value: "DequeMap"});
-    this.id = id;
-    this.ks = [];
-  }
-
-
-  /*
-  █████ Functor ███████████████████████████████████████████████████████████████*/
-
-
-  map(f) {
-    const d = new DequeMap();
-    
-    for (const [k, v] of this) {
-      const v2 = f(v);
-        k2 = id(v2);
-
-      d.set(k2, v2);
-      d.ks.push(k2);
-    }
-    
-    return d;
-  };
-
-
-  /*
-  █████ Getters/Setters ███████████████████████████████████████████████████████*/
-
-
-  clear(k) {throw new Err("illegal operation")}
-
-
-  delete(k) {throw new Err("illegal operation")}
-
-
-  get(v) {return this.get(this.id(v))}
-
-
-  has(v) {this.has(this.id(v))}
-
-
-  pop() {
-    const k = this.ks.pop(),
-      v = this.get(k);
-
-    this.delete(k);
-    return Pair(Pair(k, v), this);
-  };
-
-
-  push(v) {
-    const k = this.id(v);
-    
-    if (this.has(k)) throw Err(`duplicate key "${k}"`);
-
-    else {
-      this.set(k, v);
-      this.ks.push(k);
-      return this;
-    }
-  };
-
-
-  set(k) {throw new Err("illegal operation")}
-
-
-  shift() {
-    const k = this.ks.shift(),
-      v = this.get(k);
-
-    this.delete(k);
-    return Pair(Pair(k, v), this);
-  };
-
-
-  unshift(v) {
-    const k = this.id(v);
-    
-    if (this.has(k)) throw Err(`duplicate key "${k}"`);
-    
-    else {
-      this.set(k, v);
-      this.ks.unshift(k);
-      return this;
-    }
-  };
-
-
-  /*
-  █████ Iterator ██████████████████████████████████████████████████████████████*/
-
-
-  *[Symbol.iterator]() {
-    for (let k of this.ks) yield [k, m.get(k)];
-  }
 };
 
 
@@ -10950,6 +10971,11 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
 /*
 
+  * FILO/stack = single linked list (done)
+  * FIFO/queue
+  * deque = double linked list (done)
+  * multimap (done)
+  * bag/multiset
   * add context type (array of arrays)
   * add async iterator machinery
   * add amb function
