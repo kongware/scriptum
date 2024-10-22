@@ -1907,17 +1907,13 @@ export const ValObj = (tag, store = new Map())  => (...ks) => (...vs) => {
 
   for (let i = 0; i < ks.length; i++) {
     hash += "|" + JSON.stringify(vs[i], function replacer(k, v) {
-      if (this?.[""]?.tag === "$_valObj") return v;
+      const tag2 = Object.prototype.toString.call(v).slice(8, -1);
 
-      else {
-        const tag2 = Object.prototype.toString.call(v).slice(8, -1);
-
-        switch (tag2) {
-          case "Function":
-          case "Symbol":
-          case "Undefined": throw new Err(`invalid value of type "${tag2}"`);
-          default: return v;
-        }
+      switch (tag2) {
+        case "Function":
+        case "Symbol":
+        case "Undefined": throw new Err(`invalid value of type "${tag2}"`);
+        default: return v;
       }
     });
   }
@@ -1929,11 +1925,7 @@ export const ValObj = (tag, store = new Map())  => (...ks) => (...vs) => {
   let o = store.get(hash)?.deref();
 
   if (o === undefined) {
-    o = Object.defineProperties({}, {
-      [TAG]: {value: tag},
-      [PREFIX + "valObj"]: {value: true}
-    });
-
+    o = Object.defineProperty({}, TAG, {value: tag});
     for (let i = 0; i < ks.length; i++) o[ks[i]] = vs[i];
     store.set(hash, new WeakRef(o));
     return o;
