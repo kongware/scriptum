@@ -2768,6 +2768,22 @@ A.fromList = () => L.foldl(acc => x => (acc.push(x), acc)) ([]);
 A.fromListF = f => L.foldl(acc => x => (acc.push(f(x)), acc)) ([]);
 
 
+A.fromQueue = () => ([fw, bw]) => {
+  const fw2 = L.foldl(acc => x => (acc.push(x), acc)) ([]) (fw),
+    bw2 = L.foldl(acc => x => (acc.unshift(x), acc)) ([]) (bw);
+
+  return A.pushn(bw2) (fw2);
+};
+
+
+A.fromQueueF = f => ([fw, bw]) => {
+  const fw2 = L.foldl(acc => x => (acc.push(f(x)), acc)) ([]) (fw),
+    bw2 = L.foldl(acc => x => (acc.unshift(f(x)), acc)) ([]) (bw);
+
+  return A.pushn(bw2) (fw2);
+};
+
+
 A.fromTable = xss => xss.flat();
 
 
@@ -2997,7 +3013,9 @@ A.foldl1 = f => xs => {
 };
 
 
-A.foldi = f => init => xs => { // including index
+// variant that incorporates the running index
+
+A.foldi = f => init => xs => {
   let acc = init;
 
   for (let i = 0; i < xs.length; i++)
@@ -3611,11 +3629,19 @@ L.fromArr = xs => {
 };
 
 
+L.fromQueue = ([xs, ys]) => L.append(xs) (L.reverse(ys));
+
+
 /*
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-L.foldl = f => acc => xs => {
+/* Mind the side effect in the accumulator, which is performed for the sake of
+performance. */
+
+L.foldl = f => init => xs => {
+  let acc = init;
+
   while (true) {
     if (xs.length === 0) break;
 
@@ -3964,6 +3990,17 @@ DList.Monoid = {
 export const Queue = {};
 
 
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+Queue.fromArr = xs => [L.fromArr(xs), []];
+
+
+/*
+█████ Queue Operations ████████████████████████████████████████████████████████*/
+
+
 Queue.en = x => ([fw, bw]) => {
   if (bw.length === 0 && fw.length === 0) return [[x, fw], bw];
   else return [fw, [x, bw]];
@@ -3981,51 +4018,17 @@ Queue.de = ([fw, bw]) => {
 };
 
 
-Queue.map = f => tx => [
-  L.map(f) (tx[0]),
-  L.map(f) (tx[1])
-];
+/*
+█████ Deque Operations ████████████████████████████████████████████████████████*/
 
 
-Queue.ap = tf => tx => [
-  L.ap(tf[0]) (tx[0]),
-  L.ap(tf[1]) (tx[1])
-];
+// use the queue as a combined immutable stack/queue
 
 
-Queue.of = x => [[x], []];
+Queue.push = x => ([fw, bw]) => [fw, [x, bw]];
 
 
-Queue.chain = mx => fm => [
-  L.chain(fm) (mx[0]),
-  L.chain(fm) (mx[1])
-];
-
-
-Queue.append = tx => ty => [
-  tx[0],
-  L.append(ty[1]) (L.append(L.reverse(ty[0])) (tx[1]))
-];
-
-
-Queue.empty = [[], []];
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████████ ARRAY :: DEQUE ████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-// combined immutable stack/queue
-
-
-export const Deque = {};
-
-
-Deque.push = x => ([fw, bw]) => [fw, [x, bw]];
-
-
-Deque.pop = x => ([fw, bw]) => {
+Queue.pop = x => ([fw, bw]) => {
   if (bw.length === 2) return [bw[0], [fw, bw[1]]];
 
   else {
@@ -4035,13 +4038,13 @@ Deque.pop = x => ([fw, bw]) => {
 };
 
 
-Deque.unshift = x => ([fw, bw]) => {
+Queue.unshift = x => ([fw, bw]) => {
   if (bw.length === 0 && fw.length === 0) return [[x, fw], bw];
   else return [fw, [x, bw]];
 };
 
 
-Deque.shift = ([fw, bw]) => {
+Queue.shift = ([fw, bw]) => {
   if (fw.length === 2) return [fw[0], [fw[1], bw]];
   else if (bw.length === 0) return null;
 
@@ -4052,40 +4055,136 @@ Deque.shift = ([fw, bw]) => {
 };
 
 
-Deque.map = f => tx => [
+/*
+█████ Functor █████████████████████████████████████████████████████████████████*/
+
+
+Queue.map = f => tx => [
   L.map(f) (tx[0]),
   L.map(f) (tx[1])
 ];
 
 
-Deque.ap = tf => tx => [
+Queue.Functor = {map: Queue.map};
+
+
+/*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+Queue.foldl = f => acc => tx => {
+  const ty = L.foldl(f) (acc) (tx[0]);
+  return L.foldl(f) (ty) (tx[1]);
+};
+
+
+Queue.foldr = f => acc => tx => {
+  const ty = L.foldr(f) (acc) (tx[0]),
+    tz = L.foldr(f) (acc) (tx[1]);
+
+  return f(ty) (f(tz) (acc));
+};
+
+
+Queue.Foldable = {
+  foldl: Queue.foldl,
+  foldr: Queue.foldr
+};
+
+
+/*
+█████ Functor :: Apply ████████████████████████████████████████████████████████*/
+
+
+Queue.ap = tf => tx => [
   L.ap(tf[0]) (tx[0]),
   L.ap(tf[1]) (tx[1])
 ];
 
 
-Deque.of = x => [[x], []];
+Queue.Apply = {
+  ...Queue.Functor,
+  ap: Queue.ap
+};
 
 
-Deque.chain = mx => fm => [
+/*
+█████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
+
+
+Queue.of = x => [[x], []];
+
+
+Queue.Applicative = {
+  ...Queue.Apply,
+  of: Queue.of
+};
+
+
+/*
+█████ Functor :: Apply :: Applicative :: Alternative ██████████████████████████*/
+
+
+Queue.Alternative = {
+  ...Queue.Plus,
+  ...Queue.Applicative
+};
+
+
+/*
+█████ Functor :: Apply :: Chain ███████████████████████████████████████████████*/
+
+
+Queue.chain = mx => fm => [
   L.chain(fm) (mx[0]),
   L.chain(fm) (mx[1])
 ];
 
 
-[1[2[3]]], [6[5[4]]]
-[7[8]], [9]
-[1[2[3]]], [9[8[7[6[5[4]]]]]]
+Queue.Chain = {
+  ...Queue.Apply,
+  chain: Queue.chain
+};
 
 
-Deque.append = tx => ty => [
-  tx[0],
-  L.append(ty[1]) (L.append(L.reverse(ty[0])) (tx[1]))
+/*
+█████ Functor :: Apply :: Applicative :: Monad ████████████████████████████████*/
+
+
+Queue.Monad = {
+  ...Queue.Applicative,
+  chain: Queue.chain
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Queue.append = tx => ty => [
+  L.append(
+    L.append(
+      L.append(tx[0]) (L.reverse(tx[1])))
+        (ty[0]))
+          (L.reverse(ty[1])),
+  []
 ];
 
 
-Deque.empty = [[], []];
+Queue.Semigroup = {append: Queue.append};
 
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Queue.empty = [[], []];
+
+
+Queue.Monoid = {
+  ...Queue.Semigroup,
+  empty: Queue.empty
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10848,6 +10947,9 @@ Yo.lower = tx => tx.yo(id);
 
 
 A.fromList = A.fromList();
+
+
+A.fromQueue = A.fromQueue();
 
 
 A.unzip = A.unzip();
