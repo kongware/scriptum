@@ -554,7 +554,7 @@ Eff.A.lazyOf = x => lazy(() => x);
 
 // see list monad below
 
-Eff.A.listOf = x => [x, L.nil];
+Eff.A.listOf = x => [x, []];
 
 
 Eff.A.option = tf => tx => tf === null ? tf : tx === null ? tx : tf(tx);
@@ -677,7 +677,7 @@ Eff.M.lazy = mx => fm => lazy(() => fm(mx));
 // the lawful array monad is the list monad
 
 Eff.M.list = mx => fm => function go(my) {
-  if (my.length === 0) return L.nil;
+  if (my.length === 0) return [];
   else return L.append(fm(my[0])) (go(my[1]));
 } (mx);
 
@@ -754,7 +754,7 @@ Eff.T.except = dict => mmx => fmm => dict.chain(mmx) (mx => {
 // lawful monad transformer
 
 Eff.M.list = mx => fm => function go(my) {
-  if (my.length === 0) return L.nil;
+  if (my.length === 0) return [];
   else return L.append(fm(my[0])) (go(my[1]));
 } (mx);
 
@@ -762,7 +762,7 @@ Eff.M.list = mx => fm => function go(my) {
 // Monad m -> m (List a) -> (a -> (List b)) -> (List b)
 Eff.T.list = dict => mmx => fmm => function go(mmy) {
   return dict.chain(mmy) (my => {
-    if (my.length === 0) return dict.of(L.nil);
+    if (my.length === 0) return dict.of([]);
     else return L.append(fmm(my[0])) (go(my[1]));
   });
 } (mmx);
@@ -1706,13 +1706,11 @@ export const Stack = f => x => {
     switch (o.constructor) {
       case Stack.call:
       case Stack.call2: {
-        o = f(o.x.x); // 1st x of call and 2nd x of next tag
-        stack.push(o);
-        break;
-      }
 
-      case Stack.rec: {
-        o = f(o.x);
+        // 1st x of call/call2 and 2nd x of nested constructor
+
+        o = f(o.x.x);
+        stack.push(o);
         break;
       }
 
@@ -1724,7 +1722,6 @@ export const Stack = f => x => {
             case Stack.call: {
               o = Stack.base(p.f(o.x));
               stack.push(o);
-
               break;
             }
 
@@ -1734,7 +1731,7 @@ export const Stack = f => x => {
               break;
             }
 
-            default: throw new Err("invalid constructor");
+            default: throw new Err("invalid trampoline constructor");
           }
         }
 
@@ -1746,7 +1743,7 @@ export const Stack = f => x => {
         break;
       }
 
-      default: throw new Err("invalid constructor");
+      default: throw new Err("invalid trampoline constructor");
     }
   }
 
@@ -1763,13 +1760,11 @@ export const Stack2 = f => (x, y) => {
     switch (o.constructor) {
       case Stack2.call:      
       case Stack2.call2: {
+
+        // 1st x of call/call2 and 2nd x/y of nested constructor
+        
         o = f(o.x.x, o.x.y);
         stack.push(o);
-        break;
-      }
-
-      case Stack2.rec: {
-        o = f(o.x, o.y);
         break;
       }
 
@@ -1781,7 +1776,6 @@ export const Stack2 = f => (x, y) => {
             case Stack2.call: {
               o = Stack2.base(p.f(o.x, o.y));
               stack.push(o);
-
               break;
             }
 
@@ -1791,7 +1785,7 @@ export const Stack2 = f => (x, y) => {
               break;
             }
 
-            default: throw new Err("invalid constructor");
+            default: throw new Err("invalid trampoline constructor");
           }
         }
 
@@ -1803,7 +1797,7 @@ export const Stack2 = f => (x, y) => {
         break;
       }
 
-      default: throw new Err("invalid constructor");
+      default: throw new Err("invalid trampoline constructor");
     }
   }
 
@@ -2742,22 +2736,23 @@ A.fromCsv = ({sep, header}) => csv => {
 };
 
 
-// ignore keys
-
-A.fromValues = m => {
+A.fromIt = ix => {
   const xs = [];
-
-  for (const [k, v] of m) xs.push(v);
+  for (const x of ix) xs.push(x);
   return xs;
 };
 
 
-// ignore values
-
-A.fromKeys = m => {
+A.fromItKeys = ix => {
   const xs = [];
+  for (const [k] of ix) xs.push(k);
+  return xs;
+};
 
-  for (const [k, v] of m) xs.push(k);
+
+A.fromItValues = ix => {
+  const xs = [];
+  for (const [, v] of ix) xs.push(v);
   return xs;
 };
 
@@ -2788,6 +2783,26 @@ A.fromTable = xss => xss.flat();
 
 
 A.fromTableBy = f => xs => xs.reduce((acc, x) => f(acc) (x), []);
+
+
+// ignore keys
+
+A.fromValues = m => {
+  const xs = [];
+
+  for (const [k, v] of m) xs.push(v);
+  return xs;
+};
+
+
+// ignore values
+
+A.fromKeys = m => {
+  const xs = [];
+
+  for (const [k, v] of m) xs.push(k);
+  return xs;
+};
 
 
 /*
@@ -2869,22 +2884,6 @@ A.unshiftn_ = xs => ys => (xs.unshift.apply(xs, ys), xs);
 A.unsnoc = xs => Pair(
   xs.length === 0 ? null : xs[xs.length - 1],
   xs.slice(-1));
-
-
-/*
-█████ Creation ████████████████████████████████████████████████████████████████*/
-
-
-/* mapAccum isn't required for arrays because the last element representing the
-final value can be easily accessed through its index. */
-
-
-A.scanl = f => init => A.foldl(acc => x =>
-  (acc.push(f(acc[acc.length - 1]) (x)), acc)) ([init]);
-
-
-A.scanr = f => init => A.foldr(x => acc =>
-  (acc.unshift(f(x) (acc[0])), acc)) ([init]);
 
 
 /*
@@ -3314,6 +3313,22 @@ Object.defineProperty(A.Monoid, "empty", { // due to mutable arrays
 
 
 /*
+█████ Special Folds ███████████████████████████████████████████████████████████*/
+
+
+/* mapAccum isn't required for arrays because the last element representing the
+final value can be easily accessed through its index. */
+
+
+A.scanl = f => init => A.foldl(acc => x =>
+  (acc.push(f(acc[acc.length - 1]) (x)), acc)) ([init]);
+
+
+A.scanr = f => init => A.foldr(x => acc =>
+  (acc.unshift(f(x) (acc[0])), acc)) ([init]);
+
+
+/*
 █████ Set Operations ██████████████████████████████████████████████████████████*/
 
 
@@ -3618,14 +3633,39 @@ L.nil = [];
 
 
 /*
+█████ Con-/Deconstruction █████████████████████████████████████████████████████*/
+
+
+L.head = xs => xs[0];
+
+
+L.headOr = x => xs => xs.length === 0 ? x : xs[0];
+
+
+L.tail = xs => xs.length === 0 ? [] : xs[1];
+
+
+L.uncons = xs => xs.length === 0 ? [null, []] : [xs[0], xs[1]];
+
+
+/*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 L.fromArr = xs => {
-  let ys = L.nil;
+  let ys = [];
 
   for (let i = xs.length - 1; i >= 0; i--) ys = [xs[i], ys];
   return ys;
+};
+
+
+L.fromIt = ix => {
+  let xs = [];
+  const root = xs;
+
+  for (const x of ix) (xs[0] = x, xs[1] = [], xs = xs[1]);
+  return root;
 };
 
 
@@ -3691,25 +3731,25 @@ L.Foldable = {
 
 L.mapA = Applicative => {
   const liftA2_ = liftA2(Applicative) (L.cons_);
-  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.nil));
+  return f => L.foldr(x => acc => liftA2_(f(x)) (acc)) (Applicative.of([]));
 };
 
 
 L.mapA_ = Applicative => {
   const liftA2_ = liftA2(Applicative) (L.cons_);
-  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of(L.nil));
+  return f => L.foldr_(x => acc => liftA2_(f(x)) (acc)) (Applicative.of([]));
 };
 
 
 L.seqA = Applicative => {
   const liftA2_ = liftA2(Applicative) (L.cons_);
-  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of(L.nil));
+  return L.foldr(x => acc => liftA2_(x) (acc)) (Applicative.of([]));
 };
 
 
 L.seqA_ = Applicative => {
   const liftA2_ = liftA2(Applicative) (L.cons_);
-  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of(L.nil));
+  return L.foldr_(x => acc => liftA2_(x) (acc)) (Applicative.of([]));
 };
 
 
@@ -3725,7 +3765,7 @@ L.Traversable = () => ({
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-L.map = f => L.foldr(x => acc => [f(x), acc]) (L.nil);
+L.map = f => L.foldr(x => acc => [f(x), acc]) ([]);
 
 
 L.Functor = {map: L.map};
@@ -3748,7 +3788,7 @@ L.Alt = () => ({
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-L.zero = L.nil;
+L.zero = [];
 
 
 L.Plus = {
@@ -3763,7 +3803,7 @@ L.Plus = {
 
 L.ap = tf => tx =>
   L.foldr(f => acc =>
-    L.append(L.map(f) (tx)) (acc)) (L.nil) (tf);
+    L.append(L.map(f) (tx)) (acc)) ([]) (tf);
 
 
 L.Apply = {
@@ -3776,7 +3816,7 @@ L.Apply = {
 █████ Functor :: Apply :: Applicative █████████████████████████████████████████*/
 
 
-L.of = x => [x, L.nil];
+L.of = x => [x, []];
 
 
 L.Applicative = {
@@ -3790,7 +3830,7 @@ L.Applicative = {
 
 
 L.chain = mx => fm => L.foldr(x => acc =>
-  L.append(fm(x)) (acc)) (L.nil) (mx);
+  L.append(fm(x)) (acc)) ([]) (mx);
 
 
 L.Chain = {
@@ -3820,6 +3860,53 @@ L.Monad = {
 
 
 /*
+█████ Functor :: Extend ███████████████████████████████████████████████████████*/
+
+
+// L.duplicate
+
+
+// L.extend = () => L.tails;
+
+
+/*L.Extend = {
+  ...L.Functor,
+  extend: L.extend
+};*/
+
+
+/*
+█████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
+
+
+L.extract = xs => xs[0];
+
+
+/*L.Comonad = {
+  ...L.Extend,
+  extract: L.extract
+};*/
+
+
+/*
+█████ Infinity ████████████████████████████████████████████████████████████████*/
+
+
+L.iterate = f => function go(x) {
+  return [x, lazy(() => go(f(x)))];
+};
+
+
+L.repeat = x => [x, lazy(() => repeat(x))];
+
+
+L.replicate = n => x => function go(m) {
+  if (m === 0) return [x, L.Nil];
+  else return [x, lazy(() => go(m - 1))];
+} (n);
+
+
+/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -3833,13 +3920,67 @@ L.Semigroup = {append: L.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-L.empty = L.nil;
+L.empty = [];
 
 
 L.Monoid = {
   ...L.Semigroup,
   empty: L.empty
 };
+
+
+/*
+█████ Special Folds ███████████████████████████████████████████████████████████*/
+
+
+// like a fold but additionally holds the intermediate results
+
+// (b -> a -> b) -> b -> [a] -> [b]
+L.scanl = f => init => xs => {
+  let acc = [], acc2 = init;
+  const root = acc;
+
+  while (true) {
+    if (xs.length === 0) break;
+
+    else {
+      acc2 = f(acc2) (xs[0]);
+      acc[0] = acc2;
+      acc[1] = [];
+      acc = acc[1];
+      xs = xs[1];
+    }
+  }
+
+  return root;
+};
+
+
+// stack-safe right associative version
+
+// (a -> b -> b) -> b -> [a] -> [b]
+L.scanr = f => acc => Stack(xs => {
+  if (xs.length === 0) return Stack.base([]);
+
+  else {
+    return Stack.call(
+      ys => {
+        acc = f(xs[0]) (acc);
+        return [acc, ys];
+      },
+
+      Stack.rec(xs[1]));
+  }
+});
+
+
+L.mapAccuml
+
+
+L.mapAccumr
+
+
+L.tails
 
 
 /*
@@ -3851,7 +3992,7 @@ L.Monoid = {
 L.unfold = f => function go(y) {
   const pair = strict(f(y));
 
-  if (pair === null) return L.nil;
+  if (pair === null) return [];
   else return new [pair[0], lazy(() => go(pair[1]))];
 };
 
@@ -5897,55 +6038,14 @@ It.tail = function* (ix) {
 
 
 /*
-█████ Conversion (Strict) █████████████████████████████████████████████████████*/
+█████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-It.toArr = ix => {
-  const xs = [];
-  for (const x of ix) xs.push(x);
-  return xs;
-};
-
-
-It.toArrOfKeys = ix => {
-  const xs = [];
-  for (const [k] of ix) xs.push(k);
-  return xs;
-};
-
-
-It.toArrOfValues = ix => {
-  const xs = [];
-  for (const [, v] of ix) xs.push(v);
-  return xs;
-};
-
-
-It.toMap = ix => {
-  const m = new Map();
-  for (const [k, v] of ix) m.set(k, v);
-  return m;
-};
-
-
-It.toMultiMap = ix => {
-  const m = new MultiMap();
-  for (const [k, v] of ix) m.addItem(k, v);
-  return m;
-};
-
-
-It.toObj = ix => {
-  const o = {};
-  for (const [k, v] of ix) o[k] = v;
-  return o;
-};
-
-
-It.toSet = ix => {
-  const s = new Set();
-  for (const k of ix) s.add(k);
-  return s;
+It.fromList = function* (xs) {
+  while (xs.length) {
+    yield xs[0]
+    xs = xs[1];
+  }
 };
 
 
@@ -6897,6 +6997,13 @@ _Map.clone = m => new Map(m);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+_Map.fromIt = ix => {
+  const m = new Map();
+  for (const [k, v] of ix) m.set(k, v);
+  return m;
+};
+
+
 // `k` must be unique
 
 _Map.fromTable = k => xs => xs.reduce(
@@ -7036,6 +7143,13 @@ export class MultiMap extends Map {
 
   /*
   █████ Conversion ████████████████████████████████████████████████████████████*/
+
+
+  static fromIt = ix => {
+    const m = new MultiMap();
+    for (const [k, v] of ix) m.addItem(k, v);
+    return m;
+  };
 
 
   // `k` must be unqiue
@@ -7430,6 +7544,13 @@ O.fromArr = header => xs => {
   for (let i = 0; i < xs.length; i++)
     if (header.has(i)) o[header.get(i)] = xs[i];
 
+  return o;
+};
+
+
+O.fromIt = ix => {
+  const o = {};
+  for (const [k, v] of ix) o[k] = v;
   return o;
 };
 
@@ -8558,6 +8679,11 @@ Pair.Bifunctor = ({
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
+// w a -> w (w a)
+Pair.duplicate = wx => Pair(wx[0], wx);
+
+
+// (w a -> b) -> w a -> w b
 Pair.extend = fw => wx => Pair(wx[0], fw(wx));
 
 
@@ -8571,6 +8697,7 @@ Pair.Extend = {
 █████ Functor :: Extend :: Comonad ████████████████████████████████████████████*/
 
 
+// w a -> a
 Pair.extract = Pair.snd;
 
 
@@ -10105,6 +10232,27 @@ _Set.clone = s => new Set(s);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+_Set.fromIt = ix => {
+  const s = new Set();
+  for (const k of ix) s.add(k);
+  return s;
+};
+
+
+_Set.fromItKeys = ix => {
+  const s = new Set();
+  for (const [k,] of ix) s.add(k);
+  return s;
+};
+
+
+_Set.fromItValues = ix => {
+  const s = new Set();
+  for (const [, v] of ix) s.add(v);
+  return s;
+};
+
+
 _Set.interconvert = f => s => new Set(f(Array.from(s)));
 
 
@@ -11073,11 +11221,6 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
 /*
 
-  * FILO/stack = single linked list (done)
-  * FIFO/queue
-  * deque = double linked list (done)
-  * multimap (done)
-  * bag/multiset
   * add context type (array of arrays)
   * add async iterator machinery
   * add amb function
