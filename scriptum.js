@@ -39,6 +39,12 @@ export const EQ = 0;
 export const GT = 1;
 
 
+/* Used to tag functions that return a fresh instance of their respective data
+type so that any later mutations on these values are not shared. */
+
+export const NEW = Symbol("new");
+
+
 export const NOOP = null; // no operation
 
 
@@ -2757,7 +2763,8 @@ A.fromItValues = ix => {
 };
 
 
-A.fromList = () => L.foldl(acc => x => (acc.push(x), acc)) ([]);
+A.fromList = () => L.foldl(acc => x => (acc.push(x), acc))
+  (Object.defineProperty(() => [], NEW, {value: true}));
 
 
 A.fromListF = f => L.foldl(acc => x => (acc.push(f(x)), acc)) ([]);
@@ -2783,26 +2790,6 @@ A.fromTable = xss => xss.flat();
 
 
 A.fromTableBy = f => xs => xs.reduce((acc, x) => f(acc) (x), []);
-
-
-// ignore keys
-
-A.fromValues = m => {
-  const xs = [];
-
-  for (const [k, v] of m) xs.push(v);
-  return xs;
-};
-
-
-// ignore values
-
-A.fromKeys = m => {
-  const xs = [];
-
-  for (const [k, v] of m) xs.push(k);
-  return xs;
-};
 
 
 /*
@@ -2992,7 +2979,7 @@ A.Filterable = {filter: A.filter};
 
 
 A.foldl = f => init => xs => {
-  let acc = init;
+  let acc = init?.[NEW] ? init() : init;
 
   for (let i = 0; i < xs.length; i++)
     acc = f(acc) (xs[i]);
@@ -3680,7 +3667,10 @@ L.fromQueue = ([xs, ys]) => L.append(xs) (L.reverse(ys));
 performance. */
 
 L.foldl = f => init => xs => {
-  let acc = init;
+
+  // use a thunk if you don't want to share mutations
+
+  let acc = init?.[NEW] ? init() : init;
 
   while (true) {
     if (xs.length === 0) break;
@@ -3863,16 +3853,13 @@ L.Monad = {
 █████ Functor :: Extend ███████████████████████████████████████████████████████*/
 
 
-// L.duplicate
+L.extend = () => L.tails;
 
 
-// L.extend = () => L.tails;
-
-
-/*L.Extend = {
+L.Extend = {
   ...L.Functor,
   extend: L.extend
-};*/
+};
 
 
 /*
@@ -3882,10 +3869,10 @@ L.Monad = {
 L.extract = xs => xs[0];
 
 
-/*L.Comonad = {
+L.Comonad = {
   ...L.Extend,
   extract: L.extract
-};*/
+};
 
 
 /*
@@ -3937,16 +3924,19 @@ L.Monoid = {
 
 // (b -> a -> b) -> b -> [a] -> [b]
 L.scanl = f => init => xs => {
-  let acc = [], acc2 = init;
+  let acc = [init, []], prev = acc;
   const root = acc;
+  acc = acc[1];
 
   while (true) {
     if (xs.length === 0) break;
 
     else {
-      acc2 = f(acc2) (xs[0]);
-      acc[0] = acc2;
+      const x = f(prev[0]) (xs[0]);
+
+      acc[0] = x;
       acc[1] = [];
+      prev = acc;
       acc = acc[1];
       xs = xs[1];
     }
@@ -3960,27 +3950,54 @@ L.scanl = f => init => xs => {
 
 // (a -> b -> b) -> b -> [a] -> [b]
 L.scanr = f => acc => Stack(xs => {
-  if (xs.length === 0) return Stack.base([]);
+  if (xs.length === 0) return Stack.base([acc, []]);
 
-  else {
-    return Stack.call(
-      ys => {
-        acc = f(xs[0]) (acc);
-        return [acc, ys];
-      },
-
-      Stack.rec(xs[1]));
-  }
+  else return Stack.call(
+    ys => [f(xs[0]) (ys[0]), ys],
+    Stack.rec(xs[1]));
 });
 
 
-L.mapAccuml
+L.mapAccuml = f => init => xs => {
+  let acc = [init, []], prev = acc, final;
+  const root = acc;
+  acc = acc[1];
+
+  while (true) {
+    if (xs.length === 0) {
+      final = prev[0];
+
+      // mutation to get rid of the last cons
+
+      prev.length = 0;
+      break;
+    }
+
+    else {
+      const x = f(prev[0]) (xs[0]);
+
+      acc[0] = x;
+      acc[1] = [];
+      prev = acc;
+      acc = acc[1];
+      xs = xs[1];
+    }
+  }
+
+  return Pair(final, root);
+};
 
 
-L.mapAccumr
+// L.mapAccumr isn't supplied since you can just compose `L.scanr` with `L.decons`
 
 
-L.tails
+L.tails = Stack(xs => {
+  if (xs.length === 0) return Stack.base([]);
+
+  else return Stack.call(
+    ys => [xs, ys],
+    Stack.rec(xs[1]));
+});
 
 
 /*
@@ -4044,7 +4061,8 @@ L.takeWhile = p => tx => {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-L.reverse = L.foldl(x => y => [y, x]) ([]);
+L.reverse = L.foldl(x => y => [y, x])
+  (Object.defineProperty(() => [], NEW, {value: true}));
 
 
 /*
@@ -4055,6 +4073,9 @@ L.alt = L.alt();
 
 
 L.Alt = L.Alt();
+
+
+L.extend = L.extend();
 
 
 L.Traversable = L.Traversable();
@@ -11221,6 +11242,11 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
 /*
 
+  * FILO/stack = single linked list (done)
+  * FIFO/queue
+  * deque = double linked list (done)
+  * multimap (done)
+  * bag/multiset
   * add context type (array of arrays)
   * add async iterator machinery
   * add amb function
