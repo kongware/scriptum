@@ -106,10 +106,10 @@ export const product = (tag, k = tag[0].toLowerCase() + tag.slice(1)) => (...ks)
 };
 
 
-/* Create a tagged object in multiple shapes, which each can have zero, a single
-or multiple properties. The latter are only accessible via the type's primary
-property, which enhances type safety. The underlying idea is the simple creation
-of "sum of product" types. Usage:
+/* Create a tagged union type that can instantiate values in different shapes.
+Each tagged union has its individual root property where it exposes its values.
+The underlying idea is the simple creation of "sum of product" types, i.e. where
+tagged unions (sums) contain product types. Usage:
 
 const Option = variant("Option", "opt") (nullary("None"), unary("Some"));
 
@@ -477,6 +477,19 @@ Eff.F.tramp = f => tx => Eff.M.tramp(tx) (x => Eff.tampOf(f(x)));
 // logging
 
 Eff.F.writer = f => ([x, w]) => [f(x), w];
+
+
+/*
+█████ Functor :: Alternative ██████████████████████████████████████████████████*/
+
+
+Eff.Alt = {};
+
+
+Eff.Alt.option = tx => ty => tx === null ? ty : tx;
+
+
+Eff.Alt.optionZero = null;
 
 
 /*
@@ -1954,10 +1967,12 @@ export const foldAny = Foldable => p => Foldable.foldr(x => acc =>
   p(x) ? true : acc) (false);
 
 
+// (Foldable t, Monoid m) => (a -> m) -> t a -> m
 export const foldMapl = (Foldable, Monoid) => f =>
   Foldable.foldl(compSnd(Monoid.append) (f)) (Monoid.empty);
 
 
+// (Foldable t, Monoid m) => (a -> m) -> t a -> m
 export const foldMapr = (Foldable, Monoid) => f =>
   Foldable.foldr(comp(Monoid.append) (f)) (Monoid.empty);
 
@@ -2020,6 +2035,18 @@ export const liftA2 = Apply => f => tx => ty => Apply.ap(Apply.map(f) (tx)) (ty)
 
 
 /*█████████████████████████████████████████████████████████████████████████████
+███████████████████████ FUNCTOR :: APPLY :: APPLICATIVE ███████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+// Applicative m => (a -> m Boolean) -> [a] -> m [a]
+export const filterM = Applicative => p => mx =>
+  A.foldr(x => 
+    liftA2(Applicative) (b =>
+      b ? A.cons(x) : id) (p(x))) (Applicative.of([]));
+
+
+/*█████████████████████████████████████████████████████████████████████████████
 ██████████████████████████ FUNCTOR :: APPLY :: CHAIN ██████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
@@ -2059,7 +2086,7 @@ export const chainn = Chain => (...ms) => fm => function go(gm, i) {
 } (fm, 0);
 
 
-// collapsing two monadic contexts (of the same type) is the essence of a monad
+// collapse two monadic contexts (of the same type)
 
 export const join = Chain => mmx => Chain.chain(mmx) (id);
 
@@ -2082,14 +2109,6 @@ export const kipe = Chain => gm => fm => x => Chain.chain(fm(x)) (gm);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-
-// (a -> m Boolean) -> [a] -> m [a]
-export const filterM = Applicative => p => mx =>
-  A.foldr(x => 
-    liftA2(Applicative) (b =>
-      b ? A.cons(x) : id) (p(x))) (Applicative.of([]));
-
-
 // (b -> a -> m b) -> b -> t a -> m b
 export const foldlM = (Foldable, Monad) => fm => init => mx =>
   Foldable.foldr(x => gm => acc =>
@@ -2100,18 +2119,6 @@ export const foldlM = (Foldable, Monad) => fm => init => mx =>
 export const foldrM = (Foldable, Monad) => fm => init => mx =>
   Foldable.foldl(gm => x => acc =>
     Monad.chain(fm(x) (acc)) (gm)) (Monad.of) (mx) (init);
-
-
-// ignore the result of the first monad
-
-export const then = Monad => mmx => mmy => Monad.chain(mmx) (_ =>
-  Chain.chain(mmy) (Monad.of));
-
-
-// ignore the result of the second monad
-
-export const then_ = Monad => mmx => mmy => Monad.chain(mmx) (x =>
-  Chain.chain(mmy) (_ => Monad.of(x)));
 
 
 // Monad -> (s -> m (Maybe [a, s])) -> s -> m [a]
@@ -2217,6 +2224,14 @@ export const infix_ = _infix(false);
 // more readable immediately invoked functon expression
 
 export const scope = f => f();
+
+
+// make a thunk out of a function
+
+const thunkify = f => x => f.bind(undefined, x);
+
+
+const thunkify_ = (f, x) => f.bind(undefined, x);
 
 
 export const uncurry = f => (x, y) => f(x) (y);
@@ -2786,6 +2801,9 @@ A.fromQueueF = f => ([fw, bw]) => {
 };
 
 
+A.fromStr = s => s.split("");
+
+
 A.fromTable = xss => xss.flat();
 
 
@@ -3121,7 +3139,7 @@ A.Alt = () => ({
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-Object.defineProperty(A, "zero", { // due to mutable arrays
+Object.defineProperty(A, "zero", { // to avoid mutation sharing
   get() {return []},
   enumerable: true,
   configurable: true
@@ -3133,7 +3151,7 @@ A.Plus = {
 };
 
 
-Object.defineProperty(A.Plus, "zero", { // due to mutable arrays
+Object.defineProperty(A.Plus, "zero", { // to avoid mutation sharing
   get() {return []},
   enumerable: true,
   configurable: true
@@ -3280,7 +3298,7 @@ A.Semigroup = {append: A.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Object.defineProperty(A, "empty", { // due to mutable arrays
+Object.defineProperty(A, "empty", { // to avoid mutation sharing
   get() {return []},
   enumerable: true,
   configurable: true
@@ -3292,7 +3310,7 @@ A.Monoid = {
 };
 
 
-Object.defineProperty(A.Monoid, "empty", { // due to mutable arrays
+Object.defineProperty(A.Monoid, "empty", { // to avoid mutation sharing
   get() {return []},
   enumerable: true,
   configurable: true
@@ -3619,6 +3637,19 @@ L.cons_ = tail => head => [head, tail];
 L.nil = [];
 
 
+/* TODO:
+take
+takeWhile
+drop
+dropWhile
+span
+break
+zip
+zipWith
+unzip
+*/
+
+
 /*
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
@@ -3778,13 +3809,23 @@ L.Alt = () => ({
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-L.zero = [];
+Object.defineProperty(L, "zero", { // to avoid mutation sharing
+  get() {return []},
+  enumerable: true,
+  configurable: true
+});
 
 
 L.Plus = {
-  ...L.Alt,
-  zero: L.zero
+  ...L.Alt
 };
+
+
+Object.defineProperty(L.Plus, "zero", { // to avoid mutation sharing
+  get() {return []},
+  enumerable: true,
+  configurable: true
+});
 
 
 /*
@@ -3907,13 +3948,23 @@ L.Semigroup = {append: L.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-L.empty = [];
+Object.defineProperty(L, "empty", { // to avoid mutation sharing
+  get() {return []},
+  enumerable: true,
+  configurable: true
+});
 
 
 L.Monoid = {
-  ...L.Semigroup,
-  empty: L.empty
+  ...L.Semigroup
 };
+
+
+Object.defineProperty(L.Monoid, "empty", { // to avoid mutation sharing
+  get() {return []},
+  enumerable: true,
+  configurable: true
+});
 
 
 /*
@@ -4819,353 +4870,6 @@ Cont.get = tx => Cont(k => Cont.Tramp.call(k, tx.cont));
 
 
 Cont.reify = k => x => Cont(_ => k(x));
-
-
-/*█████████████████████████████████████████████████████████████████████████████
-██████████████████████████████████ COROUTINE ██████████████████████████████████
-███████████████████████████████████████████████████████████████████████████████*/
-
-
-/* Separate pure computation from effect handling. Exemplary computation that
-might don't return a result:
-
-  // pure computation;
-
-  function* task(init) {
-    const o = yield init;
-
-    const x = yield o.foo,
-      y = yield o.bar;
-
-    yield x * y;
-  }
-
-  // effect handling
-
-  const interpreter = ix => {
-    const iy = ix.next();
-
-    if (iy.done) return iy;
-    else if (iy.value === null) return Co.empty;
-    else if (iy.value === undefined) return Co.empty;
-
-    const iz = iy.nextWith(o => o.x);
-
-    if (iz.done) return iy;
-    else if (iz.value === null) return Co.empty;
-    else if (iz.value === undefined) return Co.empty;
-
-    const ia = iz.nextWith(o => o.x);
-    return ia;
-  };
-
-  const ix = Co(task({foo: 2, bar: 3})),
-    iy = Co(task({fou: 2, bar: 3}));
-
-  interpreter(ix).value; // yields 6
-  interpreter(iy).value; // yields undefined
-
-Exemplary asynchronous computation:
-
-  function* task(init) {
-    const s = yield init;
-
-    const s2 = yield Promise.resolve("hi, " + s);
-
-    yield s2.toUpperCase() + "!";
-  }
-
-  const interpreter = ix => {
-    const iy = ix.next();
-
-    if (iy.done) return undefined;
-
-    else if (iy.value[Symbol.toStringTag] === "Promise") iy.value.then(x => {
-      const iz = iy.next(x);
-      console.log(iz.value);
-    });
-  };
-
-  const ix = Co(task2("Joe"));
-
-  interpreter(ix).value; // logs "HI, JOE!"
-*/
-
-
-export const Coroutine = ix => {
-  let o = ix.next(); // init
-
-  o.next = x => {
-    const p = ix.next(x || o.value);
-
-    p.next = o.next;
-    p.nextWith = o.nextWith;
-    delete o.next;
-    delete o.nextWith;
-    o.next = () => p;
-    o.nextWith = () => p;
-    o = p;
-    return p;
-  };
-
-  o.nextWith = f => {
-    const p = ix.next(f(o.value));
-
-    p.next = o.next;
-    p.nextWith = o.nextWith;
-    delete o.next;
-    delete o.nextWith;
-    o.next = () => p;
-    o.nextWith = () => p;
-    o = p;
-    return p;
-  }
-
-  return o;
-};
-
-
-export const Co = Coroutine;
-
-
-/*
-█████ Consumption █████████████████████████████████████████████████████████████*/
-
-
-// evaluate a single step of the coroutine
-
-Co.iterate = o => o.next();
-
-
-// short circuit the coroutine without a value
-
-Co.iterateIf = p => o => {
-  const q = o.next();
-
-  if (q.done === false) {
-    if (p(q.value)) return q;
-    else return Co.empty;
-  }
-
-  return q;
-};
-
-
-// short cicuit the coroutine with a reason
-
-Co.iterateTry = reason => p => o => {
-  const q = o.next();
-
-  if (q.done === false) {
-    if (p(q.value)) return q;
-    else return Co.of(reason);
-  }
-
-  return q;
-};
-
-
-// evaluate a step of the coroutine and transform the intermediate result
-
-Co.iterateWith = f => o => {
-  const p = o.next();
-
-  if (p.done === false) p.value = f(p.value);
-  return p;
-};
-
-
-// strictly evaluate coroutine to its final value
-
-Co.strict = o => {
-  let p = o.next(), r = p.value;
-
-  while (p.done === false) p = p.next();
-  return r;
-};
-
-
-/*
-█████ Conversion ██████████████████████████████████████████████████████████████*/
-
-
-Co.toArr = o => {
-  const acc = [];
-  
-  let p = o.next();
-
-  while (p.done === false) {
-    acc.push(p.value);
-    p = p.next();
-  }
-
-  return acc;
-};
-
-
-/*
-█████ Filterable ██████████████████████████████████████████████████████████████*/
-
-
-Co.filter = p => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let q = o.next();
-
-    while (q.done === false) {
-      if (p(q.value)) yield q.value;
-      q = q.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Foldable ████████████████████████████████████████████████████████████████*/
-
-
-Co.fold = f => acc => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      acc = f(acc) (p.value);
-      p.value = acc;
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Functor █████████████████████████████████████████████████████████████████*/
-
-
-Co.map = f => o => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      p.value = f(p.value);
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-/*
-█████ Semigroup ███████████████████████████████████████████████████████████████*/
-
-
-Co.append = o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next();
-
-    while (p.done === false) {
-      yield p.value;
-      p = p.next();
-    }
-
-    p = o2.next();
-
-    while (p.done === false) {
-      yield p.value;
-      p = p.next();
-    }
-  } (o.value));
-};
-
-
-Co.Semigroup = {append: Co.append};
-
-
-/*
-█████ Semigroup (Alignment) ███████████████████████████████████████████████████*/
-
-
-Co.Align = {};
-
-
-Co.Align.append = Semigroup => o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next(), p2 = o2.next();
-
-    while (p.done === false && p2.done === false) {
-      yield Semigroup.append(p.value) (p2.value);
-      p = p.next();
-      p2 = p2.next();
-    }
-  } (o.value));
-};
-
-
-Co.Align.Semigroup = {append: Co.Align.append};
-
-
-/*
-█████ Monoid ██████████████████████████████████████████████████████████████████*/
-
-
-Co.empty = Co(function* empty() {} ());
-
-
-Co.Monoid = {
-  ...Co.Semigroup,
-  empty: Co.empty
-};
-
-
-/*
-█████ Monoid (Alignment) ██████████████████████████████████████████████████████*/
-
-
-Co.Align.empty = Monoid => Co(function* empty(x) {
-  yield x;
-  while (true) yield x;
-} (Monoid.empty));
-
-
-Co.Align.Monoid = {
-  ...Co.Align.Semigroup,
-  empty: Co.Align.empty
-};
-
-
-/*
-█████ Mics. ███████████████████████████████████████████████████████████████████*/
-
-
-Co.of = x => Co(function* of(init) {
-  yield init;
-  yield x;
-} (null));
-
-
-Co.weave = o => o2 => {
-  return Co(function* (init) {
-    yield init;
-
-    let p = o.next(), p2 = o2.next();
-
-    while (p.done === false && p2.done === false) {
-      yield p.value;
-      yield p2.value;
-      p = p.next();
-      p2 = p2.next();
-    }
-  } (o.value));
-};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -8767,7 +8471,7 @@ If you need state for a specific task, just build a suitable stateful parser
 like with `Parser.nestedIn`. */
 
 
-export const Parser = type("Parser", "pr");
+export const Parser = type("Parser", "parse");
   
 
 export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
@@ -9044,7 +8748,8 @@ Parser.take = Parser(ix => {
 
 Parser.takePrev = Parser(ix => {
   const iy = ix.prev;
-  return Parsed.Valid(iy.value, iy);
+  if (iy === undefined) throw new Err("start of input");
+  else return Parsed.Valid(iy.value, iy);
 });
 
 
@@ -9052,7 +8757,6 @@ Parser.takePrev = Parser(ix => {
 
 Parser.drop = Parser(ix => {
   const iy = ix.next();
-
   if (iy.done) throw new Err("end of input");
   else return Parsed.Valid(null, iy);
 });
@@ -9060,8 +8764,7 @@ Parser.drop = Parser(ix => {
 
 Parser.dropPrev = Parser(ix => {
   const iy = ix.prev;
-
-  if (iy.done) throw new Err("end of input");
+  if (iy === undefined) throw new Err("start of input");
   else return Parsed.Valid(null, iy);
 });
 
@@ -9070,7 +8773,6 @@ Parser.dropPrev = Parser(ix => {
 
 Parser.reject = msg => Parser(ix => {
   const iy = ix.next();
-
   if (iy.done) throw new Err("end of input");
   else return Parsed.Invalid(new Exc(msg), ix);
 });
@@ -9078,7 +8780,8 @@ Parser.reject = msg => Parser(ix => {
 
 Parser.rejectPrev = msg => Parser(ix => {
   const iy = ix.prev;
-  return Parsed.Invalid(new Exc(msg), ix);
+  if (iy === undefined) throw new Err("start of input");
+  else return Parsed.Invalid(new Exc(msg), ix);
 });
 
 
@@ -9086,7 +8789,6 @@ Parser.rejectPrev = msg => Parser(ix => {
 
 Parser.satisfy = msg => p => Parser(ix => {
   const iy = ix.next();
-
   if (iy.done) throw new Err("end of input");
   else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Exc(msg), ix);
@@ -9095,8 +8797,8 @@ Parser.satisfy = msg => p => Parser(ix => {
 
 Parser.satisfyPrev = msg => p => Parser(ix => {
   const iy = ix.prev;
-
-  if (p(iy.value)) return Parsed.Valid(iy.value, iy);
+  if (iy === undefined) throw new Err("start of input");
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Exc(msg), ix);
 });
 
@@ -9105,20 +8807,16 @@ Parser.satisfyPrev = msg => p => Parser(ix => {
 
 Parser.char = c => Parser(ix => {
   const iy = ix.next();
-
   if (iy.done) throw new Err("end of input");
   else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  
   else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
 });
 
 
 Parser.charPrev = c => Parser(ix => {
   const iy = ix.prev;
-
-  if (iy.done) throw new Err("end of input");
+  if (iy === undefined) throw new Err("start of input");
   else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  
   else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
 });
 
@@ -9127,7 +8825,15 @@ Parser.asciiLetter = Parser.satisfy("ASCII letter expected")
   (c => Parser.asciiCodeset.letter.test(c));
 
 
+Parser.asciiLetterPrev = Parser.satisfyPrev("ASCII letter expected")
+  (c => Parser.asciiCodeset.letter.test(c));
+
+
 Parser.asciiLcl = Parser.satisfy("ASCII lower case letter expected")
+  (c => Parser.asciiCodeset.lcl.test(c));
+
+
+Parser.asciiLclPrev = Parser.satisfyPrev("ASCII lower case letter expected")
   (c => Parser.asciiCodeset.lcl.test(c));
 
 
@@ -9135,7 +8841,15 @@ Parser.asciiUcl = Parser.satisfy("ASCII upper case letter expected")
   (c => Parser.asciiCodeset.ucl.test(c));
 
 
+Parser.asciiUclPrev = Parser.satisfyPrev("ASCII upper case letter expected")
+  (c => Parser.asciiCodeset.ucl.test(c));
+
+
 Parser.asciiDigit = Parser.satisfy("ASCII digit expected")
+  (c => Parser.asciiCodeset.digit.test(c));
+
+
+Parser.asciiDigitPrev = Parser.satisfyPrev("ASCII digit expected")
   (c => Parser.asciiCodeset.digit.test(c));
 
 
@@ -9143,7 +8857,15 @@ Parser.asciiAlnum = Parser.satisfy("ASCII alphanumeric character expected")
   (c => Parser.asciiCodeset.alnum.test(c));
 
 
+Parser.asciiAlnumPrev = Parser.satisfyPrev("ASCII alphanumeric character expected")
+  (c => Parser.asciiCodeset.alnum.test(c));
+
+
 Parser.asciiPunct = Parser.satisfy("ASCII punctuation expected")
+  (c => Parser.asciiCodeset.punct.test(c));
+
+
+Parser.asciiPunctPrev = Parser.satisfyPrev("ASCII punctuation expected")
   (c => Parser.asciiCodeset.punct.test(c));
 
 
@@ -9151,7 +8873,15 @@ Parser.asciiSpace = Parser.satisfy("ASCII space character expected")
   (c => Parser.asciiCodeset.space.test(c));
 
 
+Parser.asciiSpacePrev = Parser.satisfyPrev("ASCII space character expected")
+  (c => Parser.asciiCodeset.space.test(c));
+
+
 Parser.latin1Letter = Parser.satisfy("Latin1 letter expected")
+  (c => Parser.latin1CodeSet.letter.test(c));
+
+
+Parser.latin1LetterPrev = Parser.satisfyPrev("Latin1 letter expected")
   (c => Parser.latin1CodeSet.letter.test(c));
 
 
@@ -9159,7 +8889,15 @@ Parser.latin1Lcl = Parser.satisfy("Latin1 lower case letter expected")
   (c => Parser.latin1CodeSet.lcl.test(c));
 
 
+Parser.latin1LclPrev = Parser.satisfyPrev("Latin1 lower case letter expected")
+  (c => Parser.latin1CodeSet.lcl.test(c));
+
+
 Parser.latin1Ucl = Parser.satisfy("Latin1 upper case letter expected")
+  (c => Parser.latin1CodeSet.ucl.test(c));
+
+
+Parser.latin1UclPrev = Parser.satisfyPrev("Latin1 upper case letter expected")
   (c => Parser.latin1CodeSet.ucl.test(c));
 
 
@@ -9167,7 +8905,15 @@ Parser.latin1Digit = Parser.satisfy("Latin1 digit expected")
   (c => Parser.latin1CodeSet.digit.test(c));
 
 
+Parser.latin1DigitPrev = Parser.satisfyPrev("Latin1 digit expected")
+  (c => Parser.latin1CodeSet.digit.test(c));
+
+
 Parser.latin1Alnum = Parser.satisfy("Latin1 alphanumeric character expected")
+  (c => Parser.latin1CodeSet.alnum.test(c));
+
+
+Parser.latin1AlnumPrev = Parser.satisfyPrev("Latin1 alphanumeric character expected")
   (c => Parser.latin1CodeSet.alnum.test(c));
 
 
@@ -9175,7 +8921,15 @@ Parser.latin1Punct = Parser.satisfy("Latin1 punctuation expected")
   (c => Parser.latin1CodeSet.punct.test(c));
 
 
+Parser.latin1PunctPrev = Parser.satisfyPrev("Latin1 punctuation expected")
+  (c => Parser.latin1CodeSet.punct.test(c));
+
+
 Parser.latin1Space = Parser.satisfy("Latin1 space character expected")
+  (c => Parser.latin1CodeSet.space.test(c));
+
+
+Parser.latin1SpacePrev = Parser.satisfyPrev("Latin1 space character expected")
   (c => Parser.latin1CodeSet.space.test(c));
 
 
@@ -9183,7 +8937,15 @@ Parser.utf8Letter = Parser.satisfy("UTF8 letter expected")
   (c => Parser.utf8Codeset.letter.test(c));
 
 
+Parser.utf8LetterPrev = Parser.satisfyPrev("UTF8 letter expected")
+  (c => Parser.utf8Codeset.letter.test(c));
+
+
 Parser.utf8Lcl = Parser.satisfy("UTF8 lower case letter expected")
+  (c => Parser.utf8Codeset.lcl.test(c));
+
+
+Parser.utf8LclPrev = Parser.satisfyPrev("UTF8 lower case letter expected")
   (c => Parser.utf8Codeset.lcl.test(c));
 
 
@@ -9191,7 +8953,15 @@ Parser.utf8Ucl = Parser.satisfy("UTF8 upper case letter expected")
   (c => Parser.utf8Codeset.ucl.test(c));
 
 
+Parser.utf8UclPrev = Parser.satisfyPrev("UTF8 upper case letter expected")
+  (c => Parser.utf8Codeset.ucl.test(c));
+
+
 Parser.utf8Digit = Parser.satisfy("UTF8 digit expected")
+  (c => Parser.utf8Codeset.digit.test(c));
+
+
+Parser.utf8DigitPrev = Parser.satisfyPrev("UTF8 digit expected")
   (c => Parser.utf8Codeset.digit.test(c));
 
 
@@ -9199,11 +8969,23 @@ Parser.utf8Alnum = Parser.satisfy("UTF8 alphanumeric character expected")
   (c => Parser.utf8Codeset.alnum.test(c));
 
 
+Parser.utf8AlnumPrev = Parser.satisfyPrev("UTF8 alphanumeric character expected")
+  (c => Parser.utf8Codeset.alnum.test(c));
+
+
 Parser.utf8Punct = Parser.satisfy("UTF8 punctuation expected")
   (c => Parser.utf8Codeset.punct.test(c));
 
 
+Parser.utf8PunctPrev = Parser.satisfyPrev("UTF8 punctuation expected")
+  (c => Parser.utf8Codeset.punct.test(c));
+
+
 Parser.utf8Space = Parser.satisfy("UTF8 space character expected")
+  (c => Parser.utf8Codeset.space.test(c));
+
+
+Parser.utf8SpacePrev = Parser.satisfyPrev("UTF8 space character expected")
   (c => Parser.utf8Codeset.space.test(c));
 
 
@@ -9265,10 +9047,10 @@ Parser.sepBy = Monoid => (left, right = left) => Parser(ix => {
 fails, try the second parser. Return the accumulated exceptions if both fail. */
 
 Parser.or = tx => ty => Parser(iw => {
-  return tx.pr(iw).parsed.run({
+  return tx.parse(iw).parsed.run({
     Valid: (v, ix) => Parsed.Valid(v, ix),
 
-    Invalid: (e, ix) => ty.pr(ix).parsed.run({
+    Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
       Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
     })
@@ -9280,8 +9062,8 @@ Parser.or = tx => ty => Parser(iw => {
 Append both results on success. */
 
 Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
-  return tx.pr(iw).parsed.run({
-    Valid: (v, ix) => ty.pr(ix).parsed.run({
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
       Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
@@ -9295,7 +9077,7 @@ Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
 or by returning the empty element of the desired monoid. */
 
 Parser.not = Monoid => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
+  return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("valid result received"), new Exc(v), ix)),
     Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
   })
@@ -9305,13 +9087,13 @@ Parser.not = Monoid => tx => Parser(ix => {
 // exclusive or, return values wrapped in exception in case both parsers succeed
 
 Parser.xor = tx => ty => Parser(iw => {
-  return tx.pr(iw).parsed.run({
-    Valid: (v, ix) => ty.pr(ix).parsed.run({
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Invalid(Exc.accum(new Exc("valid/valid results received"), new Exc(v), new Exc(v2)), iw),
       Invalid: (e, iz) => Parsed.Valid(v, iz)
     }),
 
-    Invalid: (e, ix) => ty.pr(ix).parsed.run({
+    Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
       Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
     })
@@ -9322,13 +9104,13 @@ Parser.xor = tx => ty => Parser(iw => {
 // xnor aka if and only if (iff)
 
 Parser.xnor = Monoid => tx => ty => Parser(iw => {
-  return tx.pr(iw).parsed.run({
-    Valid: (v, ix) => ty.pr(ix).parsed.run({
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Monoid.append(v) (v2), iy),
       Invalid: (e, iz) => Parsed.Invalid(Exc.accum(new Exc("valid/invalid results received"), new Exc(v), e), iw)
     }),
 
-    Invalid: (e, ix) => ty.pr(ix).parsed.run({
+    Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("invalid/valid results received"), e, new Exc(v)), iw),
       Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz)
     })
@@ -9350,7 +9132,7 @@ Parser.min = Monoid => n => tx => Parser(iw => {
   let ix = iw;
 
   while (true) {
-    const o = tx.pr(iy).parsed.run({
+    const o = tx.parse(iy).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
       Invalid: (e, iz) => Parsed.Invalid(e, iz)
     });
@@ -9383,7 +9165,7 @@ Parser.max = Monoid => n => tx => Parser(iw => {
   let ix = iw;
 
   while (acc.length <= n) {
-    const o = tx.pr(iy).parsed.run({
+    const o = tx.parse(iy).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
       Invalid: (e, iz) => Parsed.Invalid(e, iz)
     });
@@ -9413,7 +9195,7 @@ Parser.string = s => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = "";
 
   for (let i = 0; i < s.length; i++) {
-    o = Parser.char(s[i]).pr(o.parsed.val[1]);
+    o = Parser.char(s[i]).parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
     else break;
@@ -9431,7 +9213,7 @@ Parser.times = Semigroup => n => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   for (let i = 0; i < n;i++) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
     else return Parsed.Invalid(new Exc(`pattern less than ${n} times received`), ix);
@@ -9449,7 +9231,7 @@ Parser.times_ = Semigroup => n => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   for (let i = 0; i <= n;i++) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (i < n && o.parsed.tag === "valid") acc + o.parsed.val[0];
     
@@ -9469,8 +9251,8 @@ Parser.times_ = Semigroup => n => tx => Parser(ix => {
 // 1 (static)
 
 Parser.once = tx => Parser(iw => {
-  return tx.pr(iw).parsed.run({
-    Valid: (v, ix) => tx.pr(ix).parsed.run({
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => tx.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Invalid(new Exc("pattern more than once received"), iw),
       Invalid: (e, iz) => Parsed.Valid(v, ix)
     }),
@@ -9483,7 +9265,7 @@ Parser.once = tx => Parser(iw => {
 // 0 (static)
 
 Parser.none = Monoid => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
+  return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Invalid(new Exc("pattern at least once received"), ix),
     Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
   });
@@ -9497,7 +9279,7 @@ Parser.all = Monoid => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   while (true) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
@@ -9515,7 +9297,7 @@ Parser.all1 = Semigroup => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   while (true) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
@@ -9535,7 +9317,7 @@ Parser.last = tx => Parser(ix => {
   let o = Parsed.Valid(null, ix), p = null;
 
   while (true) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") p = o;
     else break;
@@ -9555,7 +9337,7 @@ Parser.nth = n => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   while (true) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") {
       acc.push(o.parsed.val[0]);
@@ -9577,7 +9359,7 @@ Parser.while = Monoid => p => tx => Parser(ix => {
   let o = Parsed.Valid(null, ix);
 
   while (true) {
-    o = tx.pr(o.parsed.val[1]);
+    o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "invalid") break;
     else if (!p(o.parsed.val[0])) break;
@@ -9596,7 +9378,7 @@ Parser.while = Monoid => p => tx => Parser(ix => {
 // lift a function into the context of a parser
 
 Parser.map = f => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
+  return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(f(v), iy),
     Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
@@ -9639,8 +9421,8 @@ Parser.Plus = {
 // lift a binary function into the context of two parsers
 
 Parser.ap = tf => tx => Parser(iw => {
-  return tf.pr(iw).parsed.run({
-    Valid: (f, ix) => tx.pr(ix).parsed.run({
+  return tf.parse(iw).parsed.run({
+    Valid: (f, ix) => tx.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(f(v), iy),
       Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
@@ -9689,8 +9471,8 @@ Parser.Chain = {
 result value of the first one. */
 
 Parser.chain = Semigroup => tx => fm => Parser(iw => {
-  return tx.pr(iw).parsed.run({
-    Valid: (v, ix) => fm(v).pr(ix).parsed.run({
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => fm(v).parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
       Invalid: (e, iz) => Parsed.Invalid(e, iw)
     }),
@@ -9704,6 +9486,57 @@ Parser.Monad = {
   ...Parser.Applicative,
   chain: Parser.chain
 };
+
+
+/*
+█████ Position ████████████████████████████████████████████████████████████████*/
+
+
+// beginning of input
+
+Parser.boi = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Exc("beginning of input expected"), ix);
+});
+
+
+// beginning of line
+
+Parser.bol = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Exc("beginning of line expected"), ix);
+});
+
+
+// end of input
+
+Parser.eoi = Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Exc("end of input expected"), ix);
+});
+
+
+// end of line
+
+Parser.eol = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  
+  else if (iy.value === "\r") {
+    const tx = Parser.look(Parser.char("\n")).parse(iy);
+
+    if (tx.parsed.val[0] === "\n") return Parsed.Valid(true, ix);
+    else return Parsed.Invalid(new Exc("end of line expected"), ix);
+  }
+
+  else return Parsed.Invalid(new Exc("end of line expected"), ix);
+});
 
 
 /*
@@ -9730,24 +9563,29 @@ Parser.Monoid = {
 
 
 /*
+█████ Special Parsers █████████████████████████████████████████████████████████*/
+
+
+/*Parser.csv = o => Parser(ix => {
+  if (o.header) {
+    const line = Parser.while(A.Monoid) (c => c !== "\r" && c !== "\n");
+
+    Parser.boi
+    Parser.while(Str.Monoid) (c => c !== o.sep)
+    Parser.eol
+  }
+});*/
+
+
+/*
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-// verify end of input
-
-Parser.eoi = Monoid => Parser(ix => {
-  const iy = ix.next();
-
-  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
-  else return Parsed.Invalid(new Exc("end of input expected"), ix);
-});
 
 
 /* Replace the next value with a default one, provided the next parser yields
 a valid result. */
 
 Parser.ignore = x => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
+  return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(x, iy),
     Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
@@ -9757,7 +9595,7 @@ Parser.ignore = x => tx => Parser(ix => {
 // either take the next parsed value or a default one, if the parser fails
 
 Parser.optional = x => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
+  return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, iy),
     Invalid: (e, iz) => Parsed.Valid(x, iz)
   })
@@ -9766,9 +9604,9 @@ Parser.optional = x => tx => Parser(ix => {
 
 // look ahead or behind depending on the supplied parser
 
-Parser.look = Monoid => tx => Parser(ix => {
-  return tx.pr(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(Monoid.empty, ix),
+Parser.look = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, ix),
     Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
 });
@@ -9908,7 +9746,18 @@ Pred.Disjunct.Monoid = {
 export const Rex = {};
 
 
+/*
+█████ Combinators █████████████████████████████████████████████████████████████*/
+
+
 Rex.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+
+Rex.normalizeNewline = s => s.replace(/\r\n/g, "\n");
+
+
+/*
+█████ Patterns ████████████████████████████████████████████████████████████████*/
 
 
 Rex.iso = {
@@ -10416,13 +10265,13 @@ Str.normalizeNum = locale => s => {
 
 
 /*
-█████ Indexing ████████████████████████████████████████████████████████████████*/
+█████ Searching ███████████████████████████████████████████████████████████████*/
 
 
 /* Finds the index of the given pattern in the passed string. The `i` argument
 refers to the array and can be positive or negative. A positive value denotes
 the index in the match pattern. A negative index denotes the position in the
-array relative to the end. -1 means the last element. -2 the penultimate element. */
+array relative to the end. -1 means the last element. -2 the penultimate one. */
 
 Str.findIndex = (pattern, i) => s => {
   const xs = Array.from(s.matchAll(pattern));
@@ -10437,9 +10286,6 @@ Str.findIndex = (pattern, i) => s => {
 };
 
 
-Str.findIndexes = pattern => s => Array.from(s.matchAll(pattern));
-
-
 // find the first and last index of a pattern in the passed string
 
 Str.findFirstLast = pattern => s => {
@@ -10449,6 +10295,29 @@ Str.findFirstLast = pattern => s => {
   if (xs.length === 0) return null;
   else if (xs.length === 1) return Pair(xs[0].index, xs[0].index);
   else return Pair(xs[0].index, xs[xs.length - 1].index);
+};
+
+
+/*
+█████ Semigroup ███████████████████████████████████████████████████████████████*/
+
+
+Str.append = s => t => "" + s + t;
+
+
+Str.Semigroup = {append: Str.append};
+
+
+/*
+█████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
+
+
+Str.empty = "";
+
+
+Str.Monoid = {
+  ...Str.Semigroup,
+  empty: Str.empty
 };
 
 
@@ -11172,12 +11041,20 @@ export const FileSysHandle = fs => Cons => thisify(o => {
     fs.copyFile(src, dest, e =>
       e ? k(new Exc(e)) : k(null)));
 
-  o.move = src => dest => // guaranteed order
-    Cons.chain(o.copy(src) (dest)) (_ =>
-      o.unlink(src));
+  o.move = src => dest =>
+    Cons.chain(o.copy(src) (dest)) (e =>
+      e?.constructor?.name === "Exception" ? Cons.of(e) : o.unlink(src));
 
   o.read = opt => path => Cons(k =>
     fs.readFile(path, opt, (e, x) =>
+      e ? k(new Exc(e)) : k(x)));
+
+  o.readUtf8 = opt => path => Cons(k =>
+    fs.readFile(path, Object.assign(opt, {encoding: "utf8"}), (e, x) =>
+      e ? k(new Exc(e)) : k(x)));
+
+  o.readLatin1 = opt => path => Cons(k =>
+    fs.readFile(path, Object.assign(opt, {encoding: "latin1"}), (e, x) =>
       e ? k(new Exc(e)) : k(x)));
 
   o.scanDir = path => Cons(k =>
@@ -11205,12 +11082,20 @@ export const FileSysThrow = fs => Cons => thisify(o => {
     fs.copyFile(src, dest, e =>
       e ? _throw(e) : k(null)));
 
-  o.move = src => dest => // guaranteed order
+  o.move = src => dest =>
     Cons.chain(o.copy(src) (dest)) (_ =>
       o.unlink(src));
 
   o.read = opt => path => Cons(k =>
     fs.readFile(path, opt, (e, x) =>
+      e ? _throw(e) : k(x)));
+
+  o.readUtf8 = opt => path => Cons(k =>
+    fs.readFile(path, Object.assign(opt, {encoding: "utf8"}), (e, x) =>
+      e ? _throw(e) : k(x)));
+
+  o.readLatin1 = opt => path => Cons(k =>
+    fs.readFile(path, Object.assign(opt, {encoding: "latin1"}), (e, x) =>
       e ? _throw(e) : k(x)));
 
   o.scanDir = path => Cons(k =>
@@ -11242,14 +11127,9 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
 /*
 
-  * FILO/stack = single linked list (done)
-  * FIFO/queue
-  * deque = double linked list (done)
-  * multimap (done)
-  * bag/multiset
-  * add context type (array of arrays)
-  * add async iterator machinery
-  * add amb function
+  * add stream support in file system
+  * add child_process support
+  * Parser from x to y times ({x,y} in Regex)
 
   * backtacking
     * depth/breadth first strategies
