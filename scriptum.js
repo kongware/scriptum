@@ -9058,6 +9058,9 @@ Parser.or = tx => ty => Parser(iw => {
 });
 
 
+Parser.any
+
+
 /* Try both parsers and return the first or second exception, if one fails.
 Append both results on success. */
 
@@ -9071,6 +9074,9 @@ Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
     Invalid: (e, ix) => Parsed.Invalid(e, ix)
   })
 });
+
+
+Parser.all
 
 
 /* Negate a parser result by either returning the parsed value as an exception
@@ -9125,8 +9131,9 @@ Parser.xnor = Monoid => tx => ty => Parser(iw => {
 // higher order parser combinators
 
 
-// 0..n
+// parse the given pattern at least min or more times
 
+// min..n (n=dynamic)
 Parser.min = Monoid => n => tx => Parser(iw => {
   const acc = [];
   let ix = iw;
@@ -9153,13 +9160,15 @@ Parser.min = Monoid => n => tx => Parser(iw => {
 });
 
 
-// 1..n
+// parse the given pattern at least once or more times
 
+// 1..n (n=dynamic)
 Parser.min1 = Monoid => Parser.min(Monoid) (1);
 
 
-// 0..max
+// parse the given pattern zero or max times
 
+// 0..max
 Parser.max = Monoid => n => tx => Parser(iw => {
   const acc = [];
   let ix = iw;
@@ -9186,11 +9195,15 @@ Parser.max = Monoid => n => tx => Parser(iw => {
 });
 
 
-// 0..1
+// parse the given pattern zero times or once
 
+// 0..1
 Parser.max1 = Monoid => Parser.max(Monoid) (1);
 
 
+// parse the given string
+
+// n (n=static)
 Parser.string = s => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = "";
 
@@ -9206,9 +9219,10 @@ Parser.string = s => Parser(ix => {
 });
 
 
-// `n` must be at least 1 - n (static)
+// parse the given pattern between m and n times
 
-Parser.times = Semigroup => n => tx => Parser(ix => {
+// m..n (m=static, n=static)
+Parser.times = Monoid => (m, n = m) => tx => Parser(ix => {
   const acc = [];
   let o = Parsed.Valid(null, ix);
 
@@ -9216,7 +9230,8 @@ Parser.times = Semigroup => n => tx => Parser(ix => {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else return Parsed.Invalid(new Exc(`pattern less than ${n} times received`), ix);
+    else if (i < m) return Parsed.Invalid(new Exc(`pattern less than ${m} times received`), ix);
+    else break;
   }
 
   return Parsed.Valid(acc.reduce((acc2, v) =>
@@ -9224,33 +9239,48 @@ Parser.times = Semigroup => n => tx => Parser(ix => {
 });
 
 
-// variant that uses a look ahead to exclude further pattern occurrences
+/* Parse the given pattern between m and n times but only if it doesn't occur
+n + 1 times. */
 
-Parser.times_ = Semigroup => n => tx => Parser(ix => {
+// m..n (m=static, n=static)
+Parser.timesOnly = Monoid => (m, n = m) => tx => Parser(ix => {
   const acc = [];
   let o = Parsed.Valid(null, ix);
 
-  for (let i = 0; i <= n;i++) {
+  for (let i = 0; i < n;i++) {
     o = tx.parse(o.parsed.val[1]);
 
-    if (i < n && o.parsed.tag === "valid") acc + o.parsed.val[0];
-    
-    else if (i === n && o.parsed.tag === "valid") 
-      return Parsed.Invalid(new Exc(`pattern less than ${n} times received`), ix);
-    
-    else if (i === n && o.parsed.tag === "invalid") break;
-
-    else return Parsed.Invalid(new Exc(`pattern more than ${n} times received`), ix);
+    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
+    else if (i < m) return Parsed.Invalid(new Exc(`pattern less than ${m} times received`), ix);
+    else break;
   }
 
-  return Parsed.Valid(acc.reduce((acc2, v) =>
+  o = tx.parse(o.parsed.val[1]);
+
+  if (o.parsed.tag === "valid")
+    return Parsed.Invalid(new Exc(`pattern more than ${m} times received`), ix);
+
+  else return Parsed.Valid(acc.reduce((acc2, v) =>
     Semigroup.append(acc2) (v)), o.parsed.val[1]);
 });
 
 
-// 1 (static)
+/* Parse the given pattern once. Isn't derived from `Parser.times` because
+of the redundant monoid constraint. */
 
+// 1
 Parser.once = tx => Parser(iw => {
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => Parsed.Valid(v, ix),
+    Invalid: (e, ix) => Parsed.Invalid(new Exc("pattern not once received"), ix)
+  });
+});
+
+
+// parse the pattern once and only once
+
+// 1
+Parser.onceOnly = tx => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => tx.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Invalid(new Exc("pattern more than once received"), iw),
@@ -9262,57 +9292,26 @@ Parser.once = tx => Parser(iw => {
 });
 
 
-// 0 (static)
+// parse the given pattern not once
 
-Parser.none = Monoid => tx => Parser(ix => {
+// 0
+Parser.none = tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Invalid(new Exc("pattern at least once received"), ix),
-    Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
+    Valid: (v, iy) => Parsed.Invalid(new Exc("unexpected pattern"), ix),
+    Invalid: (e, iz) => Parsed.Valid(true, iz)
   });
 });
 
 
-// 0..n (dynamic)
+// parse as many repetitions of the pattern as possible
 
-Parser.all = Monoid => tx => Parser(ix => {
-  const acc = [];
-  let o = Parsed.Valid(null, ix);
-
-  while (true) {
-    o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
-    else break;
-  }
-
-  return Parsed.Valid(acc.reduce((acc2, v) =>
-    Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
-});
+// 0..n (n=dynamic)
+Parser.many = Monoid => Parser.min(Monoid) (0);
 
 
-// 1..n (dynamic)
+// parse all occurrences of the given pattern but only return the last one
 
-Parser.all1 = Semigroup => tx => Parser(ix => {
-  const acc = [];
-  let o = Parsed.Valid(null, ix);
-
-  while (true) {
-    o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
-    else break;
-  }
-
-  if (acc.length === 0) return Parsed.Invalid(
-    new Exc("pattern not once received"), ix);
-
-  return Parsed.Valid(acc.reduce((acc2, v) =>
-    Semigroup.append(acc2) (v)), o.parsed.val[1]);
-});
-
-
-// 1 (dynamic)
-
+// 1
 Parser.last = tx => Parser(ix => {
   let o = Parsed.Valid(null, ix), p = null;
 
@@ -9330,8 +9329,9 @@ Parser.last = tx => Parser(ix => {
 });
 
 
-// 1 (dynamic)
+// parse all occurrences of the given pattern but only return the nth one
 
+// 1
 Parser.nth = n => tx => Parser(ix => {
   const acc = [];
   let o = Parsed.Valid(null, ix);
@@ -9352,22 +9352,29 @@ Parser.nth = n => tx => Parser(ix => {
 });
 
 
-// 0..n (dynamic)
+/* parse the pattern satisfying a predicate as long as the accumulated parsed
+result satisfies another predicate. */
 
-Parser.while = Monoid => p => tx => Parser(ix => {
-  const acc = [];
-  let o = Parsed.Valid(null, ix);
+// 0..n (dynamic)
+Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
+  let o = Parsed.Valid(null, ix), prev,
+    acc = Monoid.empty;
 
   while (true) {
+    prev = o;
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "invalid") break;
-    else if (!p(o.parsed.val[0])) break;
-    else acc.push(o.parsed.val[0]);
+    else if (!p(o.parsed.val[0])) {o = prev; break}
+
+    else {
+      const acc2 = Monoid.append(acc) (o.parsed.val[0]);
+      if (q(acc)) acc = acc2;
+      else {o = prev; break}
+    }
   }
 
-  return Parsed.Valid(acc.reduce((acc2, v) =>
-    Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
+  return Parsed.Valid(acc, o.parsed.val[1]);
 });
 
 
@@ -9592,7 +9599,7 @@ Parser.ignore = x => tx => Parser(ix => {
 });
 
 
-// either take the next parsed value or a default one, if the parser fails
+// either take the parsed pattern or a default one, if the parser fails
 
 Parser.optional = x => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
@@ -11129,7 +11136,6 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
   * add stream support in file system
   * add child_process support
-  * Parser from x to y times ({x,y} in Regex)
 
   * backtacking
     * depth/breadth first strategies
