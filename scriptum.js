@@ -1018,7 +1018,7 @@ export class Exception extends Error {
 };
 
 
-export const Exc = Exception;
+export const Ex = Exception;
 
 
 // throw as a first class expression
@@ -1053,7 +1053,7 @@ export const _try = f => x => ({
 });
 
 
-Exc.accum = (...es) => es.reduceRight((acc, e) => {
+Ex.accum = (...es) => es.reduceRight((acc, e) => {
   e.prev = acc;
   acc = e;
   return acc;
@@ -5219,7 +5219,7 @@ E.Alt = {
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-E.zero = new Exc();
+E.zero = new Ex();
 
 
 E.Plus = {
@@ -6841,9 +6841,14 @@ _Map.monthsShortDe = new Map([
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-// destructive update
+_Map.union = m => n => {
+  new Map(n).forEach((v, k) => m.set(k, v));
+};
 
-_Map.merge = m => n => {
+
+// destructive
+
+_Map.union_ = m => n => {
   n.forEach((v, k) => m.set(k, v));
 };
 
@@ -8738,18 +8743,17 @@ Object.defineProperty(Parser, "toAscii", {
 
 Parser.take = Parser(ix => {
   const iy = ix.next();
-
   if (iy.done) throw new Err("end of input");
   else return Parsed.Valid(iy.value, iy);
 });
 
 
-// backwards
+// accept any previous input
 
 Parser.takePrev = Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("start of input");
-  else return Parsed.Valid(iy.value, iy);
+  if (iy === undefined) throw new Err("beginning of input");
+  else return Parsed.Valid(iy.value, iy.prev);
 });
 
 
@@ -8764,276 +8768,365 @@ Parser.drop = Parser(ix => {
 
 Parser.dropPrev = Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("start of input");
-  else return Parsed.Valid(null, iy);
+  if (iy === undefined) throw new Err("beginning of input");
+  else return Parsed.Valid(null, iy.prev);
 });
 
 
-// always reject any input
+// reject any input
 
 Parser.reject = msg => Parser(ix => {
   const iy = ix.next();
   if (iy.done) throw new Err("end of input");
-  else return Parsed.Invalid(new Exc(msg), ix);
+  else return Parsed.Invalid(new Ex(msg), ix);
 });
 
 
 Parser.rejectPrev = msg => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("start of input");
-  else return Parsed.Invalid(new Exc(msg), ix);
+  if (iy === undefined) throw new Err("beginning of input");
+  else return Parsed.Invalid(new Ex(msg), ix);
 });
 
 
-// succeed on input that satisfies a predicate
+// parse input that satisfies a predicate
 
-Parser.satisfy = msg => p => Parser(ix => {
+Parser.satisfy = (p, msg = "parse result doesn't satisfy predicate") => Parser(ix => {
   const iy = ix.next();
   if (iy.done) throw new Err("end of input");
   else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Exc(msg), ix);
+  else return Parsed.Invalid(new Ex(msg), ix);
 });
 
 
-Parser.satisfyPrev = msg => p => Parser(ix => {
+Parser.satisfyPrev = (p, msg = "parse result doesn't satisfy predicate") => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("start of input");
-  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Exc(msg), ix);
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(msg), ix);
 });
 
 
-// for performance reasons not derived from `Parser.satisfy`
+/* Parse any character that is in the given set. Use `_Set.atoz` etc. to use
+predefined character ranges. */
+
+Parser.includes = Monoid => s => Parser(ix => {
+  const iy = ix.next();
+  let acc = Monoid.empty;
+
+  if (iy.done) throw new Err("end of input");
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex("unexpected character"), ix);
+});
+
+
+Parser.includesPrev = Monoid => s => Parser(ix => {
+  const iy = ix.prev;
+  let acc = Monoid.empty;
+
+  if (iy.done) throw new Err("end of input");
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex("unexpected character"), ix);
+});
+
+
+// parse a character
 
 Parser.char = c => Parser(ix => {
   const iy = ix.next();
   if (iy.done) throw new Err("end of input");
   else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
 });
 
 
 Parser.charPrev = c => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("start of input");
-  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Exc(`character ${c} expected`), ix);
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
 });
 
 
-Parser.asciiLetter = Parser.satisfy("ASCII letter expected")
-  (c => Parser.asciiCodeset.letter.test(c));
-
-
-Parser.asciiLetterPrev = Parser.satisfyPrev("ASCII letter expected")
-  (c => Parser.asciiCodeset.letter.test(c));
-
-
-Parser.asciiLcl = Parser.satisfy("ASCII lower case letter expected")
-  (c => Parser.asciiCodeset.lcl.test(c));
-
-
-Parser.asciiLclPrev = Parser.satisfyPrev("ASCII lower case letter expected")
-  (c => Parser.asciiCodeset.lcl.test(c));
-
-
-Parser.asciiUcl = Parser.satisfy("ASCII upper case letter expected")
-  (c => Parser.asciiCodeset.ucl.test(c));
-
-
-Parser.asciiUclPrev = Parser.satisfyPrev("ASCII upper case letter expected")
-  (c => Parser.asciiCodeset.ucl.test(c));
-
-
-Parser.asciiDigit = Parser.satisfy("ASCII digit expected")
-  (c => Parser.asciiCodeset.digit.test(c));
-
-
-Parser.asciiDigitPrev = Parser.satisfyPrev("ASCII digit expected")
-  (c => Parser.asciiCodeset.digit.test(c));
-
-
-Parser.asciiAlnum = Parser.satisfy("ASCII alphanumeric character expected")
-  (c => Parser.asciiCodeset.alnum.test(c));
-
-
-Parser.asciiAlnumPrev = Parser.satisfyPrev("ASCII alphanumeric character expected")
-  (c => Parser.asciiCodeset.alnum.test(c));
-
-
-Parser.asciiPunct = Parser.satisfy("ASCII punctuation expected")
-  (c => Parser.asciiCodeset.punct.test(c));
-
-
-Parser.asciiPunctPrev = Parser.satisfyPrev("ASCII punctuation expected")
-  (c => Parser.asciiCodeset.punct.test(c));
-
-
-Parser.asciiSpace = Parser.satisfy("ASCII space character expected")
-  (c => Parser.asciiCodeset.space.test(c));
-
-
-Parser.asciiSpacePrev = Parser.satisfyPrev("ASCII space character expected")
-  (c => Parser.asciiCodeset.space.test(c));
-
-
-Parser.latin1Letter = Parser.satisfy("Latin1 letter expected")
-  (c => Parser.latin1CodeSet.letter.test(c));
-
-
-Parser.latin1LetterPrev = Parser.satisfyPrev("Latin1 letter expected")
-  (c => Parser.latin1CodeSet.letter.test(c));
-
-
-Parser.latin1Lcl = Parser.satisfy("Latin1 lower case letter expected")
-  (c => Parser.latin1CodeSet.lcl.test(c));
-
-
-Parser.latin1LclPrev = Parser.satisfyPrev("Latin1 lower case letter expected")
-  (c => Parser.latin1CodeSet.lcl.test(c));
-
-
-Parser.latin1Ucl = Parser.satisfy("Latin1 upper case letter expected")
-  (c => Parser.latin1CodeSet.ucl.test(c));
-
-
-Parser.latin1UclPrev = Parser.satisfyPrev("Latin1 upper case letter expected")
-  (c => Parser.latin1CodeSet.ucl.test(c));
-
-
-Parser.latin1Digit = Parser.satisfy("Latin1 digit expected")
-  (c => Parser.latin1CodeSet.digit.test(c));
-
-
-Parser.latin1DigitPrev = Parser.satisfyPrev("Latin1 digit expected")
-  (c => Parser.latin1CodeSet.digit.test(c));
-
-
-Parser.latin1Alnum = Parser.satisfy("Latin1 alphanumeric character expected")
-  (c => Parser.latin1CodeSet.alnum.test(c));
-
-
-Parser.latin1AlnumPrev = Parser.satisfyPrev("Latin1 alphanumeric character expected")
-  (c => Parser.latin1CodeSet.alnum.test(c));
-
-
-Parser.latin1Punct = Parser.satisfy("Latin1 punctuation expected")
-  (c => Parser.latin1CodeSet.punct.test(c));
-
-
-Parser.latin1PunctPrev = Parser.satisfyPrev("Latin1 punctuation expected")
-  (c => Parser.latin1CodeSet.punct.test(c));
-
-
-Parser.latin1Space = Parser.satisfy("Latin1 space character expected")
-  (c => Parser.latin1CodeSet.space.test(c));
-
-
-Parser.latin1SpacePrev = Parser.satisfyPrev("Latin1 space character expected")
-  (c => Parser.latin1CodeSet.space.test(c));
-
-
-Parser.utf8Letter = Parser.satisfy("UTF8 letter expected")
-  (c => Parser.utf8Codeset.letter.test(c));
-
-
-Parser.utf8LetterPrev = Parser.satisfyPrev("UTF8 letter expected")
-  (c => Parser.utf8Codeset.letter.test(c));
-
-
-Parser.utf8Lcl = Parser.satisfy("UTF8 lower case letter expected")
-  (c => Parser.utf8Codeset.lcl.test(c));
-
-
-Parser.utf8LclPrev = Parser.satisfyPrev("UTF8 lower case letter expected")
-  (c => Parser.utf8Codeset.lcl.test(c));
-
-
-Parser.utf8Ucl = Parser.satisfy("UTF8 upper case letter expected")
-  (c => Parser.utf8Codeset.ucl.test(c));
-
-
-Parser.utf8UclPrev = Parser.satisfyPrev("UTF8 upper case letter expected")
-  (c => Parser.utf8Codeset.ucl.test(c));
-
-
-Parser.utf8Digit = Parser.satisfy("UTF8 digit expected")
-  (c => Parser.utf8Codeset.digit.test(c));
-
-
-Parser.utf8DigitPrev = Parser.satisfyPrev("UTF8 digit expected")
-  (c => Parser.utf8Codeset.digit.test(c));
-
-
-Parser.utf8Alnum = Parser.satisfy("UTF8 alphanumeric character expected")
-  (c => Parser.utf8Codeset.alnum.test(c));
-
-
-Parser.utf8AlnumPrev = Parser.satisfyPrev("UTF8 alphanumeric character expected")
-  (c => Parser.utf8Codeset.alnum.test(c));
-
-
-Parser.utf8Punct = Parser.satisfy("UTF8 punctuation expected")
-  (c => Parser.utf8Codeset.punct.test(c));
-
-
-Parser.utf8PunctPrev = Parser.satisfyPrev("UTF8 punctuation expected")
-  (c => Parser.utf8Codeset.punct.test(c));
-
-
-Parser.utf8Space = Parser.satisfy("UTF8 space character expected")
-  (c => Parser.utf8Codeset.space.test(c));
-
-
-Parser.utf8SpacePrev = Parser.satisfyPrev("UTF8 space character expected")
-  (c => Parser.utf8Codeset.space.test(c));
-
-
-// parse nested patterns
-
-Parser.nestedIn = Monoid => (open, close) => Parser(ix => {
-  let acc = Monoid.empty, iy = ix.next(), level = 0;
-  
-  do {
-    if (iy.done) throw new Err("end of input");
-
-    else if (level === 0 && iy.value !== open)
-      return Parsed.Invalid(new Exc(`"${open}" expected`), ix);
-
-    else if (iy.value === open) level++;
-    else if (iy.value === close) level--;
-
-    acc = Monoid.append(acc) (iy.value);
-    if (level > 0) iy = iy.next();
-  } while (level > 0);
-
-  return Parsed.Valid(acc, iy);
+// parse a character case insensitive
+
+Parser.charCi = c => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
 });
 
 
-// parse pattern delimited by one or two separators
+Parser.charCiPrev = c => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+});
 
-Parser.sepBy = Monoid => (left, right = left) => Parser(ix => {
-  let acc = Monoid.empty, iy = ix.next(), initial = true;
-  
-  while (true) {
-    if (iy.done) throw new Err("end of input");
 
-    else if (initial) {
-      if (iy.value !== left)
-        return Parsed.Invalid(new Exc(`"${left}" expected`), ix);
+Parser.asciiLetter = Parser.satisfy(
+  c => Parser.asciiCodeset.letter.test(c),
+  "ASCII letter expected");
 
-      else initial = false;
-    }
 
-    acc = Monoid.append(acc) (iy.value);
-    
-    if (iy.value === right) break;
-    else iy = ix.next();
+Parser.asciiLetterPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.letter.test(c),
+  "ASCII letter expected");
+
+
+Parser.asciiLcl = Parser.satisfy(
+  c => Parser.asciiCodeset.lcl.test(c),
+  "ASCII lower case letter expected");
+
+
+Parser.asciiLclPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.lcl.test(c),
+  "ASCII lower case letter expected");
+
+
+Parser.asciiUcl = Parser.satisfy(
+  c => Parser.asciiCodeset.ucl.test(c),
+  "ASCII upper case letter expected");
+
+
+Parser.asciiUclPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.ucl.test(c),
+  "ASCII upper case letter expected");
+
+
+Parser.asciiDigit = Parser.satisfy(
+  c => Parser.asciiCodeset.digit.test(c),
+  "ASCII digit expected");
+
+
+Parser.asciiDigitPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.digit.test(c),
+  "ASCII digit expected");
+
+
+Parser.asciiAlnum = Parser.satisfy(
+  c => Parser.asciiCodeset.alnum.test(c),
+  "ASCII alphanumeric character expected");
+
+
+Parser.asciiAlnumPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.alnum.test(c),
+  "ASCII alphanumeric character expected");
+
+
+Parser.asciiPunct = Parser.satisfy(
+  c => Parser.asciiCodeset.punct.test(c),
+  "ASCII punctuation expected");
+
+
+Parser.asciiPunctPrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.punct.test(c),
+  "ASCII punctuation expected");
+
+
+Parser.asciiSpace = Parser.satisfy(
+  c => Parser.asciiCodeset.space.test(c),
+  "ASCII space character expected");
+
+
+Parser.asciiSpacePrev = Parser.satisfyPrev(
+  c => Parser.asciiCodeset.space.test(c),
+  "ASCII space character expected");
+
+
+Parser.latin1Letter = Parser.satisfy(
+  c => Parser.latin1CodeSet.letter.test(c),
+  "Latin1 letter expected");
+
+
+Parser.latin1LetterPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.letter.test(c),
+  "Latin1 letter expected");
+
+
+Parser.latin1Lcl = Parser.satisfy(
+  c => Parser.latin1CodeSet.lcl.test(c),
+  "Latin1 lower case letter expected");
+
+
+Parser.latin1LclPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.lcl.test(c),
+  "Latin1 lower case letter expected");
+
+
+Parser.latin1Ucl = Parser.satisfy(
+  c => Parser.latin1CodeSet.ucl.test(c),
+  "Latin1 upper case letter expected");
+
+
+Parser.latin1UclPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.ucl.test(c),
+  "Latin1 upper case letter expected");
+
+
+Parser.latin1Digit = Parser.satisfy(
+  c => Parser.latin1CodeSet.digit.test(c),
+  "Latin1 digit expected");
+
+
+Parser.latin1DigitPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.digit.test(c),
+  "Latin1 digit expected");
+
+
+Parser.latin1Alnum = Parser.satisfy(
+  c => Parser.latin1CodeSet.alnum.test(c),
+  "Latin1 alphanumeric character expected");
+
+
+Parser.latin1AlnumPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.alnum.test(c),
+  "Latin1 alphanumeric character expected");
+
+
+Parser.latin1Punct = Parser.satisfy(
+  c => Parser.latin1CodeSet.punct.test(c),
+  "Latin1 punctuation expected");
+
+
+Parser.latin1PunctPrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.punct.test(c),
+  "Latin1 punctuation expected");
+
+
+Parser.latin1Space = Parser.satisfy(
+  c => Parser.latin1CodeSet.space.test(c),
+  "Latin1 space character expected");
+
+
+Parser.latin1SpacePrev = Parser.satisfyPrev(
+  c => Parser.latin1CodeSet.space.test(c),
+  "Latin1 space character expected");
+
+
+Parser.utf8Letter = Parser.satisfy(
+  c => Parser.utf8Codeset.letter.test(c),
+  "UTF8 letter expected");
+
+
+Parser.utf8LetterPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.letter.test(c),
+  "UTF8 letter expected");
+
+
+Parser.utf8Lcl = Parser.satisfy(
+  c => Parser.utf8Codeset.lcl.test(c),
+  "UTF8 lower case letter expected");
+
+
+Parser.utf8LclPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.lcl.test(c),
+  "UTF8 lower case letter expected");
+
+
+Parser.utf8Ucl = Parser.satisfy(
+  c => Parser.utf8Codeset.ucl.test(c),
+  "UTF8 upper case letter expected");
+
+
+Parser.utf8UclPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.ucl.test(c),
+  "UTF8 upper case letter expected");
+
+
+Parser.utf8Digit = Parser.satisfy(
+  c => Parser.utf8Codeset.digit.test(c),
+  "UTF8 digit expected");
+
+
+Parser.utf8DigitPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.digit.test(c),
+  "UTF8 digit expected");
+
+
+Parser.utf8Alnum = Parser.satisfy(
+  c => Parser.utf8Codeset.alnum.test(c),
+  "UTF8 alphanumeric character expected");
+
+
+Parser.utf8AlnumPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.alnum.test(c),
+  "UTF8 alphanumeric character expected");
+
+
+Parser.utf8Punct = Parser.satisfy(
+  c => Parser.utf8Codeset.punct.test(c),
+  "UTF8 punctuation expected");
+
+
+Parser.utf8PunctPrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.punct.test(c),
+  "UTF8 punctuation expected");
+
+
+Parser.utf8Space = Parser.satisfy(
+  c => Parser.utf8Codeset.space.test(c),
+  "UTF8 space character expected");
+
+
+Parser.utf8SpacePrev = Parser.satisfyPrev(
+  c => Parser.utf8Codeset.space.test(c),
+  "UTF8 space character expected");
+
+
+// parse a predefined string
+
+Parser.string = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.char(s[i]).parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
   }
 
-  return Parsed.Valid(acc, iy);
+  return Parsed.Valid(acc, o.parsed.val[1]);
 });
+
+
+Parser.stringPrev = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = s.length - 1; i >= 0; i--) {
+    o = Parser.charPrev(s[i]).parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+/*Parser.line = Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.take.parse(o.parsed.val[1]);
+    
+    if (o.parsed.val[0] === "\r") {
+      o = Parser.take.parse(o.parsed.val[1]);
+      if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
+      else 
+    }
+
+    {
+      acc += o.parsed.val[0];
+    }
+    
+    if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});*/
 
 
 /*
@@ -9052,13 +9145,22 @@ Parser.or = tx => ty => Parser(iw => {
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
+      Invalid: (e2, iz) => Parsed.Invalid(Ex.accum(e, e2), iz)
     })
   })
 });
 
 
-Parser.any
+// indeterministic or
+
+Parser.any = ts => Parser(ix => {
+  for (const tx of ts) {
+    const o = tx.parse(ix);
+    if (o.parsed.tag === "valid") return o;
+  }
+
+  return Parsed.Invalid(Ex("no parser matched"), ix);
+});
 
 
 /* Try both parsers and return the first or second exception, if one fails.
@@ -9076,7 +9178,22 @@ Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
 });
 
 
-Parser.all
+// indeterministic and
+
+Parser.all = Semigroup => ts => Parser(ix => {
+  let o = Parsed.Valid(null, ix);
+
+  for (const tx of ts) {
+    o = tx.parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "invalid") return Parsed.Invalid(
+      o.parsed.val[0], ix)
+  }
+
+  return Parsed.Valid(
+    acc.reduce((acc, o) => Semigroup.append(acc) (o.parsed.val[0])),
+    o.parsed.val[1]);
+});
 
 
 /* Negate a parser result by either returning the parsed value as an exception
@@ -9084,40 +9201,40 @@ or by returning the empty element of the desired monoid. */
 
 Parser.not = Monoid => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("valid result received"), new Exc(v), ix)),
+    Valid: (v, iy) => Parsed.Invalid(new Ex(v), ix),
     Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
   })
 });
 
 
-// exclusive or, return values wrapped in exception in case both parsers succeed
+// like `Parser.or` but as exclusive or
 
 Parser.xor = tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Invalid(Exc.accum(new Exc("valid/valid results received"), new Exc(v), new Exc(v2)), iw),
+      Valid: (v2, iy) => Parsed.Invalid(Ex.accum(new Ex(v), new Ex(v2)), iw),
       Invalid: (e, iz) => Parsed.Valid(v, iz)
     }),
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, iz) => Parsed.Invalid(Exc.accum(e, e2), iz)
+      Invalid: (e2, iz) => Parsed.Invalid(Ex.accum(e, e2), iz)
     })
   });
 });
 
 
-// xnor aka if and only if (iff)
+// if and only if (xnor)
 
-Parser.xnor = Monoid => tx => ty => Parser(iw => {
+Parser.iff = Monoid => tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Monoid.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(Exc.accum(new Exc("valid/invalid results received"), new Exc(v), e), iw)
+      Invalid: (e, iz) => Parsed.Invalid(Ex.accum(new Ex(v), e), iw)
     }),
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Invalid(Exc.accum(new Exc("invalid/valid results received"), e, new Exc(v)), iw),
+      Valid: (v, iy) => Parsed.Invalid(Ex.accum(e, new Ex(v)), iw),
       Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz)
     })
   });
@@ -9153,7 +9270,7 @@ Parser.min = Monoid => n => tx => Parser(iw => {
   }
 
   if (acc.length < n) return Parsed.Invalid(
-    new Exc(`pattern less than ${n} times received`), iw);
+    new Ex(`pattern less than ${n} times received`), iw);
 
   else return Parsed.Valid(
     acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
@@ -9188,7 +9305,7 @@ Parser.max = Monoid => n => tx => Parser(iw => {
   }
 
   if (acc.length > n) return Parsed.Invalid(
-    new Exc(`pattern more than ${n} times received`), iw);
+    new Ex(`pattern more than ${n} times received`), iw);
 
   else return Parsed.Valid(
     acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
@@ -9199,24 +9316,6 @@ Parser.max = Monoid => n => tx => Parser(iw => {
 
 // 0..1
 Parser.max1 = Monoid => Parser.max(Monoid) (1);
-
-
-// parse the given string
-
-// n (n=static)
-Parser.string = s => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = "";
-
-  for (let i = 0; i < s.length; i++) {
-    o = Parser.char(s[i]).parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
-    else break;
-  }
-
-  if (acc === s) return Parsed.Valid(acc, o.parsed.val[1]);
-  else return Parsed.Invalid(new Exc(`"${s}" expected`), ix);
-});
 
 
 // parse the given pattern between m and n times
@@ -9230,7 +9329,7 @@ Parser.times = Monoid => (m, n = m) => tx => Parser(ix => {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (i < m) return Parsed.Invalid(new Exc(`pattern less than ${m} times received`), ix);
+    else if (i < m) return Parsed.Invalid(new Ex(`pattern less than ${m} times received`), ix);
     else break;
   }
 
@@ -9251,14 +9350,14 @@ Parser.timesOnly = Monoid => (m, n = m) => tx => Parser(ix => {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (i < m) return Parsed.Invalid(new Exc(`pattern less than ${m} times received`), ix);
+    else if (i < m) return Parsed.Invalid(new Ex(`pattern less than ${m} times received`), ix);
     else break;
   }
 
   o = tx.parse(o.parsed.val[1]);
 
   if (o.parsed.tag === "valid")
-    return Parsed.Invalid(new Exc(`pattern more than ${m} times received`), ix);
+    return Parsed.Invalid(new Ex(`pattern more than ${m} times received`), ix);
 
   else return Parsed.Valid(acc.reduce((acc2, v) =>
     Semigroup.append(acc2) (v)), o.parsed.val[1]);
@@ -9272,7 +9371,7 @@ of the redundant monoid constraint. */
 Parser.once = tx => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => Parsed.Valid(v, ix),
-    Invalid: (e, ix) => Parsed.Invalid(new Exc("pattern not once received"), ix)
+    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix)
   });
 });
 
@@ -9283,11 +9382,11 @@ Parser.once = tx => Parser(iw => {
 Parser.onceOnly = tx => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => tx.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Invalid(new Exc("pattern more than once received"), iw),
+      Valid: (v2, iy) => Parsed.Invalid(new Ex("pattern more than once received"), iw),
       Invalid: (e, iz) => Parsed.Valid(v, ix)
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(new Exc("pattern not once received"), ix)
+    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix)
   });
 });
 
@@ -9297,7 +9396,7 @@ Parser.onceOnly = tx => Parser(iw => {
 // 0
 Parser.none = tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Invalid(new Exc("unexpected pattern"), ix),
+    Valid: (v, iy) => Parsed.Invalid(new Ex("unexpected pattern"), ix),
     Invalid: (e, iz) => Parsed.Valid(true, iz)
   });
 });
@@ -9323,7 +9422,7 @@ Parser.last = tx => Parser(ix => {
   }
 
   if (p === null) return Parsed.Invalid(
-    new Exc("pattern not once received"), ix);
+    new Ex("pattern not once received"), ix);
 
   return Parsed.Valid(p.parsed.val[0], p.parsed.val[1]);
 });
@@ -9345,7 +9444,7 @@ Parser.nth = n => tx => Parser(ix => {
     }
     
     else return Parsed.Invalid(
-      new Exc(`pattern less than ${n} times received`), ix);
+      new Ex(`pattern less than ${n} times received`), ix);
   }
 
   return Parsed.Valid(acc[n].parsed.val[0], acc[n].parsed.val[1]);
@@ -9357,11 +9456,10 @@ result satisfies another predicate. */
 
 // 0..n (dynamic)
 Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix), prev,
+  let o = Parsed.Valid(null, ix)
     acc = Monoid.empty;
 
   while (true) {
-    prev = o;
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "invalid") break;
@@ -9370,11 +9468,11 @@ Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
     else {
       const acc2 = Monoid.append(acc) (o.parsed.val[0]);
       if (q(acc)) acc = acc2;
-      else {o = prev; break}
+      else break;
     }
   }
 
-  return Parsed.Valid(acc, o.parsed.val[1]);
+  return Parsed.Valid(acc, o.parsed.val[1].prev);
 });
 
 
@@ -9496,57 +9594,6 @@ Parser.Monad = {
 
 
 /*
-█████ Position ████████████████████████████████████████████████████████████████*/
-
-
-// beginning of input
-
-Parser.boi = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Exc("beginning of input expected"), ix);
-});
-
-
-// beginning of line
-
-Parser.bol = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Exc("beginning of line expected"), ix);
-});
-
-
-// end of input
-
-Parser.eoi = Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Exc("end of input expected"), ix);
-});
-
-
-// end of line
-
-Parser.eol = Parser(ix => {
-  const iy = ix.next();
-
-  if (iy.done) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  
-  else if (iy.value === "\r") {
-    const tx = Parser.look(Parser.char("\n")).parse(iy);
-
-    if (tx.parsed.val[0] === "\n") return Parsed.Valid(true, ix);
-    else return Parsed.Invalid(new Exc("end of line expected"), ix);
-  }
-
-  else return Parsed.Invalid(new Exc("end of line expected"), ix);
-});
-
-
-/*
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
@@ -9570,18 +9617,120 @@ Parser.Monoid = {
 
 
 /*
-█████ Special Parsers █████████████████████████████████████████████████████████*/
+█████ Specific: Look Behind/Ahead █████████████████████████████████████████████*/
 
 
-/*Parser.csv = o => Parser(ix => {
-  if (o.header) {
-    const line = Parser.while(A.Monoid) (c => c !== "\r" && c !== "\n");
+// look ahead or behind depending on the supplied parser
 
-    Parser.boi
-    Parser.while(Str.Monoid) (c => c !== o.sep)
-    Parser.eol
+Parser.look = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, ix),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+  })
+});
+
+
+/*
+█████ Specific (Position) █████████████████████████████████████████████████████*/
+
+
+// beginning of input
+
+Parser.boi = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
+});
+
+
+// beginning of line
+
+Parser.bol = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
+});
+
+
+// end of input
+
+Parser.eoi = Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("end of input expected"), ix);
+});
+
+
+// end of line
+
+Parser.eol = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  
+  else if (iy.value === "\r") {
+    const tx = Parser.look(Parser.char("\n")).parse(iy);
+
+    if (tx.parsed.val[0] === "\n") return Parsed.Valid(true, ix);
+    else return Parsed.Invalid(new Ex("end of line expected"), ix);
   }
-});*/
+
+  else return Parsed.Invalid(new Ex("end of line expected"), ix);
+});
+
+
+/*
+█████ Specific: Structure █████████████████████████████████████████████████████*/
+
+
+// parse nested occurrences of a pattern (include open/close patterns)
+
+Parser.nestedIn = Monoid => open => close => Parser(ix => {
+  let o = open.parse(ix), acc = Monoid.empty, level = 0;
+  
+  if (o.parsed.tag === "invalid") return o;
+  else level++;
+
+  do {
+    o = close.parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "invalid") {
+      o = Parser.take.parse(o.parsed.val[1]);
+      acc = Monoid.append(acc) (o.parsed.val[0]);
+    }
+
+    else {
+      acc = Monoid.append(acc) (o.parsed.val[0]);
+      level--;
+    }
+  } while (level > 0);
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+// parse input delimited by separator patterns (exclude left/right patterns)
+
+Parser.sepBy = Monoid => left => right => Parser(ix => {
+  let o = left.parse(ix), acc = Monoid.empty;
+
+  if (o.parsed.tag === "invalid") return o;
+
+  while (true) {
+    o = right.parse(o.parsed.val[1]);
+    
+    if (o.parsed.tag === "invalid") {
+      o = Parser.take.parse(o.parsed.val[1]);
+      acc = Monoid.append(acc) (o.parsed.val[0]);
+    }
+    
+    else break;
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
 
 
 /*
@@ -9609,14 +9758,115 @@ Parser.optional = x => tx => Parser(ix => {
 });
 
 
-// look ahead or behind depending on the supplied parser
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████ PARSER :: DISCRIMINATED ███████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
-Parser.look = tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, ix),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
-  })
+
+/*
+█████ CSV █████████████████████████████████████████████████████████████████████*/
+
+
+/*Parser.csv = o => Parser(ix => {
+  if (o.header) {
+    const line = Parser.many(A.Monoid)
+      (Parser.satisfy(c => c !== "\r" && c !== "\n"));
+
+    Parser.boi
+    Parser.while(Str.Monoid) (c => c !== o.sep)
+    Parser.eol
+  }
+});*/
+
+
+/*
+█████ Date ████████████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Enumeration █████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Natural Language ████████████████████████████████████████████████████████*/
+
+
+// Parser.abbrevation
+
+
+// Parser.acronym
+
+
+// Parser.name
+
+
+// Parser.sentence
+
+
+// parse any word composed of characters of the supplied codeset
+
+Parser.word = codeset => Parser(ix => {
+  let tx, acc = "";
+
+  switch (codeset) {
+    case "ascii": {tx = Parser.asciiLetter; break}
+    case "latin1": {tx = Parser.latin1Letter; break}
+    case "utf8": {tx = Parser.utf8Letter; break}
+    default: throw new Err(`unknown codeset "${codeset}"`);
+  }
+
+  let o = Parsed.Valid(null, ix);
+
+  for (let i = 0; i < s.length; i++) {
+    o = tx.parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else break;
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
 });
+
+
+Parser.wordPrev = codeset => Parser(ix => {
+  let tx, acc = "";
+
+  switch (codeset) {
+    case "ascii": {tx = Parser.asciiLetterPrev; break}
+    case "latin1": {tx = Parser.latin1LetterPrev; break}
+    case "utf8": {tx = Parser.utf8LetterPrev; break}
+    default: throw new Err(`unknown codeset "${codeset}"`);
+  }
+
+  let o = Parsed.Valid(null, ix);
+
+  for (let i = s.length - 1; i >= 0; i--) {
+    o = tx.parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else break;
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+/*
+█████ Number ██████████████████████████████████████████████████████████████████*/
+
+
+// Parser.natural
+
+
+// Parser.integer
+
+
+// Parser.float
+
+
+// Parser.number
+
+
+/*
+█████ Range ███████████████████████████████████████████████████████████████████*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10154,6 +10404,38 @@ _Set.set = k => s => s.add(k);
 
 
 _Set.del = k => s => s.delete(k);
+
+
+/*
+█████ Special Sets ████████████████████████████████████████████████████████████*/
+
+
+// special sets representing character classes for parsing
+
+
+_Set._0to9 = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+
+
+_Set.atoz = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"])
+
+
+_Set.atoZ = new Set(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]);
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+_Set.union = s => t => {
+  new Set(t).forEach(k => s.set(k));
+};
+
+
+// destructive
+
+_Set.union_ = s => t => {
+  new t.forEach(k => s.set(k));
+};
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -11046,7 +11328,7 @@ throw or pass on exceptions for later handling. */
 export const FileSysHandle = fs => Cons => thisify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
-      e ? k(new Exc(e)) : k(null)));
+      e ? k(new Ex(e)) : k(null)));
 
   o.move = src => dest =>
     Cons.chain(o.copy(src) (dest)) (e =>
@@ -11054,31 +11336,31 @@ export const FileSysHandle = fs => Cons => thisify(o => {
 
   o.read = opt => path => Cons(k =>
     fs.readFile(path, opt, (e, x) =>
-      e ? k(new Exc(e)) : k(x)));
+      e ? k(new Ex(e)) : k(x)));
 
   o.readUtf8 = opt => path => Cons(k =>
     fs.readFile(path, Object.assign(opt, {encoding: "utf8"}), (e, x) =>
-      e ? k(new Exc(e)) : k(x)));
+      e ? k(new Ex(e)) : k(x)));
 
   o.readLatin1 = opt => path => Cons(k =>
     fs.readFile(path, Object.assign(opt, {encoding: "latin1"}), (e, x) =>
-      e ? k(new Exc(e)) : k(x)));
+      e ? k(new Ex(e)) : k(x)));
 
   o.scanDir = path => Cons(k =>
     fs.readdir(path, (e, xs) =>
-      e ? k(new Exc(e)) : k(xs)));
+      e ? k(new Ex(e)) : k(xs)));
 
   o.stat = path => Cons(k =>
     fs.stat(path, (e, o) =>
-      e ? k(new Exc(e)) : k(o)));
+      e ? k(new Ex(e)) : k(o)));
 
   o.unlink = path => Cons(k =>
     fs.unlink(path, e =>
-      e ? k(new Exc(e)) : k(null)));
+      e ? k(new Ex(e)) : k(null)));
 
   o.write = opt => path => s => Cons(k =>
     fs.writeFile(path, s, opt, e =>
-      e ? k(new Exc(e)) : k(s)));
+      e ? k(new Ex(e)) : k(s)));
 
   return o;
 });
