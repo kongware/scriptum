@@ -3141,8 +3141,8 @@ A.Alt = () => ({
 
 Object.defineProperty(A, "zero", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3153,8 +3153,8 @@ A.Plus = {
 
 Object.defineProperty(A.Plus, "zero", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3300,8 +3300,8 @@ A.Semigroup = {append: A.append};
 
 Object.defineProperty(A, "empty", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3312,8 +3312,8 @@ A.Monoid = {
 
 Object.defineProperty(A.Monoid, "empty", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3811,8 +3811,8 @@ L.Alt = () => ({
 
 Object.defineProperty(L, "zero", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3823,8 +3823,8 @@ L.Plus = {
 
 Object.defineProperty(L.Plus, "zero", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3950,8 +3950,8 @@ L.Semigroup = {append: L.append};
 
 Object.defineProperty(L, "empty", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -3962,8 +3962,8 @@ L.Monoid = {
 
 Object.defineProperty(L.Monoid, "empty", { // to avoid mutation sharing
   get() {return []},
-  enumerable: true,
-  configurable: true
+  configurable: true,
+  enumerable: true
 });
 
 
@@ -6838,7 +6838,7 @@ _Map.monthsShortDe = new Map([
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Union ███████████████████████████████████████████████████████████████████*/
 
 
 _Map.union = m => n => {
@@ -8463,17 +8463,18 @@ Pair.swap = tx => Pair(tx[1], tx[0]);
 
 
 /* Stateless parser combinators meant to be used with idempotent iterators. Look
-into the respetive section on `Iit` to get more information. Parser features:
+into the respetive section on `Iit` to get more information. Features:
 
-* look ahead
+* parse forward
+* parse backward
 * look behind
+* look ahead
 
 For the time being parser results are combined using monoids. I don't know if
 this is the optimal approach, though.
 
-The type doesn't handle state, because stateful parsing should be the exception.
-If you need state for a specific task, just build a suitable stateful parser
-like with `Parser.nestedIn`. */
+If you need a stateful parser built your own one suitable for the specific task
+just like `Parser.nested`, for example. */
 
 
 export const Parser = type("Parser", "parse");
@@ -8482,261 +8483,138 @@ export const Parser = type("Parser", "parse");
 export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
 
 
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████ PARSER :: FIRST ORDER PRIMITIVES ███████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/* Each first order parser combinator comes in a forward and backward consuming
+variant. */
+
+
 /*
-█████ Codesets & Char Classes █████████████████████████████████████████████████*/
+█████ Characters ██████████████████████████████████████████████████████████████*/
 
 
-Parser.asciiCodeset = {
-  get letter() {
-    delete this.letter;
-    this.letter = new RegExp(/[a-z]/, "i");
-    return this.letter;
-  },
+// parse a desired character
 
-  get ucl() {
-    delete this.ucl;
-    this.ucl = new RegExp(/[A-Z]/, "");
-    return this.ucl;
-  },
-
-  get lcl() {
-    delete this.lcl;
-    this.lcl = new RegExp(/[a-z]/, "");
-    return this.lcl;
-  },
-
-  get digit() {
-    delete this.digit;
-    this.digit = new RegExp(/[0-9]/, "");
-    return this.digit;
-  },
-
-  get alnum() {
-    delete this.alnum;
-    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
-    return this.alnum;
-  },
-
-  get control() {
-    delete this.control;
-    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-    return this.control;
-  },
-
-  get punct() {
-    delete this.punct;
-    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
-    return this.punct;
-  },
-
-  get currency() {
-    delete this.currency;
-    this.currency = new RegExp(/[$]/, "");
-    return this.currency;
-  },
-
-  get space() {
-    delete this.space;
-    this.space = new RegExp(/ /, "");
-    return this.space;
-  },
-
-  get nonAlnum() {
-    delete this.nonAlnum;
-    
-    this.nonAlnum = new RegExp(
-      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
-    
-    return this.nonAlnum;
-  }
-};
+Parser.char = c => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+});
 
 
-/* CP1252 (Windows 1252) has the same characaters as latin1 (ISO-8859-1) but
-between 128-159 they are not at the same code points. */
-
-Parser.latin1CodeSet = {
-  get letter() {
-    delete this.letter;
-    this.letter = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
-    return this.letter;
-  },
-
-  get ucl() {
-    delete this.ucl;
-    this.ucl = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
-    return this.ucl;
-  },
-
-  get lcl() {
-    delete this.lcl;
-    this.lcl = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
-    return this.lcl;
-  },
-
-  get digit() {
-    delete this.digit;
-    this.digit = new RegExp(/[0-9]/, "");
-    return this.digit;
-  },
-
-  get alnum() {
-    delete this.alnum;
-    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
-    return this.alnum;
-  },
-
-  get control() {
-    delete this.control;
-    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
-    return this.control;
-  },
-  
-  get punct() {
-    delete this.punct;
-    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
-    return this.punct;
-  },
-  
-  get currency() {
-    delete this.currency;
-    this.currency = new RegExp(/[¤$€£¥¢]/, "");
-    return this.currency;
-  },
-  
-  get space() {
-    delete this.space;
-    this.space = new RegExp(/  /, "");
-    return this.space;
-  },
-
-  get nonAlnum() {
-    delete this.nonAlnum;
-
-    this.nonAlnum = new RegExp(
-      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
-
-    return this.nonAlnum;
-  }
-};
+Parser.charBehind = c => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+});
 
 
-Parser.utf8Codeset = {
-  get letter() {
-    delete this.letter;
-    this.letter = new RegExp(/\p{L}/, "u");
-    return this.letter;
-  },
+// parse a desired character case insensitive
 
-  get ucl() {
-    delete this.ucl;
-    this.ucl = new RegExp(/\p{Lu}/, "u");
-    return this.ucl;
-  },
-
-  get lcl() {
-    delete this.lcl;
-    this.lcl = new RegExp(/\p{Lu}/, "u");
-    return this.lcl;
-  },
-
-  get digit() {
-    delete this.digit;
-    this.digit = new RegExp(/\p{N}/, "u");
-    return this.digit;
-  },
-
-  get alnum() {
-    delete this.alnum;
-    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "u");
-    return this.alnum;
-  },
-
-  get control() {
-    delete this.control;
-    this.control = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
-    return this.control;
-  },
-
-  get punct() {
-    delete this.punct;
-    this.punct = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
-    return this.punct;
-  },
-
-  get currency() {
-    delete this.currency;
-    this.currency = new RegExp(/\p{Sc}/, "u");
-    return this.currency;
-  },
-
-  get space() {
-    delete this.space;
-    this.space = new RegExp(/\p{Zs}/, "u");
-    return this.space;
-  },
-
-  get nonAlnum() {
-    delete this.nonAlnum;
-    
-    this.nonAlnum = new RegExp(
-      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "u");
-
-    return this.nonAlnum;
-  }
-};
+Parser.charCi = c => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+});
 
 
-// map all special letters from latin-based alphabets onto ASCII
-
-Object.defineProperty(Parser, "toAscii", {
-  get() {
-    const m = new Map([
-      ["Æ", "AE"], ["æ", "ae"], ["Ä", "Ae"], ["ä", "ae"], ["Œ", "OE"],
-      ["œ", "oe"], ["Ö", "Oe"], ["ö", "oe"], ["ß", "ss"], ["ẞ", "ss"],
-      ["Ü", "Ue"], ["ü", "ue"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"],
-      ["ɑ", "a"], ["ɐ", "a"], ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"],
-      ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"],
-      ["ᶀ", "b"], ["Ƈ", "C"], ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"],
-      ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"],
-      ["Đ", "D"], ["đ", "d"], ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"],
-      ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"],
-      ["ɠ", "g"], ["Ǥ", "G"], ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"],
-      ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"],
-      ["ɥ", "h"], ["ɦ", "h"], ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"],
-      ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"],
-      ["Ƙ", "K"], ["ƙ", "k"], ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"],
-      ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"],
-      ["Ⱡ", "L"], ["ⱡ", "l"], ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"],
-      ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"],
-      ["ŋ", "n"], ["Ɲ", "N"], ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"],
-      ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"],
-      ["ɵ", "o"], ["Ƥ", "P"], ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"],
-      ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"],
-      ["Ʀ", "R"], ["ʀ", "r"], ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"],
-      ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"],
-      ["ᵴ", "s"], ["ᶊ", "s"], ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"],
-      ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"],
-      ["ʉ", "u"], ["Ʋ", "V"], ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"],
-      ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"],
-      ["ƴ", "y"], ["Ɏ", "Y"], ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"],
-      ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"],
-      ["ⱬ", "z"], ["Ʒ", "Z"], ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"],
-      ["Ʒ", "Z"], ["ʒ", "z"]
-    ]);
-
-    delete this.toAscii;
-    this.toAscii = m;
-    return m;
-  }
+Parser.charCiBehind = c => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
 });
 
 
 /*
-█████ Consumption █████████████████████████████████████████████████████████████*/
+█████ No Consumption ██████████████████████████████████████████████████████████*/
 
 
-// first order parser combinators
+// reject any input
+
+Parser.reject = msg => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Invalid(new Ex(msg), ix);
+});
+
+
+Parser.rejectBehind = msg => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else return Parsed.Invalid(new Ex(msg), ix);
+});
+
+
+/*
+█████ Predicate Based █████████████████████████████████████████████████████████*/
+
+
+// parse input that satisfies a predicate
+
+Parser.satisfy = (p, msg = "predicate unmet") => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(msg), ix);
+});
+
+
+Parser.satisfyBehind = (p, msg = "predicate unmet") => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex(msg), ix);
+});
+
+
+/*
+█████ Set Based ███████████████████████████████████████████████████████████████*/
+
+
+/* Parse any character that is in the given set. Use `_Set.atoz` etc. to define
+character ranges. */
+
+Parser.includes = s => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex("input out of character class"), ix);
+});
+
+
+Parser.includesBehind = s => Parser(ix => {
+  const iy = ix.prev;
+  if (iy.done) throw new Err("end of input");
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  else return Parsed.Invalid(new Ex("input out of character class"), ix);
+});
+
+
+/*
+█████ Unconditional ███████████████████████████████████████████████████████████*/
+
+
+// drop any input
+
+Parser.drop = Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) throw new Err("end of input");
+  else return Parsed.Valid(null, iy);
+});
+
+
+Parser.dropBehind = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) throw new Err("beginning of input");
+  else return Parsed.Valid(null, iy.prev);
+});
 
 
 // accept any input
@@ -8750,394 +8628,23 @@ Parser.take = Parser(ix => {
 
 // accept any previous input
 
-Parser.takePrev = Parser(ix => {
+Parser.takeBehind = Parser(ix => {
   const iy = ix.prev;
   if (iy === undefined) throw new Err("beginning of input");
   else return Parsed.Valid(iy.value, iy.prev);
 });
 
 
-// drop any input
-
-Parser.drop = Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else return Parsed.Valid(null, iy);
-});
-
-
-Parser.dropPrev = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else return Parsed.Valid(null, iy.prev);
-});
-
-
-// reject any input
-
-Parser.reject = msg => Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else return Parsed.Invalid(new Ex(msg), ix);
-});
-
-
-Parser.rejectPrev = msg => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else return Parsed.Invalid(new Ex(msg), ix);
-});
-
-
-// parse input that satisfies a predicate
-
-Parser.satisfy = (p, msg = "parse result doesn't satisfy predicate") => Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex(msg), ix);
-});
-
-
-Parser.satisfyPrev = (p, msg = "parse result doesn't satisfy predicate") => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (p(iy.value)) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex(msg), ix);
-});
-
-
-/* Parse any character that is in the given set. Use `_Set.atoz` etc. to use
-predefined character ranges. */
-
-Parser.includes = Monoid => s => Parser(ix => {
-  const iy = ix.next();
-  let acc = Monoid.empty;
-
-  if (iy.done) throw new Err("end of input");
-  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex("unexpected character"), ix);
-});
-
-
-Parser.includesPrev = Monoid => s => Parser(ix => {
-  const iy = ix.prev;
-  let acc = Monoid.empty;
-
-  if (iy.done) throw new Err("end of input");
-  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex("unexpected character"), ix);
-});
-
-
-// parse a character
-
-Parser.char = c => Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
-});
-
-
-Parser.charPrev = c => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (c === iy.value) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
-});
-
-
-// parse a character case insensitive
-
-Parser.charCi = c => Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
-});
-
-
-Parser.charCiPrev = c => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
-});
-
-
-Parser.asciiLetter = Parser.satisfy(
-  c => Parser.asciiCodeset.letter.test(c),
-  "ASCII letter expected");
-
-
-Parser.asciiLetterPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.letter.test(c),
-  "ASCII letter expected");
-
-
-Parser.asciiLcl = Parser.satisfy(
-  c => Parser.asciiCodeset.lcl.test(c),
-  "ASCII lower case letter expected");
-
-
-Parser.asciiLclPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.lcl.test(c),
-  "ASCII lower case letter expected");
-
-
-Parser.asciiUcl = Parser.satisfy(
-  c => Parser.asciiCodeset.ucl.test(c),
-  "ASCII upper case letter expected");
-
-
-Parser.asciiUclPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.ucl.test(c),
-  "ASCII upper case letter expected");
-
-
-Parser.asciiDigit = Parser.satisfy(
-  c => Parser.asciiCodeset.digit.test(c),
-  "ASCII digit expected");
-
-
-Parser.asciiDigitPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.digit.test(c),
-  "ASCII digit expected");
-
-
-Parser.asciiAlnum = Parser.satisfy(
-  c => Parser.asciiCodeset.alnum.test(c),
-  "ASCII alphanumeric character expected");
-
-
-Parser.asciiAlnumPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.alnum.test(c),
-  "ASCII alphanumeric character expected");
-
-
-Parser.asciiPunct = Parser.satisfy(
-  c => Parser.asciiCodeset.punct.test(c),
-  "ASCII punctuation expected");
-
-
-Parser.asciiPunctPrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.punct.test(c),
-  "ASCII punctuation expected");
-
-
-Parser.asciiSpace = Parser.satisfy(
-  c => Parser.asciiCodeset.space.test(c),
-  "ASCII space character expected");
-
-
-Parser.asciiSpacePrev = Parser.satisfyPrev(
-  c => Parser.asciiCodeset.space.test(c),
-  "ASCII space character expected");
-
-
-Parser.latin1Letter = Parser.satisfy(
-  c => Parser.latin1CodeSet.letter.test(c),
-  "Latin1 letter expected");
-
-
-Parser.latin1LetterPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.letter.test(c),
-  "Latin1 letter expected");
-
-
-Parser.latin1Lcl = Parser.satisfy(
-  c => Parser.latin1CodeSet.lcl.test(c),
-  "Latin1 lower case letter expected");
-
-
-Parser.latin1LclPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.lcl.test(c),
-  "Latin1 lower case letter expected");
-
-
-Parser.latin1Ucl = Parser.satisfy(
-  c => Parser.latin1CodeSet.ucl.test(c),
-  "Latin1 upper case letter expected");
-
-
-Parser.latin1UclPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.ucl.test(c),
-  "Latin1 upper case letter expected");
-
-
-Parser.latin1Digit = Parser.satisfy(
-  c => Parser.latin1CodeSet.digit.test(c),
-  "Latin1 digit expected");
-
-
-Parser.latin1DigitPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.digit.test(c),
-  "Latin1 digit expected");
-
-
-Parser.latin1Alnum = Parser.satisfy(
-  c => Parser.latin1CodeSet.alnum.test(c),
-  "Latin1 alphanumeric character expected");
-
-
-Parser.latin1AlnumPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.alnum.test(c),
-  "Latin1 alphanumeric character expected");
-
-
-Parser.latin1Punct = Parser.satisfy(
-  c => Parser.latin1CodeSet.punct.test(c),
-  "Latin1 punctuation expected");
-
-
-Parser.latin1PunctPrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.punct.test(c),
-  "Latin1 punctuation expected");
-
-
-Parser.latin1Space = Parser.satisfy(
-  c => Parser.latin1CodeSet.space.test(c),
-  "Latin1 space character expected");
-
-
-Parser.latin1SpacePrev = Parser.satisfyPrev(
-  c => Parser.latin1CodeSet.space.test(c),
-  "Latin1 space character expected");
-
-
-Parser.utf8Letter = Parser.satisfy(
-  c => Parser.utf8Codeset.letter.test(c),
-  "UTF8 letter expected");
-
-
-Parser.utf8LetterPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.letter.test(c),
-  "UTF8 letter expected");
-
-
-Parser.utf8Lcl = Parser.satisfy(
-  c => Parser.utf8Codeset.lcl.test(c),
-  "UTF8 lower case letter expected");
-
-
-Parser.utf8LclPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.lcl.test(c),
-  "UTF8 lower case letter expected");
-
-
-Parser.utf8Ucl = Parser.satisfy(
-  c => Parser.utf8Codeset.ucl.test(c),
-  "UTF8 upper case letter expected");
-
-
-Parser.utf8UclPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.ucl.test(c),
-  "UTF8 upper case letter expected");
-
-
-Parser.utf8Digit = Parser.satisfy(
-  c => Parser.utf8Codeset.digit.test(c),
-  "UTF8 digit expected");
-
-
-Parser.utf8DigitPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.digit.test(c),
-  "UTF8 digit expected");
-
-
-Parser.utf8Alnum = Parser.satisfy(
-  c => Parser.utf8Codeset.alnum.test(c),
-  "UTF8 alphanumeric character expected");
-
-
-Parser.utf8AlnumPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.alnum.test(c),
-  "UTF8 alphanumeric character expected");
-
-
-Parser.utf8Punct = Parser.satisfy(
-  c => Parser.utf8Codeset.punct.test(c),
-  "UTF8 punctuation expected");
-
-
-Parser.utf8PunctPrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.punct.test(c),
-  "UTF8 punctuation expected");
-
-
-Parser.utf8Space = Parser.satisfy(
-  c => Parser.utf8Codeset.space.test(c),
-  "UTF8 space character expected");
-
-
-Parser.utf8SpacePrev = Parser.satisfyPrev(
-  c => Parser.utf8Codeset.space.test(c),
-  "UTF8 space character expected");
-
-
-// parse a predefined string
-
-Parser.string = s => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = "";
-
-  for (let i = 0; i < s.length; i++) {
-    o = Parser.char(s[i]).parse(o.parsed.val[1]);
-    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
-  }
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
-});
-
-
-Parser.stringPrev = s => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = "";
-
-  for (let i = s.length - 1; i >= 0; i--) {
-    o = Parser.charPrev(s[i]).parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
-  }
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
-});
-
-
-/*Parser.line = Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = "";
-
-  for (let i = 0; i < s.length; i++) {
-    o = Parser.take.parse(o.parsed.val[1]);
-    
-    if (o.parsed.val[0] === "\r") {
-      o = Parser.take.parse(o.parsed.val[1]);
-      if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
-      else 
-    }
-
-    {
-      acc += o.parsed.val[0];
-    }
-    
-    if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
-  }
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
-});*/
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████ PARSER :: HIGHER ORDER PRIMITIVES ██████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
 
 
 /*
 █████ Combining (Logical) █████████████████████████████████████████████████████*/
 
 
-// higher order parser combinators
-
-
-/* Try the first parser and short circuit the second one on success. If it
-fails, try the second parser. Return the accumulated exceptions if both fail. */
+// try both parsers and succeed if one succeeds
 
 Parser.or = tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
@@ -9163,8 +8670,7 @@ Parser.any = ts => Parser(ix => {
 });
 
 
-/* Try both parsers and return the first or second exception, if one fails.
-Append both results on success. */
+// try both parsers and fail if one fails
 
 Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
   return tx.parse(iw).parsed.run({
@@ -9207,7 +8713,7 @@ Parser.not = Monoid => tx => Parser(ix => {
 });
 
 
-// like `Parser.or` but as exclusive or
+// try the first and second parser and fail if both fail or succeed
 
 Parser.xor = tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
@@ -9224,7 +8730,8 @@ Parser.xor = tx => ty => Parser(iw => {
 });
 
 
-// if and only if (xnor)
+/* Try the first and second parser and fail if both fail or succeed (xnor a.k.a.
+if and only if). */
 
 Parser.iff = Monoid => tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
@@ -9243,9 +8750,6 @@ Parser.iff = Monoid => tx => ty => Parser(iw => {
 
 /*
 █████ Combining (Quantitative) ████████████████████████████████████████████████*/
-
-
-// higher order parser combinators
 
 
 // parse the given pattern at least min or more times
@@ -9477,10 +8981,105 @@ Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
 
 
 /*
+█████ Boolean Based ███████████████████████████████████████████████████████████*/
+
+
+// beginning of input
+
+Parser.boi = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
+});
+
+
+// beginning of line (nl + crnl)
+
+Parser.bol = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
+});
+
+
+// end of input
+
+Parser.eoi = Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Valid(true, ix);
+  else return Parsed.Invalid(new Ex("end of input expected"), ix);
+});
+
+
+// end of line (nl or crnl)
+
+Parser.eol = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(true, ix);
+  else if (iy.value === "\n") return Parsed.Valid(true, ix);
+  
+  else if (iy.value === "\r") {
+    const iz = iy.next();
+
+    if (iz.value === "\n") return Parsed.Valid(true, ix);
+    else return Parsed.Invalid(new Ex("end of line expected"), ix);
+  }
+
+  else return Parsed.Invalid(new Ex("end of line expected"), ix);
+});
+
+
+/*
+█████ Look Behind/Ahead ███████████████████████████████████████████████████████*/
+
+
+// look ahead or behind depending on the supplied parser
+
+Parser.look = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, ix),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+  })
+});
+
+
+/*
+█████ Result Modification █████████████████████████████████████████████████████*/
+
+
+/* Replace the next input with a default value, provided the parser yields a
+valid result. */
+
+Parser.ignore = x => tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(x, iy),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+  })
+});
+
+
+// take the input or a default value on failure
+
+Parser.optional = x => tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+    Invalid: (e, iz) => Parsed.Valid(x, iz)
+  })
+});
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+███████████████████████████ PARSER :: TYPE CLASSES ████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
-// lift a function into the context of a parser
+// lift a function into the parser context
 
 Parser.map = f => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
@@ -9523,7 +9122,7 @@ Parser.Plus = {
 █████ Functor :: Apply ████████████████████████████████████████████████████████*/
 
 
-// lift a binary function into the context of two parsers
+// lift an n-ary function into another parser context
 
 Parser.ap = tf => tx => Parser(iw => {
   return tf.parse(iw).parsed.run({
@@ -9607,7 +9206,7 @@ Parser.Semigroup = {append: Parser.append};
 █████ Semigroup :: Monoid █████████████████████████████████████████████████████*/
 
 
-Parser.empty = Parser.reject("empty reject");
+Parser.empty = Parser.reject("empty rejection");
 
 
 Parser.Monoid = {
@@ -9616,150 +9215,8 @@ Parser.Monoid = {
 };
 
 
-/*
-█████ Specific: Look Behind/Ahead █████████████████████████████████████████████*/
-
-
-// look ahead or behind depending on the supplied parser
-
-Parser.look = tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, ix),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
-  })
-});
-
-
-/*
-█████ Specific (Position) █████████████████████████████████████████████████████*/
-
-
-// beginning of input
-
-Parser.boi = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
-});
-
-
-// beginning of line
-
-Parser.bol = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
-});
-
-
-// end of input
-
-Parser.eoi = Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("end of input expected"), ix);
-});
-
-
-// end of line
-
-Parser.eol = Parser(ix => {
-  const iy = ix.next();
-
-  if (iy.done) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  
-  else if (iy.value === "\r") {
-    const tx = Parser.look(Parser.char("\n")).parse(iy);
-
-    if (tx.parsed.val[0] === "\n") return Parsed.Valid(true, ix);
-    else return Parsed.Invalid(new Ex("end of line expected"), ix);
-  }
-
-  else return Parsed.Invalid(new Ex("end of line expected"), ix);
-});
-
-
-/*
-█████ Specific: Structure █████████████████████████████████████████████████████*/
-
-
-// parse nested occurrences of a pattern (include open/close patterns)
-
-Parser.nestedIn = Monoid => open => close => Parser(ix => {
-  let o = open.parse(ix), acc = Monoid.empty, level = 0;
-  
-  if (o.parsed.tag === "invalid") return o;
-  else level++;
-
-  do {
-    o = close.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "invalid") {
-      o = Parser.take.parse(o.parsed.val[1]);
-      acc = Monoid.append(acc) (o.parsed.val[0]);
-    }
-
-    else {
-      acc = Monoid.append(acc) (o.parsed.val[0]);
-      level--;
-    }
-  } while (level > 0);
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
-});
-
-
-// parse input delimited by separator patterns (exclude left/right patterns)
-
-Parser.sepBy = Monoid => left => right => Parser(ix => {
-  let o = left.parse(ix), acc = Monoid.empty;
-
-  if (o.parsed.tag === "invalid") return o;
-
-  while (true) {
-    o = right.parse(o.parsed.val[1]);
-    
-    if (o.parsed.tag === "invalid") {
-      o = Parser.take.parse(o.parsed.val[1]);
-      acc = Monoid.append(acc) (o.parsed.val[0]);
-    }
-    
-    else break;
-  }
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
-});
-
-
-/*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
-
-
-/* Replace the next value with a default one, provided the next parser yields
-a valid result. */
-
-Parser.ignore = x => tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(x, iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
-  })
-});
-
-
-// either take the parsed pattern or a default one, if the parser fails
-
-Parser.optional = x => tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (e, iz) => Parsed.Valid(x, iz)
-  })
-});
-
-
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████████ PARSER :: DISCRIMINATED ███████████████████████████
+████████████████████████████ PARSER :: COMPOSITION ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -9788,6 +9245,40 @@ Parser.optional = x => tx => Parser(ix => {
 
 
 /*
+█████ Financial ███████████████████████████████████████████████████████████████*/
+
+
+// Parser.bic
+
+
+// Parser.iban
+
+
+/*
+█████ Line ████████████████████████████████████████████████████████████████████*/
+
+
+Parser.line = Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.take.parse(o.parsed.val[1]);
+    
+    if (o.parsed.val[0] === "\r") {
+      o = Parser.char("\n").parse(o.parsed.val[1]);
+      if (o.parsed.tag === "valid") return Parsed.Valid(acc, o.parsed.val[1]);
+      else throw new Err(`invalid use of "\r"`);
+    }
+    
+    if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
+    else return acc += o.parsed.val[0];
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+/*
 █████ Natural Language ████████████████████████████████████████████████████████*/
 
 
@@ -9797,10 +9288,7 @@ Parser.optional = x => tx => Parser(ix => {
 // Parser.acronym
 
 
-// Parser.name
-
-
-// Parser.sentence
+// Parser.humanName
 
 
 // parse any word composed of characters of the supplied codeset
@@ -9827,13 +9315,13 @@ Parser.word = codeset => Parser(ix => {
 });
 
 
-Parser.wordPrev = codeset => Parser(ix => {
+Parser.wordBehind = codeset => Parser(ix => {
   let tx, acc = "";
 
   switch (codeset) {
-    case "ascii": {tx = Parser.asciiLetterPrev; break}
-    case "latin1": {tx = Parser.latin1LetterPrev; break}
-    case "utf8": {tx = Parser.utf8LetterPrev; break}
+    case "ascii": {tx = Parser.asciiLetterBehind; break}
+    case "latin1": {tx = Parser.latin1LetterBehind; break}
+    case "utf8": {tx = Parser.utf8LetterBehind; break}
     default: throw new Err(`unknown codeset "${codeset}"`);
   }
 
@@ -9865,8 +9353,605 @@ Parser.wordPrev = codeset => Parser(ix => {
 // Parser.number
 
 
+// Parser.zipcode
+
+
+// Parser.phone
+
+
 /*
 █████ Range ███████████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Section █████████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ String ██████████████████████████████████████████████████████████████████*/
+
+
+// parse a desired string
+
+Parser.string = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.char(s[i]).parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+Parser.stringBehind = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = s.length - 1; i >= 0; i--) {
+    o = Parser.charBehind(s[i]).parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+// parse a desired string case insensitive
+
+Parser.stringCi = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = 0; i < s.length; i++) {
+    o = Parser.charCi(s[i]).parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+Parser.stringCiBehind = s => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  for (let i = s.length - 1; i >= 0; i--) {
+    o = Parser.charCiBehind(s[i]).parse(o.parsed.val[1]);
+    if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+/*
+█████ Stateful ████████████████████████████████████████████████████████████████*/
+
+
+/* Parse a nested pattern up to a max level of nesting and either capture the
+open/close patterns themselves or discard them. Limit the level to one and set
+open/close to the same pattern to parse input separated by a separator. Use
+stop characters to further limit nestings so that they can't span lines, for
+instance. */
+
+Parser.nested = Monoid => ({maxLevel, captureNesting, stopChars}) => open => close => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = Monoid.empty, level = 0;
+  
+  do {
+    o = open.parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "invalid") {
+      o = close.parse(o.parsed.val[1]);
+
+      if (o.parsed.tag === "invalid") {
+        o = Parser.take.parse(o.parsed.val[1]);
+        
+        if (stopChars.has(o.parsed.val[0]))
+          return Parsed.Invalid(new Ex("malformed nesting received"), ix);
+
+        else acc = Monoid.append(acc) (o.parsed.val[0]);
+      }
+
+      else {
+        if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
+        level--;
+      }
+    }
+
+    else {
+      if (level + 1 > maxLevel) return Parsed.Invalid(`unexpected nesting`);
+      
+      else {
+        if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
+        level++;
+      }
+    }
+  } while (level > 0);
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+/* Variant that takes open/close pairs, where close patterns can only close
+levels created by their respective counterparts. */
+
+// Parser.nestedPairs
+
+
+/*█████████████████████████████████████████████████████████████████████████████
+██████████████████████████████ PARSER :: UTILITY ██████████████████████████████
+███████████████████████████████████████████████████████████████████████████████*/
+
+
+/*
+█████ Codesets & Char Classes █████████████████████████████████████████████████*/
+
+
+Parser.asciiCodeset = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/[a-z]/, "i");
+    return this.letter;
+  },
+
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/[A-Z]/, "");
+    return this.ucl;
+  },
+
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/[a-z]/, "");
+    return this.lcl;
+  },
+
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/[0-9]/, "");
+    return this.digit;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+    return this.control;
+  },
+
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~]/, "");
+    return this.punct;
+  },
+
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/[$]/, "");
+    return this.currency;
+  },
+
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/ /, "");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+    
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
+    
+    return this.nonAlnum;
+  }
+};
+
+
+/* CP1252 (Windows 1252) has the same characaters as latin1 (ISO-8859-1) but
+between 128-159 they are not at the same code points. */
+
+Parser.latin1CodeSet = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "i");
+    return this.letter;
+  },
+
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/[A-ZÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ]/, "");
+    return this.ucl;
+  },
+
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/[a-zßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/, "");
+    return this.lcl;
+  },
+
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/[0-9]/, "");
+    return this.digit;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\0\a\b\t\v\f\r\n\cZ]/, "");
+    return this.control;
+  },
+  
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[!"#$%&'()*+,-./:;<=>?@\[\]\\^_`{|}~€‚„…†‡ˆ‰‹‘’“”•–­—˜™›¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/, "");
+    return this.punct;
+  },
+  
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/[¤$€£¥¢]/, "");
+    return this.currency;
+  },
+  
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/  /, "");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "");
+
+    return this.nonAlnum;
+  }
+};
+
+
+Parser.utf8Codeset = {
+  get letter() {
+    delete this.letter;
+    this.letter = new RegExp(/\p{L}/, "u");
+    return this.letter;
+  },
+
+  get ucl() {
+    delete this.ucl;
+    this.ucl = new RegExp(/\p{Lu}/, "u");
+    return this.ucl;
+  },
+
+  get lcl() {
+    delete this.lcl;
+    this.lcl = new RegExp(/\p{Lu}/, "u");
+    return this.lcl;
+  },
+
+  get digit() {
+    delete this.digit;
+    this.digit = new RegExp(/\p{N}/, "u");
+    return this.digit;
+  },
+
+  get alnum() {
+    delete this.alnum;
+    this.alnum = new RegExp(`${this.digit.source}|${this.letter.source}`, "u");
+    return this.alnum;
+  },
+
+  get control() {
+    delete this.control;
+    this.control = new RegExp(/[\p{C}\p{Zl}\p{Zp}]/, "u");
+    return this.control;
+  },
+
+  get punct() {
+    delete this.punct;
+    this.punct = new RegExp(/[\p{P}\p{S}\p{F}]/, "u");
+    return this.punct;
+  },
+
+  get currency() {
+    delete this.currency;
+    this.currency = new RegExp(/\p{Sc}/, "u");
+    return this.currency;
+  },
+
+  get space() {
+    delete this.space;
+    this.space = new RegExp(/\p{Zs}/, "u");
+    return this.space;
+  },
+
+  get nonAlnum() {
+    delete this.nonAlnum;
+    
+    this.nonAlnum = new RegExp(
+      `${this.control.source}|${this.punct.source}|${this.currency.source}|${this.space.source}`, "u");
+
+    return this.nonAlnum;
+  }
+};
+
+
+/*
+█████ Parsers █████████████████████████████████████████████████████████████████*/
+
+
+Parser.asciiLetter = Parser.satisfy(
+  c => Parser.asciiCodeset.letter.test(c),
+  "ASCII letter expected");
+
+
+Parser.asciiLetterBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.letter.test(c),
+  "ASCII letter expected");
+
+
+Parser.asciiLcl = Parser.satisfy(
+  c => Parser.asciiCodeset.lcl.test(c),
+  "ASCII lower case letter expected");
+
+
+Parser.asciiLclBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.lcl.test(c),
+  "ASCII lower case letter expected");
+
+
+Parser.asciiUcl = Parser.satisfy(
+  c => Parser.asciiCodeset.ucl.test(c),
+  "ASCII upper case letter expected");
+
+
+Parser.asciiUclBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.ucl.test(c),
+  "ASCII upper case letter expected");
+
+
+Parser.asciiDigit = Parser.satisfy(
+  c => Parser.asciiCodeset.digit.test(c),
+  "ASCII digit expected");
+
+
+Parser.asciiDigitBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.digit.test(c),
+  "ASCII digit expected");
+
+
+Parser.asciiAlnum = Parser.satisfy(
+  c => Parser.asciiCodeset.alnum.test(c),
+  "ASCII alphanumeric character expected");
+
+
+Parser.asciiAlnumBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.alnum.test(c),
+  "ASCII alphanumeric character expected");
+
+
+Parser.asciiPunct = Parser.satisfy(
+  c => Parser.asciiCodeset.punct.test(c),
+  "ASCII punctuation expected");
+
+
+Parser.asciiPunctBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.punct.test(c),
+  "ASCII punctuation expected");
+
+
+Parser.asciiSpace = Parser.satisfy(
+  c => Parser.asciiCodeset.space.test(c),
+  "ASCII space character expected");
+
+
+Parser.asciiSpaceBehind = Parser.satisfyBehind(
+  c => Parser.asciiCodeset.space.test(c),
+  "ASCII space character expected");
+
+
+Parser.latin1Letter = Parser.satisfy(
+  c => Parser.latin1CodeSet.letter.test(c),
+  "Latin1 letter expected");
+
+
+Parser.latin1LetterBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.letter.test(c),
+  "Latin1 letter expected");
+
+
+Parser.latin1Lcl = Parser.satisfy(
+  c => Parser.latin1CodeSet.lcl.test(c),
+  "Latin1 lower case letter expected");
+
+
+Parser.latin1LclBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.lcl.test(c),
+  "Latin1 lower case letter expected");
+
+
+Parser.latin1Ucl = Parser.satisfy(
+  c => Parser.latin1CodeSet.ucl.test(c),
+  "Latin1 upper case letter expected");
+
+
+Parser.latin1UclBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.ucl.test(c),
+  "Latin1 upper case letter expected");
+
+
+Parser.latin1Digit = Parser.satisfy(
+  c => Parser.latin1CodeSet.digit.test(c),
+  "Latin1 digit expected");
+
+
+Parser.latin1DigitBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.digit.test(c),
+  "Latin1 digit expected");
+
+
+Parser.latin1Alnum = Parser.satisfy(
+  c => Parser.latin1CodeSet.alnum.test(c),
+  "Latin1 alphanumeric character expected");
+
+
+Parser.latin1AlnumBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.alnum.test(c),
+  "Latin1 alphanumeric character expected");
+
+
+Parser.latin1Punct = Parser.satisfy(
+  c => Parser.latin1CodeSet.punct.test(c),
+  "Latin1 punctuation expected");
+
+
+Parser.latin1PunctBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.punct.test(c),
+  "Latin1 punctuation expected");
+
+
+Parser.latin1Space = Parser.satisfy(
+  c => Parser.latin1CodeSet.space.test(c),
+  "Latin1 space character expected");
+
+
+Parser.latin1SpaceBehind = Parser.satisfyBehind(
+  c => Parser.latin1CodeSet.space.test(c),
+  "Latin1 space character expected");
+
+
+Parser.utf8Letter = Parser.satisfy(
+  c => Parser.utf8Codeset.letter.test(c),
+  "UTF8 letter expected");
+
+
+Parser.utf8LetterBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.letter.test(c),
+  "UTF8 letter expected");
+
+
+Parser.utf8Lcl = Parser.satisfy(
+  c => Parser.utf8Codeset.lcl.test(c),
+  "UTF8 lower case letter expected");
+
+
+Parser.utf8LclBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.lcl.test(c),
+  "UTF8 lower case letter expected");
+
+
+Parser.utf8Ucl = Parser.satisfy(
+  c => Parser.utf8Codeset.ucl.test(c),
+  "UTF8 upper case letter expected");
+
+
+Parser.utf8UclBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.ucl.test(c),
+  "UTF8 upper case letter expected");
+
+
+Parser.utf8Digit = Parser.satisfy(
+  c => Parser.utf8Codeset.digit.test(c),
+  "UTF8 digit expected");
+
+
+Parser.utf8DigitBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.digit.test(c),
+  "UTF8 digit expected");
+
+
+Parser.utf8Alnum = Parser.satisfy(
+  c => Parser.utf8Codeset.alnum.test(c),
+  "UTF8 alphanumeric character expected");
+
+
+Parser.utf8AlnumBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.alnum.test(c),
+  "UTF8 alphanumeric character expected");
+
+
+Parser.utf8Punct = Parser.satisfy(
+  c => Parser.utf8Codeset.punct.test(c),
+  "UTF8 punctuation expected");
+
+
+Parser.utf8PunctBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.punct.test(c),
+  "UTF8 punctuation expected");
+
+
+Parser.utf8Space = Parser.satisfy(
+  c => Parser.utf8Codeset.space.test(c),
+  "UTF8 space character expected");
+
+
+Parser.utf8SpaceBehind = Parser.satisfyBehind(
+  c => Parser.utf8Codeset.space.test(c),
+  "UTF8 space character expected");
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// map all special letters from latin-based alphabets onto ASCII
+
+Object.defineProperty(Parser, "toAscii", {
+  get() {
+    const m = new Map([
+      ["Æ", "AE"], ["æ", "ae"], ["Ä", "Ae"], ["ä", "ae"], ["Œ", "OE"],
+      ["œ", "oe"], ["Ö", "Oe"], ["ö", "oe"], ["ß", "ss"], ["ẞ", "ss"],
+      ["Ü", "Ue"], ["ü", "ue"], ["Ⱥ", "A"], ["ⱥ", "a"], ["Ɑ", "A"],
+      ["ɑ", "a"], ["ɐ", "a"], ["ɒ", "a"], ["Ƀ", "B"], ["ƀ", "b"],
+      ["Ɓ", "B"], ["ɓ", "b"], ["Ƃ", "b"], ["ƃ", "b"], ["ᵬ", "b"],
+      ["ᶀ", "b"], ["Ƈ", "C"], ["ƈ", "c"], ["Ȼ", "C"], ["ȼ", "c"],
+      ["Ɗ", "D"], ["ɗ", "d"], ["Ƌ", "D"], ["ƌ", "d"], ["ƍ", "d"],
+      ["Đ", "D"], ["đ", "d"], ["ɖ", "d"], ["ð", "d"], ["Ɇ", "E"],
+      ["ɇ", "e"], ["ɛ", "e"], ["ɜ", "e"], ["ə", "e"], ["Ɠ", "G"],
+      ["ɠ", "g"], ["Ǥ", "G"], ["ǥ", "g"], ["ᵹ", "g"], ["Ħ", "H"],
+      ["ħ", "h"], ["Ƕ", "H"], ["ƕ", "h"], ["Ⱨ", "H"], ["ⱨ", "h"],
+      ["ɥ", "h"], ["ɦ", "h"], ["ı", "i"], ["Ɩ", "I"], ["ɩ", "i"],
+      ["Ɨ", "I"], ["ɨ", "i"], ["Ɉ", "J"], ["ɉ", "j"], ["ĸ", "k"],
+      ["Ƙ", "K"], ["ƙ", "k"], ["Ⱪ", "K"], ["ⱪ", "k"], ["Ł", "L"],
+      ["ł", "l"], ["Ƚ", "L"], ["ƚ", "l"], ["ƛ", "l"], ["ȴ", "l"],
+      ["Ⱡ", "L"], ["ⱡ", "l"], ["Ɫ", "L"], ["ɫ", "l"], ["Ľ", "L"],
+      ["ľ", "l"], ["Ɯ", "M"], ["ɯ", "m"], ["ɱ", "m"], ["Ŋ", "N"],
+      ["ŋ", "n"], ["Ɲ", "N"], ["ɲ", "n"], ["Ƞ", "N"], ["ƞ", "n"],
+      ["Ø", "O"], ["ø", "o"], ["Ɔ", "O"], ["ɔ", "o"], ["Ɵ", "O"],
+      ["ɵ", "o"], ["Ƥ", "P"], ["ƥ", "p"], ["Ᵽ", "P"], ["ᵽ", "p"],
+      ["ĸ", "q"], ["Ɋ", "Q"], ["ɋ", "q"], ["Ƣ", "Q"], ["ƣ", "q"],
+      ["Ʀ", "R"], ["ʀ", "r"], ["Ɍ", "R"], ["ɍ", "r"], ["Ɽ", "R"],
+      ["ɽ", "r"], ["Ƨ", "S"], ["ƨ", "s"], ["ȿ", "s"], ["ʂ", "s"],
+      ["ᵴ", "s"], ["ᶊ", "s"], ["Ŧ", "T"], ["ŧ", "t"], ["ƫ", "t"],
+      ["Ƭ", "T"], ["ƭ", "t"], ["Ʈ", "T"], ["ʈ", "t"], ["Ʉ", "U"],
+      ["ʉ", "u"], ["Ʋ", "V"], ["ʋ", "v"], ["Ʌ", "V"], ["ʌ", "v"],
+      ["ⱴ", "v"], ["ⱱ", "v"], ["Ⱳ", "W"], ["ⱳ", "w"], ["Ƴ", "Y"],
+      ["ƴ", "y"], ["Ɏ", "Y"], ["ɏ", "y"], ["ɤ", "Y"], ["Ƶ", "Z"],
+      ["ƶ", "z"], ["Ȥ", "Z"], ["ȥ", "z"], ["ɀ", "z"], ["Ⱬ", "Z"],
+      ["ⱬ", "z"], ["Ʒ", "Z"], ["ʒ", "z"], ["Ƹ", "Z"], ["ƹ", "z"],
+      ["Ʒ", "Z"], ["ʒ", "z"]
+    ]);
+
+    delete this.toAscii;
+    this.toAscii = m;
+    return m;
+  }
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10407,23 +10492,50 @@ _Set.del = k => s => s.delete(k);
 
 
 /*
-█████ Special Sets ████████████████████████████████████████████████████████████*/
+█████ Ranges ██████████████████████████████████████████████████████████████████*/
 
 
-// special sets representing character classes for parsing
+Object.defineProperty(_Set, "_0to9", {
+  get() {
+    const s = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+    delete this._0to9;
+    this._0to9 = s;
+    return s;
+  },
+
+  configurable: true,
+  enumerable: true
+});
 
 
-_Set._0to9 = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+Object.defineProperty(_Set, "atoz", {
+  get() {
+    const s = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]);
+    delete this.atoz;
+    this.atoz = s;
+    return s;
+  },
+
+  configurable: true,
+  enumerable: true
+});
 
 
-_Set.atoz = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"])
+Object.defineProperty(_Set, "atoZ", {
+  get() {
+    const s = new Set(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"])
+    delete this.atoZ;
+    this.atoZ = s;
+    return s;
+  },
 
-
-_Set.atoZ = new Set(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]);
+  configurable: true,
+  enumerable: true
+});
 
 
 /*
-█████ Misc. ███████████████████████████████████████████████████████████████████*/
+█████ Union ███████████████████████████████████████████████████████████████████*/
 
 
 _Set.union = s => t => {
@@ -10557,12 +10669,12 @@ Str.normalizeNum = locale => s => {
 █████ Searching ███████████████████████████████████████████████████████████████*/
 
 
-/* Finds the index of the given pattern in the passed string. The `i` argument
-refers to the array and can be positive or negative. A positive value denotes
-the index in the match pattern. A negative index denotes the position in the
-array relative to the end. -1 means the last element. -2 the penultimate one. */
+/* Find all indices of the given pattern and returns the one referenced by `i`.
+`i` can be positive or negative. A positive value denotes the normal index
+whereas a negative one denotes the index relative to the end. -1 means the last
+index. -2 the penultimate one. */
 
-Str.findIndex = (pattern, i) => s => {
+Str.findIndexNth = (pattern, i) => s => {
   const xs = Array.from(s.matchAll(pattern));
   let rx;
 
@@ -10577,7 +10689,7 @@ Str.findIndex = (pattern, i) => s => {
 
 // find the first and last index of a pattern in the passed string
 
-Str.findFirstLast = pattern => s => {
+Str.findIndexBounds = pattern => s => {
   const xs = Array.from(s.matchAll(pattern));
   let rx;
 
@@ -10851,7 +10963,6 @@ Tree.Empty = thisify(o => {
 
 Tree.Leaf = x => {
   const o = {height: 0, size: 1, min: x, x, tag: "Leaf"};
-
   Object.defineProperty(o, TAG, {value: "Tree"});
   return o;
 };
@@ -10859,7 +10970,6 @@ Tree.Leaf = x => {
 
 Tree.Node2 = (height, size, min, left, right) => {
   const o = {height, size, min, left, right, tag: "Node2"};
-
   Object.defineProperty(o, TAG, {value: "Tree"});
   return o;
 };
@@ -10867,7 +10977,6 @@ Tree.Node2 = (height, size, min, left, right) => {
 
 Tree.Node3 = (height, size, min, left, middle, right) => {
   const o = {height, size, min, left, middle, right, tag: "Node3"};
-
   Object.defineProperty(o, TAG, {value: "Tree"});
   return o;
 };
