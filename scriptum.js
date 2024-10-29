@@ -8473,8 +8473,9 @@ into the respetive section on `Iit` to get more information. Features:
 For the time being parser results are combined using monoids. I don't know if
 this is the optimal approach, though.
 
-If you need a stateful parser built your own one suitable for the specific task
-just like `Parser.nested`, for example. */
+If you need a stateful parser built your own one suitable for the task at hand.
+You can examine examples in the stateful subsection of the parser composition
+section. */
 
 
 export const Parser = type("Parser", "parse");
@@ -8686,19 +8687,20 @@ Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
 
 // indeterministic and
 
-Parser.all = Semigroup => ts => Parser(ix => {
-  let o = Parsed.Valid(null, ix);
+Parser.all = Monoid => ts => Parser(ix => {
+  let o = Parsed.Valid(null, ix),
+    acc = Monoid.empty;
 
   for (const tx of ts) {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "invalid") return Parsed.Invalid(
-      o.parsed.val[0], ix)
+      o.parsed.val[0], ix);
+
+    else acc = Monoid.append(acc) (o.parsed.val[0]);
   }
 
-  return Parsed.Valid(
-    acc.reduce((acc, o) => Semigroup.append(acc) (o.parsed.val[0])),
-    o.parsed.val[1]);
+  return Parsed.Valid(acc, o.parsed.val[1]);
 });
 
 
@@ -8986,16 +8988,16 @@ Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
 
 // beginning of input
 
-Parser.boi = Parser(ix => {
+Parser.isBoi = Parser(ix => {
   const iy = ix.prev;
   if (iy === undefined) return Parsed.Valid(true, ix);
   else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
 });
 
 
-// beginning of line (nl + crnl)
+// beginning of line (detects nl, crnl or beginning of input)
 
-Parser.bol = Parser(ix => {
+Parser.isBol = Parser(ix => {
   const iy = ix.prev;
   if (iy === undefined) return Parsed.Valid(true, ix);
   else if (iy.value === "\n") return Parsed.Valid(true, ix);
@@ -9005,16 +9007,16 @@ Parser.bol = Parser(ix => {
 
 // end of input
 
-Parser.eoi = Parser(ix => {
+Parser.isEoi = Parser(ix => {
   const iy = ix.next();
   if (iy.done) return Parsed.Valid(true, ix);
   else return Parsed.Invalid(new Ex("end of input expected"), ix);
 });
 
 
-// end of line (nl or crnl)
+// end of line (detects nl, crnl or end of input)
 
-Parser.eol = Parser(ix => {
+Parser.isEol = Parser(ix => {
   const iy = ix.next();
 
   if (iy.done) return Parsed.Valid(true, ix);
@@ -9042,6 +9044,57 @@ Parser.look = tx => Parser(ix => {
     Valid: (v, iy) => Parsed.Valid(v, ix),
     Invalid: (e, iz) => Parsed.Invalid(e, iz)
   })
+});
+
+
+/*
+█████ No Result ███████████████████████████████████████████████████████████████*/
+
+
+// beginning of input
+
+Parser.boi = Monoid => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
+});
+
+
+// beginning of line (detects nl, crnl or beginning of input)
+
+Parser.bol = Monoid => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === undefined) return Parsed.Valid(Monoid.empty, ix);
+  else if (iy.value === "\n") return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
+});
+
+
+// end of input
+
+Parser.eoi = Monoid => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Ex("end of input expected"), ix);
+});
+
+
+// end of line (detects nl, crnl or end of input)
+
+Parser.eol = Monoid => Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
+  else if (iy.value === "\n") return Parsed.Valid(Monoid.empty, ix);
+  
+  else if (iy.value === "\r") {
+    const iz = iy.next();
+
+    if (iz.value === "\n") return Parsed.Valid(true, ix);
+    else return Parsed.Invalid(new Ex("end of line expected"), ix);
+  }
+
+  else return Parsed.Invalid(new Ex("end of line expected"), ix);
 });
 
 
@@ -9224,16 +9277,25 @@ Parser.Monoid = {
 █████ CSV █████████████████████████████████████████████████████████████████████*/
 
 
-/*Parser.csv = o => Parser(ix => {
-  if (o.header) {
-    const line = Parser.many(A.Monoid)
-      (Parser.satisfy(c => c !== "\r" && c !== "\n"));
+Parser.csv = (Semigroup, Monoid) => settings => Parser(ix => {
+  let o = Parsed.Valid(null, ix);
 
-    Parser.boi
-    Parser.while(Str.Monoid) (c => c !== o.sep)
-    Parser.eol
+  if (settings.header) {
+    o = Parser.line.parse(ix);
+
+    if (o.parsed.tag === "invalid") return o;
+
+    else {
+      Parser.all(Semigroup) ([
+        Parser.sepBy(Monoid) (Parser.boi, settings.sep).parse(o.parsed.val[0]),
+        Parser.many(Monoid) (Parser.sepBy(Monoid) (settings.sep).parse(o.parsed.val[0])),
+        Parser.sepBy(Monoid) (settings.sep, Parser.eol).parse(o.parsed.val[0])
+      ]);
+
+      // check number of cols per row
+    }    
   }
-});*/
+});
 
 
 /*
@@ -9260,6 +9322,9 @@ Parser.Monoid = {
 
 Parser.line = Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = "";
+
+  if (Parser.isBol.parse(ix).parsed.val[0] === false)
+    return Parsed.Invalid("beginning of line expected", ix);
 
   for (let i = 0; i < s.length; i++) {
     o = Parser.take.parse(o.parsed.val[1]);
@@ -9360,11 +9425,22 @@ Parser.wordBehind = codeset => Parser(ix => {
 
 
 /*
+█████ Paragraph ███████████████████████████████████████████████████████████████*/
+
+
+// parse lines until two newlines in a row occur
+
+
+/*
 █████ Range ███████████████████████████████████████████████████████████████████*/
 
 
 /*
 █████ Section █████████████████████████████████████████████████████████████████*/
+
+
+/* Take all characters between an open and close pattern, where open and close
+can be the same or different parsers. */
 
 
 /*
@@ -9431,11 +9507,9 @@ Parser.stringCiBehind = s => Parser(ix => {
 █████ Stateful ████████████████████████████████████████████████████████████████*/
 
 
-/* Parse a nested pattern up to a max level of nesting and either capture the
-open/close patterns themselves or discard them. Limit the level to one and set
-open/close to the same pattern to parse input separated by a separator. Use
-stop characters to further limit nestings so that they can't span lines, for
-instance. */
+/* Parse a nested pattern up to a max level of nestings and either capture or
+discard the open/close patterns themselves. Use stop characters to further
+limit nestings so that they can't span lines, for instance. */
 
 Parser.nested = Monoid => ({maxLevel, captureNesting, stopChars}) => open => close => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = Monoid.empty, level = 0;
@@ -9443,30 +9517,32 @@ Parser.nested = Monoid => ({maxLevel, captureNesting, stopChars}) => open => clo
   do {
     o = open.parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "invalid") {
-      o = close.parse(o.parsed.val[1]);
-
-      if (o.parsed.tag === "invalid") {
-        o = Parser.take.parse(o.parsed.val[1]);
-        
-        if (stopChars.has(o.parsed.val[0]))
-          return Parsed.Invalid(new Ex("malformed nesting received"), ix);
-
-        else acc = Monoid.append(acc) (o.parsed.val[0]);
-      }
-
-      else {
-        if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
-        level--;
-      }
-    }
-
-    else {
-      if (level + 1 > maxLevel) return Parsed.Invalid(`unexpected nesting`);
+    if (o.parsed.tag === "valid") {
+      if (level + 1 > maxLevel)
+        return Parsed.Invalid(new Ex("unexpected nesting received"), ix);
       
       else {
         if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
         level++;
+      }
+    }
+
+    else {
+      o = close.parse(o.parsed.val[1]);
+
+      if (o.parsed.tag === "valid") {
+        if (level - 1 < 0) return Parsed.Invalid(new Ex("malformed nesting received"), ix);
+        else if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
+        level--;
+      }
+
+      else {
+        o = Parser.take.parse(o.parsed.val[1]);
+        
+        if (stopChars.has(o.parsed.val[0]))
+          return Parsed.Invalid(new Ex("incomplete nesting received"), ix);
+
+        else acc = Monoid.append(acc) (o.parsed.val[0]);
       }
     }
   } while (level > 0);
@@ -9475,10 +9551,102 @@ Parser.nested = Monoid => ({maxLevel, captureNesting, stopChars}) => open => clo
 });
 
 
-/* Variant that takes open/close pairs, where close patterns can only close
-levels created by their respective counterparts. */
+/* Variant that takes several open/close pairs, where open patterns can only be closed
+with the associated close pattner. */
 
-// Parser.nestedPairs
+// TODO: abort on newline
+
+Parser.nestedPairs = Monoid => ({maxLevel, captureNesting, stopChars}) => pairs => Parser(ix => {
+  const stack = [];
+  let o = Parsed.Valid(null, ix), acc = Monoid.empty, i = 0;
+  
+  do {
+    for (const [open, close] of pairs) {
+      o = open.parse(o.parsed.val[1]);
+      
+      if (o.parsed.tag === "valid") {
+        if (level + 1 > maxLevel)
+          return Parsed.Invalid(new Ex("unexpected nesting received"), ix);
+        
+        else if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
+        
+        stack.push(close);
+        break;
+      }
+    }
+
+    if (stack.length === 0) {
+      if (i === 0) return Parsed.Invalid(new Ex("no nesting received"), ix);
+      else return Parsed.Valid(acc, o.parsed.val[1]);
+    }
+
+    else {
+      const close = stack[stack.length - 1];
+      o = close.parse(o.parsed.val[1]);
+
+      if (o.parsed.tag === "valid") {
+        if (captureNesting) acc = Monoid.append(acc) (o.parsed.val[0]);
+        stack.pop();
+      }
+
+      else {
+        o = Parser.take.parse(o.parsed.val[1]);
+        
+        if (stopChars.has(o.parsed.val[0]))
+          return Parsed.Invalid(new Ex("incomplete nesting received"), ix);
+
+        else acc = Monoid.append(acc) (o.parsed.val[0]);
+      }
+    }
+  } while (i++);
+});
+
+
+/* Parse the input separated by a left and right separators, which can be
+characters or strings. BOI, EOI, BOL and EOL are considered in the following
+varaints:
+
+* BOL/right
+* BOI/right
+* left/EOL
+* left/EOI */
+
+Parser.sepBy = Semigroup => (left, right = left) => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc;
+
+  if (Parser.isBol.parse(o.parsed.val[1])) NOOP;
+
+  else {
+    o = Parser.string(left).parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "invalid")
+      return Parsed.Invalid(new Ex(`separator "${left}" expected`), ix);
+  } 
+
+  while (true) {
+    if (Parser.isEol.parse(o.parsed.val[1])) break;
+
+    // don't allow nested separators
+
+    else if (left !== right) {
+      o = Parser.string(left).parse(o.parsed.val[1]);
+  
+      if (o.parsed.tag === "valid")
+        return Parsed.Invalid(new Ex("nested separators received"), ix);
+    }
+
+    o = Parser.string(right).parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") break;
+    else if (acc === undefined) acc = o.parsed.val[0];
+    else acc = Semigroup.append(acc) (o.parsed.val[0]);
+  }
+
+  if (acc === undefined)
+    return Parsed.Invalid(new Ex("no separated input received"), ix);
+
+  else return Parsed.Valid(acc, o.parsed.val[1]);
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
