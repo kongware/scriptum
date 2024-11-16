@@ -5814,41 +5814,24 @@ It.fromList = function* (xs) {
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
-/* Yield the current element provided it along with the next one satisfy the
-given predicate or short circuit the stream. */
+/* Yield the current element provided it and the next one satisfy the given
+predicate or short circuit the stream. */
 
 It.and = p => function* (ix) {
-  let {value: x, done} = ix.next();
+  let o = ix.next();
 
-  if (done || !p(x)) return undefined;
+  if (o.done || !p(o.value)) return undefined;
 
   while (true) {
-    const {value: y, done: done2} = ix.next();
+    const p = ix.next();
 
-    if (done2) return undefined;
+    if (p.done || !p(p.value)) return undefined;
   
-    else if (p(y)) {
-      yield x;
-      x = y;
+    else {
+      yield o.value;
+      o = p;
     }
-
-    else return undefined;
   }
-};
-
-
-It.all = p => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-    
-    if (done) {
-      yield true;
-      return undefined;
-    }
-  } while (p(x));
-
-  yield false;
-  return undefined;
 };
 
 
@@ -5856,38 +5839,23 @@ It.all = p => function* (ix) {
 █████ Disjunction █████████████████████████████████████████████████████████████*/
 
 
-/* Yield either the current or the next element provided one of them satisfy
+/* Yield either the current or the next element provided one of them satisfies
 the given predicate or short circuit the stream. */
 
 It.or = p => function* (ix) {
   while (true) {
-    const {value: x, done} = ix.next();
+    const o = ix.next();
 
-    if (done) return undefined;
-    else if (p(x)) yield x;
+    if (o.done) return undefined;
+    else if (p(o.value)) yield o.value;
 
     else {
-      const {value: y, done: done2} = ix.next();
+      const p = ix.next();
 
-      if (done2 || !p(y)) return undefined;
-      else yield y;
+      if (p.done || !p(p.value)) return undefined;
+      else yield p.value;
     }
   }
-};
-
-
-It.any = p => function* (ix) {
-  do {
-    const {value: x, done} = ix.next();
-
-    if (done) {
-      yield false;
-      return undefined;
-    }
-  } while (!p(x));
-
-  yield true;
-  return undefined;
 };
 
 
@@ -11997,7 +11965,6 @@ export const FileSysThrow = fs => Cons => thisify(o => {
 
 /*
 
-  * add stream support in file system
   * add child_process support
 
   * backtacking
