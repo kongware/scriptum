@@ -5768,10 +5768,11 @@ It.tail = function* (ix) {
 █████ Consolidation/Expansion █████████████████████████████████████████████████*/
 
 
-// join consecutive pairs
+// consolidate consecutive pairs
 
-It.join = f => acc => function* (ix) {
+It.consolidate = f => acc => function* (ix) {
   const o = ix.next(), p = ix.next();
+
   if (o.done && p.done) return undefined;
   else if (o.done) yield f(acc) (p.value);
   else if (p.done) yield f(o.value) (acc);
@@ -5781,8 +5782,9 @@ It.join = f => acc => function* (ix) {
 
 // uncurried
 
-It.join_ = f => acc => function* (ix) {
+It.consolidate_ = f => acc => function* (ix) {
   const o = ix.next(), p = ix.next();
+
   if (o.done && p.done) return undefined;
   else if (o.done) yield f(acc, p.value);
   else if (p.done) yield f(o.value, acc);
@@ -5790,7 +5792,13 @@ It.join_ = f => acc => function* (ix) {
 };
 
 
-// TODO: It.split
+It.expand = f => acc => function* (ix) {
+  while (true) {
+    const o = ix.next();
+    if (o.done) return undefined;
+    else for (x of f(o.value)) yield x;
+  }
+};
 
 
 /*
@@ -5817,7 +5825,7 @@ It.fromList = function* (xs) {
 /* Yield the current element provided it and the next one satisfy the given
 predicate or short circuit the stream. */
 
-It.and = p => function* (ix) {
+It.and = pred => function* (ix) {
   let o = ix.next();
 
   if (o.done || !p(o.value)) return undefined;
@@ -5825,7 +5833,7 @@ It.and = p => function* (ix) {
   while (true) {
     const p = ix.next();
 
-    if (p.done || !p(p.value)) return undefined;
+    if (p.done || !pred(p.value)) return undefined;
   
     else {
       yield o.value;
@@ -5842,7 +5850,7 @@ It.and = p => function* (ix) {
 /* Yield either the current or the next element provided one of them satisfies
 the given predicate or short circuit the stream. */
 
-It.or = p => function* (ix) {
+It.or = pred => function* (ix) {
   while (true) {
     const o = ix.next();
 
@@ -5852,7 +5860,7 @@ It.or = p => function* (ix) {
     else {
       const p = ix.next();
 
-      if (p.done || !p(p.value)) return undefined;
+      if (p.done || !pred(p.value)) return undefined;
       else yield p.value;
     }
   }
@@ -5920,6 +5928,8 @@ It.foldMap = Monoid => f => ix => {
   return acc;
 };
 
+
+// exhaustive sum
 
 It.sum = acc => ix => {
   while (true) {
@@ -6307,8 +6317,8 @@ It.drop = n => ix => {
 
 It.drop_ = n => function* (ix) {
   while (n-- > 0) {
-    const {done} = ix.next();
-    if (done) return undefined;
+    const o = ix.next();
+    if (o.done) return undefined;
   };
 
   while (true) {
@@ -6427,19 +6437,19 @@ It.collate = p => ix => {
   return Pair(
     function* () {
       while (true) {
-        const {value: y, done} = iy.next();
+        const o = iy.next();
 
-        if (done) return undefined;
-        else if (p(y)) yield y;
+        if (o.done) return undefined;
+        else if (p(o.value)) yield o.value;
       }
     } (),
 
     function* () {
       while (true) {
-        const {value: z, done} = iz.next();
+        const o = iz.next();
 
-        if (done) return undefined;
-        else if (p(z)) yield z;
+        if (o.done) return undefined;
+        else if (p(o.value)) yield o.value;
       }
     } ()
   );
@@ -6451,64 +6461,42 @@ It.collate = p => ix => {
 
 It.flatten = function* (iix) {
   while (true) {
-    const {value: ix, done} = iix.next();
+    const o = iix.next();
 
-    if (done) return undefined;
+    if (o.done) return undefined;
 
     while (true) {
-      const {value: x, done: done2} = ix.next();
+      const p = o.value.next();
 
-      if (done2) break;
-      else yield x;
+      if (p.done) break;
+      else yield p.value;
     }
   }
 };
 
 
-It.groupBy = p => function* (ix) {
-  let {value: x, done} = ix.next(),
-    acc = [x];
+It.groupBy = pred => function* (ix) {
+  let o = ix.next(),
+    acc = [o.value];
 
-  if (done) return undefined;
+  if (o.done) return undefined;
 
   while (true) {
-    let {value: y, done: done2} = ix.next();
+    let p = ix.next();
 
-    if (done2) {
+    if (p.done) {
       yield acc;
       return undefined;
     }
     
-    else if (p(x) (y)) {
-      acc.push(y);
-      x = y;
+    else if (pred(o.value) (p.value)) {
+      acc.push(p.value);
+      o.value = p.value;
     }
     
     else {
       yield acc;
-      acc = [y];
-    }
-  }
-};
-
-
-// pair consecutive values in a collection
-
-It.pair = function* (ix) {
-  const o = ix.next();
-
-  if (o.done) return undefined;
-
-  let x = o.value;
-
-  while (true) {
-    const {value: y, done} = ix.next();
-
-    if (done) return undefined;
-    
-    else {
-      yield Pair(x, y);
-      x = y;
+      acc = [p.value];
     }
   }
 };
@@ -6521,10 +6509,10 @@ It.transpose = function* (iix) {
 
   while (true) {
     for (let i = 0; i < xs.length; i++) {
-      const {value: x, done} = xs[i].next();
+      const o = xs[i].next();
 
-      if (done) return undefined;
-      else yield x;
+      if (o.done) return undefined;
+      else yield o.value;
     }
   }
 };
@@ -6561,13 +6549,13 @@ It.unfold = f => function* (seed) {
 
 It.unzip = ix => function* (iy) {
   while (true) {
-    const {value: pair, done} = ix.next();
+    const o = ix.next();
 
-    if (done) return undefined;
+    if (o.done) return undefined;
     
     else {
-      yield pair[0];
-      yield pair[1];
+      yield o.value[0];
+      yield o.value[1];
     }
   }
 };
@@ -6579,22 +6567,18 @@ It.unzip = ix => function* (iy) {
 
 It.zip = ix => function* (iy) {
   while (true) {
-    const {value: x, done} = ix.next(),
-      {value: y, done: done2} = iy.next();
-
-    if (done || done2) return undefined;
-    else yield Pair(x, y);
+    const o = ix.next(), p = iy.next();
+    if (o.done || p.done) return undefined;
+    else yield Pair(o.value, p.value);
   }
 };
 
 
 It.zipWith = f => ix => function* (iy) {
   while (true) {
-    const {value: x, done} = ix.next(),
-      {value: y, done: done2} = iy.next();
-
-    if (done || done2) return undefined;
-    else yield f(x) (y);
+    const o = ix.next(), p = iy.next();
+    if (o.done || p.done) return undefined;
+    else yield f(o.value) (p.value);
   }
 };
 
@@ -6611,10 +6595,9 @@ It.ana = It.ana();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Asynchronous iterator that returns chunks that can be processed separately
-from each other in a meaningful way. Common use cases: consume streams, query
-paginated APIs. */
-
+/* Smart constructor for an asynchronous iterator delivering meaningfully sized
+chunks of data that can be processed in isolation from each other. This way, you
+can process large data sources in a divide and conquer approach. */
 
 export const Ait = ({stor, threshold = 0}) => ix => {
   let chunks = [], buffer = "";
@@ -6664,10 +6647,11 @@ export const Ait = ({stor, threshold = 0}) => ix => {
 █████ Consolidation/Expansion █████████████████████████████████████████████████*/
 
 
-// join consecutive pairs
+// consolidate consecutive pairs
 
-Ait.join = f => acc => async function* (ix) {
-  let o = await ix.next(), p = await ix.next();
+Ait.consolidate = f => acc => async function* (ix) {
+  const o = await ix.next(), p = await ix.next();
+
   if (o.done || p.done) return undefined;
   else if (o.done) yield f(acc) (p.value);
   else if (p.done) yield f(o.value) (acc);
@@ -6677,8 +6661,9 @@ Ait.join = f => acc => async function* (ix) {
 
 // uncurried
 
-Ait.join_ = f => acc => async function* (ix) {
-  let o = await ix.next(), p = await ix.next();
+Ait.consolidate_ = f => acc => async function* (ix) {
+  const o = await ix.next(), p = await ix.next();
+
   if (o.done || p.done) return undefined;
   else if (o.done) yield f(acc, p.value);
   else if (p.done) yield f(o.value, acc);
@@ -6686,7 +6671,7 @@ Ait.join_ = f => acc => async function* (ix) {
 };
 
 
-Ait.split = f => acc => async function* (ix) {
+Ait.expand = f => acc => async function* (ix) {
   for await (const x of ix) {
     for (y of f(x)) yield y;
   }
