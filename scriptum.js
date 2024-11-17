@@ -5642,62 +5642,90 @@ export const It = {};
 
 
 /*
-█████ Cloning █████████████████████████████████████████████████████████████████*/
+█████ Alternation █████████████████████████████████████████████████████████████*/
 
 
-/* Mimic cloning of an interator. For this approach to work, you must not use
-the original iterator after cloning. For a more principled but also more rigid
-approach, use idempotent iterators. */
+It.intercalate = x => function* (ix) {
+  let initial = true;
 
-It.clone = ix => {
-  const buf = [], buf2 = [];
-
-  return Pair(
-    function* () {
-      while (true) {
-        if (buf.length) yield buf.shift();
-
-        else {
-          const o = ix.next();
-          if (o.done) return undefined;
-          else (buf2.push(o.value), yield o.value);
-        }
-      }
-    } (),
-
-    function* () {
-      while (true) {
-        if (buf2.length) yield buf2.shift();
-
-        else {
-          const o = ix.next();
-          if (o.done) return undefined;
-          else (buf.push(o.value), yield o.value);
-        }
-      }
-    } ()
-  );
-};
-
-
-/*
-█████ Combining ███████████████████████████████████████████████████████████████*/
-
-
-It.interleave = x => function* (ix) {
   while (true) {
     const o = ix.next();
     if (o.done) return undefined;
-    else (yield o.value, yield x);
+    else if (initial) (initial = false, yield o.value);
+    else (yield x, yield o.value);
   }
 };
 
 
-It.interweave = ix => function* (iy) {
+It.interleave = ix => function* (iy) {
   while (true) {
     const o = ix.next(), p = iy.next();
     if (o.done || p.done) return undefined;
     else (yield o.value, yield p.value);
+  }
+};
+
+
+/*
+█████ Cloning █████████████████████████████████████████████████████████████████*/
+
+
+/* Mimic a cloned iterator by keeping track of the original iterator's consumed
+values. Interferes with garbage collection and thus only be used cautiously. */
+
+It.cloneable = ix => {
+  const xs = [];
+
+  return function make(n) {
+    return {
+      next(arg) {
+        const len = xs.length;
+        if (n >= len) xs[len] = it.next(arg);
+        return xs[n++];
+      },
+
+      clone() {return make(n)},
+      throw(e) {if (it.throw) it.throw(e)},
+      return(v) {if (it.return) it.return(v)},
+      [Symbol.iterator]() {return this}
+    };
+  } (0);
+};
+
+
+/*
+█████ Combining/Dividing ██████████████████████████████████████████████████████*/
+
+
+// consolidate consecutive pairs
+
+It.combine = f => acc => function* (ix) {
+  const o = ix.next(), p = ix.next();
+
+  if (o.done && p.done) return undefined;
+  else if (o.done) yield f(acc) (p.value);
+  else if (p.done) yield f(o.value) (acc);
+  else yield f(o.value) (p.value);
+};
+
+
+// uncurried
+
+It.combine_ = f => acc => function* (ix) {
+  const o = ix.next(), p = ix.next();
+
+  if (o.done && p.done) return undefined;
+  else if (o.done) yield f(acc, p.value);
+  else if (p.done) yield f(o.value, acc);
+  else yield f(o.value, p.value);
+};
+
+
+It.divide = f => acc => function* (ix) {
+  while (true) {
+    const o = ix.next();
+    if (o.done) return undefined;
+    else for (x of f(o.value)) yield x;
   }
 };
 
@@ -5760,43 +5788,6 @@ It.tail = function* (ix) {
     const o = ix.next();
     if (o.done) return undefined;
     else yield o.value;
-  }
-};
-
-
-/*
-█████ Consolidation/Expansion █████████████████████████████████████████████████*/
-
-
-// consolidate consecutive pairs
-
-It.consolidate = f => acc => function* (ix) {
-  const o = ix.next(), p = ix.next();
-
-  if (o.done && p.done) return undefined;
-  else if (o.done) yield f(acc) (p.value);
-  else if (p.done) yield f(o.value) (acc);
-  else yield f(o.value) (p.value);
-};
-
-
-// uncurried
-
-It.consolidate_ = f => acc => function* (ix) {
-  const o = ix.next(), p = ix.next();
-
-  if (o.done && p.done) return undefined;
-  else if (o.done) yield f(acc, p.value);
-  else if (p.done) yield f(o.value, acc);
-  else yield f(o.value, p.value);
-};
-
-
-It.expand = f => acc => function* (ix) {
-  while (true) {
-    const o = ix.next();
-    if (o.done) return undefined;
-    else for (x of f(o.value)) yield x;
   }
 };
 
@@ -6432,7 +6423,8 @@ It.takeWhile_ = p => function* (ix) {
 
 
 It.collate = p => ix => {
-  const [iy, iz] = It.clone(ix);
+  const iy = It.cloneable(ix),
+    iz = iy.clone();
 
   return Pair(
     function* () {
@@ -6440,7 +6432,7 @@ It.collate = p => ix => {
         const o = iy.next();
 
         if (o.done) return undefined;
-        else if (p(o.value)) yield o.value;
+        else if (!p(o.value)) yield o.value;
       }
     } (),
 
@@ -6456,9 +6448,6 @@ It.collate = p => ix => {
 };
 
 
-// TODO: collateBy
-
-
 It.flatten = function* (iix) {
   while (true) {
     const o = iix.next();
@@ -6470,49 +6459,6 @@ It.flatten = function* (iix) {
 
       if (p.done) break;
       else yield p.value;
-    }
-  }
-};
-
-
-It.groupBy = pred => function* (ix) {
-  let o = ix.next(),
-    acc = [o.value];
-
-  if (o.done) return undefined;
-
-  while (true) {
-    let p = ix.next();
-
-    if (p.done) {
-      yield acc;
-      return undefined;
-    }
-    
-    else if (pred(o.value) (p.value)) {
-      acc.push(p.value);
-      o.value = p.value;
-    }
-    
-    else {
-      yield acc;
-      acc = [p.value];
-    }
-  }
-};
-
-
-It.transpose = function* (iix) {
-  const xs = [];
-
-  for (const ix of iix) xs.push(ix);
-
-  while (true) {
-    for (let i = 0; i < xs.length; i++) {
-      const o = xs[i].next();
-
-      if (o.done) return undefined;
-      else yield o.value;
     }
   }
 };
@@ -6634,22 +6580,36 @@ export const Ait = ({stor, threshold = 0}) => ix => {
 
 
 /*
-█████ Combining ███████████████████████████████████████████████████████████████*/
+█████ Alternation █████████████████████████████████████████████████████████████*/
 
 
-// TODO: Ait.interleave
+Ait.intercalate = y => async function* (ix) {
+  let initial = true;
+
+  for await (const x of ix) {
+    if (initial) (initial = false, yield x);
+    else (yield y, yield x);
+  }
+};
 
 
-// TODO: Ait.interweave
+Ait.interleave = ix => async function* (iy) {
+  for await (const x of ix) {
+    for await (const y of iy) {
+      yield x;
+      yield y;
+    }    
+  }
+};
 
 
 /*
-█████ Consolidation/Expansion █████████████████████████████████████████████████*/
+█████ Combining/Dividing ██████████████████████████████████████████████████████*/
 
 
-// consolidate consecutive pairs
+// combine consecutive pairs
 
-Ait.consolidate = f => acc => async function* (ix) {
+Ait.combine = f => acc => async function* (ix) {
   const o = await ix.next(), p = await ix.next();
 
   if (o.done || p.done) return undefined;
@@ -6661,7 +6621,7 @@ Ait.consolidate = f => acc => async function* (ix) {
 
 // uncurried
 
-Ait.consolidate_ = f => acc => async function* (ix) {
+Ait.combine_ = f => acc => async function* (ix) {
   const o = await ix.next(), p = await ix.next();
 
   if (o.done || p.done) return undefined;
@@ -6671,7 +6631,7 @@ Ait.consolidate_ = f => acc => async function* (ix) {
 };
 
 
-Ait.expand = f => acc => async function* (ix) {
+Ait.divide = f => acc => async function* (ix) {
   for await (const x of ix) {
     for (y of f(x)) yield y;
   }
@@ -6745,6 +6705,16 @@ Ait.Foldable = {
 
 Ait.map = f => async function* (ix) {
   for await (const x of ix) yield f(x);
+};
+
+
+// bifunctor-like
+
+Ait.bimap = p => f => g => async function* (ix) {
+  for await (const x of ix) {
+    if (p(x)) yield f(x);
+    else yield g(x);
+  }
 };
 
 
@@ -6879,16 +6849,6 @@ Ait.takeWhile_ = p => async function* (ix) {
     else break;
   }
 };
-
-
-/*
-█████ Transformation ██████████████████████████████████████████████████████████*/
-
-
-// TODO: Ait.collate
-
-
-// TODO: Ait.collateBy
 
 
 /*█████████████████████████████████████████████████████████████████████████████
