@@ -1047,23 +1047,11 @@ Eff.dict.tramp = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+/*
+█████ Error ███████████████████████████████████████████████████████████████████*/
+
+
 export const Err = Error; // shortcut
-
-
-/* Exception denotes an anticipatable error that is not thrown but dynamically
-handled, because you can take it into account upfront. An exception can hold a
-previous one in order to accumulate all contingent exceptions during a
-computation. */
-
-export class Exception extends Error {
-  constructor(s, prev = null) {
-    super(s);
-    this.prev = prev;
-  }
-};
-
-
-export const Ex = Exception;
 
 
 // throw as a first class expression
@@ -1098,11 +1086,37 @@ export const _try = f => x => ({
 });
 
 
-Ex.accum = (...es) => es.reduceRight((acc, e) => {
-  e.prev = acc;
-  acc = e;
-  return acc;
-}, null);
+export const throwAll = (...es) => {
+  es[0].stack = es.reduce((acc, e) => acc + "\n" + e.stack, "");
+  throw new es[0];
+};
+
+
+/*
+█████ Exception ███████████████████████████████████████████████████████████████*/
+
+
+// predictable errors that are specified in advance
+
+export class Exception extends Error {
+  constructor(s, cause = {}) {
+    super(s, cause);
+  }
+};
+
+
+export const Ex = Exception;
+
+
+// nest causal error chains in hindsight
+
+Ex.aggregate = (...es) => es.reduce((acc, e) => {
+  const {stack, message, cause} = e,
+    e2 = new e.constructor(message, {cause: acc});
+
+  e2.stack = e.stack;
+  return e2;
+});
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -6545,12 +6559,12 @@ It.ana = It.ana();
 chunks of data that can be processed in isolation from each other. This way, you
 can process large data sources in a divide and conquer approach. */
 
-export const Ait = ({stor, threshold = 0}) => ix => {
+export const Ait = ({sep, threshold = 0}) => ix => {
   let chunks = [], buffer = "";
 
   return async function* go() {
     for await (const value of ix) {
-      chunks = (buffer + value.toString()).split(stor);
+      chunks = (buffer + value.toString()).split(sep);
       buffer = chunks.pop();
 
       if (threshold > 0 && buffer.length > threshold)
@@ -6887,6 +6901,7 @@ export const Iit = ix => {
   let iy = {
     value: null,
     done: false,
+    prev: null,
 
     next() {
       const iz = ix.next();
@@ -6904,6 +6919,15 @@ export const Iit = ix => {
   Object.defineProperty(iy, TAG, {value: "IdempotentIterator"});
   return iy;
 };
+
+
+/*
+█████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+// from iterable
+
+Iit.from = x => Iit(x[Symbol.iterator] ());
 
 
 /*
@@ -6943,7 +6967,7 @@ Iit.takeWhile = p => function* (ix) {
 █████ Misc. ███████████████████████████████████████████████████████████████████*/
 
 
-// clear the previous iterator result chain to avoid memeory leakage
+// clear the previous iterator result chain to reduce memory leak
 
 Iit.clear = ix => (ix.prev = null, ix);
 
@@ -7513,11 +7537,11 @@ O.clone = o => {
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-O.fromArr = header => xs => {
+O.fromArr = headings => xs => {
   const o = {};
 
   for (let i = 0; i < xs.length; i++)
-    if (header.has(i)) o[header.get(i)] = xs[i];
+    if (headings.has(i)) o[headings.get(i)] = xs[i];
 
   return o;
 };
@@ -7671,11 +7695,11 @@ O.thisify = thisify;
 is supplied as a formal parameter to avoid a hard dependency. */
 
 
-export const Stream_ = stream => ({stor, threshold, skipRest}) => {
+export const Stream_ = stream => ({sep, threshold, skipRest}) => {
   return new stream.Transform({
     transform(chunk, encoding, k) {
       const lines = ((this.buffer ? this.buffer : "")
-        + chunk.toString()).split(stor);
+        + chunk.toString()).split(sep);
 
       this.buffer = lines.pop();
 
@@ -8428,37 +8452,55 @@ section. */
 export const Parser = type("Parser", "parse");
   
 
-export const Parsed = variant("Parsed") (binary_("Valid"), binary_("Invalid"));
+export const Parsed = variant("Parsed")
+  (binary_("Valid"), binary_("Invalid"), binary_("Done"));
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████ PARSER :: FIRST ORDER PRIMITIVES ███████████████████████
+████████████████████████ PARSER :: FIRST ORDER PARSERS ████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Each first order parser combinator comes in a forward and backward consuming
-variant. */
+// consume streams directly
 
 
 /*
 █████ Characters ██████████████████████████████████████████████████████████████*/
 
 
-// parse a desired character
+// parse a specific character
 
 Parser.char = c => Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else if (c === iy.value) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+  else return Parsed.Invalid(new Ex(`character "${c}" expected >>`), ix);
 });
 
 
 Parser.charBehind = c => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (c === iy.value) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+  if (iy === null) return Parsed.Done("boi", ix);
+  else if (c === iy.value) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`<< character "${c}" expected`), ix);
+});
+
+
+// parse not a specific character
+
+Parser.notChar = c => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Done("eoi", ix);
+  else if (c !== iy.value) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`character "${c}" received >>`), ix);
+});
+
+
+Parser.notCharBehind = c => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === null) return Parsed.Done("boi", ix);
+  else if (c !== iy.value) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`<< character "${c}" received`), ix);
 });
 
 
@@ -8466,17 +8508,17 @@ Parser.charBehind = c => Parser(ix => {
 
 Parser.charCi = c => Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
-  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+  if (iy.done) return Parsed.Done("eoi", ix);
+  else if (c.toLowerCase() === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`character "${c}" expected >>`), ix);
 });
 
 
 Parser.charCiBehind = c => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (c === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy.prev);
-  else return Parsed.Invalid(new Ex(`character ${c} expected`), ix);
+  if (iy === null) return Parsed.Done("boi", ix);
+  else if (c.toLowerCase() === iy.value.toLowerCase()) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex(`<< character "${c}" expected`), ix);
 });
 
 
@@ -8488,15 +8530,102 @@ Parser.charCiBehind = c => Parser(ix => {
 
 Parser.reject = msg => Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else return Parsed.Invalid(new Ex(msg), ix);
 });
 
 
 Parser.rejectBehind = msg => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
+  if (iy === null) return Parsed.Done("boi", ix);
   else return Parsed.Invalid(new Ex(msg), ix);
+});
+
+
+/*
+█████ Position Based ██████████████████████████████████████████████████████████*/
+
+
+// parse beginning of line (nl, crnl or beginning of input)
+
+Parser.bol = Parser(ix => {
+  const iy = ix.prev;
+
+  if (iy === null) return Parsed.Valid(null, ix);
+
+  else if (iy.value === "\n") {
+    const iz = iy.prev;
+    if (iz.value === "\r") return Parsed.Valid("\r\n", iz);
+    else return Parsed.Valid("\n", iy);
+  }
+  
+  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
+});
+
+
+// boolean based beginning of line
+
+Parser.isBol = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === null) return true
+  else if (iy.value === "\n") return true
+  else return false;
+});
+
+
+// boolean based beginning of input
+
+Parser.isBoi = Parser(ix => {
+  const iy = ix.prev;
+  if (iy === null) return true;
+  else return false;
+});
+
+
+// parse end of line (nl, crnl or end of input)
+
+Parser.eol = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return Parsed.Valid(null, ix);
+  
+  else if (iy.value === "\r") {
+    const iz = iy.next();
+
+    if (iz.value === "\n") return Parsed.Valid("\r\n", iz);
+    else return Parsed.Invalid(new Ex("end of line expected"), ix);
+  }
+
+  else if (iy.value === "\n") return Parsed.Valid("\n", iy);
+  else return Parsed.Invalid(new Ex("end of line expected"), ix);
+});
+
+
+// boolean based end of line
+
+Parser.isEol = Parser(ix => {
+  const iy = ix.next();
+
+  if (iy.done) return true;
+  
+  else if (iy.value === "\r") {
+    const iz = iy.next();
+
+    if (iz.value === "\n") return true;
+    else return false;
+  }
+
+  else if (iy.value === "\n") return true;
+  else return false;
+});
+
+
+// boolean based end of input
+
+Parser.isEoi = Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return true;
+  else return false;
 });
 
 
@@ -8508,7 +8637,7 @@ Parser.rejectBehind = msg => Parser(ix => {
 
 Parser.satisfy = (p, msg = "predicate unmet") => Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Ex(msg), ix);
 });
@@ -8516,8 +8645,8 @@ Parser.satisfy = (p, msg = "predicate unmet") => Parser(ix => {
 
 Parser.satisfyBehind = (p, msg = "predicate unmet") => Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else if (p(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  if (iy === null) return Parsed.Done("boi", ix);
+  else if (p(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Ex(msg), ix);
 });
 
@@ -8531,7 +8660,7 @@ character ranges. */
 
 Parser.includes = s => Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Ex("input out of character class"), ix);
 });
@@ -8539,8 +8668,8 @@ Parser.includes = s => Parser(ix => {
 
 Parser.includesBehind = s => Parser(ix => {
   const iy = ix.prev;
-  if (iy.done) throw new Err("end of input");
-  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy.prev);
+  if (iy.done) return Parsed.Done("boi", ix);
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
   else return Parsed.Invalid(new Ex("input out of character class"), ix);
 });
 
@@ -8553,15 +8682,15 @@ Parser.includesBehind = s => Parser(ix => {
 
 Parser.drop = Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else return Parsed.Valid(null, iy);
 });
 
 
 Parser.dropBehind = Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else return Parsed.Valid(null, iy.prev);
+  if (iy === null) return Parsed.Done("boi", ix);
+  else return Parsed.Valid(null, iy);
 });
 
 
@@ -8569,7 +8698,7 @@ Parser.dropBehind = Parser(ix => {
 
 Parser.take = Parser(ix => {
   const iy = ix.next();
-  if (iy.done) throw new Err("end of input");
+  if (iy.done) return Parsed.Done("eoi", ix);
   else return Parsed.Valid(iy.value, iy);
 });
 
@@ -8578,14 +8707,17 @@ Parser.take = Parser(ix => {
 
 Parser.takeBehind = Parser(ix => {
   const iy = ix.prev;
-  if (iy === undefined) throw new Err("beginning of input");
-  else return Parsed.Valid(iy.value, iy.prev);
+  if (iy === null) return Parsed.Done("boi", ix);
+  else return Parsed.Valid(iy.value, iy);
 });
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-██████████████████████ PARSER :: HIGHER ORDER PRIMITIVES ██████████████████████
+███████████████████████ PARSER :: HIGHER ORDER PARSERS ████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
+
+
+// take n parsers and apply them instead of consuming streams directly
 
 
 /*
@@ -8594,15 +8726,18 @@ Parser.takeBehind = Parser(ix => {
 
 // try both parsers and succeed if one succeeds
 
-Parser.or = tx => ty => Parser(iw => {
+Parser.or = tx => ty => Parser(iw => {debugger;
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => Parsed.Valid(v, ix),
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, iz) => Parsed.Invalid(Ex.accum(e, e2), iz)
-    })
-  })
+      Invalid: (e2, iz) => Parsed.Invalid(Ex.aggregate(e, e2), iz),
+      get Done() {return Parsed.Done}
+    }),
+
+    get Done() {return Parsed.Done}
+  });
 });
 
 
@@ -8620,15 +8755,17 @@ Parser.any = ts => Parser(ix => {
 
 // try both parsers and fail if one fails
 
-Parser.and = Semigroup => tx => ty => Parser(iw => { // aka seq
+Parser.and = Semigroup => tx => ty => Parser(iw => {debugger;
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw)
+      Invalid: (e, iz) => Parsed.Invalid(e, iw),
+      get Done() {return Parsed.Done}
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(e, ix)
-  })
+    Invalid: (e, ix) => Parsed.Invalid(e, ix),
+    get Done() {return Parsed.Done}
+  });
 });
 
 
@@ -8640,59 +8777,61 @@ Parser.all = Monoid => ts => Parser(ix => {
 
   for (const tx of ts) {
     o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "invalid") return Parsed.Invalid(
-      o.parsed.val[0], ix);
-
-    else acc = Monoid.append(acc) (o.parsed.val[0]);
+    if (o.parsed.tag === "valid") acc = Monoid.append(acc) (o.parsed.val[0]);
+    else return o;
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
 });
 
 
-/* Negate a parser result by either returning the parsed value as an exception
-or by returning the empty element of the desired monoid. */
-
-Parser.not = Monoid => tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Invalid(new Ex(v), ix),
-    Invalid: (e, iz) => Parsed.Valid(Monoid.empty, iz)
-  })
-});
-
-
-// try the first and second parser and fail if both fail or succeed
+// try the first and second parser and fail if both fail or both succeed
 
 Parser.xor = tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Invalid(Ex.accum(new Ex(v), new Ex(v2)), iw),
-      Invalid: (e, iz) => Parsed.Valid(v, iz)
+      Valid: (v2, iy) => Parsed.Invalid(new Ex("both parser succeeded"), iw),
+      Invalid: (e, iz) => Parsed.Valid(v, iz),
+      get Done() {return Parsed.Done}
     }),
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, iz) => Parsed.Invalid(Ex.accum(e, e2), iz)
-    })
+
+      Invalid: (e2, iz) =>
+        Parsed.Invalid(Ex.aggregate(e, e2, new Ex("both parser failed")), iz),
+
+      get Done() {return Parsed.Done}
+    }),
+
+    get Done() {return Parsed.Done}
   });
 });
 
 
-/* Try the first and second parser and fail if both fail or succeed (xnor a.k.a.
-if and only if). */
+/* Try the first and second parser and succeed if both fail or bot succeed
+(xnor a.k.a. if and only if). */
 
 Parser.iff = Monoid => tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Monoid.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(Ex.accum(new Ex(v), e), iw)
+
+      Invalid: (e, iz) => Parsed.Invalid(Ex.aggregate(
+        new Ex("first parser succeeded but second one failed"), e), iw),
+
+      get Done() {return Parsed.Done}
     }),
 
     Invalid: (e, ix) => ty.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Invalid(Ex.accum(e, new Ex(v)), iw),
-      Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz)
-    })
+      Valid: (v, iy) => Parsed.Invalid(Ex.aggregate(
+        new Ex("first parser failed but second one succeeded"), e), iw),
+
+      Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz),
+      get Done() {return Parsed.Done}
+    }),
+
+    get Done() {return Parsed.Done}
   });
 });
 
@@ -8704,29 +8843,25 @@ Parser.iff = Monoid => tx => ty => Parser(iw => {
 // parse the given pattern at least min or more times
 
 // min..n (n=dynamic)
-Parser.min = Monoid => n => tx => Parser(iw => {
+Parser.min = Monoid => n => tx => Parser(ix => {
   const acc = [];
-  let ix = iw;
+  let o = Parsed.Valid(null, ix);
 
   while (true) {
-    const o = tx.parse(iy).parsed.run({
-      Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iz)
-    });
+    o = tx.parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "invalid") break;
-    
-    else {
-      acc.push(o.parsed.val[0]);
-      ix = o.parsed.val[1];
-    }
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+    else break;
   }
 
-  if (acc.length < n) return Parsed.Invalid(
-    new Ex(`pattern less than ${n} times received`), iw);
+  if (o.parsed.tag === "done") return o;
+
+  else if (acc.length < n) return Parsed.Invalid(
+    new Ex(`pattern less than ${n} times received`), ix);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
+    acc.reduce((acc2, v) =>
+      Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
 });
 
 
@@ -8739,29 +8874,25 @@ Parser.min1 = Monoid => Parser.min(Monoid) (1);
 // parse the given pattern zero or max times
 
 // 0..max
-Parser.max = Monoid => n => tx => Parser(iw => {
+Parser.max = Monoid => n => tx => Parser(ix => {
   const acc = [];
-  let ix = iw;
+  let o = Parsed.Valid(null, ix);
 
-  while (acc.length <= n) {
-    const o = tx.parse(iy).parsed.run({
-      Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iz)
-    });
+  while (true) {
+    o = tx.parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "invalid") break;
-    
-    else {
-      acc.push(o.parsed.val[0]);
-      ix = o.parsed.val[1];
-    }
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+    else break;
   }
 
-  if (acc.length > n) return Parsed.Invalid(
-    new Ex(`pattern more than ${n} times received`), iw);
+  if (o.parsed.tag === "done") return o;
+
+  else if (acc.length > n) return Parsed.Invalid(
+    new Ex(`pattern more than ${n} times received`), ix);
 
   else return Parsed.Valid(
-    acc.reduce((acc2, v) => Monoid.append(acc2) (v), Monoid.empty), ix);
+    acc.reduce((acc2, v) =>
+      Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
 });
 
 
@@ -8782,7 +8913,11 @@ Parser.times = Monoid => (m, n = m) => tx => Parser(ix => {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (i < m) return Parsed.Invalid(new Ex(`pattern less than ${m} times received`), ix);
+    else if (o.parsed.tag === "done") return o;
+
+    else if (i < m) return Parsed.Invalid(
+      new Ex(`pattern less than ${m} times received`), ix);
+    
     else break;
   }
 
@@ -8803,7 +8938,11 @@ Parser.timesOnly = Monoid => (m, n = m) => tx => Parser(ix => {
     o = tx.parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (i < m) return Parsed.Invalid(new Ex(`pattern less than ${m} times received`), ix);
+    else if (o.parsed.tag === "done") return o;
+
+    else if (i < m) return Parsed.Invalid(
+      new Ex(`pattern less than ${m} times received`), ix);
+
     else break;
   }
 
@@ -8824,7 +8963,8 @@ of the redundant monoid constraint. */
 Parser.once = tx => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => Parsed.Valid(v, ix),
-    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix)
+    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix),
+    get Done() {return Parsed.Done}
   });
 });
 
@@ -8832,14 +8972,16 @@ Parser.once = tx => Parser(iw => {
 // parse the pattern once and only once
 
 // 1
-Parser.onceOnly = tx => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => tx.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Invalid(new Ex("pattern more than once received"), iw),
-      Invalid: (e, iz) => Parsed.Valid(v, ix)
+Parser.onceOnly = tx => Parser(iv => {
+  return tx.parse(iv).parsed.run({
+    Valid: (v, iw) => tx.parse(iw).parsed.run({
+      Valid: (v2, ix) => Parsed.Invalid(new Ex("pattern more than once received"), iv),
+      Invalid: (e, iy) => Parsed.Valid(v, iy),
+      Done: (s, iz) => Parsed.Valid(v, iz)
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix)
+    Invalid: (e, iw) => Parsed.Invalid(new Ex("pattern not once received"), iw),
+    get Done() {return Parsed.Done}
   });
 });
 
@@ -8847,10 +8989,11 @@ Parser.onceOnly = tx => Parser(iw => {
 // parse the given pattern not once
 
 // 0
-Parser.none = tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Invalid(new Ex("unexpected pattern"), ix),
-    Invalid: (e, iz) => Parsed.Valid(true, iz)
+Parser.none = Monoid => tx => Parser(iw => {
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => Parsed.Invalid(new Ex("unexpected pattern"), iw),
+    Invalid: (e, iy) => Parsed.Valid(Monoid.empty, iy),
+    Done: (s, iz) => Parsed.Valid(Monoid.empty, iz)
   });
 });
 
@@ -8865,19 +9008,18 @@ Parser.many = Monoid => Parser.min(Monoid) (0);
 
 // 1
 Parser.last = tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix), p = null;
+  let o = Parsed.Valid(null, ix), once = false;
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") p = o;
+    if (o.parsed.tag === "valid") once = true;
     else break;
   }
 
-  if (p === null) return Parsed.Invalid(
-    new Ex("pattern not once received"), ix);
+  if (once) return o.parsed.val[1].prev;
 
-  return Parsed.Valid(p.parsed.val[0], p.parsed.val[1]);
+  else return Parsed.Invalid(
+    new Ex("pattern not once received"), o.parsed.val[1]);
 });
 
 
@@ -8890,17 +9032,15 @@ Parser.nth = n => tx => Parser(ix => {
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") {
-      acc.push(o.parsed.val[0]);
-      if (n === acc.length) break;
-    }
-    
-    else return Parsed.Invalid(
-      new Ex(`pattern less than ${n} times received`), ix);
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+    else break;
   }
 
-  return Parsed.Valid(acc[n].parsed.val[0], acc[n].parsed.val[1]);
+  if (acc.length > n)
+    return Parsed.Valid(acc[n].parsed.val[0], acc[acc.length - 1].parsed.val[1]);
+
+  else return Parsed.Invalid(
+    new Ex(`pattern less than ${n} times received`), ix);
 });
 
 
@@ -8908,75 +9048,23 @@ Parser.nth = n => tx => Parser(ix => {
 result satisfies another predicate. */
 
 // 0..n (dynamic)
-Parser.satisfyWhile = Monoid => p => q => tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix)
-    acc = Monoid.empty;
+Parser.satisfyWhile = Monoid => p => p2 => tx => Parser(ix => {
+  let o = Parsed.Valid(null, ix), acc = Monoid.empty;
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "invalid") break;
-    else if (!p(o.parsed.val[0])) {o = prev; break}
-
-    else {
+    if (o.parsed.tag === "valid" && p(o.parsed.val[0])) {
       const acc2 = Monoid.append(acc) (o.parsed.val[0]);
-      if (q(acc)) acc = acc2;
+      if (p2(acc)) acc = acc2;
       else break;
     }
+
+    else break;
   }
 
-  return Parsed.Valid(acc, o.parsed.val[1].prev);
-});
-
-
-/*
-█████ Boolean Based ███████████████████████████████████████████████████████████*/
-
-
-// beginning of input
-
-Parser.isBoi = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
-});
-
-
-// beginning of line (detects nl, crnl or beginning of input)
-
-Parser.isBol = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
-});
-
-
-// end of input
-
-Parser.isEoi = Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) return Parsed.Valid(true, ix);
-  else return Parsed.Invalid(new Ex("end of input expected"), ix);
-});
-
-
-// end of line (detects nl, crnl or end of input)
-
-Parser.isEol = Parser(ix => {
-  const iy = ix.next();
-
-  if (iy.done) return Parsed.Valid(true, ix);
-  else if (iy.value === "\n") return Parsed.Valid(true, ix);
-  
-  else if (iy.value === "\r") {
-    const iz = iy.next();
-
-    if (iz.value === "\n") return Parsed.Valid(true, ix);
-    else return Parsed.Invalid(new Ex("end of line expected"), ix);
-  }
-
-  else return Parsed.Invalid(new Ex("end of line expected"), ix);
+  if (o.parsed.tag === "done") return o;
+  else return Parsed.Valid(acc, o.parsed.val[1].prev);
 });
 
 
@@ -8989,59 +9077,9 @@ Parser.isEol = Parser(ix => {
 Parser.look = tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, ix),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+    Invalid: (e, iz) => Parsed.Invalid(e, ix),
+    get Done() {return Parsed.Done}
   })
-});
-
-
-/*
-█████ No Result ███████████████████████████████████████████████████████████████*/
-
-
-// beginning of input
-
-Parser.boi = Monoid => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(Monoid.empty, ix);
-  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
-});
-
-
-// beginning of line (detects nl, crnl or beginning of input)
-
-Parser.bol = Monoid => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === undefined) return Parsed.Valid(Monoid.empty, ix);
-  else if (iy.value === "\n") return Parsed.Valid(Monoid.empty, ix);
-  else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
-});
-
-
-// end of input
-
-Parser.eoi = Monoid => Parser(ix => {
-  const iy = ix.next();
-  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
-  else return Parsed.Invalid(new Ex("end of input expected"), ix);
-});
-
-
-// end of line (detects nl, crnl or end of input)
-
-Parser.eol = Monoid => Parser(ix => {
-  const iy = ix.next();
-
-  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
-  else if (iy.value === "\n") return Parsed.Valid(Monoid.empty, ix);
-  
-  else if (iy.value === "\r") {
-    const iz = iy.next();
-
-    if (iz.value === "\n") return Parsed.Valid(true, ix);
-    else return Parsed.Invalid(new Ex("end of line expected"), ix);
-  }
-
-  else return Parsed.Invalid(new Ex("end of line expected"), ix);
 });
 
 
@@ -9049,23 +9087,35 @@ Parser.eol = Monoid => Parser(ix => {
 █████ Result Modification █████████████████████████████████████████████████████*/
 
 
-/* Replace the next input with a default value, provided the parser yields a
-valid result. */
+// omit the result on success
 
-Parser.ignore = x => tx => Parser(ix => {
+Parser.ignore = Monoid => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(x, iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+    Valid: (v, iy) => Parsed.Valid(Monoid.empty, iy),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz),
+    get Done() {return Parsed.Done}
   })
 });
 
 
-// take the input or a default value on failure
+// replace the result with a default value on success
+
+Parser.replace = x => tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(x, iy),
+    Invalid: (e, iz) => Parsed.Invalid(e, iz),
+    get Done() {return Parsed.Done}
+  })
+});
+
+
+// take eihter the input or a default value on failure
 
 Parser.optional = x => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (e, iz) => Parsed.Valid(x, iz)
+    Invalid: (e, iz) => Parsed.Valid(x, iz),
+    get Done() {return Parsed.Done}
   })
 });
 
@@ -9084,7 +9134,8 @@ Parser.optional = x => tx => Parser(ix => {
 Parser.map = f => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(f(v), iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz)
+    Invalid: (e, iz) => Parsed.Invalid(e, iz),
+    get Done() {return Parsed.Done}
   })
 });
 
@@ -9109,7 +9160,7 @@ Parser.Alt = ({
 █████ Functor :: Alt :: Plus ██████████████████████████████████████████████████*/
 
 
-Parser.zero = Parser.reject("zero reject");
+Parser.zero = Parser.reject("zero parser");
 
 
 Parser.Plus = {
@@ -9128,10 +9179,12 @@ Parser.ap = tf => tx => Parser(iw => {
   return tf.parse(iw).parsed.run({
     Valid: (f, ix) => tx.parse(ix).parsed.run({
       Valid: (v, iy) => Parsed.Valid(f(v), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw)
+      Invalid: (e, iz) => Parsed.Invalid(e, iw),
+      get Done() {return Parsed.Done}
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(e, ix)
+    Invalid: (e, ix) => Parsed.Invalid(e, ix),
+    get Done() {return Parsed.Done}
   })
 });
 
@@ -9178,10 +9231,12 @@ Parser.chain = Semigroup => tx => fm => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => fm(v).parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw)
+      Invalid: (e, iz) => Parsed.Invalid(e, iw),
+      get Done() {return Parsed.Done}
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(e, ix)
+    Invalid: (e, ix) => Parsed.Invalid(e, ix),
+    get Done() {return Parsed.Done}
   });
 });
 
@@ -9224,39 +9279,156 @@ Parser.Monoid = {
 █████ CSV █████████████████████████████████████████████████████████████████████*/
 
 
+/* Parse csv with an optional header and optioal headings, where fields are
+either nested in quotation marks or not. Parser can handle masked quotation
+marks in the form of '"""' and separators occurring within fields nested in
+quotation marks. */
+
 Parser.csv = settings => Parser(ix => {
-  let o = Parsed.Valid(null, ix);
 
-  if (settings.header) {
-    o = Parser.line.parse(ix),
-      line = o.parsed.val[0];
+  // parser for input nested in quotation marks
 
-    if (o.parsed.tag === "invalid") return o;
+  const nestedIn = Parser.sepBy(Str.Monoid) ({
+    considerXol: false,
 
-    else {
+    // mask separator occurrences
 
-      // replace quotation marks escaped for the csv context with a placeholder
+    transform: c => c === settings.sep ? "${sp}" : c
+  }) (settings.quote);
 
-      line = line.replace(new RegExp(settings.quote, "g"), "${qt}");
+  const condIgnoreSep = Parser.max1(Str.Monoid) (
+    Parser.ignore(Str.Monoid) (Parser.char(settings.sep)));
 
-      /* Strip quotation marks and escape any interleaved separators during the
-      process. */
+  // csv header
 
-      const sepBy = Parser.sepBy(Str.Monoid) (({acc, c}) => c === settings.sep ? "${sp}" : c);
+  const header = scope(() => {
+    let o;
 
-      o = Parser.all(A.Monoid) ([
-        sepBy(Parser.boi, settings.sep),
-        Parser.many(A.Monoid) (sepBy(settings.sep)),
-        sepBy(settings.sep, Parser.eol)
-      ]) (It.from(line));
+    if (settings.header) {
+      o = Parser.line.parse(ix);
 
-      // replace placeholder with original characters
+      if (o.parsed.tag === "valid") {
 
-      // register number of cols
+        // replace masked quotation marks (""") with a placeholder
 
-      // validate number of cols per row
-    }    
+        const line = o.parsed.val[0].replace(
+          new RegExp(settings.quote.repeat(3), "g"), "${qm}");
+
+        // apply either the first or the second parser
+
+        o = Parser.many(A.Monoid) (
+          Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
+            (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
+              .parse(Iit.from1(line));
+
+        if (o.parsed.tag === "invalid") throw new Err(
+          "invalid csv structure received",
+          {cause: o.parsed.val[1]
+        });
+
+        else if (o.parsed.tag === "done") {
+
+        }
+
+        // replace placeholders with original characters
+
+        else return o.parsed.val[0].map(s =>
+          s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
+            .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
+      }
+
+      else throw new Err("csv header expected", {cause: o.parsed.val[0]});
+    }
+
+    else return [];
+  });
+
+  // csv headings
+
+  const headings = scope(() => {
+    let o;
+
+    if (settings.headings) {
+      o = Parser.line.parse(ix);
+      
+      if (o.parsed.tag === "valid") {
+
+        // replace masked quotation marks (""") with a placeholder
+
+        const line = o.parsed.val[0].replace(
+          new RegExp(settings.quote.repeat(3), "g"), "${qm}");
+
+        // apply either the first or the second parser
+debugger;
+        o = Parser.many(A.Monoid) (
+          Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
+            (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
+              .parse(Iit.from(line));
+
+        if (o.parsed.tag === "invalid") throw new Err(
+          "invalid csv structure received",
+          {cause: o.parsed.val[1]
+        });
+
+        else if (o.parsed.tag === "done") {
+          debugger;
+        }
+
+        // replace placeholders with original characters
+
+        else return o.parsed.val[0].map(s =>
+          s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
+            .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
+      }
+
+      else throw new Err(
+        "csv headings expected",
+        {cause: o.parsed.val[0]});
+    }
+
+    else return [];
+  });
+
+  // csv datasets
+
+  const acc = [];
+
+  let o = Parsed.Valid(null, ix),
+    len = headings.length ? headings.length : 0;
+
+  while (true) {
+
+    // apply either the first or the second parser
+
+    o = Parser.many(A.Monoid) (
+      Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
+        (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
+          .parse(Iit.from(line));
+
+    if (o.parsed.tag === "invalid")
+      throw new Err(
+        "invalid csv structure received",
+        {cause: o.parsed.val[1]});
+
+    // replace placeholders with original characters
+
+    const xs = o.parsed.val[0].map(s =>
+      s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
+        .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
+
+    // impose uniform number of cols
+
+    if (xs.length !== len)
+      throw new Err(`received "${xs.length}" fields but "${len}" expected`);
+
+    // conditionally transform to object using the headings, if any
+
+    acc.push((settings.toObj && headings.length)
+      ? O.fromArr(headings) (xs)
+      : xs);
   }
+
+  return acc;
 });
 
 
@@ -9279,30 +9451,34 @@ Parser.csv = settings => Parser(ix => {
 
 
 /*
-█████ Line ████████████████████████████████████████████████████████████████████*/
+█████ Line/Paragraph ██████████████████████████████████████████████████████████*/
 
 
-Parser.line = Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = "";
-
-  if (Parser.isBol.parse(ix).parsed.val[0] === false)
+Parser.line_ = whole => Parser(ix => {
+  if (whole && Parser.isBol.parse(ix) === false)
     return Parsed.Invalid("beginning of line expected", ix);
 
-  for (let i = 0; i < s.length; i++) {
-    o = Parser.take.parse(o.parsed.val[1]);
+  let o = Parsed.Valid(null, ix), acc = "";
+
+  while (true) {
+    o = Parser.eol.parse(o.parsed.val[1])
+
+    if (o.parsed.tag === "valid") break;
     
-    if (o.parsed.val[0] === "\r") {
-      o = Parser.char("\n").parse(o.parsed.val[1]);
-      if (o.parsed.tag === "valid") return Parsed.Valid(acc, o.parsed.val[1]);
-      else throw new Err(`invalid use of "\r"`);
+    else {
+      o = Parser.take.parse(o.parsed.val[1]);
+      acc += o.parsed.val[0];
     }
-    
-    if (o.parsed.val[0] === "\n") return Parsed.Valid(acc, o.parsed.val[1]);
-    else return acc += o.parsed.val[0];
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
 });
+
+
+Parser.line = Parser.line_(true);
+
+
+Parser.toEol = Parser.line_(false);
 
 
 /*
@@ -9315,52 +9491,57 @@ Parser.line = Parser(ix => {
 // Parser.acronym
 
 
-// Parser.humanName
+// Parser.properName
+
+
+// Parser.sentence
 
 
 // parse any word composed of characters of the supplied codeset
 
 Parser.word = codeset => Parser(ix => {
-  let tx, acc = "";
+  const tx = scope(() => {
+    switch (codeset) {
+      case "ascii": return Parser.asciiLetter;
+      case "latin1": return Parser.latin1Letter;
+      case "utf8": return Parser.utf8Letter;
+      default: throw new Err(`unknown codeset "${codeset}"`);
+    }
+  });
 
-  switch (codeset) {
-    case "ascii": {tx = Parser.asciiLetter; break}
-    case "latin1": {tx = Parser.latin1Letter; break}
-    case "utf8": {tx = Parser.utf8Letter; break}
-    default: throw new Err(`unknown codeset "${codeset}"`);
-  }
+  let o = Parsed.Valid(null, ix), acc = "";
 
-  let o = Parsed.Valid(null, ix);
-
-  for (let i = 0; i < s.length; i++) {
+  while (true) {
     o = tx.parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
     else break;
   }
 
-  return Parsed.Valid(acc, o.parsed.val[1]);
+  if (acc.length) return Parsed.Valid(acc, o.parsed.val[1]);
+  else return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`));
 });
 
 
 Parser.wordBehind = codeset => Parser(ix => {
-  let tx, acc = "";
+  const tx = scope(() => {
+    switch (codeset) {
+      case "ascii": return Parser.asciiLetterBehind;
+      case "latin1": return Parser.latin1LetterBehing;
+      case "utf8": return Parser.utf8LetterBehing;
+      default: throw new Err(`unknown codeset "${codeset}"`);
+    }
+  });
 
-  switch (codeset) {
-    case "ascii": {tx = Parser.asciiLetterBehind; break}
-    case "latin1": {tx = Parser.latin1LetterBehind; break}
-    case "utf8": {tx = Parser.utf8LetterBehind; break}
-    default: throw new Err(`unknown codeset "${codeset}"`);
-  }
+  let o = Parsed.Valid(null, ix), acc = "";
 
-  let o = Parsed.Valid(null, ix);
-
-  for (let i = s.length - 1; i >= 0; i--) {
+  while (true) {
     o = tx.parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
     else break;
   }
 
-  return Parsed.Valid(acc, o.parsed.val[1]);
+  if (acc.length) return Parsed.Valid(acc, o.parsed.val[1]);
+  else return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`));
 });
 
 
@@ -9417,6 +9598,7 @@ Parser.string = s => Parser(ix => {
   for (let i = 0; i < s.length; i++) {
     o = Parser.char(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else if (o.parsed.tag === "done") return o;
     else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
   }
 
@@ -9430,6 +9612,7 @@ Parser.stringBehind = s => Parser(ix => {
   for (let i = s.length - 1; i >= 0; i--) {
     o = Parser.charBehind(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else if (o.parsed.tag === "done") return o;
     else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
   }
 
@@ -9445,6 +9628,7 @@ Parser.stringCi = s => Parser(ix => {
   for (let i = 0; i < s.length; i++) {
     o = Parser.charCi(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
+    else if (o.parsed.tag === "done") return o;
     else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
   }
 
@@ -9458,6 +9642,7 @@ Parser.stringCiBehind = s => Parser(ix => {
   for (let i = s.length - 1; i >= 0; i--) {
     o = Parser.charCiBehind(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
+    else if (o.parsed.tag === "done") return o;
     else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
   }
 
@@ -9596,31 +9781,29 @@ Parser.nestedPairs = Monoid => ({maxLevel, captureNesting = false, stopChars = n
 });
 
 
-/* Parse the input separated by a left and right separators, which can be
-characters or strings. BOI, EOI, BOL and EOL are considered in the following
-varaints:
+/* Parse the next input delimited by a left and right separator. Separators can
+be single characters or strings. Beginning/end of line can be considered or not.
+If it is not considered, the combinator acts in a nested-in-mode, in a seperated-
+by-mode otherwise. Apply a transformation to the parsed result before it is
+appended to the accumulator. */
 
-* BOL/right
-* BOI/right
-* left/EOL
-* left/EOI
-
-Apply a transformation to the input depending on the accumulator. */
-
-Parser.sepBy = Monoid => transform => (left, right = left) => Parser(ix => {
+Parser.sepBy = Monoid => ({considerXol, transform = id}) => (left, right = left) => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = Monoid.empty;
 
-  if (Parser.isBol.parse(o.parsed.val[1])) NOOP;
+  if (considerXol && Parser.isBol.parse(o.parsed.val[1])) NOOP;
 
-  else {
-    o = Parser.string(left).parse(o.parsed.val[1]);
+  o = Parser.string(left).parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "invalid")
-      return Parsed.Invalid(new Ex(`separator "${left}" expected`), ix);
-  } 
+  if (o.parsed.tag === "invalid")
+    return Parsed.Invalid(new Ex(`separator "${left}" expected`), ix);
 
   while (true) {
-    if (Parser.isEol.parse(o.parsed.val[1])) break;
+    if (Parser.isEol.parse(o.parsed.val[1])) {
+      if (considerXol) break;
+
+      else return Parsed.Invalid(
+        new Ex("unclosed separator pattern received"));
+    }
 
     // don't allow nested separators
 
@@ -9628,13 +9811,18 @@ Parser.sepBy = Monoid => transform => (left, right = left) => Parser(ix => {
       o = Parser.string(left).parse(o.parsed.val[1]);
   
       if (o.parsed.tag === "valid")
-        return Parsed.Invalid(new Ex("nested separators received"), ix);
+        return Parsed.Invalid(new Ex(`nested separator "${left}" received`, ix));
     }
 
     o = Parser.string(right).parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") break;
-    else acc = Monoid.append(acc) (transform({acc, value: o.parsed.val[0]}));
+
+    else {
+      o = Parser.take.parse(o.parsed.val[1]);
+      if (o.parsed.tag === "invalid") return o;
+      else acc = Monoid.append(acc) (transform(o.parsed.val[0]));
+    }
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
@@ -10252,7 +10440,7 @@ export const Rex = {};
 █████ Combinators █████████████████████████████████████████████████████████████*/
 
 
-Rex.escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+Rex.escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
 Rex.normalizeNewline = s => s.replace(/\r\n/g, "\n");
@@ -11923,6 +12111,6 @@ export const FileSysThrow = fs => Cons => thisify(o => {
     * Logic implements breadth first
     * DFS adds new tasks at the front of the queue
     * BFS adds them at the tail of the queue
-    * TODO: implement logict
+    * implement logict
 
 */
