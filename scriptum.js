@@ -8441,12 +8441,18 @@ into the respetive section on `Iit` to get more information. Features:
 * look behind
 * look ahead
 
-For the time being parser results are combined using monoids. I don't know if
-this is the optimal approach, though.
+For the time being parser only return descriptive error messages without
+indicating the causal portion of the stream. This will change in a future
+version.
 
 If you need a stateful parser built your own one suitable for the task at hand.
 You can examine examples in the stateful subsection of the parser composition
-section. */
+section.
+
+Heads up: scruptum's parser combinator are powerful enough to create inifinite
+loops. Best practice is to create interim parsers from existing ones, give them
+descriptive names and use them to create more complex parsers. This way, it is
+less hard to comprehend the final parser. */
 
 
 export const Parser = type("Parser", "parse");
@@ -8548,10 +8554,10 @@ Parser.rejectBehind = msg => Parser(ix => {
 
 // parse beginning of line (nl, crnl or beginning of input)
 
-Parser.bol = Parser(ix => {
+Parser.bol = Monoid => Parser(ix => {
   const iy = ix.prev;
 
-  if (iy === null) return Parsed.Valid(null, ix);
+  if (iy === null) return Parsed.Valid(Monoid.empty, ix);
 
   else if (iy.value === "\n") {
     const iz = iy.prev;
@@ -8560,6 +8566,13 @@ Parser.bol = Parser(ix => {
   }
   
   else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
+});
+
+
+Parser.boi = Monoid => Parser(ix => {
+  const iy = ix.prev;
+  if (iy === null) return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
 });
 
 
@@ -8584,10 +8597,10 @@ Parser.isBoi = Parser(ix => {
 
 // parse end of line (nl, crnl or end of input)
 
-Parser.eol = Parser(ix => {
+Parser.eol = Monoid => Parser(ix => {
   const iy = ix.next();
 
-  if (iy.done) return Parsed.Valid(null, ix);
+  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
   
   else if (iy.value === "\r") {
     const iz = iy.next();
@@ -8598,6 +8611,13 @@ Parser.eol = Parser(ix => {
 
   else if (iy.value === "\n") return Parsed.Valid("\n", iy);
   else return Parsed.Invalid(new Ex("end of line expected"), ix);
+});
+
+
+Parser.eoi = Monoid => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Valid(Monoid.empty, ix);
+  else return Parsed.Invalid(new Ex("end of input expected"), ix);
 });
 
 
@@ -8630,7 +8650,7 @@ Parser.isEoi = Parser(ix => {
 
 
 /*
-█████ Predicate Based █████████████████████████████████████████████████████████*/
+█████ Predicate-Based █████████████████████████████████████████████████████████*/
 
 
 // parse input that satisfies a predicate
@@ -8652,7 +8672,7 @@ Parser.satisfyBehind = (p, msg = "predicate unmet") => Parser(ix => {
 
 
 /*
-█████ Set Based ███████████████████████████████████████████████████████████████*/
+█████ Set-Based ███████████████████████████████████████████████████████████████*/
 
 
 /* Parse any character that is in the given set. Use `_Set.atoz` etc. to define
@@ -8662,7 +8682,7 @@ Parser.includes = s => Parser(ix => {
   const iy = ix.next();
   if (iy.done) return Parsed.Done("eoi", ix);
   else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex("input out of character class"), ix);
+  else return Parsed.Invalid(new Ex("input is not included"), ix);
 });
 
 
@@ -8670,7 +8690,23 @@ Parser.includesBehind = s => Parser(ix => {
   const iy = ix.prev;
   if (iy.done) return Parsed.Done("boi", ix);
   else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
-  else return Parsed.Invalid(new Ex("input out of character class"), ix);
+  else return Parsed.Invalid(new Ex("input is not included"), ix);
+});
+
+
+Parser.excludes = s => Parser(ix => {
+  const iy = ix.next();
+  if (iy.done) return Parsed.Done("eoi", ix);
+  else if (!s.has(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex("input is excluded"), ix);
+});
+
+
+Parser.excludesBehind = s => Parser(ix => {
+  const iy = ix.prev;
+  if (iy.done) return Parsed.Done("boi", ix);
+  else if (s.has(iy.value)) return Parsed.Valid(iy.value, iy);
+  else return Parsed.Invalid(new Ex("input is excluded"), ix);
 });
 
 
@@ -8724,9 +8760,9 @@ Parser.takeBehind = Parser(ix => {
 █████ Combining (Logical) █████████████████████████████████████████████████████*/
 
 
-// try both parsers and succeed if one succeeds
+// try the first parser and the second on failure
 
-Parser.or = tx => ty => Parser(iw => {debugger;
+Parser.or = tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => Parsed.Valid(v, ix),
 
@@ -8743,19 +8779,19 @@ Parser.or = tx => ty => Parser(iw => {debugger;
 
 // indeterministic or
 
-Parser.any = ts => Parser(ix => {
+Parser.any = (...ts) => Parser(ix => {
   for (const tx of ts) {
     const o = tx.parse(ix);
     if (o.parsed.tag === "valid") return o;
   }
 
-  return Parsed.Invalid(Ex("no parser matched"), ix);
+  return Parsed.Invalid(Ex("no matching parser"), ix);
 });
 
 
 // try both parsers and fail if one fails
 
-Parser.and = Semigroup => tx => ty => Parser(iw => {debugger;
+Parser.and = Semigroup => tx => ty => Parser(iw => {
   return tx.parse(iw).parsed.run({
     Valid: (v, ix) => ty.parse(ix).parsed.run({
       Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
@@ -8771,13 +8807,16 @@ Parser.and = Semigroup => tx => ty => Parser(iw => {debugger;
 
 // indeterministic and
 
-Parser.all = Monoid => ts => Parser(ix => {
+Parser.all = Monoid => (...ts) => Parser(ix => {
   let o = Parsed.Valid(null, ix),
     acc = Monoid.empty;
 
   for (const tx of ts) {
     o = tx.parse(o.parsed.val[1]);
-    if (o.parsed.tag === "valid") acc = Monoid.append(acc) (o.parsed.val[0]);
+    
+    if (o.parsed.tag === "valid")
+      acc = Monoid.append(acc) (o.parsed.val[0]);
+
     else return o;
   }
 
@@ -8849,15 +8888,13 @@ Parser.min = Monoid => n => tx => Parser(ix => {
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
-
     if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
   }
 
-  if (o.parsed.tag === "done") return o;
-
-  else if (acc.length < n) return Parsed.Invalid(
-    new Ex(`pattern less than ${n} times received`), ix);
+  if (acc.length < n) return Parsed.Invalid(new Ex(
+    `pattern less than ${n} times received`,
+    {cause: o.parsed.val[0]}), ix);
 
   else return Parsed.Valid(
     acc.reduce((acc2, v) =>
@@ -8880,15 +8917,13 @@ Parser.max = Monoid => n => tx => Parser(ix => {
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
-
     if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
   }
 
-  if (o.parsed.tag === "done") return o;
-
-  else if (acc.length > n) return Parsed.Invalid(
-    new Ex(`pattern more than ${n} times received`), ix);
+  if (acc.length > n) return Parsed.Invalid(new Ex(
+    `pattern more than ${n} times received`,
+    {cause: o.parsed.val[0]}), ix);
 
   else return Parsed.Valid(
     acc.reduce((acc2, v) =>
@@ -8902,58 +8937,50 @@ Parser.max = Monoid => n => tx => Parser(ix => {
 Parser.max1 = Monoid => Parser.max(Monoid) (1);
 
 
-// parse the given pattern between m and n times
+// parse the given pattern at least min times but not more than max
 
 // m..n (m=static, n=static)
-Parser.times = Monoid => (m, n = m) => tx => Parser(ix => {
+Parser.minMax = Monoid => (m, n = m) => tx => Parser(ix => {});
+
+
+/* Parse the given pattern as often as possible. It must occur at least min
+times but not more than max. */
+
+// m..n (m=static, n=static)
+Parser.minMaxOnly = Monoid => (m, n = m) => tx => Parser(ix => {
   const acc = [];
   let o = Parsed.Valid(null, ix);
 
-  for (let i = 0; i < n;i++) {
+  while (true) {
     o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (o.parsed.tag === "done") return o;
-
-    else if (i < m) return Parsed.Invalid(
-      new Ex(`pattern less than ${m} times received`), ix);
-    
+    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
   }
 
-  return Parsed.Valid(acc.reduce((acc2, v) =>
-    Semigroup.append(acc2) (v)), o.parsed.val[1]);
+  if (acc.length < m) return Parsed.Invalid(new Ex(
+    `pattern less than ${m} times received`,
+    {cause: o.parsed.val[0]}), ix);
+
+  else if (acc.length > n) return Parsed.Invalid(new Ex(
+    `pattern more than ${n} times received`,
+    {cause: o.parsed.val[0]}), ix);
+
+  else return Parsed.Valid(
+    acc.reduce((acc2, v) =>
+      Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
 });
 
 
-/* Parse the given pattern between m and n times but only if it doesn't occur
-n + 1 times. */
+// parse the given pattern between n times
 
-// m..n (m=static, n=static)
-Parser.timesOnly = Monoid => (m, n = m) => tx => Parser(ix => {
-  const acc = [];
-  let o = Parsed.Valid(null, ix);
+// n (n=static)
+Parser.times = Parser.minMax;
 
-  for (let i = 0; i < n;i++) {
-    o = tx.parse(o.parsed.val[1]);
 
-    if (o.parsed.tag === "valid") acc + o.parsed.val[0];
-    else if (o.parsed.tag === "done") return o;
+// parse the given pattern n times and only n times
 
-    else if (i < m) return Parsed.Invalid(
-      new Ex(`pattern less than ${m} times received`), ix);
-
-    else break;
-  }
-
-  o = tx.parse(o.parsed.val[1]);
-
-  if (o.parsed.tag === "valid")
-    return Parsed.Invalid(new Ex(`pattern more than ${m} times received`), ix);
-
-  else return Parsed.Valid(acc.reduce((acc2, v) =>
-    Semigroup.append(acc2) (v)), o.parsed.val[1]);
-});
+// n (n=static)
+Parser.timesOnly = Parser.minMaxOnly;
 
 
 /* Parse the given pattern once. Isn't derived from `Parser.times` because
@@ -9044,42 +9071,18 @@ Parser.nth = n => tx => Parser(ix => {
 });
 
 
-/* parse the pattern satisfying a predicate as long as the accumulated parsed
-result satisfies another predicate. */
-
-// 0..n (dynamic)
-Parser.satisfyWhile = Monoid => p => p2 => tx => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = Monoid.empty;
-
-  while (true) {
-    o = tx.parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid" && p(o.parsed.val[0])) {
-      const acc2 = Monoid.append(acc) (o.parsed.val[0]);
-      if (p2(acc)) acc = acc2;
-      else break;
-    }
-
-    else break;
-  }
-
-  if (o.parsed.tag === "done") return o;
-  else return Parsed.Valid(acc, o.parsed.val[1].prev);
-});
-
-
 /*
 █████ Look Behind/Ahead ███████████████████████████████████████████████████████*/
 
 
 // look ahead or behind depending on the supplied parser
 
-Parser.look = tx => Parser(ix => {
-  return tx.parse(ix).parsed.run({
-    Valid: (v, iy) => Parsed.Valid(v, ix),
-    Invalid: (e, iz) => Parsed.Invalid(e, ix),
-    get Done() {return Parsed.Done}
-  })
+Parser.look = tx => Parser(iw => {
+  return tx.parse(iw).parsed.run({
+    Valid: (v, ix) => Parsed.Valid(v, iw),
+    Invalid: (e, iy) => Parsed.Invalid(e, iw),
+    Done: (s, iz) => Parsed.Done(s, iw)
+  });
 });
 
 
@@ -9286,18 +9289,43 @@ quotation marks. */
 
 Parser.csv = settings => Parser(ix => {
 
-  // parser for input nested in quotation marks
+  /* The csv parser must consider the folling 12 states fields may be in:
 
-  const nestedIn = Parser.sepBy(Str.Monoid) ({
-    considerXol: false,
+    "…";
+    "";
+    "…"[EOL]
+    ""[EOL]
+    "…"[EOI]
+    ""[EOI]
+    …;
+    ;
+    …[EOL]
+    [EOL]
+    …[EOI]
+    [EOI]
 
-    // mask separator occurrences
+  The eol cases can be omitted because the parser is fed with separate lines.
 
-    transform: c => c === settings.sep ? "${sp}" : c
-  }) (settings.quote);
+  Interim parsers: */
 
-  const condIgnoreSep = Parser.max1(Str.Monoid) (
-    Parser.ignore(Str.Monoid) (Parser.char(settings.sep)));
+  const field = Parser.many(Str.Monoid) (Parser.notChar(settings.sep));
+
+  const quotedField = Parser.delimitedBy(Str.Monoid)
+    (c => c === settings.sep ? "${sp}" : c)
+      (settings.quote);
+
+  const ignoreSep = Parser.ignore(Str.Monoid) (Parser.char(settings.sep));
+
+  const fieldSep = Parser.and(Str.Semigroup) (field) (ignoreSep);
+
+  const fieldEoi = Parser.and(Str.Semigroup) (field) (Parser.eoi(Str.Monoid));
+
+  const quotedFieldSep = Parser.and(Str.Semigroup) (quotedField) (ignoreSep);
+
+  const quotedFieldEoi = Parser.and(Str.Semigroup) (quotedField) (Parser.eoi(Str.Monoid));
+
+  const parseFieldsPerLine = Parser.min1(A.Monoid) (
+    Parser.or(quotedFieldSep) (fieldSep));
 
   // csv header
 
@@ -9317,7 +9345,7 @@ Parser.csv = settings => Parser(ix => {
         // apply either the first or the second parser
 
         o = Parser.many(A.Monoid) (
-          Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
+          Parser.or(Parser.and(Str.Semigroup) (delimitedBy_) (condIgnoreSep))
             (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
               .parse(Iit.from1(line));
 
@@ -9358,27 +9386,30 @@ Parser.csv = settings => Parser(ix => {
         const line = o.parsed.val[0].replace(
           new RegExp(settings.quote.repeat(3), "g"), "${qm}");
 
-        // apply either the first or the second parser
-debugger;
-        o = Parser.many(A.Monoid) (
-          Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
-            (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
-              .parse(Iit.from(line));
+        // parse patterns `"…";` or `…;`
 
-        if (o.parsed.tag === "invalid") throw new Err(
-          "invalid csv structure received",
-          {cause: o.parsed.val[1]
-        });
+        const p = parseFieldsPerLine.parse(Iit.from(line));
 
-        else if (o.parsed.tag === "done") {
-          debugger;
+        if (p.parsed.tag !== "valid") throw new Err(
+          "invalid csv heading structure received",
+          {cause: p.parsed.val[0]});
+
+        // parse trailing patterns `…[EOI]`, `[EOI]` if any
+
+        const p2 = Parser.or(quotedFieldEoi) (fieldEoi)
+          .parse(p.parsed.val[1]);
+
+        if (p2.parsed.tag !== "valid") throw new Err(
+          "invalid csv heading structure received",
+          {cause: p2.parsed.val[0]});
+
+        else {
+          p.parsed.val[0].push(p2.parsed.val[0]);
+
+          return p.parsed.val[0].map(s =>
+            s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
+              .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
         }
-
-        // replace placeholders with original characters
-
-        else return o.parsed.val[0].map(s =>
-          s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
-            .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
       }
 
       else throw new Err(
@@ -9401,14 +9432,18 @@ debugger;
     // apply either the first or the second parser
 
     o = Parser.many(A.Monoid) (
-      Parser.or(Parser.and(Str.Semigroup) (nestedIn) (condIgnoreSep))
+      Parser.or(Parser.and(Str.Semigroup) (delimitedBy_) (condIgnoreSep))
         (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
           .parse(Iit.from(line));
 
-    if (o.parsed.tag === "invalid")
-      throw new Err(
-        "invalid csv structure received",
-        {cause: o.parsed.val[1]});
+    if (o.parsed.tag === "invalid") throw new Err(
+      "invalid csv structure received",
+      {cause: o.parsed.val[1]
+    });
+
+    else if (o.parsed.tag === "done") {
+      o = o.parsed.val[1].prev;
+    }
 
     // replace placeholders with original characters
 
@@ -9461,7 +9496,9 @@ Parser.line_ = whole => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = "";
 
   while (true) {
-    o = Parser.eol.parse(o.parsed.val[1])
+    o = Parser.ignore(Str.Monoid)
+      (Parser.eol(Str.Monoid))
+        .parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") break;
     
@@ -9659,7 +9696,7 @@ discard the open/close patterns themselves. Use stop characters to further
 limit nestings so that they can't span lines, for instance. Apply a trans-
 formation to the input depending on the accumulator and the level of nesting. */
 
-Parser.nested = Monoid => ({maxLevel, captureNesting = false, stopChars = new Set(), transform = id}) => (open, close) => Parser(ix => {
+Parser.nestedIn = Monoid => ({maxLevel, captureNesting = false, stopChars = new Set(), transform = id}) => (open, close) => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = Monoid.empty, level = 0;
   
   do {
@@ -9717,9 +9754,9 @@ Parser.nested = Monoid => ({maxLevel, captureNesting = false, stopChars = new Se
 
 
 /* Variant that takes several open/close pairs, where open patterns can only be closed
-with the associated close pattner. */
+with the associated close pattern. */
 
-Parser.nestedPairs = Monoid => ({maxLevel, captureNesting = false, stopChars = new Set(), transform = id}) => pairs => Parser(ix => {
+Parser.nestedIns = Monoid => ({maxLevel, captureNesting = false, stopChars = new Set(), transform = id}) => pairs => Parser(ix => {
   const stack = [];
   let o = Parsed.Valid(null, ix), acc = Monoid.empty, i = 0;
   
@@ -9782,46 +9819,44 @@ Parser.nestedPairs = Monoid => ({maxLevel, captureNesting = false, stopChars = n
 
 
 /* Parse the next input delimited by a left and right separator. Separators can
-be single characters or strings. Beginning/end of line can be considered or not.
-If it is not considered, the combinator acts in a nested-in-mode, in a seperated-
-by-mode otherwise. Apply a transformation to the parsed result before it is
-appended to the accumulator. */
+be single characters or strings. Apply a transformation to the parsed result
+before it is appended to the accumulator. */
 
-Parser.sepBy = Monoid => ({considerXol, transform = id}) => (left, right = left) => Parser(ix => {
-  let o = Parsed.Valid(null, ix), acc = Monoid.empty;
+Parser.delimitedBy = Monoid => transform => (left, right = left) => Parser(ix => {
+  let o, acc = Monoid.empty;
 
-  if (considerXol && Parser.isBol.parse(o.parsed.val[1])) NOOP;
+  o = Parser.string(left).parse(ix);
 
-  o = Parser.string(left).parse(o.parsed.val[1]);
-
-  if (o.parsed.tag === "invalid")
-    return Parsed.Invalid(new Ex(`separator "${left}" expected`), ix);
+  if (o.parsed.tag !== "valid")
+    return Parsed.Invalid(new Ex(
+      `separator "${left}" expected`,
+      {cause: o.parsed.val[0]}), ix);
 
   while (true) {
-    if (Parser.isEol.parse(o.parsed.val[1])) {
-      if (considerXol) break;
-
-      else return Parsed.Invalid(
-        new Ex("unclosed separator pattern received"));
-    }
 
     // don't allow nested separators
 
-    else if (left !== right) {
+    if (left !== right) {
       o = Parser.string(left).parse(o.parsed.val[1]);
   
       if (o.parsed.tag === "valid")
-        return Parsed.Invalid(new Ex(`nested separator "${left}" received`, ix));
+        return Parsed.Invalid(
+          new Ex(`nested separator "${left}" received`, ix));
     }
 
-    o = Parser.string(right).parse(o.parsed.val[1]);
-
-    if (o.parsed.tag === "valid") break;
-
     else {
-      o = Parser.take.parse(o.parsed.val[1]);
-      if (o.parsed.tag === "invalid") return o;
-      else acc = Monoid.append(acc) (transform(o.parsed.val[0]));
+      o = Parser.string(right).parse(o.parsed.val[1]);
+
+      if (o.parsed.tag === "valid") break;
+
+      else {
+        o = Parser.take.parse(o.parsed.val[1]);
+        
+        if (o.parsed.tag === "valid")
+          acc = Monoid.append(acc) (transform(o.parsed.val[0]));
+
+        else return o;
+      }
     }
   }
 
