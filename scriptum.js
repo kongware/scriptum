@@ -2802,7 +2802,7 @@ A.clone = xs => xs.concat();
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-A.fromCsv = ({sep, header}) => csv => {
+A.fromCsv = ({sep, headings}) => csv => {
   const table = csv.trim()
     .replace(/"/g, "")
     .split(/\r?\n/)
@@ -2810,18 +2810,11 @@ A.fromCsv = ({sep, header}) => csv => {
 
   let names;
 
-  if (header) names = table.shift();
+  if (headings) names = table.shift();
 
-  return header
+  return headings
     ? table.map(cols => cols.reduce((acc, col, i) => (acc[names[i]] = col, acc), {}))
     : table;
-};
-
-
-A.fromIt = ix => {
-  const xs = [];
-  for (const x of ix) xs.push(x);
-  return xs;
 };
 
 
@@ -6991,6 +6984,13 @@ _Map.clone = m => new Map(m);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+_Map.fromArr = xs => {
+  const m = new Map();
+  for (let i = 0; i < xs.length; i++) m.set(i, xs[i]);
+  return m;
+};
+
+
 _Map.fromIt = ix => {
   const m = new Map();
   for (const [k, v] of ix) m.set(k, v);
@@ -8463,7 +8463,7 @@ export const Parsed = variant("Parsed")
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-████████████████████████ PARSER :: FIRST ORDER PARSERS ████████████████████████
+████████████████████████████ PARSER :: FIRST ORDER ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -8555,14 +8555,12 @@ Parser.rejectBehind = msg => Parser(ix => {
 // parse beginning of line (nl, crnl or beginning of input)
 
 Parser.bol = Monoid => Parser(ix => {
-  const iy = ix.prev;
+  if (ix.value === null) return Parsed.Valid(Monoid.empty, ix);
 
-  if (iy === null) return Parsed.Valid(Monoid.empty, ix);
-
-  else if (iy.value === "\n") {
-    const iz = iy.prev;
-    if (iz.value === "\r") return Parsed.Valid("\r\n", iz);
-    else return Parsed.Valid("\n", iy);
+  else if (ix.value === "\n") {
+    const iy = ix.prev;
+    if (iy.value === "\r") return Parsed.Valid("\r\n", iy);
+    else return Parsed.Valid("\n", ix);
   }
   
   else return Parsed.Invalid(new Ex("beginning of line expected"), ix);
@@ -8570,8 +8568,7 @@ Parser.bol = Monoid => Parser(ix => {
 
 
 Parser.boi = Monoid => Parser(ix => {
-  const iy = ix.prev;
-  if (iy === null) return Parsed.Valid(Monoid.empty, ix);
+  if (ix.value === null) return Parsed.Valid(Monoid.empty, ix);
   else return Parsed.Invalid(new Ex("beginning of input expected"), ix);
 });
 
@@ -8579,9 +8576,8 @@ Parser.boi = Monoid => Parser(ix => {
 // boolean based beginning of line
 
 Parser.isBol = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === null) return true
-  else if (iy.value === "\n") return true
+  if (ix.value === null) return true
+  else if (ix.value === "\n") return true
   else return false;
 });
 
@@ -8589,8 +8585,7 @@ Parser.isBol = Parser(ix => {
 // boolean based beginning of input
 
 Parser.isBoi = Parser(ix => {
-  const iy = ix.prev;
-  if (iy === null) return true;
+  if (ix === null) return true;
   else return false;
 });
 
@@ -8749,7 +8744,7 @@ Parser.takeBehind = Parser(ix => {
 
 
 /*█████████████████████████████████████████████████████████████████████████████
-███████████████████████ PARSER :: HIGHER ORDER PARSERS ████████████████████████
+███████████████████████████ PARSER :: HIGHER ORDER ████████████████████████████
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
@@ -8760,19 +8755,57 @@ Parser.takeBehind = Parser(ix => {
 █████ Combining (Logical) █████████████████████████████████████████████████████*/
 
 
-// try the first parser and the second on failure
+// try both parsers and fail if one fails
 
-Parser.or = tx => ty => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => Parsed.Valid(v, ix),
-
-    Invalid: (e, ix) => ty.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Valid(v, iy),
-      Invalid: (e2, iz) => Parsed.Invalid(Ex.aggregate(e, e2), iz),
-      get Done() {return Parsed.Done}
+Parser.and = Semigroup => tx => ty => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => ty.parse(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(Semigroup.append(v) (v2), iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix),
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
+  });
+});
+
+
+// indeterministic and
+
+Parser.all = Monoid => (...ts) => Parser(ix => {
+  let o = Parsed.Valid(null, ix),
+    acc = Monoid.empty;
+
+  for (const tx of ts) {
+    o = tx.parse(o.parsed.val[1]);
+    
+    if (o.parsed.tag === "invalid")
+      return Parsed.Invalid(o.parsed.val[0], ix);
+
+    else if (o.parsed.tag === "done")
+      return Parsed.Done(o.parsed.val[0], ix);
+
+    else acc = Monoid.append(acc) (o.parsed.val[0]);
+  }
+
+  return Parsed.Valid(acc, o.parsed.val[1]);
+});
+
+
+// try the first parser and the second on failure
+
+Parser.or = tx => ty => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+
+    Invalid: (e, _) => ty.parse(ix).parsed.run({
+      Valid: (v, iy) => Parsed.Valid(v, iy),
+      Invalid: (e2, _) => Parsed.Invalid(Ex.aggregate(e, e2), ix),
+      Done: (s, _) => Parsed.Done(s, ix)
+    }),
+
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -8789,61 +8822,37 @@ Parser.any = (...ts) => Parser(ix => {
 });
 
 
-// try both parsers and fail if one fails
+// consume the stream on failure but not on success (weird?)
 
-Parser.and = Semigroup => tx => ty => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => ty.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw),
-      get Done() {return Parsed.Done}
-    }),
-
-    Invalid: (e, ix) => Parsed.Invalid(e, ix),
-    get Done() {return Parsed.Done}
+Parser.not = Monoid => tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Invalid(new Ex("logical not"), iy),
+    Invalid: (e, _) => Parsed.Valid(Monoid.empty, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   });
-});
-
-
-// indeterministic and
-
-Parser.all = Monoid => (...ts) => Parser(ix => {
-  let o = Parsed.Valid(null, ix),
-    acc = Monoid.empty;
-
-  for (const tx of ts) {
-    o = tx.parse(o.parsed.val[1]);
-    
-    if (o.parsed.tag === "valid")
-      acc = Monoid.append(acc) (o.parsed.val[0]);
-
-    else return o;
-  }
-
-  return Parsed.Valid(acc, o.parsed.val[1]);
 });
 
 
 // try the first and second parser and fail if both fail or both succeed
 
-Parser.xor = tx => ty => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => ty.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Invalid(new Ex("both parser succeeded"), iw),
+Parser.xor = tx => ty => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => ty.parse(iy).parsed.run({
+      Valid: (v2, _) => Parsed.Invalid(new Ex("both parser succeeded"), ix),
       Invalid: (e, iz) => Parsed.Valid(v, iz),
-      get Done() {return Parsed.Done}
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    Invalid: (e, ix) => ty.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Valid(v, iy),
+    Invalid: (e, iy) => ty.parse(iy).parsed.run({
+      Valid: (v, iz) => Parsed.Valid(v, iz),
 
-      Invalid: (e2, iz) =>
-        Parsed.Invalid(Ex.aggregate(e, e2, new Ex("both parser failed")), iz),
+      Invalid: (e2, _) => Parsed.Invalid(
+        Ex.aggregate(e, e2, new Ex("both parser failed")), ix),
 
-      get Done() {return Parsed.Done}
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    get Done() {return Parsed.Done}
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -8851,26 +8860,26 @@ Parser.xor = tx => ty => Parser(iw => {
 /* Try the first and second parser and succeed if both fail or bot succeed
 (xnor a.k.a. if and only if). */
 
-Parser.iff = Monoid => tx => ty => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => ty.parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Valid(Monoid.append(v) (v2), iy),
+Parser.iff = Monoid => tx => ty => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => ty.parse(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(Monoid.append(v) (v2), iz),
 
-      Invalid: (e, iz) => Parsed.Invalid(Ex.aggregate(
-        new Ex("first parser succeeded but second one failed"), e), iw),
+      Invalid: (e, _) => Parsed.Invalid(Ex.aggregate(
+        new Ex("first parser succeeded but second one failed"), e), ix),
 
-      get Done() {return Parsed.Done}
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    Invalid: (e, ix) => ty.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Invalid(Ex.aggregate(
-        new Ex("first parser failed but second one succeeded"), e), iw),
+    Invalid: (e, iy) => ty.parse(iy).parsed.run({
+      Valid: (v, _) => Parsed.Invalid(Ex.aggregate(
+        new Ex("first parser failed but second one succeeded"), e), ix),
 
       Invalid: (e2, iz) => Parsed.Valid(Monoid.empty, iz),
-      get Done() {return Parsed.Done}
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    get Done() {return Parsed.Done}
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -8937,21 +8946,49 @@ Parser.max = Monoid => n => tx => Parser(ix => {
 Parser.max1 = Monoid => Parser.max(Monoid) (1);
 
 
-// parse the given pattern at least min times but not more than max
+// parse the given pattern at least min times but not more than max times
 
 // m..n (m=static, n=static)
-Parser.minMax = Monoid => (m, n = m) => tx => Parser(ix => {});
+Parser.minMax = Monoid => (m, n = m) => tx => Parser(ix => {
+  const acc = [];
+  let o = Parsed.Valid(null, ix);
+
+  while (n > 0) {
+    o = tx.parse(o.parsed.val[1]);
+    
+    if (o.parsed.tag === "valid") {
+      if (acc.length <= n) {
+        if (acc.length < n) acc.push(o.parsed.val[0]);
+        if (acc.length === n) break;
+      }
+      
+      else return Parsed.Invalid(new Ex(
+        `pattern more than ${n} times received`,
+        {cause: o.parsed.val[0]}), ix);
+    }
+    
+    else break;
+  }
+
+  if (acc.length < m) return Parsed.Invalid(new Ex(
+    `pattern less than ${m} times received`,
+    {cause: o.parsed.val[0]}), ix);
+
+  else return Parsed.Valid(
+    acc.reduce((acc2, v) =>
+      Monoid.append(acc2) (v), Monoid.empty), o.parsed.val[1]);
+});
 
 
 /* Parse the given pattern as often as possible. It must occur at least min
-times but not more than max. */
+times but not more than max times. */
 
 // m..n (m=static, n=static)
 Parser.minMaxOnly = Monoid => (m, n = m) => tx => Parser(ix => {
   const acc = [];
   let o = Parsed.Valid(null, ix);
 
-  while (true) {
+  while (n > 0) {
     o = tx.parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
     else break;
@@ -8971,7 +9008,7 @@ Parser.minMaxOnly = Monoid => (m, n = m) => tx => Parser(ix => {
 });
 
 
-// parse the given pattern between n times
+// parse the given pattern n times
 
 // n (n=static)
 Parser.times = Parser.minMax;
@@ -8987,11 +9024,11 @@ Parser.timesOnly = Parser.minMaxOnly;
 of the redundant monoid constraint. */
 
 // 1
-Parser.once = tx => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => Parsed.Valid(v, ix),
-    Invalid: (e, ix) => Parsed.Invalid(new Ex("pattern not once received"), ix),
-    get Done() {return Parsed.Done}
+Parser.once = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, iy),
+    Invalid: (e, _) => Parsed.Invalid(new Ex("pattern not once received"), ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -8999,16 +9036,16 @@ Parser.once = tx => Parser(iw => {
 // parse the pattern once and only once
 
 // 1
-Parser.onceOnly = tx => Parser(iv => {
-  return tx.parse(iv).parsed.run({
-    Valid: (v, iw) => tx.parse(iw).parsed.run({
-      Valid: (v2, ix) => Parsed.Invalid(new Ex("pattern more than once received"), iv),
-      Invalid: (e, iy) => Parsed.Valid(v, iy),
-      Done: (s, iz) => Parsed.Valid(v, iz)
+Parser.onceOnly = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => tx.parse(iy).parsed.run({
+      Valid: (v2, _) => Parsed.Invalid(new Ex("pattern more than once received"), ix),
+      Invalid: (e, _) => Parsed.Valid(v, iy),
+      Done: (s, _) => Parsed.Valid(v, iy)
     }),
 
-    Invalid: (e, iw) => Parsed.Invalid(new Ex("pattern not once received"), iw),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(new Ex("pattern not once received"), ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -9016,11 +9053,11 @@ Parser.onceOnly = tx => Parser(iv => {
 // parse the given pattern not once
 
 // 0
-Parser.none = Monoid => tx => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => Parsed.Invalid(new Ex("unexpected pattern"), iw),
+Parser.none = Monoid => tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, _) => Parsed.Invalid(new Ex("pattern once received"), ix),
     Invalid: (e, iy) => Parsed.Valid(Monoid.empty, iy),
-    Done: (s, iz) => Parsed.Valid(Monoid.empty, iz)
+    Done: (s, _) => Parsed.Valid(Monoid.empty, ix)
   });
 });
 
@@ -9043,10 +9080,12 @@ Parser.last = tx => Parser(ix => {
     else break;
   }
 
-  if (once) return o.parsed.val[1].prev;
+  if (once) return o;
 
   else return Parsed.Invalid(
-    new Ex("pattern not once received"), o.parsed.val[1]);
+    new Ex(
+      "pattern not once received",
+      {cause: o.parsed.val[0]}), ix);
 });
 
 
@@ -9059,15 +9098,18 @@ Parser.nth = n => tx => Parser(ix => {
 
   while (true) {
     o = tx.parse(o.parsed.val[1]);
-    if (o.parsed.tag === "valid") acc.push(o.parsed.val[0]);
+
+    if (o.parsed.tag === "valid") {
+      acc.push(o.parsed.val[0]);
+      if (n in acc) return Parsed.Valid(acc[n], o.parsed.val[1]);
+    }
+    
     else break;
   }
 
-  if (acc.length > n)
-    return Parsed.Valid(acc[n].parsed.val[0], acc[acc.length - 1].parsed.val[1]);
-
-  else return Parsed.Invalid(
-    new Ex(`pattern less than ${n} times received`), ix);
+  return Parsed.Invalid(new Ex(
+    `pattern less than ${n} times received`,
+    {cause: o.parsed.val[0]}), ix);
 });
 
 
@@ -9077,11 +9119,11 @@ Parser.nth = n => tx => Parser(ix => {
 
 // look ahead or behind depending on the supplied parser
 
-Parser.look = tx => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => Parsed.Valid(v, iw),
-    Invalid: (e, iy) => Parsed.Invalid(e, iw),
-    Done: (s, iz) => Parsed.Done(s, iw)
+Parser.look = tx => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => Parsed.Valid(v, ix),
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -9095,8 +9137,8 @@ Parser.look = tx => Parser(iw => {
 Parser.ignore = Monoid => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(Monoid.empty, iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   })
 });
 
@@ -9106,8 +9148,8 @@ Parser.ignore = Monoid => tx => Parser(ix => {
 Parser.replace = x => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(x, iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   })
 });
 
@@ -9117,8 +9159,8 @@ Parser.replace = x => tx => Parser(ix => {
 Parser.optional = x => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(v, iy),
-    Invalid: (e, iz) => Parsed.Valid(x, iz),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Valid(x, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   })
 });
 
@@ -9137,8 +9179,8 @@ Parser.optional = x => tx => Parser(ix => {
 Parser.map = f => tx => Parser(ix => {
   return tx.parse(ix).parsed.run({
     Valid: (v, iy) => Parsed.Valid(f(v), iy),
-    Invalid: (e, iz) => Parsed.Invalid(e, iz),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   })
 });
 
@@ -9178,16 +9220,16 @@ Parser.Plus = {
 
 // lift an n-ary function into another parser context
 
-Parser.ap = tf => tx => Parser(iw => {
-  return tf.parse(iw).parsed.run({
-    Valid: (f, ix) => tx.parse(ix).parsed.run({
-      Valid: (v, iy) => Parsed.Valid(f(v), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw),
-      get Done() {return Parsed.Done}
+Parser.ap = tf => tx => Parser(ix => {
+  return tf.parse(ix).parsed.run({
+    Valid: (f, iy) => tx.parse(iy).parsed.run({
+      Valid: (v, iz) => Parsed.Valid(f(v), iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix),
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(e, ix),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   })
 });
 
@@ -9230,16 +9272,16 @@ Parser.Chain = {
 /* Conditionally sequence two parsers so that the second parser depends on the
 result value of the first one. */
 
-Parser.chain = Semigroup => tx => fm => Parser(iw => {
-  return tx.parse(iw).parsed.run({
-    Valid: (v, ix) => fm(v).parse(ix).parsed.run({
-      Valid: (v2, iy) => Parsed.Valid(Semigroup.append(v) (v2), iy),
-      Invalid: (e, iz) => Parsed.Invalid(e, iw),
-      get Done() {return Parsed.Done}
+Parser.chain = Semigroup => tx => fm => Parser(ix => {
+  return tx.parse(ix).parsed.run({
+    Valid: (v, iy) => fm(v).parse(iy).parsed.run({
+      Valid: (v2, iz) => Parsed.Valid(Semigroup.append(v) (v2), iz),
+      Invalid: (e, _) => Parsed.Invalid(e, ix),
+      Done: (s, _) => Parsed.Done(s, ix)
     }),
 
-    Invalid: (e, ix) => Parsed.Invalid(e, ix),
-    get Done() {return Parsed.Done}
+    Invalid: (e, _) => Parsed.Invalid(e, ix),
+    Done: (s, _) => Parsed.Done(s, ix)
   });
 });
 
@@ -9282,31 +9324,79 @@ Parser.Monoid = {
 █████ CSV █████████████████████████████████████████████████████████████████████*/
 
 
-/* Parse csv with an optional header and optioal headings, where fields are
+/* Parse CSV with an optional header and optional headings, where fields are
 either nested in quotation marks or not. Parser can handle masked quotation
 marks in the form of '"""' and separators occurring within fields nested in
-quotation marks. */
+quotation marks. The CSV format is more complex than you might think. A CSV
+parser has to distinguish the following 12 cases:
+
+  "…";
+  "";
+  "…"[EOL]
+  ""[EOL]
+  "…"[EOI]
+  ""[EOI]
+  …;
+  ;
+  …[EOL]
+  [EOL]
+  …[EOI]
+  [EOI]
+
+Parser combinators are extremely expressive because the utilize the power of
+the entire programming language they are based on. This parser is an example
+of this expressiveness. */
 
 Parser.csv = settings => Parser(ix => {
+  const parse = (mode, p) => {
+    if (settings[mode] || mode === "dataset") {
+      if (mode === "dataset" && Parser.isEoi.parse(p.parsed.val[1]))
+        return Pair([], p);
 
-  /* The csv parser must consider the folling 12 states fields may be in:
+      else p = Parser.line.parse(p.parsed.val[1]);
+      
+      if (p.parsed.tag === "valid") {
 
-    "…";
-    "";
-    "…"[EOL]
-    ""[EOL]
-    "…"[EOI]
-    ""[EOI]
-    …;
-    ;
-    …[EOL]
-    [EOL]
-    …[EOI]
-    [EOI]
+        // replace masked quotation marks (""") with a placeholder
 
-  The eol cases can be omitted because the parser is fed with separate lines.
+        const line = p.parsed.val[0].replace(
+          new RegExp(settings.quote.repeat(3), "g"), "${qm}");
 
-  Interim parsers: */
+        // parse patterns `"…";` or `…;`
+
+        const p2 = parseFieldsPerLine.parse(Iit.from(line));
+
+        if (p2.parsed.tag !== "valid") throw new Err(
+          `invalid csv ${mode} structure received`,
+          {cause: p2.parsed.val[0]});
+
+        // parse trailing patterns `…[EOI]`, `[EOI]` if any
+
+        const p3 = Parser.or(quotedFieldEoi) (fieldEoi)
+          .parse(p2.parsed.val[1]);
+
+        if (p3.parsed.tag !== "valid") throw new Err(
+          `invalid csv ${mode} structure received`,
+          {cause: p3.parsed.val[0]});
+
+        else {
+          p2.parsed.val[0].push(p3.parsed.val[0]);
+
+          return Pair(
+            p2.parsed.val[0].map(s =>
+              s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
+                .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep)),
+            p);
+        }
+      }
+
+      else throw new Err(`csv ${mode} expected`, {cause: p.parsed.val[0]});
+    }
+
+    else return Pair([], p);
+  };
+
+  // interim parsers
 
   const field = Parser.many(Str.Monoid) (Parser.notChar(settings.sep));
 
@@ -9327,143 +9417,38 @@ Parser.csv = settings => Parser(ix => {
   const parseFieldsPerLine = Parser.min1(A.Monoid) (
     Parser.or(quotedFieldSep) (fieldSep));
 
-  // csv header
+  // csv header/headings
 
-  const header = scope(() => {
-    let o;
-
-    if (settings.header) {
-      o = Parser.line.parse(ix);
-
-      if (o.parsed.tag === "valid") {
-
-        // replace masked quotation marks (""") with a placeholder
-
-        const line = o.parsed.val[0].replace(
-          new RegExp(settings.quote.repeat(3), "g"), "${qm}");
-
-        // apply either the first or the second parser
-
-        o = Parser.many(A.Monoid) (
-          Parser.or(Parser.and(Str.Semigroup) (delimitedBy_) (condIgnoreSep))
-            (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
-              .parse(Iit.from1(line));
-
-        if (o.parsed.tag === "invalid") throw new Err(
-          "invalid csv structure received",
-          {cause: o.parsed.val[1]
-        });
-
-        else if (o.parsed.tag === "done") {
-
-        }
-
-        // replace placeholders with original characters
-
-        else return o.parsed.val[0].map(s =>
-          s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
-            .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
-      }
-
-      else throw new Err("csv header expected", {cause: o.parsed.val[0]});
-    }
-
-    else return [];
-  });
-
-  // csv headings
-
-  const headings = scope(() => {
-    let o;
-
-    if (settings.headings) {
-      o = Parser.line.parse(ix);
-      
-      if (o.parsed.tag === "valid") {
-
-        // replace masked quotation marks (""") with a placeholder
-
-        const line = o.parsed.val[0].replace(
-          new RegExp(settings.quote.repeat(3), "g"), "${qm}");
-
-        // parse patterns `"…";` or `…;`
-
-        const p = parseFieldsPerLine.parse(Iit.from(line));
-
-        if (p.parsed.tag !== "valid") throw new Err(
-          "invalid csv heading structure received",
-          {cause: p.parsed.val[0]});
-
-        // parse trailing patterns `…[EOI]`, `[EOI]` if any
-
-        const p2 = Parser.or(quotedFieldEoi) (fieldEoi)
-          .parse(p.parsed.val[1]);
-
-        if (p2.parsed.tag !== "valid") throw new Err(
-          "invalid csv heading structure received",
-          {cause: p2.parsed.val[0]});
-
-        else {
-          p.parsed.val[0].push(p2.parsed.val[0]);
-
-          return p.parsed.val[0].map(s =>
-            s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
-              .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
-        }
-      }
-
-      else throw new Err(
-        "csv headings expected",
-        {cause: o.parsed.val[0]});
-    }
-
-    else return [];
-  });
+  const [header, o] = parse("header", Parsed.Valid(null, ix)),
+    [headings, o2] = parse("headings", o);
 
   // csv datasets
 
-  const acc = [];
-
-  let o = Parsed.Valid(null, ix),
-    len = headings.length ? headings.length : 0;
+  const len = headings.length ? headings.length : 0, acc = [];
+  let o3 = o2;
 
   while (true) {
+    const [xs, o4] = parse("dataset", o3);
+    
+    if (xs.length === 0) break;
+    else o3 = o4;
 
-    // apply either the first or the second parser
-
-    o = Parser.many(A.Monoid) (
-      Parser.or(Parser.and(Str.Semigroup) (delimitedBy_) (condIgnoreSep))
-        (Parser.many(Str.Monoid) (Parser.notChar(settings.sep))))
-          .parse(Iit.from(line));
-
-    if (o.parsed.tag === "invalid") throw new Err(
-      "invalid csv structure received",
-      {cause: o.parsed.val[1]
-    });
-
-    else if (o.parsed.tag === "done") {
-      o = o.parsed.val[1].prev;
-    }
-
-    // replace placeholders with original characters
-
-    const xs = o.parsed.val[0].map(s =>
-      s.replace(new RegExp(Rex.escape("${qm}"), "g"), settings.quote)
-        .replace(new RegExp(Rex.escape("${sp}"), "g"), settings.sep));
-
-    // impose uniform number of cols
+    // impose uniform number of fields
 
     if (xs.length !== len)
       throw new Err(`received "${xs.length}" fields but "${len}" expected`);
 
     // conditionally transform to object using the headings, if any
 
-    acc.push((settings.toObj && headings.length)
-      ? O.fromArr(headings) (xs)
-      : xs);
+    if (headings.length && settings.toObj) {
+      const headings2 = _Map.fromArr(headings);
+      acc.push(O.fromArr(headings2) (xs));
+    }
+
+    else acc.push(xs);
   }
 
-  return acc;
+  return Parsed.Valid({header, headings, datasets: acc}, o3.parsed.val[1]);
 });
 
 
@@ -9496,9 +9481,7 @@ Parser.line_ = whole => Parser(ix => {
   let o = Parsed.Valid(null, ix), acc = "";
 
   while (true) {
-    o = Parser.ignore(Str.Monoid)
-      (Parser.eol(Str.Monoid))
-        .parse(o.parsed.val[1]);
+    o = Parser.eol(Str.Monoid).parse(o.parsed.val[1]);
 
     if (o.parsed.tag === "valid") break;
     
@@ -9555,7 +9538,11 @@ Parser.word = codeset => Parser(ix => {
   }
 
   if (acc.length) return Parsed.Valid(acc, o.parsed.val[1]);
-  else return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`));
+  
+  else if (o.parsed.tag === "invalid")
+    return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`), ix);
+
+  else return Parsed.Done(o.parsed.val[0], ix);
 });
 
 
@@ -9578,7 +9565,11 @@ Parser.wordBehind = codeset => Parser(ix => {
   }
 
   if (acc.length) return Parsed.Valid(acc, o.parsed.val[1]);
-  else return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`));
+  
+  else if (o.parsed.tag === "invalid")
+    return Parsed.Invalid(new Ex(`${codeset}-encoded word expected`), ix);
+
+  else return Parsed.Done(o.parsed.val[0], ix);
 });
 
 
@@ -9635,8 +9626,11 @@ Parser.string = s => Parser(ix => {
   for (let i = 0; i < s.length; i++) {
     o = Parser.char(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
-    else if (o.parsed.tag === "done") return o;
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+
+    else if (o.parsed.tag === "invalid")
+      return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+
+    else return Parsed.Done(o.parsed.val[0], ix);
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
@@ -9649,8 +9643,11 @@ Parser.stringBehind = s => Parser(ix => {
   for (let i = s.length - 1; i >= 0; i--) {
     o = Parser.charBehind(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
-    else if (o.parsed.tag === "done") return o;
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+
+    else if (o.parsed.tag === "invalid") 
+      return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+
+    else return Parsed.Done(o.parsed.val[0], ix);
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
@@ -9665,8 +9662,11 @@ Parser.stringCi = s => Parser(ix => {
   for (let i = 0; i < s.length; i++) {
     o = Parser.charCi(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") acc += o.parsed.val[0];
-    else if (o.parsed.tag === "done") return o;
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+    
+    else if (o.parsed.tag === "invalid")
+      return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+
+    else return Parsed.Done(o.parsed.val[0], ix);
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
@@ -9679,8 +9679,11 @@ Parser.stringCiBehind = s => Parser(ix => {
   for (let i = s.length - 1; i >= 0; i--) {
     o = Parser.charCiBehind(s[i]).parse(o.parsed.val[1]);
     if (o.parsed.tag === "valid") o.parsed.val[0] += acc;
-    else if (o.parsed.tag === "done") return o;
-    else return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+    
+    else if (o.parsed.tag === "invalid")
+      return Parsed.Invalid(new Ex(`"${s}" expected`), ix);
+    
+    else return Parsed.Done(o.parsed.val[0], ix);
   }
 
   return Parsed.Valid(acc, o.parsed.val[1]);
@@ -9704,7 +9707,7 @@ Parser.nestedIn = Monoid => ({maxLevel, captureNesting = false, stopChars = new 
 
     if (o.parsed.tag === "valid") {
       if (level + 1 > maxLevel)
-        return Parsed.Invalid(new Ex("unexpected nesting received"), ix);
+        return Parsed.Invalid(new Ex("further nesting received"), ix);
       
       else {
         level++;
@@ -9717,11 +9720,15 @@ Parser.nestedIn = Monoid => ({maxLevel, captureNesting = false, stopChars = new 
       }
     }
 
+    else if (o.parsed.tag === "done") return Parsed.Invalid(new Ex(
+      "incomplete nesting received", {cause: o.parsed.val[0]}), ix);
+
     else {
       o = close.parse(o.parsed.val[1]);
 
       if (o.parsed.tag === "valid") {
-        if (level - 1 < 0) return Parsed.Invalid(new Ex("malformed nesting received"), ix);
+        if (level - 1 < 0)
+          return Parsed.Invalid(new Ex("malformed nesting received"), ix);
 
         else {
           if (captureNesting) acc = Monoid.append(acc) (transform({
@@ -9733,6 +9740,9 @@ Parser.nestedIn = Monoid => ({maxLevel, captureNesting = false, stopChars = new 
           level--;
         }
       }
+
+      else if (o.parsed.tag === "done") return Parsed.Invalid(new Ex(
+        "incomplete nesting received", {cause: o.parsed.val[0]}), ix);
 
       else {
         o = Parser.take.parse(o.parsed.val[1]);
@@ -9753,79 +9763,12 @@ Parser.nestedIn = Monoid => ({maxLevel, captureNesting = false, stopChars = new 
 });
 
 
-/* Variant that takes several open/close pairs, where open patterns can only be closed
-with the associated close pattern. */
-
-Parser.nestedIns = Monoid => ({maxLevel, captureNesting = false, stopChars = new Set(), transform = id}) => pairs => Parser(ix => {
-  const stack = [];
-  let o = Parsed.Valid(null, ix), acc = Monoid.empty, i = 0;
-  
-  do {
-    for (const [open, close] of pairs) {
-      o = open.parse(o.parsed.val[1]);
-      
-      if (o.parsed.tag === "valid") {
-        if (stack.length + 1 > maxLevel)
-          return Parsed.Invalid(new Ex("unexpected nesting received"), ix);
-        
-        else {
-          stack.push(close);
-          
-          if (captureNesting) acc = Monoid.append(acc) (transform({
-            acc,
-            value: o.parsed.val[0],
-            level: stack.length
-          }));
-
-          break;
-        }
-      }
-    }
-
-    if (stack.length === 0) {
-      if (i === 0) return Parsed.Invalid(new Ex("no nesting received"), ix);
-      else return Parsed.Valid(acc, o.parsed.val[1]);
-    }
-
-    else {
-      const close = stack[stack.length - 1];
-      o = close.parse(o.parsed.val[1]);
-
-      if (o.parsed.tag === "valid") {
-        if (captureNesting) acc = Monoid.append(acc) (transform({
-          acc,
-          value: o.parsed.val[0],
-          level: stack.length
-        }));
-
-        stack.pop();
-      }
-
-      else {
-        o = Parser.take.parse(o.parsed.val[1]);
-        
-        if (stopChars.has(o.parsed.val[0]))
-          return Parsed.Invalid(new Ex("incomplete nesting received"), ix);
-
-        else acc = Monoid.append(acc) (transform({
-          acc,
-          value: o.parsed.val[0],
-          level: stack.length
-        }));
-      }
-    }
-  } while (i++);
-});
-
-
 /* Parse the next input delimited by a left and right separator. Separators can
 be single characters or strings. Apply a transformation to the parsed result
 before it is appended to the accumulator. */
 
 Parser.delimitedBy = Monoid => transform => (left, right = left) => Parser(ix => {
-  let o, acc = Monoid.empty;
-
-  o = Parser.string(left).parse(ix);
+  let o = Parser.string(left).parse(ix), acc = Monoid.empty;
 
   if (o.parsed.tag !== "valid")
     return Parsed.Invalid(new Ex(
@@ -9837,26 +9780,31 @@ Parser.delimitedBy = Monoid => transform => (left, right = left) => Parser(ix =>
     // don't allow nested separators
 
     if (left !== right) {
-      o = Parser.string(left).parse(o.parsed.val[1]);
+      const p = Parser.string(left).parse(o.parsed.val[1]);
   
-      if (o.parsed.tag === "valid")
+      if (p.parsed.tag === "valid")
         return Parsed.Invalid(
           new Ex(`nested separator "${left}" received`, ix));
     }
 
+    o = Parser.string(right).parse(o.parsed.val[1]);
+
+    if (o.parsed.tag === "valid") break;
+
+    else if (o.parsed.tag === "done")
+      return Parsed.Invalid(new Ex(
+        "unclosed delimitation received",
+        {cause: o.parsed.val[0]}), ix);
+
     else {
-      o = Parser.string(right).parse(o.parsed.val[1]);
+      o = Parser.take.parse(o.parsed.val[1]);
+      
+      if (o.parsed.tag === "valid")
+        acc = Monoid.append(acc) (transform(o.parsed.val[0]));
 
-      if (o.parsed.tag === "valid") break;
-
-      else {
-        o = Parser.take.parse(o.parsed.val[1]);
-        
-        if (o.parsed.tag === "valid")
-          acc = Monoid.append(acc) (transform(o.parsed.val[0]));
-
-        else return o;
-      }
+      else return Parsed.Invalid(new Ex(
+        "unclosed delimitation received",
+        {cause: o.parsed.val[0]}), ix);
     }
   }
 
