@@ -2970,69 +2970,46 @@ A.Eq = {eq: A.eq};
 █████ Focus ███████████████████████████████████████████████████████████████████*/
 
 
-/* Defines a focus over n elements of an existing array. The resulting virtual
-array behaves like an ordinary one. You can apply the iterable protocol or the
-standard array functions on it. */
+/* Sets a focus over a range of elements of an existing array and provides the
+usual getters and setters for this range. Allows reduction/enlargment of the
+range but the latter only without gaps. */
 
-A.focus = (i, j = null) => xs => {
-  if (j === null) j = xs.length - 1;
-
-  return new Proxy(xs, {
-    get(_, k, p) {
-      switch (typeof k) {
-        case "string": {
-          if (k === "length") return j - i + 1;
-          
-          else {
-            const i2 = Number(k);
-
-            if (String(i2) === k) {
-              if (i + i2 > j) return undefined;
-              else return xs[i + i2];
-            }
-
-            else return xs[k];
-          }
-        }
-
-        default: return xs[k];
-      }
+A.focus = (i, j = i) => xs => {
+  return {
+    del: i2 => {
+      if (i2 + i <= j) (xs.splice(i2 + i, 1), j--);
+      return xs;
     },
 
-    has(_, k) {
-      switch (typeof k) {
-        case "string": {
-          const i2 = Number(k);
+    has: i2 => i2 + i <= j,
+    get: i2 => xs[i2 + i],
 
-          if (String(i2) === k) {
-            if (i + i2 > j) return false;
-            else return i + i2 in xs;
-          }
+    get getCtx() {
+      const o = {
+        left: xs.slice(0, i),
+        right: xs.slice(i)
+      };
 
-          else k in xs;
-        }
-
-        default: k in xs;
-      }
+      delete this.getCtx;
+      this.getCtx = o;
+      return o;
     },
 
-    set(_, k, v, p) {
-      switch (typeof k) {
-        case "string": {
-          const i2 = Number(k);
+    set: (i2, v) => {
+      if (i2 + i > j) (xs.splice(i2 + i, 0, ...v), j++);
+      else xs[i2 + i] = v;
+      return xs;
+    },
+    
+    upd: (i2, f) => {
+      if (i2 + i <= j) xs[i2 + i] = f(xs[i2 + i]);
+      return xs;
+    },
 
-          if (String(i2) === k) {
-            if (i + i2 > j) return undefined;
-            else return xs[i + i2] = v;
-          }
-
-          else xs[k] = v;
-        }
-
-        default: xs[k] = v;
-      }
-    }
-  });
+    [Symbol.iterator]: function*() {
+      for (let i2 = i2 + i; i2 <= j; i2++) yield xs[i2];
+    },
+  };
 };
 
 
@@ -6548,11 +6525,67 @@ It.ana = It.ana();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Smart constructor for an asynchronous iterator delivering meaningfully sized
-chunks of data that can be processed in isolation from each other. This way, you
-can process large data sources in a divide and conquer approach. */
+// asynchronous iterator mostly for streaming
 
-export const Ait = ({sep, threshold = 0}) => ix => {
+
+export const Ait = {};
+
+
+/*
+█████ Alternation █████████████████████████████████████████████████████████████*/
+
+
+Ait.intercalate = y => async function* (ix) {
+  let initial = true;
+
+  for await (const x of ix) {
+    if (initial) (initial = false, yield x);
+    else (yield y, yield x);
+  }
+};
+
+
+Ait.interleave = ix => async function* (iy) {
+  for await (const x of ix) {
+    for await (const y of iy) {
+      yield x;
+      yield y;
+    }    
+  }
+};
+
+
+/*
+█████ Chunking ████████████████████████████████████████████████████████████████*/
+
+
+/* Supply partially complete chunks of data that can be processed in isolation
+from each other as part of a stream of chunks. This way, large data sources can
+be processed in a divide and conquer fashion exibiting a small memory footprint.
+Usage:
+
+  const writable = fs.createWriteStream('./awords.txt');
+
+  const f = stream.compose(
+    Ait.from(fs.createReadStream(./words.txt)),
+    Ait.chunk({sep: /\r?\n/}),
+    Ait.filter(line => line[0] === "a"),
+    Ait.map(line => line + "\n"));
+
+  stream.pipeline(f, writable, (err, value) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log(value, 'value returned');
+    }
+  });
+
+The listed code reads from a textfile containing words separated by newline,
+reduces the chunk size to each line/word length, filters all words starting
+with "a" and writes them to a textfile with the filtered words separated by
+newline. */
+
+Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
   let chunks = [], buffer = "";
 
   return async function* go() {
@@ -6577,36 +6610,12 @@ export const Ait = ({sep, threshold = 0}) => ix => {
       }
     }
 
-    if (buffer.length) {
+    if (buffer.length && skipRest === false) {
       yield* async function* () {
         yield buffer;
       } ();
     }
   } ();
-};
-
-
-/*
-█████ Alternation █████████████████████████████████████████████████████████████*/
-
-
-Ait.intercalate = y => async function* (ix) {
-  let initial = true;
-
-  for await (const x of ix) {
-    if (initial) (initial = false, yield x);
-    else (yield y, yield x);
-  }
-};
-
-
-Ait.interleave = ix => async function* (iy) {
-  for await (const x of ix) {
-    for await (const y of iy) {
-      yield x;
-      yield y;
-    }    
-  }
 };
 
 
@@ -7680,10 +7689,10 @@ O.lazyProps = dtors => o => Object.defineProperties(o, ...dtors);
 
 // self referencing during object creation
 
-export const thisify = f => f({});
+export const reify = f => f({});
 
 
-O.thisify = thisify;
+O.reify = reify;
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -7691,30 +7700,39 @@ O.thisify = thisify;
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Data stream type with meaningful chunks of data. The stream implementation
-is supplied as a formal parameter to avoid a hard dependency. */
+// obsolete stream type
 
 
-export const Stream_ = stream => ({sep, threshold, skipRest}) => {
-  return new stream.Transform({
-    transform(chunk, encoding, k) {
-      const lines = ((this.buffer ? this.buffer : "")
-        + chunk.toString()).split(sep);
+/*export const Stream_ = (fs, stream) => reify(o => {
+  o.chunk = ({sep, threshold = 0, skipRest = false}) => {
+    return new stream.Transform({
+      transform(chunk, enc, next) {debugger;
+        const lines = (("buffer" in this ? this.buffer : "")
+          + chunk.toString()).split(sep);
 
-      this.buffer = lines.pop();
+        this.buffer = lines.pop();
 
-      if (threshold > 0 && this.buffer.length > threshold)
-        k(new Err("buffer overflow"));
+        if (threshold > 0 && this.buffer.length > threshold)
+          done(new Err("buffer overflow"), null);
 
-      for (const line of lines) k(null, line);
-    },
+        next();
+        for (const line of lines) this.push(line);
+      },
 
-    flush(k) {
-      if (skipRest) k(null, "");
-      else k(null, this.buffer ? this.buffer : "");
-    }
-  });
-};
+      flush(next) {
+        if (skipRest) next();
+        else if (this.buffer.length === 0) next();
+        else next(null, this.buffer);
+      }
+    });
+  };
+
+  o.readByLine = path => stream.compose(
+    fs.createReadStream(path),
+    o.chunk({sep: /\r?\n/})).setEncoding("utf8");
+
+  return o;
+});*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -9456,8 +9474,33 @@ Parser.csv = settings => Parser(ix => {
 █████ Date ████████████████████████████████████████████████████████████████████*/
 
 
+// YYYY-MM-DD
+// YY-MM-DD
+// YYYYMMDD
+// YYMMDD
+// MM-DD
+// DD.MM.YYYY
+// DD.MM.YY
+// DDMMYYYY
+// DDMMYY
+// DD.MM
+
+
 /*
 █████ Enumeration █████████████████████████████████████████████████████████████*/
+
+
+// 1, 2, 3
+// 1,2,3
+// 1 + 2 + 3
+// 1+2+3
+// 1 & 2 & 3
+// 1&2&3
+// 1, 2 & 3
+// 1,2&3
+// 1000/11/12
+// 1000+11+12
+// 1000&11&12
 
 
 /*
@@ -9603,7 +9646,32 @@ Parser.wordBehind = codeset => Parser(ix => {
 
 
 /*
+█████ Periode █████████████████████████████████████████████████████████████████*/
+
+
+// Dezember/2024
+// Dez./2024
+// Dez/2024
+// Dez./24
+// Dez/24
+// Dez. 2024
+// Dez 2024
+// Dez. 24
+// Dez 24
+// Dez.2024
+// Dez2024
+// Dez.24
+// Dez24
+
+
+/*
 █████ Range ███████████████████████████████████████████████████████████████████*/
+
+
+// 1-10
+// 1..10
+// 1 to 10
+// 1 bis 10
 
 
 /*
@@ -10931,6 +10999,97 @@ Str.cat_ = Str.catWith(" ");
 
 
 /*
+█████ Distance ████████████████████████████████████████████████████████████████*/
+
+
+Str.distance = a => b => {
+  const min = (d0, d1, d2, bx, ay) => {
+    return d0 < d1 || d2 < d1
+        ? d0 > d2
+            ? d2 + 1
+            : d0 + 1
+        : bx === ay
+            ? d1
+            : d1 + 1;
+  };
+
+  if (a === b) return 0;
+
+  if (a.length > b.length) {
+    var tmp = a;
+    a = b;
+    b = tmp;
+  }
+
+  let la = a.length, lb = b.length;
+
+  while (la > 0 && (a.charCodeAt(la - 1) === b.charCodeAt(lb - 1))) {
+    la--;
+    lb--;
+  }
+
+  let offset = 0;
+
+  while (offset < la && (a.charCodeAt(offset) === b.charCodeAt(offset))) {
+    offset++;
+  }
+
+  la -= offset;
+  lb -= offset;
+
+  if (la === 0 || lb < 3) return lb;
+
+  let x = 0, y;
+  let d0, d1, d2, d3;
+  let dd, dy, ay;
+  let bx0, bx1, bx2, bx3;
+  let vector = [];
+
+  for (y = 0; y < la; y++) {
+    vector.push(y + 1);
+    vector.push(a.charCodeAt(offset + y));
+  }
+
+  let len = vector.length - 1;
+
+  for (; x < lb - 3;) {
+    bx0 = b.charCodeAt(offset + (d0 = x));
+    bx1 = b.charCodeAt(offset + (d1 = x + 1));
+    bx2 = b.charCodeAt(offset + (d2 = x + 2));
+    bx3 = b.charCodeAt(offset + (d3 = x + 3));
+    dd = (x += 4);
+
+    for (y = 0; y < len; y += 2) {
+      dy = vector[y];
+      ay = vector[y + 1];
+      d0 = min(dy, d0, d1, bx0, ay);
+      d1 = min(d0, d1, d2, bx1, ay);
+      d2 = min(d1, d2, d3, bx2, ay);
+      dd = min(d2, d3, dd, bx3, ay);
+      vector[y] = dd;
+      d3 = d2;
+      d2 = d1;
+      d1 = d0;
+      d0 = dy;
+    }
+  }
+
+  for (; x < lb;) {
+    bx0 = b.charCodeAt(offset + (d0 = x));
+    dd = ++x;
+
+    for (y = 0; y < len; y += 2) {
+      dy = vector[y];
+      vector[y] = dd = min(dy, d0, dd, bx0, vector[y + 1]);
+      d0 = dy;
+    }
+  }
+
+  return dd;
+};
+
+
+/*
 █████ Normalization ███████████████████████████████████████████████████████████*/
 
 
@@ -11285,7 +11444,7 @@ const Tree = {};
 
 // smart constructor
 
-Tree.Empty = thisify(o => {
+Tree.Empty = reify(o => {
   Object.defineProperty(o, TAG, {value: "Tree"});
   o.tag = "Empty";
   return o;
@@ -11972,7 +12131,10 @@ Since both types don't have built-in exception handling, you either immediately
 throw or pass on exceptions for later handling. */
 
 
-export const FileSysHandle = fs => Cons => thisify(o => {
+export const FileSys = {};
+
+
+FileSys.handle = fs => Cons => reify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
       e ? k(new Ex(e)) : k(null)));
@@ -12022,7 +12184,7 @@ export const FileSysHandle = fs => Cons => thisify(o => {
 });
 
 
-export const FileSysThrow = fs => Cons => thisify(o => {
+FileSys.throw = fs => Cons => reify(o => {
   o.copy = src => dest => Cons(k =>
     fs.copyFile(src, dest, e =>
       e ? _throw(e) : k(null)));
@@ -12095,5 +12257,4 @@ export const FileSysThrow = fs => Cons => thisify(o => {
     * DFS adds new tasks at the front of the queue
     * BFS adds them at the tail of the queue
     * implement logict
-
 */
