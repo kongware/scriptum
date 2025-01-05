@@ -1,18 +1,9 @@
 /*
-      ___           ___           ___                        ___          ___           ___           ___     
-     /\  \         /\  \         /\  \          ___         /\  \        /\  \         /\__\         /\__\    
-    /::\  \       /::\  \       /::\  \        /\  \       /::\  \       \:\  \       /:/  /        /::|  |   
-   /:/\ \  \     /:/\:\  \     /:/\:\  \       \:\  \     /:/\:\  \       \:\  \     /:/  /        /:|:|  |   
-  _\:\~\ \  \   /:/  \:\  \   /::\~\:\  \      /::\__\   /::\~\:\  \      /::\  \   /:/  /  ___   /:/|:|__|__ 
- /\ \:\ \ \__\ /:/__/ \:\__\ /:/\:\ \:\__\  __/:/\/__/  /:/\:\ \:\__\    /:/\:\__\ /:/__/  /\__\ /:/ |::::\__\
- \:\ \:\ \/__/ \:\  \  \/__/ \/_|::\/:/  / /\/:/  /    /:/  \:\/:/  /   /:/  \/__/ \:\  \ /:/  / \/__/~~/:/  /
-  \:\ \:\__\    \:\  \          |:|::/  /  \::/__/    /:/  / \::/  /   /:/  /       \:\  /:/  /        /:/  / 
-   \:\/:/  /     \:\  \         |:|\/__/    \:\__\   /:/  /   \/__/   /:/  /         \:\/:/  /        /:/  /  
-    \::/  /       \:\__\        |:|  |       \/__/   \/__/            \/__/           \::/  /        /:/  /   
-     \/__/         \/__/         \|__|                                                 \/__/         \/__/    
-*/
+ __   __   __     __  ___            
+/__` /  ` |__) | |__)  |  |  |  |\/| 
+.__/ \__, |  \ | |     |  \__/  |  | 
 
-
+functional library */
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -1549,6 +1540,22 @@ export const desc = y => x => x - y;
 export const desc_ = (y, x) => x - y;
 
 
+export const ascAlpha = ({locale, sensitivity = "base"}) => x => y =>
+  x.localeCompare(y, locale, {sensitivity});
+
+
+export const ascAlpha_ = ({locale, sensitivity = "base"}) => (x, y) =>
+  x.localeCompare(y, locale, {sensitivity});
+
+
+export const descAlpha = ({locale, sensitivity = "base"}) => y => x =>
+  x.localeCompare(y, locale, {sensitivity});
+
+
+export const descAlpha_ = ({locale, sensitivity = "base"}) => (y, x) =>
+  x.localeCompare(y, locale, {sensitivity});
+
+
 export const compareOn = order => compBoth(order);
 
 
@@ -2589,6 +2596,9 @@ export const enumEffsLast = (...exps) => exps[exps.length - 1];
 
 export const intro = x =>
   Object.prototype.toString.call(x).slice(8, -1);
+
+
+export const stateful = state => f => f(state);
 
 
 /*
@@ -3635,6 +3645,47 @@ A.zipWith = f => xs => ys => Loop2((acc, i) => {
 
 A.unzip = () => A.foldl(([x, y]) => ([xs, ys]) =>
   Pair((xs.push(x), xs), (ys.push(y), ys))) (Pair([], []));
+
+
+/*
+█████ Misc. ███████████████████████████████████████████████████████████████████*/
+
+
+// scan command line arguments
+
+export const scanClas = ({mandatory, optional = {}, preds = {}}) => xs => {
+  const o = {}, crossCheck = [];
+
+  xs.forEach(arg => {
+    if (arg[0] === "/") return;
+
+    else if (!/-[a-z_]\b|--[a-z_]\w*=./.test(arg))
+      throw new Err(`malformed CLA "${arg}"`);
+
+    else {
+      const [k, v = null] = arg.split("="),
+        k2 = k.replace(/-/g, "");
+
+      if (v === null) o[k2] = true;
+      
+      else if (k2 in preds && !preds[k2] (v))
+        throw new Err(`malformed CLA value "${v}"`);
+
+      else o[k2] = v;
+
+      if (mandatory.has(k2)) crossCheck.push(k2);
+      else if (optional.has(k2)) return;
+      else throw new Err(`unknown CLA "${k2}"`);
+    }
+  });
+
+  if (crossCheck.length !== mandatory.size) {
+    const diff = A.diff(Array.from(mandatory)) (crossCheck).join(", ");
+    throw new Err(`missing CLAs "${diff}"`);
+  }
+
+  else return o;
+};
 
 
 /*
@@ -5886,7 +5937,7 @@ It.foldl_ = f => acc => ix => {
 };
 
 
-// there is no right-accosiative fold for contingently infinite streams
+// there is no right-accosiative fold due to possibly infinite streams
 
 
 // exhaustive map followed by folding the resulting monoid
@@ -6572,12 +6623,9 @@ Usage:
     Ait.filter(line => line[0] === "a"),
     Ait.map(line => line + "\n"));
 
-  stream.pipeline(f, writable, (err, value) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log(value, 'value returned');
-    }
+  stream.pipeline(f, writable, e => {
+    if (e) console.error(e);
+    else console.log("done");
   });
 
 The listed code reads from a textfile containing words separated by newline,
@@ -6616,6 +6664,66 @@ Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
       } ();
     }
   } ();
+};
+
+
+/* Iterate over overlapping groups of n chunks where each group is offset by a
+single chunk. The last n chunks of the source are filled with empty strings in
+order to simplify this edge case. Consumer of this function must only store the
+first chunk of each group to avoid redundancy but they can so by considering
+the context, i.e. n - 1 consecutive chunks. */
+
+Ait.consecChunk = num => {
+  const chunks = [];
+
+  return async function* (ix) {
+    if (chunks.length === 0) {
+      for (let i = num; i > 1; i--) {
+        const o = await ix.next();
+        if (o.done) return;
+        else chunks.push(o.value);
+      }
+    }
+
+    while (true) {
+      const p = await ix.next();
+      if (p.done) break;
+      else chunks.push(p.value);
+      yield chunks;
+      chunks.shift();
+    }
+
+    for (const chunk of chunks) {
+      const xs = Array(num).fill("");
+      xs[0] = chunk;
+      yield xs;
+    }
+  };
+};
+
+
+/* Same as above but only iterates over non-overlapping groups of chunks, i.e.
+consumer must store all supplied chunks. */
+
+Ait.consecChunks = num => async function* (ix) {
+  while (true) {
+    const chunks = [];
+
+    for (let i = num; i > 0; i--) {
+      const o = await ix.next();
+      if (o.done) break;
+      else chunks.push(o);
+    }
+
+    if (chunks.length < num) break;
+    else yield chunks;
+  }
+
+  for (const chunk of chunks) {
+    const xs = Array(num).fill("");
+    xs[0] = chunk;
+    yield xs;
+  }
 };
 
 
@@ -6679,35 +6787,30 @@ Ait.Filterable = {filter: Ait.filter};
 
 // exhaustive left-associative fold
 
-Ait.foldl = f => init => ix => S(k => function go(acc) {
-  return ix.next().then(({value, done}) => {
-    if (done) return k(acc);
-    else return go(f(acc) (value));
-  });
-} (init));
+Ait.foldl = f => acc => async function (ix) {
+  for await (const x of ix) acc = f(acc) (x);
+  return acc;
+};
 
 
 // uncurried
 
-Ait.foldl_ = f => init => ix => S(k => function go(acc) {
-  return ix.next().then(({value, done}) => {
-    if (done) return k(acc);
-    else return go(f(acc, value));
-  });
-} (init));
+Ait.foldl_ = f => acc => async function (ix) {
+  for await (const x of ix) acc = f(acc, x);
+  return acc;
+};
 
 
-// there is no right-accosiative fold for contingently infinite streams
+// there is no right-accosiative fold due to possibly infinite streams
 
 
 // exhaustive map followed by folding the resulting monoid
 
-Ait.foldMap = Monoid => f => ix => S(k => function go(acc) {
-  return ix.next().then(({value, done}) => {
-    if (done) return k(acc);
-    else return go(Monoid.append(acc) (f(value)));
-  });
-} (Monoid.empty));
+Ait.foldMap = Monoid => f => async function (ix) {
+  let acc = Monoid.empty;
+  for await (const x of ix) acc = Monoid.append(acc) (f(x));
+  return acc;
+};
 
 
 Ait.Foldable = {
