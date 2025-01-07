@@ -2598,7 +2598,9 @@ export const intro = x =>
   Object.prototype.toString.call(x).slice(8, -1);
 
 
-export const stateful = state => f => f(state);
+// introduce state
+  
+export const introState = state => f => f(state);
 
 
 /*
@@ -2812,6 +2814,27 @@ A.clone = xs => xs.concat();
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+A.fromAit = async function (ix) {
+  const xs = [];
+  for await (const pair of ix) xs.push(pair);
+  return xs;
+};
+
+
+A.fromAitKeys = async function (ix) {
+  const xs = [];
+  for await (const [k] of ix) xs.push(k);
+  return xs;
+};
+
+
+A.fromAitValues = async function (ix) {
+  const xs = [];
+  for await (const [, v] of ix) xs.push(v);
+  return xs;
+};
+
+
 A.fromCsv = ({sep, headings}) => csv => {
   const table = csv.trim()
     .replace(/"/g, "")
@@ -2825,6 +2848,13 @@ A.fromCsv = ({sep, headings}) => csv => {
   return headings
     ? table.map(cols => cols.reduce((acc, col, i) => (acc[names[i]] = col, acc), {}))
     : table;
+};
+
+
+A.fromIt = ix => {
+  const xs = [];
+  for (const pair of ix) xs.push(pair);
+  return xs;
 };
 
 
@@ -3758,6 +3788,15 @@ L.uncons = xs => xs.length === 0 ? [null, []] : [xs[0], xs[1]];
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+L.fromAit = async function (ix) {
+  let xs = [];
+  const root = xs;
+
+  for await (const x of ix) (xs[0] = x, xs[1] = [], xs = xs[1]);
+  return root;
+};
 
 
 L.fromArr = xs => {
@@ -5729,43 +5768,6 @@ It.cloneable = ix => {
 
 
 /*
-█████ Combining/Dividing ██████████████████████████████████████████████████████*/
-
-
-// consolidate consecutive pairs
-
-It.combine = f => acc => function* (ix) {
-  const o = ix.next(), p = ix.next();
-
-  if (o.done && p.done) return undefined;
-  else if (o.done) yield f(acc) (p.value);
-  else if (p.done) yield f(o.value) (acc);
-  else yield f(o.value) (p.value);
-};
-
-
-// uncurried
-
-It.combine_ = f => acc => function* (ix) {
-  const o = ix.next(), p = ix.next();
-
-  if (o.done && p.done) return undefined;
-  else if (o.done) yield f(acc, p.value);
-  else if (p.done) yield f(o.value, acc);
-  else yield f(o.value, p.value);
-};
-
-
-It.divide = f => acc => function* (ix) {
-  while (true) {
-    const o = ix.next();
-    if (o.done) return undefined;
-    else for (x of f(o.value)) yield x;
-  }
-};
-
-
-/*
 █████ Con-/Deconstruction █████████████████████████████████████████████████████*/
 
 
@@ -5841,6 +5843,19 @@ It.fromList = function* (xs) {
     yield xs[0]
     xs = xs[1];
   }
+};
+
+
+/*
+█████ Exhaust █████████████████████████████████████████████████████████████████*/
+
+
+// exhaust an iterator including a fold
+
+It.exhaust = ix => {
+  let x;
+  for (x of ix);
+  return x;
 };
 
 
@@ -6615,22 +6630,22 @@ from each other as part of a stream of chunks. This way, large data sources can
 be processed in a divide and conquer fashion exibiting a small memory footprint.
 Usage:
 
-  const writable = fs.createWriteStream('./awords.txt');
+  const writable = fs.createWriteStream("./awords.txt");
 
-  const f = stream.compose(
-    Ait.from(fs.createReadStream(./words.txt)),
+  const sx = stream.compose(
+    Ait.from(fs.createReadStream("./words.txt")),
     Ait.chunk({sep: /\r?\n/}),
     Ait.filter(line => line[0] === "a"),
     Ait.map(line => line + "\n"));
 
-  stream.pipeline(f, writable, e => {
+  stream.pipeline(sx, writable, e => {
     if (e) console.error(e);
     else console.log("done");
   });
 
-The listed code reads from a textfile containing words separated by newline,
+The listed code reads from a text file containing words separated by newline,
 reduces the chunk size to each line/word length, filters all words starting
-with "a" and writes them to a textfile with the filtered words separated by
+with "a" and writes them to a text file with the filtered words separated by
 newline. */
 
 Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
@@ -6673,7 +6688,7 @@ order to simplify this edge case. Consumer of this function must only store the
 first chunk of each group to avoid redundancy but they can so by considering
 the context, i.e. n - 1 consecutive chunks. */
 
-Ait.consecChunk = num => {
+Ait.overlappingChunks = num => {
   const chunks = [];
 
   return async function* (ix) {
@@ -6705,7 +6720,7 @@ Ait.consecChunk = num => {
 /* Same as above but only iterates over non-overlapping groups of chunks, i.e.
 consumer must store all supplied chunks. */
 
-Ait.consecChunks = num => async function* (ix) {
+Ait.nonOverlappingChunks = num => async function* (ix) {
   while (true) {
     const chunks = [];
 
@@ -6728,45 +6743,23 @@ Ait.consecChunks = num => async function* (ix) {
 
 
 /*
-█████ Combining/Dividing ██████████████████████████████████████████████████████*/
-
-
-// combine consecutive pairs
-
-Ait.combine = f => acc => async function* (ix) {
-  const o = await ix.next(), p = await ix.next();
-
-  if (o.done || p.done) return undefined;
-  else if (o.done) yield f(acc) (p.value);
-  else if (p.done) yield f(o.value) (acc);
-  else yield f(o.value) (p.value);
-};
-
-
-// uncurried
-
-Ait.combine_ = f => acc => async function* (ix) {
-  const o = await ix.next(), p = await ix.next();
-
-  if (o.done || p.done) return undefined;
-  else if (o.done) yield f(acc, p.value);
-  else if (p.done) yield f(o.value, acc);
-  else yield f(o.value, p.value);
-};
-
-
-Ait.divide = f => acc => async function* (ix) {
-  for await (const x of ix) {
-    for (y of f(x)) yield y;
-  }
-};
-
-
-/*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
 Ait.from = x => x[Symbol.asyncIterator] ();
+
+
+/*
+█████ Exhaust █████████████████████████████████████████████████████████████████*/
+
+
+// exhaust an async iterator including a fold
+
+Ait.exhaust = async function (ix) {
+  let x;
+  for await (x of ix);
+  return x;
+};
 
 
 /*
@@ -7096,6 +7089,13 @@ _Map.clone = m => new Map(m);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+_Map.fromAit = async function (ix) {
+  const m = new Map();
+  for await (const [k, v] of ix) m.set(k, v);
+  return m;
+};
+
+
 _Map.fromArr = xs => {
   const m = new Map();
   for (let i = 0; i < xs.length; i++) m.set(i, xs[i]);
@@ -7254,6 +7254,13 @@ export class MultiMap extends Map {
 
   /*
   █████ Conversion ████████████████████████████████████████████████████████████*/
+
+
+  static fromAit = async function (ix) {
+    const m = new MultiMap();
+    for await (const [k, v] of ix) m.addItem(k, v);
+    return m;
+  };
 
 
   static fromIt = ix => {
@@ -7649,6 +7656,13 @@ O.clone = o => {
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
+O.fromAit = async function (ix) {
+  const o = {};
+  for await (const [k, v] of ix) o[k] = v;
+  return o;
+};
+
+
 O.fromArr = headings => xs => {
   const o = {};
 
@@ -7803,39 +7817,8 @@ O.reify = reify;
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// obsolete stream type
-
-
-/*export const Stream_ = (fs, stream) => reify(o => {
-  o.chunk = ({sep, threshold = 0, skipRest = false}) => {
-    return new stream.Transform({
-      transform(chunk, enc, next) {debugger;
-        const lines = (("buffer" in this ? this.buffer : "")
-          + chunk.toString()).split(sep);
-
-        this.buffer = lines.pop();
-
-        if (threshold > 0 && this.buffer.length > threshold)
-          done(new Err("buffer overflow"), null);
-
-        next();
-        for (const line of lines) this.push(line);
-      },
-
-      flush(next) {
-        if (skipRest) next();
-        else if (this.buffer.length === 0) next();
-        else next(null, this.buffer);
-      }
-    });
-  };
-
-  o.readByLine = path => stream.compose(
-    fs.createReadStream(path),
-    o.chunk({sep: /\r?\n/})).setEncoding("utf8");
-
-  return o;
-});*/
+/* Obsolete stream type. Use `createReadStream` from node's file system or
+`FS.readStream` from this library instead.
 
 
 /*█████████████████████████████████████████████████████████████████████████████
@@ -10805,6 +10788,17 @@ S.tryThrow = tx => S(k => tx.ser(x => {
 
 
 /*
+█████ Foldable ████████████████████████████████████████████████████████████████*/
+
+
+S.foldl = f => acc => tx =>
+  S(k => tx.ser(it => {
+    for (const x of it) acc = f(acc) (x);
+    return k(acc);
+  }));
+
+
+/*
 █████ Functor █████████████████████████████████████████████████████████████████*/
 
 
@@ -10944,6 +10938,27 @@ _Set.clone = s => new Set(s);
 
 /*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
+
+
+_Set.fromAit = async function (ix) {
+  const s = new Set();
+  for await (const k of ix) s.add(k);
+  return s;
+};
+
+
+_Set.fromAitKeys = async function (ix) {
+  const s = new Set();
+  for await (const [k,] of ix) s.add(k);
+  return s;
+};
+
+
+_Set.fromAitValues = async function (ix) {
+  const s = new Set();
+  for await (const [, v] of ix) s.add(v);
+  return s;
+};
 
 
 _Set.fromIt = ix => {
