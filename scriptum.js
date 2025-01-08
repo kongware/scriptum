@@ -2814,25 +2814,25 @@ A.clone = xs => xs.concat();
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-A.fromAit = async function (ix) {
+A.fromAit = () => comp(S.fromPromise) (async function (ix) {
   const xs = [];
   for await (const pair of ix) xs.push(pair);
   return xs;
-};
+});
 
 
-A.fromAitKeys = async function (ix) {
+A.fromAitKeys = () => comp(S.fromPromise) (async function (ix) {
   const xs = [];
   for await (const [k] of ix) xs.push(k);
   return xs;
-};
+});
 
 
-A.fromAitValues = async function (ix) {
+A.fromAitValues = () => comp(S.fromPromise) (async function (ix) {
   const xs = [];
   for await (const [, v] of ix) xs.push(v);
   return xs;
-};
+});
 
 
 A.fromCsv = ({sep, headings}) => csv => {
@@ -3790,13 +3790,13 @@ L.uncons = xs => xs.length === 0 ? [null, []] : [xs[0], xs[1]];
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-L.fromAit = async function (ix) {
+L.fromAit = () => comp(S.fromPromise) (async function (ix) {
   let xs = [];
   const root = xs;
 
   for await (const x of ix) (xs[0] = x, xs[1] = [], xs = xs[1]);
   return root;
-};
+});
 
 
 L.fromArr = xs => {
@@ -5847,19 +5847,6 @@ It.fromList = function* (xs) {
 
 
 /*
-█████ Exhaust █████████████████████████████████████████████████████████████████*/
-
-
-// exhaust an iterator including a fold
-
-It.exhaust = ix => {
-  let x;
-  for (x of ix);
-  return x;
-};
-
-
-/*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
 
@@ -6682,11 +6669,15 @@ Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
 };
 
 
-/* Iterate over overlapping groups of n chunks where each group is offset by a
-single chunk. The last n chunks of the source are filled with empty strings in
-order to simplify this edge case. Consumer of this function must only store the
-first chunk of each group to avoid redundancy but they can so by considering
-the context, i.e. n - 1 consecutive chunks. */
+/* Iterate over overlapping groups of n consecutive chunks where each group is
+offset by a single chunk. The last n chunks of the source are filled with empty
+strings in order to simplify this edge case. Consumer of this function must only
+store the first chunk of each group to avoid redundancy. Usage:
+
+  const sx = stream.compose(
+    Ait.from(fs.createReadStream("./words.txt")),
+    Ait.chunk({sep: /\r?\n/}),
+    Ait.overlappingChunks(3)) */
 
 Ait.overlappingChunks = num => {
   const chunks = [];
@@ -6717,8 +6708,13 @@ Ait.overlappingChunks = num => {
 };
 
 
-/* Same as above but only iterates over non-overlapping groups of chunks, i.e.
-consumer must store all supplied chunks. */
+/* Same as above but iterates over non-overlapping groups of n consecutive
+chunks. Usage:
+
+  const sx = stream.compose(
+    Ait.from(fs.createReadStream("./words.txt")),
+    Ait.chunk({sep: /\r?\n/}),
+    Ait.nonOverlappingChunks(3)) */
 
 Ait.nonOverlappingChunks = num => async function* (ix) {
   while (true) {
@@ -6750,19 +6746,6 @@ Ait.from = x => x[Symbol.asyncIterator] ();
 
 
 /*
-█████ Exhaust █████████████████████████████████████████████████████████████████*/
-
-
-// exhaust an async iterator including a fold
-
-Ait.exhaust = async function (ix) {
-  let x;
-  for await (x of ix);
-  return x;
-};
-
-
-/*
 █████ Filterable ██████████████████████████████████████████████████████████████*/
 
 
@@ -6778,20 +6761,20 @@ Ait.Filterable = {filter: Ait.filter};
 █████ Foldable ████████████████████████████████████████████████████████████████*/
 
 
-// exhaustive left-associative fold
+// exhaustive left-associative fold returing an async type
 
-Ait.foldl = f => acc => async function (ix) {
+Ait.foldl = f => acc => comp(S.fromPromise) (async function (ix) {
   for await (const x of ix) acc = f(acc) (x);
   return acc;
-};
+});
 
 
 // uncurried
 
-Ait.foldl_ = f => acc => async function (ix) {
+Ait.foldl_ = f => acc => comp(S.fromPromise) (async function (ix) {
   for await (const x of ix) acc = f(acc, x);
   return acc;
-};
+});
 
 
 // there is no right-accosiative fold due to possibly infinite streams
@@ -6799,11 +6782,11 @@ Ait.foldl_ = f => acc => async function (ix) {
 
 // exhaustive map followed by folding the resulting monoid
 
-Ait.foldMap = Monoid => f => async function (ix) {
+Ait.foldMap = Monoid => f => comp(S.fromPromise) (async function (ix) {
   let acc = Monoid.empty;
   for await (const x of ix) acc = Monoid.append(acc) (f(x));
   return acc;
-};
+});
 
 
 Ait.Foldable = {
@@ -7089,11 +7072,11 @@ _Map.clone = m => new Map(m);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-_Map.fromAit = async function (ix) {
+_Map.fromAit = () => comp(S.fromPromise) (async function (ix) {
   const m = new Map();
   for await (const [k, v] of ix) m.set(k, v);
   return m;
-};
+});
 
 
 _Map.fromArr = xs => {
@@ -7162,7 +7145,13 @@ _Map.getOr = x => k => m => m.has(k) ? m.get(k) : x;
 _Map.has = k => m => m.has(k);
 
 
+_Map.inc = k => m => m.has(k) ? m.set(k, m.get(k) + 1) : m.set(k, 1);
+
+
 _Map.set = k => v => m => m.set(k, v);
+
+
+_Map.set = (k, v) => m => m.set(k, v);
 
 
 _Map.del = k => m => m.delete(k);
@@ -7256,10 +7245,12 @@ export class MultiMap extends Map {
   █████ Conversion ████████████████████████████████████████████████████████████*/
 
 
-  static fromAit = async function (ix) {
-    const m = new MultiMap();
-    for await (const [k, v] of ix) m.addItem(k, v);
-    return m;
+  static get fromAit() {
+    return comp(S.fromPromise) (async function (ix) {
+      const m = new MultiMap();
+      for await (const [k, v] of ix) m.addItem(k, v);
+      return m;
+    });
   };
 
 
@@ -7656,11 +7647,11 @@ O.clone = o => {
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-O.fromAit = async function (ix) {
+O.fromAit = () => comp(S.fromPromise) (async function (ix) {
   const o = {};
   for await (const [k, v] of ix) o[k] = v;
   return o;
-};
+});
 
 
 O.fromArr = headings => xs => {
@@ -8250,6 +8241,9 @@ P.withCont = f => tx => P(k => tx.par(f(k)));
 
 
 P.fromSerial = tx => P(tx.ser);
+
+
+P.fromPromise = px => px.then(x => P(k => k(x))).catch(e => P(k => k(e)));
 
 
 /*
@@ -10736,6 +10730,9 @@ S.withCont = f => tx => S(k => tx.ser(f(k)));
 S.fromParallel = tx => S(tx.par);
 
 
+S.fromPromise = px => S(k => px.then(x => k(x)).catch(e => k(e)));
+
+
 /*
 █████ Conjunction █████████████████████████████████████████████████████████████*/
 
@@ -10940,25 +10937,25 @@ _Set.clone = s => new Set(s);
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
-_Set.fromAit = async function (ix) {
+_Set.fromAit = comp(S.fromPromise) (async function (ix) {
   const s = new Set();
   for await (const k of ix) s.add(k);
   return s;
-};
+});
 
 
-_Set.fromAitKeys = async function (ix) {
+_Set.fromAitKeys = comp(S.fromPromise) (async function (ix) {
   const s = new Set();
   for await (const [k,] of ix) s.add(k);
   return s;
-};
+});
 
 
-_Set.fromAitValues = async function (ix) {
+_Set.fromAitValues = comp(S.fromPromise) (async function (ix) {
   const s = new Set();
   for await (const [, v] of ix) s.add(v);
   return s;
-};
+});
 
 
 _Set.fromIt = ix => {
@@ -12196,6 +12193,15 @@ Yo.lower = tx => tx.yo(id);
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+A.fromAit = A.fromAit();
+
+
+A.fromAitKeys = A.fromAitKeys();
+
+
+A.fromAitValues = A.fromAitValues();
+
+
 A.fromList = A.fromList();
 
 
@@ -12224,6 +12230,15 @@ Eff.Trav.list = Eff.Trav.list();
 
 
 Eff.Trav.listSeq = Eff.Trav.listSeq();
+
+
+L.fromAit = L.fromAit();
+
+
+_Map.fromAit = _Map.fromAit();
+
+
+O.fromAit = O.fromAit();
 
 
 /*█████████████████████████████████████████████████████████████████████████████
