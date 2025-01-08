@@ -5708,8 +5708,9 @@ Some basic rules on working with impure iterators:
   or value may change inside `[]` but not the array itself
 * strict functions must not be passed to `comp`/`pipe` as an argument but always
   be the outermost function call
-* folds require only strict exhaustion with `It.toAccum` to obtain an accumulated
-  result value because they operate their own internal accumulator */
+* folds are the only means of `It` to exhaust lazy iterators (you can exhaust
+  an iterator by converting it using one of the `fromIt` combinators of a
+  suitbale data type) */
 
 
 export const It = {};
@@ -5900,9 +5901,11 @@ It.or = pred => function* (ix) {
 
 
 It.filter = p => function* (ix) {
-  const o = ix.next();
-  if (o.done) return undefined;
-  else if (p(o.value)) yield o.value;
+  while (true) {
+    const o = ix.next();
+    if (o.done) return undefined;
+    else if (p(o.value)) yield o.value;
+  }
 };
 
 
@@ -5918,11 +5921,9 @@ It.Filterable = {filter: It.filter};
 It.foldl = f => acc => ix => {
   while (true) {
     const o = ix.next();
-    if (o.done) return undefined;
+    if (o.done) return acc;
     else acc = f(acc) (o.value);
   }
-
-  return acc;
 };
 
 
@@ -5931,11 +5932,9 @@ It.foldl = f => acc => ix => {
 It.foldl_ = f => acc => ix => {
   while (true) {
     const o = ix.next();
-    if (o.done) return undefined;
+    if (o.done) return acc;
     else acc = f(acc, o.value);
   }
-
-  return acc;
 };
 
 
@@ -5949,11 +5948,9 @@ It.foldMap = Monoid => f => ix => {
 
   while (true) {
     const o = ix.next();
-    if (o.done) return undefined;
+    if (o.done) return acc;
     else acc = Monoid.append(acc) (f(o.value));
   }
-
-  return acc;
 };
 
 
@@ -5962,11 +5959,9 @@ It.foldMap = Monoid => f => ix => {
 It.sum = acc => ix => {
   while (true) {
     const o = ix.next();
-    if (o.done) return undefined;
+    if (o.done) return acc;
     else acc = acc + o.value;
   }
-
-  return acc;
 };
 
 
@@ -5987,18 +5982,22 @@ It.Foldable = {
 
 
 It.map = f => function* (ix) {
-  const o = ix.next();
-  if (o.done) return undefined;
-  else yield f(o.value);
+  while (true) {
+    const o = ix.next();
+    if (o.done) return undefined;
+    else yield f(o.value);
+  }
 };
 
 
 // map effects but discard values
 
 It.mapEff = f => function* (ix) {
-  const o = ix.next();
-  if (o.done) return undefined;
-  else (f(o.value), yield o.value);
+  while (true) {
+    const o = ix.next();
+    if (o.done) return undefined;
+    else (f(o.value), yield o.value);
+  }
 };
 
 
@@ -6010,10 +6009,12 @@ It.Functor = {map: It.map};
 
 
 It.alt = ix => function* (iy) {
-  const o = ix.next(), p = iy.next();
-  if (o.done === false) yield o.value;
-  else if (p.done === false) yield p.value;
-  else return undefined;
+  while (true) {
+    const o = ix.next(), p = iy.next();
+    if (o.done === false) yield o.value;
+    else if (p.done === false) yield p.value;
+    else return undefined;
+  };
 };
 
 
