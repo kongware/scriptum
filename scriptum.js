@@ -11255,6 +11255,7 @@ Str.normalizeNum = locale => s => {
           let decPoint = "";
 
           if (rx.groups.sign === undefined) rx.groups.sign = "";
+          if (rx.groups.int.length > 3) rx.groups.int = rx.groups.int.replace(/[^\d]/g, "");
 
           if (rx.groups.frac === undefined) rx.groups.frac = "";
           else decPoint = ".";
@@ -11280,7 +11281,7 @@ Str.normalizeNum = locale => s => {
 whereas a negative one denotes the index relative to the end. -1 means the last
 index. -2 the penultimate one. */
 
-Str.findIndexNth = (pattern, i) => s => {
+Str.findNthIndex = (pattern, i) => s => {
   const xs = Array.from(s.matchAll(pattern));
   let rx;
 
@@ -12289,15 +12290,6 @@ FileSys.handle = fs => Cons => reify(o => {
     fs.readFile(path, Object.assign(opt, {encoding: "latin1"}), (e, x) =>
       e ? k(new Ex(e)) : k(x)));
 
-  o.readStream = opt => path => Cons(k => {
-    const stream = fs.createReadStream(path, opt);
-    let s = "";
-
-    stream.on("close", () => k(s));
-    stream.on("error", e => k(new Ex(e)));
-    stream.on("data", chunk => {s += chunk});
-  });
-
   o.scanDir = path => Cons(k =>
     fs.readdir(path, (e, xs) =>
       e ? k(new Ex(e)) : k(xs)));
@@ -12338,15 +12330,6 @@ FileSys.throw = fs => Cons => reify(o => {
   o.readLatin1 = opt => path => Cons(k =>
     fs.readFile(path, Object.assign(opt, {encoding: "latin1"}), (e, x) =>
       e ? _throw(e) : k(x)));
-
-  o.readStream = opt => path => Cons(k => {
-    const stream = fs.createReadStream(path, opt);
-    let s = "";
-
-    stream.on("close", () => k(s));
-    stream.on("error", _throw);
-    stream.on("data", chunk => {s += chunk});
-  });
 
   o.scanDir = path => Cons(k =>
     fs.readdir(path, (e, xs) =>
