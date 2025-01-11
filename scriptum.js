@@ -1948,7 +1948,7 @@ export const This = t => ({
   app_: x => This(y => t(y) (x)), // applies the 2nd arg of the boxed fun
   map: f => This(f(t)),  // applies the fun
   map_: f => This(x => f(x) (t)), // applies the 2nd arg of the fun
-  unbox: t // retrieves the boxed value
+  unthis: t // retrieves the boxed value
 });
 
 
@@ -6636,18 +6636,16 @@ reduces the chunk size to each line/word length, filters all words starting
 with "a" and writes them to a text file with the filtered words separated by
 newline. */
 
-Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
+Ait.chunk = ({sep, threshold = 65536, skipRest = false}) => ix => {
   let chunks = [], buffer = "";
 
-  return async function* go() {
+  return async function* () {
     for await (const value of ix) {
       chunks = (buffer + value.toString()).split(sep);
       buffer = chunks.pop();
 
-      if (threshold > 0 && buffer.length > threshold)
-        throw new Err("buffer overflow");
-
-      else if (chunks.length === 0) yield* go();
+      if (buffer.length > threshold) throw new Err("buffer overflow");
+      else if (chunks.length === 0) continue;
 
       else {
         yield* async function* () {
@@ -6655,9 +6653,9 @@ Ait.chunk = ({sep, threshold = 0, skipRest = false}) => ix => {
             const chunk = chunks.shift();
             yield chunk;
           } while (chunks.length);
-
-          yield* go();
         } ();
+
+        continue;
       }
     }
 
@@ -8551,7 +8549,7 @@ section.
 Heads up: scruptum's parser combinator are powerful enough to create inifinite
 loops. Best practice is to create interim parsers from existing ones, give them
 descriptive names and use them to create more complex parsers. This way, it is
-less hard to comprehend the final parser. */
+less hard to comprehend complex parser compositions. */
 
 
 export const Parser = type("Parser", "parse");
@@ -9440,11 +9438,7 @@ parser has to distinguish the following 12 cases:
   …[EOL]
   [EOL]
   …[EOI]
-  [EOI]
-
-Parser combinators are extremely expressive because the utilize the power of
-the entire programming language they are based on. This parser is an example
-of this expressiveness. */
+  [EOI] */
 
 Parser.csv = settings => Parser(ix => {
   const parse = (mode, p) => {
@@ -9720,14 +9714,7 @@ Parser.wordBehind = codeset => Parser(ix => {
 
 
 /*
-█████ Paragraph ███████████████████████████████████████████████████████████████*/
-
-
-// parse lines until two newlines in a row occur
-
-
-/*
-█████ Periode █████████████████████████████████████████████████████████████████*/
+█████ Period ██████████████████████████████████████████████████████████████████*/
 
 
 // Dezember/2024
