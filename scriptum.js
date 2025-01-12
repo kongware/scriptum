@@ -5720,23 +5720,20 @@ export const It = {};
 █████ Alternation █████████████████████████████████████████████████████████████*/
 
 
-It.intercalate = x => function* (ix) {
-  let initial = true;
-
-  while (true) {
-    const o = ix.next();
-    if (o.done) return undefined;
-    else if (initial) (initial = false, yield o.value);
-    else (yield x, yield o.value);
-  }
-};
-
-
-It.interleave = ix => function* (iy) {
+It.alternate = ix => function* (iy) {
   while (true) {
     const o = ix.next(), p = iy.next();
     if (o.done || p.done) return undefined;
     else (yield o.value, yield p.value);
+  }
+};
+
+
+It.interpolate = y => function* (xs) {
+  for (let i = 0; i < xs.length; i++) {
+    for (const x of xs[i]) yield x;
+    if (i === xs.length - 1) break;
+    else yield y;
   }
 };
 
@@ -6586,30 +6583,6 @@ export const Ait = {};
 
 
 /*
-█████ Alternation █████████████████████████████████████████████████████████████*/
-
-
-Ait.intercalate = y => async function* (ix) {
-  let initial = true;
-
-  for await (const x of ix) {
-    if (initial) (initial = false, yield x);
-    else (yield y, yield x);
-  }
-};
-
-
-Ait.interleave = ix => async function* (iy) {
-  for await (const x of ix) {
-    for await (const y of iy) {
-      yield x;
-      yield y;
-    }    
-  }
-};
-
-
-/*
 █████ Chunking ████████████████████████████████████████████████████████████████*/
 
 
@@ -6733,6 +6706,31 @@ Ait.nonOverlappingChunks = num => async function* (ix) {
     const xs = Array(num).fill("");
     xs[0] = chunk;
     yield xs;
+  }
+};
+
+
+/*
+█████ Combining ███████████████████████████████████████████████████████████████*/
+
+
+// alternate two streams
+
+Ait.alternate = ix => async function* (iy) {
+  for await (const x of ix) {
+    for await (const y of iy) {
+      yield x;
+      yield y;
+    }    
+  }
+};
+
+
+Ait.interpolate = y => async function* (xs) {
+  for (let i = 0; i < xs.length; i++) {
+    for await (const x of xs[i]) yield x
+    if (i === xs.length - 1) break;
+    else yield y;
   }
 };
 
