@@ -6738,6 +6738,23 @@ Ait.nonOverlappingChunks = num => async function* (ix) {
 
 
 /*
+█████ Conjunction █████████████████████████████████████████████████████████████*/
+
+
+Ait.and = ix => async function* (iy) {
+  for await (const x of ix) yield x;
+  for await (const y of iy) yield y;
+};
+
+
+Ait.all = async function* (xs) {
+  for (const ix of xs) {
+    for await (const x of ix) yield x
+  }
+};
+
+
+/*
 █████ Conversion ██████████████████████████████████████████████████████████████*/
 
 
@@ -6826,15 +6843,7 @@ Ait.Functor = {map: Ait.map};
 █████ Semigroup ███████████████████████████████████████████████████████████████*/
 
 
-Ait.append = ix => async function* (iy) {
-  for await (const x of ix) {
-    yield f(x);
-  }
-
-  for await (const y of iy) {
-    yield f(y);
-  }
-};
+Ait.append = Ait.and;
 
 
 Ait.Semigroup = {append: Ait.append};
@@ -7807,8 +7816,22 @@ O.reify = reify;
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-/* Obsolete stream type. Use `createReadStream` from node's file system or
-`FS.readStream` from this library instead.
+/* Obsolete stream type. Use `createReadStream` from node's file system instead.
+Here is an exemplary use that does nothing but pass through chunks and append
+the word text at the end of the stream:
+
+  new stream.Transform({
+    transform(chunk, enc, next) {
+      //this.push(chunk);
+      next(null, chunk);
+    },
+
+    flush(next) {
+      //this.push("end");
+      next(null, "end");
+    }
+  });
+*/
 
 
 /*█████████████████████████████████████████████████████████████████████████████
