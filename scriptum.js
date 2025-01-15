@@ -6576,7 +6576,9 @@ It.ana = It.ana();
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
-// asynchronous iterator mostly for streaming
+/* Asynchronous iterators mostly intended for streaming. Associated combinators
+internally work with promises and it is their calling side which is meant to
+convert promises to more lawful asynchronous types like `Serial` or `Parallel`. */
 
 
 export const Ait = {};
@@ -9644,16 +9646,10 @@ Parser.toEol = Parser.line_(false);
 █████ Natural Language ████████████████████████████████████████████████████████*/
 
 
-// Parser.abbrevation
-
-
-// Parser.acronym
-
-
-// Parser.properName
-
-
 // Parser.sentence
+
+
+// Parser.SentenceBehind
 
 
 // parse any word composed of characters of the supplied codeset
@@ -11096,17 +11092,20 @@ export const Str = {}; // namespace
 █████ Chars ███████████████████████████████████████████████████████████████████*/
 
 
-const countChar = chr => s => {
+Str.countChar = c => s => {
   let n = 0, i = 0;
 
   while (true) {
-    i = s.indexOf(chr, i);
+    i = s.indexOf(c, i);
     if (i >= 0) {++n; i++}
     else break;
   }
 
   return n;
 };
+
+
+Str.countPattern = rx => s => Array.from(s.matchAll(rx)).length;
 
 
 /*
@@ -11214,6 +11213,45 @@ Str.distance = a => b => {
 
 
 /*
+█████ Find Indices ████████████████████████████████████████████████████████████*/
+
+
+Str.findAllIndices = pattern => s => {
+  const xs = Array.from(s.matchAll(pattern));
+  return xs.map(rx => rx.index);
+};
+
+
+/* Gather all indices of the given pattern and returns the one referenced by `i`,
+which can be positive or negative. A positive value denotes the normal index
+whereas a negative one denotes the index relative to the end. -1 means the last
+index, -2 the penultimate one etc. */
+
+Str.findNthIndex = (pattern, i) => s => {
+  const xs = Array.from(s.matchAll(pattern));
+  let rx;
+
+  if (xs.length === 0) return null;
+  else if (i < 0) rx = xs.slice(i) [0];
+  else rx = xs[i];
+
+  if (rx === undefined) return null;
+  else return rx.index;
+};
+
+
+// find the first and last index of a pattern in the passed string
+
+Str.findIndexBounds = pattern => s => {
+  const xs = Array.from(s.matchAll(pattern));
+
+  if (xs.length === 0) return null;
+  else if (xs.length === 1) return Pair(xs[0].index, xs[0].index);
+  else return Pair(xs[0].index, xs[xs.length - 1].index);
+};
+
+
+/*
 █████ Normalization ███████████████████████████████████████████████████████████*/
 
 
@@ -11277,40 +11315,6 @@ Str.normalizeNum = locale => s => {
 
     default: throw new Err(`unknown locale "${locale}"`);
   }
-};
-
-
-/*
-█████ Searching ███████████████████████████████████████████████████████████████*/
-
-
-/* Find all indices of the given pattern and returns the one referenced by `i`.
-`i` can be positive or negative. A positive value denotes the normal index
-whereas a negative one denotes the index relative to the end. -1 means the last
-index. -2 the penultimate one. */
-
-Str.findNthIndex = (pattern, i) => s => {
-  const xs = Array.from(s.matchAll(pattern));
-  let rx;
-
-  if (xs.length === 0) return null;
-  else if (i < 0) rx = xs.slice(i) [0];
-  else rx = xs[i];
-
-  if (rx === undefined) return null;
-  else return rx.index;
-};
-
-
-// find the first and last index of a pattern in the passed string
-
-Str.findIndexBounds = pattern => s => {
-  const xs = Array.from(s.matchAll(pattern));
-  let rx;
-
-  if (xs.length === 0) return null;
-  else if (xs.length === 1) return Pair(xs[0].index, xs[0].index);
-  else return Pair(xs[0].index, xs[xs.length - 1].index);
 };
 
 
