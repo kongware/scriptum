@@ -10576,10 +10576,110 @@ export const Rex = {};
 █████ Combinators █████████████████████████████████████████████████████████████*/
 
 
+Rex.count = rx => s => Array.from(s.matchAll(rx)).length;
+
+
 Rex.escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 
 Rex.normalizeNewline = s => s.replace(/\r\n/g, "\n");
+
+
+/*
+█████ Matching/Splitting ██████████████████████████████████████████████████████*/
+
+
+/* Regular expressions are also useful for more complex patterns if you follow
+a divide and conquer strategy. First, you must extract the region of interest
+from a larger string by defining the bounds using regular expressions. You can
+either use two different regexes for the start and end of the region or use a
+single regex with `Rex.matchBound`, if the region of interests is a recurrent
+pattern. Then you can further subdivide the region of applying a split with a
+appropriate regular exrpession.
+
+A complementary approach for effectively applying regular expressions on complex
+strings is not to rely on a fixed order but to extract subparts separately and
+later on put them in context using the full power of Javascript. */
+
+
+// return a singleton or an empty array
+
+Rex.match = rx => s => {
+  const o = s.match(rx);
+
+  if (o === null) return [];
+  else return [o];
+};
+
+
+// exhaust the iterator and return an array of its matches
+
+Rex.matchAll = rx => s => Array.from(s.matchAll(rx));
+
+
+// retrieve the first and last match, if any
+
+Rex.matchBound = rx => s => {
+  const xs = Array.from(s.matchAll(rx));
+
+  if (xs.length === 0) return [];
+  else if (xs.length <= 2) return xs;
+  else return [xs[0], xs[xs.length - 1]];
+};
+
+
+Rex.matchBounds = (f, g) => s => {
+  const xs = f(s), ys = g(s);
+
+  if (xs.length === 0) return [];
+  else if (ys.length === 0) return [];
+
+  return [xs[0], ys[0]];
+};
+
+
+Rex.matchLast = rx => s => {
+  const xs = Array.from(s.matchAll(rx));
+  let o;
+
+  if (xs.length === 0) return [];
+  else if (xs.length === 1) return xs;
+  else o = xs[xs.length - 1];
+
+  return [o];
+};
+
+
+/* Retrieve all indices of the given pattern and returns the one referenced by
+`i`, which can be positive or negative. A positive value denotes the normal
+index whereas a negative one denotes the index relative to the end. -1 means
+the last index, -2 the penultimate one etc. */
+
+Rex.matchNth = (rx, i) => s => {
+  const xs = Array.from(s.matchAll(rx));
+  let o;
+
+  if (xs.length === 0) return [];
+  else if (i < 0) o = xs.slice(i) [0];
+  else o = xs[i];
+
+  if (o === undefined) return [];
+  else return [o];
+};
+
+
+/* Variant of split that keeps the separating pattern by default (requires the
+g-flag). */
+
+Rex.split = rx => s => {
+  const xs = s.split(rx), ys = Array.from(s.matchAll(rx));
+
+  return xs.reduce((acc, s2, i) => {
+    if (ys.length <= i) acc.push(s2);
+    else acc.push(s2, ys[i] [0]);
+    return acc;
+  }, []);
+};
 
 
 /*
@@ -11105,9 +11205,6 @@ Str.countChar = c => s => {
 };
 
 
-Str.countPattern = rx => s => Array.from(s.matchAll(rx)).length;
-
-
 /*
 █████ Concatenization █████████████████████████████████████████████████████████*/
 
@@ -11209,45 +11306,6 @@ Str.distance = a => b => {
   }
 
   return dd;
-};
-
-
-/*
-█████ Find Indices ████████████████████████████████████████████████████████████*/
-
-
-Str.findAllIndices = pattern => s => {
-  const xs = Array.from(s.matchAll(pattern));
-  return xs.map(rx => rx.index);
-};
-
-
-/* Gather all indices of the given pattern and returns the one referenced by `i`,
-which can be positive or negative. A positive value denotes the normal index
-whereas a negative one denotes the index relative to the end. -1 means the last
-index, -2 the penultimate one etc. */
-
-Str.findNthIndex = (pattern, i) => s => {
-  const xs = Array.from(s.matchAll(pattern));
-  let rx;
-
-  if (xs.length === 0) return null;
-  else if (i < 0) rx = xs.slice(i) [0];
-  else rx = xs[i];
-
-  if (rx === undefined) return null;
-  else return rx.index;
-};
-
-
-// find the first and last index of a pattern in the passed string
-
-Str.findIndexBounds = pattern => s => {
-  const xs = Array.from(s.matchAll(pattern));
-
-  if (xs.length === 0) return null;
-  else if (xs.length === 1) return Pair(xs[0].index, xs[0].index);
-  else return Pair(xs[0].index, xs[xs.length - 1].index);
 };
 
 
