@@ -10569,6 +10569,11 @@ Pred.Disjunct.Monoid = {
 ███████████████████████████████████████████████████████████████████████████████*/
 
 
+/* Regexes work best with complex strings using a divide & conquer strategy that
+avoids a strict order of subpatterns but matches substrings independently from
+each other and leaves it to a downstream function to consider the context. */
+
+
 export const Rex = {};
 
 
@@ -10586,99 +10591,68 @@ Rex.normalizeNewline = s => s.replace(/\r\n/g, "\n");
 
 
 /*
-█████ Matching/Splitting ██████████████████████████████████████████████████████*/
+█████ Matching ████████████████████████████████████████████████████████████████*/
 
 
-/* Regular expressions are also useful for more complex patterns if you follow
-a divide and conquer strategy. First, you must extract the region of interest
-from a larger string by defining the bounds using regular expressions. You can
-either use two different regexes for the start and end of the region or use a
-single regex with `Rex.matchBound`, if the region of interests is a recurrent
-pattern. Then you can further subdivide the region of applying a split with a
-appropriate regular exrpession.
+// all matching combinators rely on the global flag and thus return an array
 
-A complementary approach for effectively applying regular expressions on complex
-strings is not to rely on a fixed order but to extract subparts separately and
-later on put them in context using the full power of Javascript. */
-
-
-// return a singleton or an empty array
-
-Rex.match = rx => s => {
-  const o = s.match(rx);
-
-  if (o === null) return [];
-  else return [o];
-};
-
-
-// exhaust the iterator and return an array of its matches
 
 Rex.matchAll = rx => s => Array.from(s.matchAll(rx));
 
 
-// retrieve the first and last match, if any
+Rex.matchAllWith = p => rx => s => Rex.matchAll(rx) (s).filter(p);
 
-Rex.matchBound = rx => s => {
-  const xs = Array.from(s.matchAll(rx));
 
-  if (xs.length === 0) return [];
-  else if (xs.length <= 2) return xs;
+// used with either `matchAll` or `matchAllWith`
+
+Rex.matchBound = f => s => {
+  const xs = f(s);
+  if (xs.length <= 1) return [];
+  else if (xs.length === 2) return xs;
   else return [xs[0], xs[xs.length - 1]];
 };
 
 
+// used with all matching combinators
+
 Rex.matchBounds = (f, g) => s => {
   const xs = f(s), ys = g(s);
-
   if (xs.length === 0) return [];
   else if (ys.length === 0) return [];
-
-  return [xs[0], ys[0]];
+  else if (xs[0] [0] === ys[0] [0]) return [];
+  else return [xs[xs.length - 1], ys[ys.length - 1]];
 };
 
 
-Rex.matchLast = rx => s => {
-  const xs = Array.from(s.matchAll(rx));
-  let o;
+// pefer a unified interface over performance
 
-  if (xs.length === 0) return [];
-  else if (xs.length === 1) return xs;
-  else o = xs[xs.length - 1];
-
-  return [o];
-};
+Rex.matchFirst = rx => s => Rex.matchAll(rx) (s).slice(0, 1);
 
 
-/* Retrieve all indices of the given pattern and returns the one referenced by
-`i`, which can be positive or negative. A positive value denotes the normal
-index whereas a negative one denotes the index relative to the end. -1 means
-the last index, -2 the penultimate one etc. */
+Rex.matchFirstWith = p => rx => s => Rex.matchAllWith(p) (rx) (s).slice(0, 1);
+
+
+Rex.matchLast = rx => s => Rex.matchAll(rx) (s).slice(-1);
+
+
+Rex.matchLastWith = p => rx => s => Rex.matchAllWith(p) (rx) (s).slice(-1);
+
+
+// considers negatives indices like slice
 
 Rex.matchNth = (rx, i) => s => {
-  const xs = Array.from(s.matchAll(rx));
-  let o;
-
-  if (xs.length === 0) return [];
-  else if (i < 0) o = xs.slice(i) [0];
-  else o = xs[i];
-
-  if (o === undefined) return [];
-  else return [o];
+  const xs = Rex.matchAll(rx) (s);
+  if (i >= 0) return xs.slice(i, i + 1);
+  else return [xs.slice(i) [0]];
 };
 
 
-/* Variant of split that keeps the separating pattern by default (requires the
-g-flag). */
+// considers negatives indices like slice
 
-Rex.split = rx => s => {
-  const xs = s.split(rx), ys = Array.from(s.matchAll(rx));
-
-  return xs.reduce((acc, s2, i) => {
-    if (ys.length <= i) acc.push(s2);
-    else acc.push(s2, ys[i] [0]);
-    return acc;
-  }, []);
+Rex.matchNthWith = p => rx => s => {
+  const xs = Rex.matchAllWith(rx) (s), o = xs[i];
+  if (i >= 0) return xs.slice(i, i + 1);
+  else return [xs.slice(i) [0]];
 };
 
 
@@ -10730,6 +10704,36 @@ Rex.i18n = {
     months: /(\b(Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b)/,
     months_: /(\b(Jan|Feb|Mär|Mar|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez)\b)\.?/
   }
+};
+
+
+/*
+█████ Splitting ███████████████████████████████████████████████████████████████*/
+
+
+// keeps the separator by default (requires the g-flag)
+
+Rex.split = rx => s => {
+  const xs = s.split(rx), ys = Array.from(s.matchAll(rx));
+
+  return xs.reduce((acc, s2, i) => {
+    if (ys.length <= i) acc.push(s2);
+    else acc.push(s2, ys[i] [0]);
+    return acc;
+  }, []);
+};
+
+
+// more general variant of split
+
+Rex.splitWith = f => rx => s => {
+  const xs = s.split(rx), ys = Array.from(s.matchAll(rx));
+
+  return xs.reduce((acc, s2, i) => {
+    if (ys.length <= i) acc.push(s2);
+    else acc.push(...f(s2, ys[i] [0]));
+    return acc;
+  }, []);
 };
 
 
